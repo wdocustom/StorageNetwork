@@ -248,6 +248,7 @@ function ProfilePageInner() {
       setSaveMessage("Changes saved!");
       setTimeout(() => setSaveMessage(""), 3000);
     } else {
+      console.error("Save failed:", result.error);
       setSaveMessage(result.error || "Failed to save.");
     }
     setSaving(false);

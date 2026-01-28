@@ -35,14 +35,20 @@ export async function updateProfile(
 ): Promise<ProfileUpdateResult> {
   const { user_id, ...updates } = input;
 
-  // Filter out undefined values
-  const cleanUpdates = Object.fromEntries(
-    Object.entries(updates).filter(([, v]) => v !== undefined)
-  );
+  // Convert undefined values to null (Supabase rejects undefined)
+  const cleanUpdates: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      cleanUpdates[key] = value || null;
+    }
+  }
 
   if (Object.keys(cleanUpdates).length === 0) {
     return { success: true }; // Nothing to update
   }
+
+  console.log("[Profile Update] user_id:", user_id);
+  console.log("[Profile Update] fields:", Object.keys(cleanUpdates));
 
   const { error } = await supabase
     .from("profiles")
@@ -50,10 +56,16 @@ export async function updateProfile(
     .eq("id", user_id);
 
   if (error) {
-    console.error("Profile update error:", error);
-    return { success: false, error: "Failed to save changes." };
+    console.error("SUPABASE UPDATE ERROR:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    return { success: false, error: error.message };
   }
 
+  console.log("[Profile Update] Success");
   return { success: true };
 }
 
