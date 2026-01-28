@@ -201,6 +201,8 @@ export default function PublicCalculatorPage() {
               <ShelfVisualizer
                 rows={result.specs.rows}
                 cols={result.specs.cols}
+                totalWidth={result.specs.total_width}
+                totalHeight={result.specs.total_height}
               />
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <StatCard label="Columns" value={result.specs.cols} />
@@ -319,41 +321,103 @@ export default function PublicCalculatorPage() {
 }
 
 // ===========================================================================
-// Shelf Visualizer – CSS Grid representation
+// Shelf Visualizer – Realistic Schematic
 // ===========================================================================
 
-function ShelfVisualizer({ rows, cols }: { rows: number; cols: number }) {
-  // Cap the visual grid so it doesn't get absurdly large on screen
-  const displayCols = Math.min(cols, 12);
+function ShelfVisualizer({
+  rows,
+  cols,
+  totalWidth,
+  totalHeight,
+}: {
+  rows: number;
+  cols: number;
+  totalWidth: number;
+  totalHeight: number;
+}) {
+  const displayCols = Math.min(cols, 10);
   const displayRows = Math.min(rows, 8);
-  const truncatedCols = cols > displayCols;
-  const truncatedRows = rows > displayRows;
+  const truncated = cols > displayCols || rows > displayRows;
+
+  // Sizing constants (px)
+  const POST_W = 6;        // vertical post width
+  const BEAM_H = 5;        // horizontal shelf beam height
+  const TOTE_W = 44;       // tote cell width
+  const TOTE_H = 36;       // tote cell height
+  const ARROW_GAP = 28;    // space for dimension arrows
+
+  const gridW = POST_W + displayCols * (TOTE_W + POST_W);
+  const gridH = BEAM_H + displayRows * (TOTE_H + BEAM_H);
 
   return (
-    <div className="flex flex-col items-center">
-      <div
-        className="inline-grid gap-0 rounded border border-gray-600 bg-gray-900 p-1"
-        style={{
-          gridTemplateColumns: `repeat(${displayCols}, minmax(0, 1fr))`,
-        }}
-      >
-        {Array.from({ length: displayRows * displayCols }).map((_, i) => {
-          const row = Math.floor(i / displayCols);
-          const col = i % displayCols;
-          return (
-            <div
-              key={i}
-              className="flex aspect-[4/3] w-10 items-center justify-center border border-gray-700 bg-gray-800 text-[9px] text-gray-500 sm:w-12"
-              title={`Row ${row + 1}, Col ${col + 1}`}
-            >
-              <ToteIcon />
-            </div>
-          );
-        })}
+    <div className="flex flex-col items-center overflow-x-auto">
+      <div className="relative" style={{ padding: `${ARROW_GAP}px` }}>
+        {/* ── Width dimension arrow (top) ─────────────────────────── */}
+        <DimensionArrow
+          direction="horizontal"
+          length={gridW}
+          label={`${totalWidth}"`}
+          style={{ top: 0, left: ARROW_GAP, width: gridW }}
+        />
+
+        {/* ── Height dimension arrow (left) ────────────────────────── */}
+        <DimensionArrow
+          direction="vertical"
+          length={gridH}
+          label={`${totalHeight}"`}
+          style={{ left: 0, top: ARROW_GAP, height: gridH }}
+        />
+
+        {/* ── Shelf structure ──────────────────────────────────────── */}
+        <div
+          className="relative bg-gray-950 rounded"
+          style={{ width: gridW, height: gridH }}
+        >
+          {/* Top beam */}
+          <HorizontalBeam top={0} width={gridW} height={BEAM_H} />
+
+          {Array.from({ length: displayRows }).map((_, row) => {
+            const rowTop = BEAM_H + row * (TOTE_H + BEAM_H);
+            return (
+              <div key={`row-${row}`}>
+                {/* Totes for this row */}
+                {Array.from({ length: displayCols }).map((_, col) => {
+                  const left = POST_W + col * (TOTE_W + POST_W);
+                  return (
+                    <PlasticTote
+                      key={`tote-${row}-${col}`}
+                      top={rowTop}
+                      left={left}
+                      width={TOTE_W}
+                      height={TOTE_H}
+                    />
+                  );
+                })}
+                {/* Beam below this row */}
+                <HorizontalBeam
+                  top={rowTop + TOTE_H}
+                  width={gridW}
+                  height={BEAM_H}
+                />
+              </div>
+            );
+          })}
+
+          {/* Vertical posts (left edge, between each column, right edge) */}
+          {Array.from({ length: displayCols + 1 }).map((_, col) => (
+            <VerticalPost
+              key={`post-${col}`}
+              left={col * (TOTE_W + POST_W)}
+              width={POST_W}
+              height={gridH}
+            />
+          ))}
+        </div>
       </div>
-      {(truncatedCols || truncatedRows) && (
+
+      {truncated && (
         <p className="mt-1 text-[10px] text-gray-600">
-          Showing {displayCols}×{displayRows} of {cols}×{rows}
+          Showing {displayCols}&times;{displayRows} of {cols}&times;{rows}
         </p>
       )}
       <p className="mt-2 text-xs text-gray-500">
@@ -363,19 +427,169 @@ function ShelfVisualizer({ rows, cols }: { rows: number; cols: number }) {
   );
 }
 
-// Tiny tote SVG icon for each slot
-function ToteIcon() {
+// ---------------------------------------------------------------------------
+// Structural pieces
+// ---------------------------------------------------------------------------
+
+/** 2×4 vertical post */
+function VerticalPost({
+  left,
+  width,
+  height,
+}: {
+  left: number;
+  width: number;
+  height: number;
+}) {
   return (
-    <svg
-      viewBox="0 0 24 20"
-      fill="none"
-      className="h-4 w-5 text-blue-500/40"
-      stroke="currentColor"
-      strokeWidth={1.5}
+    <div
+      className="absolute top-0 rounded-sm"
+      style={{
+        left,
+        width,
+        height,
+        background:
+          "repeating-linear-gradient(180deg, #78716c 0px, #a8a29e 2px, #78716c 4px)",
+        boxShadow: "inset -1px 0 0 rgba(0,0,0,0.25)",
+      }}
+    />
+  );
+}
+
+/** Horizontal shelf beam */
+function HorizontalBeam({
+  top,
+  width,
+  height,
+}: {
+  top: number;
+  width: number;
+  height: number;
+}) {
+  return (
+    <div
+      className="absolute left-0 rounded-sm"
+      style={{
+        top,
+        width,
+        height,
+        background:
+          "repeating-linear-gradient(90deg, #78716c 0px, #a8a29e 2px, #78716c 4px)",
+        boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.25)",
+      }}
+    />
+  );
+}
+
+/** Plastic tote bin with lid and handle */
+function PlasticTote({
+  top,
+  left,
+  width,
+  height,
+}: {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}) {
+  const LID_H = 6;
+  const HANDLE_W = 14;
+  const HANDLE_H = 3;
+
+  return (
+    <div
+      className="absolute overflow-hidden rounded-sm"
+      style={{ top, left, width, height }}
     >
-      <rect x="2" y="4" width="20" height="14" rx="2" />
-      <path d="M7 4V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2" />
-    </svg>
+      {/* Bin body */}
+      <div
+        className="absolute inset-0 rounded-sm border border-blue-800/60"
+        style={{
+          background: "linear-gradient(180deg, #1e3a5f 0%, #1e40af 100%)",
+        }}
+      >
+        {/* Inner bevel / depth illusion */}
+        <div className="absolute inset-[3px] rounded-sm border border-blue-400/10 bg-blue-900/40" />
+      </div>
+
+      {/* Lid – darker strip at top */}
+      <div
+        className="absolute left-0 right-0 top-0 border-b border-blue-950"
+        style={{
+          height: LID_H,
+          background: "linear-gradient(180deg, #0f2647 0%, #1a2e50 100%)",
+        }}
+      >
+        {/* Lid ridge lines */}
+        <div className="absolute inset-x-1 top-[2px] h-[1px] bg-blue-700/30" />
+        <div className="absolute inset-x-1 bottom-[1px] h-[1px] bg-blue-700/20" />
+      </div>
+
+      {/* Handle – centered on the face */}
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/30 bg-blue-400/20"
+        style={{ width: HANDLE_W, height: HANDLE_H }}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dimension arrow
+// ---------------------------------------------------------------------------
+
+function DimensionArrow({
+  direction,
+  length,
+  label,
+  style,
+}: {
+  direction: "horizontal" | "vertical";
+  length: number;
+  label: string;
+  style: React.CSSProperties;
+}) {
+  if (direction === "horizontal") {
+    return (
+      <div className="absolute flex flex-col items-center" style={style}>
+        {/* Label */}
+        <span className="mb-0.5 text-[10px] font-semibold text-amber-400">
+          {label}
+        </span>
+        {/* Arrow line with end caps */}
+        <div className="relative flex w-full items-center" style={{ height: 8 }}>
+          {/* Left arrowhead */}
+          <div className="absolute left-0 h-0 w-0 border-y-[3px] border-r-[5px] border-y-transparent border-r-amber-500" />
+          {/* Line */}
+          <div className="mx-[5px] h-[1px] flex-1 bg-amber-500/70" />
+          {/* Right arrowhead */}
+          <div className="absolute right-0 h-0 w-0 border-y-[3px] border-l-[5px] border-y-transparent border-l-amber-500" />
+        </div>
+      </div>
+    );
+  }
+
+  // Vertical
+  return (
+    <div className="absolute flex items-center" style={style}>
+      {/* Arrow line with end caps */}
+      <div
+        className="relative flex flex-col items-center"
+        style={{ width: 8, height: length }}
+      >
+        {/* Top arrowhead */}
+        <div className="absolute top-0 h-0 w-0 border-x-[3px] border-b-[5px] border-x-transparent border-b-amber-500" />
+        {/* Line */}
+        <div className="my-[5px] w-[1px] flex-1 bg-amber-500/70" />
+        {/* Bottom arrowhead */}
+        <div className="absolute bottom-0 h-0 w-0 border-x-[3px] border-t-[5px] border-x-transparent border-t-amber-500" />
+      </div>
+      {/* Label (rotated) */}
+      <span className="-rotate-90 whitespace-nowrap text-[10px] font-semibold text-amber-400">
+        {label}
+      </span>
+    </div>
   );
 }
 
