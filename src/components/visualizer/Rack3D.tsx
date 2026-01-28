@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useMemo, useRef, useEffect } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -34,7 +34,8 @@ const TIER_H = 16;        // Center-to-center between tiers
 const PLATE_H = 1.5;      // Top & bottom plate thickness
 const TOP_GAP = 2.5;      // Gap above first tier rail
 const PLY_H = 0.75;       // Plywood top thickness
-const WHEEL_R = 2.5;      // Caster wheel radius
+const WHEEL_R = 3.0;      // Caster wheel radius (3" heavy-duty)
+const BASE_LIFT = 4;      // Inches of clearance above floor for wheels
 const TOTE_RIM_H = 1.0;   // Yellow rim height
 const TOTE_RIM_OVERHANG = 0.5; // How much rim overhangs body
 const TOTE_BODY_H = 11.0; // Tote body below rim
@@ -100,55 +101,6 @@ function PlywoodRail({
     <mesh position={position} material={mat} castShadow receiveShadow>
       <boxGeometry args={[RAIL_THICK, RAIL_H, length]} />
     </mesh>
-  );
-}
-
-// ── Ladder Frame ────────────────────────────────────────────────────────
-// Front post + back post + plywood rail strips at each tier.
-// Rails are attached to the SIDES of the posts (not spanning between them).
-
-function LadderFrame({
-  x,
-  postH,
-  rows,
-  side,
-}: {
-  x: number;
-  postH: number;
-  rows: number;
-  side: "left" | "right";
-}) {
-  const postCenterY = PLATE_H + postH / 2;
-  // Rail is flush against the inner face of the post
-  const railOffsetX = side === "left" ? RAIL_THICK / 2 : -RAIL_THICK / 2;
-  const railX = x + railOffsetX;
-  const railDepth = RACK_DEPTH - POST_D * 2;
-
-  return (
-    <group>
-      {/* Front vertical post */}
-      <Lumber
-        position={[x, postCenterY, POST_D / 2]}
-        size={[POST_W, postH, POST_D]}
-      />
-      {/* Back vertical post */}
-      <Lumber
-        position={[x, postCenterY, RACK_DEPTH - POST_D / 2]}
-        size={[POST_W, postH, POST_D]}
-      />
-
-      {/* Plywood rail strips at each tier — attached to inner face */}
-      {Array.from({ length: rows }).map((_, r) => {
-        const railY = PLATE_H + TOP_GAP + r * TIER_H;
-        return (
-          <PlywoodRail
-            key={`rail-${r}`}
-            position={[railX, railY, RACK_DEPTH / 2]}
-            length={railDepth}
-          />
-        );
-      })}
-    </group>
   );
 }
 
@@ -298,10 +250,12 @@ function RackAssembly({
   const opening = toteType === "HDX" ? 19.75 : 20.75;
   const totalW = cols * opening + (cols + 1) * POST_W;
   const frameH = rows * TIER_H + PLATE_H * 2 + TOP_GAP;
-  const wheelOffset = hasWheels ? WHEEL_R * 2 + 1 : 0;
+  const wheelTotalH = hasWheels ? WHEEL_R * 2 + 1 : 0;
+  const liftOffset = hasWheels ? BASE_LIFT : 0;
+  const overallH = frameH + wheelTotalH + liftOffset;
 
   const centerX = totalW / 2;
-  const centerY = frameH / 2 + wheelOffset;
+  const centerY = overallH / 2;
   const centerZ = RACK_DEPTH / 2;
 
   return (
@@ -309,7 +263,7 @@ function RackAssembly({
       scale={[S, S, S]}
       position={[-centerX * S, -centerY * S, -centerZ * S]}
     >
-      <group position={[0, wheelOffset, 0]}>
+      <group position={[0, wheelTotalH + liftOffset, 0]}>
         {/* ── Bottom Plate ──────────────────────────────────── */}
         <Lumber
           position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
@@ -430,13 +384,13 @@ function RackAssembly({
         )}
       </group>
 
-      {/* ── Caster Wheels ─────────────────────────────────────── */}
+      {/* ── Caster Wheels — at bottom corners of posts ────────── */}
       {hasWheels && (
         <>
-          <Caster position={[POST_W * 3, 0, POST_D * 2]} />
-          <Caster position={[totalW - POST_W * 3, 0, POST_D * 2]} />
-          <Caster position={[POST_W * 3, 0, RACK_DEPTH - POST_D * 2]} />
-          <Caster position={[totalW - POST_W * 3, 0, RACK_DEPTH - POST_D * 2]} />
+          <Caster position={[POST_W / 2, 0, POST_D / 2]} />
+          <Caster position={[totalW - POST_W / 2, 0, POST_D / 2]} />
+          <Caster position={[POST_W / 2, 0, RACK_DEPTH - POST_D / 2]} />
+          <Caster position={[totalW - POST_W / 2, 0, RACK_DEPTH - POST_D / 2]} />
         </>
       )}
     </group>
@@ -454,6 +408,56 @@ function Ground() {
   );
 }
 
+// ── Dynamic Camera Setup ─────────────────────────────────────────────────
+// Positions camera based on rack dimensions so entire unit is visible.
+
+function CameraSetup({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "hasWheels">) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+
+  const opening = toteType === "HDX" ? 19.75 : 20.75;
+  const totalW = cols * opening + (cols + 1) * POST_W;
+  const frameH = rows * TIER_H + PLATE_H * 2 + TOP_GAP;
+  const wheelTotalH = hasWheels ? WHEEL_R * 2 + 1 : 0;
+  const liftOffset = hasWheels ? BASE_LIFT : 0;
+  const overallH = frameH + wheelTotalH + liftOffset;
+
+  const sceneW = totalW * S;
+  const sceneH = overallH * S;
+  const sceneD = RACK_DEPTH * S;
+
+  const maxDim = Math.max(sceneW, sceneH, sceneD);
+  const camDist = maxDim * 1.5;
+
+  useEffect(() => {
+    camera.position.set(camDist * 0.8, camDist * 0.6, camDist);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, camDist]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      autoRotate={false}
+      enablePan={true}
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.15}
+      maxPolarAngle={Math.PI / 1.6}
+      minDistance={0.5}
+      maxDistance={camDist * 3}
+      target={[0, 0, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Main Export
 // ═══════════════════════════════════════════════════════════════════════════
@@ -463,7 +467,7 @@ export default function Rack3D(props: Rack3DProps) {
     <div className="absolute inset-0" style={{ touchAction: "none" }}>
       <Canvas
         shadows
-        camera={{ position: [3, 2.5, 4], fov: 40 }}
+        camera={{ fov: 40 }}
         gl={{ antialias: true, alpha: false }}
       >
         <color attach="background" args={["#ffffff"]} />
@@ -483,27 +487,14 @@ export default function Rack3D(props: Rack3DProps) {
         />
         <directionalLight position={[-8, 10, -6]} intensity={0.3} />
         <pointLight position={[0, 6, 3]} intensity={0.2} color="#ffeedd" />
-        {/* Subtle fill from below to prevent dark undersides */}
-        <hemisphereLight
-          args={["#ffffff", "#e0d8c8", 0.3]}
-        />
+        <hemisphereLight args={["#ffffff", "#e0d8c8", 0.3]} />
 
-        {/* Controls */}
-        <OrbitControls
-          makeDefault
-          autoRotate
-          autoRotateSpeed={0.5}
-          enablePan={true}
-          panSpeed={0.5}
-          rotateSpeed={0.6}
-          zoomSpeed={0.8}
-          minPolarAngle={0.15}
-          maxPolarAngle={Math.PI / 1.6}
-          minDistance={1.2}
-          maxDistance={10}
-          target={[0, 0, 0]}
-          enableDamping
-          dampingFactor={0.08}
+        {/* Dynamic camera + controls */}
+        <CameraSetup
+          cols={props.cols}
+          rows={props.rows}
+          toteType={props.toteType}
+          hasWheels={props.hasWheels}
         />
 
         <Ground />
