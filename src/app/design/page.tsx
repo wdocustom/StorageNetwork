@@ -748,6 +748,8 @@ function BlueprintCanvas({
     if (!canvas || !container) return;
 
     const rect = container.getBoundingClientRect();
+    if (rect.width < 100 || rect.height < 100) return;
+
     const dpr = window.devicePixelRatio || 1;
     const W = Math.round(rect.width * dpr);
     const H = Math.round(rect.height * dpr);
@@ -774,6 +776,7 @@ function BlueprintCanvas({
     if (hasTop) visualH_in += 1;
 
     const scale = Math.min(safeW / realW, safeH / visualH_in);
+    if (scale <= 0 || !isFinite(scale)) return;
 
     const pTotalW = realW * scale;
     const pTotalH = realH * scale;
