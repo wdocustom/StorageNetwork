@@ -4,11 +4,20 @@ import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
+import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Rack3D — Interactive 3D Configurator (Visual Only)
-// "Rim-Glider" construction: 2×4 posts + 3/4" plywood rail strips.
-// Totes hang between rails; yellow rim rests on plywood edge.
+//
+// "Rim-Glider" construction:
+//   - 2×4 vertical posts (pine)
+//   - 3/4" plywood rail strips screwed to post faces
+//   - Totes slide between rails: yellow rim ON TOP of plywood, body hangs below
+//   - Industrial swivel casters bolted to bottom plate
+//
+// VERTICAL STACK (bottom → top):
+//   Floor → Casters (CASTER_HEIGHT) → Bottom Plate → Posts/Rails/Totes → Top Plate
+//
 // Accepts dimensions from server; does NOT calculate prices.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -25,86 +34,103 @@ interface Rack3DProps {
 
 // ── Real-World Dimensions (inches) ───────────────────────────────────────
 
-const POST_W = 1.5;       // 2×4 actual width
-const POST_D = 3.5;       // 2×4 actual depth
-const RAIL_THICK = 0.75;  // 3/4" plywood strip thickness
-const RAIL_H = 1.75;      // Plywood strip height
-const RACK_DEPTH = 30;    // Front-to-back
-const TIER_H = 16;        // Center-to-center between tiers
-const PLATE_H = 1.5;      // Top & bottom plate thickness
-const PLY_H = 0.75;       // Plywood top thickness
-const TOTE_RIM_H = 1.0;   // Yellow rim height
-const TOTE_RIM_OVERHANG = 0.5; // How much rim overhangs body
-const TOTE_BODY_H = 11.0; // Tote body below rim
+const POST_W = 1.5;        // 2×4 actual width
+const POST_D = 3.5;        // 2×4 actual depth
+const RAIL_THICK = 0.75;   // 3/4" plywood strip thickness
+const RAIL_H = 1.75;       // Plywood strip height
+const RACK_DEPTH = 30;     // Front-to-back depth
+const TIER_H = 16;         // Center-to-center between tier rails
+const PLATE_H = 1.5;       // Top & bottom plate thickness (2×4 laid flat)
+const PLY_H = 0.75;        // Plywood top thickness
+
+// Tote dimensions
+const TOTE_RIM_H = 1.0;    // Yellow rim height
+const TOTE_RIM_OVERHANG = 0.5;
+const TOTE_BODY_H = 11.0;  // Tote body below rim
 const TOTE_TOLERANCE = 0.25;
 
-// ── Industrial Caster Constants ──────────────────────────────────────────
-const CASTER_HEIGHT = 4;        // Total caster assembly height (inches)
-const CASTER_WHEEL_R = 1.5;     // Wheel radius (inches)
-const CASTER_WHEEL_W = 1.0;     // Wheel thickness (inches)
-const CASTER_PLATE = 4;         // Mount plate side length (inches)
-const CASTER_PLATE_H = 0.25;    // Mount plate thickness
-const CASTER_FORK_W = 0.5;      // Fork arm width
-const CASTER_HUB_R = 0.5;       // Hub cap radius
-
-// Bottom rail must be high enough that hanging tote clears wheels
-// Tote hangs: TOTE_BODY_H + TOTE_RIM_H below rail center
-// Safety gap: 2 inches above caster top
-const BOTTOM_RAIL_Y_MIN = TOTE_BODY_H + TOTE_RIM_H + 2;
-const TOP_GAP = Math.max(2.5, BOTTOM_RAIL_Y_MIN - PLATE_H);
+// ── Vertical Clearance Calculation ───────────────────────────────────────
+// The tote hangs below the rail: rim (1") + body (11") = 12" total hang.
+// Bottom rail must be high enough that the lowest tote clears the floor
+// (or wheels). Safety gap of 2" above CASTER_HEIGHT.
+//
+// BOTTOM_RAIL_Y = distance from bottom plate to first rail center
+// Tote bottom = BOTTOM_RAIL_Y + RAIL_H/2 - TOTE_RIM_H - TOTE_BODY_H
+// We need tote bottom > 0 (relative to bottom plate), PLUS 2" safety.
+const TOTE_HANG = TOTE_RIM_H + TOTE_BODY_H;  // 12"
+const SAFETY_GAP = 2;
+const BOTTOM_RAIL_OFFSET = TOTE_HANG + SAFETY_GAP + RAIL_H / 2;
+// This is measured from bottom plate top surface (y=PLATE_H inside the rack group)
 
 // Scale: inches → scene units
 const S = 0.02;
 
-// ── Materials ────────────────────────────────────────────────────────────
+// ── Materials (procedural, no external textures) ─────────────────────────
 
-function useWoodMat() {
+function usePineMat() {
   return useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color("#D4B483"),
-      roughness: 0.92,
-      metalness: 0.0,
-    });
-    // Procedural grain via bump: create a small canvas texture
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
+    // Build a canvas-based grain texture (client-side only)
+    const w = 64;
+    const h = 256;
+    const canvas =
+      typeof document !== "undefined"
+        ? document.createElement("canvas")
+        : null;
+
+    if (canvas) {
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      // Base pine color
       ctx.fillStyle = "#D4B483";
-      ctx.fillRect(0, 0, 128, 512);
-      // Draw grain lines
-      for (let i = 0; i < 60; i++) {
-        const y = Math.random() * 512;
-        const alpha = 0.08 + Math.random() * 0.12;
-        ctx.strokeStyle = `rgba(120, 80, 40, ${alpha})`;
-        ctx.lineWidth = 0.5 + Math.random() * 1.5;
+      ctx.fillRect(0, 0, w, h);
+
+      // Grain lines — subtle horizontal waves
+      for (let i = 0; i < 40; i++) {
+        const y = (i / 40) * h + (Math.random() - 0.5) * 6;
+        const a = 0.06 + Math.random() * 0.1;
+        ctx.strokeStyle = `rgba(140, 95, 50, ${a})`;
+        ctx.lineWidth = 0.4 + Math.random() * 1.2;
         ctx.beginPath();
         ctx.moveTo(0, y);
-        // Slight wave
-        for (let x = 0; x < 128; x += 4) {
-          ctx.lineTo(x, y + Math.sin(x * 0.05) * 2);
+        for (let x = 0; x <= w; x += 3) {
+          ctx.lineTo(x, y + Math.sin(x * 0.08 + i) * 1.5);
         }
         ctx.stroke();
       }
-      // Knot spots
-      for (let k = 0; k < 3; k++) {
-        const kx = 20 + Math.random() * 88;
-        const ky = 40 + Math.random() * 432;
-        const kr = 3 + Math.random() * 5;
+
+      // A couple of knot marks
+      for (let k = 0; k < 2; k++) {
+        const kx = 10 + Math.random() * (w - 20);
+        const ky = 30 + Math.random() * (h - 60);
+        const kr = 2 + Math.random() * 3;
+        const grad = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr);
+        grad.addColorStop(0, "rgba(100, 65, 30, 0.2)");
+        grad.addColorStop(1, "rgba(100, 65, 30, 0)");
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(kx, ky, kr, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(100, 65, 30, 0.15)";
         ctx.fill();
       }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        color: new THREE.Color("#D4B483"),
+        roughness: 0.88,
+        metalness: 0.0,
+      });
     }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(1, 1);
-    mat.map = tex;
-    mat.needsUpdate = true;
-    return mat;
+
+    // SSR fallback (no document)
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#D4B483"),
+      roughness: 0.88,
+      metalness: 0.0,
+    });
   }, []);
 }
 
@@ -113,7 +139,7 @@ function usePlywoodMat() {
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color("#B89E6A"),
-        roughness: 0.65,
+        roughness: 0.62,
         metalness: 0.0,
       }),
     []
@@ -129,7 +155,7 @@ function Lumber({
   position: [number, number, number];
   size: [number, number, number];
 }) {
-  const mat = useWoodMat();
+  const mat = usePineMat();
   return (
     <mesh position={position} material={mat} castShadow receiveShadow>
       <boxGeometry args={size} />
@@ -155,7 +181,8 @@ function PlywoodRail({
 }
 
 // ── Tote — Tapered Trapezoid ────────────────────────────────────────────
-// Body is narrower at bottom, wider at top. Yellow rim sits on plywood edge.
+// The rim (yellow/red) sits ON TOP of the plywood rail edge.
+// The body (black) hangs BELOW — visibly lower than the rail.
 
 function Tote({
   position,
@@ -168,44 +195,45 @@ function Tote({
 }) {
   const lidColor = toteType === "HDX" ? "#fbbf24" : "#ef4444";
   const bodyDepth = RACK_DEPTH - POST_D * 2 - TOTE_TOLERANCE * 4;
-
-  // Tapered body: bottom is ~85% of top width
   const bottomWidth = topWidth * 0.85;
   const bodyTopDepth = bodyDepth * 0.92;
   const bodyBottomDepth = bodyDepth * 0.82;
 
-  // Custom trapezoid geometry for the body
-  const bodyVerts = useMemo(() => {
+  const bodyGeo = useMemo(() => {
     const hw_t = topWidth / 2;
     const hw_b = bottomWidth / 2;
     const hd_t = bodyTopDepth / 2;
     const hd_b = bodyBottomDepth / 2;
     const h = TOTE_BODY_H;
 
-    const vertices = new Float32Array([
-      -hw_b, 0, -hd_b,   hw_b, 0, -hd_b,   hw_b, 0, hd_b,   -hw_b, 0, hd_b,
-      -hw_t, h, -hd_t,   hw_t, h, -hd_t,   hw_t, h, hd_t,   -hw_t, h, hd_t,
+    const verts = new Float32Array([
+      // Bottom (y=0)
+      -hw_b, 0, -hd_b, hw_b, 0, -hd_b, hw_b, 0, hd_b, -hw_b, 0, hd_b,
+      // Top (y=h)
+      -hw_t, h, -hd_t, hw_t, h, -hd_t, hw_t, h, hd_t, -hw_t, h, hd_t,
     ]);
 
-    const indices = [
-      0, 2, 1, 0, 3, 2,
-      4, 5, 6, 4, 6, 7,
-      0, 1, 5, 0, 5, 4,
-      2, 3, 7, 2, 7, 6,
-      0, 4, 7, 0, 7, 3,
-      1, 2, 6, 1, 6, 5,
+    const idx = [
+      0, 2, 1, 0, 3, 2, // bottom
+      4, 5, 6, 4, 6, 7, // top
+      0, 1, 5, 0, 5, 4, // front
+      2, 3, 7, 2, 7, 6, // back
+      0, 4, 7, 0, 7, 3, // left
+      1, 2, 6, 1, 6, 5, // right
     ];
 
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-    geo.setIndex(indices);
+    geo.setAttribute("position", new THREE.BufferAttribute(verts, 3));
+    geo.setIndex(idx);
     geo.computeVertexNormals();
     return geo;
   }, [topWidth, bottomWidth, bodyTopDepth, bodyBottomDepth]);
 
+  // position = bottom of tote body (y=0 of this group)
   return (
     <group position={position}>
-      <mesh geometry={bodyVerts} castShadow>
+      {/* Black body — tapered */}
+      <mesh geometry={bodyGeo} castShadow>
         <meshStandardMaterial
           color="#1a1a1a"
           roughness={0.6}
@@ -214,6 +242,7 @@ function Tote({
         />
       </mesh>
 
+      {/* Yellow/Red rim — sits ON TOP of body */}
       <mesh position={[0, TOTE_BODY_H + TOTE_RIM_H / 2, 0]} castShadow>
         <boxGeometry
           args={[
@@ -222,95 +251,19 @@ function Tote({
             bodyTopDepth + TOTE_RIM_OVERHANG * 2,
           ]}
         />
-        <meshStandardMaterial
-          color={lidColor}
-          roughness={0.3}
-          metalness={0.05}
-        />
+        <meshStandardMaterial color={lidColor} roughness={0.3} metalness={0.05} />
       </mesh>
 
+      {/* Lid snap line */}
       <mesh position={[0, TOTE_BODY_H + TOTE_RIM_H + 0.15, 0]}>
         <boxGeometry
-          args={[topWidth + TOTE_RIM_OVERHANG, 0.3, bodyTopDepth + TOTE_RIM_OVERHANG]}
+          args={[
+            topWidth + TOTE_RIM_OVERHANG,
+            0.3,
+            bodyTopDepth + TOTE_RIM_OVERHANG,
+          ]}
         />
-        <meshStandardMaterial
-          color={lidColor}
-          roughness={0.25}
-          metalness={0.08}
-        />
-      </mesh>
-    </group>
-  );
-}
-
-// ── Industrial Caster Assembly ──────────────────────────────────────────
-// Procedural heavy-duty caster: mount plate → fork (U-bracket) → wheel + hub.
-// Total height = CASTER_HEIGHT. Wheel sits centered in the fork.
-
-function IndustrialCaster({ position }: { position: [number, number, number] }) {
-  const forkH = CASTER_HEIGHT - CASTER_PLATE_H - 0.25; // fork extends from plate down to near wheel center
-  const wheelCenterY = CASTER_WHEEL_R; // wheel rests on ground
-
-  return (
-    <group position={position}>
-      {/* ── Mount Plate (top of caster) ── */}
-      <mesh position={[0, CASTER_HEIGHT - CASTER_PLATE_H / 2, 0]} castShadow>
-        <boxGeometry args={[CASTER_PLATE, CASTER_PLATE_H, CASTER_PLATE]} />
-        <meshStandardMaterial color="#A8A8A8" roughness={0.35} metalness={0.8} />
-      </mesh>
-
-      {/* ── Pivot stem ── */}
-      <mesh position={[0, CASTER_HEIGHT - CASTER_PLATE_H - 0.4, 0]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.8, 12]} />
-        <meshStandardMaterial color="#888" roughness={0.3} metalness={0.7} />
-      </mesh>
-
-      {/* ── Fork left arm ── */}
-      <mesh
-        position={[-(CASTER_WHEEL_W / 2 + CASTER_FORK_W / 2 + 0.1), wheelCenterY + (forkH - CASTER_WHEEL_R) / 2, 0]}
-        castShadow
-      >
-        <boxGeometry args={[CASTER_FORK_W, forkH, 1.2]} />
-        <meshStandardMaterial color="#777" roughness={0.35} metalness={0.75} />
-      </mesh>
-
-      {/* ── Fork right arm ── */}
-      <mesh
-        position={[(CASTER_WHEEL_W / 2 + CASTER_FORK_W / 2 + 0.1), wheelCenterY + (forkH - CASTER_WHEEL_R) / 2, 0]}
-        castShadow
-      >
-        <boxGeometry args={[CASTER_FORK_W, forkH, 1.2]} />
-        <meshStandardMaterial color="#777" roughness={0.35} metalness={0.75} />
-      </mesh>
-
-      {/* ── Fork cross-bar (top of U) ── */}
-      <mesh position={[0, CASTER_HEIGHT - CASTER_PLATE_H - 1.0, 0]}>
-        <boxGeometry args={[CASTER_WHEEL_W + CASTER_FORK_W * 2 + 0.6, 0.4, 1.2]} />
-        <meshStandardMaterial color="#777" roughness={0.35} metalness={0.75} />
-      </mesh>
-
-      {/* ── Wheel (rubber tread) ── */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[0, wheelCenterY, 0]} castShadow>
-        <cylinderGeometry args={[CASTER_WHEEL_R, CASTER_WHEEL_R, CASTER_WHEEL_W, 32]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.9} metalness={0.05} />
-      </mesh>
-
-      {/* ── Hub cap (left) ── */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[-(CASTER_WHEEL_W / 2 + 0.01), wheelCenterY, 0]}>
-        <cylinderGeometry args={[CASTER_HUB_R, CASTER_HUB_R, 0.15, 16]} />
-        <meshStandardMaterial color="#C0C0C0" roughness={0.2} metalness={0.9} />
-      </mesh>
-
-      {/* ── Hub cap (right) ── */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[(CASTER_WHEEL_W / 2 + 0.01), wheelCenterY, 0]}>
-        <cylinderGeometry args={[CASTER_HUB_R, CASTER_HUB_R, 0.15, 16]} />
-        <meshStandardMaterial color="#C0C0C0" roughness={0.2} metalness={0.9} />
-      </mesh>
-
-      {/* ── Axle ── */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[0, wheelCenterY, 0]}>
-        <cylinderGeometry args={[0.2, 0.2, CASTER_WHEEL_W + 1.2, 8]} />
-        <meshStandardMaterial color="#999" roughness={0.3} metalness={0.8} />
+        <meshStandardMaterial color={lidColor} roughness={0.25} metalness={0.08} />
       </mesh>
     </group>
   );
@@ -319,6 +272,19 @@ function IndustrialCaster({ position }: { position: [number, number, number] }) 
 // ═══════════════════════════════════════════════════════════════════════════
 // Rack Assembly
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// Coordinate system (inside the scaled group, in inches):
+//   y = 0  →  floor
+//   y = CASTER_HEIGHT  →  top of caster / bottom of wood
+//   y = CASTER_HEIGHT + PLATE_H  →  top of bottom plate
+//   y = CASTER_HEIGHT + PLATE_H + BOTTOM_RAIL_OFFSET  →  center of first rail
+//   ...subsequent rails at +TIER_H each
+//
+// The tote for rail r:
+//   rimTopY   = railCenterY + RAIL_H / 2   (rim sits on plywood top edge)
+//   bodyBaseY = rimTopY - TOTE_RIM_H - TOTE_BODY_H
+//   → bodyBaseY must be > CASTER_HEIGHT for the lowest tier
+//     This is guaranteed by BOTTOM_RAIL_OFFSET calculation above.
 
 function RackAssembly({
   cols,
@@ -330,23 +296,26 @@ function RackAssembly({
 }: Rack3DProps) {
   const opening = toteType === "HDX" ? 19.75 : 20.75;
   const totalW = cols * opening + (cols + 1) * POST_W;
-  const frameH = rows * TIER_H + PLATE_H * 2 + TOP_GAP;
-  // Bottom of wood sits exactly on top of caster plate
-  const casterLift = hasWheels ? CASTER_HEIGHT : 0;
-  const overallH = frameH + casterLift;
 
-  const centerX = totalW / 2;
-  const centerY = overallH / 2;
-  const centerZ = RACK_DEPTH / 2;
+  // Frame height = bottom plate + post region + top plate
+  // Post region = BOTTOM_RAIL_OFFSET + (rows-1)*TIER_H + some top gap
+  const topGapAboveLastRail = 3; // inches above last rail to top plate
+  const postRegion = BOTTOM_RAIL_OFFSET + (rows - 1) * TIER_H + topGapAboveLastRail;
+  const frameH = PLATE_H * 2 + postRegion; // bottom plate + posts + top plate
+
+  const lift = hasWheels ? CASTER_HEIGHT : 0;
+  const overallH = frameH + lift;
+
+  // Center the whole thing
+  const cx = totalW / 2;
+  const cy = overallH / 2;
+  const cz = RACK_DEPTH / 2;
 
   return (
-    <group
-      scale={[S, S, S]}
-      position={[-centerX * S, -centerY * S, -centerZ * S]}
-    >
-      {/* ── Wooden Rack (lifted by CASTER_HEIGHT when wheels present) ── */}
-      <group position={[0, casterLift, 0]}>
-        {/* ── Bottom Plate ──────────────────────────────────── */}
+    <group scale={[S, S, S]} position={[-cx * S, -cy * S, -cz * S]}>
+      {/* ── Wooden Rack — lifted by caster height ─────────── */}
+      <group position={[0, lift, 0]}>
+        {/* Bottom Plate (front + back 2×4s laid flat) */}
         <Lumber
           position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
           size={[totalW, PLATE_H, POST_D]}
@@ -356,7 +325,7 @@ function RackAssembly({
           size={[totalW, PLATE_H, POST_D]}
         />
 
-        {/* ── Top Plate ─────────────────────────────────────── */}
+        {/* Top Plate */}
         <Lumber
           position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]}
           size={[totalW, PLATE_H, POST_D]}
@@ -366,49 +335,52 @@ function RackAssembly({
           size={[totalW, PLATE_H, POST_D]}
         />
 
-        {/* ── Ladder Frames with Plywood Rails ──────────────── */}
+        {/* ── Posts + Plywood Rails per column divider ──────── */}
         {Array.from({ length: cols + 1 }).map((_, i) => {
           const x = i * (opening + POST_W) + POST_W / 2;
           const postH = frameH - PLATE_H * 2;
-
-          const showRight = i < cols;
-          const showLeft = i > 0;
+          const showRight = i < cols; // rails serving bay to the right
+          const showLeft = i > 0;     // rails serving bay to the left
 
           return (
             <group key={`frame-${i}`}>
+              {/* Front post */}
               <Lumber
                 position={[x, PLATE_H + postH / 2, POST_D / 2]}
                 size={[POST_W, postH, POST_D]}
               />
+              {/* Back post */}
               <Lumber
                 position={[x, PLATE_H + postH / 2, RACK_DEPTH - POST_D / 2]}
                 size={[POST_W, postH, POST_D]}
               />
 
+              {/* Right-face rails */}
               {showRight &&
                 Array.from({ length: rows }).map((_, r) => {
-                  const railY = PLATE_H + TOP_GAP + r * TIER_H;
+                  const railY =
+                    PLATE_H + BOTTOM_RAIL_OFFSET + r * TIER_H;
                   const railX = x + POST_W / 2 + RAIL_THICK / 2;
-                  const railLen = RACK_DEPTH - POST_D * 2;
                   return (
                     <PlywoodRail
                       key={`rr-${i}-${r}`}
                       position={[railX, railY, RACK_DEPTH / 2]}
-                      length={railLen}
+                      length={RACK_DEPTH - POST_D * 2}
                     />
                   );
                 })}
 
+              {/* Left-face rails */}
               {showLeft &&
                 Array.from({ length: rows }).map((_, r) => {
-                  const railY = PLATE_H + TOP_GAP + r * TIER_H;
+                  const railY =
+                    PLATE_H + BOTTOM_RAIL_OFFSET + r * TIER_H;
                   const railX = x - POST_W / 2 - RAIL_THICK / 2;
-                  const railLen = RACK_DEPTH - POST_D * 2;
                   return (
                     <PlywoodRail
                       key={`rl-${i}-${r}`}
                       position={[railX, railY, RACK_DEPTH / 2]}
-                      length={railLen}
+                      length={RACK_DEPTH - POST_D * 2}
                     />
                   );
                 })}
@@ -416,17 +388,21 @@ function RackAssembly({
           );
         })}
 
-        {/* ── Totes (hanging between plywood rails) ─────────── */}
+        {/* ── Totes ────────────────────────────────────────── */}
         {hasTotes &&
           Array.from({ length: cols }).map((_, c) => {
             const bayLeft = POST_W + c * (opening + POST_W);
             const bayCenter = bayLeft + opening / 2;
-            const toteTopW = opening - RAIL_THICK * 2 - TOTE_TOLERANCE * 2;
+            const toteTopW =
+              opening - RAIL_THICK * 2 - TOTE_TOLERANCE * 2;
 
             return Array.from({ length: rows }).map((_, r) => {
-              const railY = PLATE_H + TOP_GAP + r * TIER_H;
-              const rimTop = railY + RAIL_H / 2;
-              const toteBaseY = rimTop - TOTE_RIM_H - TOTE_BODY_H;
+              const railCenterY =
+                PLATE_H + BOTTOM_RAIL_OFFSET + r * TIER_H;
+              // Rim sits ON TOP of plywood rail edge
+              const rimTopY = railCenterY + RAIL_H / 2;
+              // Body hangs below rim
+              const toteBaseY = rimTopY - TOTE_RIM_H - TOTE_BODY_H;
 
               return (
                 <Tote
@@ -439,7 +415,7 @@ function RackAssembly({
             });
           })}
 
-        {/* ── Plywood Top ───────────────────────────────────── */}
+        {/* ── Plywood Top (optional) ──────────────────────── */}
         {hasTop && (
           <mesh
             position={[totalW / 2, frameH + PLY_H / 2, RACK_DEPTH / 2]}
@@ -449,20 +425,26 @@ function RackAssembly({
             <boxGeometry args={[totalW + 2, PLY_H, RACK_DEPTH + 2]} />
             <meshStandardMaterial
               color="#D4B896"
-              roughness={0.7}
+              roughness={0.65}
               metalness={0.0}
             />
           </mesh>
         )}
       </group>
 
-      {/* ── Industrial Casters — at bottom corners of posts ────── */}
+      {/* ── Industrial Casters — 4 corners under posts ──── */}
       {hasWheels && (
         <>
           <IndustrialCaster position={[POST_W / 2, 0, POST_D / 2]} />
-          <IndustrialCaster position={[totalW - POST_W / 2, 0, POST_D / 2]} />
-          <IndustrialCaster position={[POST_W / 2, 0, RACK_DEPTH - POST_D / 2]} />
-          <IndustrialCaster position={[totalW - POST_W / 2, 0, RACK_DEPTH - POST_D / 2]} />
+          <IndustrialCaster
+            position={[totalW - POST_W / 2, 0, POST_D / 2]}
+          />
+          <IndustrialCaster
+            position={[POST_W / 2, 0, RACK_DEPTH - POST_D / 2]}
+          />
+          <IndustrialCaster
+            position={[totalW - POST_W / 2, 0, RACK_DEPTH - POST_D / 2]}
+          />
         </>
       )}
     </group>
@@ -473,54 +455,64 @@ function RackAssembly({
 
 function Ground() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]} receiveShadow>
-      <planeGeometry args={[40, 40]} />
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.003, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[50, 50]} />
       <meshStandardMaterial color="#f5f5f5" roughness={0.95} metalness={0.0} />
     </mesh>
   );
 }
 
-// ── Dynamic Camera Setup ─────────────────────────────────────────────────
+// ── Dynamic Camera ───────────────────────────────────────────────────────
 
-function CameraSetup({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "hasWheels">) {
+function CameraRig({
+  cols,
+  rows,
+  toteType,
+  hasWheels,
+}: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "hasWheels">) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
   const opening = toteType === "HDX" ? 19.75 : 20.75;
   const totalW = cols * opening + (cols + 1) * POST_W;
-  const frameH = rows * TIER_H + PLATE_H * 2 + TOP_GAP;
-  const casterLift = hasWheels ? CASTER_HEIGHT : 0;
-  const overallH = frameH + casterLift;
+  const topGap = 3;
+  const postRegion = BOTTOM_RAIL_OFFSET + (rows - 1) * TIER_H + topGap;
+  const frameH = PLATE_H * 2 + postRegion;
+  const lift = hasWheels ? CASTER_HEIGHT : 0;
+  const overallH = frameH + lift;
 
   const sceneW = totalW * S;
   const sceneH = overallH * S;
   const sceneD = RACK_DEPTH * S;
-
   const maxDim = Math.max(sceneW, sceneH, sceneD);
-  const camDist = maxDim * 1.5;
+  const dist = maxDim * 1.6;
 
   useEffect(() => {
-    camera.position.set(camDist * 0.8, camDist * 0.6, camDist);
+    camera.position.set(dist * 0.85, dist * 0.55, dist);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
     }
-  }, [camera, camDist]);
+  }, [camera, dist]);
 
   return (
     <OrbitControls
       ref={controlsRef}
       makeDefault
       autoRotate={false}
-      enablePan={true}
+      enablePan
       panSpeed={0.5}
       rotateSpeed={0.6}
       zoomSpeed={0.8}
       minPolarAngle={0.15}
       maxPolarAngle={Math.PI / 1.6}
-      minDistance={0.5}
-      maxDistance={camDist * 3}
+      minDistance={0.4}
+      maxDistance={dist * 3}
       target={[0, 0, 0]}
       enableDamping
       dampingFactor={0.08}
@@ -540,6 +532,7 @@ export default function Rack3D(props: Rack3DProps) {
         camera={{ fov: 40 }}
         gl={{ antialias: true, alpha: false }}
       >
+        {/* Pure white background */}
         <color attach="background" args={["#ffffff"]} />
 
         {/* Studio lighting */}
@@ -549,28 +542,28 @@ export default function Rack3D(props: Rack3DProps) {
           intensity={1.4}
           castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-8}
-          shadow-camera-right={8}
-          shadow-camera-top={8}
-          shadow-camera-bottom={-8}
-          shadow-bias={-0.0003}
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={10}
+          shadow-camera-bottom={-10}
+          shadow-bias={-0.0002}
         />
         <directionalLight position={[-8, 10, -6]} intensity={0.3} />
         <pointLight position={[0, 6, 3]} intensity={0.2} color="#ffeedd" />
         <hemisphereLight args={["#ffffff", "#e0d8c8", 0.35]} />
 
-        {/* Contact shadows on the ground plane */}
+        {/* Soft contact shadows where wheels meet floor */}
         <ContactShadows
-          position={[0, -0.004, 0]}
-          opacity={0.4}
-          scale={12}
+          position={[0, -0.002, 0]}
+          opacity={0.45}
+          scale={14}
           blur={2.5}
-          far={4}
+          far={5}
           color="#000000"
         />
 
-        {/* Dynamic camera + controls */}
-        <CameraSetup
+        {/* Camera — locked, no auto-rotate */}
+        <CameraRig
           cols={props.cols}
           rows={props.rows}
           toteType={props.toteType}
