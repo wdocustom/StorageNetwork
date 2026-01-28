@@ -87,7 +87,7 @@ export default function LandingPage() {
             <img
               src="/logo.png"
               alt="The Shelf Dude"
-              className="h-28 w-28 sm:h-36 sm:w-36"
+              className="h-40 w-40 sm:h-52 sm:w-52 md:h-64 md:w-64"
             />
           </div>
 
@@ -222,7 +222,7 @@ export default function LandingPage() {
             <img
               src="/logo.png"
               alt="The Shelf Dude"
-              className="h-8 w-8"
+              className="h-10 w-10"
             />
           </div>
           <p className="text-xs text-stone-700">
