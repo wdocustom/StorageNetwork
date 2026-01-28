@@ -33,6 +33,7 @@ export interface SubmitQuoteInput {
   quote_data: QuoteUnit[];
   grand_total: number;
   installer_id?: string;
+  source?: "platform" | "partner_link";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -84,7 +85,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
       deposit_amount: Math.round(input.grand_total * 0.15 * 100) / 100,
       deposit_paid: false,
       balance_due: Math.round(input.grand_total * 0.85 * 100) / 100,
-      source: "network",
+      source: input.source || (input.installer_id ? "partner_link" : "platform"),
       status: "new",
       notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}`,
     })
