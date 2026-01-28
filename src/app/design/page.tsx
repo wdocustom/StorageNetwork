@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { checkAvailability } from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { calculateBuild } from "@/app/actions/calculator";
+import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import {
   MapPin,
   CheckCircle2,
@@ -16,9 +17,6 @@ import {
   Maximize2,
   ArrowLeft,
 } from "lucide-react";
-
-// Lazy-load the 3D component (heavy — Tree.js bundle)
-const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (display-only — no pricing or math constants)
@@ -644,39 +642,27 @@ function DesignPageInner() {
           </div>
         </aside>
 
-        {/* ── RIGHT: 3D Interactive Visualizer ───────────────────────── */}
-        <main className="flex flex-1 flex-col border-l border-stone-800 bg-[#0f0f0f]">
-          <div
-            className="relative flex-1 overflow-hidden"
-            style={{ touchAction: "none", minHeight: "300px" }}
-          >
-            <Suspense
-              fallback={
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-950">
-                  <div className="text-center">
-                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-400" />
-                    <p className="mt-2 text-xs text-stone-500">Loading 3D Model...</p>
-                  </div>
-                </div>
-              }
-            >
-              <Rack3D
-                cols={build.cols || cols}
-                rows={build.rows || rows}
-                toteType={toteType}
-                hasTotes={hasTotes}
-                hasWheels={hasWheels}
-                hasTop={hasTop}
-              />
-            </Suspense>
+        {/* ── RIGHT: Visualizer (2D/3D Toggle) ────────────────────── */}
+        <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
+          <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
+            <RackVisualizer
+              cols={build.cols || cols}
+              rows={build.rows || rows}
+              toteType={toteType}
+              hasTotes={hasTotes}
+              hasWheels={hasWheels}
+              hasTop={hasTop}
+              totalW={build.totalW}
+              totalH={build.totalH}
+            />
           </div>
           {/* Dimensions bar */}
-          <div className="shrink-0 border-t border-slate-800 bg-slate-900 px-4 py-3 text-center text-sm font-medium text-stone-400">
+          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
             {build.totalW > 0 ? build.totalW.toFixed(0) : "—"}&quot; W
             &times;{" "}
             {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; H
             &times; 30&quot; D &nbsp;&mdash;&nbsp;
-            <span className="font-bold text-yellow-400">
+            <span className="font-bold text-gray-900">
               {build.cols || cols} &times; {build.rows || rows} ={" "}
               {build.slots || cols * rows} slots
             </span>
@@ -714,216 +700,6 @@ function Toggle({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// BlueprintCanvas — visual-only rendering (dimensions from server)
-// ═══════════════════════════════════════════════════════════════════════════
-function BlueprintCanvas({
-  cols,
-  rows,
-  toteType,
-  hasTotes,
-  hasWheels,
-  hasTop,
-  totalW,
-  totalH,
-}: {
-  cols: number;
-  rows: number;
-  toteType: ToteType;
-  hasTotes: boolean;
-  hasWheels: boolean;
-  hasTop: boolean;
-  totalW: number;
-  totalH: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Visual-only layout constants (these are rendering proportions, not pricing)
-  const RENDER_GAP = 1.5;
-  const RENDER_TIER = 16;
-  const RENDER_PLATE = 1.5;
-  const RENDER_TOP_GAP = 2.5;
-  const opening = toteType === "HDX" ? 19.75 : 20.75;
-
-  // Use server-provided dimensions, fallback to layout calc for initial render
-  const realW = totalW > 0 ? totalW : cols * opening + (cols + 1) * RENDER_GAP;
-  const realH =
-    totalH > 0 ? totalH : rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    const rect = container.getBoundingClientRect();
-    if (rect.width < 100 || rect.height < 100) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const W = Math.round(rect.width * dpr);
-    const H = Math.round(rect.height * dpr);
-    canvas.width = W;
-    canvas.height = H;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-
-    const cW = rect.width;
-    const cH = rect.height;
-    ctx.clearRect(0, 0, cW, cH);
-
-    const woodFill = "#e2b686";
-    const woodStroke = "#925f32";
-
-    const margin = 40;
-    const safeW = cW - margin * 2;
-    const safeH = cH - margin * 2;
-
-    let visualH_in = realH;
-    if (hasWheels) visualH_in += 6;
-    if (hasTop) visualH_in += 1;
-
-    const scale = Math.min(safeW / realW, safeH / visualH_in);
-    if (scale <= 0 || !isFinite(scale)) return;
-
-    const pTotalW = realW * scale;
-    const pTotalH = realH * scale;
-    const pStud = RENDER_GAP * scale;
-    const pBay = opening * scale;
-    const pPlate = RENDER_PLATE * scale;
-    const pTopGap = RENDER_TOP_GAP * scale;
-
-    const startX = (cW - pTotalW) / 2;
-    const visualPixelH = visualH_in * scale;
-    const startY = (cH - visualPixelH) / 2 + (hasTop ? 1 * scale : 0);
-
-    ctx.fillStyle = woodFill;
-    ctx.strokeStyle = woodStroke;
-    ctx.lineWidth = 2;
-
-    ctx.fillRect(startX, startY + pTotalH - pPlate, pTotalW, pPlate);
-    ctx.strokeRect(startX, startY + pTotalH - pPlate, pTotalW, pPlate);
-    ctx.fillRect(startX, startY, pTotalW, pPlate);
-    ctx.strokeRect(startX, startY, pTotalW, pPlate);
-
-    const postH = pTotalH - pPlate * 2;
-    const postY = startY + pPlate;
-    for (let i = 0; i <= cols; i++) {
-      const x = startX + i * (pBay + pStud);
-      ctx.fillStyle = woodFill;
-      ctx.strokeStyle = woodStroke;
-      ctx.fillRect(x, postY, pStud, postH);
-      ctx.strokeRect(x, postY, pStud, postH);
-    }
-
-    const railH = 1.5 * scale;
-    const railW = 1.5 * scale;
-
-    for (let c = 0; c < cols; c++) {
-      const bayLeftX = startX + pStud + c * (pBay + pStud);
-      const bayRightX = bayLeftX + pBay;
-
-      for (let r = 1; r <= rows; r++) {
-        const levelY = startY + pPlate + pTopGap + (r - 1) * 16 * scale;
-
-        ctx.fillStyle = woodFill;
-        ctx.strokeStyle = woodStroke;
-        ctx.fillRect(bayLeftX, levelY, railW, railH);
-        ctx.strokeRect(bayLeftX, levelY, railW, railH);
-        ctx.fillRect(bayRightX - railW, levelY, railW, railH);
-        ctx.strokeRect(bayRightX - railW, levelY, railW, railH);
-
-        if (hasTotes) {
-          const tW = pBay * 0.94;
-          const tH = 12 * scale;
-          const tX = bayLeftX + (pBay - tW) / 2;
-          const tY = levelY;
-          const lidH = 1.5 * scale;
-
-          ctx.fillStyle = "#fbbf24";
-          ctx.strokeStyle = "#d97706";
-          ctx.fillRect(tX, tY - lidH, tW, lidH);
-          ctx.strokeRect(tX, tY - lidH, tW, lidH);
-
-          const bodyW = tW * 0.9;
-          const bodyX = tX + (tW - bodyW) / 2;
-          ctx.fillStyle = "#1e293b";
-          ctx.strokeStyle = "#0f172a";
-          ctx.fillRect(bodyX, tY, bodyW, tH);
-          ctx.strokeRect(bodyX, tY, bodyW, tH);
-        }
-      }
-    }
-
-    if (hasTop) {
-      const topThick = 0.75 * scale;
-      const overhang = 1 * scale;
-      ctx.fillStyle = "#f3d2a3";
-      ctx.strokeStyle = woodStroke;
-      ctx.fillRect(
-        startX - overhang,
-        startY - topThick,
-        pTotalW + overhang * 2,
-        topThick
-      );
-      ctx.strokeRect(
-        startX - overhang,
-        startY - topThick,
-        pTotalW + overhang * 2,
-        topThick
-      );
-    }
-
-    if (hasWheels) {
-      const wSize = 5 * scale;
-      const wY = startY + pTotalH;
-      ctx.fillStyle = "#334155";
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(startX + pStud * 2, wY + wSize / 2, wSize / 2, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(
-        startX + pTotalW - pStud * 2,
-        wY + wSize / 2,
-        wSize / 2,
-        0,
-        2 * Math.PI
-      );
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    ctx.save();
-    ctx.translate(cW / 2, cH / 2);
-    ctx.rotate(-Math.PI / 6);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(0,0,0,0.03)";
-    ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
-    ctx.fillText("WDO CUSTOM", 0, 0);
-    ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop]);
-
-  useEffect(() => {
-    draw();
-  }, [draw]);
-
-  useEffect(() => {
-    const handleResize = () => draw();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [draw]);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0">
-      <canvas
-        ref={canvasRef}
-        className="h-full w-full"
-        style={{ display: "block" }}
-      />
-    </div>
-  );
-}
+// BlueprintCanvas has been extracted to src/components/visualizer/BlueprintCanvas.tsx
+// Rack3D has been extracted to src/components/visualizer/Rack3D.tsx
+// Both are consumed by src/components/visualizer/RackVisualizer.tsx
