@@ -28,10 +28,13 @@ create policy "Users can update own profile"
 
 -- 2. LEADS TABLE
 -- Stores customer/job leads assigned to an installer.
+-- installer_id is NULLABLE so public "Get Quote" submissions can be saved
+-- before an installer is assigned (network leads).
 -- dimensions is a JSONB column for flexible storage of measurements.
 create table public.leads (
   id uuid primary key default gen_random_uuid(),
-  installer_id uuid not null references public.profiles(id) on delete cascade,
+  installer_id uuid references public.profiles(id) on delete cascade,
+  is_network_lead boolean not null default false,
   customer_name text not null,
   customer_email text,
   customer_phone text,
@@ -48,13 +51,22 @@ create table public.leads (
 
 alter table public.leads enable row level security;
 
+-- Installers can read their own assigned leads
 create policy "Users can read own leads"
   on public.leads for select
   using (auth.uid() = installer_id);
 
+-- Installers can insert leads tied to themselves
 create policy "Users can insert own leads"
   on public.leads for insert
   with check (auth.uid() = installer_id);
+
+-- Allow anonymous inserts for public quote requests (network leads).
+-- The server action uses the service-role key, so this policy allows
+-- anon-keyed inserts where installer_id is null and is_network_lead is true.
+create policy "Public can submit network leads"
+  on public.leads for insert
+  with check (installer_id is null and is_network_lead = true);
 
 create policy "Users can update own leads"
   on public.leads for update
