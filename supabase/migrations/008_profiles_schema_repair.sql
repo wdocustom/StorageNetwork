@@ -5,11 +5,17 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- 1. Ensure all required columns exist
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS first_name text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_name text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS business_name text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS trade_name text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS service_zip text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS slug text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS subscription_tier text DEFAULT 'free';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stripe_account_id text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stripe_details_submitted boolean DEFAULT false;
 
 -- 2. Force Enable RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
