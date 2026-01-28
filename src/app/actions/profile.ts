@@ -16,6 +16,8 @@ export interface ProfileUpdateInput {
   first_name?: string;
   last_name?: string;
   business_name?: string;
+  trade_name?: string;
+  phone?: string;
   service_zip?: string;
   avatar_url?: string;
 }

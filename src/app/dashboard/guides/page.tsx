@@ -20,8 +20,8 @@ const TEASER_MATERIAL_LIST = [
   { item: "2x4 @ 96\" (8ft)", qty: 12, use: "Uprights & Rails" },
   { item: "3/4\" Plywood Sheet (4x8)", qty: 1, use: "Top Surface" },
   { item: "3\" Deck Screws", qty: 32, use: "Frame Assembly" },
-  { item: "1-5/8\" Drywall Screws", qty: 48, use: "Rail Attachments" },
-  { item: "2-1/2\" Pocket Screws", qty: 16, use: "Cross Bracing" },
+  { item: "1-5/8\" Exterior Screws", qty: 48, use: "Rail Attachments" },
+  { item: "2-1/2\" Exterior Screws", qty: 16, use: "Cross Bracing" },
   { item: "HDX 27-Gallon Totes", qty: 8, use: "Storage Bins" },
 ];
 
@@ -258,19 +258,27 @@ export default function GuidesPage() {
             </div>
           </div>
 
+          {/* PRO Upsell Note */}
+          <div className="mt-4 rounded-lg bg-yellow-400/5 p-3">
+            <p className="text-xs text-stone-500">
+              <span className="font-semibold text-yellow-400">Pro Members</span>{" "}
+              get direct clickable links to exact material SKUs at your local store.
+            </p>
+          </div>
+
           {/* CTA */}
-          <div className="mt-5 rounded-lg border border-dashed border-yellow-400/30 bg-yellow-400/5 p-4 text-center">
+          <div className="mt-4 rounded-lg border border-dashed border-yellow-400/30 bg-yellow-400/5 p-4 text-center">
             <p className="text-xs text-stone-400">
               Get custom plans for any unit size with the{" "}
               <span className="font-semibold text-yellow-400">
-                PRO Calculator
+                PRO Build Tool
               </span>
             </p>
             <a
-              href="/dashboard/calculator"
+              href="/dashboard/build"
               className="mt-2 inline-block rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
             >
-              Open Calculator
+              Open Build Tool
             </a>
           </div>
         </section>

@@ -4,28 +4,35 @@ import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild } from "@/app/actions/calculator";
 import { generateBuildManifest } from "@/lib/buildEngine";
+import { createQuote } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import {
   ArrowLeft,
-  Calculator,
+  HardHat,
   Lock,
   Loader2,
   Maximize2,
   ShoppingCart,
   Wrench,
+  FileText,
+  X,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Installer Calculator — with PRO paywall on cut plans
+// Build Configurator — Estimate, Quote & New Build
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
 
-export default function InstallerCalculatorPage() {
+export default function BuildConfiguratorPage() {
   const supabase = getSupabaseBrowserClient();
 
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState("");
 
   // Inputs
   const [wallWidth, setWallWidth] = useState("");
@@ -48,6 +55,15 @@ export default function InstallerCalculatorPage() {
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState("");
 
+  // Quote modal state
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [quoteSending, setQuoteSending] = useState(false);
+  const [quoteSent, setQuoteSent] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
     const {
@@ -58,13 +74,18 @@ export default function InstallerCalculatorPage() {
       return;
     }
 
+    setUserId(user.id);
+
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro")
+      .select("is_pro, subscription_tier, business_name, first_name")
       .eq("id", user.id)
       .single();
 
-    if (data) setIsPro(data.is_pro);
+    if (data) {
+      setIsPro(data.is_pro || data.subscription_tier === "pro");
+      setBusinessName(data.business_name || data.first_name || "Your Business");
+    }
     setLoading(false);
   }, [supabase]);
 
@@ -130,6 +151,65 @@ export default function InstallerCalculatorPage() {
     }
   }
 
+  async function handleSendQuote() {
+    if (!customerName.trim() || !customerEmail.trim()) {
+      setQuoteError("Name and email are required.");
+      return;
+    }
+    if (!buildResult || !userId) {
+      setQuoteError("No build calculated or not logged in.");
+      return;
+    }
+
+    setQuoteError("");
+    setQuoteSending(true);
+
+    try {
+      const unit: QuoteUnit = {
+        cols: buildResult.cols,
+        rows: buildResult.rows,
+        toteType,
+        hasTotes,
+        hasWheels,
+        hasTop,
+        price: buildResult.price,
+        totalW: buildResult.totalW,
+        totalH: buildResult.totalH,
+        desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
+      };
+
+      const result = await createQuote({
+        installer_id: userId,
+        installer_business_name: businessName,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone || undefined,
+        quote_data: [unit],
+        grand_total: buildResult.price,
+      });
+
+      if (!result.success) {
+        setQuoteError(result.error || "Failed to send quote.");
+        return;
+      }
+
+      setQuoteSent(true);
+    } catch {
+      setQuoteError("Failed to send quote. Please try again.");
+    } finally {
+      setQuoteSending(false);
+    }
+  }
+
+  function resetQuoteModal() {
+    setShowQuoteModal(false);
+    setCustomerName("");
+    setCustomerEmail("");
+    setCustomerPhone("");
+    setQuoteSent(false);
+    setQuoteError("");
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -151,10 +231,10 @@ export default function InstallerCalculatorPage() {
           </a>
           <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-              Installer Calculator
+              Build Configurator
             </h1>
             <p className="text-[10px] text-stone-500">
-              Estimate builds for side jobs
+              Estimate, Quote & New Build
             </p>
           </div>
           {isPro && (
@@ -253,7 +333,7 @@ export default function InstallerCalculatorPage() {
             {calculating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Calculator className="h-4 w-4" />
+              <HardHat className="h-4 w-4" />
             )}
             {calculating ? "Calculating…" : "Calculate Build"}
           </button>
@@ -290,6 +370,15 @@ export default function InstallerCalculatorPage() {
                 {buildResult.totalW.toFixed(0)}&quot; W × {buildResult.totalH.toFixed(0)}
                 &quot; H × 30&quot; D — {buildResult.slots} slots
               </div>
+
+              {/* CREATE QUOTE BUTTON */}
+              <button
+                onClick={() => setShowQuoteModal(true)}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
+              >
+                <FileText className="h-4 w-4" />
+                Create Quote / Job
+              </button>
             </section>
 
             {/* Material List — PRO-gated */}
@@ -338,7 +427,7 @@ export default function InstallerCalculatorPage() {
                     Plans.
                   </p>
                   <a
-                    href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/upgrade`}
+                    href="/upgrade"
                     className="rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 shadow-lg transition-all hover:bg-yellow-300"
                   >
                     Upgrade to Pro
@@ -419,7 +508,7 @@ export default function InstallerCalculatorPage() {
                     builds.
                   </p>
                   <a
-                    href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/upgrade`}
+                    href="/upgrade"
                     className="rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 shadow-lg transition-all hover:bg-yellow-300"
                   >
                     Upgrade to Pro
@@ -441,6 +530,126 @@ export default function InstallerCalculatorPage() {
           </a>
         </div>
       </main>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          QUOTE MODAL
+      ═══════════════════════════════════════════════════════════════════ */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
+            {/* Close button */}
+            <button
+              onClick={resetQuoteModal}
+              className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {!quoteSent ? (
+              <>
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
+                  <FileText className="h-7 w-7 text-yellow-400" />
+                </div>
+
+                <h3 className="mb-1 text-center text-lg font-bold text-white">
+                  Create Quote
+                </h3>
+                <p className="mb-5 text-center text-sm text-stone-400">
+                  Send a professional quote to your customer
+                </p>
+
+                {/* Quote Details */}
+                {buildResult && (
+                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-center">
+                    <p className="text-sm text-stone-400">
+                      {buildResult.cols}×{buildResult.rows} Unit
+                    </p>
+                    <p className="text-2xl font-black text-yellow-400">
+                      ${buildResult.price.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Customer Form */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                      Customer Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="John Smith"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="john@email.com"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                      Phone (optional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="(555) 123-4567"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSendQuote}
+                  disabled={quoteSending}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {quoteSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {quoteSending ? "Sending…" : "Send Quote"}
+                </button>
+
+                {quoteError && (
+                  <p className="mt-3 text-center text-xs font-medium text-red-400">
+                    {quoteError}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="py-6 text-center">
+                <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-emerald-400" />
+                <h3 className="mb-1 text-lg font-bold text-white">
+                  Quote Sent!
+                </h3>
+                <p className="mb-5 text-sm text-stone-400">
+                  Your customer will receive an email with their quote and a
+                  link to confirm.
+                </p>
+                <button
+                  onClick={resetQuoteModal}
+                  className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

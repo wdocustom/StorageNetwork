@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
@@ -13,6 +13,7 @@ import {
   getStripeStatus,
   getStripeDashboardLink,
 } from "@/app/actions/stripe-connect";
+import { siteConfig } from "@/config/site";
 import {
   ArrowLeft,
   Camera,
@@ -25,6 +26,7 @@ import {
   CreditCard,
   User,
   Save,
+  Upload,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -45,6 +47,8 @@ interface Profile {
   first_name: string | null;
   last_name: string | null;
   business_name: string | null;
+  trade_name: string | null;
+  phone: string | null;
   service_zip: string | null;
   avatar_url: string | null;
   slug: string | null;
@@ -57,17 +61,22 @@ function ProfilePageInner() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const stripeParam = searchParams.get("stripe");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [tradeName, setTradeName] = useState("");
+  const [phone, setPhone] = useState("");
   const [serviceZip, setServiceZip] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Slug state (PRO feature)
   const [slug, setSlug] = useState("");
@@ -106,7 +115,10 @@ function ProfilePageInner() {
       setFirstName(p.first_name || "");
       setLastName(p.last_name || "");
       setBusinessName(p.business_name || "");
+      setTradeName(p.trade_name || "");
+      setPhone(p.phone || "");
       setServiceZip(p.service_zip || "");
+      setAvatarUrl(p.avatar_url);
       setSlug(p.slug || "");
 
       // Fetch Stripe status
@@ -136,6 +148,63 @@ function ProfilePageInner() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      setSaveMessage("Please upload a JPG, PNG, GIF, or WebP image.");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage("Image must be less than 5MB.");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setSaveMessage("");
+
+    try {
+      const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const filePath = `${profile.id}/avatar.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const newAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: newAvatarUrl })
+        .eq("id", profile.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(newAvatarUrl);
+      setSaveMessage("Photo updated!");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (err) {
+      console.error("Photo upload error:", err);
+      setSaveMessage("Failed to upload photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function handleSaveProfile() {
     if (!profile) return;
     setSaving(true);
@@ -146,6 +215,8 @@ function ProfilePageInner() {
       first_name: firstName || undefined,
       last_name: lastName || undefined,
       business_name: businessName || undefined,
+      trade_name: tradeName || undefined,
+      phone: phone || undefined,
       service_zip: serviceZip || undefined,
     });
 
@@ -265,32 +336,56 @@ function ProfilePageInner() {
             </h2>
           </div>
 
-          {/* Avatar */}
+          {/* Avatar with Upload */}
           <div className="mb-5 flex items-center gap-4">
             <div className="relative">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              {/* Avatar display - strictly circular */}
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-slate-700 bg-slate-800">
-                {profile?.avatar_url ? (
+                {avatarUrl ? (
                   <img
-                    src={profile.avatar_url}
+                    src={avatarUrl}
                     alt="Avatar"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover aspect-square rounded-full"
                   />
                 ) : (
                   <User className="h-8 w-8 text-stone-600" />
                 )}
               </div>
+              {/* Upload button */}
               <button
-                className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-slate-900 bg-slate-700 text-white transition-colors hover:bg-yellow-400 hover:text-gray-950"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-slate-900 bg-slate-700 text-white transition-colors hover:bg-yellow-400 hover:text-gray-950 disabled:opacity-50"
                 title="Change photo"
               >
-                <Camera className="h-3.5 w-3.5" />
+                {uploadingPhoto ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Camera className="h-3.5 w-3.5" />
+                )}
               </button>
             </div>
             <div className="text-sm">
               <p className="font-semibold text-white">
-                {profile?.business_name || profile?.email}
+                {profile?.business_name || profile?.first_name || profile?.email}
               </p>
               <p className="text-stone-500">{profile?.email}</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="mt-1 flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300"
+              >
+                <Upload className="h-3 w-3" />
+                {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+              </button>
             </div>
           </div>
 
@@ -325,32 +420,59 @@ function ProfilePageInner() {
 
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Business / Trade Name
+                Business Name
               </label>
               <input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="Best Garage Solutions"
+                placeholder="Best Garage Solutions LLC"
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
               />
             </div>
 
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Service ZIP Code
+                Trade Name (DBA)
               </label>
               <input
                 type="text"
-                inputMode="numeric"
-                maxLength={5}
-                value={serviceZip}
-                onChange={(e) =>
-                  setServiceZip(e.target.value.replace(/\D/g, "").slice(0, 5))
-                }
-                placeholder="90210"
+                value={tradeName}
+                onChange={(e) => setTradeName(e.target.value)}
+                placeholder="Best Garage"
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Service ZIP
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={serviceZip}
+                  onChange={(e) =>
+                    setServiceZip(e.target.value.replace(/\D/g, "").slice(0, 5))
+                  }
+                  placeholder="90210"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
             </div>
           </div>
 
@@ -368,7 +490,11 @@ function ProfilePageInner() {
           </button>
 
           {saveMessage && (
-            <p className="mt-2 text-center text-xs font-medium text-emerald-400">
+            <p
+              className={`mt-2 text-center text-xs font-medium ${
+                saveMessage.includes("Failed") ? "text-red-400" : "text-emerald-400"
+              }`}
+            >
               {saveMessage}
             </p>
           )}
@@ -408,8 +534,8 @@ function ProfilePageInner() {
             </div>
             <p className="mt-2 text-xs text-stone-500">
               {stripeStatus?.charges_enabled
-                ? "Your account is fully set up. Deposits from your self-leads will be sent directly to your bank."
-                : "Connect your Stripe account to receive deposits from self-leads directly."}
+                ? "Your account is fully set up. Deposits from your leads will be sent directly to your bank."
+                : "Connect your Stripe account to receive deposits directly."}
             </p>
           </div>
 

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { siteConfig } from "@/config/site";
 import {
   Briefcase,
-  Calculator,
+  HardHat,
   BookOpen,
   LogOut,
   Loader2,
@@ -12,6 +13,9 @@ import {
   AlertCircle,
   ChevronRight,
   Settings,
+  Copy,
+  Check,
+  Link2,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -21,6 +25,7 @@ import {
 interface Profile {
   id: string;
   email: string;
+  first_name: string | null;
   business_name: string | null;
   is_pro: boolean;
   subscription_tier?: string;
@@ -38,6 +43,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [newLeadCount, setNewLeadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const {
@@ -71,6 +77,12 @@ export default function DashboardPage() {
     window.location.href = "/";
   }
 
+  function copyToClipboard(link: string, linkType: string) {
+    navigator.clipboard.writeText(link);
+    setCopiedLink(linkType);
+    setTimeout(() => setCopiedLink(null), 2000);
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -82,6 +94,14 @@ export default function DashboardPage() {
   const tier = profile?.subscription_tier || (profile?.is_pro ? "pro" : "free");
   const hasStripe = !!profile?.stripe_account_id;
 
+  // Dynamic welcome name
+  const welcomeName = profile?.business_name || profile?.first_name || "Partner";
+
+  // Links
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const bookingLink = `${baseUrl}/book/${profile?.slug || profile?.id}`;
+  const leadLink = `${baseUrl}/design?installer_id=${profile?.id}`;
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -89,16 +109,16 @@ export default function DashboardPage() {
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/logo.png"
-              alt="The Shelf Dude"
+              src={siteConfig.logoPath}
+              alt={siteConfig.name}
               className="h-10 w-10"
             />
             <div>
               <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-                Partner Network
+                Welcome, {welcomeName}
               </h1>
               <p className="text-[11px] text-stone-500">
-                {profile?.business_name ?? profile?.email}
+                {siteConfig.name}
               </p>
             </div>
           </div>
@@ -187,17 +207,17 @@ export default function DashboardPage() {
             </div>
           </a>
 
-          {/* CALCULATOR Tile */}
+          {/* BUILD Tile (renamed from Calculator) */}
           <a
-            href="/dashboard/calculator"
+            href="/dashboard/build"
             className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
           >
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 transition-colors group-hover:bg-blue-500/20">
-              <Calculator className="h-8 w-8" />
+              <HardHat className="h-8 w-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">Calculator</h2>
-              <p className="text-sm text-stone-500">Quick Quote Tool</p>
+              <h2 className="text-lg font-bold text-white">BUILD</h2>
+              <p className="text-sm text-stone-500">Estimate, Quote & New Build</p>
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
@@ -217,19 +237,73 @@ export default function DashboardPage() {
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
 
-          {/* Share Your Booking Link */}
+          {/* Your Links Section */}
           {profile && (
-            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-center">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-600">
-                Your Booking Link
-              </p>
-              <p className="select-all break-all text-sm font-medium text-yellow-400">
-                {typeof window !== "undefined" ? window.location.origin : ""}/book/{profile.slug || profile.id}
-              </p>
-              <p className="mt-2 text-[11px] text-stone-600">
-                Share with your own clients — deposits go directly to your
-                Stripe account.
-              </p>
+            <div className="space-y-3">
+              {/* Booking Link */}
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
+                    Your Booking Link
+                  </p>
+                  <button
+                    onClick={() => copyToClipboard(bookingLink, "booking")}
+                    className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-slate-600"
+                  >
+                    {copiedLink === "booking" ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="select-all break-all text-sm font-medium text-yellow-400">
+                  {bookingLink}
+                </p>
+                <p className="mt-2 text-[11px] text-stone-600">
+                  Direct booking — deposits go to your Stripe account.
+                </p>
+              </div>
+
+              {/* Lead/Affiliate Link */}
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Link2 className="h-3 w-3 text-blue-400" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
+                      My Lead Link
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(leadLink, "lead")}
+                    className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-slate-600"
+                  >
+                    {copiedLink === "lead" ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="select-all break-all text-sm font-medium text-blue-400">
+                  {leadLink}
+                </p>
+                <p className="mt-2 text-[11px] text-stone-600">
+                  Share anywhere — tracks leads for 30 days via cookie.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -237,8 +311,7 @@ export default function DashboardPage() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="shrink-0 border-t border-slate-800 px-4 py-3 text-center text-[10px] text-stone-700">
-        The Shelf Dude Partner Network &copy;{" "}
-        {new Date().getFullYear()} WDO Custom
+        {siteConfig.name} &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
