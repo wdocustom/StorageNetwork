@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { checkAvailability } from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
@@ -93,6 +93,14 @@ function maxFit(wallW: number, wallH: number, toteType: ToteType) {
 // Design Configurator Page
 // ═══════════════════════════════════════════════════════════════════════════
 export default function DesignPage() {
+  return (
+    <Suspense>
+      <DesignPageInner />
+    </Suspense>
+  );
+}
+
+function DesignPageInner() {
   const searchParams = useSearchParams();
   const incomingZip = searchParams.get("zip") || "";
   const mode = searchParams.get("mode") || "";
