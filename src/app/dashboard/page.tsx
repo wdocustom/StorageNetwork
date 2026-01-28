@@ -440,13 +440,13 @@ function CalculatorTab({
           </div>
 
           {/* Cut List Card — gated behind Pro */}
-          <div className="card-float-light relative p-4">
+          <div className="card-float-light relative overflow-hidden p-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Layers className="h-4 w-4 text-orange-500" />
               Cut List
             </h3>
 
-            <div className={isPro ? "" : "select-none blur-sm"}>
+            {isPro ? (
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs text-slate-400">
@@ -467,7 +467,35 @@ function CalculatorTab({
                   ))}
                 </tbody>
               </table>
-            </div>
+            ) : (
+              /* Ghost data: show first 2 rows at 50% opacity, blur the numbers */
+              <table className="w-full select-none text-left text-sm opacity-50">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs text-slate-400">
+                    <th className="pb-2 font-medium">Part</th>
+                    <th className="pb-2 font-medium">Length</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {calcResult.cut_list.slice(0, 2).map((item, i) => (
+                    <tr key={i}>
+                      <td className="py-2 text-slate-700">{item.part_name}</td>
+                      <td className="py-2 text-slate-500 blur-[5px]">{item.length}&quot;</td>
+                      <td className="py-2 text-right font-medium text-slate-900 blur-[5px]">
+                        {item.qty}
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Faded placeholder rows */}
+                  <tr className="opacity-30">
+                    <td className="py-2 text-slate-400">────────</td>
+                    <td className="py-2 text-slate-400">──</td>
+                    <td className="py-2 text-right text-slate-400">──</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
 
             {/* Shopping List — also gated */}
             <h3 className="mb-3 mt-6 flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -475,7 +503,7 @@ function CalculatorTab({
               Shopping List
             </h3>
 
-            <div className={isPro ? "" : "select-none blur-sm"}>
+            {isPro ? (
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs text-slate-400">
@@ -494,21 +522,51 @@ function CalculatorTab({
                   ))}
                 </tbody>
               </table>
-            </div>
+            ) : (
+              <table className="w-full select-none text-left text-sm opacity-50">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs text-slate-400">
+                    <th className="pb-2 font-medium">Item</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {calcResult.shopping_list.slice(0, 2).map((item, i) => (
+                    <tr key={i}>
+                      <td className="py-2 text-slate-700">{item.sku_name}</td>
+                      <td className="py-2 text-right font-medium text-slate-900 blur-[5px]">
+                        {item.qty}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="opacity-30">
+                    <td className="py-2 text-slate-400">────────</td>
+                    <td className="py-2 text-right text-slate-400">──</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
 
             {/* Pro Gate Overlay */}
             {!isPro && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[3px]">
-                <Lock className="mb-2 h-8 w-8 text-slate-400" />
-                <p className="mb-1 text-sm font-semibold text-slate-700">
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-gradient-to-t from-white via-white/90 to-white/60">
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+                  <Lock className="h-7 w-7 text-amber-600" />
+                </div>
+                <p className="mb-1 text-base font-bold text-slate-800">
                   Pro Feature
                 </p>
-                <p className="mb-4 text-center text-xs text-slate-500">
-                  Upgrade to view the full Cut List &amp; Shopping List.
+                <p className="mb-4 max-w-[260px] text-center text-xs leading-relaxed text-slate-500">
+                  Unlock precise cut lists, shopping lists, and save unlimited
+                  builds for <span className="font-semibold text-slate-700">$49/mo</span>.
                 </p>
                 <a
                   href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/upgrade`}
-                  className="btn-brand rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
+                  className="rounded-lg px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-amber-400/30"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%)",
+                  }}
                 >
                   Upgrade to Pro
                 </a>
