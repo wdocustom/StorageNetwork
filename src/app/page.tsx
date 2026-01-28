@@ -276,6 +276,12 @@ export default function LandingPage() {
           <p className="text-xs text-stone-700">
             &copy; {new Date().getFullYear()} WDO Custom. All rights reserved.
           </p>
+          <a
+            href="/login"
+            className="mt-2 inline-block text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
+          >
+            Partner Login
+          </a>
         </div>
       </footer>
 

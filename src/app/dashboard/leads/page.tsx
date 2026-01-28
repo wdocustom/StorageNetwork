@@ -40,7 +40,7 @@ export default function LeadsListPage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = "/";
+      window.location.href = "/login";
       return;
     }
 
