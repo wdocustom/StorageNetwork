@@ -1,859 +1,263 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { checkAvailability } from "@/app/actions/customer";
-import { submitNetworkLead } from "@/app/actions/submit-lead";
 import {
   MapPin,
-  CheckCircle2,
-  AlertTriangle,
   Loader2,
-  Send,
-  Plus,
-  X,
-  Maximize2,
+  Shield,
+  Flag,
+  Weight,
+  ChevronRight,
+  Truck,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH CONSTANTS (from original WDO Custom calculator)
+// Landing Page — High-Converting "Shelf Dude" Hero
 // ═══════════════════════════════════════════════════════════════════════════
-const OPENING_HDX = 19.75;
-const OPENING_GM = 20.75;
-const STUD = 1.5;
-const TIER_HEIGHT = 16; // vertical spacing per tier
-const TOP_GAP = 2.5;
-const PLATE_HEIGHT = 1.5;
-const PRICE_PER_SLOT = 40;
-const PRICE_PER_TOTE = 12;
-const PRICE_WHEELS = 45;
-const PRICE_PLYWOOD_SHEET = 75;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════════════════════════════════════
-type ToteType = "HDX" | "GM";
-
-interface UnitConfig {
-  cols: number;
-  rows: number;
-  toteType: ToteType;
-  hasTotes: boolean;
-  hasWheels: boolean;
-  hasTop: boolean;
-  price: number;
-  totalW: number;
-  totalH: number;
-  desc: string;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH: Pricing Math (exact port from updateVisual)
-// ═══════════════════════════════════════════════════════════════════════════
-function calcPrice(
-  cols: number,
-  rows: number,
-  toteType: ToteType,
-  hasTotes: boolean,
-  hasWheels: boolean,
-  hasTop: boolean
-) {
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  const totalW = cols * opening + (cols + 1) * STUD;
-  const totalH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
-
-  const slots = cols * rows;
-  let price = slots * PRICE_PER_SLOT;
-  if (hasTotes) price += slots * PRICE_PER_TOTE;
-  if (hasWheels) price += PRICE_WHEELS;
-
-  // Plywood top: per 8ft (96") section
-  let topSheets = 0;
-  if (totalW > 192) topSheets = 3;
-  else if (totalW > 96) topSheets = 2;
-  else topSheets = 1;
-  if (hasTop) price += topSheets * PRICE_PLYWOOD_SHEET;
-
-  return { price, totalW, totalH, slots, topSheets };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH: Max Wall Fit (exact port from calculateWallFit)
-// ═══════════════════════════════════════════════════════════════════════════
-function maxFit(wallW: number, wallH: number, toteType: ToteType) {
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  let maxCols = Math.floor((wallW - STUD) / (opening + STUD));
-  let maxRows = Math.floor((wallH - 5.5) / TIER_HEIGHT);
-  if (maxCols < 1) maxCols = 1;
-  if (maxRows < 1) maxRows = 1;
-  return { maxCols, maxRows };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Page Component
-// ═══════════════════════════════════════════════════════════════════════════
-export default function PublicCalculatorPage() {
-  // ── ZIP check ─────────────────────────────────────────────────────────
+export default function LandingPage() {
+  const router = useRouter();
   const [zip, setZip] = useState("");
-  const [zipChecking, setZipChecking] = useState(false);
-  const [zipResult, setZipResult] = useState<{
-    available: boolean;
-    installer_name: string | null;
-    message: string;
-  } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState("");
 
-  // ── Wall fit ──────────────────────────────────────────────────────────
-  const [wallWidth, setWallWidth] = useState("");
-  const [wallHeight, setWallHeight] = useState("");
-  const [wallFitMsg, setWallFitMsg] = useState("");
+  async function handleSearch() {
+    const trimmed = zip.trim();
+    if (trimmed.length < 5) {
+      setError("Enter a valid 5-digit ZIP code.");
+      return;
+    }
 
-  // ── Design inputs ─────────────────────────────────────────────────────
-  const [cols, setCols] = useState(4);
-  const [rows, setRows] = useState(4);
-  const [toteType, setToteType] = useState<ToteType>("HDX");
-  const [hasTotes, setHasTotes] = useState(true);
-  const [hasWheels, setHasWheels] = useState(true);
-  const [hasTop, setHasTop] = useState(true);
+    setError("");
+    setSearching(true);
 
-  // ── Multi-unit quote list ─────────────────────────────────────────────
-  const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
-
-  // ── Booking form ──────────────────────────────────────────────────────
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
-  // ── Derived pricing ───────────────────────────────────────────────────
-  const pricing = useMemo(
-    () => calcPrice(cols, rows, toteType, hasTotes, hasWheels, hasTop),
-    [cols, rows, toteType, hasTotes, hasWheels, hasTop]
-  );
-
-  const grandTotal = useMemo(
-    () => orderItems.reduce((sum, it) => sum + it.price, 0),
-    [orderItems]
-  );
-
-  // ── Handlers ──────────────────────────────────────────────────────────
-
-  async function handleZipCheck() {
-    if (zip.length < 5) return;
-    setZipChecking(true);
-    setZipResult(null);
     try {
-      const res = await checkAvailability(zip);
-      setZipResult(res);
+      const result = await checkAvailability(trimmed);
+
+      if (result.available) {
+        // Installer found → send to configurator
+        router.push(`/design?zip=${trimmed}`);
+      } else {
+        // No local installer → configurator in shipping mode
+        router.push(`/design?zip=${trimmed}&mode=shipping`);
+      }
     } catch {
-      setZipResult({
-        available: false,
-        installer_name: null,
-        message: "Unable to check availability. Try again.",
-      });
+      // On error, still let them design — just go to configurator
+      router.push(`/design?zip=${trimmed}&mode=shipping`);
     } finally {
-      setZipChecking(false);
+      setSearching(false);
     }
   }
 
-  function handleWallFit() {
-    const wW = parseFloat(wallWidth);
-    const wH = parseFloat(wallHeight);
-    if (!wW || !wH) return;
-    const { maxCols, maxRows } = maxFit(wW, wH, toteType);
-    setCols(maxCols);
-    setRows(maxRows);
-    setWallFitMsg(
-      `Max fit: ${maxCols} Wide × ${maxRows} High for that wall.`
-    );
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") handleSearch();
   }
-
-  function handleAddUnit() {
-    const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-    const totalW = cols * opening + (cols + 1) * STUD;
-    const totalH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
-
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        cols,
-        rows,
-        toteType,
-        hasTotes,
-        hasWheels,
-        hasTop,
-        price: pricing.price,
-        totalW,
-        totalH,
-        desc: `${cols} Wide × ${rows} High`,
-      },
-    ]);
-  }
-
-  function handleRemoveUnit(index: number) {
-    setOrderItems((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function handleBookDeposit() {
-    setSubmitError("");
-    if (!name.trim() || !email.trim()) {
-      setSubmitError("Name and email are required.");
-      return;
-    }
-    if (orderItems.length === 0) {
-      setSubmitError("Add at least one unit to your quote first.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      await submitNetworkLead({
-        customer_name: name,
-        customer_email: email,
-        customer_phone: phone,
-        address,
-        quote_data: orderItems,
-        grand_total: grandTotal,
-      });
-      setSubmitted(true);
-    } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Submission failed."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="flex h-screen flex-col bg-gray-950">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
-        <div className="mx-auto flex max-w-[1800px] items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded bg-yellow-400 text-lg font-black text-gray-950">
-            SD
+    <div className="min-h-screen bg-gray-950">
+      {/* ══════════════════════════════════════════════════════════════════
+          HERO SECTION — Full-screen dark industrial
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+        {/* Radial gradient background */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 30%, rgba(250,204,21,0.08) 0%, transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(250,204,21,0.04) 0%, transparent 50%)",
+          }}
+        />
+
+        {/* Grid texture overlay */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          {/* Logo mark */}
+          <div className="mb-8 inline-flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-400 text-xl font-black text-gray-950">
+              SD
+            </div>
+            <span className="text-sm font-bold uppercase tracking-[0.2em] text-stone-500">
+              The Shelf Dude
+            </span>
           </div>
-          <div>
-            <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-              Professional Grade Garage Storage
-            </h1>
-            <p className="text-[10px] uppercase tracking-wider text-yellow-400">
-              Build Configurator
+
+          {/* Headline */}
+          <h1 className="mb-4 text-4xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+            Professional
+            <br />
+            Grade Garage
+            <br />
+            <span className="text-yellow-400">Storage.</span>
+          </h1>
+
+          {/* Sub-headline */}
+          <p className="mx-auto mb-10 max-w-lg text-lg font-medium text-stone-400 sm:text-xl">
+            Heavy-duty tote shelving designed, built &amp; installed by
+            certified local pros.
+          </p>
+
+          {/* ── Search Box (The Centerpiece) ───────────────────────── */}
+          <div className="mx-auto max-w-md">
+            <div className="flex overflow-hidden rounded-xl border-2 border-yellow-400/30 bg-gray-900 shadow-2xl shadow-yellow-400/10 transition-all focus-within:border-yellow-400 focus-within:shadow-yellow-400/20">
+              <div className="flex items-center pl-4 text-yellow-400">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={zip}
+                onChange={(e) => {
+                  setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                  setError("");
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter your ZIP code"
+                className="w-full bg-transparent px-3 py-4 text-lg font-medium text-white placeholder-stone-500 outline-none"
+              />
+              <button
+                onClick={handleSearch}
+                disabled={searching || zip.length < 5}
+                className="m-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0"
+              >
+                {searching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Find My Installer
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+
+            {error && (
+              <p className="mt-3 text-sm font-medium text-red-400">{error}</p>
+            )}
+
+            <p className="mt-4 text-xs text-stone-600">
+              We&apos;ll match you with a certified installer in your area
+              &mdash; or ship directly to you.
             </p>
           </div>
         </div>
-      </header>
 
-      {/* ── Split Layout ────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* ── LEFT SIDEBAR: Controls ──────────────────────────────────── */}
-        <aside className="flex w-full shrink-0 flex-col lg:w-[38%] xl:w-[35%]">
-          <div className="flex-1 space-y-4 overflow-y-auto bg-stone-100 p-4">
-            {/* ── Find My Local Pro ─────────────────────────────────── */}
-            <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
-              <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <MapPin className="h-4 w-4 text-yellow-600" />
-                Find My Local Pro
-              </h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  value={zip}
-                  onChange={(e) => {
-                    setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                    setZipResult(null);
-                  }}
-                  placeholder="ZIP Code"
-                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-                <button
-                  onClick={handleZipCheck}
-                  disabled={zip.length < 5 || zipChecking}
-                  className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-                >
-                  {zipChecking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Check"
-                  )}
-                </button>
-              </div>
-              {zipResult?.available && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  {zipResult.message}
-                </div>
-              )}
-              {zipResult && !zipResult.available && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  {zipResult.message}
-                </div>
-              )}
-            </section>
-
-            {/* ── Auto-Fit Wall Calculator ──────────────────────────── */}
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <Maximize2 className="h-4 w-4 text-yellow-600" />
-                Auto-Fit Wall Calculator
-              </h2>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Width (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallWidth}
-                    onChange={(e) => {
-                      setWallWidth(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 100"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Height (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallHeight}
-                    onChange={(e) => {
-                      setWallHeight(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 96"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={handleWallFit}
-                disabled={!wallWidth || !wallHeight}
-                className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-              >
-                Find Max Size →
-              </button>
-              {wallFitMsg && (
-                <p className="mt-2 text-center text-xs font-semibold text-emerald-600">
-                  {wallFitMsg}
-                </p>
-              )}
-            </section>
-
-            {/* ── Manual Configuration ──────────────────────────────── */}
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-stone-400">
-                Manual Configuration
-              </h2>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Columns
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={cols}
-                    onChange={(e) =>
-                      setCols(Math.max(1, parseInt(e.target.value) || 1))
-                    }
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tiers High
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={rows}
-                    onChange={(e) =>
-                      setRows(Math.max(1, parseInt(e.target.value) || 1))
-                    }
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Tote Model
-                </label>
-                <select
-                  value={toteType}
-                  onChange={(e) => setToteType(e.target.value as ToteType)}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="HDX">HDX / Standard (19.75&quot; Wide)</option>
-                  <option value="GM">Greenmade / Large (20.75&quot; Wide)</option>
-                </select>
-                <p className="mt-1 text-[10px] italic text-stone-400">
-                  *Have your own? Measure top width rim-to-rim. Select closest
-                  size.
-                </p>
-              </div>
-
-              {/* Toggles */}
-              <div className="mt-4 space-y-2">
-                <Toggle
-                  checked={hasTotes}
-                  onChange={setHasTotes}
-                  label="Show Totes"
-                  detail={`+$${PRICE_PER_TOTE} ea`}
-                />
-                <Toggle
-                  checked={hasWheels}
-                  onChange={setHasWheels}
-                  label="Add Wheels"
-                  detail={`+$${PRICE_WHEELS}`}
-                />
-                <Toggle
-                  checked={hasTop}
-                  onChange={setHasTop}
-                  label="Plywood Top"
-                  detail={`+$${PRICE_PLYWOOD_SHEET}/sheet`}
-                />
-              </div>
-
-              {/* Price + Add to Quote */}
-              <div className="mt-5 flex items-center gap-3 border-t border-stone-200 pt-4">
-                <div className="flex-1 text-center">
-                  <div className="text-2xl font-black text-gray-900">
-                    ${pricing.price.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                    Current Unit
-                  </div>
-                </div>
-                <button
-                  onClick={handleAddUnit}
-                  className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote
-                </button>
-              </div>
-            </section>
-
-            {/* ── Quote List ────────────────────────────────────────── */}
-            {orderItems.length > 0 && (
-              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-stone-400">
-                  Your Quote List
-                </h2>
-
-                <ul className="space-y-2">
-                  {orderItems.map((item, index) => {
-                    const extras: string[] = [];
-                    if (item.hasTotes) extras.push("Totes");
-                    if (item.hasWheels) extras.push("Wheels");
-                    if (item.hasTop) extras.push("Top");
-                    const extraStr =
-                      extras.length > 0 ? extras.join(", ") : "Frame Only";
-
-                    return (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            Unit #{index + 1}: {item.desc}
-                          </p>
-                          <p className="text-[11px] text-stone-500">
-                            {extraStr}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-gray-900">
-                            ${item.price.toLocaleString()}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveUnit(index)}
-                            className="text-red-400 transition-colors hover:text-red-600"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {/* Grand Total */}
-                <div className="mt-4 border-t-2 border-dashed border-stone-300 pt-4 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                    Estimated Grand Total
-                  </div>
-                  <div className="mt-1 text-4xl font-black text-gray-900">
-                    ${grandTotal.toLocaleString()}
-                  </div>
-                </div>
-
-                {/* Booking Form */}
-                <div className="mt-4 border-t border-stone-200 pt-4">
-                  {!submitted ? (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="Your name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Email *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Phone (optional)"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          placeholder="Address (optional)"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <button
-                        onClick={handleBookDeposit}
-                        disabled={submitting}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50"
-                      >
-                        {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        {submitting ? "Submitting…" : "Pay Deposit & Book"}
-                      </button>
-                      {submitError && (
-                        <p className="text-xs font-medium text-red-600">
-                          {submitError}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
-                      <p className="font-bold text-gray-900">
-                        Booking Received!
-                      </p>
-                      <p className="mt-0.5 text-xs text-stone-500">
-                        We&apos;ll reach out within 24 hours.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+          <div className="flex flex-col items-center gap-2 text-stone-600">
+            <span className="text-[10px] font-bold uppercase tracking-widest">
+              Learn More
+            </span>
+            <div className="h-8 w-[1px] bg-gradient-to-b from-stone-600 to-transparent" />
           </div>
-        </aside>
+        </div>
+      </section>
 
-        {/* ── RIGHT: Sticky Canvas Visualizer ──────────────────────────── */}
-        <main className="flex flex-1 flex-col border-l border-stone-800 bg-white">
-          <div
-            className="relative flex flex-1 items-center justify-center overflow-hidden"
-            style={{
-              backgroundImage:
-                "linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)",
-              backgroundSize: "20px 20px",
-              backgroundColor: "#ffffff",
-            }}
-          >
-            <BlueprintCanvas
-              cols={cols}
-              rows={rows}
-              toteType={toteType}
-              hasTotes={hasTotes}
-              hasWheels={hasWheels}
-              hasTop={hasTop}
+      {/* ══════════════════════════════════════════════════════════════════
+          SOCIAL PROOF — Trust Badges
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800 bg-gray-950 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <p className="mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
+            Why Homeowners Trust Us
+          </p>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <TrustBadge
+              icon={<Shield className="h-7 w-7" />}
+              title="Lifetime Warranty"
+              desc="Built to last. Every shelf system is backed by our lifetime structural warranty."
+            />
+            <TrustBadge
+              icon={<Flag className="h-7 w-7" />}
+              title="Made in USA"
+              desc="Designed and assembled in America using domestically sourced lumber."
+            />
+            <TrustBadge
+              icon={<Weight className="h-7 w-7" />}
+              title="2,000 lb Capacity"
+              desc="Heavy-duty construction rated for up to 2,000 lbs per unit."
+            />
+            <TrustBadge
+              icon={<Truck className="h-7 w-7" />}
+              title="Pro Installation"
+              desc="Certified local installers handle everything. You don't lift a finger."
             />
           </div>
-          {/* Dimensions bar */}
-          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {pricing.totalW.toFixed(0)}&quot; Width &times;{" "}
-            {pricing.totalH.toFixed(0)}&quot; Height &times; 30&quot; Depth
-            &nbsp;&mdash;&nbsp;
-            <span className="font-bold text-gray-900">
-              {cols} &times; {rows} = {cols * rows} slots
+        </div>
+      </section>
+
+      {/* ── CTA repeat ────────────────────────────────────────────────── */}
+      <section className="border-t border-stone-800 bg-gray-900 px-4 py-16">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="mb-3 text-2xl font-black uppercase text-white sm:text-3xl">
+            Ready to get started?
+          </h2>
+          <p className="mb-6 text-sm text-stone-400">
+            Design your custom storage unit in minutes. No commitment required.
+          </p>
+          <a
+            href="/design"
+            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-8 py-4 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+          >
+            Open Build Configurator
+            <ChevronRight className="h-4 w-4" />
+          </a>
+        </div>
+      </section>
+
+      {/* ── Footer ────────────────────────────────────────────────────── */}
+      <footer className="border-t border-stone-800 bg-gray-950 px-4 py-8">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-yellow-400 text-xs font-black text-gray-950">
+              SD
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider text-stone-600">
+              The Shelf Dude
             </span>
           </div>
-        </main>
-      </div>
+          <p className="text-xs text-stone-700">
+            &copy; {new Date().getFullYear()} WDO Custom. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Toggle component
+// Trust Badge Component
 // ═══════════════════════════════════════════════════════════════════════════
-function Toggle({
-  checked,
-  onChange,
-  label,
-  detail,
+function TrustBadge({
+  icon,
+  title,
+  desc,
 }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  detail: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 transition-colors hover:bg-stone-100">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5 rounded border-stone-300 accent-yellow-400 focus:ring-yellow-400"
-      />
-      <span className="flex-1 text-sm font-medium text-gray-800">
-        {label}
-      </span>
-      <span className="text-xs font-semibold text-stone-500">{detail}</span>
-    </label>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BlueprintCanvas — exact port of drawBlueprint from source code
-// ═══════════════════════════════════════════════════════════════════════════
-function BlueprintCanvas({
-  cols,
-  rows,
-  toteType,
-  hasTotes,
-  hasWheels,
-  hasTop,
-}: {
-  cols: number;
-  rows: number;
-  toteType: ToteType;
-  hasTotes: boolean;
-  hasWheels: boolean;
-  hasTop: boolean;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  const realW = cols * opening + (cols + 1) * STUD;
-  const realH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
-
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    // Set canvas resolution to match container
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const W = Math.round(rect.width * dpr);
-    const H = Math.round(rect.height * dpr);
-    canvas.width = W;
-    canvas.height = H;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-
-    const cW = rect.width;
-    const cH = rect.height;
-    ctx.clearRect(0, 0, cW, cH);
-
-    // ── Exact source-of-truth drawing logic ──────────────────────────
-    const woodFill = "#e2b686";
-    const woodStroke = "#925f32";
-
-    const margin = 40;
-    const safeW = cW - margin * 2;
-    const safeH = cH - margin * 2;
-
-    let visualH_in = realH;
-    if (hasWheels) visualH_in += 6;
-    if (hasTop) visualH_in += 1;
-
-    const scale = Math.min(safeW / realW, safeH / visualH_in);
-
-    const pTotalW = realW * scale;
-    const pTotalH = realH * scale;
-    const pStud = STUD * scale;
-    const pBay = opening * scale;
-    const pPlate = PLATE_HEIGHT * scale;
-    const pTopGap = TOP_GAP * scale;
-
-    const startX = (cW - pTotalW) / 2;
-    const visualPixelH = visualH_in * scale;
-    const startY = (cH - visualPixelH) / 2 + (hasTop ? 1 * scale : 0);
-
-    ctx.fillStyle = woodFill;
-    ctx.strokeStyle = woodStroke;
-    ctx.lineWidth = 2;
-
-    // Bottom plate
-    ctx.fillRect(startX, startY + pTotalH - pPlate, pTotalW, pPlate);
-    ctx.strokeRect(startX, startY + pTotalH - pPlate, pTotalW, pPlate);
-    // Top plate
-    ctx.fillRect(startX, startY, pTotalW, pPlate);
-    ctx.strokeRect(startX, startY, pTotalW, pPlate);
-
-    // Vertical posts
-    const postH = pTotalH - pPlate * 2;
-    const postY = startY + pPlate;
-    for (let i = 0; i <= cols; i++) {
-      const x = startX + i * (pBay + pStud);
-      ctx.fillStyle = woodFill;
-      ctx.strokeStyle = woodStroke;
-      ctx.fillRect(x, postY, pStud, postH);
-      ctx.strokeRect(x, postY, pStud, postH);
-    }
-
-    // Rails + Totes per bay
-    const railH = 1.5 * scale;
-    const railW = 1.5 * scale;
-
-    for (let c = 0; c < cols; c++) {
-      const bayLeftX = startX + pStud + c * (pBay + pStud);
-      const bayRightX = bayLeftX + pBay;
-
-      for (let r = 1; r <= rows; r++) {
-        const levelY = startY + pPlate + pTopGap + (r - 1) * 16 * scale;
-
-        // Left rail
-        ctx.fillStyle = woodFill;
-        ctx.strokeStyle = woodStroke;
-        ctx.fillRect(bayLeftX, levelY, railW, railH);
-        ctx.strokeRect(bayLeftX, levelY, railW, railH);
-        // Right rail
-        ctx.fillRect(bayRightX - railW, levelY, railW, railH);
-        ctx.strokeRect(bayRightX - railW, levelY, railW, railH);
-
-        // Totes
-        if (hasTotes) {
-          const tW = pBay * 0.94;
-          const tH = 12 * scale;
-          const tX = bayLeftX + (pBay - tW) / 2;
-          const tY = levelY;
-          const lidH = 1.5 * scale;
-
-          // Lid — yellow
-          ctx.fillStyle = "#fbbf24";
-          ctx.strokeStyle = "#d97706";
-          ctx.fillRect(tX, tY - lidH, tW, lidH);
-          ctx.strokeRect(tX, tY - lidH, tW, lidH);
-
-          // Body — dark
-          const bodyW = tW * 0.9;
-          const bodyX = tX + (tW - bodyW) / 2;
-          ctx.fillStyle = "#1e293b";
-          ctx.strokeStyle = "#0f172a";
-          ctx.fillRect(bodyX, tY, bodyW, tH);
-          ctx.strokeRect(bodyX, tY, bodyW, tH);
-        }
-      }
-    }
-
-    // Plywood top
-    if (hasTop) {
-      const topThick = 0.75 * scale;
-      const overhang = 1 * scale;
-      ctx.fillStyle = "#f3d2a3";
-      ctx.strokeStyle = woodStroke;
-      ctx.fillRect(
-        startX - overhang,
-        startY - topThick,
-        pTotalW + overhang * 2,
-        topThick
-      );
-      ctx.strokeRect(
-        startX - overhang,
-        startY - topThick,
-        pTotalW + overhang * 2,
-        topThick
-      );
-    }
-
-    // Wheels
-    if (hasWheels) {
-      const wSize = 5 * scale;
-      const wY = startY + pTotalH;
-      ctx.fillStyle = "#334155";
-      ctx.strokeStyle = "#1e293b";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(startX + pStud * 2, wY + wSize / 2, wSize / 2, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(
-        startX + pTotalW - pStud * 2,
-        wY + wSize / 2,
-        wSize / 2,
-        0,
-        2 * Math.PI
-      );
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    // Watermark
-    ctx.save();
-    ctx.translate(cW / 2, cH / 2);
-    ctx.rotate(-Math.PI / 6);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(0,0,0,0.03)";
-    ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
-    ctx.fillText("WDO CUSTOM", 0, 0);
-    ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop]);
-
-  // Redraw on config change
-  useEffect(() => {
-    draw();
-  }, [draw]);
-
-  // Redraw on resize
-  useEffect(() => {
-    const handleResize = () => draw();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [draw]);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0">
-      <canvas
-        ref={canvasRef}
-        className="h-full w-full"
-        style={{ display: "block" }}
-      />
+    <div className="rounded-xl border border-stone-800 bg-gray-900 p-6 text-center transition-colors hover:border-stone-700">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10 text-yellow-400">
+        {icon}
+      </div>
+      <h3 className="mb-2 text-sm font-extrabold uppercase tracking-wider text-white">
+        {title}
+      </h3>
+      <p className="text-xs leading-relaxed text-stone-500">{desc}</p>
     </div>
   );
 }
