@@ -1,10 +1,10 @@
 "use server";
 
 // ---------------------------------------------------------------------------
-// The Shelf Dude Partner Network – Calculation Engine
+// The Shelf Dude Partner Network – Calculation Engine (v2)
 // ---------------------------------------------------------------------------
-// Server Action that computes shelf specs, cut lists, and shopping lists
-// based on available wall space and tote type.
+// Server Action: computes shelf specs, cut lists, shopping lists, and pricing
+// with add-on support (totes, wheels, plywood top).
 // ---------------------------------------------------------------------------
 
 const TOTE_WIDTHS = {
@@ -18,12 +18,17 @@ const POST_WIDTH = 1.5; // 2×4 vertical post
 const TIER_HEIGHT = 16; // inches per tier (vertical spacing)
 const PRICE_PER_SLOT = 40; // dollars per opening
 
+// Add-on pricing
+const ADDON_TOTE_PRICE = 12; // per tote
+const ADDON_WHEELS_PRICE = 45; // flat fee
+const ADDON_PLYWOOD_TOP_PRICE = 75; // flat fee
+
 // -- Result types -----------------------------------------------------------
 
 interface Specs {
   rows: number;
   cols: number;
-  total_width: number;  // inches
+  total_width: number; // inches
   total_height: number; // inches
 }
 
@@ -38,25 +43,59 @@ interface ShoppingListItem {
   qty: number;
 }
 
+export interface AddOns {
+  includeTotes: boolean;
+  includeWheels: boolean;
+  includePlywoodTop: boolean;
+}
+
+export interface LineItem {
+  label: string;
+  qty: number | null; // null = flat fee
+  unit_price: number;
+  total: number;
+}
+
 export interface CalculationResult {
   specs: Specs;
   cut_list: CutListItem[];
   shopping_list: ShoppingListItem[];
-  price: number;
+  line_items: LineItem[];
+  price: number; // base unit price (slots × $40)
+  addons_total: number;
+  grand_total: number;
+}
+
+// -- Wall-fit helper --------------------------------------------------------
+// Returns the max cols and rows that fit within a wall, without building.
+
+export async function getMaxFit(
+  wallWidth: number,
+  wallHeight: number,
+  toteType: string
+): Promise<{ maxCols: number; maxRows: number }> {
+  const key = toteType.toLowerCase() as ToteType;
+  const toteWidth = TOTE_WIDTHS[key] ?? TOTE_WIDTHS.hdx;
+  const maxCols = Math.max(
+    1,
+    Math.floor((wallWidth - POST_WIDTH) / (toteWidth + POST_WIDTH))
+  );
+  const maxRows = Math.max(1, Math.floor(wallHeight / TIER_HEIGHT));
+  return { maxCols, maxRows };
 }
 
 // -- Validation -------------------------------------------------------------
 
-function validateInputs(
-  width: number,
-  height: number,
+function validateDesign(
+  cols: number,
+  rows: number,
   toteType: string
 ): { valid: true; tote: ToteType } | { valid: false; error: string } {
-  if (!Number.isFinite(width) || width <= 0) {
-    return { valid: false, error: "Width must be a positive number." };
+  if (!Number.isFinite(cols) || cols < 1 || cols > 20) {
+    return { valid: false, error: "Columns must be between 1 and 20." };
   }
-  if (!Number.isFinite(height) || height <= 0) {
-    return { valid: false, error: "Height must be a positive number." };
+  if (!Number.isFinite(rows) || rows < 1 || rows > 12) {
+    return { valid: false, error: "Tiers must be between 1 and 12." };
   }
   const key = toteType.toLowerCase();
   if (!(key in TOTE_WIDTHS)) {
@@ -71,100 +110,72 @@ function validateInputs(
 // -- Core calculation -------------------------------------------------------
 
 export async function calculateShelfMaterials(
-  width: number,
-  height: number,
-  toteType: string
+  cols: number,
+  rows: number,
+  toteType: string,
+  addOns?: AddOns
 ): Promise<CalculationResult> {
-  const check = validateInputs(width, height, toteType);
+  const check = validateDesign(cols, rows, toteType);
   if (!check.valid) {
     throw new Error(check.error);
   }
 
   const toteWidth = TOTE_WIDTHS[check.tote];
+  const opts: AddOns = addOns ?? {
+    includeTotes: false,
+    includeWheels: false,
+    includePlywoodTop: false,
+  };
 
-  // -- Columns (horizontal) -------------------------------------------------
-  // Layout: |post|tote|post|tote|post|...
-  // First post is mandatory, then each column adds (toteWidth + POST_WIDTH).
-  // cols = floor((availableWidth - first post) / (toteWidth + postWidth))
-  const cols = Math.floor((width - POST_WIDTH) / (toteWidth + POST_WIDTH));
-  if (cols < 1) {
-    throw new Error(
-      `Wall width (${width}") is too narrow for even one ${check.tote} tote (need at least ${toteWidth + POST_WIDTH * 2}").`
-    );
-  }
-
-  // -- Rows (vertical) ------------------------------------------------------
-  // Each tier uses TIER_HEIGHT of vertical space.
-  const rows = Math.floor(height / TIER_HEIGHT);
-  if (rows < 1) {
-    throw new Error(
-      `Wall height (${height}") is too short for even one tier (need at least ${TIER_HEIGHT}").`
-    );
-  }
-
-  // -- Actual built dimensions ----------------------------------------------
+  // -- Dimensions -----------------------------------------------------------
   const totalWidth = POST_WIDTH + cols * (toteWidth + POST_WIDTH);
   const totalHeight = rows * TIER_HEIGHT;
 
-  // -- Slots (openings) -----------------------------------------------------
+  // -- Slots ----------------------------------------------------------------
   const totalSlots = rows * cols;
 
   // -- Cut list -------------------------------------------------------------
-  // Vertical posts: one on each side of every column → cols + 1
-  // They run the full built height.
   const verticalPostQty = cols + 1;
-
-  // Horizontal rails: span between the outer posts per tier.
-  // One rail at the bottom of each tier + one at the very top → rows + 1 sets.
-  // Each set has a front rail and a back rail → multiply by 2.
-  const railLength = totalWidth - POST_WIDTH * 2; // inside edge to inside edge
+  const railLength = totalWidth - POST_WIDTH * 2;
   const horizontalRailSets = rows + 1;
-  const horizontalRailQty = horizontalRailSets * 2; // front + back
-
-  // Shelf platforms: one per tier, spans full inside width.
+  const horizontalRailQty = horizontalRailSets * 2;
   const shelfQty = rows;
 
   const cut_list: CutListItem[] = [
     {
       part_name: "Vertical Post (2×4)",
-      length: totalHeight,
+      length: parseFloat(totalHeight.toFixed(2)),
       qty: verticalPostQty,
     },
     {
       part_name: "Horizontal Rail (2×4)",
-      length: railLength,
+      length: parseFloat(railLength.toFixed(2)),
       qty: horizontalRailQty,
     },
     {
       part_name: "Shelf Platform (plywood/OSB)",
-      length: railLength, // width of the shelf; depth determined by tote
+      length: parseFloat(railLength.toFixed(2)),
       qty: shelfQty,
     },
   ];
 
   // -- Shopping list --------------------------------------------------------
-  // 2×4 studs: each is 96" (8 ft). Figure out how many raw studs are needed.
   const STUD_LENGTH = 96;
   const totalVerticalLinear = verticalPostQty * totalHeight;
   const totalHorizontalLinear = horizontalRailQty * railLength;
   const totalLinearInches = totalVerticalLinear + totalHorizontalLinear;
   const studsNeeded = Math.ceil(totalLinearInches / STUD_LENGTH);
 
-  // Plywood sheets: 48×96 (4×8 ft). Each shelf is railLength × ~20" deep.
-  // Sheets can yield floor(96 / railLength) shelves across length,
-  // and floor(48 / 20) = 2 shelves across width → shelves per sheet.
   const SHEET_W = 48;
   const SHEET_L = 96;
-  const shelfDepth = 20; // approximate tote depth in inches
+  const shelfDepth = 20;
   const shelvesAcrossLength = Math.max(1, Math.floor(SHEET_L / railLength));
   const shelvesAcrossWidth = Math.max(1, Math.floor(SHEET_W / shelfDepth));
   const shelvesPerSheet = shelvesAcrossLength * shelvesAcrossWidth;
   const sheetsNeeded = Math.ceil(shelfQty / shelvesPerSheet);
 
-  // Screws: ~8 per joint. Joints = 2 per rail end × horizontalRailQty
   const screwJoints = horizontalRailQty * 2;
   const screwsNeeded = screwJoints * 8;
-  // Boxes of 100
   const screwBoxes = Math.ceil(screwsNeeded / 100);
 
   const shopping_list: ShoppingListItem[] = [
@@ -173,8 +184,50 @@ export async function calculateShelfMaterials(
     { sku_name: "Construction Screws (box of 100)", qty: screwBoxes },
   ];
 
-  // -- Price ----------------------------------------------------------------
-  const price = totalSlots * PRICE_PER_SLOT;
+  // -- Line items & pricing -------------------------------------------------
+  const basePrice = totalSlots * PRICE_PER_SLOT;
+
+  const line_items: LineItem[] = [
+    {
+      label: `Shelf Unit (${cols}×${rows})`,
+      qty: totalSlots,
+      unit_price: PRICE_PER_SLOT,
+      total: basePrice,
+    },
+  ];
+
+  let addonsTotal = 0;
+
+  if (opts.includeTotes) {
+    const toteTotal = totalSlots * ADDON_TOTE_PRICE;
+    line_items.push({
+      label: `${check.tote.toUpperCase()} Totes`,
+      qty: totalSlots,
+      unit_price: ADDON_TOTE_PRICE,
+      total: toteTotal,
+    });
+    addonsTotal += toteTotal;
+  }
+
+  if (opts.includeWheels) {
+    line_items.push({
+      label: "Locking Caster Wheels",
+      qty: null,
+      unit_price: ADDON_WHEELS_PRICE,
+      total: ADDON_WHEELS_PRICE,
+    });
+    addonsTotal += ADDON_WHEELS_PRICE;
+  }
+
+  if (opts.includePlywoodTop) {
+    line_items.push({
+      label: "Finished Plywood Top",
+      qty: null,
+      unit_price: ADDON_PLYWOOD_TOP_PRICE,
+      total: ADDON_PLYWOOD_TOP_PRICE,
+    });
+    addonsTotal += ADDON_PLYWOOD_TOP_PRICE;
+  }
 
   return {
     specs: {
@@ -185,6 +238,9 @@ export async function calculateShelfMaterials(
     },
     cut_list,
     shopping_list,
-    price,
+    line_items,
+    price: basePrice,
+    addons_total: addonsTotal,
+    grand_total: basePrice + addonsTotal,
   };
 }

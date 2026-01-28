@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   calculateShelfMaterials,
+  getMaxFit,
   type CalculationResult,
 } from "@/app/actions/calculate";
 import {
@@ -112,7 +113,12 @@ export default function DashboardPage() {
 
     setCalculating(true);
     try {
-      const result = await calculateShelfMaterials(w, h, toteType);
+      const fit = await getMaxFit(w, h, toteType);
+      const result = await calculateShelfMaterials(
+        fit.maxCols,
+        fit.maxRows,
+        toteType
+      );
       setCalcResult(result);
     } catch (err) {
       setCalcError(err instanceof Error ? err.message : "Calculation failed.");
@@ -432,7 +438,7 @@ function CalculatorTab({
               Estimated Price
             </h3>
             <p className="text-5xl font-extrabold tracking-tight text-emerald-500">
-              ${calcResult.price.toLocaleString()}
+              ${calcResult.grand_total.toLocaleString()}
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
               {calcResult.specs.rows * calcResult.specs.cols} slots × $40 each

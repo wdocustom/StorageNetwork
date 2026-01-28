@@ -1,37 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   calculateShelfMaterials,
+  getMaxFit,
   type CalculationResult,
+  type AddOns,
 } from "@/app/actions/calculate";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import {
-  Ruler,
-  DollarSign,
-  Loader2,
-  Grid3X3,
-  Send,
+  MapPin,
   CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  Send,
   ArrowRight,
+  Receipt,
+  Truck,
+  Package,
+  CircleDot,
 } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Public Calculator Page
-// ---------------------------------------------------------------------------
+// ═══════════════════════════════════════════════════════════════════════════
+// Public Calculator Page — "Construction Pro" Theme
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function PublicCalculatorPage() {
-  // Calculator inputs
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
+  // ── Zip code check ──────────────────────────────────────────────────────
+  const [zip, setZip] = useState("");
+  const [zipStatus, setZipStatus] = useState<
+    null | "local" | "hq"
+  >(null);
+
+  // ── Wall-fit inputs ─────────────────────────────────────────────────────
+  const [wallWidth, setWallWidth] = useState("");
+  const [wallHeight, setWallHeight] = useState("");
+  const [wallFitResult, setWallFitResult] = useState<{
+    maxCols: number;
+    maxRows: number;
+  } | null>(null);
+
+  // ── Design inputs ───────────────────────────────────────────────────────
+  const [cols, setCols] = useState(3);
+  const [rows, setRows] = useState(4);
   const [toteType, setToteType] = useState<"hdx" | "greenmade">("hdx");
 
-  // Calculation state
+  // ── Add-ons ─────────────────────────────────────────────────────────────
+  const [includeTotes, setIncludeTotes] = useState(false);
+  const [includeWheels, setIncludeWheels] = useState(false);
+  const [includePlywoodTop, setIncludePlywoodTop] = useState(false);
+
+  // ── Calculation state ───────────────────────────────────────────────────
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [calcError, setCalcError] = useState("");
   const [calculating, setCalculating] = useState(false);
 
-  // Quote form state
+  // ── Quote form ──────────────────────────────────────────────────────────
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -40,32 +64,51 @@ export default function PublicCalculatorPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  // -- Handlers -------------------------------------------------------------
+  // ── Auto-recalculate when design changes ────────────────────────────────
+  const addOns: AddOns = useMemo(
+    () => ({ includeTotes, includeWheels, includePlywoodTop }),
+    [includeTotes, includeWheels, includePlywoodTop]
+  );
 
-  async function handleCalculate() {
+  const runCalculation = useCallback(async () => {
     setCalcError("");
-    setResult(null);
-    setSubmitted(false);
-
-    const w = parseFloat(width);
-    const h = parseFloat(height);
-    if (!w || !h) {
-      setCalcError("Please enter valid width and height values.");
-      return;
-    }
-
     setCalculating(true);
     try {
-      const res = await calculateShelfMaterials(w, h, toteType);
+      const res = await calculateShelfMaterials(cols, rows, toteType, addOns);
       setResult(res);
     } catch (err) {
       setCalcError(err instanceof Error ? err.message : "Calculation failed.");
+      setResult(null);
     } finally {
       setCalculating(false);
     }
+  }, [cols, rows, toteType, addOns]);
+
+  useEffect(() => {
+    runCalculation();
+  }, [runCalculation]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────
+
+  function handleZipCheck() {
+    if (zip.trim() === "68102") {
+      setZipStatus("local");
+    } else {
+      setZipStatus("hq");
+    }
   }
 
-  async function handleGetQuote() {
+  async function handleWallFit() {
+    const w = parseFloat(wallWidth);
+    const h = parseFloat(wallHeight);
+    if (!w || !h) return;
+    const fit = await getMaxFit(w, h, toteType);
+    setWallFitResult(fit);
+    setCols(fit.maxCols);
+    setRows(fit.maxRows);
+  }
+
+  async function handleBookDeposit() {
     setSubmitError("");
     if (!name.trim() || !email.trim()) {
       setSubmitError("Name and email are required.");
@@ -81,11 +124,11 @@ export default function PublicCalculatorPage() {
         customer_phone: phone,
         address,
         dimensions: {
-          width: parseFloat(width),
-          height: parseFloat(height),
+          width: result.specs.total_width,
+          height: result.specs.total_height,
           tote_type: toteType,
         },
-        estimated_price: result.price,
+        estimated_price: result.grand_total,
       });
       setSubmitted(true);
     } catch (err) {
@@ -97,342 +140,596 @@ export default function PublicCalculatorPage() {
     }
   }
 
-  // -- Render ---------------------------------------------------------------
+  // ── Dropdown option generators ──────────────────────────────────────────
+  const colOptions = Array.from({ length: 10 }, (_, i) => i + 1);
+  const rowOptions = Array.from({ length: 8 }, (_, i) => i + 1);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen bg-radial-top text-white">
-      {/* ── Hero / Header ──────────────────────────────────────────────── */}
-      <header className="px-4 pb-6 pt-10 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
-          The Shelf Dude
-        </h1>
-        <p className="mx-auto mt-2 max-w-md text-sm text-gray-400">
-          Tote-based garage shelving — built to fit your wall. Enter your
-          dimensions below to see what we can build.
-        </p>
+    <div className="min-h-screen bg-stone-100">
+      {/* ── Top Bar ────────────────────────────────────────────────────── */}
+      <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded bg-yellow-400 text-lg font-black text-gray-950">
+              SD
+            </div>
+            <div>
+              <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
+                The Shelf Dude
+              </h1>
+              <p className="text-[10px] uppercase tracking-wider text-yellow-400">
+                Partner Network &mdash; Build Configurator
+              </p>
+            </div>
+          </div>
+          <a
+            href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/dashboard`}
+            className="hidden text-xs font-semibold text-stone-400 transition-colors hover:text-yellow-400 sm:inline-flex sm:items-center sm:gap-1"
+          >
+            Installer Login <ArrowRight className="h-3 w-3" />
+          </a>
+        </div>
       </header>
 
-      <main className="mx-auto max-w-lg space-y-5 px-4 pb-16">
-        {/* ── Dimension Inputs ─────────────────────────────────────────── */}
-        <section className="card-float p-5">
-          <h2 className="mb-4 text-sm font-semibold text-slate-300">
-            Your Wall
-          </h2>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                Width (inches)
-              </label>
+      {/* ── Main Split Layout ──────────────────────────────────────────── */}
+      <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
+        {/* ════════════════════════════════════════════════════════════════
+            LEFT SIDEBAR — Controls
+        ════════════════════════════════════════════════════════════════ */}
+        <aside className="w-full shrink-0 space-y-4 p-4 lg:w-[420px] lg:overflow-y-auto lg:border-r lg:border-stone-300">
+          {/* ── 1. Installer Availability ──────────────────────────────── */}
+          <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+              <MapPin className="h-4 w-4 text-yellow-600" />
+              Check Installer Availability
+            </h2>
+            <div className="flex gap-2">
               <input
-                type="number"
-                inputMode="decimal"
-                value={width}
-                onChange={(e) => setWidth(e.target.value)}
-                placeholder="e.g. 120"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={zip}
+                onChange={(e) => {
+                  setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                  setZipStatus(null);
+                }}
+                placeholder="ZIP Code"
+                className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               />
+              <button
+                onClick={handleZipCheck}
+                disabled={zip.length < 5}
+                className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
+              >
+                Check
+              </button>
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">
-                Height (inches)
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                placeholder="e.g. 96"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <label className="mb-1 block text-xs text-slate-400">
-              Tote Type
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["hdx", "greenmade"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setToteType(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    toteType === t
-                      ? "border-indigo-500 bg-indigo-600/20 text-indigo-300"
-                      : "border-slate-700 text-slate-400 hover:border-slate-600"
-                  }`}
-                >
-                  {t === "hdx" ? 'HDX (19.75")' : 'Greenmade (20.75")'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={handleCalculate}
-            disabled={calculating}
-            className="btn-brand mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white"
-          >
-            {calculating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Ruler className="h-4 w-4" />
+            {zipStatus === "local" && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                WDO Custom serves your area.
+              </div>
             )}
-            {calculating ? "Calculating…" : "See My Build"}
-          </button>
+            {zipStatus === "hq" && (
+              <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                No local partner found. Routing to HQ.
+              </div>
+            )}
+          </section>
+
+          {/* ── 2. Wall Fit Calculator ─────────────────────────────────── */}
+          <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+              Wall Fit Calculator
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Wall Width (in)
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={wallWidth}
+                  onChange={(e) => setWallWidth(e.target.value)}
+                  placeholder="e.g. 120"
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+              <div>
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Wall Height (in)
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={wallHeight}
+                  onChange={(e) => setWallHeight(e.target.value)}
+                  placeholder="e.g. 96"
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleWallFit}
+              disabled={!wallWidth || !wallHeight}
+              className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
+            >
+              Find Max Size for This Wall
+            </button>
+            {wallFitResult && (
+              <p className="mt-2 text-center text-xs text-stone-500">
+                Max fit:{" "}
+                <span className="font-bold text-gray-900">
+                  {wallFitResult.maxCols} cols × {wallFitResult.maxRows} tiers
+                </span>
+                &ensp;&mdash;&ensp;applied below.
+              </p>
+            )}
+          </section>
+
+          {/* ── 3. Design Your Unit ────────────────────────────────────── */}
+          <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+              Design Your Unit
+            </h2>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Columns
+                </label>
+                <select
+                  value={cols}
+                  onChange={(e) => setCols(Number(e.target.value))}
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                >
+                  {colOptions.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Tiers High
+                </label>
+                <select
+                  value={rows}
+                  onChange={(e) => setRows(Number(e.target.value))}
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                >
+                  {rowOptions.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Tote Model
+                </label>
+                <select
+                  value={toteType}
+                  onChange={(e) =>
+                    setToteType(e.target.value as "hdx" | "greenmade")
+                  }
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="hdx">HDX (19.75&quot;)</option>
+                  <option value="greenmade">Greenmade (20.75&quot;)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Upsells */}
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500">
+                Add-Ons
+              </p>
+              <Checkbox
+                checked={includeTotes}
+                onChange={setIncludeTotes}
+                label="Add Totes"
+                detail="+$12 ea"
+              />
+              <Checkbox
+                checked={includeWheels}
+                onChange={setIncludeWheels}
+                label="Add Wheels"
+                detail="+$45 flat"
+              />
+              <Checkbox
+                checked={includePlywoodTop}
+                onChange={setIncludePlywoodTop}
+                label="Plywood Top"
+                detail="+$75 flat"
+              />
+            </div>
+          </section>
+
+          {/* ── 4. Quote Receipt ───────────────────────────────────────── */}
+          {result && (
+            <section className="overflow-hidden rounded-xl border border-stone-300 bg-white shadow-sm">
+              {/* Receipt header */}
+              <div className="border-b border-dashed border-stone-300 bg-stone-50 px-4 py-3">
+                <h2 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                  <Receipt className="h-4 w-4" />
+                  Quote Summary
+                </h2>
+              </div>
+
+              {/* Line items */}
+              <div className="divide-y divide-dashed divide-stone-200 px-4">
+                {result.line_items.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between py-2.5 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{item.label}</p>
+                      <p className="text-[10px] text-stone-400">
+                        {item.qty !== null
+                          ? `${item.qty} × $${item.unit_price}`
+                          : `Flat fee`}
+                      </p>
+                    </div>
+                    <span className="font-bold text-gray-900">
+                      ${item.total.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total */}
+              <div className="border-t-2 border-gray-950 bg-gray-950 px-4 py-4">
+                <div className="flex items-end justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Total
+                  </span>
+                  <span className="text-4xl font-black text-yellow-400">
+                    ${result.grand_total.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Booking form / success */}
+              <div className="border-t border-stone-200 bg-stone-50 px-4 py-4">
+                {!submitted ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Your name *"
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                    />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email *"
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                    />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Phone (optional)"
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                    />
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Address / City (optional)"
+                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                    />
+                    <button
+                      onClick={handleBookDeposit}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-950 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {submitting ? "Submitting…" : "Pay Deposit & Book"}
+                    </button>
+                    {submitError && (
+                      <p className="text-xs font-medium text-red-600">
+                        {submitError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-4 text-center">
+                    <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
+                    <p className="font-bold text-gray-900">Booking Received!</p>
+                    <p className="mt-0.5 text-xs text-stone-500">
+                      We&apos;ll reach out within 24 hours.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {calcError && (
-            <p className="mt-3 rounded-lg bg-red-900/40 p-3 text-sm text-red-400">
+            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
               {calcError}
             </p>
           )}
-        </section>
+        </aside>
 
-        {/* ── Results ──────────────────────────────────────────────────── */}
-        {result && (
-          <>
-            {/* Visualizer */}
-            <section className="card-float p-5">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Grid3X3 className="h-4 w-4 text-blue-400" />
-                Your Shelf Layout
-              </h3>
-              <ShelfVisualizer
-                rows={result.specs.rows}
-                cols={result.specs.cols}
-                totalWidth={result.specs.total_width}
-                totalHeight={result.specs.total_height}
-              />
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <StatCard label="Columns" value={result.specs.cols} />
-                <StatCard label="Rows (Tiers)" value={result.specs.rows} />
-                <StatCard
-                  label="Built Width"
-                  value={`${result.specs.total_width}"`}
-                />
-                <StatCard
-                  label="Built Height"
-                  value={`${result.specs.total_height}"`}
-                />
-              </div>
-            </section>
-
-            {/* Price */}
-            <section className="card-float p-5 text-center">
-              <DollarSign className="mx-auto mb-1 h-6 w-6 text-emerald-400" />
-              <p className="text-5xl font-extrabold tracking-tight text-emerald-400">
-                ${result.price.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {result.specs.rows * result.specs.cols} slots &times; $40 per
-                slot
-              </p>
-            </section>
-
-            {/* Get Quote Form */}
-            {!submitted ? (
-              <section className="card-float p-5">
-                <h3 className="mb-1 text-sm font-semibold text-slate-300">
-                  Like what you see?
-                </h3>
-                <p className="mb-4 text-xs text-slate-500">
-                  Enter your info and we&apos;ll connect you with a local
-                  installer.
-                </p>
-
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name *"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email *"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Phone (optional)"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Address / City (optional)"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-
-                  <button
-                    onClick={handleGetQuote}
-                    disabled={submitting}
-                    className="btn-brand-green flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white"
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {submitting ? "Submitting…" : "Get Quote"}
-                  </button>
-
-                  {submitError && (
-                    <p className="rounded-lg bg-red-900/40 p-3 text-sm text-red-400">
-                      {submitError}
-                    </p>
-                  )}
-                </div>
-              </section>
-            ) : (
-              <section className="rounded-2xl border border-emerald-800 bg-emerald-900/30 p-6 text-center">
-                <CheckCircle2 className="mx-auto mb-2 h-10 w-10 text-emerald-400" />
-                <h3 className="text-lg font-bold text-emerald-300">
-                  Quote Request Sent!
-                </h3>
-                <p className="mt-1 text-sm text-emerald-400/70">
-                  We&apos;ll match you with a local installer shortly.
-                </p>
-              </section>
-            )}
-          </>
-        )}
-
-        {/* ── Installer CTA ────────────────────────────────────────────── */}
-        <div className="pt-4 text-center">
-          <a
-            href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/dashboard`}
-            className="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-indigo-400"
-          >
-            Are you an installer? Log in here
-            <ArrowRight className="h-3 w-3" />
-          </a>
-        </div>
-      </main>
+        {/* ════════════════════════════════════════════════════════════════
+            RIGHT SIDE — Visualizer
+        ════════════════════════════════════════════════════════════════ */}
+        <main className="flex flex-1 items-start justify-center p-6 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+          {calculating && !result ? (
+            <div className="flex h-64 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
+            </div>
+          ) : result ? (
+            <ShelfVisualizer
+              rows={result.specs.rows}
+              cols={result.specs.cols}
+              totalWidth={result.specs.total_width}
+              totalHeight={result.specs.total_height}
+              showWheels={includeWheels}
+              showPlywoodTop={includePlywoodTop}
+            />
+          ) : null}
+        </main>
+      </div>
     </div>
   );
 }
 
-// ===========================================================================
-// Shelf Visualizer – Realistic Schematic
-// ===========================================================================
+// ═══════════════════════════════════════════════════════════════════════════
+// Checkbox component
+// ═══════════════════════════════════════════════════════════════════════════
+
+function Checkbox({
+  checked,
+  onChange,
+  label,
+  detail,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  detail: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 transition-colors hover:bg-stone-100">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-stone-300 text-yellow-500 accent-yellow-400 focus:ring-yellow-400"
+      />
+      <span className="flex-1 text-sm font-medium text-gray-800">
+        {label}
+      </span>
+      <span className="text-xs font-semibold text-stone-500">{detail}</span>
+    </label>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shelf Visualizer — Construction-Style Schematic
+// ═══════════════════════════════════════════════════════════════════════════
 
 function ShelfVisualizer({
   rows,
   cols,
   totalWidth,
   totalHeight,
+  showWheels,
+  showPlywoodTop,
 }: {
   rows: number;
   cols: number;
   totalWidth: number;
   totalHeight: number;
+  showWheels: boolean;
+  showPlywoodTop: boolean;
 }) {
   const displayCols = Math.min(cols, 10);
   const displayRows = Math.min(rows, 8);
   const truncated = cols > displayCols || rows > displayRows;
 
   // Sizing constants (px)
-  const POST_W = 6;        // vertical post width
-  const BEAM_H = 5;        // horizontal shelf beam height
-  const TOTE_W = 44;       // tote cell width
-  const TOTE_H = 36;       // tote cell height
-  const ARROW_GAP = 28;    // space for dimension arrows
+  const POST_W = 8;
+  const BEAM_H = 6;
+  const TOTE_W = 52;
+  const TOTE_H = 42;
+  const ARROW_GAP = 32;
+  const WHEEL_R = 7;
+  const TOP_H = 8;
 
   const gridW = POST_W + displayCols * (TOTE_W + POST_W);
   const gridH = BEAM_H + displayRows * (TOTE_H + BEAM_H);
+  const extraBottom = showWheels ? WHEEL_R * 2 + 4 : 0;
+  const extraTop = showPlywoodTop ? TOP_H + 2 : 0;
 
   return (
-    <div className="flex flex-col items-center overflow-x-auto">
-      <div className="relative" style={{ padding: `${ARROW_GAP}px` }}>
-        {/* ── Width dimension arrow (top) ─────────────────────────── */}
-        <DimensionArrow
-          direction="horizontal"
-          length={gridW}
-          label={`${totalWidth}"`}
-          style={{ top: 0, left: ARROW_GAP, width: gridW }}
-        />
+    <div className="flex flex-col items-center">
+      {/* Specs pills */}
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+        <Pill icon={<Package className="h-3 w-3" />} label={`${cols}×${rows}`} sub="layout" />
+        <Pill icon={<Truck className="h-3 w-3" />} label={`${totalWidth}"`} sub="wide" />
+        <Pill icon={<CircleDot className="h-3 w-3" />} label={`${totalHeight}"`} sub="tall" />
+      </div>
 
-        {/* ── Height dimension arrow (left) ────────────────────────── */}
-        <DimensionArrow
-          direction="vertical"
-          length={gridH}
-          label={`${totalHeight}"`}
-          style={{ left: 0, top: ARROW_GAP, height: gridH }}
-        />
-
-        {/* ── Shelf structure ──────────────────────────────────────── */}
+      <div className="overflow-x-auto rounded-xl border border-stone-300 bg-white p-4 shadow-lg">
         <div
-          className="relative bg-gray-950 rounded"
-          style={{ width: gridW, height: gridH }}
+          className="relative"
+          style={{
+            padding: `${ARROW_GAP}px`,
+            paddingBottom: ARROW_GAP + extraBottom,
+            paddingTop: ARROW_GAP + extraTop,
+          }}
         >
-          {/* Top beam */}
-          <HorizontalBeam top={0} width={gridW} height={BEAM_H} />
+          {/* Width arrow (top) */}
+          <DimensionArrow
+            direction="horizontal"
+            length={gridW}
+            label={`${totalWidth}"`}
+            style={{ top: extraTop, left: ARROW_GAP, width: gridW }}
+          />
+          {/* Height arrow (left) */}
+          <DimensionArrow
+            direction="vertical"
+            length={gridH + extraTop + extraBottom}
+            label={`${totalHeight}"`}
+            style={{
+              left: 0,
+              top: ARROW_GAP,
+              height: gridH + extraTop + extraBottom,
+            }}
+          />
 
-          {Array.from({ length: displayRows }).map((_, row) => {
-            const rowTop = BEAM_H + row * (TOTE_H + BEAM_H);
-            return (
-              <div key={`row-${row}`}>
-                {/* Totes for this row */}
-                {Array.from({ length: displayCols }).map((_, col) => {
-                  const left = POST_W + col * (TOTE_W + POST_W);
-                  return (
-                    <PlasticTote
-                      key={`tote-${row}-${col}`}
-                      top={rowTop}
-                      left={left}
-                      width={TOTE_W}
-                      height={TOTE_H}
-                    />
-                  );
-                })}
-                {/* Beam below this row */}
-                <HorizontalBeam
-                  top={rowTop + TOTE_H}
-                  width={gridW}
-                  height={BEAM_H}
-                />
-              </div>
-            );
-          })}
-
-          {/* Vertical posts (left edge, between each column, right edge) */}
-          {Array.from({ length: displayCols + 1 }).map((_, col) => (
-            <VerticalPost
-              key={`post-${col}`}
-              left={col * (TOTE_W + POST_W)}
-              width={POST_W}
-              height={gridH}
+          {/* Plywood Top */}
+          {showPlywoodTop && (
+            <div
+              className="rounded-t"
+              style={{
+                position: "absolute",
+                top: ARROW_GAP,
+                left: ARROW_GAP,
+                width: gridW,
+                height: TOP_H,
+                background:
+                  "repeating-linear-gradient(90deg, #d4a574 0px, #c49660 3px, #deb887 6px)",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                borderBottom: "1px solid #b8860b",
+              }}
             />
-          ))}
+          )}
+
+          {/* Main grid */}
+          <div
+            className="relative rounded"
+            style={{
+              width: gridW,
+              height: gridH,
+              background: "#f5f5f4",
+              marginTop: extraTop,
+            }}
+          >
+            {/* Top beam */}
+            <WoodBeam top={0} width={gridW} height={BEAM_H} />
+
+            {Array.from({ length: displayRows }).map((_, row) => {
+              const rowTop = BEAM_H + row * (TOTE_H + BEAM_H);
+              return (
+                <div key={`row-${row}`}>
+                  {Array.from({ length: displayCols }).map((_, col) => {
+                    const left = POST_W + col * (TOTE_W + POST_W);
+                    return (
+                      <ConstructionTote
+                        key={`tote-${row}-${col}`}
+                        top={rowTop}
+                        left={left}
+                        width={TOTE_W}
+                        height={TOTE_H}
+                      />
+                    );
+                  })}
+                  <WoodBeam
+                    top={rowTop + TOTE_H}
+                    width={gridW}
+                    height={BEAM_H}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Vertical posts */}
+            {Array.from({ length: displayCols + 1 }).map((_, col) => (
+              <WoodPost
+                key={`post-${col}`}
+                left={col * (TOTE_W + POST_W)}
+                width={POST_W}
+                height={gridH}
+              />
+            ))}
+          </div>
+
+          {/* Wheels */}
+          {showWheels && (
+            <div
+              className="relative"
+              style={{ width: gridW, height: WHEEL_R * 2 + 4, marginTop: 2 }}
+            >
+              {Array.from({ length: displayCols + 1 }).map((_, col) => {
+                const cx = col * (TOTE_W + POST_W) + POST_W / 2;
+                return (
+                  <div
+                    key={`wheel-${col}`}
+                    className="absolute rounded-full border-2 border-stone-500 bg-stone-700"
+                    style={{
+                      width: WHEEL_R * 2,
+                      height: WHEEL_R * 2,
+                      left: cx - WHEEL_R,
+                      top: 2,
+                    }}
+                  >
+                    <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-400" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       {truncated && (
-        <p className="mt-1 text-[10px] text-gray-600">
+        <p className="mt-2 text-[10px] text-stone-400">
           Showing {displayCols}&times;{displayRows} of {cols}&times;{rows}
         </p>
       )}
-      <p className="mt-2 text-xs text-gray-500">
-        {cols} columns &times; {rows} tiers = {cols * rows} slots
+      <p className="mt-2 text-xs text-stone-500">
+        {cols} columns &times; {rows} tiers ={" "}
+        <span className="font-bold text-gray-900">{cols * rows} slots</span>
       </p>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Structural pieces
-// ---------------------------------------------------------------------------
+// ── Pill stat ─────────────────────────────────────────────────────────────
 
-/** 2×4 vertical post */
-function VerticalPost({
+function Pill({
+  icon,
+  label,
+  sub,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs">
+      <span className="text-yellow-600">{icon}</span>
+      <span className="font-bold text-gray-900">{label}</span>
+      <span className="text-stone-400">{sub}</span>
+    </div>
+  );
+}
+
+// ── Structural components ─────────────────────────────────────────────────
+
+function WoodPost({
   left,
   width,
   height,
@@ -443,21 +740,20 @@ function VerticalPost({
 }) {
   return (
     <div
-      className="absolute top-0 rounded-sm"
+      className="absolute top-0"
       style={{
         left,
         width,
         height,
         background:
-          "repeating-linear-gradient(180deg, #78716c 0px, #a8a29e 2px, #78716c 4px)",
-        boxShadow: "inset -1px 0 0 rgba(0,0,0,0.25)",
+          "repeating-linear-gradient(180deg, #a1887f 0px, #bcaaa4 1px, #8d6e63 3px, #a1887f 4px)",
+        boxShadow: "inset -1px 0 0 rgba(0,0,0,0.15), 1px 0 2px rgba(0,0,0,0.08)",
       }}
     />
   );
 }
 
-/** Horizontal shelf beam */
-function HorizontalBeam({
+function WoodBeam({
   top,
   width,
   height,
@@ -468,21 +764,21 @@ function HorizontalBeam({
 }) {
   return (
     <div
-      className="absolute left-0 rounded-sm"
+      className="absolute left-0"
       style={{
         top,
         width,
         height,
         background:
-          "repeating-linear-gradient(90deg, #78716c 0px, #a8a29e 2px, #78716c 4px)",
-        boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.25)",
+          "repeating-linear-gradient(90deg, #a1887f 0px, #bcaaa4 1px, #8d6e63 3px, #a1887f 4px)",
+        boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.08)",
       }}
     />
   );
 }
 
-/** Plastic tote bin with lid and handle */
-function PlasticTote({
+/** Construction tote: black body, yellow lid */
+function ConstructionTote({
   top,
   left,
   width,
@@ -493,51 +789,60 @@ function PlasticTote({
   width: number;
   height: number;
 }) {
-  const LID_H = 6;
-  const HANDLE_W = 14;
-  const HANDLE_H = 3;
+  const LID_H = 7;
+  const HANDLE_W = 16;
+  const HANDLE_H = 4;
 
   return (
     <div
       className="absolute overflow-hidden rounded-sm"
       style={{ top, left, width, height }}
     >
-      {/* Bin body */}
+      {/* Body — black plastic */}
       <div
-        className="absolute inset-0 rounded-sm border border-blue-800/60"
+        className="absolute inset-0 rounded-sm"
         style={{
-          background: "linear-gradient(180deg, #1e3a5f 0%, #1e40af 100%)",
+          background: "linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 40%, #1a1a1a 100%)",
+          border: "1px solid #333",
         }}
       >
-        {/* Inner bevel / depth illusion */}
-        <div className="absolute inset-[3px] rounded-sm border border-blue-400/10 bg-blue-900/40" />
+        {/* Inner depth line */}
+        <div className="absolute inset-[3px] rounded-sm border border-white/5" />
+        {/* Subtle ribs */}
+        <div className="absolute bottom-2 left-[6px] right-[6px] top-[12px] opacity-20">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="mb-[4px] h-[1px] bg-white/20"
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Lid – darker strip at top */}
+      {/* Lid — yellow strip */}
       <div
-        className="absolute left-0 right-0 top-0 border-b border-blue-950"
+        className="absolute left-0 right-0 top-0"
         style={{
           height: LID_H,
-          background: "linear-gradient(180deg, #0f2647 0%, #1a2e50 100%)",
+          background: "linear-gradient(180deg, #facc15 0%, #eab308 100%)",
+          borderBottom: "1px solid #ca8a04",
         }}
       >
-        {/* Lid ridge lines */}
-        <div className="absolute inset-x-1 top-[2px] h-[1px] bg-blue-700/30" />
-        <div className="absolute inset-x-1 bottom-[1px] h-[1px] bg-blue-700/20" />
+        {/* Lid snap ridge */}
+        <div className="absolute inset-x-1 bottom-0 h-[1px] bg-yellow-700/30" />
+        <div className="absolute inset-x-1 top-[1px] h-[1px] bg-yellow-200/50" />
       </div>
 
-      {/* Handle – centered on the face */}
+      {/* Handle — dark centered pill */}
       <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/30 bg-blue-400/20"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/8"
         style={{ width: HANDLE_W, height: HANDLE_H }}
       />
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Dimension arrow
-// ---------------------------------------------------------------------------
+// ── Dimension arrows ──────────────────────────────────────────────────────
 
 function DimensionArrow({
   direction,
@@ -550,60 +855,79 @@ function DimensionArrow({
   label: string;
   style: React.CSSProperties;
 }) {
+  const color = "#ca8a04"; // yellow-700
+
   if (direction === "horizontal") {
     return (
       <div className="absolute flex flex-col items-center" style={style}>
-        {/* Label */}
-        <span className="mb-0.5 text-[10px] font-semibold text-amber-400">
+        <span
+          className="mb-0.5 text-[10px] font-bold"
+          style={{ color }}
+        >
           {label}
         </span>
-        {/* Arrow line with end caps */}
-        <div className="relative flex w-full items-center" style={{ height: 8 }}>
-          {/* Left arrowhead */}
-          <div className="absolute left-0 h-0 w-0 border-y-[3px] border-r-[5px] border-y-transparent border-r-amber-500" />
-          {/* Line */}
-          <div className="mx-[5px] h-[1px] flex-1 bg-amber-500/70" />
-          {/* Right arrowhead */}
-          <div className="absolute right-0 h-0 w-0 border-y-[3px] border-l-[5px] border-y-transparent border-l-amber-500" />
+        <div
+          className="relative flex w-full items-center"
+          style={{ height: 8 }}
+        >
+          <div
+            className="absolute left-0 h-0 w-0"
+            style={{
+              borderTop: "3px solid transparent",
+              borderBottom: "3px solid transparent",
+              borderRight: `5px solid ${color}`,
+            }}
+          />
+          <div
+            className="mx-[5px] h-[1px] flex-1"
+            style={{ background: color }}
+          />
+          <div
+            className="absolute right-0 h-0 w-0"
+            style={{
+              borderTop: "3px solid transparent",
+              borderBottom: "3px solid transparent",
+              borderLeft: `5px solid ${color}`,
+            }}
+          />
         </div>
       </div>
     );
   }
 
-  // Vertical
   return (
     <div className="absolute flex items-center" style={style}>
-      {/* Arrow line with end caps */}
       <div
         className="relative flex flex-col items-center"
         style={{ width: 8, height: length }}
       >
-        {/* Top arrowhead */}
-        <div className="absolute top-0 h-0 w-0 border-x-[3px] border-b-[5px] border-x-transparent border-b-amber-500" />
-        {/* Line */}
-        <div className="my-[5px] w-[1px] flex-1 bg-amber-500/70" />
-        {/* Bottom arrowhead */}
-        <div className="absolute bottom-0 h-0 w-0 border-x-[3px] border-t-[5px] border-x-transparent border-t-amber-500" />
+        <div
+          className="absolute top-0 h-0 w-0"
+          style={{
+            borderLeft: "3px solid transparent",
+            borderRight: "3px solid transparent",
+            borderBottom: `5px solid ${color}`,
+          }}
+        />
+        <div
+          className="my-[5px] w-[1px] flex-1"
+          style={{ background: color }}
+        />
+        <div
+          className="absolute bottom-0 h-0 w-0"
+          style={{
+            borderLeft: "3px solid transparent",
+            borderRight: "3px solid transparent",
+            borderTop: `5px solid ${color}`,
+          }}
+        />
       </div>
-      {/* Label (rotated) */}
-      <span className="-rotate-90 whitespace-nowrap text-[10px] font-semibold text-amber-400">
+      <span
+        className="-rotate-90 whitespace-nowrap text-[10px] font-bold"
+        style={{ color }}
+      >
         {label}
       </span>
-    </div>
-  );
-}
-
-// ===========================================================================
-// Stat card helper
-// ===========================================================================
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-      <p className="text-[10px] uppercase tracking-wider text-slate-500">
-        {label}
-      </p>
-      <p className="text-lg font-bold text-white">{value}</p>
     </div>
   );
 }
