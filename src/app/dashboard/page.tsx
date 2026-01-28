@@ -207,7 +207,7 @@ export default function DashboardPage() {
             </div>
           </a>
 
-          {/* BUILD Tile (renamed from Calculator) */}
+          {/* CREATE QUOTE Tile */}
           <a
             href="/dashboard/build"
             className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
@@ -216,8 +216,8 @@ export default function DashboardPage() {
               <HardHat className="h-8 w-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">BUILD</h2>
-              <p className="text-sm text-stone-500">Estimate, Quote & New Build</p>
+              <h2 className="text-lg font-bold text-white">CREATE QUOTE</h2>
+              <p className="text-sm text-stone-500">Manual entry & price estimation</p>
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>

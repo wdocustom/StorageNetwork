@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { checkAvailability } from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
@@ -16,6 +16,9 @@ import {
   Maximize2,
   ArrowLeft,
 } from "lucide-react";
+
+// Lazy-load the 3D component (heavy — Tree.js bundle)
+const Rack3D = lazy(() => import("@/components/visualizer/Rack3D"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (display-only — no pricing or math constants)
@@ -641,35 +644,39 @@ function DesignPageInner() {
           </div>
         </aside>
 
-        {/* ── RIGHT: Sticky Canvas Visualizer ──────────────────────────── */}
-        <main className="flex flex-1 flex-col border-l border-stone-800 bg-white">
+        {/* ── RIGHT: 3D Interactive Visualizer ───────────────────────── */}
+        <main className="flex flex-1 flex-col border-l border-stone-800 bg-[#0f0f0f]">
           <div
-            className="relative flex flex-1 items-center justify-center overflow-hidden"
-            style={{
-              backgroundImage:
-                "linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)",
-              backgroundSize: "20px 20px",
-              backgroundColor: "#ffffff",
-            }}
+            className="relative flex-1 overflow-hidden"
+            style={{ touchAction: "none", minHeight: "300px" }}
           >
-            <BlueprintCanvas
-              cols={build.cols || cols}
-              rows={build.rows || rows}
-              toteType={toteType}
-              hasTotes={hasTotes}
-              hasWheels={hasWheels}
-              hasTop={hasTop}
-              totalW={build.totalW}
-              totalH={build.totalH}
-            />
+            <Suspense
+              fallback={
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-950">
+                  <div className="text-center">
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-400" />
+                    <p className="mt-2 text-xs text-stone-500">Loading 3D Model...</p>
+                  </div>
+                </div>
+              }
+            >
+              <Rack3D
+                cols={build.cols || cols}
+                rows={build.rows || rows}
+                toteType={toteType}
+                hasTotes={hasTotes}
+                hasWheels={hasWheels}
+                hasTop={hasTop}
+              />
+            </Suspense>
           </div>
           {/* Dimensions bar */}
-          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {build.totalW > 0 ? build.totalW.toFixed(0) : "—"}&quot; Width
+          <div className="shrink-0 border-t border-slate-800 bg-slate-900 px-4 py-3 text-center text-sm font-medium text-stone-400">
+            {build.totalW > 0 ? build.totalW.toFixed(0) : "—"}&quot; W
             &times;{" "}
-            {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; Height
-            &times; 30&quot; Depth &nbsp;&mdash;&nbsp;
-            <span className="font-bold text-gray-900">
+            {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; H
+            &times; 30&quot; D &nbsp;&mdash;&nbsp;
+            <span className="font-bold text-yellow-400">
               {build.cols || cols} &times; {build.rows || rows} ={" "}
               {build.slots || cols * rows} slots
             </span>
