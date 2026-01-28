@@ -1,8 +1,7 @@
-"use server";
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Black Box Email Engine — Brevo (Sendinblue) Integration
 // Server-side only. API key never exposed to client.
+// This module is only imported by server actions, keeping secrets safe.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { siteConfig } from "@/config/site";

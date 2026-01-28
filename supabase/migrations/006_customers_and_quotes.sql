@@ -1,6 +1,7 @@
 -- ============================================================
 -- Migration 006: Customers table & Quote system updates
 -- Adds customers table, installer_manual source, profile fields
+-- FIXED: Cleans up existing data before adding constraint
 -- ============================================================
 
 -- 1. CUSTOMERS TABLE — Store customer info separately from leads
@@ -36,27 +37,32 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS phone text,
   ADD COLUMN IF NOT EXISTS trade_name text;
 
--- 3. LEADS — Add installer_manual source option
--- Update the source check constraint to include new value
-DO $$
-BEGIN
-  -- Drop existing constraint if it exists
-  ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_source_check;
+-- 3. LEADS — Add source column if it doesn't exist
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS source text;
 
-  -- Add new constraint with additional source type
-  ALTER TABLE public.leads ADD CONSTRAINT leads_source_check
-    CHECK (source IN ('platform', 'partner_link', 'installer_manual', 'affiliate'));
-EXCEPTION
-  WHEN undefined_column THEN
-    -- source column doesn't exist, add it
-    ALTER TABLE public.leads ADD COLUMN source text DEFAULT 'platform'
-      CHECK (source IN ('platform', 'partner_link', 'installer_manual', 'affiliate'));
-END$$;
+-- 4. DATA CLEAN-UP: Fix any NULL or invalid source values BEFORE adding constraint
+UPDATE public.leads
+SET source = 'platform'
+WHERE source IS NULL
+   OR source NOT IN ('platform', 'partner_link', 'installer_manual', 'affiliate');
 
--- 4. LEADS — Add customer reference
+-- 5. LEADS — Drop existing constraint if it exists (safe cleanup)
+ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_source_check;
+
+-- 6. LEADS — Add the new constraint (now that data is clean)
+ALTER TABLE public.leads
+  ADD CONSTRAINT leads_source_check
+  CHECK (source IN ('platform', 'partner_link', 'installer_manual', 'affiliate'));
+
+-- 7. LEADS — Set default for future rows
+ALTER TABLE public.leads
+  ALTER COLUMN source SET DEFAULT 'platform';
+
+-- 8. LEADS — Add customer reference
 ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL;
 
--- 5. INDEX for customer lookup on leads
+-- 9. INDEX for customer lookup on leads
 CREATE INDEX IF NOT EXISTS idx_leads_customer_id
   ON public.leads (customer_id);
