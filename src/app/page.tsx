@@ -208,20 +208,13 @@ export default function PublicCalculatorPage() {
 
     setSubmitting(true);
     try {
-      // Submit each unit as a lead (or first unit summary)
-      const first = orderItems[0];
       await submitNetworkLead({
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
         address,
-        dimensions: {
-          width: first.totalW,
-          height: first.totalH,
-          tote_type: first.toteType,
-          units: orderItems.length,
-        },
-        estimated_price: grandTotal,
+        quote_data: orderItems,
+        grand_total: grandTotal,
       });
       setSubmitted(true);
     } catch (err) {
