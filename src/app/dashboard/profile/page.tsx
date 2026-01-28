@@ -7,6 +7,7 @@ import {
   updateProfile,
   checkSlugAvailability,
   updateSlug,
+  uploadAvatarServerSide,
 } from "@/app/actions/profile";
 import {
   connectStripe,
@@ -172,14 +173,37 @@ function ProfilePageInner() {
       const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const filePath = `${profile.id}/avatar.${fileExt}`;
 
-      // Upload to Supabase Storage
+      // Try client-side upload first (uses user's auth token)
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Client upload failed, trying server-side:", uploadError.message);
 
-      // Get public URL
+        // Fallback: server-side upload via service role
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // strip data:image/...;base64,
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const serverResult = await uploadAvatarServerSide(profile.id, base64, fileExt);
+        if (!serverResult.success) {
+          throw new Error(serverResult.error || "Server upload failed");
+        }
+
+        setAvatarUrl(serverResult.url || null);
+        setSaveMessage("Photo updated!");
+        setTimeout(() => setSaveMessage(""), 3000);
+        return;
+      }
+
+      // Client upload succeeded — get public URL
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);

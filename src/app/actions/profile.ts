@@ -189,20 +189,33 @@ export async function getAvatarUploadUrl(
 
   const path = `${userId}/avatar.${fileExt}`;
 
-  const { data, error } = await supabase.storage
-    .from("avatars")
-    .createSignedUploadUrl(path);
+  try {
+    console.log("[Avatar Upload] Requesting signed URL for path:", path);
 
-  if (error) {
-    console.error("Avatar upload URL error:", error);
-    return { success: false, error: "Failed to generate upload URL." };
+    const { data, error } = await supabase.storage
+      .from("avatars")
+      .createSignedUploadUrl(path);
+
+    if (error) {
+      console.error("[Avatar Upload] Supabase Storage error:", {
+        message: error.message,
+        name: error.name,
+        status: (error as unknown as Record<string, unknown>).status,
+        statusCode: (error as unknown as Record<string, unknown>).statusCode,
+      });
+      return { success: false, error: `Upload failed: ${error.message}` };
+    }
+
+    console.log("[Avatar Upload] Signed URL generated successfully");
+    return {
+      success: true,
+      url: data.signedUrl,
+      path,
+    };
+  } catch (err) {
+    console.error("[Avatar Upload] Unexpected error:", err);
+    return { success: false, error: "Unexpected error generating upload URL." };
   }
-
-  return {
-    success: true,
-    url: data.signedUrl,
-    path,
-  };
 }
 
 /**
@@ -211,4 +224,68 @@ export async function getAvatarUploadUrl(
 export async function getAvatarPublicUrl(path: string): Promise<string | null> {
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
   return data?.publicUrl || null;
+}
+
+/**
+ * Server-side avatar upload — used as fallback when client upload fails.
+ * Accepts a base64-encoded image and uploads via service role key.
+ */
+export async function uploadAvatarServerSide(
+  userId: string,
+  base64Data: string,
+  fileExt: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
+  if (!allowedExts.includes(fileExt)) {
+    return { success: false, error: "Invalid file type." };
+  }
+
+  const path = `${userId}/avatar.${fileExt}`;
+
+  try {
+    console.log("[Avatar Server Upload] Uploading to path:", path);
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(base64Data, "base64");
+    const mimeType = fileExt === "jpg" ? "image/jpeg" : `image/${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[Avatar Server Upload] Storage error:", {
+        message: uploadError.message,
+        name: uploadError.name,
+      });
+      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(path);
+
+    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    // Update profile
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", userId);
+
+    if (profileError) {
+      console.error("[Avatar Server Upload] Profile update error:", profileError);
+      return { success: false, error: "Photo uploaded but profile update failed." };
+    }
+
+    console.log("[Avatar Server Upload] Success:", publicUrl);
+    return { success: true, url: publicUrl };
+  } catch (err) {
+    console.error("[Avatar Server Upload] Unexpected error:", err);
+    return { success: false, error: "Unexpected error during upload." };
+  }
 }
