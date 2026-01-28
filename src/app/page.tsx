@@ -100,7 +100,7 @@ export default function PublicCalculatorPage() {
   // -- Render ---------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <div className="min-h-screen bg-radial-top text-white">
       {/* ── Hero / Header ──────────────────────────────────────────────── */}
       <header className="px-4 pb-6 pt-10 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
@@ -114,14 +114,14 @@ export default function PublicCalculatorPage() {
 
       <main className="mx-auto max-w-lg space-y-5 px-4 pb-16">
         {/* ── Dimension Inputs ─────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-gray-700 bg-gray-800/60 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-gray-300">
+        <section className="card-float p-5">
+          <h2 className="mb-4 text-sm font-semibold text-slate-300">
             Your Wall
           </h2>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs text-gray-400">
+              <label className="mb-1 block text-xs text-slate-400">
                 Width (inches)
               </label>
               <input
@@ -130,11 +130,11 @@ export default function PublicCalculatorPage() {
                 value={width}
                 onChange={(e) => setWidth(e.target.value)}
                 placeholder="e.g. 120"
-                className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-400">
+              <label className="mb-1 block text-xs text-slate-400">
                 Height (inches)
               </label>
               <input
@@ -143,13 +143,13 @@ export default function PublicCalculatorPage() {
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
                 placeholder="e.g. 96"
-                className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
 
           <div className="mt-3">
-            <label className="mb-1 block text-xs text-gray-400">
+            <label className="mb-1 block text-xs text-slate-400">
               Tote Type
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -159,8 +159,8 @@ export default function PublicCalculatorPage() {
                   onClick={() => setToteType(t)}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     toteType === t
-                      ? "border-blue-500 bg-blue-600/20 text-blue-400"
-                      : "border-gray-600 text-gray-400 hover:border-gray-500"
+                      ? "border-indigo-500 bg-indigo-600/20 text-indigo-300"
+                      : "border-slate-700 text-slate-400 hover:border-slate-600"
                   }`}
                 >
                   {t === "hdx" ? 'HDX (19.75")' : 'Greenmade (20.75")'}
@@ -172,7 +172,7 @@ export default function PublicCalculatorPage() {
           <button
             onClick={handleCalculate}
             disabled={calculating}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            className="btn-brand mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white"
           >
             {calculating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -193,8 +193,8 @@ export default function PublicCalculatorPage() {
         {result && (
           <>
             {/* Visualizer */}
-            <section className="rounded-2xl border border-gray-700 bg-gray-800/60 p-5">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-300">
+            <section className="card-float p-5">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-300">
                 <Grid3X3 className="h-4 w-4 text-blue-400" />
                 Your Shelf Layout
               </h3>
@@ -219,12 +219,12 @@ export default function PublicCalculatorPage() {
             </section>
 
             {/* Price */}
-            <section className="rounded-2xl border border-gray-700 bg-gray-800/60 p-5 text-center">
-              <DollarSign className="mx-auto mb-1 h-6 w-6 text-green-400" />
-              <p className="text-3xl font-extrabold">
+            <section className="card-float p-5 text-center">
+              <DollarSign className="mx-auto mb-1 h-6 w-6 text-emerald-400" />
+              <p className="text-5xl font-extrabold tracking-tight text-emerald-400">
                 ${result.price.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-slate-500">
                 {result.specs.rows * result.specs.cols} slots &times; $40 per
                 slot
               </p>
@@ -232,11 +232,11 @@ export default function PublicCalculatorPage() {
 
             {/* Get Quote Form */}
             {!submitted ? (
-              <section className="rounded-2xl border border-gray-700 bg-gray-800/60 p-5">
-                <h3 className="mb-1 text-sm font-semibold text-gray-300">
+              <section className="card-float p-5">
+                <h3 className="mb-1 text-sm font-semibold text-slate-300">
                   Like what you see?
                 </h3>
-                <p className="mb-4 text-xs text-gray-500">
+                <p className="mb-4 text-xs text-slate-500">
                   Enter your info and we&apos;ll connect you with a local
                   installer.
                 </p>
@@ -247,34 +247,34 @@ export default function PublicCalculatorPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your name *"
-                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email *"
-                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Phone (optional)"
-                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <input
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Address / City (optional)"
-                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
 
                   <button
                     onClick={handleGetQuote}
                     disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60"
+                    className="btn-brand-green flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white"
                   >
                     {submitting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -292,12 +292,12 @@ export default function PublicCalculatorPage() {
                 </div>
               </section>
             ) : (
-              <section className="rounded-2xl border border-green-800 bg-green-900/30 p-6 text-center">
-                <CheckCircle2 className="mx-auto mb-2 h-10 w-10 text-green-400" />
-                <h3 className="text-lg font-bold text-green-300">
+              <section className="rounded-2xl border border-emerald-800 bg-emerald-900/30 p-6 text-center">
+                <CheckCircle2 className="mx-auto mb-2 h-10 w-10 text-emerald-400" />
+                <h3 className="text-lg font-bold text-emerald-300">
                   Quote Request Sent!
                 </h3>
-                <p className="mt-1 text-sm text-green-400/70">
+                <p className="mt-1 text-sm text-emerald-400/70">
                   We&apos;ll match you with a local installer shortly.
                 </p>
               </section>
@@ -309,7 +309,7 @@ export default function PublicCalculatorPage() {
         <div className="pt-4 text-center">
           <a
             href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/dashboard`}
-            className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-blue-400"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-indigo-400"
           >
             Are you an installer? Log in here
             <ArrowRight className="h-3 w-3" />
@@ -599,8 +599,8 @@ function DimensionArrow({
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-gray-900/60 p-3">
-      <p className="text-[10px] uppercase tracking-wider text-gray-500">
+    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+      <p className="text-[10px] uppercase tracking-wider text-slate-500">
         {label}
       </p>
       <p className="text-lg font-bold text-white">{value}</p>

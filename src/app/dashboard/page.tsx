@@ -129,20 +129,20 @@ export default function DashboardPage() {
   // -- Render helpers -------------------------------------------------------
 
   const statusColor: Record<string, string> = {
-    new: "bg-blue-100 text-blue-800",
-    contacted: "bg-yellow-100 text-yellow-800",
-    quoted: "bg-purple-100 text-purple-800",
-    accepted: "bg-green-100 text-green-800",
-    completed: "bg-gray-100 text-gray-800",
-    cancelled: "bg-red-100 text-red-800",
+    new: "bg-blue-100 text-blue-700",
+    contacted: "bg-amber-100 text-amber-700",
+    quoted: "bg-purple-100 text-purple-700",
+    accepted: "bg-emerald-100 text-emerald-700",
+    completed: "bg-slate-100 text-slate-700",
+    cancelled: "bg-red-100 text-red-700",
   };
 
   // -- Loading state --------------------------------------------------------
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     );
   }
@@ -150,19 +150,19 @@ export default function DashboardPage() {
   // -- Main render ----------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b bg-white px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900">
+            <h1 className="text-lg font-bold text-white">
               The Shelf Dude
             </h1>
             {profile && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-slate-400">
                 {profile.business_name ?? profile.email}
                 {profile.is_pro && (
-                  <span className="ml-2 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  <span className="ml-2 rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white">
                     PRO
                   </span>
                 )}
@@ -171,7 +171,7 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={handleSignOut}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
           >
             <LogOut className="h-5 w-5" />
           </button>
@@ -179,14 +179,14 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Tab Bar ────────────────────────────────────────────────────── */}
-      <nav className="border-b bg-white">
+      <nav className="border-b border-slate-800 bg-slate-900">
         <div className="mx-auto flex max-w-3xl">
           <button
             onClick={() => setActiveTab("leads")}
             className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === "leads"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-indigo-500 text-indigo-400"
+                : "border-transparent text-slate-400 hover:text-white"
             }`}
           >
             <ClipboardList className="h-4 w-4" />
@@ -196,8 +196,8 @@ export default function DashboardPage() {
             onClick={() => setActiveTab("calculator")}
             className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
               activeTab === "calculator"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-indigo-500 text-indigo-400"
+                : "border-transparent text-slate-400 hover:text-white"
             }`}
           >
             <Calculator className="h-4 w-4" />
@@ -243,9 +243,9 @@ function LeadsTab({
 }) {
   if (leads.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+      <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
         <ClipboardList className="mb-3 h-10 w-10" />
-        <p className="font-medium">No leads yet</p>
+        <p className="font-medium text-slate-600">No leads yet</p>
         <p className="mt-1 text-sm">
           Network leads from The Shelf Dude will appear here.
         </p>
@@ -258,29 +258,29 @@ function LeadsTab({
       {leads.map((lead) => (
         <li
           key={lead.id}
-          className="rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+          className="card-float-light p-4 transition-shadow hover:shadow-2xl"
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-gray-900">
+              <p className="truncate font-semibold text-slate-900">
                 {lead.customer_name}
               </p>
               {lead.address && (
-                <p className="mt-0.5 truncate text-sm text-gray-500">
+                <p className="mt-0.5 truncate text-sm text-slate-500">
                   {lead.address}
                 </p>
               )}
             </div>
             <span
               className={`ml-3 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
-                statusColor[lead.status] ?? "bg-gray-100 text-gray-800"
+                statusColor[lead.status] ?? "bg-slate-100 text-slate-700"
               }`}
             >
               {lead.status}
             </span>
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
             <span>
               {lead.source === "network" ? "Network Lead" : "Self-Generated"}
             </span>
@@ -327,14 +327,14 @@ function CalculatorTab({
   return (
     <div className="space-y-4">
       {/* ── Input Card ───────────────────────────────────────────────── */}
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">
+      <div className="card-float-light p-4">
+        <h2 className="mb-4 text-sm font-semibold text-slate-700">
           Wall Dimensions
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label className="mb-1 block text-xs font-medium text-slate-500">
               Width (inches)
             </label>
             <input
@@ -343,11 +343,11 @@ function CalculatorTab({
               value={width}
               onChange={(e) => setWidth(e.target.value)}
               placeholder="e.g. 120"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label className="mb-1 block text-xs font-medium text-slate-500">
               Height (inches)
             </label>
             <input
@@ -356,13 +356,13 @@ function CalculatorTab({
               value={height}
               onChange={(e) => setHeight(e.target.value)}
               placeholder="e.g. 96"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
 
         <div className="mt-3">
-          <label className="mb-1 block text-xs font-medium text-gray-500">
+          <label className="mb-1 block text-xs font-medium text-slate-500">
             Tote Type
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -372,8 +372,8 @@ function CalculatorTab({
                 onClick={() => setToteType(t)}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   toteType === t
-                    ? "border-blue-600 bg-blue-50 text-blue-700"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {t === "hdx" ? 'HDX (19.75")' : 'Greenmade (20.75")'}
@@ -385,7 +385,7 @@ function CalculatorTab({
         <button
           onClick={onCalculate}
           disabled={calculating}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+          className="btn-brand mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white"
         >
           {calculating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -406,9 +406,9 @@ function CalculatorTab({
       {calcResult && (
         <>
           {/* Specs Card */}
-          <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <Ruler className="h-4 w-4 text-blue-600" />
+          <div className="card-float-light p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Ruler className="h-4 w-4 text-indigo-600" />
               Specs
             </h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -426,22 +426,22 @@ function CalculatorTab({
           </div>
 
           {/* Price Card */}
-          <div className="rounded-xl border bg-white p-4 shadow-sm">
-            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <DollarSign className="h-4 w-4 text-green-600" />
+          <div className="card-float-light p-4">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <DollarSign className="h-4 w-4 text-emerald-600" />
               Estimated Price
             </h3>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-5xl font-extrabold tracking-tight text-emerald-500">
               ${calcResult.price.toLocaleString()}
             </p>
-            <p className="mt-0.5 text-xs text-gray-400">
+            <p className="mt-0.5 text-xs text-slate-400">
               {calcResult.specs.rows * calcResult.specs.cols} slots × $40 each
             </p>
           </div>
 
           {/* Cut List Card — gated behind Pro */}
-          <div className="relative rounded-xl border bg-white p-4 shadow-sm">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <div className="card-float-light relative p-4">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Layers className="h-4 w-4 text-orange-500" />
               Cut List
             </h3>
@@ -449,18 +449,18 @@ function CalculatorTab({
             <div className={isPro ? "" : "select-none blur-sm"}>
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b text-xs text-gray-400">
+                  <tr className="border-b border-slate-200 text-xs text-slate-400">
                     <th className="pb-2 font-medium">Part</th>
                     <th className="pb-2 font-medium">Length</th>
                     <th className="pb-2 text-right font-medium">Qty</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-slate-100">
                   {calcResult.cut_list.map((item, i) => (
                     <tr key={i}>
-                      <td className="py-2 text-gray-700">{item.part_name}</td>
-                      <td className="py-2 text-gray-500">{item.length}&quot;</td>
-                      <td className="py-2 text-right font-medium text-gray-900">
+                      <td className="py-2 text-slate-700">{item.part_name}</td>
+                      <td className="py-2 text-slate-500">{item.length}&quot;</td>
+                      <td className="py-2 text-right font-medium text-slate-900">
                         {item.qty}
                       </td>
                     </tr>
@@ -470,7 +470,7 @@ function CalculatorTab({
             </div>
 
             {/* Shopping List — also gated */}
-            <h3 className="mb-3 mt-6 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <h3 className="mb-3 mt-6 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <ShoppingCart className="h-4 w-4 text-indigo-500" />
               Shopping List
             </h3>
@@ -478,16 +478,16 @@ function CalculatorTab({
             <div className={isPro ? "" : "select-none blur-sm"}>
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b text-xs text-gray-400">
+                  <tr className="border-b border-slate-200 text-xs text-slate-400">
                     <th className="pb-2 font-medium">Item</th>
                     <th className="pb-2 text-right font-medium">Qty</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-slate-100">
                   {calcResult.shopping_list.map((item, i) => (
                     <tr key={i}>
-                      <td className="py-2 text-gray-700">{item.sku_name}</td>
-                      <td className="py-2 text-right font-medium text-gray-900">
+                      <td className="py-2 text-slate-700">{item.sku_name}</td>
+                      <td className="py-2 text-right font-medium text-slate-900">
                         {item.qty}
                       </td>
                     </tr>
@@ -498,17 +498,17 @@ function CalculatorTab({
 
             {/* Pro Gate Overlay */}
             {!isPro && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-white/60 backdrop-blur-[2px]">
-                <Lock className="mb-2 h-8 w-8 text-gray-400" />
-                <p className="mb-1 text-sm font-semibold text-gray-700">
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[3px]">
+                <Lock className="mb-2 h-8 w-8 text-slate-400" />
+                <p className="mb-1 text-sm font-semibold text-slate-700">
                   Pro Feature
                 </p>
-                <p className="mb-4 text-center text-xs text-gray-500">
+                <p className="mb-4 text-center text-xs text-slate-500">
                   Upgrade to view the full Cut List &amp; Shopping List.
                 </p>
                 <a
                   href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/upgrade`}
-                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                  className="btn-brand rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
                 >
                   Upgrade to Pro
                 </a>
@@ -527,9 +527,9 @@ function CalculatorTab({
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg bg-gray-50 p-3">
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-lg font-bold text-gray-900">{value}</p>
+    <div className="rounded-lg bg-slate-50 p-3">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className="text-lg font-bold text-slate-900">{value}</p>
     </div>
   );
 }
