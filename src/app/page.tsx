@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { checkAvailability } from "@/app/actions/customer";
+import { gatekeeperCheck, joinWaitlist } from "@/app/actions/gatekeeper";
 import {
   MapPin,
   Loader2,
@@ -11,10 +11,13 @@ import {
   Weight,
   ChevronRight,
   Truck,
+  X,
+  CheckCircle2,
+  Mail,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Landing Page — High-Converting "Shelf Dude" Hero
+// Landing Page — Smart Gatekeeper with Waitlist Modal
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function LandingPage() {
@@ -22,6 +25,14 @@ export default function LandingPage() {
   const [zip, setZip] = useState("");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+
+  // Waitlist modal state
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistZip, setWaitlistZip] = useState("");
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
 
   async function handleSearch() {
     const trimmed = zip.trim();
@@ -34,25 +45,62 @@ export default function LandingPage() {
     setSearching(true);
 
     try {
-      const result = await checkAvailability(trimmed);
+      const result = await gatekeeperCheck(trimmed);
 
-      if (result.available) {
-        // Installer found → send to configurator
-        router.push(`/design?zip=${trimmed}`);
+      if (result.available && result.installer_id) {
+        // Match found → configurator with installer context
+        router.push(
+          `/design?zip=${trimmed}&installer=${result.installer_id}`
+        );
       } else {
-        // No local installer → configurator in shipping mode
-        router.push(`/design?zip=${trimmed}&mode=shipping`);
+        // No match → show waitlist modal
+        setWaitlistZip(trimmed);
+        setWaitlistDone(false);
+        setWaitlistEmail("");
+        setWaitlistError("");
+        setShowWaitlist(true);
       }
     } catch {
-      // On error, still let them design — just go to configurator
-      router.push(`/design?zip=${trimmed}&mode=shipping`);
+      // On error, show waitlist modal as fallback
+      setWaitlistZip(trimmed);
+      setWaitlistDone(false);
+      setWaitlistEmail("");
+      setWaitlistError("");
+      setShowWaitlist(true);
     } finally {
       setSearching(false);
     }
   }
 
+  async function handleWaitlistSubmit() {
+    if (!waitlistEmail.trim()) {
+      setWaitlistError("Email is required.");
+      return;
+    }
+
+    setWaitlistSubmitting(true);
+    setWaitlistError("");
+
+    try {
+      const res = await joinWaitlist(waitlistEmail, waitlistZip);
+      if (res.success) {
+        setWaitlistDone(true);
+      } else {
+        setWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setWaitlistError("Failed to join waitlist. Please try again.");
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleSearch();
+  }
+
+  function handleSkipToDesign() {
+    router.push(`/design?zip=${waitlistZip}&mode=shipping`);
   }
 
   return (
@@ -230,6 +278,122 @@ export default function LandingPage() {
           </p>
         </div>
       </footer>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          WAITLIST MODAL
+      ══════════════════════════════════════════════════════════════════ */}
+      {showWaitlist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-2xl border border-stone-700 bg-gray-900 p-6 shadow-2xl">
+            {/* Close button */}
+            <button
+              onClick={() => setShowWaitlist(false)}
+              className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {!waitlistDone ? (
+              <>
+                {/* Icon */}
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-400/10">
+                  <MapPin className="h-8 w-8 text-yellow-400" />
+                </div>
+
+                <h3 className="mb-2 text-center text-xl font-black uppercase text-white">
+                  We Haven&apos;t Reached{" "}
+                  <span className="text-yellow-400">{waitlistZip}</span> Yet
+                </h3>
+                <p className="mb-6 text-center text-sm text-stone-400">
+                  Join our waitlist and we&apos;ll notify you as soon as a
+                  certified installer is available in your area.
+                </p>
+
+                {/* Email input */}
+                <div className="flex overflow-hidden rounded-lg border border-stone-600 bg-gray-800 focus-within:border-yellow-400">
+                  <div className="flex items-center pl-3 text-stone-500">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={(e) => {
+                      setWaitlistEmail(e.target.value);
+                      setWaitlistError("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleWaitlistSubmit();
+                    }}
+                    placeholder="Enter your email"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-500 outline-none"
+                  />
+                </div>
+
+                {waitlistError && (
+                  <p className="mt-2 text-xs font-medium text-red-400">
+                    {waitlistError}
+                  </p>
+                )}
+
+                <button
+                  onClick={handleWaitlistSubmit}
+                  disabled={waitlistSubmitting}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {waitlistSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Notify Me"
+                  )}
+                </button>
+
+                {/* Skip to design option */}
+                <div className="mt-4 border-t border-stone-800 pt-4 text-center">
+                  <p className="mb-2 text-xs text-stone-500">
+                    Or design your unit now and we&apos;ll ship it to you
+                  </p>
+                  <button
+                    onClick={handleSkipToDesign}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-400 transition-colors hover:text-yellow-300"
+                  >
+                    <Truck className="h-3 w-3" />
+                    Continue with Shipping
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Success state */
+              <div className="py-4 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/10">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                </div>
+                <h3 className="mb-2 text-xl font-black uppercase text-white">
+                  You&apos;re on the List!
+                </h3>
+                <p className="mb-6 text-sm text-stone-400">
+                  We&apos;ll email you at{" "}
+                  <span className="font-semibold text-white">
+                    {waitlistEmail}
+                  </span>{" "}
+                  when an installer is available near{" "}
+                  <span className="font-semibold text-yellow-400">
+                    {waitlistZip}
+                  </span>
+                  .
+                </p>
+                <button
+                  onClick={handleSkipToDesign}
+                  className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                >
+                  <Truck className="h-4 w-4" />
+                  Design My Unit Now
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

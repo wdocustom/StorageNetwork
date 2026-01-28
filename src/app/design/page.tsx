@@ -59,6 +59,7 @@ function DesignPageInner() {
   const searchParams = useSearchParams();
   const incomingZip = searchParams.get("zip") || "";
   const mode = searchParams.get("mode") || "";
+  const installerId = searchParams.get("installer") || "";
 
   // ── ZIP check ─────────────────────────────────────────────────────────
   const [zip, setZip] = useState(incomingZip);
@@ -259,6 +260,7 @@ function DesignPageInner() {
         address,
         quote_data: orderItems,
         grand_total: grandTotal,
+        installer_id: installerId || undefined,
       });
       setSubmitted(true);
     } catch (err) {

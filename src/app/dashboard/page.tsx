@@ -198,17 +198,13 @@ export default function DashboardPage() {
             <ClipboardList className="h-4 w-4" />
             My Leads
           </button>
-          <button
-            onClick={() => setActiveTab("calculator")}
-            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === "calculator"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-white"
-            }`}
+          <a
+            href="/dashboard/calculator"
+            className="flex flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-400 transition-colors hover:text-white"
           >
             <Calculator className="h-4 w-4" />
             Calculator
-          </button>
+          </a>
         </div>
       </nav>
 
@@ -262,9 +258,10 @@ function LeadsTab({
   return (
     <ul className="space-y-3">
       {leads.map((lead) => (
-        <li
+        <a
+          href={`/dashboard/leads/${lead.id}`}
           key={lead.id}
-          className="card-float-light p-4 transition-shadow hover:shadow-2xl"
+          className="card-float-light block p-4 transition-shadow hover:shadow-2xl"
         >
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
@@ -295,7 +292,7 @@ function LeadsTab({
               <ChevronRight className="h-3 w-3" />
             </div>
           </div>
-        </li>
+        </a>
       ))}
     </ul>
   );

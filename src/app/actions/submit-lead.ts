@@ -32,6 +32,7 @@ export interface SubmitQuoteInput {
   address: string;
   quote_data: QuoteUnit[];
   grand_total: number;
+  installer_id?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -71,7 +72,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
   const { data, error } = await supabase
     .from("leads")
     .insert({
-      installer_id: null,
+      installer_id: input.installer_id || null,
       is_network_lead: true,
       customer_name: input.customer_name.trim(),
       customer_email: input.customer_email.trim(),
@@ -80,6 +81,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
       dimensions: dimensionsSummary,
       quote_data: input.quote_data,
       estimated_price: input.grand_total,
+      deposit_amount: Math.round(input.grand_total * 0.15 * 100) / 100,
+      deposit_paid: false,
+      balance_due: Math.round(input.grand_total * 0.85 * 100) / 100,
       source: "network",
       status: "new",
       notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}`,
