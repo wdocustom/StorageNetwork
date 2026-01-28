@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { checkAvailability } from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { calculateBuild } from "@/app/actions/calculator";
 import {
   MapPin,
   CheckCircle2,
@@ -17,21 +18,7 @@ import {
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH CONSTANTS (from original WDO Custom calculator)
-// ═══════════════════════════════════════════════════════════════════════════
-const OPENING_HDX = 19.75;
-const OPENING_GM = 20.75;
-const STUD = 1.5;
-const TIER_HEIGHT = 16;
-const TOP_GAP = 2.5;
-const PLATE_HEIGHT = 1.5;
-const PRICE_PER_SLOT = 40;
-const PRICE_PER_TOTE = 12;
-const PRICE_WHEELS = 45;
-const PRICE_PLYWOOD_SHEET = 75;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Types
+// Types (display-only — no pricing or math constants)
 // ═══════════════════════════════════════════════════════════════════════════
 type ToteType = "HDX" | "GM";
 
@@ -48,45 +35,13 @@ interface UnitConfig {
   desc: string;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH: Pricing Math (exact port from updateVisual)
-// ═══════════════════════════════════════════════════════════════════════════
-function calcPrice(
-  cols: number,
-  rows: number,
-  toteType: ToteType,
-  hasTotes: boolean,
-  hasWheels: boolean,
-  hasTop: boolean
-) {
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  const totalW = cols * opening + (cols + 1) * STUD;
-  const totalH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
-
-  const slots = cols * rows;
-  let price = slots * PRICE_PER_SLOT;
-  if (hasTotes) price += slots * PRICE_PER_TOTE;
-  if (hasWheels) price += PRICE_WHEELS;
-
-  let topSheets = 0;
-  if (totalW > 192) topSheets = 3;
-  else if (totalW > 96) topSheets = 2;
-  else topSheets = 1;
-  if (hasTop) price += topSheets * PRICE_PLYWOOD_SHEET;
-
-  return { price, totalW, totalH, slots, topSheets };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SOURCE-OF-TRUTH: Max Wall Fit (exact port from calculateWallFit)
-// ═══════════════════════════════════════════════════════════════════════════
-function maxFit(wallW: number, wallH: number, toteType: ToteType) {
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  let maxCols = Math.floor((wallW - STUD) / (opening + STUD));
-  let maxRows = Math.floor((wallH - 5.5) / TIER_HEIGHT);
-  if (maxCols < 1) maxCols = 1;
-  if (maxRows < 1) maxRows = 1;
-  return { maxCols, maxRows };
+interface ServerBuild {
+  cols: number;
+  rows: number;
+  price: number;
+  totalW: number;
+  totalH: number;
+  slots: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -114,7 +69,6 @@ function DesignPageInner() {
     message: string;
   } | null>(null);
 
-  // Auto-check on mount if zip came from query
   useEffect(() => {
     if (incomingZip.length === 5) {
       handleZipCheckAuto(incomingZip);
@@ -152,6 +106,12 @@ function DesignPageInner() {
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(true);
 
+  // ── Server-provided build result ──────────────────────────────────────
+  const [build, setBuild] = useState<ServerBuild>({
+    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, slots: 0,
+  });
+  const [buildLoading, setBuildLoading] = useState(false);
+
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
 
@@ -164,16 +124,55 @@ function DesignPageInner() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  // ── Derived pricing ───────────────────────────────────────────────────
-  const pricing = useMemo(
-    () => calcPrice(cols, rows, toteType, hasTotes, hasWheels, hasTop),
-    [cols, rows, toteType, hasTotes, hasWheels, hasTop]
+  const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+
+  // ── Debounced server call ─────────────────────────────────────────────
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchBuild = useCallback(
+    (
+      c: number,
+      r: number,
+      model: ToteType,
+      totes: boolean,
+      wheels: boolean,
+      top: boolean
+    ) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        setBuildLoading(true);
+        try {
+          const res = await calculateBuild({
+            cols: c,
+            rows: r,
+            toteModel: model,
+            addOns: { totes, wheels, top },
+            mode: "manual",
+          });
+          if (res.success) {
+            setBuild({
+              cols: res.cols,
+              rows: res.rows,
+              price: res.price,
+              totalW: res.dimensions.totalW,
+              totalH: res.dimensions.totalH,
+              slots: res.config.slots,
+            });
+          }
+        } catch {
+          // keep previous build on error
+        } finally {
+          setBuildLoading(false);
+        }
+      }, 500);
+    },
+    []
   );
 
-  const grandTotal = useMemo(
-    () => orderItems.reduce((sum, it) => sum + it.price, 0),
-    [orderItems]
-  );
+  // Fire on every config change
+  useEffect(() => {
+    fetchBuild(cols, rows, toteType, hasTotes, hasWheels, hasTop);
+  }, [cols, rows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -182,36 +181,56 @@ function DesignPageInner() {
     await handleZipCheckAuto(zip);
   }
 
-  function handleWallFit() {
+  async function handleWallFit() {
     const wW = parseFloat(wallWidth);
     const wH = parseFloat(wallHeight);
     if (!wW || !wH) return;
-    const { maxCols, maxRows } = maxFit(wW, wH, toteType);
-    setCols(maxCols);
-    setRows(maxRows);
-    setWallFitMsg(
-      `Max fit: ${maxCols} Wide × ${maxRows} High for that wall.`
-    );
+
+    setBuildLoading(true);
+    try {
+      const res = await calculateBuild({
+        wallWidth: wW,
+        wallHeight: wH,
+        toteModel: toteType,
+        addOns: { totes: hasTotes, wheels: hasWheels, top: hasTop },
+        mode: "wallFit",
+      });
+      if (res.success) {
+        setCols(res.cols);
+        setRows(res.rows);
+        setBuild({
+          cols: res.cols,
+          rows: res.rows,
+          price: res.price,
+          totalW: res.dimensions.totalW,
+          totalH: res.dimensions.totalH,
+          slots: res.config.slots,
+        });
+        setWallFitMsg(
+          `Max fit: ${res.cols} Wide × ${res.rows} High for that wall.`
+        );
+      }
+    } catch {
+      // keep previous state on error
+    } finally {
+      setBuildLoading(false);
+    }
   }
 
   function handleAddUnit() {
-    const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-    const totalW = cols * opening + (cols + 1) * STUD;
-    const totalH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
-
     setOrderItems((prev) => [
       ...prev,
       {
-        cols,
-        rows,
+        cols: build.cols,
+        rows: build.rows,
         toteType,
         hasTotes,
         hasWheels,
         hasTop,
-        price: pricing.price,
-        totalW,
-        totalH,
-        desc: `${cols} Wide × ${rows} High`,
+        price: build.price,
+        totalW: build.totalW,
+        totalH: build.totalH,
+        desc: `${build.cols} Wide × ${build.rows} High`,
       },
     ]);
   }
@@ -385,10 +404,10 @@ function DesignPageInner() {
               </div>
               <button
                 onClick={handleWallFit}
-                disabled={!wallWidth || !wallHeight}
+                disabled={!wallWidth || !wallHeight || buildLoading}
                 className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
               >
-                Find Max Size →
+                {buildLoading ? "Calculating…" : "Find Max Size →"}
               </button>
               {wallFitMsg && (
                 <p className="mt-2 text-center text-xs font-semibold text-emerald-600">
@@ -460,19 +479,16 @@ function DesignPageInner() {
                   checked={hasTotes}
                   onChange={setHasTotes}
                   label="Show Totes"
-                  detail={`+$${PRICE_PER_TOTE} ea`}
                 />
                 <Toggle
                   checked={hasWheels}
                   onChange={setHasWheels}
                   label="Add Wheels"
-                  detail={`+$${PRICE_WHEELS}`}
                 />
                 <Toggle
                   checked={hasTop}
                   onChange={setHasTop}
                   label="Plywood Top"
-                  detail={`+$${PRICE_PLYWOOD_SHEET}/sheet`}
                 />
               </div>
 
@@ -480,7 +496,7 @@ function DesignPageInner() {
               <div className="mt-5 flex items-center gap-3 border-t border-stone-200 pt-4">
                 <div className="flex-1 text-center">
                   <div className="text-2xl font-black text-gray-900">
-                    ${pricing.price.toLocaleString()}
+                    {buildLoading ? "…" : `$${build.price.toLocaleString()}`}
                   </div>
                   <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                     Current Unit
@@ -488,7 +504,8 @@ function DesignPageInner() {
                 </div>
                 <button
                   onClick={handleAddUnit}
-                  className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+                  disabled={buildLoading || build.price === 0}
+                  className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" />
                   Add to Quote
@@ -634,21 +651,25 @@ function DesignPageInner() {
             }}
           >
             <BlueprintCanvas
-              cols={cols}
-              rows={rows}
+              cols={build.cols || cols}
+              rows={build.rows || rows}
               toteType={toteType}
               hasTotes={hasTotes}
               hasWheels={hasWheels}
               hasTop={hasTop}
+              totalW={build.totalW}
+              totalH={build.totalH}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {pricing.totalW.toFixed(0)}&quot; Width &times;{" "}
-            {pricing.totalH.toFixed(0)}&quot; Height &times; 30&quot; Depth
-            &nbsp;&mdash;&nbsp;
+            {build.totalW > 0 ? build.totalW.toFixed(0) : "—"}&quot; Width
+            &times;{" "}
+            {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; Height
+            &times; 30&quot; Depth &nbsp;&mdash;&nbsp;
             <span className="font-bold text-gray-900">
-              {cols} &times; {rows} = {cols * rows} slots
+              {build.cols || cols} &times; {build.rows || rows} ={" "}
+              {build.slots || cols * rows} slots
             </span>
           </div>
         </main>
@@ -658,18 +679,16 @@ function DesignPageInner() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Toggle component
+// Toggle component (no pricing details exposed)
 // ═══════════════════════════════════════════════════════════════════════════
 function Toggle({
   checked,
   onChange,
   label,
-  detail,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
-  detail: string;
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 transition-colors hover:bg-stone-100">
@@ -682,13 +701,12 @@ function Toggle({
       <span className="flex-1 text-sm font-medium text-gray-800">
         {label}
       </span>
-      <span className="text-xs font-semibold text-stone-500">{detail}</span>
     </label>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BlueprintCanvas — exact port of drawBlueprint from source code
+// BlueprintCanvas — visual-only rendering (dimensions from server)
 // ═══════════════════════════════════════════════════════════════════════════
 function BlueprintCanvas({
   cols,
@@ -697,6 +715,8 @@ function BlueprintCanvas({
   hasTotes,
   hasWheels,
   hasTop,
+  totalW,
+  totalH,
 }: {
   cols: number;
   rows: number;
@@ -704,13 +724,23 @@ function BlueprintCanvas({
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
+  totalW: number;
+  totalH: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-  const realW = cols * opening + (cols + 1) * STUD;
-  const realH = rows * TIER_HEIGHT + PLATE_HEIGHT * 2 + TOP_GAP;
+  // Visual-only layout constants (these are rendering proportions, not pricing)
+  const RENDER_GAP = 1.5;
+  const RENDER_TIER = 16;
+  const RENDER_PLATE = 1.5;
+  const RENDER_TOP_GAP = 2.5;
+  const opening = toteType === "HDX" ? 19.75 : 20.75;
+
+  // Use server-provided dimensions, fallback to layout calc for initial render
+  const realW = totalW > 0 ? totalW : cols * opening + (cols + 1) * RENDER_GAP;
+  const realH =
+    totalH > 0 ? totalH : rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -747,10 +777,10 @@ function BlueprintCanvas({
 
     const pTotalW = realW * scale;
     const pTotalH = realH * scale;
-    const pStud = STUD * scale;
+    const pStud = RENDER_GAP * scale;
     const pBay = opening * scale;
-    const pPlate = PLATE_HEIGHT * scale;
-    const pTopGap = TOP_GAP * scale;
+    const pPlate = RENDER_PLATE * scale;
+    const pTopGap = RENDER_TOP_GAP * scale;
 
     const startX = (cW - pTotalW) / 2;
     const visualPixelH = visualH_in * scale;
