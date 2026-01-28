@@ -1,0 +1,535 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import {
+  calculateShelfMaterials,
+  type CalculationResult,
+} from "@/app/actions/calculate";
+import {
+  ClipboardList,
+  Calculator,
+  Lock,
+  Loader2,
+  LogOut,
+  ChevronRight,
+  Ruler,
+  ShoppingCart,
+  DollarSign,
+  Layers,
+} from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Profile {
+  id: string;
+  email: string;
+  business_name: string | null;
+  is_pro: boolean;
+}
+
+interface Lead {
+  id: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  address: string | null;
+  status: string;
+  source: string;
+  created_at: string;
+}
+
+type Tab = "leads" | "calculator";
+
+// ---------------------------------------------------------------------------
+// Dashboard Page
+// ---------------------------------------------------------------------------
+
+export default function DashboardPage() {
+  const supabase = getSupabaseBrowserClient();
+
+  // -- State ----------------------------------------------------------------
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>("leads");
+  const [loading, setLoading] = useState(true);
+
+  // Calculator state
+  const [width, setWidth] = useState("");
+  const [height, setHeight] = useState("");
+  const [toteType, setToteType] = useState<"hdx" | "greenmade">("hdx");
+  const [calcResult, setCalcResult] = useState<CalculationResult | null>(null);
+  const [calcError, setCalcError] = useState("");
+  const [calculating, setCalculating] = useState(false);
+
+  // -- Data fetching --------------------------------------------------------
+
+  const fetchProfile = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (data) setProfile(data as Profile);
+  }, [supabase]);
+
+  const fetchLeads = useCallback(async () => {
+    const { data } = await supabase
+      .from("leads")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (data) setLeads(data as Lead[]);
+  }, [supabase]);
+
+  useEffect(() => {
+    Promise.all([fetchProfile(), fetchLeads()]).finally(() =>
+      setLoading(false)
+    );
+  }, [fetchProfile, fetchLeads]);
+
+  // -- Handlers -------------------------------------------------------------
+
+  async function handleCalculate() {
+    setCalcError("");
+    setCalcResult(null);
+
+    const w = parseFloat(width);
+    const h = parseFloat(height);
+
+    if (!w || !h) {
+      setCalcError("Enter valid width and height values.");
+      return;
+    }
+
+    setCalculating(true);
+    try {
+      const result = await calculateShelfMaterials(w, h, toteType);
+      setCalcResult(result);
+    } catch (err) {
+      setCalcError(err instanceof Error ? err.message : "Calculation failed.");
+    } finally {
+      setCalculating(false);
+    }
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  // -- Render helpers -------------------------------------------------------
+
+  const statusColor: Record<string, string> = {
+    new: "bg-blue-100 text-blue-800",
+    contacted: "bg-yellow-100 text-yellow-800",
+    quoted: "bg-purple-100 text-purple-800",
+    accepted: "bg-green-100 text-green-800",
+    completed: "bg-gray-100 text-gray-800",
+    cancelled: "bg-red-100 text-red-800",
+  };
+
+  // -- Loading state --------------------------------------------------------
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  // -- Main render ----------------------------------------------------------
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-10 border-b bg-white px-4 py-3">
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">
+              The Shelf Dude
+            </h1>
+            {profile && (
+              <p className="text-xs text-gray-500">
+                {profile.business_name ?? profile.email}
+                {profile.is_pro && (
+                  <span className="ml-2 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    PRO
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
+      </header>
+
+      {/* ── Tab Bar ────────────────────────────────────────────────────── */}
+      <nav className="border-b bg-white">
+        <div className="mx-auto flex max-w-3xl">
+          <button
+            onClick={() => setActiveTab("leads")}
+            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === "leads"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="h-4 w-4" />
+            My Leads
+          </button>
+          <button
+            onClick={() => setActiveTab("calculator")}
+            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === "calculator"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Calculator className="h-4 w-4" />
+            Calculator
+          </button>
+        </div>
+      </nav>
+
+      {/* ── Content ────────────────────────────────────────────────────── */}
+      <main className="mx-auto max-w-3xl p-4">
+        {activeTab === "leads" ? (
+          <LeadsTab leads={leads} statusColor={statusColor} />
+        ) : (
+          <CalculatorTab
+            width={width}
+            height={height}
+            toteType={toteType}
+            setWidth={setWidth}
+            setHeight={setHeight}
+            setToteType={setToteType}
+            onCalculate={handleCalculate}
+            calculating={calculating}
+            calcResult={calcResult}
+            calcError={calcError}
+            isPro={profile?.is_pro ?? false}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Leads Tab
+// ===========================================================================
+
+function LeadsTab({
+  leads,
+  statusColor,
+}: {
+  leads: Lead[];
+  statusColor: Record<string, string>;
+}) {
+  if (leads.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
+        <ClipboardList className="mb-3 h-10 w-10" />
+        <p className="font-medium">No leads yet</p>
+        <p className="mt-1 text-sm">
+          Network leads from The Shelf Dude will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {leads.map((lead) => (
+        <li
+          key={lead.id}
+          className="rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+        >
+          <div className="flex items-start justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-gray-900">
+                {lead.customer_name}
+              </p>
+              {lead.address && (
+                <p className="mt-0.5 truncate text-sm text-gray-500">
+                  {lead.address}
+                </p>
+              )}
+            </div>
+            <span
+              className={`ml-3 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                statusColor[lead.status] ?? "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {lead.status}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
+            <span>
+              {lead.source === "network" ? "Network Lead" : "Self-Generated"}
+            </span>
+            <div className="flex items-center gap-1">
+              {new Date(lead.created_at).toLocaleDateString()}
+              <ChevronRight className="h-3 w-3" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ===========================================================================
+// Calculator Tab
+// ===========================================================================
+
+function CalculatorTab({
+  width,
+  height,
+  toteType,
+  setWidth,
+  setHeight,
+  setToteType,
+  onCalculate,
+  calculating,
+  calcResult,
+  calcError,
+  isPro,
+}: {
+  width: string;
+  height: string;
+  toteType: "hdx" | "greenmade";
+  setWidth: (v: string) => void;
+  setHeight: (v: string) => void;
+  setToteType: (v: "hdx" | "greenmade") => void;
+  onCalculate: () => void;
+  calculating: boolean;
+  calcResult: CalculationResult | null;
+  calcError: string;
+  isPro: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* ── Input Card ───────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-gray-700">
+          Wall Dimensions
+        </h2>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Width (inches)
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={width}
+              onChange={(e) => setWidth(e.target.value)}
+              placeholder="e.g. 120"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              Height (inches)
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              placeholder="e.g. 96"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <label className="mb-1 block text-xs font-medium text-gray-500">
+            Tote Type
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["hdx", "greenmade"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setToteType(t)}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  toteType === t
+                    ? "border-blue-600 bg-blue-50 text-blue-700"
+                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {t === "hdx" ? 'HDX (19.75")' : 'Greenmade (20.75")'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={onCalculate}
+          disabled={calculating}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+        >
+          {calculating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Calculator className="h-4 w-4" />
+          )}
+          {calculating ? "Calculating…" : "Calculate Build"}
+        </button>
+
+        {calcError && (
+          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {calcError}
+          </p>
+        )}
+      </div>
+
+      {/* ── Results ──────────────────────────────────────────────────── */}
+      {calcResult && (
+        <>
+          {/* Specs Card */}
+          <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Ruler className="h-4 w-4 text-blue-600" />
+              Specs
+            </h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <Stat label="Columns" value={calcResult.specs.cols} />
+              <Stat label="Rows" value={calcResult.specs.rows} />
+              <Stat
+                label="Built Width"
+                value={`${calcResult.specs.total_width}"`}
+              />
+              <Stat
+                label="Built Height"
+                value={`${calcResult.specs.total_height}"`}
+              />
+            </div>
+          </div>
+
+          {/* Price Card */}
+          <div className="rounded-xl border bg-white p-4 shadow-sm">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <DollarSign className="h-4 w-4 text-green-600" />
+              Estimated Price
+            </h3>
+            <p className="text-3xl font-bold text-gray-900">
+              ${calcResult.price.toLocaleString()}
+            </p>
+            <p className="mt-0.5 text-xs text-gray-400">
+              {calcResult.specs.rows * calcResult.specs.cols} slots × $40 each
+            </p>
+          </div>
+
+          {/* Cut List Card — gated behind Pro */}
+          <div className="relative rounded-xl border bg-white p-4 shadow-sm">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Layers className="h-4 w-4 text-orange-500" />
+              Cut List
+            </h3>
+
+            <div className={isPro ? "" : "select-none blur-sm"}>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-gray-400">
+                    <th className="pb-2 font-medium">Part</th>
+                    <th className="pb-2 font-medium">Length</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {calcResult.cut_list.map((item, i) => (
+                    <tr key={i}>
+                      <td className="py-2 text-gray-700">{item.part_name}</td>
+                      <td className="py-2 text-gray-500">{item.length}&quot;</td>
+                      <td className="py-2 text-right font-medium text-gray-900">
+                        {item.qty}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Shopping List — also gated */}
+            <h3 className="mb-3 mt-6 flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <ShoppingCart className="h-4 w-4 text-indigo-500" />
+              Shopping List
+            </h3>
+
+            <div className={isPro ? "" : "select-none blur-sm"}>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-gray-400">
+                    <th className="pb-2 font-medium">Item</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {calcResult.shopping_list.map((item, i) => (
+                    <tr key={i}>
+                      <td className="py-2 text-gray-700">{item.sku_name}</td>
+                      <td className="py-2 text-right font-medium text-gray-900">
+                        {item.qty}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pro Gate Overlay */}
+            {!isPro && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-white/60 backdrop-blur-[2px]">
+                <Lock className="mb-2 h-8 w-8 text-gray-400" />
+                <p className="mb-1 text-sm font-semibold text-gray-700">
+                  Pro Feature
+                </p>
+                <p className="mb-4 text-center text-xs text-gray-500">
+                  Upgrade to view the full Cut List &amp; Shopping List.
+                </p>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/upgrade`}
+                  className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                >
+                  Upgrade to Pro
+                </a>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Tiny stat helper
+// ===========================================================================
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg bg-gray-50 p-3">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="text-lg font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
