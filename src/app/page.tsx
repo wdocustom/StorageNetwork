@@ -8,13 +8,13 @@ import {
   type AddOns,
 } from "@/app/actions/calculate";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { checkAvailability } from "@/app/actions/customer";
 import {
   MapPin,
   CheckCircle2,
   AlertTriangle,
   Loader2,
   Send,
-  ArrowRight,
   Receipt,
   Truck,
   Package,
@@ -22,15 +22,18 @@ import {
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Public Calculator Page — "Construction Pro" Theme
+// Public Calculator Page — "Construction Pro" Split-Screen Layout
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function PublicCalculatorPage() {
   // ── Zip code check ──────────────────────────────────────────────────────
   const [zip, setZip] = useState("");
-  const [zipStatus, setZipStatus] = useState<
-    null | "local" | "hq"
-  >(null);
+  const [zipChecking, setZipChecking] = useState(false);
+  const [zipResult, setZipResult] = useState<{
+    available: boolean;
+    installer_name: string | null;
+    message: string;
+  } | null>(null);
 
   // ── Wall-fit inputs ─────────────────────────────────────────────────────
   const [wallWidth, setWallWidth] = useState("");
@@ -90,11 +93,21 @@ export default function PublicCalculatorPage() {
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
-  function handleZipCheck() {
-    if (zip.trim() === "68102") {
-      setZipStatus("local");
-    } else {
-      setZipStatus("hq");
+  async function handleZipCheck() {
+    if (zip.length < 5) return;
+    setZipChecking(true);
+    setZipResult(null);
+    try {
+      const res = await checkAvailability(zip);
+      setZipResult(res);
+    } catch {
+      setZipResult({
+        available: false,
+        installer_name: null,
+        message: "Unable to check availability. Try again.",
+      });
+    } finally {
+      setZipChecking(false);
     }
   }
 
@@ -149,229 +162,226 @@ export default function PublicCalculatorPage() {
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen bg-stone-100">
+    <div className="flex h-screen flex-col bg-stone-100">
       {/* ── Top Bar ────────────────────────────────────────────────────── */}
-      <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded bg-yellow-400 text-lg font-black text-gray-950">
-              SD
-            </div>
-            <div>
-              <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-                The Shelf Dude
-              </h1>
-              <p className="text-[10px] uppercase tracking-wider text-yellow-400">
-                Partner Network &mdash; Build Configurator
-              </p>
-            </div>
+      <header className="shrink-0 border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded bg-yellow-400 text-lg font-black text-gray-950">
+            SD
           </div>
-          <a
-            href={`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/dashboard`}
-            className="hidden text-xs font-semibold text-stone-400 transition-colors hover:text-yellow-400 sm:inline-flex sm:items-center sm:gap-1"
-          >
-            Installer Login <ArrowRight className="h-3 w-3" />
-          </a>
+          <div>
+            <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
+              The Shelf Dude
+            </h1>
+            <p className="text-[10px] uppercase tracking-wider text-yellow-400">
+              Build Configurator
+            </p>
+          </div>
         </div>
       </header>
 
       {/* ── Main Split Layout ──────────────────────────────────────────── */}
-      <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ════════════════════════════════════════════════════════════════
-            LEFT SIDEBAR — Controls
+            LEFT SIDEBAR — Controls (35-38%)
         ════════════════════════════════════════════════════════════════ */}
-        <aside className="w-full shrink-0 space-y-4 p-4 lg:w-[420px] lg:overflow-y-auto lg:border-r lg:border-stone-300">
-          {/* ── 1. Installer Availability ──────────────────────────────── */}
-          <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
-            <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-              <MapPin className="h-4 w-4 text-yellow-600" />
-              Check Installer Availability
-            </h2>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={5}
-                value={zip}
-                onChange={(e) => {
-                  setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                  setZipStatus(null);
-                }}
-                placeholder="ZIP Code"
-                className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              />
+        <aside className="flex w-full shrink-0 flex-col lg:w-[38%] xl:w-[35%]">
+          {/* Scrollable controls area */}
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            {/* ── 1. Installer Availability ──────────────────────────── */}
+            <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
+              <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                <MapPin className="h-4 w-4 text-yellow-600" />
+                Check Installer Availability
+              </h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={zip}
+                  onChange={(e) => {
+                    setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                    setZipResult(null);
+                  }}
+                  placeholder="ZIP Code"
+                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+                <button
+                  onClick={handleZipCheck}
+                  disabled={zip.length < 5 || zipChecking}
+                  className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
+                >
+                  {zipChecking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Check"
+                  )}
+                </button>
+              </div>
+              {zipResult?.available && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  {zipResult.message}
+                </div>
+              )}
+              {zipResult && !zipResult.available && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  {zipResult.message}
+                </div>
+              )}
+            </section>
+
+            {/* ── 2. Wall Fit Calculator ─────────────────────────────── */}
+            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                Wall Fit Calculator
+              </h2>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Wall Width (in)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={wallWidth}
+                    onChange={(e) => setWallWidth(e.target.value)}
+                    placeholder="e.g. 120"
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Wall Height (in)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={wallHeight}
+                    onChange={(e) => setWallHeight(e.target.value)}
+                    placeholder="e.g. 96"
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+              </div>
               <button
-                onClick={handleZipCheck}
-                disabled={zip.length < 5}
-                className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
+                onClick={handleWallFit}
+                disabled={!wallWidth || !wallHeight}
+                className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
               >
-                Check
+                Find Max Size for This Wall
               </button>
-            </div>
-            {zipStatus === "local" && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                WDO Custom serves your area.
-              </div>
-            )}
-            {zipStatus === "hq" && (
-              <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                No local partner found. Routing to HQ.
-              </div>
-            )}
-          </section>
+              {wallFitResult && (
+                <p className="mt-2 text-center text-xs text-stone-500">
+                  Max fit:{" "}
+                  <span className="font-bold text-gray-900">
+                    {wallFitResult.maxCols} cols × {wallFitResult.maxRows} tiers
+                  </span>
+                  &ensp;&mdash;&ensp;applied below.
+                </p>
+              )}
+            </section>
 
-          {/* ── 2. Wall Fit Calculator ─────────────────────────────────── */}
-          <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-              Wall Fit Calculator
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Wall Width (in)
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={wallWidth}
-                  onChange={(e) => setWallWidth(e.target.value)}
-                  placeholder="e.g. 120"
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+            {/* ── 3. Design Your Unit ────────────────────────────────── */}
+            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                Design Your Unit
+              </h2>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Columns
+                  </label>
+                  <select
+                    value={cols}
+                    onChange={(e) => setCols(Number(e.target.value))}
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    {colOptions.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tiers High
+                  </label>
+                  <select
+                    value={rows}
+                    onChange={(e) => setRows(Number(e.target.value))}
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    {rowOptions.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tote Model
+                  </label>
+                  <select
+                    value={toteType}
+                    onChange={(e) =>
+                      setToteType(e.target.value as "hdx" | "greenmade")
+                    }
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    <option value="hdx">HDX (19.75&quot;)</option>
+                    <option value="greenmade">Greenmade (20.75&quot;)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Upsells */}
+              <div className="mt-4 space-y-2">
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500">
+                  Add-Ons
+                </p>
+                <Checkbox
+                  checked={includeTotes}
+                  onChange={setIncludeTotes}
+                  label="Add Totes"
+                  detail="+$12 ea"
+                />
+                <Checkbox
+                  checked={includeWheels}
+                  onChange={setIncludeWheels}
+                  label="Add Wheels"
+                  detail="+$45 flat"
+                />
+                <Checkbox
+                  checked={includePlywoodTop}
+                  onChange={setIncludePlywoodTop}
+                  label="Plywood Top"
+                  detail="+$75 flat"
                 />
               </div>
-              <div>
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Wall Height (in)
-                </label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={wallHeight}
-                  onChange={(e) => setWallHeight(e.target.value)}
-                  placeholder="e.g. 96"
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleWallFit}
-              disabled={!wallWidth || !wallHeight}
-              className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-            >
-              Find Max Size for This Wall
-            </button>
-            {wallFitResult && (
-              <p className="mt-2 text-center text-xs text-stone-500">
-                Max fit:{" "}
-                <span className="font-bold text-gray-900">
-                  {wallFitResult.maxCols} cols × {wallFitResult.maxRows} tiers
-                </span>
-                &ensp;&mdash;&ensp;applied below.
+            </section>
+
+            {calcError && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                {calcError}
               </p>
             )}
-          </section>
+          </div>
 
-          {/* ── 3. Design Your Unit ────────────────────────────────────── */}
-          <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-              Design Your Unit
-            </h2>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Columns
-                </label>
-                <select
-                  value={cols}
-                  onChange={(e) => setCols(Number(e.target.value))}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  {colOptions.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Tiers High
-                </label>
-                <select
-                  value={rows}
-                  onChange={(e) => setRows(Number(e.target.value))}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  {rowOptions.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Tote Model
-                </label>
-                <select
-                  value={toteType}
-                  onChange={(e) =>
-                    setToteType(e.target.value as "hdx" | "greenmade")
-                  }
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="hdx">HDX (19.75&quot;)</option>
-                  <option value="greenmade">Greenmade (20.75&quot;)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Upsells */}
-            <div className="mt-4 space-y-2">
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500">
-                Add-Ons
-              </p>
-              <Checkbox
-                checked={includeTotes}
-                onChange={setIncludeTotes}
-                label="Add Totes"
-                detail="+$12 ea"
-              />
-              <Checkbox
-                checked={includeWheels}
-                onChange={setIncludeWheels}
-                label="Add Wheels"
-                detail="+$45 flat"
-              />
-              <Checkbox
-                checked={includePlywoodTop}
-                onChange={setIncludePlywoodTop}
-                label="Plywood Top"
-                detail="+$75 flat"
-              />
-            </div>
-          </section>
-
-          {/* ── 4. Quote Receipt ───────────────────────────────────────── */}
+          {/* ── Sticky Quote Receipt (bottom of sidebar) ────────────── */}
           {result && (
-            <section className="overflow-hidden rounded-xl border border-stone-300 bg-white shadow-sm">
-              {/* Receipt header */}
-              <div className="border-b border-dashed border-stone-300 bg-stone-50 px-4 py-3">
-                <h2 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                  <Receipt className="h-4 w-4" />
-                  Quote Summary
-                </h2>
-              </div>
-
+            <div className="shrink-0 border-t-2 border-yellow-400 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
               {/* Line items */}
               <div className="divide-y divide-dashed divide-stone-200 px-4">
                 {result.line_items.map((item, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between py-2.5 text-sm"
+                    className="flex items-center justify-between py-2 text-sm"
                   >
                     <div>
                       <p className="font-medium text-gray-900">{item.label}</p>
@@ -388,50 +398,52 @@ export default function PublicCalculatorPage() {
                 ))}
               </div>
 
-              {/* Total */}
-              <div className="border-t-2 border-gray-950 bg-gray-950 px-4 py-4">
-                <div className="flex items-end justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                    Total
-                  </span>
-                  <span className="text-4xl font-black text-yellow-400">
-                    ${result.grand_total.toLocaleString()}
-                  </span>
-                </div>
+              {/* Total bar */}
+              <div className="flex items-end justify-between bg-gray-950 px-4 py-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Total
+                </span>
+                <span className="text-3xl font-black text-yellow-400">
+                  ${result.grand_total.toLocaleString()}
+                </span>
               </div>
 
               {/* Booking form / success */}
-              <div className="border-t border-stone-200 bg-stone-50 px-4 py-4">
+              <div className="bg-stone-50 px-4 py-3">
                 {!submitted ? (
                   <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Your name *"
-                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                    />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email *"
-                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                    />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone (optional)"
-                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                    />
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Address / City (optional)"
-                      className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Your name *"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email *"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Phone (optional)"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Address (optional)"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                    </div>
                     <button
                       onClick={handleBookDeposit}
                       disabled={submitting}
@@ -451,7 +463,7 @@ export default function PublicCalculatorPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="py-4 text-center">
+                  <div className="py-3 text-center">
                     <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
                     <p className="font-bold text-gray-900">Booking Received!</p>
                     <p className="mt-0.5 text-xs text-stone-500">
@@ -460,20 +472,22 @@ export default function PublicCalculatorPage() {
                   </div>
                 )}
               </div>
-            </section>
-          )}
-
-          {calcError && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {calcError}
-            </p>
+            </div>
           )}
         </aside>
 
         {/* ════════════════════════════════════════════════════════════════
-            RIGHT SIDE — Visualizer
+            RIGHT SIDE — Visualizer Hero (60-65%)
         ════════════════════════════════════════════════════════════════ */}
-        <main className="flex flex-1 items-start justify-center p-6 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+        <main
+          className="flex flex-1 items-center justify-center overflow-y-auto border-l border-stone-300 p-6"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #d6d3d1 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+            backgroundColor: "#fafaf9",
+          }}
+        >
           {calculating && !result ? (
             <div className="flex h-64 items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
@@ -526,7 +540,7 @@ function Checkbox({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Shelf Visualizer — Construction-Style Schematic
+// Shelf Visualizer — Construction-Style Schematic (Large)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ShelfVisualizer({
@@ -548,14 +562,14 @@ function ShelfVisualizer({
   const displayRows = Math.min(rows, 8);
   const truncated = cols > displayCols || rows > displayRows;
 
-  // Sizing constants (px)
-  const POST_W = 8;
-  const BEAM_H = 6;
-  const TOTE_W = 52;
-  const TOTE_H = 42;
-  const ARROW_GAP = 32;
-  const WHEEL_R = 7;
-  const TOP_H = 8;
+  // Bigger sizing constants (px) for hero visualizer
+  const POST_W = 10;
+  const BEAM_H = 8;
+  const TOTE_W = 68;
+  const TOTE_H = 54;
+  const ARROW_GAP = 36;
+  const WHEEL_R = 9;
+  const TOP_H = 10;
 
   const gridW = POST_W + displayCols * (TOTE_W + POST_W);
   const gridH = BEAM_H + displayRows * (TOTE_H + BEAM_H);
@@ -565,13 +579,13 @@ function ShelfVisualizer({
   return (
     <div className="flex flex-col items-center">
       {/* Specs pills */}
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-        <Pill icon={<Package className="h-3 w-3" />} label={`${cols}×${rows}`} sub="layout" />
-        <Pill icon={<Truck className="h-3 w-3" />} label={`${totalWidth}"`} sub="wide" />
-        <Pill icon={<CircleDot className="h-3 w-3" />} label={`${totalHeight}"`} sub="tall" />
+      <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
+        <Pill icon={<Package className="h-3.5 w-3.5" />} label={`${cols}×${rows}`} sub="layout" />
+        <Pill icon={<Truck className="h-3.5 w-3.5" />} label={`${totalWidth}"`} sub="wide" />
+        <Pill icon={<CircleDot className="h-3.5 w-3.5" />} label={`${totalHeight}"`} sub="tall" />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-stone-300 bg-white p-4 shadow-lg">
+      <div className="overflow-x-auto rounded-2xl border border-stone-300 bg-white p-5 shadow-xl">
         <div
           className="relative"
           style={{
@@ -685,7 +699,7 @@ function ShelfVisualizer({
                       top: 2,
                     }}
                   >
-                    <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-400" />
+                    <div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-400" />
                   </div>
                 );
               })}
@@ -699,7 +713,7 @@ function ShelfVisualizer({
           Showing {displayCols}&times;{displayRows} of {cols}&times;{rows}
         </p>
       )}
-      <p className="mt-2 text-xs text-stone-500">
+      <p className="mt-3 text-sm text-stone-500">
         {cols} columns &times; {rows} tiers ={" "}
         <span className="font-bold text-gray-900">{cols * rows} slots</span>
       </p>
@@ -719,7 +733,7 @@ function Pill({
   sub: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs">
+    <div className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs shadow-sm">
       <span className="text-yellow-600">{icon}</span>
       <span className="font-bold text-gray-900">{label}</span>
       <span className="text-stone-400">{sub}</span>
@@ -789,9 +803,9 @@ function ConstructionTote({
   width: number;
   height: number;
 }) {
-  const LID_H = 7;
-  const HANDLE_W = 16;
-  const HANDLE_H = 4;
+  const LID_H = 9;
+  const HANDLE_W = 20;
+  const HANDLE_H = 5;
 
   return (
     <div
@@ -809,11 +823,11 @@ function ConstructionTote({
         {/* Inner depth line */}
         <div className="absolute inset-[3px] rounded-sm border border-white/5" />
         {/* Subtle ribs */}
-        <div className="absolute bottom-2 left-[6px] right-[6px] top-[12px] opacity-20">
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div className="absolute bottom-2 left-[6px] right-[6px] top-[14px] opacity-20">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="mb-[4px] h-[1px] bg-white/20"
+              className="mb-[5px] h-[1px] bg-white/20"
             />
           ))}
         </div>
