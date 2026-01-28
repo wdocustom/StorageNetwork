@@ -262,14 +262,14 @@ function DesignPageInner() {
         <div className="mx-auto flex max-w-[1800px] items-center gap-3">
           <a
             href="/"
-            className="flex h-9 w-9 items-center justify-center rounded bg-yellow-400 text-lg font-black text-gray-950 transition-transform hover:scale-105"
+            className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            SD
+            <img src="/logo.png" alt="The Shelf Dude" className="h-10 w-10" />
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-              Professional Grade Garage Storage
+              Professional Grade Storage
             </h1>
             <p className="text-[10px] uppercase tracking-wider text-yellow-400">
               Build Configurator

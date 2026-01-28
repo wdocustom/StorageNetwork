@@ -83,21 +83,19 @@ export default function LandingPage() {
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           {/* Logo mark */}
-          <div className="mb-8 inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-400 text-xl font-black text-gray-950">
-              SD
-            </div>
-            <span className="text-sm font-bold uppercase tracking-[0.2em] text-stone-500">
-              The Shelf Dude
-            </span>
+          <div className="mb-8 inline-block">
+            <img
+              src="/logo.png"
+              alt="The Shelf Dude"
+              className="h-28 w-28 sm:h-36 sm:w-36"
+            />
           </div>
 
           {/* Headline */}
           <h1 className="mb-4 text-4xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
             Professional
             <br />
-            Grade Garage
-            <br />
+            Grade{" "}
             <span className="text-yellow-400">Storage.</span>
           </h1>
 
@@ -221,12 +219,11 @@ export default function LandingPage() {
       <footer className="border-t border-stone-800 bg-gray-950 px-4 py-8">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-yellow-400 text-xs font-black text-gray-950">
-              SD
-            </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-600">
-              The Shelf Dude
-            </span>
+            <img
+              src="/logo.png"
+              alt="The Shelf Dude"
+              className="h-8 w-8"
+            />
           </div>
           <p className="text-xs text-stone-700">
             &copy; {new Date().getFullYear()} WDO Custom. All rights reserved.
