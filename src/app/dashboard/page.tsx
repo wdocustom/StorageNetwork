@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24,6 +25,7 @@ interface Profile {
   is_pro: boolean;
   subscription_tier?: string;
   stripe_account_id?: string | null;
+  slug?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -100,13 +102,22 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
-            title="Sign out"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <a
+              href="/dashboard/profile"
+              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              title="Settings"
+            >
+              <Settings className="h-5 w-5" />
+            </a>
+            <button
+              onClick={handleSignOut}
+              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              title="Sign out"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -213,7 +224,7 @@ export default function DashboardPage() {
                 Your Booking Link
               </p>
               <p className="select-all break-all text-sm font-medium text-yellow-400">
-                {typeof window !== "undefined" ? window.location.origin : ""}/book/{profile.id}
+                {typeof window !== "undefined" ? window.location.origin : ""}/book/{profile.slug || profile.id}
               </p>
               <p className="mt-2 text-[11px] text-stone-600">
                 Share with your own clients — deposits go directly to your

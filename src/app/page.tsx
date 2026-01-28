@@ -169,7 +169,7 @@ export default function LandingPage() {
                   setError("");
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter your ZIP code"
+                placeholder="ZIP Code"
                 className="w-full bg-transparent px-3 py-4 text-lg font-medium text-white placeholder-stone-500 outline-none"
               />
               <button
