@@ -41,16 +41,16 @@ ALTER TABLE public.profiles
 ALTER TABLE public.leads
   ADD COLUMN IF NOT EXISTS source text;
 
--- 4. DATA CLEAN-UP: Fix any NULL or invalid source values BEFORE adding constraint
+-- 4. Drop existing constraint FIRST (before any data changes)
+ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_source_check;
+
+-- 5. DATA CLEAN-UP: Fix any NULL or invalid source values
 UPDATE public.leads
 SET source = 'platform'
 WHERE source IS NULL
    OR source NOT IN ('platform', 'partner_link', 'installer_manual', 'affiliate');
 
--- 5. LEADS — Drop existing constraint if it exists (safe cleanup)
-ALTER TABLE public.leads DROP CONSTRAINT IF EXISTS leads_source_check;
-
--- 6. LEADS — Add the new constraint (now that data is clean)
+-- 6. Add the new constraint (now that data is clean and old constraint is gone)
 ALTER TABLE public.leads
   ADD CONSTRAINT leads_source_check
   CHECK (source IN ('platform', 'partner_link', 'installer_manual', 'affiliate'));
