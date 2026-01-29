@@ -306,8 +306,8 @@ export default function BuildConfiguratorPage() {
           {/* Toggles */}
           <div className="mt-3 space-y-2">
             {[
-              { val: hasTotes, set: setHasTotes, label: "Include Totes" },
-              { val: hasWheels, set: setHasWheels, label: "Add Wheels" },
+              { val: hasTotes, set: setHasTotes, label: "Totes" },
+              { val: hasWheels, set: setHasWheels, label: "Wheels" },
               { val: hasTop, set: setHasTop, label: "Plywood Top" },
             ].map(({ val, set, label }) => (
               <label
@@ -423,8 +423,8 @@ export default function BuildConfiguratorPage() {
                     Pro Feature
                   </p>
                   <p className="mb-4 max-w-[260px] text-center text-xs text-stone-400">
-                    Subscribe to PRO to unlock detailed Material Lists and Cut
-                    Plans.
+                    Subscribe to PRO to unlock your detailed Material List —
+                    a complete shopping list for every build.
                   </p>
                   <a
                     href="/upgrade"

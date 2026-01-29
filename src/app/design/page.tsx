@@ -101,8 +101,8 @@ function DesignPageInner() {
   const [wallFitMsg, setWallFitMsg] = useState("");
 
   // ── Design inputs ─────────────────────────────────────────────────────
-  const [cols, setCols] = useState(4);
-  const [rows, setRows] = useState(4);
+  const [cols, setCols] = useState<number | string>(4);
+  const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
@@ -171,10 +171,14 @@ function DesignPageInner() {
     []
   );
 
-  // Fire on every config change
+  // Fire on every config change (only when cols/rows are valid numbers)
+  const numCols = typeof cols === "number" ? cols : parseInt(cols as string) || 0;
+  const numRows = typeof rows === "number" ? rows : parseInt(rows as string) || 0;
   useEffect(() => {
-    fetchBuild(cols, rows, toteType, hasTotes, hasWheels, hasTop);
-  }, [cols, rows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
+    if (numCols >= 1 && numRows >= 1) {
+      fetchBuild(numCols, numRows, toteType, hasTotes, hasWheels, hasTop);
+    }
+  }, [numCols, numRows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -421,7 +425,7 @@ function DesignPageInner() {
 
             {/* ── Manual Configuration ──────────────────────────────── */}
             <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-stone-400">
+              <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
                 Manual Configuration
               </h2>
 
@@ -435,9 +439,15 @@ function DesignPageInner() {
                     min={1}
                     max={12}
                     value={cols}
-                    onChange={(e) =>
-                      setCols(Math.max(1, parseInt(e.target.value) || 1))
-                    }
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setCols(v === "" ? "" : parseInt(v) || "");
+                    }}
+                    onBlur={() => {
+                      const n = typeof cols === "number" ? cols : parseInt(cols as string);
+                      setCols(Math.min(12, Math.max(1, n || 1)));
+                    }}
                     className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                   />
                 </div>
@@ -450,9 +460,15 @@ function DesignPageInner() {
                     min={1}
                     max={10}
                     value={rows}
-                    onChange={(e) =>
-                      setRows(Math.max(1, parseInt(e.target.value) || 1))
-                    }
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setRows(v === "" ? "" : parseInt(v) || "");
+                    }}
+                    onBlur={() => {
+                      const n = typeof rows === "number" ? rows : parseInt(rows as string);
+                      setRows(Math.min(10, Math.max(1, n || 1)));
+                    }}
                     className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                   />
                 </div>
@@ -481,12 +497,12 @@ function DesignPageInner() {
                 <Toggle
                   checked={hasTotes}
                   onChange={setHasTotes}
-                  label="Show Totes"
+                  label="Totes"
                 />
                 <Toggle
                   checked={hasWheels}
                   onChange={setHasWheels}
-                  label="Add Wheels"
+                  label="Wheels"
                 />
                 <Toggle
                   checked={hasTop}
@@ -501,7 +517,7 @@ function DesignPageInner() {
                   <div className="text-2xl font-black text-gray-900">
                     {buildLoading ? "…" : `$${build.price.toLocaleString()}`}
                   </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
                     Current Unit
                   </div>
                 </div>
@@ -519,7 +535,7 @@ function DesignPageInner() {
             {/* ── Quote List ────────────────────────────────────────── */}
             {orderItems.length > 0 && (
               <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-stone-400">
+                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
                   Your Quote List
                 </h2>
 
@@ -563,7 +579,7 @@ function DesignPageInner() {
 
                 {/* Grand Total */}
                 <div className="mt-4 border-t-2 border-dashed border-stone-300 pt-4 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
                     Estimated Grand Total
                   </div>
                   <div className="mt-1 text-4xl font-black text-gray-900">
@@ -646,8 +662,8 @@ function DesignPageInner() {
         <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
           <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
             <RackVisualizer
-              cols={build.cols || cols}
-              rows={build.rows || rows}
+              cols={build.cols || numCols || 1}
+              rows={build.rows || numRows || 1}
               toteType={toteType}
               hasTotes={hasTotes}
               hasWheels={hasWheels}
@@ -663,8 +679,8 @@ function DesignPageInner() {
             {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; H
             &times; 30&quot; D &nbsp;&mdash;&nbsp;
             <span className="font-bold text-gray-900">
-              {build.cols || cols} &times; {build.rows || rows} ={" "}
-              {build.slots || cols * rows} slots
+              {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
+              {build.slots || (numCols || 1) * (numRows || 1)} slots
             </span>
           </div>
         </main>
