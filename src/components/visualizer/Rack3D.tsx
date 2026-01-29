@@ -50,7 +50,7 @@ const TOTE_FULL_W_GM = 20.75;
 const TOTE_RIM_H = 1.0;
 const TOTE_BODY_H = 11.0;
 const TOTE_BODY_TAPER = 0.85;
-const TOTE_DEPTH = 30;         // Totes extend full depth of unit
+const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for equal front/back gap
 
 // Inches → scene units
 const S = 1 / 48;
@@ -360,10 +360,10 @@ export default function Rack3D(props: Rack3DProps) {
       >
         <color attach="background" args={["#ffffff"]} />
 
-        <ambientLight intensity={0.6} />
+        <ambientLight intensity={0.85} />
         <directionalLight
           position={[12, 18, 12]}
-          intensity={1.2}
+          intensity={1.0}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-4}
@@ -372,16 +372,17 @@ export default function Rack3D(props: Rack3DProps) {
           shadow-camera-bottom={-4}
           shadow-bias={-0.0002}
         />
-        <directionalLight position={[-10, 12, -8]} intensity={0.3} />
-        <hemisphereLight args={["#ffffff", "#e8dcc8", 0.4]} />
+        <directionalLight position={[-10, 12, -8]} intensity={0.5} />
+        <directionalLight position={[0, 6, -12]} intensity={0.3} />
+        <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
 
         <ContactShadows
           position={[0, -0.001, 0]}
-          opacity={0.35}
+          opacity={0.2}
           scale={10}
           blur={2.5}
           far={4}
-          color="#000000"
+          color="#444444"
         />
 
         <CameraRig
