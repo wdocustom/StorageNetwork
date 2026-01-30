@@ -269,9 +269,7 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
   // Plate explosion: float up/down on Y
   const bottomPlateExpY = -8 * EX;
   const topPlateExpY = 8 * EX;
-  // Tote explosion: hover in air
-  const toteExpY = 18 * EX;
-  const toteExpZ = 8 * EX;
+  // Tote explosion: removed — totes not part of assembly guide
   // Caster explosion: drop below
   const casterExpY = -10 * EX;
 
@@ -299,39 +297,44 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
     const screws: { pos: [number, number, number]; rot: [number, number, number]; len: number; label: string }[] = [];
 
     if (step.id === "ladders" || mode === "exploded") {
-      // Screws at rail-to-post junctions
+      // Rail screws: enter from outside face of plywood rail, through rail, into post.
+      // Screw default: head at Y=0, shaft goes -Y (tip points -Y).
+      // For right-face rail: head on +X side, tip points -X (toward post).
+      //   → rotate Z = +π/2 (head right, tip left)
+      // For left-face rail: head on -X side, tip points +X (toward post).
+      //   → rotate Z = -π/2 (head left, tip right)
       for (let i = 0; i <= cols; i++) {
         const px = getPostX(i, bayW);
         for (let r = 0; r < rows; r++) {
           const railY = PLATE_H + firstRailY + r * TIER_SPACING;
-          // Right-face screws
+          // Right-face rail screws (rail is right of post i, screw enters from +X)
           if (i < cols) {
-            const sx = px + POST_W / 2 + RAIL_THICKNESS + 0.3;
+            const sx = px + POST_W / 2 + RAIL_THICKNESS + 0.5;
             screws.push({
               pos: [sx, railY + lift, 2],
-              rot: [0, 0, Math.PI / 2],
+              rot: [0, 0, -Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive Construction Screw',
             });
             screws.push({
               pos: [sx, railY + lift, RACK_DEPTH - 2],
-              rot: [0, 0, Math.PI / 2],
+              rot: [0, 0, -Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive Construction Screw',
             });
           }
-          // Left-face screws
+          // Left-face rail screws (rail is left of post i, screw enters from -X)
           if (i > 0) {
-            const sx = px - POST_W / 2 - RAIL_THICKNESS - 0.3;
+            const sx = px - POST_W / 2 - RAIL_THICKNESS - 0.5;
             screws.push({
               pos: [sx, railY + lift, 2],
-              rot: [0, 0, -Math.PI / 2],
+              rot: [0, 0, Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive Construction Screw',
             });
             screws.push({
               pos: [sx, railY + lift, RACK_DEPTH - 2],
-              rot: [0, 0, -Math.PI / 2],
+              rot: [0, 0, Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive Construction Screw',
             });
@@ -341,32 +344,40 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
     }
 
     if (step.id === "frame-assembly" || mode === "exploded") {
-      // Plate screws — angled into posts
+      // Plate screws — enter vertically through plate into post end grain.
+      // Bottom plate: screw head below plate, tip points UP into post.
+      //   → rotate Z = π (flip upside down: head at -Y, tip at +Y)
+      // Top plate: screw head above plate, tip points DOWN into post.
+      //   → rotate Z = 0 (default: head at +Y, tip at -Y)
       for (let i = 0; i <= cols; i++) {
         const px = getPostX(i, bayW);
-        // Bottom plate screws
+        // Bottom plate screws (head below, tip up into post)
+        // Front bottom plate
         screws.push({
-          pos: [px, PLATE_H + lift + 0.5, POST_D / 2 + 1.5],
-          rot: [0.5, 0, 0],
+          pos: [px, lift - 0.5, POST_D / 2],
+          rot: [0, 0, Math.PI],
           len: 3.0,
           label: '#9 × 3" Star Drive Construction Screw',
         });
+        // Back bottom plate
         screws.push({
-          pos: [px, PLATE_H + lift + 0.5, RACK_DEPTH - POST_D / 2 - 1.5],
-          rot: [-0.5, 0, 0],
+          pos: [px, lift - 0.5, RACK_DEPTH - POST_D / 2],
+          rot: [0, 0, Math.PI],
           len: 3.0,
           label: '#9 × 3" Star Drive Construction Screw',
         });
-        // Top plate screws
+        // Top plate screws (head above, tip down into post)
+        // Front top plate
         screws.push({
-          pos: [px, frameH - PLATE_H + lift - 0.5, POST_D / 2 + 1.5],
-          rot: [-0.5, 0, 0],
+          pos: [px, frameH + lift + 0.5, POST_D / 2],
+          rot: [0, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive Construction Screw',
         });
+        // Back top plate
         screws.push({
-          pos: [px, frameH - PLATE_H + lift - 0.5, RACK_DEPTH - POST_D / 2 - 1.5],
-          rot: [0.5, 0, 0],
+          pos: [px, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
+          rot: [0, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive Construction Screw',
         });
@@ -479,32 +490,7 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
             );
           })}
 
-          {/* Totes */}
-          {Array.from({ length: cols }).map((_, c) => {
-            const leftPostX = getPostX(c, bayW);
-            const rightPostX = getPostX(c + 1, bayW);
-            const bayCenterX = (leftPostX + rightPostX) / 2;
-
-            return Array.from({ length: rows }).map((_, r) => {
-              const railCenterY = PLATE_H + firstRailY + r * TIER_SPACING;
-              const railTop = railCenterY + RAIL_HEIGHT / 2;
-              const toteGroupY = railTop - TOTE_BODY_H;
-
-              return (
-                <AnimatedGroup
-                  key={`tote-${c}-${r}`}
-                  targetPos={[0, toteExpY, toteExpZ * (r % 2 === 0 ? 1 : -1)]}
-                >
-                  <Tote
-                    position={[bayCenterX, toteGroupY, RACK_DEPTH / 2]}
-                    bayW={bayW}
-                    toteType={toteType}
-                    vis={vis("totes")}
-                  />
-                </AnimatedGroup>
-              );
-            });
-          })}
+          {/* Totes omitted — not part of the build assembly */}
         </group>
 
         {/* ── CASTERS ── */}

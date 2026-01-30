@@ -127,13 +127,13 @@ export const ASSEMBLY_STEPS: AssemblyStep[] = [
     id: "wheels-finish",
     title: "Wheels & Finish",
     instruction:
-      'Flip the unit. Attach 4 industrial swivel casters at the corner posts using 1/4" × 1-1/2" lag screws through the mounting plate. Flip upright, load totes, and verify smooth operation.',
+      'Flip the unit. Attach 4 industrial swivel casters at the corner posts using 1/4" × 1-1/2" lag screws through the mounting plate. Flip upright and verify smooth rolling.',
     partStates: {
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
       topPlates: "visible",
-      totes: "visible",
+      totes: "hidden",
       casters: "visible",
       plyTop: "visible",
       screws: "visible",
@@ -146,7 +146,6 @@ export const ASSEMBLY_STEPS: AssemblyStep[] = [
     materials: [
       { name: "Industrial Swivel Casters", qty: "4", detail: "Heavy-duty, 5\" wheel" },
       { name: '1/4" × 1-1/2" Lag Screws', qty: "16", detail: "4 per caster plate" },
-      { name: "Storage Totes", qty: "TOTES_QTY", detail: "HDX or Greenmade" },
     ],
     cameraHint: "bottom",
   },
