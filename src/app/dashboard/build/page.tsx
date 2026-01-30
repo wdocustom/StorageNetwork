@@ -465,14 +465,22 @@ export default function BuildConfiguratorPage() {
                       <h3 className="mb-2 text-sm font-bold text-yellow-400">
                         Module {mod.moduleIndex} ({mod.cols}x{mod.rows})
                       </h3>
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {mod.boards.map((board, bi) => (
-                          <div key={bi}>
-                            <div className="mb-0.5 flex justify-between text-[10px] text-stone-500">
-                              <span>Board {bi + 1}</span>
-                              <span>{board.rem.toFixed(1)}&quot; waste</span>
+                          <div
+                            key={bi}
+                            className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
+                          >
+                            <div className="mb-1 flex justify-between text-[10px]">
+                              <span className="font-semibold text-stone-400">
+                                Board {bi + 1}
+                                <span className="ml-1.5 text-stone-600">96&quot; stock</span>
+                              </span>
+                              <span className="font-mono font-bold text-red-400/70">
+                                {board.rem.toFixed(1)}&quot; waste
+                              </span>
                             </div>
-                            <div className="flex h-7 overflow-hidden rounded bg-slate-700">
+                            <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
                               {board.cuts.map((cut, ci) => {
                                 const pct = (cut.len / 96) * 100;
                                 const color =
@@ -480,12 +488,14 @@ export default function BuildConfiguratorPage() {
                                 return (
                                   <div
                                     key={ci}
-                                    className="flex items-center justify-center border-r border-slate-900 text-[10px] font-bold text-slate-900"
+                                    className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[10px] font-extrabold text-white"
                                     style={{
                                       width: `${pct}%`,
                                       backgroundColor: color,
-                                      minWidth: "20px",
+                                      minWidth: "24px",
+                                      textShadow: "0 1px 2px rgba(0,0,0,0.4)",
                                     }}
+                                    title={`${cut.name} — ${cut.len.toFixed(1)}"`}
                                   >
                                     {cut.len.toFixed(0)}&quot;
                                   </div>
@@ -493,10 +503,10 @@ export default function BuildConfiguratorPage() {
                               })}
                               {board.rem > 0 && (
                                 <div
-                                  className="flex-1 opacity-30"
+                                  className="flex-1"
                                   style={{
                                     background:
-                                      "repeating-linear-gradient(45deg, #ef4444, #ef4444 5px, #dc2626 5px, #dc2626 10px)",
+                                      "repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 4px, rgba(220,38,38,0.08) 4px, rgba(220,38,38,0.08) 8px)",
                                   }}
                                 />
                               )}

@@ -8,14 +8,22 @@ import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import {
   ArrowLeft,
   CheckCircle2,
+  CreditCard,
   DollarSign,
   Loader2,
+  Mail,
   MapPin,
   Package,
   Ruler,
   ShoppingCart,
   Wrench,
+  X,
 } from "lucide-react";
+import {
+  createPaymentSession,
+  sendPaymentInvoice,
+  markLeadAsPaid,
+} from "@/app/actions/payments";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -32,8 +40,10 @@ interface LeadDetail {
   deposit_paid: boolean;
   deposit_amount: number | null;
   balance_due: number | null;
+  payout_status: string | null;
   quote_data: QuoteUnit[] | null;
   created_at: string;
+  installer_id: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -52,6 +62,11 @@ export default function JobTicketPage() {
 
   // Checklist state for material pick list
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+
+  // Payment state
+  const [showPayMenu, setShowPayMenu] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
+  const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
 
   const fetchLead = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -75,6 +90,18 @@ export default function JobTicketPage() {
       setManifest(m);
     }
 
+    // Fetch installer's Stripe account ID
+    if (leadData.installer_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("stripe_account_id")
+        .eq("id", leadData.installer_id)
+        .single();
+      if (profile?.stripe_account_id) {
+        setInstallerStripeId(profile.stripe_account_id);
+      }
+    }
+
     setLoading(false);
   }, [supabase, leadId]);
 
@@ -85,6 +112,51 @@ export default function JobTicketPage() {
   function toggleCheck(key: string) {
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
   }
+
+  // ── Payment Handlers ─────────────────────────────────────────────────
+  async function handlePayNow() {
+    if (!lead || !installerStripeId) return;
+    setPayLoading(true);
+    const result = await createPaymentSession({
+      leadId: lead.id,
+      amount: balance,
+      installerStripeId,
+      customerEmail: lead.customer_email || undefined,
+    });
+    setPayLoading(false);
+    if (result.success && result.url) {
+      window.open(result.url, "_blank");
+    }
+    setShowPayMenu(false);
+  }
+
+  async function handleSendInvoice() {
+    if (!lead || !installerStripeId || !lead.customer_email) return;
+    setPayLoading(true);
+    const result = await sendPaymentInvoice({
+      leadId: lead.id,
+      amount: balance,
+      installerStripeId,
+      customerEmail: lead.customer_email,
+      customerName: lead.customer_name,
+      businessName: "The Shelf Dude",
+    });
+    setPayLoading(false);
+    if (result.success) {
+      fetchLead(); // refresh status
+    }
+    setShowPayMenu(false);
+  }
+
+  async function handleMarkPaid() {
+    if (!lead) return;
+    setPayLoading(true);
+    await markLeadAsPaid(lead.id);
+    setPayLoading(false);
+    fetchLead();
+  }
+
+  const isPaid = lead?.payout_status === "paid" || lead?.deposit_paid;
 
   // ── Loading / Error ───────────────────────────────────────────────────
   if (loading) {
@@ -202,6 +274,79 @@ export default function JobTicketPage() {
               </span>
             </span>
           </div>
+
+          {/* ── Payment Action ──────────────────────────────────────── */}
+          {isPaid ? (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-500/20 px-4 py-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <span className="text-sm font-bold text-emerald-400">PAID</span>
+            </div>
+          ) : (
+            <div className="relative mt-4">
+              <button
+                onClick={() => setShowPayMenu((v) => !v)}
+                disabled={payLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4" />
+                )}
+                Process Payment
+              </button>
+
+              {showPayMenu && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
+                  <button
+                    onClick={() => setShowPayMenu(false)}
+                    className="absolute right-2 top-2 text-stone-500 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={handleSendInvoice}
+                    disabled={!lead.customer_email || payLoading}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    <Mail className="h-5 w-5 text-blue-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Send Invoice</p>
+                      <p className="text-[11px] text-stone-500">
+                        Email payment link to customer
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handlePayNow}
+                    disabled={payLoading}
+                    className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    <CreditCard className="h-5 w-5 text-yellow-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Pay Now</p>
+                      <p className="text-[11px] text-stone-500">
+                        Open Stripe Checkout in new tab
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleMarkPaid}
+                    disabled={payLoading}
+                    className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Mark as Paid</p>
+                      <p className="text-[11px] text-stone-500">
+                        Manual confirmation (cash/check)
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── Unit Summary ───────────────────────────────────────────── */}
@@ -303,18 +448,26 @@ export default function JobTicketPage() {
                     x{mod.rows})
                   </h3>
                   <p className="mb-3 text-[11px] text-stone-500">
-                    {mod.stripCount} strips @ 1.875&quot; (Rails: {mod.railStrips}, Back
+                    {mod.stripCount} plywood sliders @ 1.875&quot; (Rails: {mod.railStrips}, Back
                     Supports: {mod.backSupports})
                   </p>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {mod.boards.map((board, bi) => (
-                      <div key={bi}>
-                        <div className="mb-0.5 flex justify-between text-[10px] text-stone-500">
-                          <span>Board {bi + 1}</span>
-                          <span>{board.rem.toFixed(1)}&quot; waste</span>
+                      <div
+                        key={bi}
+                        className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
+                      >
+                        <div className="mb-1 flex justify-between text-[10px]">
+                          <span className="font-semibold text-stone-400">
+                            Board {bi + 1}
+                            <span className="ml-1.5 text-stone-600">96&quot; stock</span>
+                          </span>
+                          <span className="font-mono font-bold text-red-400/70">
+                            {board.rem.toFixed(1)}&quot; waste
+                          </span>
                         </div>
-                        <div className="flex h-7 overflow-hidden rounded bg-slate-700">
+                        <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
                           {board.cuts.map((cut, ci) => {
                             const pct = (cut.len / 96) * 100;
                             const color =
@@ -322,24 +475,25 @@ export default function JobTicketPage() {
                             return (
                               <div
                                 key={ci}
-                                className="flex items-center justify-center border-r border-slate-900 text-[10px] font-bold text-slate-900"
+                                className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[10px] font-extrabold text-white"
                                 style={{
                                   width: `${pct}%`,
                                   backgroundColor: color,
-                                  minWidth: "20px",
+                                  minWidth: "24px",
+                                  textShadow: "0 1px 2px rgba(0,0,0,0.4)",
                                 }}
+                                title={`${cut.name} — ${cut.len.toFixed(1)}"`}
                               >
                                 {cut.len.toFixed(0)}&quot;
                               </div>
                             );
                           })}
-                          {/* Waste segment */}
                           {board.rem > 0 && (
                             <div
-                              className="flex-1 opacity-30"
+                              className="flex-1"
                               style={{
                                 background:
-                                  "repeating-linear-gradient(45deg, #ef4444, #ef4444 5px, #dc2626 5px, #dc2626 10px)",
+                                  "repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 4px, rgba(220,38,38,0.08) 4px, rgba(220,38,38,0.08) 8px)",
                               }}
                             />
                           )}
@@ -352,24 +506,24 @@ export default function JobTicketPage() {
             </div>
 
             {/* Legend */}
-            <div className="mt-4 flex items-center gap-4 border-t border-slate-800 pt-3 text-[10px] text-stone-500">
-              <div className="flex items-center gap-1">
+            <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
+              <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded-sm bg-blue-500" />
-                Uprights
+                Vertical Posts
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded-sm bg-amber-500" />
-                Rails
+                Plates / Framing
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <div
-                  className="h-3 w-3 rounded-sm opacity-30"
+                  className="h-3 w-3 rounded-sm"
                   style={{
                     background:
-                      "repeating-linear-gradient(45deg, #ef4444, #ef4444 3px, #dc2626 3px, #dc2626 6px)",
+                      "repeating-linear-gradient(45deg, rgba(239,68,68,0.3), rgba(239,68,68,0.3) 2px, rgba(220,38,38,0.1) 2px, rgba(220,38,38,0.1) 4px)",
                   }}
                 />
-                Waste
+                Scrap
               </div>
             </div>
           </section>
