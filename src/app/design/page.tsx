@@ -56,11 +56,37 @@ export default function DesignPage() {
   );
 }
 
+// ── Cookie helpers (installer attribution) ─────────────────────────────
+function setInstallerCookie(id: string) {
+  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `installer_id=${encodeURIComponent(id)};path=/;expires=${expires};SameSite=Lax`;
+}
+
+function getInstallerCookie(): string {
+  const match = document.cookie.match(/(?:^|;\s*)installer_id=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 function DesignPageInner() {
   const searchParams = useSearchParams();
   const incomingZip = searchParams.get("zip") || "";
   const mode = searchParams.get("mode") || "";
-  const installerId = searchParams.get("installer") || "";
+  const paramInstallerId = searchParams.get("installer_id") || searchParams.get("installer") || "";
+
+  // ── Installer attribution (cookie-persisted, 30-day) ────────────────
+  const [installerId, setInstallerId] = useState(paramInstallerId);
+
+  useEffect(() => {
+    if (paramInstallerId) {
+      // URL param present — write/refresh cookie
+      setInstallerCookie(paramInstallerId);
+      setInstallerId(paramInstallerId);
+    } else {
+      // No URL param — try cookie
+      const cookieId = getInstallerCookie();
+      if (cookieId) setInstallerId(cookieId);
+    }
+  }, [paramInstallerId]);
 
   // ── ZIP check ─────────────────────────────────────────────────────────
   const [zip, setZip] = useState(incomingZip);

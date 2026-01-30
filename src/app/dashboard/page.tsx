@@ -99,7 +99,6 @@ export default function DashboardPage() {
 
   // Links
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const bookingLink = `${baseUrl}/book/${profile?.slug || profile?.id}`;
   const leadLink = `${baseUrl}/design?installer_id=${profile?.id}`;
 
   return (
@@ -240,37 +239,6 @@ export default function DashboardPage() {
           {/* Your Links Section */}
           {profile && (
             <div className="space-y-3">
-              {/* Booking Link */}
-              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
-                    Your Booking Link
-                  </p>
-                  <button
-                    onClick={() => copyToClipboard(bookingLink, "booking")}
-                    className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-slate-600"
-                  >
-                    {copiedLink === "booking" ? (
-                      <>
-                        <Check className="h-3 w-3 text-emerald-400" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p className="select-all break-all text-sm font-medium text-yellow-400">
-                  {bookingLink}
-                </p>
-                <p className="mt-2 text-[11px] text-stone-600">
-                  Direct booking — deposits go to your Stripe account.
-                </p>
-              </div>
-
               {/* Lead/Affiliate Link */}
               <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4">
                 <div className="mb-2 flex items-center justify-between">

@@ -89,7 +89,7 @@ export default function LoginPage() {
           <img
             src="/logo.png"
             alt="The Shelf Dude"
-            className="mx-auto mb-4 h-20 w-20"
+            className="mx-auto mb-4 w-80"
           />
           <h1 className="text-lg font-bold uppercase tracking-wider text-white">
             Partner Network

@@ -97,14 +97,14 @@ const INSTALLATION_CHECKLIST = [
     detail: "Use 3\" screws at stud locations",
   },
   {
-    id: "rails",
-    text: "Attach Horizontal Rails",
-    detail: "Use 1-5/8\" screws",
-  },
-  {
     id: "totes",
     text: "Install Totes & Check Fit",
     detail: "Verify smooth slide in/out",
+  },
+  {
+    id: "cleanup",
+    text: "Cleanup",
+    detail: "Wipe down units and sweep the installation area.",
   },
 ];
 
