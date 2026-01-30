@@ -226,3 +226,170 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
 </html>
   `.trim();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Transactional Email Templates — Pilot Program
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Shared email wrapper — dark header with gold accent, white body */
+function emailShell(title: string, body: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#f8fafc;line-height:1.6;">
+  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
+    <div style="background-color:#ffffff;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:28px 32px;text-align:center;">
+        <h1 style="margin:0;color:#facc15;font-size:22px;font-weight:700;letter-spacing:-0.3px;">${title}</h1>
+      </div>
+      <div style="padding:32px;">
+        ${body}
+      </div>
+    </div>
+    <p style="margin:24px 0 0;color:#94a3b8;font-size:11px;text-align:center;">
+      ${siteConfig.name} &mdash; ${siteConfig.tagline}
+    </p>
+  </div>
+</body>
+</html>`.trim();
+}
+
+/**
+ * Welcome email sent to new installer after Stripe onboarding completes.
+ */
+export async function sendInstallerWelcome(
+  name: string,
+  email: string
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${siteConfig.baseUrl}/dashboard`;
+  const html = emailShell(
+    "Welcome to the Partner Network",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${name},</p>
+    <p style="margin:0 0 16px;color:#64748b;font-size:15px;">
+      Your installer account is now <strong style="color:#16a34a;">active</strong>.
+      Your bank is connected and you&rsquo;re ready to receive automated leads and payouts.
+    </p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      Here&rsquo;s what happens next:
+    </p>
+    <ul style="margin:0 0 28px;padding-left:20px;color:#64748b;font-size:14px;">
+      <li style="margin-bottom:8px;">Leads with <strong>paid deposits</strong> land in your dashboard automatically.</li>
+      <li style="margin-bottom:8px;">Each job includes a <strong>cut list</strong>, material list, and assembly guide.</li>
+      <li style="margin-bottom:8px;">Collect the balance on-site with one tap &mdash; funds go straight to your bank.</li>
+    </ul>
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        Open Dashboard
+      </a>
+    </div>
+    <p style="margin:0;color:#94a3b8;font-size:13px;text-align:center;">
+      Questions? Reply to this email anytime.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: name,
+    subject: "Welcome to the Partner Network — You're Live!",
+    html,
+  });
+}
+
+/**
+ * Alert email sent to installer when a new lead with a paid deposit comes in.
+ */
+export async function sendNewJobAlert(
+  installerEmail: string,
+  city: string,
+  leadDetails: { customerName: string; unitCount: number; totalPrice: number; leadId: string }
+): Promise<SendEmailResult> {
+  const jobUrl = `${siteConfig.baseUrl}/dashboard/leads/${leadDetails.leadId}`;
+  const html = emailShell(
+    "NEW LEAD: Deposit Paid",
+    `
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 4px;color:#16a34a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">New Job Received</p>
+      <p style="margin:0;color:#1e293b;font-size:28px;font-weight:800;">$${leadDetails.totalPrice.toLocaleString()}</p>
+    </div>
+    <table style="width:100%;margin-bottom:24px;font-size:14px;color:#334155;">
+      <tr>
+        <td style="padding:8px 0;color:#64748b;width:120px;">Customer</td>
+        <td style="padding:8px 0;font-weight:600;">${leadDetails.customerName}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Location</td>
+        <td style="padding:8px 0;font-weight:600;">${city}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Units</td>
+        <td style="padding:8px 0;font-weight:600;">${leadDetails.unitCount} shelving unit${leadDetails.unitCount !== 1 ? "s" : ""}</td>
+      </tr>
+    </table>
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${jobUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View Cut List &amp; Details
+      </a>
+    </div>
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      This lead has a paid deposit. Contact the customer to schedule installation.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    subject: `NEW LEAD: ${leadDetails.customerName} in ${city} — Deposit Paid`,
+    html,
+  });
+}
+
+/**
+ * Receipt email sent to the customer after their deposit payment succeeds.
+ */
+export async function sendCustomerReceipt(
+  customerEmail: string,
+  amount: number,
+  installerName: string
+): Promise<SendEmailResult> {
+  const html = emailShell(
+    "Order Confirmed",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Thank you for your order!</p>
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Amount Paid</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;font-size:20px;color:#1e293b;">$${amount.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Your Installer</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;">${installerName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Status</td>
+          <td style="padding:8px 0;text-align:right;"><span style="background-color:#dcfce7;color:#16a34a;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">CONFIRMED</span></td>
+        </tr>
+      </table>
+    </div>
+    <p style="margin:0 0 16px;color:#64748b;font-size:15px;">
+      Your installer has been notified and will reach out to schedule your installation.
+    </p>
+    <p style="margin:0;color:#94a3b8;font-size:13px;text-align:center;">
+      Questions? Reply to this email anytime.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    subject: "Order Confirmed — Your installer has been notified",
+    html,
+  });
+}
