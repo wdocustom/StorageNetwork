@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild } from "@/app/actions/calculator";
 import { generateBuildManifest } from "@/lib/buildEngine";
@@ -18,7 +18,10 @@ import {
   X,
   Send,
   CheckCircle2,
+  Box,
 } from "lucide-react";
+
+const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Build Configurator — Estimate, Quote & New Build
@@ -54,6 +57,9 @@ export default function BuildConfiguratorPage() {
   const [manifest, setManifest] = useState<BuildManifest | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState("");
+
+  // Assembly guide overlay
+  const [showAssemblyGuide, setShowAssemblyGuide] = useState(false);
 
   // Quote modal state
   const [showQuoteModal, setShowQuoteModal] = useState(false);
@@ -371,14 +377,23 @@ export default function BuildConfiguratorPage() {
                 &quot; H × 30&quot; D — {buildResult.slots} slots
               </div>
 
-              {/* CREATE QUOTE BUTTON */}
-              <button
-                onClick={() => setShowQuoteModal(true)}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
-              >
-                <FileText className="h-4 w-4" />
-                Create Quote / Job
-              </button>
+              {/* ACTION BUTTONS */}
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowQuoteModal(true)}
+                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
+                >
+                  <FileText className="h-4 w-4" />
+                  Create Quote
+                </button>
+                <button
+                  onClick={() => setShowAssemblyGuide(true)}
+                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-400 bg-emerald-400/10 py-3 text-xs font-bold uppercase tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/20"
+                >
+                  <Box className="h-4 w-4" />
+                  Explode View
+                </button>
+              </div>
             </section>
 
             {/* Material List — PRO-gated */}
@@ -648,6 +663,28 @@ export default function BuildConfiguratorPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ASSEMBLY GUIDE OVERLAY
+      ═══════════════════════════════════════════════════════════════════ */}
+      {showAssemblyGuide && buildResult && (
+        <div className="fixed inset-0 z-50">
+          <Suspense
+            fallback={
+              <div className="flex h-full w-full items-center justify-center bg-slate-950">
+                <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+              </div>
+            }
+          >
+            <AssemblyGuide
+              cols={buildResult.cols}
+              rows={buildResult.rows}
+              toteType={toteType}
+              onClose={() => setShowAssemblyGuide(false)}
+            />
+          </Suspense>
         </div>
       )}
     </div>
