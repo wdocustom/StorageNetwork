@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { gatekeeperCheck, joinWaitlist } from "@/app/actions/gatekeeper";
+import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
+import { joinWaitlist } from "@/app/actions/gatekeeper";
 import {
   MapPin,
   Loader2,
@@ -14,10 +15,12 @@ import {
   X,
   CheckCircle2,
   Mail,
+  User,
+  Star,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Landing Page — Smart Gatekeeper with Waitlist Modal
+// Landing Page — Smart Gatekeeper with Pro Found / Waitlist Modals
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function LandingPage() {
@@ -25,6 +28,10 @@ export default function LandingPage() {
   const [zip, setZip] = useState("");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+
+  // Pro Found modal state
+  const [showProFound, setShowProFound] = useState(false);
+  const [foundInstaller, setFoundInstaller] = useState<AvailabilityResult | null>(null);
 
   // Waitlist modal state
   const [showWaitlist, setShowWaitlist] = useState(false);
@@ -45,13 +52,12 @@ export default function LandingPage() {
     setSearching(true);
 
     try {
-      const result = await gatekeeperCheck(trimmed);
+      const result = await checkAvailability(trimmed);
 
       if (result.available && result.installer_id) {
-        // Match found → configurator with installer context
-        router.push(
-          `/design?zip=${trimmed}&installer=${result.installer_id}`
-        );
+        // Pro found → show sales modal
+        setFoundInstaller(result);
+        setShowProFound(true);
       } else {
         // No match → show waitlist modal
         setWaitlistZip(trimmed);
@@ -61,7 +67,6 @@ export default function LandingPage() {
         setShowWaitlist(true);
       }
     } catch {
-      // On error, show waitlist modal as fallback
       setWaitlistZip(trimmed);
       setWaitlistDone(false);
       setWaitlistEmail("");
@@ -99,14 +104,15 @@ export default function LandingPage() {
     if (e.key === "Enter") handleSearch();
   }
 
-  function handleSkipToDesign() {
-    router.push(`/design?zip=${waitlistZip}&mode=shipping`);
+  function handleStartDesigning() {
+    if (!foundInstaller?.installer_id) return;
+    router.push(`/design?installer=${foundInstaller.installer_id}`);
   }
 
   return (
     <div className="min-h-screen bg-gray-950">
       {/* ══════════════════════════════════════════════════════════════════
-          HERO SECTION — Full-screen dark industrial
+          HERO SECTION
       ══════════════════════════════════════════════════════════════════ */}
       <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
         {/* Radial gradient background */}
@@ -130,7 +136,6 @@ export default function LandingPage() {
 
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          {/* Logo mark */}
           <div className="mb-8 inline-block">
             <img
               src="/logo.png"
@@ -139,7 +144,6 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Headline */}
           <h1 className="mb-4 text-4xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
             Professional
             <br />
@@ -147,13 +151,12 @@ export default function LandingPage() {
             <span className="text-yellow-400">Storage.</span>
           </h1>
 
-          {/* Sub-headline */}
           <p className="mx-auto mb-10 max-w-lg text-lg font-medium text-stone-400 sm:text-xl">
             Heavy-duty tote shelving designed, built &amp; installed by
             certified local pros.
           </p>
 
-          {/* ── Search Box (The Centerpiece) ───────────────────────── */}
+          {/* ── Search Box ───────────────────────────────────────── */}
           <div className="mx-auto max-w-md">
             <div className="flex overflow-hidden rounded-xl border-2 border-yellow-400/30 bg-gray-900 shadow-2xl shadow-yellow-400/10 transition-all focus-within:border-yellow-400 focus-within:shadow-yellow-400/20">
               <div className="flex items-center pl-4 text-yellow-400">
@@ -193,8 +196,7 @@ export default function LandingPage() {
             )}
 
             <p className="mt-4 text-xs text-stone-600">
-              We&apos;ll match you with a certified installer in your area
-              &mdash; or ship directly to you.
+              We&apos;ll match you with a certified installer in your area.
             </p>
           </div>
         </div>
@@ -286,12 +288,88 @@ export default function LandingPage() {
       </footer>
 
       {/* ══════════════════════════════════════════════════════════════════
-          WAITLIST MODAL
+          PRO FOUND MODAL — Sales conversion
+      ══════════════════════════════════════════════════════════════════ */}
+      {showProFound && foundInstaller && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-stone-700 bg-gray-900 shadow-2xl">
+            {/* Close button */}
+            <button
+              onClick={() => setShowProFound(false)}
+              className="absolute right-4 top-4 z-10 text-stone-500 transition-colors hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Gold accent bar */}
+            <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400" />
+
+            <div className="px-6 pb-6 pt-8 text-center">
+              {/* Avatar */}
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-yellow-400 bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg shadow-yellow-400/30">
+                {foundInstaller.installer_avatar_url ? (
+                  <img
+                    src={foundInstaller.installer_avatar_url}
+                    alt={foundInstaller.installer_name || "Installer"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-gray-900" />
+                )}
+              </div>
+
+              {/* Verified badge */}
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
+                <CheckCircle2 className="h-3 w-3" />
+                Verified Pro Found
+              </div>
+
+              {/* Installer name */}
+              <h3 className="mb-1 text-2xl font-black uppercase text-white">
+                {foundInstaller.installer_name}
+              </h3>
+
+              {/* Stars */}
+              <div className="mb-4 flex items-center justify-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star
+                    key={i}
+                    className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                  />
+                ))}
+                <span className="ml-2 text-xs font-semibold text-stone-400">
+                  Certified Installer
+                </span>
+              </div>
+
+              <p className="mb-6 text-sm text-stone-400">
+                A certified pro is ready to design, build &amp; install your
+                custom storage system.
+              </p>
+
+              {/* CTA Button */}
+              <button
+                onClick={handleStartDesigning}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-base font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+              >
+                Start Designing
+                <ChevronRight className="h-5 w-5" />
+              </button>
+
+              <p className="mt-3 text-[11px] text-stone-600">
+                No commitment &mdash; design your unit and see pricing instantly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          WAITLIST MODAL — No Pro in area
       ══════════════════════════════════════════════════════════════════ */}
       {showWaitlist && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-md rounded-2xl border border-stone-700 bg-gray-900 p-6 shadow-2xl">
-            {/* Close button */}
             <button
               onClick={() => setShowWaitlist(false)}
               className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
@@ -301,7 +379,6 @@ export default function LandingPage() {
 
             {!waitlistDone ? (
               <>
-                {/* Icon */}
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-400/10">
                   <MapPin className="h-8 w-8 text-yellow-400" />
                 </div>
@@ -315,7 +392,6 @@ export default function LandingPage() {
                   certified installer is available in your area.
                 </p>
 
-                {/* Email input */}
                 <div className="flex overflow-hidden rounded-lg border border-stone-600 bg-gray-800 focus-within:border-yellow-400">
                   <div className="flex items-center pl-3 text-stone-500">
                     <Mail className="h-4 w-4" />
@@ -352,21 +428,8 @@ export default function LandingPage() {
                     "Notify Me"
                   )}
                 </button>
-
-                {/* Skip to design option */}
-                <div className="mt-4 border-t border-stone-800 pt-4 text-center">
-                  <button
-                    onClick={handleSkipToDesign}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-400 transition-colors hover:text-yellow-300"
-                  >
-                    <Truck className="h-3 w-3" />
-                    Continue with Shipping
-                    <ChevronRight className="h-3 w-3" />
-                  </button>
-                </div>
               </>
             ) : (
-              /* Success state */
               <div className="py-4 text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/10">
                   <CheckCircle2 className="h-8 w-8 text-emerald-400" />
@@ -386,11 +449,10 @@ export default function LandingPage() {
                   .
                 </p>
                 <button
-                  onClick={handleSkipToDesign}
-                  className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                  onClick={() => setShowWaitlist(false)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
                 >
-                  <Truck className="h-4 w-4" />
-                  Design My Unit Now
+                  Done
                 </button>
               </div>
             )}

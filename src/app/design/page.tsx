@@ -189,7 +189,8 @@ function DesignPageInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  // Address is captured in BookingModal, not the sidebar form
+  const address = "";
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -325,8 +326,8 @@ function DesignPageInner() {
 
   async function handleBookDeposit() {
     setSubmitError("");
-    if (!name.trim() || !email.trim()) {
-      setSubmitError("Name and email are required.");
+    if (!name.trim() || !email.trim() || !phone.trim()) {
+      setSubmitError("Name, email, and phone are required.");
       return;
     }
     if (orderItems.length === 0) {
@@ -722,22 +723,13 @@ function DesignPageInner() {
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Phone (optional)"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          placeholder="Address (optional)"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Phone *"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
                       <button
                         onClick={handleBookDeposit}
                         disabled={submitting}
