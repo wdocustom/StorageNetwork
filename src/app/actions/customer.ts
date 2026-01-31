@@ -20,7 +20,7 @@ export interface AvailabilityResult {
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at";
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -78,6 +78,20 @@ export async function checkAvailability(
       .maybeSingle();
 
     if (!error && data) {
+      // Lead cap check: reset if needed, then check limit
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      if (data.leads_reset_at && new Date(data.leads_reset_at as string) < new Date(monthStart)) {
+        await supabase
+          .from("profiles")
+          .update({ current_month_leads: 0, leads_reset_at: monthStart })
+          .eq("id", data.id);
+        (data as Record<string, unknown>).current_month_leads = 0;
+      }
+      const currentLeads = (data.current_month_leads as number) ?? 0;
+      const maxLeads = (data.max_monthly_leads as number) ?? 25;
+      if (currentLeads >= maxLeads) {
+        return toResult(null, "This installer\u2019s schedule is currently full. Join the waitlist?");
+      }
       return toResult(data, "");
     }
 
@@ -90,6 +104,11 @@ export async function checkAvailability(
       .maybeSingle();
 
     if (!fbErr && fallback) {
+      const currentLeads = (fallback.current_month_leads as number) ?? 0;
+      const maxLeads = (fallback.max_monthly_leads as number) ?? 25;
+      if (currentLeads >= maxLeads) {
+        return toResult(null, "This installer\u2019s schedule is currently full. Join the waitlist?");
+      }
       return toResult(fallback, "");
     }
 

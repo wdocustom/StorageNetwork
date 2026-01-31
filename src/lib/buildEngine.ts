@@ -96,6 +96,19 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
   const cutPlans: CutPlanModule[] = [];
 
+  // ── PHASE 1: Collect ALL parts globally across all modules ──────────────
+  const allParts: (CutPart & { unitIdx: number; modIndex: number })[] = [];
+  const moduleMetadata: {
+    unitIdx: number;
+    modIndex: number;
+    cols: number;
+    rows: number;
+    stripCount: number;
+    railStrips: number;
+    backSupports: number;
+    moduleWidth: number;
+  }[] = [];
+
   quoteData.forEach((unit, unitIdx) => {
     const { cols: totalCols, rows, toteType, hasTotes, hasWheels, hasTop } = unit;
 
@@ -125,43 +138,25 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       const slots = cols * rows;
       unitTotalWidth += modWidth;
 
-      // ── Lumber Parts ──────────────────────────────────────────────
-      const parts: CutPart[] = [];
-
-      // Uprights: (cols+1) posts × 2 sides
+      // Collect parts for global bin packing
       for (let i = 0; i < (cols + 1) * 2; i++) {
-        parts.push({
+        allParts.push({
           len: rows * TIER_HEIGHT,
           name: "Upright",
           type: "upright",
+          unitIdx,
+          modIndex,
         });
       }
-
-      // Rails: 4 rails per module (top plate, bottom plate, 2 horizontals)
       for (let k = 0; k < 4; k++) {
-        parts.push({ len: modWidth, name: "Rail", type: "rail" });
+        allParts.push({
+          len: modWidth,
+          name: "Rail",
+          type: "rail",
+          unitIdx,
+          modIndex,
+        });
       }
-
-      // ── Bin Packing (First Fit Decreasing onto 8ft boards) ────────
-      parts.sort((a, b) => b.len - a.len);
-      const boards: Board[] = [];
-
-      parts.forEach((p) => {
-        let placed = false;
-        for (const b of boards) {
-          if (b.rem >= p.len + KERF) {
-            b.cuts.push(p);
-            b.rem -= p.len + KERF;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          boards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
-        }
-      });
-
-      gBoards += boards.length;
 
       // ── Plywood Strips ────────────────────────────────────────────
       const numRails = slots * 2;
@@ -180,12 +175,11 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
       if (hasTotes) gTotes += slots;
 
-      cutPlans.push({
-        unitIndex: unitIdx + 1,
-        moduleIndex: modIndex + 1,
+      moduleMetadata.push({
+        unitIdx,
+        modIndex,
         cols,
         rows,
-        boards,
         stripCount: modStrips,
         railStrips: numRails,
         backSupports,
@@ -204,6 +198,55 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       gRetail += sheetsForUnit * 75;
     }
   });
+
+  // ── PHASE 2: Global Bin Packing — sort ALL parts longest-first ────────
+  allParts.sort((a, b) => b.len - a.len);
+  const globalBoards: Board[] = [];
+
+  for (const p of allParts) {
+    let placed = false;
+    for (const b of globalBoards) {
+      if (b.rem >= p.len + KERF) {
+        b.cuts.push(p);
+        b.rem -= p.len + KERF;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      globalBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
+    }
+  }
+
+  gBoards = globalBoards.length;
+
+  // ── PHASE 3: Build per-module cut plans from global boards ────────────
+  // Attribute boards to modules based on which parts they contain
+  for (const meta of moduleMetadata) {
+    const moduleBoards: Board[] = [];
+    for (const b of globalBoards) {
+      const moduleCuts = b.cuts.filter(
+        (c) =>
+          (c as typeof allParts[number]).unitIdx === meta.unitIdx &&
+          (c as typeof allParts[number]).modIndex === meta.modIndex
+      );
+      if (moduleCuts.length > 0) {
+        const usedLen = moduleCuts.reduce((s, c) => s + c.len + KERF, 0);
+        moduleBoards.push({ cuts: moduleCuts, rem: STOCK_LENGTH - usedLen });
+      }
+    }
+    cutPlans.push({
+      unitIndex: meta.unitIdx + 1,
+      moduleIndex: meta.modIndex + 1,
+      cols: meta.cols,
+      rows: meta.rows,
+      boards: moduleBoards,
+      stripCount: meta.stripCount,
+      railStrips: meta.railStrips,
+      backSupports: meta.backSupports,
+      moduleWidth: meta.moduleWidth,
+    });
+  }
 
   // ── Final Plywood Calculation ──────────────────────────────────────────
   // Top sheets generate offcut strips (27 usable strips per top sheet)

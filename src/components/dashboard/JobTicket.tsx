@@ -184,6 +184,27 @@ export default function JobTicket({
     onRefresh();
   }
 
+  async function handleSendToPhone() {
+    if (!customerPhone || !installerStripeId) return;
+    setPayLoading(true);
+    const result = await createPaymentSession({
+      leadId,
+      amount: profit.amountToCollect,
+      installerStripeId,
+      customerEmail: customerEmail || undefined,
+    });
+    setPayLoading(false);
+    if (result.success && result.url) {
+      // Send via SMS link
+      const smsBody = encodeURIComponent(
+        `Your payment of ${fmt(profit.amountToCollect)} is ready: ${result.url}`
+      );
+      window.open(`sms:${customerPhone}?body=${smsBody}`, "_self");
+    }
+    setShowPayMenu(false);
+    setShowCompletionModal(false);
+  }
+
   async function handleMarkPaid() {
     setPayLoading(true);
     await markLeadAsPaid(leadId);
@@ -333,10 +354,25 @@ export default function JobTicket({
               >
                 <X className="h-4 w-4" />
               </button>
+              {customerPhone && (
+                <button
+                  onClick={handleSendToPhone}
+                  disabled={payLoading}
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Phone className="h-5 w-5 text-emerald-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Send to Phone</p>
+                    <p className="text-[11px] text-stone-500">
+                      SMS payment link to customer
+                    </p>
+                  </div>
+                </button>
+              )}
               <button
                 onClick={handleSendInvoice}
                 disabled={!customerEmail || payLoading}
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 <Mail className="h-5 w-5 text-blue-400" />
                 <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -56,6 +56,23 @@ export default function NativeScheduler({
     };
     return new Set(workingDays.map((d) => map[d] ?? -1));
   }, [workingDays]);
+
+  // Auto-select first available date on mount
+  useEffect(() => {
+    if (selectedDate) return; // already selected
+    const d = new Date(firstAvailable);
+    // Walk forward until we find a working day (max 30 day scan)
+    for (let i = 0; i < 30; i++) {
+      if (workingDayIndices.has(d.getDay())) {
+        onSelectDate(toDateStr(d));
+        // Ensure calendar shows this month
+        setViewMonth(d.getMonth());
+        setViewYear(d.getFullYear());
+        return;
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build calendar grid for current view month
   const calendarDays = useMemo(() => {

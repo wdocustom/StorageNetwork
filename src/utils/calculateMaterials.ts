@@ -67,11 +67,16 @@ export function calculateMaterialCost(
   let globalStripCount = 0;
   let globalTopSheets = 0;
 
+  // ── PHASE 1: Collect ALL lumber parts globally for cross-module packing ──
+  const allParts: number[] = [];
+  let totalScrew16 = 0;
+  let totalScrew3 = 0;
+  let totalScrew1 = 0;
+
   for (const unit of units) {
     const { cols: totalCols, rows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
     if (totalCols < 1 || rows < 1) continue;
 
-    // Auto-split logic (max 4 cols per module) — matches buildEngine
     const modules: number[] = [];
     let remaining = totalCols;
     while (remaining > 4) {
@@ -80,16 +85,12 @@ export function calculateMaterialCost(
     }
     if (remaining > 0) modules.push(remaining);
 
-    // Wheels — per unit
-    let screw1Count = 0;
     if (hasWheels) {
       totalWheelKits++;
-      screw1Count += 16;
+      totalScrew1 += 16;
     }
 
     let unitTotalWidth = 0;
-    let screw16Count = 0;
-    let screw3Count = 0;
 
     for (const cols of modules) {
       const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
@@ -97,47 +98,24 @@ export function calculateMaterialCost(
       const slots = cols * rows;
       unitTotalWidth += modWidth;
 
-      // Lumber parts for bin-packing
-      const parts: number[] = [];
+      // Collect parts globally instead of per-module packing
       for (let i = 0; i < (cols + 1) * 2; i++) {
-        parts.push(rows * TIER_HEIGHT);
+        allParts.push(rows * TIER_HEIGHT);
       }
       for (let k = 0; k < 4; k++) {
-        parts.push(modWidth);
+        allParts.push(modWidth);
       }
 
-      // First Fit Decreasing bin-packing
-      parts.sort((a, b) => b - a);
-      const bins: number[] = [];
-      for (const len of parts) {
-        let placed = false;
-        for (let b = 0; b < bins.length; b++) {
-          if (bins[b] >= len + KERF) {
-            bins[b] -= len + KERF;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          bins.push(STOCK_LENGTH - len);
-        }
-      }
-      totalBoards += bins.length;
-
-      // Plywood strips
       const numRails = slots * 2;
       const backSupports = cols <= 4 ? 4 : 6;
       globalStripCount += numRails + backSupports;
 
-      // Screws
-      screw16Count += numRails * 4;
-      screw3Count += (cols + 1) * 20;
+      totalScrew16 += numRails * 4;
+      totalScrew3 += (cols + 1) * 20;
 
-      // Totes
       if (hasTotes) totalTotes += slots;
     }
 
-    // Top sheets
     if (hasTop) {
       let sheetsForUnit = 0;
       if (unitTotalWidth > 192) sheetsForUnit = 3;
@@ -145,11 +123,29 @@ export function calculateMaterialCost(
       else sheetsForUnit = 1;
       globalTopSheets += sheetsForUnit;
     }
-
-    totalScrewBoxes16 += Math.ceil(screw16Count / 725);
-    totalScrewBoxes3 += Math.ceil(screw3Count / 350);
-    totalScrewBoxes1 += Math.ceil(screw1Count / 95);
   }
+
+  // ── PHASE 2: Global Bin Packing — sort ALL parts longest-first ──────────
+  allParts.sort((a, b) => b - a);
+  const bins: number[] = [];
+  for (const len of allParts) {
+    let placed = false;
+    for (let b = 0; b < bins.length; b++) {
+      if (bins[b] >= len + KERF) {
+        bins[b] -= len + KERF;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      bins.push(STOCK_LENGTH - len);
+    }
+  }
+  totalBoards = bins.length;
+
+  totalScrewBoxes16 = Math.ceil(totalScrew16 / 725);
+  totalScrewBoxes3 = Math.ceil(totalScrew3 / 350);
+  totalScrewBoxes1 = Math.ceil(totalScrew1 / 95);
 
   // Final plywood: top sheet offcuts reduce structural sheet needs
   const stripCredit = globalTopSheets * 27;
