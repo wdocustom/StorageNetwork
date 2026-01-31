@@ -2,10 +2,16 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { checkAvailability } from "@/app/actions/customer";
+import {
+  checkAvailability,
+  getInstallerById,
+  getInstallerByRef,
+  type AvailabilityResult,
+} from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { calculateBuild } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
+import BookingModal from "@/components/booking/BookingModal";
 import {
   MapPin,
   CheckCircle2,
@@ -16,6 +22,8 @@ import {
   X,
   Maximize2,
   ArrowLeft,
+  User,
+  CreditCard,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -72,33 +80,56 @@ function DesignPageInner() {
   const incomingZip = searchParams.get("zip") || "";
   const mode = searchParams.get("mode") || "";
   const paramInstallerId = searchParams.get("installer_id") || searchParams.get("installer") || "";
+  const paramRef = searchParams.get("ref") || "";
 
-  // ── Installer attribution (cookie-persisted, 30-day) ────────────────
+  // ── Installer context ─────────────────────────────────────────────────
   const [installerId, setInstallerId] = useState(paramInstallerId);
+  const [installer, setInstaller] = useState<AvailabilityResult | null>(null);
+  const [installerLocked, setInstallerLocked] = useState(false);
+  const [installerLoading, setInstallerLoading] = useState(false);
 
+  // Resolve installer from URL params on mount
   useEffect(() => {
-    if (paramInstallerId) {
-      // URL param present — write/refresh cookie
-      setInstallerCookie(paramInstallerId);
-      setInstallerId(paramInstallerId);
-    } else {
-      // No URL param — try cookie
-      const cookieId = getInstallerCookie();
-      if (cookieId) setInstallerId(cookieId);
+    async function resolveInstaller() {
+      if (paramRef) {
+        // Scenario B: /design?ref=the-shelf-dude
+        setInstallerLoading(true);
+        const res = await getInstallerByRef(paramRef);
+        if (res.available && res.installer_id) {
+          setInstaller(res);
+          setInstallerId(res.installer_id);
+          setInstallerCookie(res.installer_id);
+          setInstallerLocked(true);
+        }
+        setInstallerLoading(false);
+      } else if (paramInstallerId) {
+        // Scenario B: /design?installer=uuid
+        setInstallerLoading(true);
+        const res = await getInstallerById(paramInstallerId);
+        if (res.available && res.installer_id) {
+          setInstaller(res);
+          setInstallerId(res.installer_id);
+          setInstallerCookie(res.installer_id);
+          setInstallerLocked(true);
+        }
+        setInstallerLoading(false);
+      } else {
+        // Scenario A: check cookie
+        const cookieId = getInstallerCookie();
+        if (cookieId) setInstallerId(cookieId);
+      }
     }
-  }, [paramInstallerId]);
+    resolveInstaller();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── ZIP check ─────────────────────────────────────────────────────────
   const [zip, setZip] = useState(incomingZip);
   const [zipChecking, setZipChecking] = useState(false);
-  const [zipResult, setZipResult] = useState<{
-    available: boolean;
-    installer_name: string | null;
-    message: string;
-  } | null>(null);
+  const [zipResult, setZipResult] = useState<AvailabilityResult | null>(null);
 
   useEffect(() => {
-    if (incomingZip.length === 5) {
+    if (incomingZip.length === 5 && !paramInstallerId && !paramRef) {
       handleZipCheckAuto(incomingZip);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,10 +141,21 @@ function DesignPageInner() {
     try {
       const res = await checkAvailability(zipCode);
       setZipResult(res);
+      if (res.available && res.installer_id) {
+        setInstaller(res);
+        setInstallerId(res.installer_id);
+        setInstallerCookie(res.installer_id);
+      }
     } catch {
       setZipResult({
         available: false,
+        installer_id: null,
         installer_name: null,
+        installer_stripe_id: null,
+        installer_avatar_url: null,
+        installer_phone: null,
+        installer_lead_time: 5,
+        installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
         message: "Unable to check availability.",
       });
     } finally {
@@ -151,8 +193,18 @@ function DesignPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [leadId, setLeadId] = useState<string | null>(null);
+
+  // ── Booking modal ─────────────────────────────────────────────────────
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+  const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
+
+  // Does any unit have wheels?
+  const anyHasWheels = orderItems.some((it) => it.hasWheels);
+  // Total cols of largest unit (for capacity weight)
+  const maxCols = orderItems.reduce((max, it) => Math.max(max, it.cols), 0);
 
   // ── Debounced server call ─────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,7 +336,7 @@ function DesignPageInner() {
 
     setSubmitting(true);
     try {
-      await submitNetworkLead({
+      const result = await submitNetworkLead({
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
@@ -293,7 +345,16 @@ function DesignPageInner() {
         grand_total: grandTotal,
         installer_id: installerId || undefined,
       });
-      setSubmitted(true);
+
+      setLeadId(result.id);
+
+      // If installer has Stripe connected, open the booking modal for inline payment
+      if (installer?.installer_stripe_id) {
+        setShowBookingModal(true);
+      } else {
+        // No Stripe — just show confirmation
+        setSubmitted(true);
+      }
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Submission failed."
@@ -345,55 +406,75 @@ function DesignPageInner() {
         </div>
       )}
 
+      {/* ── Installer locked banner (Scenario B) ──────────────────────── */}
+      {installerLocked && installer?.installer_name && (
+        <div className="shrink-0 bg-emerald-600 px-4 py-2 text-center">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+            <User className="h-3.5 w-3.5" />
+            Designing with {installer.installer_name}
+          </span>
+        </div>
+      )}
+
       {/* ── Split Layout ────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ── LEFT SIDEBAR: Controls ──────────────────────────────────── */}
         <aside className="flex w-full shrink-0 flex-col lg:w-[38%] xl:w-[35%]">
           <div className="flex-1 space-y-4 overflow-y-auto bg-stone-100 p-4">
-            {/* ── Find My Local Pro ─────────────────────────────────── */}
-            <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
-              <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <MapPin className="h-4 w-4 text-yellow-600" />
-                Find My Local Pro
-              </h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  value={zip}
-                  onChange={(e) => {
-                    setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                    setZipResult(null);
-                  }}
-                  placeholder="ZIP Code"
-                  className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-                <button
-                  onClick={handleZipCheck}
-                  disabled={zip.length < 5 || zipChecking}
-                  className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-                >
-                  {zipChecking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Check"
-                  )}
-                </button>
+            {/* ── Find My Local Pro (hidden when installer locked) ──── */}
+            {!installerLocked && (
+              <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
+                <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                  <MapPin className="h-4 w-4 text-yellow-600" />
+                  Find My Local Pro
+                </h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={zip}
+                    onChange={(e) => {
+                      setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                      setZipResult(null);
+                    }}
+                    placeholder="ZIP Code"
+                    className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                  <button
+                    onClick={handleZipCheck}
+                    disabled={zip.length < 5 || zipChecking}
+                    className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
+                  >
+                    {zipChecking ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Check"
+                    )}
+                  </button>
+                </div>
+                {zipResult?.available && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    {zipResult.message}
+                  </div>
+                )}
+                {zipResult && !zipResult.available && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    {zipResult.message}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── Installer loading state ──────────────────────────── */}
+            {installerLoading && (
+              <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 p-4 text-xs font-semibold text-stone-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading installer profile…
               </div>
-              {zipResult?.available && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  {zipResult.message}
-                </div>
-              )}
-              {zipResult && !zipResult.available && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  {zipResult.message}
-                </div>
-              )}
-            </section>
+            )}
 
             {/* ── Auto-Fit Wall Calculator ──────────────────────────── */}
             <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
@@ -611,6 +692,14 @@ function DesignPageInner() {
                   <div className="mt-1 text-4xl font-black text-gray-900">
                     ${grandTotal.toLocaleString()}
                   </div>
+                  {installer?.installer_stripe_id && (
+                    <div className="mt-1 text-xs text-stone-500">
+                      Deposit (15%):{" "}
+                      <span className="font-bold text-yellow-600">
+                        ${depositAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Booking Form */}
@@ -656,10 +745,16 @@ function DesignPageInner() {
                       >
                         {submitting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : installer?.installer_stripe_id ? (
+                          <CreditCard className="h-4 w-4" />
                         ) : (
                           <Send className="h-4 w-4" />
                         )}
-                        {submitting ? "Submitting…" : "Pay Deposit & Book"}
+                        {submitting
+                          ? "Submitting…"
+                          : installer?.installer_stripe_id
+                          ? "Pay Deposit & Book"
+                          : "Submit Quote Request"}
                       </button>
                       {submitError && (
                         <p className="text-xs font-medium text-red-600">
@@ -711,6 +806,33 @@ function DesignPageInner() {
           </div>
         </main>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          BOOKING MODAL — Address → Schedule → Inline Stripe Payment
+      ═══════════════════════════════════════════════════════════════════ */}
+      {leadId && installer?.installer_stripe_id && (
+        <BookingModal
+          isOpen={showBookingModal}
+          onClose={() => {
+            setShowBookingModal(false);
+            setSubmitted(true);
+          }}
+          leadId={leadId}
+          depositAmount={depositAmount}
+          totalPrice={grandTotal}
+          installerStripeId={installer.installer_stripe_id}
+          customerEmail={email || undefined}
+          customerName={name || undefined}
+          installerLeadTime={installer.installer_lead_time}
+          installerWorkingDays={installer.installer_working_days}
+          hasWheels={anyHasWheels}
+          totalCols={maxCols}
+          onSuccess={() => {
+            setShowBookingModal(false);
+            setSubmitted(true);
+          }}
+        />
+      )}
     </div>
   );
 }
