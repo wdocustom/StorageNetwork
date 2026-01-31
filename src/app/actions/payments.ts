@@ -243,3 +243,77 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 
   return { success: true };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// createDepositIntent — Creates a PaymentIntent for inline Stripe Elements
+//
+// Returns clientSecret for the Payment Element (no redirect needed).
+// Used by BookingModal for inline deposit collection.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface DepositIntentInput {
+  leadId: string;
+  amount: number;
+  installerStripeId: string;
+  customerEmail?: string;
+  scheduledAt?: string;
+}
+
+export interface DepositIntentResult {
+  success: boolean;
+  clientSecret?: string;
+  error?: string;
+}
+
+export async function createDepositIntent(
+  input: DepositIntentInput
+): Promise<DepositIntentResult> {
+  const { leadId, amount, installerStripeId, customerEmail, scheduledAt } = input;
+
+  if (!leadId || !amount || !installerStripeId) {
+    return { success: false, error: "Missing required parameters." };
+  }
+
+  try {
+    const amountCents = Math.round(amount * 100);
+    const platformFeeCents = Math.round(amountCents * PLATFORM_FEE_RATE);
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: "usd",
+      application_fee_amount: platformFeeCents,
+      transfer_data: {
+        destination: installerStripeId,
+      },
+      receipt_email: customerEmail || undefined,
+      metadata: {
+        lead_id: leadId,
+        platform_fee_cents: String(platformFeeCents),
+        installer_stripe_id: installerStripeId,
+        scheduled_at: scheduledAt || "",
+      },
+    });
+
+    // Update lead with scheduling info if provided
+    if (scheduledAt) {
+      await supabase
+        .from("leads")
+        .update({
+          scheduled_at: scheduledAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", leadId);
+    }
+
+    return {
+      success: true,
+      clientSecret: paymentIntent.client_secret || undefined,
+    };
+  } catch (err) {
+    console.error("[Payment] PaymentIntent error:", err);
+    return {
+      success: false,
+      error: "Failed to initialize payment. Please try again.",
+    };
+  }
+}

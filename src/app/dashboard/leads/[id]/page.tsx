@@ -32,6 +32,8 @@ interface LeadDetail {
   deposit_amount: number | null;
   balance_due: number | null;
   payout_status: string | null;
+  fee_status: string | null;
+  photo_url: string | null;
   quote_data: QuoteUnit[] | null;
   created_at: string;
   installer_id: string | null;
@@ -202,6 +204,9 @@ export default function JobTicketPage() {
           depositAmount={depositAmt}
           depositPaid={lead.deposit_paid}
           payoutStatus={lead.payout_status}
+          status={lead.status}
+          feeStatus={(lead.fee_status as "standard" | "waived") || "standard"}
+          photoUrl={lead.photo_url}
           quoteData={lead.quote_data}
           customerEmail={lead.customer_email}
           customerName={lead.customer_name}
