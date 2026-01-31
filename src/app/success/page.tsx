@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
-import { getInstallerById } from "@/app/actions/customer";
-import { CheckCircle2, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Mail, ArrowLeft } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Success Page — Post-Checkout Hype Screen with 3D Rack
+//
+// URL params: ?name=InstallerName&cols=4&rows=4&tote=HDX
+// All data passed via URL — no server action calls needed.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function SuccessPage() {
@@ -20,24 +22,10 @@ export default function SuccessPage() {
 
 function SuccessInner() {
   const searchParams = useSearchParams();
-  const installerId = searchParams.get("installer") || "";
+  const installerName = searchParams.get("name") || "";
   const cols = parseInt(searchParams.get("cols") || "4") || 4;
   const rows = parseInt(searchParams.get("rows") || "4") || 4;
   const toteType = (searchParams.get("tote") || "HDX") as "HDX" | "GM";
-
-  const [installerName, setInstallerName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!!installerId);
-
-  useEffect(() => {
-    if (!installerId) return;
-    (async () => {
-      const res = await getInstallerById(installerId);
-      if (res.available && res.installer_name) {
-        setInstallerName(res.installer_name);
-      }
-      setLoading(false);
-    })();
-  }, [installerId]);
 
   return (
     <div className="relative min-h-screen bg-gray-950">
@@ -73,13 +61,9 @@ function SuccessInner() {
         </h1>
 
         {/* Installer subhead */}
-        {loading ? (
-          <div className="mb-8 flex items-center gap-2 text-stone-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-          </div>
-        ) : installerName ? (
+        {installerName ? (
           <p className="mb-8 text-center text-lg font-medium text-stone-400">
-            <span className="font-bold text-white">{installerName}</span>{" "}
+            <span className="font-bold text-white">{decodeURIComponent(installerName)}</span>{" "}
             has received your order.
           </p>
         ) : (
