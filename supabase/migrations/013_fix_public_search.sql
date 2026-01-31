@@ -3,19 +3,31 @@
 --
 -- Problem: Anon/unauthenticated users cannot search for installers by ZIP.
 -- The profiles table may lack a public read policy, causing 500 errors.
+-- Also: service_zips column from migration 001 may not exist yet.
 --
 -- Fix:
---   1. Enable RLS on profiles (if not already)
---   2. Add a public read policy for limited installer fields
---   3. Add fallback index on service_zip for exact-match searches
---   4. Add ref_slug column for installer vanity URLs (/design?ref=slug)
+--   1. Ensure service columns exist (service_zip, service_zips, etc.)
+--   2. Enable RLS on profiles
+--   3. Add a public read policy for SELECT
+--   4. Add ref_slug column for installer vanity URLs
+--   5. Add indexes for search performance
 -- ═══════════════════════════════════════════════════════════════════════════
+
+-- Ensure service columns exist (migration 001 may not have been run)
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS service_zip text,
+  ADD COLUMN IF NOT EXISTS service_radius_miles integer NOT NULL DEFAULT 25,
+  ADD COLUMN IF NOT EXISTS service_settings jsonb NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS service_zips text[] NOT NULL DEFAULT '{}';
+
+-- Vanity slug for installer links (/design?ref=the-shelf-dude)
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS ref_slug text UNIQUE;
 
 -- Ensure RLS is enabled
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Public read policy: anyone can see installer display info
--- (Only exposes non-sensitive fields via the select in the query)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -28,14 +40,9 @@ BEGIN
   END IF;
 END $$;
 
--- Vanity slug for installer links (/design?ref=the-shelf-dude)
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS ref_slug text UNIQUE;
-
--- Index on service_zip for fallback exact-match
+-- Indexes for search performance
 CREATE INDEX IF NOT EXISTS idx_profiles_service_zip
   ON public.profiles (service_zip);
 
--- Ensure service_zips GIN index exists (may already from migration 001)
 CREATE INDEX IF NOT EXISTS idx_profiles_service_zips
   ON public.profiles USING GIN (service_zips);
