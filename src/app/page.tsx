@@ -355,9 +355,6 @@ export default function LandingPage() {
 
                 {/* Skip to design option */}
                 <div className="mt-4 border-t border-stone-800 pt-4 text-center">
-                  <p className="mb-2 text-xs text-stone-500">
-                    Or design your unit now and we&apos;ll ship it to you
-                  </p>
                   <button
                     onClick={handleSkipToDesign}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-yellow-400 transition-colors hover:text-yellow-300"

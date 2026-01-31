@@ -16,6 +16,9 @@ import {
   Copy,
   Check,
   Link2,
+  DollarSign,
+  Package,
+  Trophy,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -42,6 +45,8 @@ export default function DashboardPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [newLeadCount, setNewLeadCount] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -54,17 +59,33 @@ export default function DashboardPage() {
       return;
     }
 
-    const [profileRes, leadsRes] = await Promise.all([
+    const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("installer_id", user.id)
         .eq("status", "new"),
+      supabase
+        .from("leads")
+        .select("estimated_price, balance_due, payout_status")
+        .eq("installer_id", user.id)
+        .in("payout_status", ["paid"]),
     ]);
 
     if (profileRes.data) setProfile(profileRes.data as Profile);
     if (leadsRes.count !== null) setNewLeadCount(leadsRes.count);
+
+    // Aggregate sales from paid jobs
+    if (paidLeadsRes.data) {
+      const sales = paidLeadsRes.data.reduce(
+        (sum: number, l: { balance_due: number | null }) => sum + (l.balance_due || 0),
+        0
+      );
+      setTotalSales(Math.round(sales));
+      setCompletedCount(paidLeadsRes.data.length);
+    }
+
     setLoading(false);
   }, [supabase]);
 
@@ -182,6 +203,37 @@ export default function DashboardPage() {
       {/* ── Tile Grid ───────────────────────────────────────────────── */}
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="mx-auto grid w-full max-w-lg gap-4">
+          {/* ── Sales Stats Bar ─────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+              <DollarSign className="mx-auto mb-1 h-5 w-5 text-yellow-400" />
+              <p className="text-xl font-black text-white">
+                ${totalSales.toLocaleString()}
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                Total Sales
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+              <Trophy className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
+              <p className="text-xl font-black text-white">
+                {completedCount}
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                Jobs Done
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+              <Package className="mx-auto mb-1 h-5 w-5 text-blue-400" />
+              <p className="text-xl font-black text-white">
+                {newLeadCount}
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                New Leads
+              </p>
+            </div>
+          </div>
+
           {/* JOBS / LEADS Tile */}
           <a
             href="/dashboard/leads"

@@ -8,22 +8,13 @@ import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import {
   ArrowLeft,
   CheckCircle2,
-  CreditCard,
-  DollarSign,
   Loader2,
-  Mail,
   MapPin,
-  Package,
   Ruler,
   ShoppingCart,
   Wrench,
-  X,
 } from "lucide-react";
-import {
-  createPaymentSession,
-  sendPaymentInvoice,
-  markLeadAsPaid,
-} from "@/app/actions/payments";
+import JobTicket from "@/components/dashboard/JobTicket";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -63,9 +54,7 @@ export default function JobTicketPage() {
   // Checklist state for material pick list
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  // Payment state
-  const [showPayMenu, setShowPayMenu] = useState(false);
-  const [payLoading, setPayLoading] = useState(false);
+  // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
 
   const fetchLead = useCallback(async () => {
@@ -112,51 +101,6 @@ export default function JobTicketPage() {
   function toggleCheck(key: string) {
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
   }
-
-  // ── Payment Handlers ─────────────────────────────────────────────────
-  async function handlePayNow() {
-    if (!lead || !installerStripeId) return;
-    setPayLoading(true);
-    const result = await createPaymentSession({
-      leadId: lead.id,
-      amount: balance,
-      installerStripeId,
-      customerEmail: lead.customer_email || undefined,
-    });
-    setPayLoading(false);
-    if (result.success && result.url) {
-      window.open(result.url, "_blank");
-    }
-    setShowPayMenu(false);
-  }
-
-  async function handleSendInvoice() {
-    if (!lead || !installerStripeId || !lead.customer_email) return;
-    setPayLoading(true);
-    const result = await sendPaymentInvoice({
-      leadId: lead.id,
-      amount: balance,
-      installerStripeId,
-      customerEmail: lead.customer_email,
-      customerName: lead.customer_name,
-      businessName: "The Shelf Dude",
-    });
-    setPayLoading(false);
-    if (result.success) {
-      fetchLead(); // refresh status
-    }
-    setShowPayMenu(false);
-  }
-
-  async function handleMarkPaid() {
-    if (!lead) return;
-    setPayLoading(true);
-    await markLeadAsPaid(lead.id);
-    setPayLoading(false);
-    fetchLead();
-  }
-
-  const isPaid = lead?.payout_status === "paid" || lead?.deposit_paid;
 
   // ── Loading / Error ───────────────────────────────────────────────────
   if (loading) {
@@ -251,103 +195,19 @@ export default function JobTicketPage() {
           </p>
         </section>
 
-        {/* ── Collection Box (THE BIG NUMBER) ────────────────────────── */}
-        <section className="rounded-xl border-2 border-yellow-400 bg-yellow-400/5 p-6 text-center">
-          <div className="mb-1 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-yellow-400">
-            <DollarSign className="h-4 w-4" />
-            Amount to Collect
-          </div>
-          <div className="text-5xl font-black text-white">
-            ${balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-          </div>
-          <div className="mt-3 flex items-center justify-center gap-6 text-xs text-stone-400">
-            <span>
-              Total:{" "}
-              <span className="font-bold text-white">
-                ${totalPrice.toLocaleString()}
-              </span>
-            </span>
-            <span>
-              Deposit (15%):{" "}
-              <span className="font-bold text-emerald-400">
-                -${depositAmt.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </span>
-            </span>
-          </div>
-
-          {/* ── Payment Action ──────────────────────────────────────── */}
-          {isPaid ? (
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-500/20 px-4 py-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              <span className="text-sm font-bold text-emerald-400">PAID</span>
-            </div>
-          ) : (
-            <div className="relative mt-4">
-              <button
-                onClick={() => setShowPayMenu((v) => !v)}
-                disabled={payLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-yellow-300 disabled:opacity-50"
-              >
-                {payLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                Process Payment
-              </button>
-
-              {showPayMenu && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
-                  <button
-                    onClick={() => setShowPayMenu(false)}
-                    className="absolute right-2 top-2 text-stone-500 hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleSendInvoice}
-                    disabled={!lead.customer_email || payLoading}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-                  >
-                    <Mail className="h-5 w-5 text-blue-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-white">Send Invoice</p>
-                      <p className="text-[11px] text-stone-500">
-                        Email payment link to customer
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={handlePayNow}
-                    disabled={payLoading}
-                    className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-                  >
-                    <CreditCard className="h-5 w-5 text-yellow-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-white">Pay Now</p>
-                      <p className="text-[11px] text-stone-500">
-                        Open Stripe Checkout in new tab
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={handleMarkPaid}
-                    disabled={payLoading}
-                    className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-                  >
-                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                    <div>
-                      <p className="text-sm font-semibold text-white">Mark as Paid</p>
-                      <p className="text-[11px] text-stone-500">
-                        Manual confirmation (cash/check)
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
+        <JobTicket
+          leadId={lead.id}
+          totalPrice={totalPrice}
+          depositAmount={depositAmt}
+          depositPaid={lead.deposit_paid}
+          payoutStatus={lead.payout_status}
+          quoteData={lead.quote_data}
+          customerEmail={lead.customer_email}
+          customerName={lead.customer_name}
+          installerStripeId={installerStripeId}
+          onRefresh={fetchLead}
+        />
 
         {/* ── Unit Summary ───────────────────────────────────────────── */}
         {lead.quote_data && lead.quote_data.length > 0 && (

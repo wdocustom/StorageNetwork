@@ -30,10 +30,13 @@ interface LeadItem {
 // Jobs / Leads List — Unified view of all active jobs
 // ═══════════════════════════════════════════════════════════════════════════
 
+type TabKey = "active" | "past";
+
 export default function LeadsListPage() {
   const supabase = getSupabaseBrowserClient();
   const [leads, setLeads] = useState<LeadItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabKey>("active");
 
   const fetchLeads = useCallback(async () => {
     const {
@@ -68,6 +71,10 @@ export default function LeadsListPage() {
     );
   }
 
+  const activeLeads = leads.filter((l) => l.status !== "completed" && l.status !== "paid");
+  const pastLeads = leads.filter((l) => l.status === "completed" || l.status === "paid");
+  const filtered = tab === "active" ? activeLeads : pastLeads;
+
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -90,21 +97,60 @@ export default function LeadsListPage() {
         </div>
       </header>
 
+      {/* ── Tabs ──────────────────────────────────────────────────────── */}
+      <div className="border-b border-slate-800 bg-slate-900/50">
+        <div className="mx-auto flex max-w-2xl">
+          <button
+            onClick={() => setTab("active")}
+            className={`flex-1 py-3 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
+              tab === "active"
+                ? "border-b-2 border-yellow-400 text-yellow-400"
+                : "text-stone-500 hover:text-stone-300"
+            }`}
+          >
+            Active Jobs{" "}
+            {activeLeads.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400/20 px-1.5 text-[10px] font-bold text-yellow-400">
+                {activeLeads.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setTab("past")}
+            className={`flex-1 py-3 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
+              tab === "past"
+                ? "border-b-2 border-yellow-400 text-yellow-400"
+                : "text-stone-500 hover:text-stone-300"
+            }`}
+          >
+            Past Jobs{" "}
+            {pastLeads.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-stone-700 px-1.5 text-[10px] font-bold text-stone-400">
+                {pastLeads.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       <main className="mx-auto max-w-2xl p-4">
-        {leads.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900">
               <Briefcase className="h-10 w-10 text-stone-600" />
             </div>
-            <p className="text-lg font-bold text-stone-400">No jobs yet</p>
+            <p className="text-lg font-bold text-stone-400">
+              {tab === "active" ? "No active jobs" : "No past jobs"}
+            </p>
             <p className="mt-1 text-sm text-stone-600">
-              Leads from The Shelf Dude network and your booking link will
-              appear here.
+              {tab === "active"
+                ? "Leads from the network and your lead link will appear here."
+                : "Completed and paid jobs will show up here."}
             </p>
           </div>
         ) : (
           <ul className="space-y-3">
-            {leads.map((lead) => (
+            {filtered.map((lead) => (
               <a
                 href={`/dashboard/leads/${lead.id}`}
                 key={lead.id}
