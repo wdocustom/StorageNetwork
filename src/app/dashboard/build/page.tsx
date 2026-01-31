@@ -21,6 +21,10 @@ import {
   Box,
 } from "lucide-react";
 
+import BookingModal from "@/components/booking/BookingModal";
+import type { BookingAddress } from "@/components/booking/BookingModal";
+import { calculateWeight } from "@/utils/scheduling";
+
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,6 +74,11 @@ export default function BuildConfiguratorPage() {
   const [quoteSent, setQuoteSent] = useState(false);
   const [quoteError, setQuoteError] = useState("");
 
+  // Booking modal state
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
+  const [leadIdForBooking, setLeadIdForBooking] = useState<string | null>(null);
+
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
     const {
@@ -84,13 +93,14 @@ export default function BuildConfiguratorPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name")
+      .select("is_pro, subscription_tier, business_name, first_name, stripe_account_id")
       .eq("id", user.id)
       .single();
 
     if (data) {
       setIsPro(data.is_pro || data.subscription_tier === "pro");
       setBusinessName(data.business_name || data.first_name || "Your Business");
+      if (data.stripe_account_id) setInstallerStripeId(data.stripe_account_id);
     }
     setLoading(false);
   }, [supabase]);
@@ -199,6 +209,9 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
+      if ("lead_id" in result && result.lead_id) {
+        setLeadIdForBooking(result.lead_id as string);
+      }
       setQuoteSent(true);
     } catch {
       setQuoteError("Failed to send quote. Please try again.");
@@ -394,6 +407,17 @@ export default function BuildConfiguratorPage() {
                   Explode View
                 </button>
               </div>
+
+              {/* Book Installation — visible when quote has been sent and Stripe is connected */}
+              {installerStripeId && leadIdForBooking && (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Book Installation
+                </button>
+              )}
             </section>
 
             {/* Material List — PRO-gated */}
@@ -696,6 +720,27 @@ export default function BuildConfiguratorPage() {
             />
           </Suspense>
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          BOOKING MODAL
+      ═══════════════════════════════════════════════════════════════════ */}
+      {buildResult && installerStripeId && leadIdForBooking && (
+        <BookingModal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          leadId={leadIdForBooking}
+          depositAmount={Math.round(buildResult.price * 0.15)}
+          totalPrice={buildResult.price}
+          installerStripeId={installerStripeId}
+          customerEmail={customerEmail || undefined}
+          customerName={customerName || undefined}
+          hasWheels={hasWheels}
+          totalCols={buildResult.cols}
+          onSuccess={() => {
+            setShowBookingModal(false);
+          }}
+        />
       )}
     </div>
   );

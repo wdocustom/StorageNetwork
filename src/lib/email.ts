@@ -393,3 +393,120 @@ export async function sendCustomerReceipt(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Baseball Card Receipt — Rich receipt with installer profile card
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BaseballCardData {
+  customerName: string;
+  customerEmail: string;
+  depositAmount: number;
+  totalPrice: number;
+  scheduledDate: string;
+  address: string;
+  installerName: string;
+  installerPhone?: string;
+  installerAvatarUrl?: string;
+  jobDescription: string;
+}
+
+/**
+ * Baseball Card receipt — includes installer avatar, phone, and scheduled date.
+ * Sent to customer after successful deposit payment + booking.
+ */
+export async function sendBaseballCardReceipt(
+  data: BaseballCardData
+): Promise<SendEmailResult> {
+  const {
+    customerName,
+    customerEmail,
+    depositAmount,
+    totalPrice,
+    scheduledDate,
+    address,
+    installerName,
+    installerPhone,
+    installerAvatarUrl,
+    jobDescription,
+  } = data;
+
+  const formattedDate = new Date(scheduledDate + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const balanceDue = totalPrice - depositAmount;
+
+  const avatarHtml = installerAvatarUrl
+    ? `<img src="${installerAvatarUrl}" alt="${installerName}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #facc15;" />`
+    : `<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#facc15,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#1e293b;">${installerName.charAt(0).toUpperCase()}</div>`;
+
+  const phoneHtml = installerPhone
+    ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#facc15;color:#1e293b;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">Call ${installerPhone}</a>`
+    : "";
+
+  const html = emailShell(
+    "Booking Confirmed",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${customerName},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      Your installation is booked! Here are the details:
+    </p>
+
+    <!-- Installer Baseball Card -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">
+      <div style="margin-bottom:12px;">
+        ${avatarHtml}
+      </div>
+      <p style="margin:0 0 4px;color:#facc15;font-size:18px;font-weight:800;">${installerName}</p>
+      <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Your Installer</p>
+      ${phoneHtml}
+    </div>
+
+    <!-- Booking Details -->
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Date</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;">${formattedDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Location</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;max-width:200px;">${address}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Job</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;">${jobDescription}</td>
+        </tr>
+        <tr style="border-top:1px solid #e2e8f0;">
+          <td style="padding:12px 0 8px;color:#64748b;">Deposit Paid</td>
+          <td style="padding:12px 0 8px;font-weight:700;text-align:right;color:#16a34a;">$${depositAmount.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;">Balance Due at Install</td>
+          <td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#1e293b;">$${balanceDue.toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 16px;color:#64748b;font-size:14px;">
+      Your installer will reach out to confirm the details. If you need to reschedule,
+      ${installerPhone ? `call or text <strong>${installerPhone}</strong>` : "reply to this email"}.
+    </p>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Thank you for choosing ${installerName}!
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: customerName,
+    subject: `Booking Confirmed — ${formattedDate} with ${installerName}`,
+    html,
+  });
+}

@@ -7,6 +7,8 @@ import {
   X,
   Calendar,
   CreditCard,
+  MapPin,
+  ChevronRight,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -20,18 +22,29 @@ import { createDepositIntent } from "@/app/actions/payments";
 import { formatCurrency } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BookingModal — Inline Stripe Payment + Native Scheduling
+// BookingModal — Multi-Step: Address → Schedule → Pay
 //
 // Flow:
-//   1. Customer picks a date (NativeScheduler)
-//   2. Clicks "Pay Deposit ($X) & Book"
-//   3. Modal expands to show Stripe Payment Element inline
-//   4. On success → creates DB record, shows success state (no page reload)
+//   1. Customer enters installation address
+//   2. Picks a date (capacity-aware NativeScheduler)
+//   3. Clicks "Pay Deposit ($X) & Book"
+//   4. Modal shows Stripe Payment Element inline
+//   5. On success → creates DB record, shows success state
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
 );
+
+type Step = "address" | "schedule" | "payment" | "success";
+
+export interface BookingAddress {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
+}
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -44,7 +57,9 @@ interface BookingModalProps {
   customerName?: string;
   installerLeadTime?: number;
   installerWorkingDays?: string[];
-  onSuccess?: (scheduledDate: string) => void;
+  hasWheels?: boolean;
+  totalCols?: number;
+  onSuccess?: (scheduledDate: string, address: BookingAddress) => void;
 }
 
 export default function BookingModal({
@@ -58,13 +73,37 @@ export default function BookingModal({
   customerName,
   installerLeadTime = 5,
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  hasWheels = false,
+  totalCols = 1,
   onSuccess,
 }: BookingModalProps) {
+  const [step, setStep] = useState<Step>("address");
+  const [address, setAddress] = useState<BookingAddress>({
+    line1: "",
+    line2: "",
+    city: "",
+    state: "",
+    zip: "",
+  });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  // Wheel Rule: 3 business day minimum for casters
+  const effectiveLeadTime = hasWheels
+    ? Math.max(installerLeadTime, 3)
+    : installerLeadTime;
+
+  // Address validation
+  function handleAddressNext() {
+    if (!address.line1.trim() || !address.city.trim() || !address.state.trim() || !address.zip.trim()) {
+      setError("Please fill in all required address fields.");
+      return;
+    }
+    setError("");
+    setStep("schedule");
+  }
 
   // Initialize payment intent when user clicks "Pay & Book"
   const handleInitPayment = useCallback(async () => {
@@ -88,6 +127,7 @@ export default function BookingModal({
 
     if (result.success && result.clientSecret) {
       setClientSecret(result.clientSecret);
+      setStep("payment");
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
@@ -95,13 +135,20 @@ export default function BookingModal({
 
   if (!isOpen) return null;
 
+  const stepTitle: Record<Step, string> = {
+    address: "Installation Address",
+    schedule: "Pick a Date",
+    payment: "Pay Deposit",
+    success: "Booking Confirmed",
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
       <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <h3 className="text-base font-bold text-white">
-            {paymentSuccess ? "Booking Confirmed" : "Book Installation"}
+            {stepTitle[step]}
           </h3>
           <button
             onClick={onClose}
@@ -111,8 +158,34 @@ export default function BookingModal({
           </button>
         </div>
 
+        {/* Step indicator */}
+        <div className="flex items-center gap-1 border-b border-slate-800/50 px-5 py-2">
+          {(["address", "schedule", "payment"] as const).map((s, i) => (
+            <div key={s} className="flex items-center gap-1">
+              <div
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                  step === s
+                    ? "bg-yellow-400 text-slate-900"
+                    : step === "success" || (["address", "schedule", "payment"].indexOf(step) > i)
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-slate-800 text-stone-600"
+                }`}
+              >
+                {step === "success" || (["address", "schedule", "payment"].indexOf(step) > i) ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  i + 1
+                )}
+              </div>
+              {i < 2 && (
+                <div className="h-px w-6 bg-slate-800" />
+              )}
+            </div>
+          ))}
+        </div>
+
         <div className="p-5">
-          {paymentSuccess ? (
+          {step === "success" ? (
             /* ── Success State ───────────────────────────────────────── */
             <div className="py-6 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
@@ -134,6 +207,12 @@ export default function BookingModal({
                   })}
                 </p>
               )}
+              {address.line1 && (
+                <p className="mt-2 text-xs text-stone-500">
+                  <MapPin className="mr-1 inline h-3 w-3" />
+                  {address.line1}, {address.city}, {address.state} {address.zip}
+                </p>
+              )}
               <p className="mt-4 text-xs text-stone-600">
                 Your installer has been notified and will reach out to confirm.
               </p>
@@ -144,7 +223,7 @@ export default function BookingModal({
                 Done
               </button>
             </div>
-          ) : clientSecret ? (
+          ) : step === "payment" && clientSecret ? (
             /* ── Stripe Payment Element ──────────────────────────────── */
             <Elements
               stripe={stripePromise}
@@ -166,14 +245,14 @@ export default function BookingModal({
               <InlinePaymentForm
                 depositAmount={depositAmount}
                 onSuccess={() => {
-                  setPaymentSuccess(true);
-                  if (selectedDate) onSuccess?.(selectedDate);
+                  setStep("success");
+                  if (selectedDate) onSuccess?.(selectedDate, address);
                 }}
                 onError={(msg) => setError(msg)}
               />
             </Elements>
-          ) : (
-            /* ── Date Selection + Pay Button ─────────────────────────── */
+          ) : step === "schedule" ? (
+            /* ── Date Selection ─────────────────────────────────────── */
             <div className="space-y-4">
               {/* Price summary */}
               <div className="rounded-xl bg-slate-800 p-4 text-center">
@@ -191,9 +270,15 @@ export default function BookingModal({
                 </p>
               </div>
 
+              {hasWheels && (
+                <div className="rounded-lg bg-yellow-400/10 px-3 py-2 text-center text-[11px] font-semibold text-yellow-400">
+                  Caster add-on: 3 business day lead time applies
+                </div>
+              )}
+
               {/* Calendar */}
               <NativeScheduler
-                leadTimeDays={installerLeadTime}
+                leadTimeDays={effectiveLeadTime}
                 workingDays={installerWorkingDays}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -226,6 +311,89 @@ export default function BookingModal({
                   Select a date above to continue
                 </p>
               )}
+            </div>
+          ) : (
+            /* ── Address Capture (Step 1) ──────────────────────────── */
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  Street Address *
+                </label>
+                <input
+                  type="text"
+                  value={address.line1}
+                  onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+                  placeholder="123 Main St"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  Apt / Suite
+                </label>
+                <input
+                  type="text"
+                  value={address.line2}
+                  onChange={(e) => setAddress({ ...address, line2: e.target.value })}
+                  placeholder="Apt 4B"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    value={address.city}
+                    onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                    placeholder="Austin"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    State *
+                  </label>
+                  <input
+                    type="text"
+                    value={address.state}
+                    onChange={(e) => setAddress({ ...address, state: e.target.value.toUpperCase().slice(0, 2) })}
+                    placeholder="TX"
+                    maxLength={2}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Zip *
+                  </label>
+                  <input
+                    type="text"
+                    value={address.zip}
+                    onChange={(e) => setAddress({ ...address, zip: e.target.value.replace(/\D/g, "").slice(0, 5) })}
+                    placeholder="78701"
+                    maxLength={5}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-center text-xs font-medium text-red-400">
+                  {error}
+                </p>
+              )}
+
+              <button
+                onClick={handleAddressNext}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-4 text-base font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
+              >
+                <MapPin className="h-5 w-5" />
+                Continue to Scheduling
+                <ChevronRight className="h-5 w-5" />
+              </button>
             </div>
           )}
         </div>

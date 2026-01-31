@@ -2,13 +2,16 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  Calendar,
   Camera,
   CheckCircle2,
   CreditCard,
   DollarSign,
   Loader2,
   Mail,
+  MessageSquare,
   Package,
+  Phone,
   TrendingUp,
   Upload,
   X,
@@ -50,6 +53,8 @@ interface JobTicketProps {
   quoteData: MaterialConfig[] | null;
   customerEmail: string | null;
   customerName: string;
+  customerPhone?: string | null;
+  scheduledAt?: string | null;
   installerStripeId: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
@@ -67,6 +72,8 @@ export default function JobTicket({
   quoteData,
   customerEmail,
   customerName,
+  customerPhone,
+  scheduledAt,
   installerStripeId,
   onRefresh,
   onStatusChange,
@@ -75,9 +82,12 @@ export default function JobTicket({
 
   const [showPayMenu, setShowPayMenu] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(photoUrl);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Material calculation ─────────────────────────────────────────────
@@ -181,6 +191,19 @@ export default function JobTicket({
     setShowPayMenu(false);
     setShowCompletionModal(false);
     onStatusChange?.("paid");
+    onRefresh();
+  }
+
+  async function handleReschedule() {
+    if (!rescheduleDate) return;
+    setRescheduling(true);
+    await supabase
+      .from("leads")
+      .update({ scheduled_at: rescheduleDate, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+    setRescheduling(false);
+    setShowRescheduleModal(false);
+    setRescheduleDate("");
     onRefresh();
   }
 
@@ -369,6 +392,55 @@ export default function JobTicket({
         </div>
       )}
 
+      {/* ── Contact Buttons ───────────────────────────────────────────── */}
+      {!isPaid && (
+        <div className="grid grid-cols-3 gap-2">
+          {customerPhone && (
+            <a
+              href={`tel:${customerPhone}`}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-blue-400/50 hover:text-blue-400"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Call
+            </a>
+          )}
+          {customerPhone && (
+            <a
+              href={`sms:${customerPhone}`}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-emerald-400/50 hover:text-emerald-400"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Text
+            </a>
+          )}
+          {scheduledAt && (
+            <button
+              onClick={() => setShowRescheduleModal(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Reschedule
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Scheduled Date Display ─────────────────────────────────────── */}
+      {scheduledAt && (
+        <div className="rounded-lg bg-slate-800 px-3 py-2 text-center">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+            Scheduled{" "}
+          </span>
+          <span className="text-xs font-bold text-yellow-400">
+            {new Date(scheduledAt + (scheduledAt.includes("T") ? "" : "T12:00:00")).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+      )}
+
       {/* ── Material Breakdown (expandable) ──────────────────────────── */}
       {materialBreakdown && materialBreakdown.items.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900">
@@ -535,6 +607,51 @@ export default function JobTicket({
                   Upload a photo to unlock payment options
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reschedule Modal ───────────────────────────────────────────── */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-bold text-white">Reschedule Job</h3>
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  New Date
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={handleReschedule}
+                disabled={!rescheduleDate || rescheduling}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
+              >
+                {rescheduling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Calendar className="h-4 w-4" />
+                    Confirm Reschedule
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
