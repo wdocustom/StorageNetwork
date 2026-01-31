@@ -22,6 +22,7 @@ import {
   formatCurrency,
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice, markLeadAsPaid } from "@/app/actions/payments";
+import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -102,38 +103,24 @@ export default function JobTicket({
   const isCompleted = status === "completed" || status === "paid";
   const fmt = formatCurrency;
 
-  // ── Photo upload handler ─────────────────────────────────────────────
+  // ── Photo upload handler (via server action — ensures bucket exists) ──
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingPhoto(true);
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${leadId}/${Date.now()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("job-photos")
-      .upload(path, file, { upsert: true });
+    const formData = new FormData();
+    formData.append("photo", file);
 
-    if (uploadError) {
-      console.error("[JobTicket] Photo upload error:", uploadError);
-      setUploadingPhoto(false);
-      return;
+    const result = await uploadJobPhoto(leadId, formData);
+
+    if (result.success && result.publicUrl) {
+      setUploadedPhotoUrl(result.publicUrl);
+    } else {
+      console.error("[JobTicket] Photo upload error:", result.error);
     }
 
-    const { data: urlData } = supabase.storage
-      .from("job-photos")
-      .getPublicUrl(path);
-
-    const publicUrl = urlData.publicUrl;
-
-    // Save photo URL to lead
-    await supabase
-      .from("leads")
-      .update({ photo_url: publicUrl })
-      .eq("id", leadId);
-
-    setUploadedPhotoUrl(publicUrl);
     setUploadingPhoto(false);
   }
 
