@@ -131,7 +131,7 @@ export default function DashboardPage() {
             <img
               src={siteConfig.logoPath}
               alt={siteConfig.name}
-              className="h-10 w-10"
+              className="h-14 w-auto flex-shrink-0 object-contain"
             />
             <div>
               <h1 className="text-sm font-bold uppercase tracking-wider text-white">

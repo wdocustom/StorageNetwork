@@ -81,7 +81,11 @@ export async function POST(request: NextRequest) {
         console.log("[Webhook] Resolved address:", fullAddress);
       }
 
-      // 1. Update lead: mark deposit as paid + save address if captured
+      // ═══════════════════════════════════════════════════════════════════
+      // 1. SAVE DATA FIRST — Critical Path (must succeed before anything)
+      // ═══════════════════════════════════════════════════════════════════
+      const stripeEmail = session.customer_details?.email;
+
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
         deposit_amount: amountPaid,
@@ -89,9 +93,17 @@ export async function POST(request: NextRequest) {
         status: "deposit_paid",
       };
 
-      // Only overwrite address if we got one from Stripe and the lead doesn't have one
+      // Explicitly map address fields
+      if (stripeAddress) {
+        updatePayload.address_line1 = stripeAddress.line1 || "";
+        updatePayload.address_city = stripeAddress.city || "";
+        updatePayload.address_state = stripeAddress.state || "";
+        updatePayload.address_zip = stripeAddress.postal_code || "";
+      }
+
+      // Also save composite address string for display
       if (fullAddress) {
-        // Fetch current lead to check existing address
+        // Only overwrite if lead doesn't already have one
         const { data: currentLead } = await supabase
           .from("leads")
           .select("address")
@@ -104,16 +116,22 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Also save customer email from Stripe if we have it
-      const stripeEmail = session.customer_details?.email;
       if (stripeEmail) {
         updatePayload.customer_email = stripeEmail;
       }
 
-      await supabase
+      console.log("[Webhook] DB update payload:", JSON.stringify(updatePayload));
+
+      const { error: updateError } = await supabase
         .from("leads")
         .update(updatePayload)
         .eq("id", leadId);
+
+      if (updateError) {
+        console.error("[Webhook] CRITICAL: DB update failed!", updateError);
+      } else {
+        console.log("[Webhook] DB update SUCCESS for lead:", leadId);
+      }
 
       // 2. Fetch lead details for email notifications
       const { data: lead } = await supabase

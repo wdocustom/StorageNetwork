@@ -24,6 +24,8 @@ function SuccessInner() {
   const cols = parseInt(searchParams.get("cols") || "4") || 4;
   const rows = parseInt(searchParams.get("rows") || "4") || 4;
   const toteType = (searchParams.get("tote") || "HDX") as "HDX" | "GM";
+  const hasWheels = searchParams.get("wheels") !== "false";
+  const hasTop = searchParams.get("top") !== "false";
   const redirectTo = searchParams.get("redirect") || null;
 
   const [countdown, setCountdown] = useState(redirectTo ? 8 : 0);
@@ -90,8 +92,8 @@ function SuccessInner() {
               rows={rows}
               toteType={toteType}
               hasTotes
-              hasWheels
-              hasTop
+              hasWheels={hasWheels}
+              hasTop={hasTop}
               totalW={0}
               totalH={0}
             />
