@@ -91,6 +91,7 @@ export async function createPaymentSession(
       cancel_url: `${baseUrl}/dashboard/leads/${leadId}?payment=cancelled`,
       metadata: {
         lead_id: leadId,
+        type: "final_payment",
         platform_fee_cents: String(platformFeeCents),
         installer_stripe_id: installerStripeId,
       },

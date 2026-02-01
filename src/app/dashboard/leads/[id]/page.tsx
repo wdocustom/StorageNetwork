@@ -15,6 +15,7 @@ import {
   Wrench,
 } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -160,16 +161,7 @@ export default function JobTicketPage() {
               #{leadId.slice(0, 8)}
             </p>
           </div>
-          {lead.deposit_paid ? (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-400">
-              <CheckCircle2 className="h-3 w-3" />
-              Deposit Paid
-            </span>
-          ) : (
-            <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-400">
-              Pending
-            </span>
-          )}
+          <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
         </div>
       </header>
 

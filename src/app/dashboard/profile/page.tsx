@@ -14,7 +14,7 @@ import {
   getStripeStatus,
   getStripeDashboardLink,
 } from "@/app/actions/stripe-connect";
-import { sendTestEmail } from "@/app/actions/debug";
+import { sendTestEmail, deactivateAccount } from "@/app/actions/debug";
 import { siteConfig } from "@/config/site";
 import {
   ArrowLeft,
@@ -748,6 +748,34 @@ function ProfilePageInner() {
               {testEmailMessage}
             </p>
           )}
+        </section>
+
+        {/* ── Danger Zone ─────────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-red-400">
+            Danger Zone
+          </h2>
+          <p className="mb-4 text-xs text-stone-400">
+            Deactivate your account. Your data will be preserved but your profile
+            will be hidden from the platform.
+          </p>
+          <button
+            onClick={async () => {
+              if (!profile?.id) return;
+              if (!confirm("Are you sure you want to deactivate your account? This will hide your profile from customers.")) return;
+              const result = await deactivateAccount(profile.id);
+              if (result.success) {
+                alert("Account deactivated. You will be signed out.");
+                await supabase.auth.signOut();
+                window.location.href = "/";
+              } else {
+                alert("Failed to deactivate: " + (result.error || "Unknown error"));
+              }
+            }}
+            className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
+          >
+            Deactivate Account
+          </button>
         </section>
 
         {/* ── Plan Badge ────────────────────────────────────────────────── */}

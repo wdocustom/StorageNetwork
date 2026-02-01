@@ -65,6 +65,78 @@ export async function POST(request: NextRequest) {
     }
 
     const amountPaid = (session.amount_total || 0) / 100;
+    const paymentType = metadata.type || "booking"; // "booking" (deposit) or "final_payment"
+
+    console.log("[Webhook] Payment type:", paymentType, "| Amount:", amountPaid);
+
+    // ═════════════════════════════════════════════════════════════════════
+    // FINAL PAYMENT — Customer paid the balance via payment link
+    // ═════════════════════════════════════════════════════════════════════
+    if (paymentType === "final_payment") {
+      try {
+        const { error } = await supabase
+          .from("leads")
+          .update({
+            status: "paid",
+            payout_status: "paid",
+            paid_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", leadId);
+
+        if (error) {
+          console.error("[Webhook] CRITICAL: Final payment DB update failed!", JSON.stringify(error));
+        } else {
+          console.log("SUCCESS: Job marked PAID (final payment) for lead:", leadId);
+        }
+      } catch (err) {
+        console.error("[Webhook] Final payment update threw:", err);
+      }
+
+      // Send receipt email
+      try {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("customer_name, customer_email, estimated_price, deposit_amount, quote_data, installer_id")
+          .eq("id", leadId)
+          .single();
+
+        if (lead?.customer_email) {
+          const { sendJobReceipt } = await import("@/lib/email");
+          let installerName = "Your Installer";
+          if (lead.installer_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("first_name, last_name, business_name")
+              .eq("id", lead.installer_id)
+              .single();
+            if (profile) {
+              installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
+            }
+          }
+          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+          await sendJobReceipt(lead.customer_email, {
+            customerName: lead.customer_name ?? "Customer",
+            installerName,
+            totalAmount: lead.estimated_price ?? amountPaid,
+            depositPaid: lead.deposit_amount ?? 0,
+            balanceCollected: amountPaid,
+            jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+            completedDate: new Date().toISOString(),
+          });
+          console.log("[Webhook] Receipt email sent for final payment");
+        }
+      } catch (emailErr: any) {
+        console.error("[Webhook] Receipt email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // BOOKING (Deposit) — Original flow
+    // ═════════════════════════════════════════════════════════════════════
 
     // ── Extract address from Stripe (safe — all optional chaining) ────
     const stripeAddress =

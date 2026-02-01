@@ -1,6 +1,12 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function sendTestEmail(toEmail: string): Promise<{ success: boolean; error?: string }> {
   console.log("[Debug] sendTestEmail called for:", toEmail);
@@ -22,6 +28,27 @@ export async function sendTestEmail(toEmail: string): Promise<{ success: boolean
     return result;
   } catch (err: any) {
     console.error("[Debug] Test email failed:", err);
+    return { success: false, error: err?.message ?? "Unknown error" };
+  }
+}
+
+export async function deactivateAccount(userId: string): Promise<{ success: boolean; error?: string }> {
+  console.log("[Debug] deactivateAccount called for:", userId);
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("[Debug] Deactivate failed:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[Debug] Deactivate threw:", err);
     return { success: false, error: err?.message ?? "Unknown error" };
   }
 }

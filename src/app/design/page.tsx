@@ -748,6 +748,12 @@ function DesignPageInner() {
                           ? "Pay Deposit & Book"
                           : "Submit Quote Request"}
                       </button>
+                      <p className="text-[11px] text-stone-500 text-center">
+                        By placing this order, you agree to our{" "}
+                        <a href="/terms" className="underline hover:text-yellow-600">
+                          Terms of Service
+                        </a>.
+                      </p>
                       {submitError && (
                         <p className="text-xs font-medium text-red-600">
                           {submitError}

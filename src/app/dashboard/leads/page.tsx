@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Loader2,
 } from "lucide-react";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -24,6 +25,7 @@ interface LeadItem {
   deposit_paid: boolean;
   balance_due: number | null;
   created_at: string;
+  scheduled_at: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31,6 +33,44 @@ interface LeadItem {
 // ═══════════════════════════════════════════════════════════════════════════
 
 type TabKey = "active" | "past";
+
+// Group jobs by scheduled date
+function groupByDate(jobs: LeadItem[]): Record<string, LeadItem[]> {
+  const groups: Record<string, LeadItem[]> = {};
+  const unscheduled: LeadItem[] = [];
+
+  for (const job of jobs) {
+    if (job.scheduled_at) {
+      const dateStr = new Date(
+        job.scheduled_at + (job.scheduled_at.includes("T") ? "" : "T12:00:00")
+      ).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "numeric",
+        day: "numeric",
+        year: "numeric",
+      });
+      if (!groups[dateStr]) groups[dateStr] = [];
+      groups[dateStr].push(job);
+    } else {
+      unscheduled.push(job);
+    }
+  }
+
+  // Sort groups by actual date (soonest first)
+  const sorted: Record<string, LeadItem[]> = {};
+  const entries = Object.entries(groups).sort((a, b) => {
+    const dateA = a[1][0]?.scheduled_at ?? "";
+    const dateB = b[1][0]?.scheduled_at ?? "";
+    return dateA.localeCompare(dateB);
+  });
+  for (const [key, val] of entries) sorted[key] = val;
+
+  if (unscheduled.length > 0) {
+    sorted["Unscheduled"] = unscheduled;
+  }
+
+  return sorted;
+}
 
 export default function LeadsListPage() {
   const supabase = getSupabaseBrowserClient();
@@ -50,7 +90,7 @@ export default function LeadsListPage() {
     const { data } = await supabase
       .from("leads")
       .select(
-        "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at"
+        "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
       )
       .eq("installer_id", user.id)
       .order("created_at", { ascending: false });
@@ -75,8 +115,9 @@ export default function LeadsListPage() {
   const activeLeads = leads.filter(
     (l) => !["paid", "archived"].includes(l.status)
   );
-  const pastLeads = leads.filter((l) => l.status === "paid");
+  const pastLeads = leads.filter((l) => l.status === "paid" || l.status === "completed");
   const filtered = tab === "active" ? activeLeads : pastLeads;
+  const grouped = tab === "active" ? groupByDate(filtered) : null;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -151,69 +192,27 @@ export default function LeadsListPage() {
                 : "Completed and paid jobs will show up here."}
             </p>
           </div>
+        ) : tab === "active" && grouped ? (
+          /* ── Date-grouped active jobs ────────────────────────────────── */
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([dateString, jobs]) => (
+              <div key={dateString}>
+                <h3 className="mb-3 border-b border-slate-700 pb-2 text-sm font-semibold uppercase tracking-wider text-stone-400">
+                  {dateString}
+                </h3>
+                <ul className="space-y-3">
+                  {jobs.map((lead) => (
+                    <JobCard key={lead.id} lead={lead} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         ) : (
+          /* ── Flat list for past jobs ──────────────────────────────────── */
           <ul className="space-y-3">
             {filtered.map((lead) => (
-              <a
-                href={`/dashboard/leads/${lead.id}`}
-                key={lead.id}
-                className="group block rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-slate-700 active:scale-[0.99]"
-              >
-                {/* Top row: name + source badge */}
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-bold text-white">
-                      {lead.customer_name}
-                    </p>
-                    {lead.address && (
-                      <p className="mt-0.5 truncate text-sm text-stone-500">
-                        {lead.address}
-                      </p>
-                    )}
-                  </div>
-                  <SourceBadge source={lead.source} />
-                </div>
-
-                {/* Bottom row: revenue + date */}
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {lead.estimated_price ? (
-                      <span className="text-lg font-bold text-yellow-400">
-                        ${lead.estimated_price.toLocaleString()}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-stone-500">No quote</span>
-                    )}
-                    {lead.status === "paid" || lead.status === "completed" ? (
-                      <span className="rounded-full bg-green-600/20 px-2 py-0.5 text-[10px] font-bold text-green-400">
-                        Completed
-                      </span>
-                    ) : lead.deposit_paid ? (
-                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                        Deposit Paid
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400">
-                        Unpaid
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-stone-500">
-                    {new Date(lead.created_at).toLocaleDateString()}
-                    <ChevronRight className="h-3 w-3 transition-colors group-hover:text-yellow-400" />
-                  </div>
-                </div>
-
-                {/* Collect amount hint */}
-                {lead.balance_due && lead.balance_due > 0 && (
-                  <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
-                    Collect on completion:{" "}
-                    <span className="text-white">
-                      ${lead.balance_due.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-              </a>
+              <JobCard key={lead.id} lead={lead} />
             ))}
           </ul>
         )}
@@ -230,6 +229,62 @@ export default function LeadsListPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JobCard Component — Single lead row
+// ═══════════════════════════════════════════════════════════════════════════
+
+function JobCard({ lead }: { lead: LeadItem }) {
+  return (
+    <a
+      href={`/dashboard/leads/${lead.id}`}
+      className="group block rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-slate-700 active:scale-[0.99]"
+    >
+      {/* Top row: name + source badge */}
+      <div className="flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-bold text-white">
+            {lead.customer_name}
+          </p>
+          {lead.address && (
+            <p className="mt-0.5 truncate text-sm text-stone-500">
+              {lead.address}
+            </p>
+          )}
+        </div>
+        <SourceBadge source={lead.source} />
+      </div>
+
+      {/* Bottom row: revenue + badge + date */}
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {lead.estimated_price ? (
+            <span className="text-lg font-bold text-yellow-400">
+              ${lead.estimated_price.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-sm text-stone-500">No quote</span>
+          )}
+          <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
+        </div>
+        <div className="flex items-center gap-1 text-xs text-stone-500">
+          {new Date(lead.created_at).toLocaleDateString()}
+          <ChevronRight className="h-3 w-3 transition-colors group-hover:text-yellow-400" />
+        </div>
+      </div>
+
+      {/* Collect amount hint */}
+      {lead.balance_due && lead.balance_due > 0 && (
+        <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
+          Collect on completion:{" "}
+          <span className="text-white">
+            ${lead.balance_due.toLocaleString()}
+          </span>
+        </div>
+      )}
+    </a>
   );
 }
 
