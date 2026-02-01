@@ -106,7 +106,7 @@ export default function JobTicket({
     [totalPrice, estMaterials, feeStatus]
   );
 
-  const isPaid = payoutStatus === "paid" || status === "paid";
+  const isPaid = status === "paid";
   const isPaymentPending = status === "payment_pending";
   const isActive = !isPaid && !isPaymentPending && status !== "completed";
   const fmt = formatCurrency;

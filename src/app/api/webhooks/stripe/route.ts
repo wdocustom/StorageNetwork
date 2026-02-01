@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
         deposit_amount: amountPaid,
-        payout_status: "paid",
+        payout_status: "deposit_collected",
         status: "deposit_paid",
       };
 
@@ -157,6 +157,16 @@ export async function POST(request: NextRequest) {
         console.log("[Webhook] Sending booking confirmation to:", customerEmail);
 
         try {
+          console.log("[Webhook] sendBookingConfirmation args:", JSON.stringify({
+            customerName: lead.customer_name || "Customer",
+            customerEmail,
+            installerName,
+            scheduledDate: lead.scheduled_at || new Date().toISOString().split("T")[0],
+            address: lead.address || fullAddress || "",
+            depositAmount: amountPaid,
+            totalPrice: lead.estimated_price || amountPaid,
+            unitCount,
+          }));
           const emailResult = await sendBookingConfirmation({
             customerName: lead.customer_name || "Customer",
             customerEmail,
@@ -171,8 +181,9 @@ export async function POST(request: NextRequest) {
             leadId,
           });
           console.log("[Webhook] Booking confirmation result:", JSON.stringify(emailResult));
-        } catch (emailErr) {
-          console.error("[Webhook] Booking confirmation FAILED:", emailErr);
+        } catch (emailErr: any) {
+          console.error("[Webhook] Booking confirmation FAILED:", emailErr?.message || emailErr);
+          console.error("[Webhook] Booking confirmation stack:", emailErr?.stack);
         }
       } else {
         console.warn("[Webhook] No customer email available — skipping booking confirmation");

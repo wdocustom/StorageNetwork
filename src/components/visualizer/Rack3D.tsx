@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows } from "@react-three/drei";
+import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
 import * as THREE from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 
@@ -318,7 +318,7 @@ function CameraRig({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols"
   const dist = maxDim * 2.2;
 
   useEffect(() => {
-    camera.position.set(dist * 0.8, dist * 0.6, dist * 1.0);
+    camera.position.set(dist * 0.7, dist * 0.5, dist * 0.7);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
@@ -330,7 +330,8 @@ function CameraRig({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols"
     <OrbitControls
       ref={controlsRef}
       makeDefault
-      autoRotate={false}
+      autoRotate
+      autoRotateSpeed={0.5}
       enablePan
       panSpeed={0.5}
       rotateSpeed={0.6}
@@ -355,7 +356,7 @@ export default function Rack3D(props: Rack3DProps) {
     <div className="absolute inset-0" style={{ touchAction: "none" }}>
       <Canvas
         shadows
-        camera={{ fov: 40 }}
+        camera={{ fov: 45 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
       >
@@ -392,7 +393,9 @@ export default function Rack3D(props: Rack3DProps) {
           hasWheels={props.hasWheels}
         />
 
-        <RackAssembly {...props} />
+        <Stage intensity={0.5} environment="city" adjustCamera={false}>
+          <RackAssembly {...props} />
+        </Stage>
       </Canvas>
     </div>
   );
