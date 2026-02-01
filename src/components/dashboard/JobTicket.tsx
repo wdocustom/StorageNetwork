@@ -26,6 +26,7 @@ import {
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice, markLeadAsPaid } from "@/app/actions/payments";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
+import { rescheduleJob } from "@/app/actions/jobs";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -273,41 +274,7 @@ export default function JobTicket({
   async function handleReschedule() {
     if (!rescheduleDate) return;
     setRescheduling(true);
-    await supabase
-      .from("leads")
-      .update({ scheduled_at: rescheduleDate, updated_at: new Date().toISOString() })
-      .eq("id", leadId);
-
-    // Send reschedule notification email (non-blocking)
-    if (customerEmail) {
-      import("@/lib/email").then(async ({ sendTransactionalEmail }) => {
-        try {
-          const formattedDate = new Date(rescheduleDate + "T12:00:00").toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          });
-          await sendTransactionalEmail({
-            to: customerEmail!,
-            toName: customerName,
-            subject: `Your installation has been rescheduled to ${formattedDate}`,
-            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-              <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Rescheduled</h2>
-              <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
-              <p style="color:#666;font-size:14px;">Your installation has been rescheduled to:</p>
-              <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-                <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
-              </div>
-              <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Questions? Reply to this email.</p>
-            </div>`,
-          });
-        } catch (err) {
-          console.error("[Reschedule] Email failed:", err);
-        }
-      }).catch(() => {});
-    }
-
+    await rescheduleJob(leadId, rescheduleDate, customerEmail || "", customerName);
     setRescheduling(false);
     setShowRescheduleModal(false);
     setRescheduleDate("");
