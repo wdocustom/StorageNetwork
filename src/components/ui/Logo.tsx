@@ -12,7 +12,7 @@ interface LogoProps {
 export default function Logo({ size = 48, className, alt = "Storage Network" }: LogoProps) {
   return (
     <img
-      src="/logo.png"
+      src="/logo-storage-network.png"
       alt={alt}
       width={size}
       height={size}

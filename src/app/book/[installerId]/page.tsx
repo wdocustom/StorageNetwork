@@ -178,7 +178,7 @@ function BookingPageInner() {
       <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto max-w-lg text-center">
           <img
-            src="/logo.png"
+            src="/logo-storage-network.png"
             alt="Storage Network"
             className="mx-auto mb-1 h-12 w-12"
           />
@@ -406,7 +406,7 @@ function BookingPageInner() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 px-4 py-6 text-center">
-        <img src="/logo.png" alt="Storage Network" className="mx-auto mb-2 h-8 w-8" />
+        <img src="/logo-storage-network.png" alt="Storage Network" className="mx-auto mb-2 h-8 w-8" />
         <p className="text-[10px] text-stone-700">
           Powered by The Storage-Network Partner Program
         </p>

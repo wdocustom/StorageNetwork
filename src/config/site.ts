@@ -19,7 +19,7 @@ export const siteConfig = {
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@storage-network.app",
 
   // Branding
-  logoPath: "/logo.png",
+  logoPath: "/logo-storage-network.png",
 
   // Cookie Settings
   cookies: {

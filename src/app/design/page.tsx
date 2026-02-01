@@ -379,7 +379,7 @@ function DesignPageInner() {
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            <img src="/logo.png" alt="Storage Network" className="h-12 w-12" />
+            <img src="/logo-storage-network.png" alt="Storage Network" className="h-12 w-12" />
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">

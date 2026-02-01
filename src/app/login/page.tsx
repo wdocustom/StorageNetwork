@@ -87,7 +87,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <img
-            src="/logo.png"
+            src="/logo-storage-network.png"
             alt="Storage Network"
             className="mx-auto mb-4 w-80"
           />

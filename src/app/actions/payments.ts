@@ -162,7 +162,7 @@ export async function sendPaymentInvoice(
     return { success: false, error: sessionResult.error };
   }
 
-  // Send email with payment link via Brevo
+  // Send email with payment link via Resend
   try {
     const { sendTransactionalEmail } = await import("@/lib/email");
 
@@ -240,6 +240,37 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   if (error) {
     return { success: false, error: "Failed to update payment status." };
   }
+
+  // Fire booking confirmation email to customer (non-blocking)
+  import("@/lib/email").then(async ({ sendBookingConfirmation }) => {
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("customer_name, customer_email, address, scheduled_at, estimated_price, deposit_amount, installer_id, notes")
+      .eq("id", leadId)
+      .single();
+
+    if (!lead?.customer_email || !lead.installer_id) return;
+
+    const { data: installer } = await supabase
+      .from("profiles")
+      .select("business_name, phone, avatar_url")
+      .eq("id", lead.installer_id)
+      .single();
+
+    await sendBookingConfirmation({
+      customerName: lead.customer_name || "Customer",
+      customerEmail: lead.customer_email,
+      installerName: installer?.business_name || "Your Installer",
+      installerPhone: installer?.phone || undefined,
+      installerAvatarUrl: installer?.avatar_url || undefined,
+      scheduledDate: lead.scheduled_at || new Date().toISOString().split("T")[0],
+      address: lead.address || "",
+      depositAmount: lead.deposit_amount || 0,
+      totalPrice: lead.estimated_price || 0,
+      jobDescription: lead.notes || "Storage Unit Installation",
+      leadId,
+    });
+  }).catch((err: unknown) => console.error("[Email] Booking confirmation failed:", err));
 
   return { success: true };
 }

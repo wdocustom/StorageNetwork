@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { sendCustomerReceipt, sendNewJobAlert } from "@/lib/email";
+import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -80,14 +80,15 @@ export async function POST(request: NextRequest) {
 
       const resolvedInstallerId = installerId || lead.installer_id;
 
-      // 3. Send customer receipt
+      // 3. Send booking confirmation to customer
       if (lead.customer_email) {
-        // Get installer name for the receipt
         let installerName = "Your Installer";
+        let installerPhone: string | undefined;
+        let installerAvatar: string | undefined;
         if (resolvedInstallerId) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("first_name, last_name, business_name")
+            .select("first_name, last_name, business_name, phone, avatar_url")
             .eq("id", resolvedInstallerId)
             .single();
           if (profile) {
@@ -95,14 +96,25 @@ export async function POST(request: NextRequest) {
               profile.business_name ||
               [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
               "Your Installer";
+            installerPhone = profile.phone || undefined;
+            installerAvatar = profile.avatar_url || undefined;
           }
         }
 
-        await sendCustomerReceipt(
-          lead.customer_email,
-          amountPaid,
-          installerName
-        );
+        const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+        await sendBookingConfirmation({
+          customerName: lead.customer_name || "Customer",
+          customerEmail: lead.customer_email,
+          installerName,
+          installerPhone,
+          installerAvatarUrl: installerAvatar,
+          scheduledDate: new Date().toISOString().split("T")[0],
+          address: lead.address || "",
+          depositAmount: amountPaid,
+          totalPrice: lead.estimated_price || amountPaid,
+          jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+          leadId,
+        });
       }
 
       // 4. Send new job alert to installer
@@ -128,7 +140,7 @@ export async function POST(request: NextRequest) {
               ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
               : "Unknown";
 
-            await sendNewJobAlert(installerEmail, city, {
+            await sendNewLeadAlert(installerEmail, city, {
               customerName: lead.customer_name || "Customer",
               unitCount,
               totalPrice: lead.estimated_price || amountPaid,
