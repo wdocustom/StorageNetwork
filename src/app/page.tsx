@@ -140,7 +140,7 @@ export default function LandingPage() {
             <img
               src="/logo-storage-network.png"
               alt="Storage Network"
-              className="h-40 w-40 object-contain sm:h-52 sm:w-52 md:h-64 md:w-64"
+              className="h-40 w-auto object-contain sm:h-52 md:h-64"
             />
           </div>
 
@@ -272,7 +272,7 @@ export default function LandingPage() {
             <img
               src="/logo-storage-network.png"
               alt="Storage Network"
-              className="h-10 w-10 object-contain"
+              className="h-10 w-auto object-contain"
             />
           </div>
           <p className="text-xs text-stone-700">

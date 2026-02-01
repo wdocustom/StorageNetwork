@@ -89,7 +89,7 @@ export default function LoginPage() {
           <img
             src="/logo-storage-network.png"
             alt="Storage Network"
-            className="mx-auto mb-4 h-40 w-40 object-contain"
+            className="mx-auto mb-4 h-32 w-auto object-contain"
           />
           <h1 className="text-lg font-bold uppercase tracking-wider text-white">
             Partner Network

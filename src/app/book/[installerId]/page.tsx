@@ -180,7 +180,7 @@ function BookingPageInner() {
           <img
             src="/logo-storage-network.png"
             alt="Storage Network"
-            className="mx-auto mb-1 h-14 w-14 object-contain"
+            className="mx-auto mb-1 h-14 w-auto object-contain"
           />
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
             Custom Storage Configurator
@@ -406,7 +406,7 @@ function BookingPageInner() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 px-4 py-6 text-center">
-        <img src="/logo-storage-network.png" alt="Storage Network" className="mx-auto mb-2 h-8 w-8 object-contain" />
+        <img src="/logo-storage-network.png" alt="Storage Network" className="mx-auto mb-2 h-10 w-auto object-contain" />
         <p className="text-[10px] text-stone-700">
           Powered by The Storage-Network Partner Program
         </p>

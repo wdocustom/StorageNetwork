@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Logo — Storage Network round badge
-// Always renders as a perfect circle/square. Never distorted.
-// Usage: <Logo size={48} /> or <Logo className="h-12 w-12" />
+// Uses height-based sizing with w-auto to prevent distortion.
+// Usage: <Logo size={48} /> or <Logo className="h-12" />
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface LogoProps {
@@ -18,7 +18,7 @@ export default function Logo({ size = 48, className, alt = "Storage Network" }: 
       width={size}
       height={size}
       className={className ? `${className} object-contain` : "object-contain"}
-      style={{ height: size, width: size }}
+      style={{ height: size, width: "auto" }}
     />
   );
 }

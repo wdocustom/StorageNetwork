@@ -24,22 +24,17 @@ import {
   calculateNetProfit,
   formatCurrency,
 } from "@/utils/paymentHelpers";
-import { createPaymentSession, sendPaymentInvoice, markLeadAsPaid } from "@/app/actions/payments";
+import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
-import { rescheduleJob } from "@/app/actions/jobs";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { rescheduleJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// JobTicket — True Profit Financial Breakdown + Photo-Verified Completion
+// JobTicket — Hybrid POS Payment Flow
 //
-// Layout:
-//   ┌──────────┐  ┌──────────────────────┐  ┌──────────┐
-//   │   EST.   │  │   AMOUNT TO COLLECT   │  │   NET    │
-//   │MATERIALS │  │       $745            │  │  PROFIT  │
-//   │  (slate) │  │       (yellow)        │  │  (green) │
-//   └──────────┘  └──────────────────────┘  └──────────┘
-//
-// Flow: Complete Job → Snap Photo → Upload → Choose Payment → PAID
+// Flow:
+//   1. COMPLETE JOB → Snap Photo → triggers invoice email → PAYMENT_PENDING
+//   2. Payment Collection: Enter Card / Resend Invoice / Mark Paid (Manual)
+//   3. Job moves to "Past Jobs" ONLY when paid
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface JobTicketProps {
@@ -79,16 +74,15 @@ export default function JobTicket({
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
-  const supabase = getSupabaseBrowserClient();
-
-  const [showPayMenu, setShowPayMenu] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showManualPayModal, setShowManualPayModal] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(photoUrl);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
+  const [manualPayMethod, setManualPayMethod] = useState("cash");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Material calculation ─────────────────────────────────────────────
@@ -110,8 +104,9 @@ export default function JobTicket({
     [totalPrice, estMaterials, feeStatus]
   );
 
-  const isPaid = payoutStatus === "paid";
-  const isCompleted = status === "completed" || status === "paid";
+  const isPaid = payoutStatus === "paid" || status === "paid";
+  const isPaymentPending = status === "payment_pending";
+  const isActive = !isPaid && !isPaymentPending && status !== "completed";
   const fmt = formatCurrency;
 
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -159,7 +154,7 @@ export default function JobTicket({
     });
   }
 
-  // ── Photo upload handler (via server action — ensures bucket exists) ──
+  // ── Photo upload handler ──────────────────────────────────────────────
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -185,28 +180,46 @@ export default function JobTicket({
       console.error("[JobTicket] Photo upload exception:", err);
     } finally {
       setUploadingPhoto(false);
-      // Reset file input so same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  // ── Complete job handler ─────────────────────────────────────────────
-  async function handleCompleteJob() {
+  // ── Complete job with proof → triggers invoice email → payment_pending ──
+  async function handleCompleteWithProof() {
+    if (!uploadedPhotoUrl) return;
     setPayLoading(true);
-    await supabase
-      .from("leads")
-      .update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", leadId);
+
+    // Optionally create a Stripe payment URL for the invoice email
+    let paymentUrl: string | undefined;
+    if (installerStripeId) {
+      const session = await createPaymentSession({
+        leadId,
+        amount: profit.amountToCollect,
+        installerStripeId,
+        customerEmail: customerEmail || undefined,
+      });
+      if (session.success && session.url) {
+        paymentUrl = session.url;
+      }
+    }
+
+    await completeJobWithProof(
+      leadId,
+      uploadedPhotoUrl,
+      customerEmail,
+      customerName,
+      profit.amountToCollect,
+      paymentUrl
+    );
+
     setPayLoading(false);
-    onStatusChange?.("completed");
+    setShowCompletionModal(false);
+    onStatusChange?.("payment_pending");
     onRefresh();
   }
 
-  // ── Payment handlers ─────────────────────────────────────────────────
-  async function handlePayNow() {
+  // ── Payment Collection: Enter Card (opens Stripe in new tab) ──────────
+  async function handleEnterCard() {
     if (!installerStripeId) return;
     setPayLoading(true);
     const result = await createPaymentSession({
@@ -219,11 +232,10 @@ export default function JobTicket({
     if (result.success && result.url) {
       window.open(result.url, "_blank");
     }
-    setShowPayMenu(false);
-    setShowCompletionModal(false);
   }
 
-  async function handleSendInvoice() {
+  // ── Payment Collection: Resend Invoice Email ──────────────────────────
+  async function handleResendInvoice() {
     if (!installerStripeId || !customerEmail) return;
     setPayLoading(true);
     await sendPaymentInvoice({
@@ -235,11 +247,20 @@ export default function JobTicket({
       businessName: "Storage Network",
     });
     setPayLoading(false);
-    setShowPayMenu(false);
-    setShowCompletionModal(false);
     onRefresh();
   }
 
+  // ── Payment Collection: Mark Paid Manually (cash/venmo/check) ─────────
+  async function handleMarkPaidManual() {
+    setPayLoading(true);
+    await markJobPaidManual(leadId, manualPayMethod);
+    setPayLoading(false);
+    setShowManualPayModal(false);
+    onStatusChange?.("paid");
+    onRefresh();
+  }
+
+  // ── Send payment link via SMS ─────────────────────────────────────────
   async function handleSendToPhone() {
     if (!customerPhone || !installerStripeId) return;
     setPayLoading(true);
@@ -251,26 +272,14 @@ export default function JobTicket({
     });
     setPayLoading(false);
     if (result.success && result.url) {
-      // Send via SMS link
       const smsBody = encodeURIComponent(
         `Your payment of ${fmt(profit.amountToCollect)} is ready: ${result.url}`
       );
       window.open(`sms:${customerPhone}?body=${smsBody}`, "_self");
     }
-    setShowPayMenu(false);
-    setShowCompletionModal(false);
   }
 
-  async function handleMarkPaid() {
-    setPayLoading(true);
-    await markLeadAsPaid(leadId);
-    setPayLoading(false);
-    setShowPayMenu(false);
-    setShowCompletionModal(false);
-    onStatusChange?.("paid");
-    onRefresh();
-  }
-
+  // ── Reschedule ────────────────────────────────────────────────────────
   async function handleReschedule() {
     if (!rescheduleDate) return;
     setRescheduling(true);
@@ -365,7 +374,83 @@ export default function JobTicket({
             PAID
           </span>
         </div>
-      ) : !isCompleted ? (
+      ) : isPaymentPending ? (
+        /* ── PAYMENT PENDING — Collection Options ─────────────────── */
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-3">
+            <Loader2 className="h-4 w-4 text-amber-400" />
+            <span className="text-sm font-bold uppercase tracking-wider text-amber-400">
+              Payment Pending
+            </span>
+          </div>
+
+          {/* Enter Card Details — opens Stripe Checkout in new tab */}
+          <button
+            onClick={handleEnterCard}
+            disabled={payLoading || !installerStripeId}
+            className="flex w-full items-center gap-3 rounded-xl bg-yellow-500 px-4 py-4 text-left transition-colors hover:bg-yellow-400 active:scale-[0.98] disabled:opacity-50"
+          >
+            {payLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-slate-900" />
+            ) : (
+              <CreditCard className="h-5 w-5 text-slate-900" />
+            )}
+            <div>
+              <p className="text-sm font-bold text-slate-900">Enter Card Details</p>
+              <p className="text-[11px] text-slate-700">
+                Open Stripe Checkout — type in customer&apos;s card
+              </p>
+            </div>
+          </button>
+
+          {/* Resend Invoice Email */}
+          <button
+            onClick={handleResendInvoice}
+            disabled={payLoading || !customerEmail}
+            className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+          >
+            <Mail className="h-5 w-5 text-blue-400" />
+            <div>
+              <p className="text-sm font-semibold text-white">Resend Invoice</p>
+              <p className="text-[11px] text-stone-500">
+                Email payment link to {customerEmail || "customer"}
+              </p>
+            </div>
+          </button>
+
+          {/* Send to Phone */}
+          {customerPhone && (
+            <button
+              onClick={handleSendToPhone}
+              disabled={payLoading}
+              className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+            >
+              <Phone className="h-5 w-5 text-emerald-400" />
+              <div>
+                <p className="text-sm font-semibold text-white">Send to Phone</p>
+                <p className="text-[11px] text-stone-500">
+                  SMS payment link to customer
+                </p>
+              </div>
+            </button>
+          )}
+
+          {/* Mark Paid (Manual) */}
+          <button
+            onClick={() => setShowManualPayModal(true)}
+            disabled={payLoading}
+            className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+          >
+            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            <div>
+              <p className="text-sm font-semibold text-white">Mark Paid (Cash/Venmo/Check)</p>
+              <p className="text-[11px] text-stone-500">
+                Manual confirmation — close the job
+              </p>
+            </div>
+          </button>
+        </div>
+      ) : isActive ? (
         /* ── COMPLETE JOB button (opens photo modal) ──────────────── */
         <button
           onClick={() => setShowCompletionModal(true)}
@@ -381,90 +466,7 @@ export default function JobTicket({
             </>
           )}
         </button>
-      ) : (
-        /* ── GET PAID button (job already completed, awaiting payment) */
-        <div className="relative">
-          <button
-            onClick={() => setShowPayMenu((v) => !v)}
-            disabled={payLoading}
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
-          >
-            {payLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : (
-              <>
-                <CreditCard className="h-6 w-6" />
-                GET PAID
-              </>
-            )}
-          </button>
-
-          {showPayMenu && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-xl">
-              <button
-                onClick={() => setShowPayMenu(false)}
-                className="absolute right-2 top-2 text-stone-500 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              {customerPhone && (
-                <button
-                  onClick={handleSendToPhone}
-                  disabled={payLoading}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-                >
-                  <Phone className="h-5 w-5 text-emerald-400" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">Send to Phone</p>
-                    <p className="text-[11px] text-stone-500">
-                      SMS payment link to customer
-                    </p>
-                  </div>
-                </button>
-              )}
-              <button
-                onClick={handleSendInvoice}
-                disabled={!customerEmail || payLoading}
-                className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-              >
-                <Mail className="h-5 w-5 text-blue-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Send Invoice</p>
-                  <p className="text-[11px] text-stone-500">
-                    Email payment link to customer
-                  </p>
-                </div>
-              </button>
-              <button
-                onClick={handlePayNow}
-                disabled={payLoading}
-                className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-              >
-                <CreditCard className="h-5 w-5 text-yellow-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Pay Now</p>
-                  <p className="text-[11px] text-stone-500">
-                    Open Stripe Checkout in new tab
-                  </p>
-                </div>
-              </button>
-              <button
-                onClick={handleMarkPaid}
-                disabled={payLoading}
-                className="flex w-full items-center gap-3 border-t border-slate-700 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-              >
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Mark as Paid</p>
-                  <p className="text-[11px] text-stone-500">
-                    Manual confirmation (cash/check)
-                  </p>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      ) : null}
 
       {/* ── Completion Photo (if exists) ─────────────────────────────── */}
       {uploadedPhotoUrl && (
@@ -655,52 +657,87 @@ export default function JobTicket({
                 )}
               </div>
 
-              {/* Step B: Payment (visible once photo is uploaded) */}
+              {/* Step B: Submit — sends invoice, sets payment_pending */}
               {uploadedPhotoUrl ? (
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                    Step 2 — Collect Payment
+                    Step 2 — Send Invoice &amp; Collect
                   </p>
-                  <div className="space-y-2">
-                    <button
-                      onClick={async () => {
-                        await handleCompleteJob();
-                        handleMarkPaid();
-                      }}
-                      disabled={payLoading}
-                      className="flex w-full items-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-left transition-colors hover:bg-emerald-500 disabled:opacity-50"
-                    >
-                      <DollarSign className="h-5 w-5 text-white" />
-                      <div>
-                        <p className="text-sm font-bold text-white">Cash / Check</p>
-                        <p className="text-[11px] text-emerald-200/70">
-                          Mark as paid — received {fmt(profit.amountToCollect)}
-                        </p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await handleCompleteJob();
-                        handlePayNow();
-                      }}
-                      disabled={payLoading}
-                      className="flex w-full items-center gap-3 rounded-xl bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-50"
-                    >
-                      <CreditCard className="h-5 w-5 text-yellow-400" />
-                      <div>
-                        <p className="text-sm font-bold text-white">Card Payment</p>
-                        <p className="text-[11px] text-stone-500">
-                          Open Stripe Checkout for {fmt(profit.amountToCollect)}
-                        </p>
-                      </div>
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleCompleteWithProof}
+                    disabled={payLoading}
+                    className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-4 py-4 text-sm font-black uppercase tracking-wider text-slate-900 transition-colors hover:bg-yellow-400 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {payLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Mail className="h-5 w-5" />
+                        Send Invoice for {fmt(profit.amountToCollect)}
+                      </>
+                    )}
+                  </button>
+                  <p className="mt-2 text-center text-[11px] text-stone-600">
+                    Sends payment link to customer. Job stays active until paid.
+                  </p>
                 </div>
               ) : (
                 <p className="text-center text-xs text-stone-600">
-                  Upload a photo to unlock payment options
+                  Upload a photo to send the invoice
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manual Pay Confirmation Modal ─────────────────────────────── */}
+      {showManualPayModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-bold text-white">Confirm Payment</h3>
+              <button
+                onClick={() => setShowManualPayModal(false)}
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm text-stone-400">
+                Mark this job as paid for <span className="font-bold text-white">{fmt(profit.amountToCollect)}</span>?
+              </p>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  Payment Method
+                </label>
+                <select
+                  value={manualPayMethod}
+                  onChange={(e) => setManualPayMethod(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="venmo">Venmo</option>
+                  <option value="check">Check</option>
+                  <option value="zelle">Zelle</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <button
+                onClick={handleMarkPaidManual}
+                disabled={payLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-black uppercase tracking-wider text-white transition-all hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirm Paid
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -71,8 +71,8 @@ export default function LeadsListPage() {
     );
   }
 
-  const activeLeads = leads.filter((l) => l.status !== "completed" && l.status !== "paid");
-  const pastLeads = leads.filter((l) => l.status === "completed" || l.status === "paid");
+  const activeLeads = leads.filter((l) => l.status !== "paid");
+  const pastLeads = leads.filter((l) => l.status === "paid");
   const filtered = tab === "active" ? activeLeads : pastLeads;
 
   return (

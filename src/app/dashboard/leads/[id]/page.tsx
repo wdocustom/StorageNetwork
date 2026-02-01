@@ -121,7 +121,7 @@ export default function JobTicketPage() {
           href="/dashboard"
           className="text-sm text-yellow-400 underline hover:text-yellow-300"
         >
-          Back to Dashboard
+          Back to Jobs
         </a>
       </div>
     );
@@ -142,7 +142,7 @@ export default function JobTicketPage() {
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
-            href="/dashboard"
+            href="/dashboard/leads"
             className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -210,6 +210,8 @@ export default function JobTicketPage() {
           quoteData={lead.quote_data}
           customerEmail={lead.customer_email}
           customerName={lead.customer_name}
+          customerPhone={lead.customer_phone}
+          scheduledAt={(lead as any).scheduled_at}
           installerStripeId={installerStripeId}
           onRefresh={fetchLead}
         />
@@ -397,7 +399,7 @@ export default function JobTicketPage() {
         {/* ── Back Link ──────────────────────────────────────────────── */}
         <div className="pb-8 text-center">
           <a
-            href="/dashboard"
+            href="/dashboard/leads"
             className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
           >
             <ArrowLeft className="h-3 w-3" />
