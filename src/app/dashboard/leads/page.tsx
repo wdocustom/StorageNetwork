@@ -71,9 +71,9 @@ export default function LeadsListPage() {
     );
   }
 
-  // Only show confirmed leads (deposit paid or actively in progress) — hide abandoned/ghost leads
+  // Show confirmed leads: deposit_paid=true OR status indicates real activity
   const activeLeads = leads.filter(
-    (l) => l.status !== "paid" && (l.deposit_paid || ["deposit_paid", "payment_pending", "completed"].includes(l.status))
+    (l) => l.status !== "paid" && (l.deposit_paid || ["deposit_paid", "active", "payment_pending", "completed"].includes(l.status))
   );
   const pastLeads = leads.filter((l) => l.status === "paid");
   const filtered = tab === "active" ? activeLeads : pastLeads;

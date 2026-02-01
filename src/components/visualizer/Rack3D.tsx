@@ -318,7 +318,7 @@ function CameraRig({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols"
   const dist = maxDim * 2.2;
 
   useEffect(() => {
-    camera.position.set(dist * 0.7, dist * 0.5, dist * 0.7);
+    camera.position.set(dist * 0.6, dist * 0.6, dist * 0.6);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
@@ -393,7 +393,7 @@ export default function Rack3D(props: Rack3DProps) {
           hasWheels={props.hasWheels}
         />
 
-        <Stage intensity={0.5} environment="city" adjustCamera={false}>
+        <Stage intensity={0.6} environment="city" adjustCamera={false}>
           <RackAssembly {...props} />
         </Stage>
       </Canvas>

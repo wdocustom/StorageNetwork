@@ -107,7 +107,8 @@ export default function JobTicket({
   );
 
   const isPaid = status === "paid";
-  const isPaymentPending = status === "payment_pending";
+  // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)
+  const isPaymentPending = status === "payment_pending" || (!!uploadedPhotoUrl && status !== "paid");
   const isActive = !isPaid && !isPaymentPending && status !== "completed";
   const fmt = formatCurrency;
 
