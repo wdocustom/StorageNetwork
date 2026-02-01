@@ -6,10 +6,7 @@ import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import { CheckCircle2, Mail, ArrowLeft } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Success Page — Post-Checkout Hype Screen with 3D Rack
-//
-// URL params: ?name=InstallerName&cols=4&rows=4&tote=HDX&redirect=/dashboard
-// All data passed via URL — no server action calls needed.
+// Success Page — Post-Checkout Confirmation (dark theme, floating 3D)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function SuccessPage() {
@@ -29,7 +26,6 @@ function SuccessInner() {
   const toteType = (searchParams.get("tote") || "HDX") as "HDX" | "GM";
   const redirectTo = searchParams.get("redirect") || null;
 
-  // Auto-redirect countdown
   const [countdown, setCountdown] = useState(redirectTo ? 8 : 0);
 
   useEffect(() => {
@@ -48,33 +44,21 @@ function SuccessInner() {
   }, [redirectTo, router]);
 
   return (
-    <div className="relative min-h-screen bg-gray-950">
-      {/* Grid texture overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage:
-            "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
-
-      {/* Dramatic radial glow — enhanced spotlight effect */}
+    <div className="relative min-h-screen bg-slate-950">
+      {/* Subtle radial glow */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background: [
-            "radial-gradient(ellipse at 50% 30%, rgba(250,204,21,0.12) 0%, transparent 50%)",
-            "radial-gradient(ellipse at 50% 60%, rgba(16,185,129,0.06) 0%, transparent 40%)",
-            "radial-gradient(circle at 30% 20%, rgba(250,204,21,0.04) 0%, transparent 30%)",
-            "radial-gradient(circle at 70% 20%, rgba(250,204,21,0.04) 0%, transparent 30%)",
+            "radial-gradient(ellipse at 50% 30%, rgba(250,204,21,0.08) 0%, transparent 50%)",
+            "radial-gradient(ellipse at 50% 60%, rgba(16,185,129,0.04) 0%, transparent 40%)",
           ].join(", "),
         }}
       />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        {/* Success badge with glow ring */}
-        <div className="animate-bounce-slow mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/30">
+        {/* Success badge */}
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/30">
           <CheckCircle2 className="h-10 w-10 text-emerald-400" />
         </div>
 
@@ -98,8 +82,8 @@ function SuccessInner() {
           </p>
         )}
 
-        {/* 3D Rack Visualizer — dramatic shadow */}
-        <div className="mb-8 w-full max-w-lg overflow-hidden rounded-2xl border border-stone-800 bg-gray-900 shadow-2xl shadow-yellow-400/10">
+        {/* 3D Rack Visualizer — transparent bg, floating in dark void */}
+        <div className="mb-8 w-full max-w-lg overflow-hidden rounded-2xl border border-slate-800 shadow-2xl shadow-yellow-400/10" style={{ background: "transparent" }}>
           <div style={{ height: 320 }}>
             <RackVisualizer
               cols={cols}
@@ -112,15 +96,15 @@ function SuccessInner() {
               totalH={0}
             />
           </div>
-          <div className="border-t border-stone-800 bg-gray-950 px-4 py-3 text-center">
-            <span className="text-xs font-bold uppercase tracking-widest text-stone-600">
+          <div className="border-t border-slate-800 bg-slate-950 px-4 py-3 text-center">
+            <span className="text-xs font-bold uppercase tracking-widest text-stone-500">
               {cols} Wide &times; {rows} High
             </span>
           </div>
         </div>
 
         {/* Email prompt */}
-        <div className="mb-8 flex items-center gap-3 rounded-xl border border-stone-800 bg-gray-900 px-6 py-4">
+        <div className="mb-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">
           <Mail className="h-5 w-5 shrink-0 text-yellow-400" />
           <p className="text-sm text-stone-400">
             Check your email for the{" "}
@@ -129,7 +113,7 @@ function SuccessInner() {
           </p>
         </div>
 
-        {/* Auto-redirect countdown or back button */}
+        {/* Auto-redirect countdown */}
         {redirectTo && countdown > 0 ? (
           <p className="mb-4 text-center text-xs text-stone-500">
             Redirecting in{" "}

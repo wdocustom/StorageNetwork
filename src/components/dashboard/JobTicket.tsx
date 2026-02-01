@@ -5,6 +5,7 @@ import {
   Calendar,
   Camera,
   CheckCircle2,
+  ChevronDown,
   CreditCard,
   DollarSign,
   Loader2,
@@ -83,6 +84,7 @@ export default function JobTicket({
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
   const [manualPayMethod, setManualPayMethod] = useState("cash");
+  const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Material calculation ─────────────────────────────────────────────
@@ -171,12 +173,39 @@ export default function JobTicket({
 
       if (result.success && result.publicUrl) {
         setUploadedPhotoUrl(result.publicUrl);
+
+        // ── AUTO-SEND: Immediately trigger invoice email & set payment_pending ──
+        setPayLoading(true);
+        let paymentUrl: string | undefined;
+        if (installerStripeId) {
+          const session = await createPaymentSession({
+            leadId,
+            amount: profit.amountToCollect,
+            installerStripeId,
+            customerEmail: customerEmail || undefined,
+          });
+          if (session.success && session.url) {
+            paymentUrl = session.url;
+          }
+        }
+        await completeJobWithProof(
+          leadId,
+          result.publicUrl,
+          customerEmail,
+          customerName,
+          profit.amountToCollect,
+          paymentUrl
+        );
+        setPayLoading(false);
+        setShowCompletionModal(false);
+        onStatusChange?.("payment_pending");
+        onRefresh();
       } else {
-        setUploadError(result.error || "Upload failed. Please try again.");
+        setUploadError(result.error || "Photo too large or network error. Please retry.");
         console.error("[JobTicket] Photo upload error:", result.error);
       }
     } catch (err) {
-      setUploadError("Upload failed. Please try again.");
+      setUploadError("Photo too large or network error. Please retry.");
       console.error("[JobTicket] Photo upload exception:", err);
     } finally {
       setUploadingPhoto(false);
@@ -375,80 +404,96 @@ export default function JobTicket({
           </span>
         </div>
       ) : isPaymentPending ? (
-        /* ── PAYMENT PENDING — Collection Options ─────────────────── */
-        <div className="space-y-3">
-          <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-3">
-            <Loader2 className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-bold uppercase tracking-wider text-amber-400">
-              Payment Pending
+        /* ── PAYMENT PENDING — GET PAID button + dropdown ─────────── */
+        <div className="relative space-y-3">
+          {/* Invoice sent badge */}
+          <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2">
+            <Mail className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+              Invoice Sent — Awaiting Payment
             </span>
           </div>
 
-          {/* Enter Card Details — opens Stripe Checkout in new tab */}
+          {/* GET PAID button */}
           <button
-            onClick={handleEnterCard}
-            disabled={payLoading || !installerStripeId}
-            className="flex w-full items-center gap-3 rounded-xl bg-yellow-500 px-4 py-4 text-left transition-colors hover:bg-yellow-400 active:scale-[0.98] disabled:opacity-50"
+            onClick={() => setShowGetPaidMenu(!showGetPaidMenu)}
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98]"
           >
-            {payLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-slate-900" />
-            ) : (
-              <CreditCard className="h-5 w-5 text-slate-900" />
-            )}
-            <div>
-              <p className="text-sm font-bold text-slate-900">Enter Card Details</p>
-              <p className="text-[11px] text-slate-700">
-                Open Stripe Checkout — type in customer&apos;s card
-              </p>
-            </div>
+            <DollarSign className="h-6 w-6" />
+            GET PAID — {fmt(profit.amountToCollect)}
+            <ChevronDown className={`h-5 w-5 transition-transform ${showGetPaidMenu ? "rotate-180" : ""}`} />
           </button>
 
-          {/* Resend Invoice Email */}
-          <button
-            onClick={handleResendInvoice}
-            disabled={payLoading || !customerEmail}
-            className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-          >
-            <Mail className="h-5 w-5 text-blue-400" />
-            <div>
-              <p className="text-sm font-semibold text-white">Resend Invoice</p>
-              <p className="text-[11px] text-stone-500">
-                Email payment link to {customerEmail || "customer"}
-              </p>
-            </div>
-          </button>
+          {/* Dropdown menu */}
+          {showGetPaidMenu && (
+            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {/* Enter Card Details — opens Stripe Checkout in new tab */}
+              <button
+                onClick={handleEnterCard}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+                ) : (
+                  <CreditCard className="h-5 w-5 text-yellow-400" />
+                )}
+                <div>
+                  <p className="text-sm font-bold text-white">Manual Card Entry</p>
+                  <p className="text-[11px] text-stone-500">
+                    Open Stripe — type in customer&apos;s card
+                  </p>
+                </div>
+              </button>
 
-          {/* Send to Phone */}
-          {customerPhone && (
-            <button
-              onClick={handleSendToPhone}
-              disabled={payLoading}
-              className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-            >
-              <Phone className="h-5 w-5 text-emerald-400" />
-              <div>
-                <p className="text-sm font-semibold text-white">Send to Phone</p>
-                <p className="text-[11px] text-stone-500">
-                  SMS payment link to customer
-                </p>
-              </div>
-            </button>
+              {/* Resend Invoice Email */}
+              <button
+                onClick={handleResendInvoice}
+                disabled={payLoading || !customerEmail}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                <Mail className="h-5 w-5 text-blue-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Resend Invoice Email</p>
+                  <p className="text-[11px] text-stone-500">
+                    Re-send payment link to {customerEmail || "customer"}
+                  </p>
+                </div>
+              </button>
+
+              {/* Send to Phone */}
+              {customerPhone && (
+                <button
+                  onClick={handleSendToPhone}
+                  disabled={payLoading}
+                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Phone className="h-5 w-5 text-emerald-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Send to Phone</p>
+                    <p className="text-[11px] text-stone-500">
+                      SMS payment link to customer
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {/* Mark Paid (Manual) */}
+              <button
+                onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
+                disabled={payLoading}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Mark Paid (Cash/Venmo/Check)</p>
+                  <p className="text-[11px] text-stone-500">
+                    Manual confirmation — close the job
+                  </p>
+                </div>
+              </button>
+            </div>
           )}
-
-          {/* Mark Paid (Manual) */}
-          <button
-            onClick={() => setShowManualPayModal(true)}
-            disabled={payLoading}
-            className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-          >
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-            <div>
-              <p className="text-sm font-semibold text-white">Mark Paid (Cash/Venmo/Check)</p>
-              <p className="text-[11px] text-stone-500">
-                Manual confirmation — close the job
-              </p>
-            </div>
-          </button>
         </div>
       ) : isActive ? (
         /* ── COMPLETE JOB button (opens photo modal) ──────────────── */
@@ -657,34 +702,17 @@ export default function JobTicket({
                 )}
               </div>
 
-              {/* Step B: Submit — sends invoice, sets payment_pending */}
-              {uploadedPhotoUrl ? (
-                <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                    Step 2 — Send Invoice &amp; Collect
-                  </p>
-                  <button
-                    onClick={handleCompleteWithProof}
-                    disabled={payLoading}
-                    className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-4 py-4 text-sm font-black uppercase tracking-wider text-slate-900 transition-colors hover:bg-yellow-400 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {payLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Mail className="h-5 w-5" />
-                        Send Invoice for {fmt(profit.amountToCollect)}
-                      </>
-                    )}
-                  </button>
-                  <p className="mt-2 text-center text-[11px] text-stone-600">
-                    Sends payment link to customer. Job stays active until paid.
-                  </p>
-                </div>
-              ) : (
+              {/* Auto-send note */}
+              {!uploadedPhotoUrl && !uploadingPhoto && !payLoading && (
                 <p className="text-center text-xs text-stone-600">
-                  Upload a photo to send the invoice
+                  Upload a photo to auto-send the invoice
                 </p>
+              )}
+              {payLoading && (
+                <div className="flex items-center justify-center gap-2 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                  <p className="text-xs font-semibold text-yellow-400">Sending invoice...</p>
+                </div>
               )}
             </div>
           </div>
