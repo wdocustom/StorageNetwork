@@ -96,11 +96,14 @@ export async function POST(request: NextRequest) {
         deposit_amount: amountPaid,
         payout_status: "deposit_collected",
         status: "deposit_paid",
-        // Explicit address fields — use ?? fallback so code never throws
+        // Address fields — match migration 016 column names
         address_line1: stripeAddress?.line1 ?? "Address Pending",
         address_city: stripeAddress?.city ?? "",
         address_state: stripeAddress?.state ?? "",
         address_zip: stripeAddress?.postal_code ?? "",
+        // Also write to migration 012 column names for backward compat
+        city: stripeAddress?.city ?? "",
+        state: stripeAddress?.state ?? "",
       };
 
       // Composite address for display

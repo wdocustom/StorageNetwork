@@ -71,9 +71,9 @@ export default function LeadsListPage() {
     );
   }
 
-  // Show confirmed leads: deposit_paid=true OR status indicates real activity
+  // Show ALL leads except paid/archived — stop hiding failed webhook data
   const activeLeads = leads.filter(
-    (l) => l.status !== "paid" && (l.deposit_paid || ["deposit_paid", "active", "payment_pending", "completed"].includes(l.status))
+    (l) => !["paid", "archived"].includes(l.status)
   );
   const pastLeads = leads.filter((l) => l.status === "paid");
   const filtered = tab === "active" ? activeLeads : pastLeads;
@@ -184,9 +184,13 @@ export default function LeadsListPage() {
                     ) : (
                       <span className="text-sm text-stone-500">No quote</span>
                     )}
-                    {lead.deposit_paid && (
+                    {lead.deposit_paid ? (
                       <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                         Deposit Paid
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400">
+                        Unpaid
                       </span>
                     )}
                   </div>

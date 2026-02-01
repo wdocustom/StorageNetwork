@@ -154,12 +154,19 @@ export async function sendBookingConfirmation(
     leadId,
   } = data;
 
-  const formattedDate = new Date(scheduledDate + "T12:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  // Safe date parse — avoid Invalid Date crash if scheduledDate is "TBD" or empty
+  let formattedDate = scheduledDate || "TBD";
+  if (scheduledDate && scheduledDate !== "TBD") {
+    const parsed = new Date(scheduledDate + (scheduledDate.includes("T") ? "" : "T12:00:00"));
+    if (!isNaN(parsed.getTime())) {
+      formattedDate = parsed.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  }
 
   const balanceDue = totalPrice - depositAmount;
   const successUrl = `${getAppUrl()}/success?jobId=${leadId}`;
