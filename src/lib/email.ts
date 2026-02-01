@@ -35,13 +35,15 @@ export interface SendEmailResult {
 
 // ── Core Sender ──────────────────────────────────────────────────────────
 
-const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || "noreply@storage-network.app";
+const SENDER_EMAIL = process.env.RESEND_SENDER_EMAIL || "orders@storage-network.app";
 const SENDER_NAME = process.env.RESEND_SENDER_NAME || "Storage Network";
 
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
   const { to, subject, html, senderName } = params;
+
+  console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 
   // Development safety trap — log instead of sending
   if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY) {
@@ -137,6 +139,7 @@ export interface BookingConfirmationData {
 export async function sendBookingConfirmation(
   data: BookingConfirmationData
 ): Promise<SendEmailResult> {
+  console.log("[Email] sendBookingConfirmation triggered for:", data.customerEmail, "| Lead:", data.leadId);
   const {
     customerName,
     customerEmail,
@@ -231,6 +234,7 @@ export async function sendNewLeadAlert(
     leadId: string;
   }
 ): Promise<SendEmailResult> {
+  console.log("[Email] sendNewLeadAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
   const jobUrl = `${getAppUrl()}/dashboard/leads/${leadDetails.leadId}`;
   const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
 

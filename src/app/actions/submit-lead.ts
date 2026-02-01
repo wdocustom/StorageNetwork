@@ -98,30 +98,25 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
 
   // Fire new lead alert email to installer (non-blocking)
   if (input.installer_id) {
+    console.log("[SubmitLead] Firing new lead alert for installer:", input.installer_id);
     import("@/lib/email").then(async ({ sendNewLeadAlert }) => {
-      // Look up installer email
-      const { data: installer } = await supabase
-        .from("profiles")
-        .select("business_name")
-        .eq("id", input.installer_id!)
-        .single();
-
-      // Look up the auth email via supabase admin
-      const { data: authUser } = await supabase.auth.admin.getUserById(input.installer_id!);
-
-      if (authUser?.user?.email) {
-        await sendNewLeadAlert(
-          authUser.user.email,
-          input.address || "Unknown",
-          {
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(input.installer_id!);
+        const email = authUser?.user?.email;
+        console.log("[SubmitLead] Installer email resolved:", email || "NOT FOUND");
+        if (email) {
+          const result = await sendNewLeadAlert(email, input.address || "Unknown", {
             customerName: input.customer_name,
             unitCount: input.quote_data.length,
             totalPrice: input.grand_total,
             leadId: data.id,
-          }
-        );
+          });
+          console.log("[SubmitLead] New lead alert result:", result);
+        }
+      } catch (err) {
+        console.error("[SubmitLead] New lead alert error:", err);
       }
-    }).catch((err) => console.error("[Email] New lead alert failed:", err));
+    }).catch((err) => console.error("[SubmitLead] Email import failed:", err));
   }
 
   return { id: data.id };

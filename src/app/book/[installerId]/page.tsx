@@ -180,7 +180,7 @@ function BookingPageInner() {
           <img
             src="/logo-storage-network.png"
             alt="Storage Network"
-            className="mx-auto mb-1 h-12 w-12 object-contain"
+            className="mx-auto mb-1 h-14 w-14 object-contain"
           />
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
             Custom Storage Configurator

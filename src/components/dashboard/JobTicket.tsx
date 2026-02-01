@@ -113,25 +113,80 @@ export default function JobTicket({
   const isCompleted = status === "completed" || status === "paid";
   const fmt = formatCurrency;
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // ── Client-side image compression (max 1920px, JPEG 0.8) ──────────────
+  async function compressImage(file: File): Promise<File> {
+    const MAX_DIM = 1920;
+    const QUALITY = 0.8;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width <= MAX_DIM && height <= MAX_DIM) {
+          resolve(file);
+          return;
+        }
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
+            } else {
+              resolve(file);
+            }
+          },
+          "image/jpeg",
+          QUALITY
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  }
+
   // ── Photo upload handler (via server action — ensures bucket exists) ──
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingPhoto(true);
+    setUploadError(null);
 
-    const formData = new FormData();
-    formData.append("photo", file);
+    try {
+      const compressed = await compressImage(file);
+      const formData = new FormData();
+      formData.append("photo", compressed);
 
-    const result = await uploadJobPhoto(leadId, formData);
+      const result = await uploadJobPhoto(leadId, formData);
 
-    if (result.success && result.publicUrl) {
-      setUploadedPhotoUrl(result.publicUrl);
-    } else {
-      console.error("[JobTicket] Photo upload error:", result.error);
+      if (result.success && result.publicUrl) {
+        setUploadedPhotoUrl(result.publicUrl);
+      } else {
+        setUploadError(result.error || "Upload failed. Please try again.");
+        console.error("[JobTicket] Photo upload error:", result.error);
+      }
+    } catch (err) {
+      setUploadError("Upload failed. Please try again.");
+      console.error("[JobTicket] Photo upload exception:", err);
+    } finally {
+      setUploadingPhoto(false);
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-
-    setUploadingPhoto(false);
   }
 
   // ── Complete job handler ─────────────────────────────────────────────
@@ -222,6 +277,37 @@ export default function JobTicket({
       .from("leads")
       .update({ scheduled_at: rescheduleDate, updated_at: new Date().toISOString() })
       .eq("id", leadId);
+
+    // Send reschedule notification email (non-blocking)
+    if (customerEmail) {
+      import("@/lib/email").then(async ({ sendTransactionalEmail }) => {
+        try {
+          const formattedDate = new Date(rescheduleDate + "T12:00:00").toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
+          await sendTransactionalEmail({
+            to: customerEmail!,
+            toName: customerName,
+            subject: `Your installation has been rescheduled to ${formattedDate}`,
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+              <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Rescheduled</h2>
+              <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
+              <p style="color:#666;font-size:14px;">Your installation has been rescheduled to:</p>
+              <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
+                <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
+              </div>
+              <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Questions? Reply to this email.</p>
+            </div>`,
+          });
+        } catch (err) {
+          console.error("[Reschedule] Email failed:", err);
+        }
+      }).catch(() => {});
+    }
+
     setRescheduling(false);
     setShowRescheduleModal(false);
     setRescheduleDate("");
@@ -594,6 +680,11 @@ export default function JobTicket({
                     <Upload className="h-3 w-3" />
                     Or upload from gallery
                   </button>
+                )}
+                {uploadError && (
+                  <p className="mt-2 text-center text-xs font-semibold text-red-400">
+                    {uploadError}
+                  </p>
                 )}
               </div>
 

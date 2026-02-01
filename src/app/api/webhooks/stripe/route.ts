@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         }
 
         const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+        console.log("[Webhook] Sending booking confirmation to:", lead.customer_email);
         await sendBookingConfirmation({
           customerName: lead.customer_name || "Customer",
           customerEmail: lead.customer_email,
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
           const installerEmail = authUser?.user?.email;
 
           if (installerEmail) {
+            console.log("[Webhook] Sending new lead alert to installer:", installerEmail);
             const unitCount = Array.isArray(lead.quote_data)
               ? lead.quote_data.length
               : 1;

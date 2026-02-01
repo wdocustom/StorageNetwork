@@ -85,7 +85,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
         >
           <Suspense
             fallback={
-              <div className="absolute inset-0 flex items-center justify-center bg-white">
+              <div className="absolute inset-0 flex items-center justify-center bg-transparent">
                 <div className="text-center">
                   <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-400" />
                   <p className="mt-2 text-xs text-stone-500">

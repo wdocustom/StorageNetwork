@@ -318,7 +318,7 @@ function CameraRig({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols"
   const dist = maxDim * 2.2;
 
   useEffect(() => {
-    camera.position.set(dist * 0.9, dist * 0.65, dist * 1.1);
+    camera.position.set(dist * 0.8, dist * 0.6, dist * 1.0);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
@@ -356,9 +356,9 @@ export default function Rack3D(props: Rack3DProps) {
       <Canvas
         shadows
         camera={{ fov: 40 }}
-        gl={{ antialias: true, alpha: false }}
+        gl={{ antialias: true, alpha: true }}
+        style={{ background: "transparent" }}
       >
-        <color attach="background" args={["#ffffff"]} />
 
         <ambientLight intensity={0.85} />
         <directionalLight
