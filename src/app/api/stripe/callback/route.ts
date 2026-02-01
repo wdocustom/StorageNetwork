@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendInstallerWelcome } from "@/lib/email";
+import { getAppUrl } from "@/lib/url-helper";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Callback — Return URL after Stripe Connect onboarding
@@ -18,7 +19,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 export async function GET(request: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = getAppUrl();
 
   try {
     const accountId = request.nextUrl.searchParams.get("account_id");

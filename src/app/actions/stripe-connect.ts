@@ -68,7 +68,8 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
     }
 
     // 3. Generate an Account Link for onboarding
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const { getAppUrl } = await import("@/lib/url-helper");
+    const baseUrl = getAppUrl();
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       refresh_url: `${baseUrl}/dashboard/profile?stripe=refresh`,

@@ -247,10 +247,7 @@ export default function BookingModal({
             >
               <InlinePaymentForm
                 depositAmount={depositAmount}
-                onSuccess={() => {
-                  setStep("success");
-                  if (selectedDate) onSuccess?.(selectedDate, address);
-                }}
+                leadId={leadId}
                 onError={(msg) => setError(msg)}
               />
             </Elements>
@@ -412,11 +409,11 @@ export default function BookingModal({
 
 function InlinePaymentForm({
   depositAmount,
-  onSuccess,
+  leadId,
   onError,
 }: {
   depositAmount: number;
-  onSuccess: () => void;
+  leadId: string;
   onError: (msg: string) => void;
 }) {
   const stripe = useStripe();
@@ -429,20 +426,19 @@ function InlinePaymentForm({
 
     setProcessing(true);
 
+    // Stripe-native redirect — Stripe handles navigation to /success
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: window.location.href,
+        return_url: `${window.location.origin}/success?jobId=${leadId}`,
       },
-      redirect: "if_required",
     });
 
+    // Only reaches here if there was an immediate error (card declined etc.)
     setProcessing(false);
 
     if (error) {
       onError(error.message || "Payment failed. Please try again.");
-    } else {
-      onSuccess();
     }
   }
 
@@ -474,6 +470,17 @@ function InlinePaymentForm({
           </>
         )}
       </button>
+
+      <p className="mt-2 text-center text-xs text-stone-500">
+        By booking, you agree to the{" "}
+        <a href="/legal/terms" target="_blank" className="underline hover:text-stone-300">
+          Terms of Service
+        </a>{" "}
+        and{" "}
+        <a href="/legal/terms#installation" target="_blank" className="underline hover:text-stone-300">
+          Installation Agreement
+        </a>.
+      </p>
     </form>
   );
 }

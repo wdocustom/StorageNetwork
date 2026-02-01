@@ -139,7 +139,7 @@ export default function LandingPage() {
           <div className="mb-8 inline-block">
             <img
               src="/logo.png"
-              alt="The Shelf Dude"
+              alt="Storage Network"
               className="h-40 w-40 sm:h-52 sm:w-52 md:h-64 md:w-64"
             />
           </div>
@@ -271,7 +271,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <img
               src="/logo.png"
-              alt="The Shelf Dude"
+              alt="Storage Network"
               className="h-10 w-10"
             />
           </div>

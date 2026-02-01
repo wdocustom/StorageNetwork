@@ -1,7 +1,7 @@
 "use server";
 
 // ---------------------------------------------------------------------------
-// The Shelf Dude Partner Network – Calculation Engine (v2)
+// The Storage-Network – Calculation Engine (v2)
 // ---------------------------------------------------------------------------
 // Server Action: computes shelf specs, cut lists, shopping lists, and pricing
 // with add-on support (totes, wheels, plywood top).

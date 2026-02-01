@@ -35,7 +35,7 @@ export interface CheckoutResult {
  * Process deposit checkout with source-aware financial routing.
  *
  * Scenario A (Platform Lead): source = 'platform'
- *   → Deposit (15%) goes to The Shelf Dude Platform Account
+ *   → Deposit (15%) goes to The Storage-Network Platform Account
  *   → Installer collects 85% on site
  *
  * Scenario B (Self Lead): source = 'partner_link'

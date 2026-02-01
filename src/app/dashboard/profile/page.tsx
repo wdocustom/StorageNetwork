@@ -603,6 +603,12 @@ function ProfilePageInner() {
               Setup Payouts
             </button>
           )}
+          <p className="mt-2 text-center text-xs text-stone-500">
+            By joining, I agree to the{" "}
+            <a href="/legal/terms#contractor" target="_blank" className="underline hover:text-stone-300">
+              Contractor Agreement
+            </a>.
+          </p>
         </section>
 
         {/* ═══════════════════════════════════════════════════════════════

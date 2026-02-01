@@ -3,16 +3,20 @@
 // All brand-specific values should come from environment variables or this file
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { getAppUrl } from "@/lib/url-helper";
+
 export const siteConfig = {
   // App Identity
-  name: process.env.NEXT_PUBLIC_APP_NAME || "Partner Network",
+  name: process.env.NEXT_PUBLIC_APP_NAME || "The Storage-Network",
   tagline: process.env.NEXT_PUBLIC_APP_TAGLINE || "Professional Storage Solutions",
 
-  // URLs
-  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
+  // URLs — dynamic resolution (never hardcoded)
+  get baseUrl() {
+    return getAppUrl();
+  },
 
   // Support
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@example.com",
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@storage-network.app",
 
   // Branding
   logoPath: "/logo.png",
@@ -32,6 +36,3 @@ export const siteConfig = {
     proSubscription: true,
   },
 } as const;
-
-// Type for the site config
-export type SiteConfig = typeof siteConfig;

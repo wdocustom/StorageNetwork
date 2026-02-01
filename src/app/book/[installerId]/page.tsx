@@ -179,7 +179,7 @@ function BookingPageInner() {
         <div className="mx-auto max-w-lg text-center">
           <img
             src="/logo.png"
-            alt="The Shelf Dude"
+            alt="Storage Network"
             className="mx-auto mb-1 h-12 w-12"
           />
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
@@ -406,9 +406,9 @@ function BookingPageInner() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 px-4 py-6 text-center">
-        <img src="/logo.png" alt="The Shelf Dude" className="mx-auto mb-2 h-8 w-8" />
+        <img src="/logo.png" alt="Storage Network" className="mx-auto mb-2 h-8 w-8" />
         <p className="text-[10px] text-stone-700">
-          Powered by The Shelf Dude Partner Network
+          Powered by The Storage-Network Partner Program
         </p>
       </footer>
     </div>

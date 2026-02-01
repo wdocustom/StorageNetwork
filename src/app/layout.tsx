@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "The Shelf Dude Partner Network",
-  description: "Tote-based garage shelving — built to fit your wall.",
+  title: "The Storage-Network | Professional Organizer Installers",
+  description: "Book local certified installers for your custom storage solutions.",
 };
 
 export default function RootLayout({

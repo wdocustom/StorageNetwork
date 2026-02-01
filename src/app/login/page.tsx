@@ -88,7 +88,7 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <img
             src="/logo.png"
-            alt="The Shelf Dude"
+            alt="Storage Network"
             className="mx-auto mb-4 w-80"
           />
           <h1 className="text-lg font-bold uppercase tracking-wider text-white">

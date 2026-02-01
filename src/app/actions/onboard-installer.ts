@@ -112,7 +112,8 @@ export async function onboardInstaller(
       .eq("id", userId);
 
     // 5. Generate Stripe onboarding link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const { getAppUrl } = await import("@/lib/url-helper");
+    const baseUrl = getAppUrl();
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
       refresh_url: `${baseUrl}/partner/join?stripe=refresh`,

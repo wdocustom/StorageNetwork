@@ -176,7 +176,7 @@ export default function JobTicket({
       installerStripeId,
       customerEmail,
       customerName,
-      businessName: "The Shelf Dude",
+      businessName: "Storage Network",
     });
     setPayLoading(false);
     setShowPayMenu(false);
