@@ -184,7 +184,11 @@ export default function LeadsListPage() {
                     ) : (
                       <span className="text-sm text-stone-500">No quote</span>
                     )}
-                    {lead.deposit_paid ? (
+                    {lead.status === "paid" || lead.status === "completed" ? (
+                      <span className="rounded-full bg-green-600/20 px-2 py-0.5 text-[10px] font-bold text-green-400">
+                        Completed
+                      </span>
+                    ) : lead.deposit_paid ? (
                       <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                         Deposit Paid
                       </span>

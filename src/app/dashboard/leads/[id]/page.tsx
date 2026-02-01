@@ -36,7 +36,12 @@ interface LeadDetail {
   photo_url: string | null;
   quote_data: QuoteUnit[] | null;
   created_at: string;
+  scheduled_at: string | null;
   installer_id: string | null;
+  address_line1: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -181,7 +186,7 @@ export default function JobTicketPage() {
           {lead.customer_phone && (
             <p className="text-sm text-stone-400">{lead.customer_phone}</p>
           )}
-          {lead.address && (
+          {lead.address ? (
             <a
               href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
               target="_blank"
@@ -191,7 +196,17 @@ export default function JobTicketPage() {
               <MapPin className="h-3 w-3" />
               {lead.address}
             </a>
-          )}
+          ) : lead.address_line1 ? (
+            <div className="mt-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+              <p className="flex items-center gap-1 text-sm font-semibold text-white">
+                <MapPin className="h-3 w-3 text-yellow-400" />
+                {lead.address_line1}
+              </p>
+              <p className="text-xs text-stone-400">
+                {[lead.address_city, lead.address_state, lead.address_zip].filter(Boolean).join(", ")}
+              </p>
+            </div>
+          ) : null}
           <p className="mt-2 text-xs text-stone-600">
             Submitted {new Date(lead.created_at).toLocaleDateString()}
           </p>
@@ -211,7 +226,7 @@ export default function JobTicketPage() {
           customerEmail={lead.customer_email}
           customerName={lead.customer_name}
           customerPhone={lead.customer_phone}
-          scheduledAt={(lead as any).scheduled_at}
+          scheduledAt={lead.scheduled_at}
           installerStripeId={installerStripeId}
           onRefresh={fetchLead}
         />

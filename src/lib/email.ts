@@ -199,7 +199,7 @@ export async function sendBookingConfirmation(
     <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;font-size:14px;color:#334155;">
         <tr><td style="padding:8px 0;color:#64748b;">Date</td><td style="padding:8px 0;font-weight:700;text-align:right;">${formattedDate}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;">${address}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;">${address || "Address provided on arrival"}</td></tr>
         <tr><td style="padding:8px 0;color:#64748b;">Job</td><td style="padding:8px 0;font-weight:600;text-align:right;">${jobDescription}</td></tr>
         <tr style="border-top:1px solid #e2e8f0;"><td style="padding:12px 0 8px;color:#64748b;">Deposit Paid</td><td style="padding:12px 0 8px;font-weight:700;text-align:right;color:#16a34a;">$${depositAmount.toLocaleString()}</td></tr>
         <tr><td style="padding:8px 0;color:#64748b;">Balance Due</td><td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#1e293b;">$${balanceDue.toLocaleString()}</td></tr>
