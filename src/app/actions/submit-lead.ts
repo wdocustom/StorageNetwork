@@ -89,8 +89,24 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       })),
     };
 
-    // ── Scheduling Guard: enforce 3 points/day max ───────────────────────
+    // ── Scheduling Guard: blackout dates + 3 points/day max ─────────────
     if (input.scheduled_at && input.installer_id) {
+      // Check blackout dates
+      const { data: blackout } = await supabase
+        .from("installer_blackout_dates")
+        .select("id")
+        .eq("installer_id", input.installer_id)
+        .lte("start_date", input.scheduled_at)
+        .gte("end_date", input.scheduled_at)
+        .limit(1);
+
+      if (blackout && blackout.length > 0) {
+        return {
+          success: false,
+          error: "This installer is unavailable on the selected date. Please choose another date.",
+        };
+      }
+
       const maxCols = Math.max(...input.quote_data.map((u) => u.cols));
       const newJobWeight = calculateWeight(maxCols);
 

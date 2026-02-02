@@ -4,7 +4,8 @@
 // Server-side Stripe logic remains in src/app/actions/payments.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPOSIT_RATE = 0.15; // 15%
+const STANDARD_FEE_RATE = 0.15; // 15% platform fee for network leads
+const PRO_FEE_RATE = 0.01;      // 1% infrastructure fee for Pro partner leads
 
 export interface NetProfitInput {
   totalPrice: number;
@@ -20,27 +21,26 @@ export interface NetProfitResult {
   estMaterials: number;
   netProfit: number;
   feeWaived: boolean;
+  feeRate: number;
 }
 
 /**
- * Calculate the installer's true net profit after deposit/commission and materials.
+ * Calculate the installer's true net profit after fees and materials.
  *
- * Standard flow:
- *   Total: $877  →  Deposit/Commission (15%): -$132  →  Collect: $745
+ * Standard flow (Network Lead):
+ *   Total: $877  →  Fee (15%): -$132  →  Collect: $745
  *   Materials: -$332  →  Net Profit: $413
  *
- * Waived fee (Pro):
- *   Total: $877  →  Deposit: $0 (waived)  →  Collect: $877
- *   Materials: -$332  →  Net Profit: $545
+ * Pro flow (Partner Lead):
+ *   Total: $877  →  Fee (1%): -$9  →  Collect: $868
+ *   Materials: -$332  →  Net Profit: $536
  */
 export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
   const { totalPrice, materialCost, feeStatus } = input;
-  const feeWaived = feeStatus === "waived";
+  const isPro = feeStatus === "waived";
+  const feeRate = isPro ? PRO_FEE_RATE : STANDARD_FEE_RATE;
 
-  const depositAmount = feeWaived
-    ? 0
-    : Math.round(totalPrice * DEPOSIT_RATE * 100) / 100;
-
+  const depositAmount = Math.round(totalPrice * feeRate * 100) / 100;
   const amountToCollect = Math.round((totalPrice - depositAmount) * 100) / 100;
   const netProfit = Math.max(0, Math.round((amountToCollect - materialCost) * 100) / 100);
 
@@ -50,7 +50,8 @@ export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
     amountToCollect,
     estMaterials: materialCost,
     netProfit,
-    feeWaived,
+    feeWaived: isPro,
+    feeRate,
   };
 }
 

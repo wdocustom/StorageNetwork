@@ -331,7 +331,7 @@ export default function JobTicket({
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
-            PRO LEAD: 0% FEE APPLIED
+            PRO LEAD: 1% INFRASTRUCTURE FEE
           </span>
         </div>
       )}
@@ -394,7 +394,7 @@ export default function JobTicket({
         </span>
         {!profit.feeWaived && (
           <span>
-            Deposit (15%):{" "}
+            Deposit ({Math.round(profit.feeRate * 100)}%):{" "}
             <span className="font-bold text-emerald-400">
               -{fmt(profit.depositAmount)}
             </span>

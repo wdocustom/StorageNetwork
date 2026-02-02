@@ -12,6 +12,7 @@ interface StatusBadgeProps {
 export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
   const isFullyPaid = status === "paid" || status === "completed";
   const isPaymentPending = status === "payment_pending";
+  const isOpen = status === "open";
   const isDepositPaid = depositPaid || status === "deposit_paid";
 
   if (isFullyPaid) {
@@ -30,10 +31,10 @@ export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
     );
   }
 
-  if (isDepositPaid) {
+  if (isOpen || isDepositPaid) {
     return (
       <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-        Deposit Paid
+        {isOpen ? "Active" : "Deposit Paid"}
       </span>
     );
   }

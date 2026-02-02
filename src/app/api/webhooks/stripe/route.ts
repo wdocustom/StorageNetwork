@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
         deposit_paid: true,
         deposit_amount: amountPaid,
         payout_status: "deposit_collected",
-        status: "deposit_paid",
+        status: "open",
         // Address fields — match migration 016 column names
         address_line1: stripeAddress?.line1 ?? "Address Pending",
         address_city: stripeAddress?.city ?? "",

@@ -20,6 +20,7 @@ import {
   Package,
   Trophy,
   Megaphone,
+  CalendarOff,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
 import { getInstallerLink } from "@/lib/utils";
@@ -325,6 +326,21 @@ export default function DashboardPage() {
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-white">Marketing</h2>
               <p className="text-sm text-stone-500">Your link & social tools</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
+          </a>
+
+          {/* Schedule Settings */}
+          <a
+            href="/dashboard/schedule"
+            className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+          >
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-400 transition-colors group-hover:bg-red-500/20">
+              <CalendarOff className="h-8 w-8" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-white">Schedule</h2>
+              <p className="text-sm text-stone-500">Blackout dates & availability</p>
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
