@@ -93,7 +93,6 @@ export default function LeadsListPage() {
         "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
       )
       .eq("installer_id", user.id)
-      .eq("deposit_paid", true)
       .not("status", "in", '("cancelled","archived")')
       .order("created_at", { ascending: false });
 

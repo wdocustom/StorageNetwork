@@ -90,7 +90,7 @@ export default function ProUpgradeModal({
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-black uppercase tracking-widest text-gray-950 transition-colors hover:bg-yellow-300"
           >
             <Zap className="h-4 w-4" />
-            Upgrade to Pro &mdash; $49/mo
+            Upgrade to Pro &mdash; $99/mo
           </button>
           <p className="mt-2 text-center text-[11px] text-stone-600">
             Cancel anytime. No long-term contracts.

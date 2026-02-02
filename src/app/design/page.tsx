@@ -169,6 +169,8 @@ function DesignPageInner() {
         installer_phone: null,
         installer_lead_time: 5,
         installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        installer_is_pro: false,
+        installer_logo_url: null,
         message: "Unable to check availability.",
       });
     } finally {
@@ -405,11 +407,21 @@ function DesignPageInner() {
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            <img src="/logo-storage-network.png" alt="Storage Network" className="h-14 w-auto object-contain" />
+            {installer?.installer_is_pro && installer.installer_logo_url ? (
+              <img
+                src={installer.installer_logo_url}
+                alt={installer.installer_name || "Installer"}
+                className="h-14 w-auto object-contain"
+              />
+            ) : (
+              <img src="/logo-storage-network.png" alt="Storage Network" className="h-14 w-auto object-contain" />
+            )}
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-              Professional Grade Storage
+              {installer?.installer_is_pro && installer.installer_name
+                ? installer.installer_name
+                : "Professional Grade Storage"}
             </h1>
             <p className="text-[10px] uppercase tracking-wider text-yellow-400">
               Build Configurator

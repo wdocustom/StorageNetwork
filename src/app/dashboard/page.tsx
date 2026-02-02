@@ -68,7 +68,7 @@ export default function DashboardPage() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("installer_id", user.id)
-        .eq("status", "new"),
+        .in("status", ["new", "pending_payment", "open"]),
       supabase
         .from("leads")
         .select("estimated_price, balance_due, payout_status")
@@ -139,9 +139,16 @@ export default function DashboardPage() {
               <h1 className="text-sm font-bold uppercase tracking-wider text-white">
                 Welcome, {welcomeName}
               </h1>
-              <p className="text-[11px] text-stone-500">
-                {siteConfig.name}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] text-stone-500">
+                  {siteConfig.name}
+                </p>
+                {profile?.is_pro && (
+                  <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-400">
+                    Pro
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">

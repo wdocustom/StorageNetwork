@@ -400,12 +400,6 @@ export default function JobTicket({
             </span>
           </span>
         )}
-        <span>
-          Materials:{" "}
-          <span className="font-bold text-stone-300">
-            -{fmt(profit.estMaterials)}
-          </span>
-        </span>
       </div>
 
       {/* ── Action Button Area ────────────────────────────────────────── */}
