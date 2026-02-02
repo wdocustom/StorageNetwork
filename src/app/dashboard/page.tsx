@@ -139,16 +139,9 @@ export default function DashboardPage() {
               <h1 className="text-sm font-bold uppercase tracking-wider text-white">
                 Welcome, {welcomeName}
               </h1>
-              <div className="flex items-center gap-1.5">
-                <p className="text-[11px] text-stone-500">
-                  {siteConfig.name}
-                </p>
-                {profile?.is_pro && (
-                  <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-400">
-                    Pro
-                  </span>
-                )}
-              </div>
+              <p className="text-[11px] text-stone-500">
+                {siteConfig.name}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -173,20 +166,20 @@ export default function DashboardPage() {
       {/* ── Status Bar ──────────────────────────────────────────────── */}
       <div className="shrink-0 border-b border-slate-800 bg-slate-900/50 px-4 py-2.5">
         <div className="mx-auto flex max-w-lg items-center justify-center gap-4">
-          {/* Pro Status */}
+          {/* Plan Status */}
           <div className="flex items-center gap-1.5">
-            <div
-              className={`h-2 w-2 rounded-full ${
-                tier === "pro" ? "bg-yellow-400" : "bg-stone-600"
-              }`}
-            />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400">
-              {tier === "pro" ? (
-                <span className="text-yellow-400">Pro Active</span>
-              ) : (
-                "Free Plan"
-              )}
-            </span>
+            {tier === "pro" ? (
+              <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
+                PRO PLAN
+              </span>
+            ) : (
+              <>
+                <div className="h-2 w-2 rounded-full bg-stone-600" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+                  Free Plan
+                </span>
+              </>
+            )}
           </div>
 
           <div className="h-3 w-px bg-slate-700" />

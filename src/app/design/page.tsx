@@ -407,9 +407,9 @@ function DesignPageInner() {
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            {installer?.installer_is_pro && installer.installer_logo_url ? (
+            {installer?.installer_is_pro && (installer.installer_logo_url || installer.installer_avatar_url) ? (
               <img
-                src={installer.installer_logo_url}
+                src={(installer.installer_logo_url || installer.installer_avatar_url)!}
                 alt={installer.installer_name || "Installer"}
                 className="h-14 w-auto object-contain"
               />
@@ -419,8 +419,8 @@ function DesignPageInner() {
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-              {installer?.installer_is_pro && installer.installer_name
-                ? installer.installer_name
+              {installer?.installer_is_pro
+                ? (installer.installer_name || "Authorized Installer")
                 : "Professional Grade Storage"}
             </h1>
             <p className="text-[10px] uppercase tracking-wider text-yellow-400">
