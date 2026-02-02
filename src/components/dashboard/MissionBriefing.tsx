@@ -6,14 +6,16 @@ import {
   Copy,
   Check,
   Megaphone,
-  Radio,
+  Bell,
   ChevronRight,
+  ExternalLink,
   X,
 } from "lucide-react";
+import SocialGenerator from "@/components/dashboard/SocialGenerator";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Mission Briefing — New installer onboarding guide
-// Shows only when completedJobs === 0. Teaches them to deploy their link.
+// Quick Start Guide — New installer onboarding widget
+// Shows only when completedJobs === 0. Teaches them to use their link.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface MissionBriefingProps {
@@ -24,20 +26,17 @@ const STEPS = [
   {
     id: 1,
     icon: Link2,
-    label: "EQUIP YOUR LINK",
-    short: "Equip",
+    label: "Get Link",
   },
   {
     id: 2,
     icon: Megaphone,
-    label: "ENGAGE TARGETS",
-    short: "Engage",
+    label: "Promote",
   },
   {
     id: 3,
-    icon: Radio,
-    label: "STANDBY FOR ORDERS",
-    short: "Standby",
+    icon: Bell,
+    label: "Next Steps",
   },
 ] as const;
 
@@ -63,9 +62,11 @@ export default function MissionBriefing({ userId }: MissionBriefingProps) {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-            Mission Briefing
+            Quick Start Guide
           </p>
-          <p className="text-sm font-bold text-white">Deploy Your Asset</p>
+          <p className="text-sm font-bold text-white">
+            Get your first booking
+          </p>
         </div>
         <button
           onClick={() => setDismissed(true)}
@@ -89,7 +90,7 @@ export default function MissionBriefing({ userId }: MissionBriefingProps) {
               }`}
             >
               <step.icon className="h-3 w-3" />
-              {step.short}
+              {step.label}
             </button>
             {i < STEPS.length - 1 && (
               <ChevronRight className="h-3 w-3 text-stone-700" />
@@ -99,74 +100,70 @@ export default function MissionBriefing({ userId }: MissionBriefingProps) {
       </div>
 
       {/* Step Content */}
-      <div className="min-h-[120px]">
+      <div className="min-h-[140px]">
+        {/* ── Step 1: Get Link ───────────────────────────────────── */}
         {activeStep === 1 && (
           <div>
             <p className="mb-3 text-sm text-stone-400">
               This is your personal booking link. Every customer who orders
-              through it is tracked as <span className="font-semibold text-white">your lead</span>.
+              through it is tracked as{" "}
+              <span className="font-semibold text-white">your lead</span>.
             </p>
             <div className="rounded-lg border border-slate-700 bg-slate-800 p-3">
-              <p className="mb-2 select-all break-all text-xs font-medium text-blue-400">
+              <p className="mb-3 select-all break-all text-xs font-medium text-blue-400">
                 {bookingLink}
               </p>
-              <button
-                onClick={copyLink}
-                className="flex items-center gap-1.5 rounded bg-yellow-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3 w-3" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    Copy Link
-                  </>
-                )}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={copyLink}
+                  className="flex items-center gap-1.5 rounded bg-yellow-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      Copy Link
+                    </>
+                  )}
+                </button>
+                <a
+                  href={bookingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded border border-slate-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-700"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Launch Configurator
+                </a>
+              </div>
             </div>
           </div>
         )}
 
+        {/* ── Step 2: Promote ────────────────────────────────────── */}
         {activeStep === 2 && (
           <div>
             <p className="mb-3 text-sm text-stone-400">
-              Post on Instagram, Facebook, or text it directly to clients.
+              Share a professional post on Instagram, Facebook, or send via SMS.
             </p>
-            {/* Mock Instagram Story */}
-            <div className="rounded-xl border border-slate-700 bg-gradient-to-b from-slate-800 to-slate-900 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600" />
-                <div>
-                  <p className="text-xs font-bold text-white">your_business</p>
-                  <p className="text-[10px] text-stone-500">Instagram Story</p>
-                </div>
-              </div>
-              <div className="rounded-lg bg-slate-950/50 p-3">
-                <p className="text-xs leading-relaxed text-stone-300">
-                  &ldquo;I am now a <span className="font-bold text-yellow-400">Certified Storage
-                  Network Installer</span>. Need garage shelving? DM me or tap
-                  the link to design your build and book instantly.&rdquo;
-                </p>
-              </div>
-              <p className="mt-2 text-[10px] text-stone-600">
-                Pro tip: Post a photo of your truck, tools, or a finished job.
-              </p>
-            </div>
+            <SocialGenerator bookingLink={bookingLink} compact />
           </div>
         )}
 
+        {/* ── Step 3: Next Steps ─────────────────────────────────── */}
         {activeStep === 3 && (
           <div>
             <p className="mb-3 text-sm text-stone-400">
-              When a client books through your link, here&apos;s what happens:
+              Once a client books through your link, here&apos;s what happens:
             </p>
             <div className="space-y-2">
               {[
-                "You get an email alert with the job details.",
-                "The job appears in your Jobs / Leads tab with a Cut List.",
+                "You receive a booking notification via email.",
+                "The job appears in your Jobs tab with a Cut List and Material Guide.",
                 "Show up, build, tap \"Complete\" to collect the balance.",
               ].map((text, i) => (
                 <div key={i} className="flex gap-2.5">
