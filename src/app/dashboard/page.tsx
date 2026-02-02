@@ -116,7 +116,8 @@ export default function DashboardPage() {
     );
   }
 
-  const tier = profile?.subscription_tier || (profile?.is_pro ? "pro" : "free");
+  // is_pro is the DB source of truth — subscription_tier can be stale/cached
+  const tier = profile?.is_pro ? "pro" : (profile?.subscription_tier === "pro" ? "pro" : "free");
   const hasStripe = !!profile?.stripe_account_id;
 
   // Dynamic welcome name

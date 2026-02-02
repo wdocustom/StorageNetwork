@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const metadata = session.metadata || {};
-    const leadId = metadata.leadId || metadata.lead_id;
+    const leadId = session.client_reference_id || metadata.leadId || metadata.lead_id;
     const installerId = metadata.installerId || metadata.installer_id;
 
     console.log("[Webhook] Session:", session.id, "| Lead:", leadId, "| Installer:", installerId);

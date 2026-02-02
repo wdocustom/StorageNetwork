@@ -32,16 +32,8 @@ export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
 
   if (isDepositPaid) {
     return (
-      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-        Deposit Paid
-      </span>
-    );
-  }
-
-  if (status === "open") {
-    return (
-      <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-        Active
+      <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+        Pending
       </span>
     );
   }
