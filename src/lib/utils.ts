@@ -6,14 +6,17 @@
 export function getInstallerLink(user: {
   id: string;
   slug?: string | null;
+  is_pro?: boolean;
 }): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== "undefined" ? window.location.origin : "https://storage-network.app");
 
-  const param = user.slug
-    ? `installer=${encodeURIComponent(user.slug)}`
-    : `installer_id=${user.id}`;
+  // STRICT: Only Pro users with a slug get the vanity link
+  const param =
+    user.is_pro && user.slug
+      ? `installer=${encodeURIComponent(user.slug)}`
+      : `installer_id=${user.id}`;
 
   return `${baseUrl}/design?${param}`;
 }
