@@ -8,36 +8,35 @@ import {
   User,
   Building2,
   MapPin,
-  Crosshair,
   Target,
-  Truck,
+  ClipboardList,
   Banknote,
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Partner Onboarding — "Ops" Style, Zero Friction (No Stripe Step)
+// Partner Onboarding — Professional Trade Style (No Stripe Step)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const WAR_BLOCKS = [
+const VALUE_PROPS = [
   {
     icon: Target,
-    label: "INTEL",
-    title: "Sales",
-    desc: "We close the customer and secure the deposit. You don't quote. You don't sell. You just deploy.",
+    label: "SALES",
+    title: "Pre-Sold Jobs",
+    desc: "We secure the customer and the deposit. You don't quote. You don't sell. You just build.",
   },
   {
-    icon: Truck,
-    label: "LOGISTICS",
+    icon: ClipboardList,
+    label: "PLANNING",
     title: "No Math",
-    desc: "Every Op comes with a pre-calculated Material List and Cut List. Show up, build, leave.",
+    desc: "Every job comes with a pre-calculated Material List and Cut List. Show up, cut, assemble.",
   },
   {
     icon: Banknote,
-    label: "PAYDAY",
-    title: "Instant",
-    desc: "Job done? Tap \"Complete.\" Funds deploy to your account. No invoicing. No chasing.",
+    label: "PAYMENTS",
+    title: "Instant Payout",
+    desc: "Job done? Tap \"Complete.\" Funds are sent to your bank account immediately. No invoicing.",
   },
 ];
 
@@ -91,29 +90,29 @@ export default function PartnerJoinPage() {
 
   return (
     <div className="flex min-h-screen bg-slate-950">
-      {/* ── LEFT: Ops Value Prop ──────────────────────────────────────── */}
+      {/* ── LEFT: Value Prop ──────────────────────────────────────── */}
       <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
         <div className="max-w-lg">
-          {/* Tactical headline */}
+          {/* Professional headline */}
           <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
             Installer Network
           </p>
           <h1 className="mb-3 text-4xl font-black leading-[1.1] tracking-tight text-white xl:text-5xl">
-            We Secure the Target.
+            We Close the Sale.
             <br />
             <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              You Execute the Build.
+              You Build the Project.
             </span>
           </h1>
           <p className="mb-12 max-w-md text-lg leading-relaxed text-stone-400">
-            Stop fighting for leads. We process the design, payment, and
-            logistics. You get a &ldquo;GO&rdquo; order with a Cut List and a
-            check. No math. No sales.
+            Stop fighting for leads. We handle the design, sales, and logistics. 
+            You get a confirmed job with a Cut List and a deposit. 
+            No bidding. No chasing checks.
           </p>
 
-          {/* 3-Block War */}
+          {/* 3-Block Value Props */}
           <div className="space-y-5">
-            {WAR_BLOCKS.map((block) => (
+            {VALUE_PROPS.map((block) => (
               <div key={block.label} className="flex gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
                   <block.icon className="h-5 w-5 text-yellow-400" />
@@ -154,7 +153,7 @@ export default function PartnerJoinPage() {
         <div className="w-full max-w-sm">
           {/* Mobile header */}
           <div className="mb-8 text-center lg:hidden">
-            <Crosshair className="mx-auto mb-3 h-8 w-8 text-yellow-400" />
+            <Building2 className="mx-auto mb-3 h-8 w-8 text-yellow-400" />
             <h1 className="text-2xl font-black text-white">
               We Close.{" "}
               <span className="text-yellow-400">You Build.</span>
@@ -166,9 +165,9 @@ export default function PartnerJoinPage() {
 
           {/* Desktop header */}
           <div className="mb-8 hidden lg:block">
-            <h2 className="text-xl font-bold text-white">Initiate Account</h2>
+            <h2 className="text-xl font-bold text-white">Create Account</h2>
             <p className="mt-1 text-sm text-stone-500">
-              60 seconds. No credit card. No Stripe setup.
+              60 seconds. No credit card. No Stripe setup required yet.
             </p>
           </div>
 
@@ -293,7 +292,7 @@ export default function PartnerJoinPage() {
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "INITIATE ACCOUNT"
+              "CREATE ACCOUNT"
             )}
           </button>
 
