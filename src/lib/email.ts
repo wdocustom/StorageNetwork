@@ -184,7 +184,8 @@ export async function sendBookingConfirmation(
     `
     <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${customerName},</p>
     <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
-      Your installation is confirmed for <strong style="color:#1e293b;">${formattedDate}</strong>.
+      Thanks for your order! We&rsquo;ve received your deposit of <strong style="color:#16a34a;">$${depositAmount.toLocaleString()}</strong>.
+      Your installer will be in touch shortly to confirm your date: <strong style="color:#1e293b;">${formattedDate}</strong>.
     </p>
 
     <!-- Installer Card -->
@@ -221,7 +222,7 @@ export async function sendBookingConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Installation Confirmed — ${formattedDate} with ${installerName}`,
+    subject: `Order Confirmed: Garage Storage Installation — ${formattedDate}`,
     html,
   });
 }

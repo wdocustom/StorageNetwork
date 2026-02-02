@@ -91,6 +91,26 @@ export default function JobTicket({
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Cut List Checkbox State (persisted to localStorage) ────────────────
+  const storageKey = `cutlist-${leadId}`;
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  function toggleItem(itemName: string) {
+    setCheckedItems((prev) => {
+      const next = { ...prev, [itemName]: !prev[itemName] };
+      try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
   // ── Material calculation ─────────────────────────────────────────────
   const materialBreakdown = useMemo(() => {
     if (!quoteData || quoteData.length === 0) return null;
@@ -585,49 +605,67 @@ export default function JobTicket({
         </div>
       )}
 
-      {/* ── Material Breakdown (expandable) ──────────────────────────── */}
+      {/* ── Interactive Cut List (expandable) ──────────────────────────── */}
       {materialBreakdown && materialBreakdown.items.length > 0 && (
-        <details className="group rounded-xl border border-slate-800 bg-slate-900">
+        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
-            Material Cost Breakdown
+            Cut List &amp; Materials
+            {Object.values(checkedItems).filter(Boolean).length > 0 && (
+              <span className="ml-2 text-emerald-400">
+                ({Object.values(checkedItems).filter(Boolean).length}/{materialBreakdown.items.length})
+              </span>
+            )}
           </summary>
-          <div className="border-t border-slate-800 px-4 py-3">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-stone-600">
-                  <th className="pb-2 text-left font-semibold">Item</th>
-                  <th className="pb-2 text-center font-semibold">Qty</th>
-                  <th className="pb-2 text-right font-semibold">Unit</th>
-                  <th className="pb-2 text-right font-semibold">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {materialBreakdown.items.map((item) => (
-                  <tr key={item.name} className="border-t border-slate-800/50">
-                    <td className="py-1.5 text-stone-300">{item.name}</td>
-                    <td className="py-1.5 text-center font-mono text-stone-400">
-                      {item.qty}
-                    </td>
-                    <td className="py-1.5 text-right font-mono text-stone-500">
-                      ${item.unitCost.toFixed(2)}
-                    </td>
-                    <td className="py-1.5 text-right font-mono font-bold text-white">
-                      ${item.subtotal.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-slate-700">
-                  <td colSpan={3} className="pt-2 text-right font-bold text-stone-400">
-                    Total Materials
-                  </td>
-                  <td className="pt-2 text-right font-mono font-black text-yellow-400">
-                    ${materialBreakdown.totalCost.toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+          <div className="border-t border-slate-800">
+            {materialBreakdown.items.map((item) => {
+              const isChecked = !!checkedItems[item.name];
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => toggleItem(item.name)}
+                  className={`flex w-full items-center gap-3 border-b border-slate-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                    isChecked ? "bg-slate-800/30" : "hover:bg-slate-800/50"
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                      isChecked
+                        ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
+                        : "border-slate-600 text-transparent"
+                    }`}
+                  >
+                    {isChecked && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  </div>
+
+                  {/* Item details */}
+                  <div className={`min-w-0 flex-1 ${isChecked ? "opacity-40" : ""}`}>
+                    <span className={`text-xs font-semibold ${isChecked ? "text-stone-500 line-through" : "text-stone-300"}`}>
+                      {item.name}
+                    </span>
+                  </div>
+
+                  {/* Qty */}
+                  <span className={`text-xs font-mono ${isChecked ? "text-stone-600 line-through opacity-40" : "text-stone-400"}`}>
+                    x{item.qty}
+                  </span>
+
+                  {/* Price */}
+                  <span className={`text-xs font-mono font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-white"}`}>
+                    ${item.subtotal.toFixed(2)}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Total row */}
+            <div className="flex items-center justify-between border-t border-slate-700 px-4 py-3">
+              <span className="text-xs font-bold text-stone-400">Total Materials</span>
+              <span className="text-xs font-mono font-black text-yellow-400">
+                ${materialBreakdown.totalCost.toFixed(2)}
+              </span>
+            </div>
           </div>
         </details>
       )}
