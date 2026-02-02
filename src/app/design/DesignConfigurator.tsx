@@ -57,6 +57,7 @@ interface DesignConfiguratorProps {
   initialInstaller: AvailabilityResult | null;
   initialZip: string;
   mode: string;
+  isDemo?: boolean;
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -80,7 +81,10 @@ export default function DesignConfigurator({
   initialInstaller,
   initialZip,
   mode,
+  isDemo = false,
 }: DesignConfiguratorProps) {
+  // ── Demo mode toast ────────────────────────────────────────────────
+  const [demoToast, setDemoToast] = useState(false);
   // ── Installer context (hydrated from server) ─────────────────────────
   const [installerId, setInstallerId] = useState(initialInstaller?.installer_id || "");
   const [installer, setInstaller] = useState<AvailabilityResult | null>(initialInstaller);
@@ -762,9 +766,13 @@ export default function DesignConfigurator({
                         />
                       </div>
                       <button
-                        onClick={handleBookDeposit}
+                        onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
                         disabled={submitting}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50"
+                        className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
+                          isDemo
+                            ? "bg-stone-400 text-white shadow-stone-400/20 cursor-not-allowed"
+                            : "bg-yellow-400 text-gray-950 shadow-yellow-400/30 hover:bg-yellow-300 hover:-translate-y-0.5"
+                        }`}
                       >
                         {submitting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -773,7 +781,9 @@ export default function DesignConfigurator({
                         ) : (
                           <Send className="h-4 w-4" />
                         )}
-                        {submitting
+                        {isDemo
+                          ? "Demo Mode — No Payment"
+                          : submitting
                           ? "Submitting…"
                           : installer?.installer_stripe_id
                           ? "Pay Deposit & Book"
@@ -839,6 +849,27 @@ export default function DesignConfigurator({
       {/* ═══════════════════════════════════════════════════════════════════
           BOOKING MODAL — Address → Schedule → Inline Stripe Payment
       ═══════════════════════════════════════════════════════════════════ */}
+      {/* ── Demo Toast ─────────────────────────────────────────────── */}
+      {demoToast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="mx-4 max-w-sm rounded-2xl border border-stone-700 bg-slate-900 p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-400/20">
+              <AlertTriangle className="h-6 w-6 text-yellow-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Demo Mode</h3>
+            <p className="mt-2 text-sm text-stone-400">
+              This is a demo preview. No payment will be processed and no records will be created.
+            </p>
+            <button
+              onClick={() => setDemoToast(false)}
+              className="mt-4 w-full rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
+
       {leadId && installer?.installer_stripe_id && (
         <BookingModal
           isOpen={showBookingModal}
