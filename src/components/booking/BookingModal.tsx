@@ -120,6 +120,7 @@ export default function BookingModal({
       amount: depositAmount,
       installerStripeId,
       customerEmail,
+      customerName,
       scheduledAt: selectedDate,
     });
 
@@ -131,7 +132,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, installerStripeId, customerEmail]);
+  }, [selectedDate, leadId, depositAmount, installerStripeId, customerEmail, customerName]);
 
   if (!isOpen) return null;
 

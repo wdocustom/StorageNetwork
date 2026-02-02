@@ -295,6 +295,7 @@ export interface DepositIntentInput {
   amount: number;
   installerStripeId: string;
   customerEmail?: string;
+  customerName?: string;
   scheduledAt?: string;
 }
 
@@ -307,7 +308,7 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, installerStripeId, customerEmail, scheduledAt } = input;
+  const { leadId, amount, installerStripeId, customerEmail, customerName, scheduledAt } = input;
 
   if (!leadId || !amount || !installerStripeId) {
     return { success: false, error: "Missing required parameters." };
@@ -327,6 +328,10 @@ export async function createDepositIntent(
       receipt_email: customerEmail || undefined,
       metadata: {
         lead_id: leadId,
+        leadId,
+        type: "booking",
+        customer_name: customerName || "",
+        customer_email: customerEmail || "",
         platform_fee_cents: String(platformFeeCents),
         installer_stripe_id: installerStripeId,
         scheduled_at: scheduledAt || "",

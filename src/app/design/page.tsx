@@ -87,8 +87,10 @@ function DesignPageInner() {
   // ── Installer context ─────────────────────────────────────────────────
   const [installerId, setInstallerId] = useState(paramInstallerId);
   const [installer, setInstaller] = useState<AvailabilityResult | null>(null);
-  const [installerLocked, setInstallerLocked] = useState(false);
-  const [installerLoading, setInstallerLoading] = useState(false);
+  // Pre-lock if any installer param is present — hides "Find My Pro" box immediately
+  const hasInstallerParam = !!(paramInstallerId || paramInstallerSlug || paramRef);
+  const [installerLocked, setInstallerLocked] = useState(hasInstallerParam);
+  const [installerLoading, setInstallerLoading] = useState(hasInstallerParam);
 
   // Resolve installer from URL params on mount
   useEffect(() => {
