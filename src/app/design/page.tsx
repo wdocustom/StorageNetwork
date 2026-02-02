@@ -354,6 +354,12 @@ function DesignPageInner() {
         installer_id: installerId || undefined,
       });
 
+      if (!result.success || !result.id) {
+        setSubmitError(result.error || "Submission failed.");
+        setSubmitting(false);
+        return;
+      }
+
       setLeadId(result.id);
 
       // If installer has Stripe connected, open the booking modal for inline payment
