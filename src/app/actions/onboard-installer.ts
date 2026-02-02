@@ -1,21 +1,16 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
-import Stripe from "stripe";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Installer Onboarding — Create Account + Stripe Connect Redirect
-// Server action only. All secrets stay server-side.
+// Installer Onboarding — Create Account → Redirect to Dashboard
+// No Stripe friction at signup. They connect Stripe later from profile.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
 
 export interface OnboardInput {
   name: string;
@@ -27,32 +22,26 @@ export interface OnboardInput {
 
 export interface OnboardResult {
   success: boolean;
-  stripeUrl?: string;
+  redirectUrl?: string;
   error?: string;
 }
 
 /**
- * Full onboarding flow:
+ * Onboarding flow (no Stripe):
  * 1. Create Supabase auth user
  * 2. Create profile row (installer role)
- * 3. Create Stripe Connect account
- * 4. Generate Stripe onboarding link
- * 5. Return URL → client redirects to Stripe
+ * 3. Return dashboard URL → client redirects
  */
 export async function onboardInstaller(
   input: OnboardInput
 ): Promise<OnboardResult> {
   const { name, businessName, email, password, zipCode } = input;
 
-  // Validate
   if (!name || !email || !password || !zipCode) {
     return { success: false, error: "All fields are required." };
   }
   if (password.length < 6) {
     return { success: false, error: "Password must be at least 6 characters." };
-  }
-  if (!stripe) {
-    return { success: false, error: "Payment system not configured." };
   }
 
   try {
@@ -61,25 +50,27 @@ export async function onboardInstaller(
       await supabase.auth.admin.createUser({
         email: email.trim().toLowerCase(),
         password,
-        email_confirm: true, // Auto-confirm for onboarding flow
+        email_confirm: true,
       });
 
     if (authError) {
-      // Handle duplicate email
       if (authError.message?.includes("already been registered")) {
-        return { success: false, error: "An account with this email already exists. Please sign in instead." };
+        return {
+          success: false,
+          error: "An account with this email already exists. Please sign in instead.",
+        };
       }
       return { success: false, error: authError.message };
     }
 
     const userId = authData.user.id;
 
-    // Parse name into first/last
+    // Parse name
     const nameParts = name.trim().split(/\s+/);
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    // 2. Create/update profile
+    // 2. Create profile
     await supabase.from("profiles").upsert({
       id: userId,
       first_name: firstName,
@@ -90,43 +81,12 @@ export async function onboardInstaller(
       subscription_tier: "free",
     });
 
-    // 3. Create Stripe Connect account
-    const account = await stripe.accounts.create({
-      type: "standard",
-      email: email.trim().toLowerCase(),
-      business_profile: {
-        name: businessName.trim(),
-      },
-      metadata: {
-        supabase_user_id: userId,
-      },
-    });
+    console.log("✅ Installer account created:", userId);
 
-    // 4. Save Stripe account ID to profile
-    await supabase
-      .from("profiles")
-      .update({
-        stripe_account_id: account.id,
-        stripe_details_submitted: false,
-      })
-      .eq("id", userId);
-
-    // 5. Generate Stripe onboarding link
-    const { getAppUrl } = await import("@/lib/url-helper");
-    const baseUrl = getAppUrl();
-    const accountLink = await stripe.accountLinks.create({
-      account: account.id,
-      refresh_url: `${baseUrl}/partner/join?stripe=refresh`,
-      return_url: `${baseUrl}/api/stripe/callback?account_id=${account.id}`,
-      type: "account_onboarding",
-    });
-
-    return {
-      success: true,
-      stripeUrl: accountLink.url,
-    };
+    // 3. Redirect to dashboard (no Stripe step)
+    return { success: true, redirectUrl: "/dashboard" };
   } catch (err) {
-    console.error("[Onboard] Error:", err);
+    console.error("[Onboard] FULL ERROR:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Onboarding failed. Please try again.",

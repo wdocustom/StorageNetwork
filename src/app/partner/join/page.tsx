@@ -8,33 +8,36 @@ import {
   User,
   Building2,
   MapPin,
-  ArrowRight,
-  Zap,
-  DollarSign,
-  ClipboardList,
+  Crosshair,
+  Target,
+  Truck,
+  Banknote,
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Partner Onboarding — High-Conversion Signup for Installers
-// Split screen: Value Prop (left) + Signup Form (right)
+// Partner Onboarding — "Ops" Style, Zero Friction (No Stripe Step)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VALUE_PROPS = [
+const WAR_BLOCKS = [
   {
-    icon: Zap,
-    title: "Automated Leads",
-    desc: "Pre-qualified customers with paid deposits land in your dashboard. No chasing.",
+    icon: Target,
+    label: "INTEL",
+    title: "Sales",
+    desc: "We close the customer and secure the deposit. You don't quote. You don't sell. You just deploy.",
   },
   {
-    icon: ClipboardList,
-    title: "No Math, No Guesswork",
-    desc: "Every job comes with a cut list, material list, and step-by-step assembly guide.",
+    icon: Truck,
+    label: "LOGISTICS",
+    title: "No Math",
+    desc: "Every Op comes with a pre-calculated Material List and Cut List. Show up, build, leave.",
   },
   {
-    icon: DollarSign,
-    title: "Get Paid Instantly",
-    desc: "Collect the balance on-site with one tap. Funds go straight to your bank account.",
+    icon: Banknote,
+    label: "PAYDAY",
+    title: "Instant",
+    desc: "Job done? Tap \"Complete.\" Funds deploy to your account. No invoicing. No chasing.",
   },
 ];
 
@@ -68,9 +71,14 @@ export default function PartnerJoinPage() {
       zipCode: zipCode.trim(),
     });
 
-    if (result.success && result.stripeUrl) {
-      // Redirect to Stripe onboarding
-      window.location.href = result.stripeUrl;
+    if (result.success) {
+      // Sign in with the new credentials, then redirect to dashboard
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      window.location.href = result.redirectUrl || "/dashboard";
     } else {
       setError(result.error || "Something went wrong.");
       setLoading(false);
@@ -83,29 +91,45 @@ export default function PartnerJoinPage() {
 
   return (
     <div className="flex min-h-screen bg-slate-950">
-      {/* ── LEFT: Value Proposition ─────────────────────────────────────── */}
+      {/* ── LEFT: Ops Value Prop ──────────────────────────────────────── */}
       <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
-        <div className="max-w-md">
-          <h1 className="mb-2 text-4xl font-black tracking-tight text-white">
-            Automated Leads.
+        <div className="max-w-lg">
+          {/* Tactical headline */}
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+            Installer Network
+          </p>
+          <h1 className="mb-3 text-4xl font-black leading-[1.1] tracking-tight text-white xl:text-5xl">
+            We Secure the Target.
             <br />
-            <span className="text-yellow-400">No Math.</span>
+            <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              You Execute the Build.
+            </span>
           </h1>
-          <p className="mb-10 text-lg text-stone-400">
-            Join the partner network and start receiving pre-sold jobs with
-            everything you need to build — cut lists, materials, and step-by-step
-            guides.
+          <p className="mb-12 max-w-md text-lg leading-relaxed text-stone-400">
+            Stop fighting for leads. We process the design, payment, and
+            logistics. You get a &ldquo;GO&rdquo; order with a Cut List and a
+            check. No math. No sales.
           </p>
 
-          <div className="space-y-6">
-            {VALUE_PROPS.map((prop) => (
-              <div key={prop.title} className="flex gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-yellow-400/10">
-                  <prop.icon className="h-5 w-5 text-yellow-400" />
+          {/* 3-Block War */}
+          <div className="space-y-5">
+            {WAR_BLOCKS.map((block) => (
+              <div key={block.label} className="flex gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <block.icon className="h-5 w-5 text-yellow-400" />
                 </div>
                 <div>
-                  <p className="font-bold text-white">{prop.title}</p>
-                  <p className="text-sm text-stone-500">{prop.desc}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                      {block.label}
+                    </span>
+                    <span className="text-sm font-bold text-white">
+                      {block.title}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm leading-relaxed text-stone-500">
+                    {block.desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -125,24 +149,26 @@ export default function PartnerJoinPage() {
         </div>
       </div>
 
-      {/* ── RIGHT: Signup Form ─────────────────────────────────────────── */}
+      {/* ── RIGHT: Signup Form ───────────────────────────────────────── */}
       <div className="flex w-full flex-col items-center justify-center px-6 lg:w-1/2 lg:bg-slate-900/50">
         <div className="w-full max-w-sm">
-          {/* Mobile header (hidden on desktop) */}
+          {/* Mobile header */}
           <div className="mb-8 text-center lg:hidden">
+            <Crosshair className="mx-auto mb-3 h-8 w-8 text-yellow-400" />
             <h1 className="text-2xl font-black text-white">
-              Join the <span className="text-yellow-400">Partner Network</span>
+              We Close.{" "}
+              <span className="text-yellow-400">You Build.</span>
             </h1>
             <p className="mt-1 text-sm text-stone-500">
-              Automated leads. No math. Get paid.
+              Pre-sold jobs. Cut lists. Instant pay.
             </p>
           </div>
 
           {/* Desktop header */}
           <div className="mb-8 hidden lg:block">
-            <h2 className="text-xl font-bold text-white">Create Your Account</h2>
+            <h2 className="text-xl font-bold text-white">Initiate Account</h2>
             <p className="mt-1 text-sm text-stone-500">
-              Set up takes about 2 minutes
+              60 seconds. No credit card. No Stripe setup.
             </p>
           </div>
 
@@ -262,22 +288,17 @@ export default function PartnerJoinPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-widest text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <>
-                Get Started
-                <ArrowRight className="h-4 w-4" />
-              </>
+              "INITIATE ACCOUNT"
             )}
           </button>
 
           <p className="mt-4 text-center text-[11px] text-stone-600">
-            You&apos;ll be redirected to Stripe to connect your bank account.
-            <br />
-            No fees until you get paid.
+            No credit card required. Connect Stripe later from your dashboard.
           </p>
 
           {/* Mobile sign-in link */}

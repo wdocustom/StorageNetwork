@@ -20,6 +20,7 @@ import {
   Package,
   Trophy,
 } from "lucide-react";
+import MissionBriefing from "@/components/dashboard/MissionBriefing";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -200,9 +201,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Stripe Profile Banner ─────────────────────────────────── */}
+      {!hasStripe && (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-2.5">
+          <div className="mx-auto flex max-w-lg items-center justify-between">
+            <p className="text-xs text-amber-300">
+              <span className="font-bold">Complete your profile</span> to get
+              paid &mdash; connect Stripe in{" "}
+              <a
+                href="/dashboard/profile"
+                className="font-bold underline hover:text-amber-200"
+              >
+                Settings
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Tile Grid ───────────────────────────────────────────────── */}
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="mx-auto grid w-full max-w-lg gap-4">
+          {/* ── Mission Briefing (new installers only) ────────────── */}
+          {completedCount === 0 && profile && (
+            <MissionBriefing userId={profile.id} />
+          )}
+
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
