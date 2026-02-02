@@ -4,13 +4,18 @@
 // Server-side Stripe logic remains in src/app/actions/payments.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const STANDARD_FEE_RATE = 0.15; // 15% platform fee for network leads
-const PRO_FEE_RATE = 0.01;      // 1% infrastructure fee for Pro partner leads
+const NETWORK_FEE_RATE = 0.15;   // 15% — all network/search leads
+const DIRECT_FREE_FEE_RATE = 0.15; // 15% — direct leads on Free plan
+const DIRECT_PRO_FEE_RATE = 0.01;  // 1%  — direct leads on Pro plan
+
+export type LeadSource = "network" | "search" | "partner_link" | string;
 
 export interface NetProfitInput {
   totalPrice: number;
   materialCost: number;
   feeStatus: "standard" | "waived";
+  source?: LeadSource;
+  isPro?: boolean;
   depositPaid?: boolean;
 }
 
@@ -22,23 +27,41 @@ export interface NetProfitResult {
   netProfit: number;
   feeWaived: boolean;
   feeRate: number;
+  feeLabel: string;
+}
+
+/**
+ * Fee decision tree:
+ *   Network lead (source: network/search)  → Always 15%
+ *   Direct lead  (source: partner_link)     → Free plan: 15%, Pro plan: 1%
+ */
+function resolveFeeRate(source?: string, isPro?: boolean): { rate: number; label: string } {
+  const isDirectLead = source === "partner_link";
+
+  if (!isDirectLead) {
+    // Network / search / unknown → always 15%
+    return { rate: NETWORK_FEE_RATE, label: "Network Lead Fee (15%)" };
+  }
+
+  // Direct lead
+  if (isPro) {
+    return { rate: DIRECT_PRO_FEE_RATE, label: "Platform Fee (1%)" };
+  }
+  return { rate: DIRECT_FREE_FEE_RATE, label: "Network Lead Fee (15%)" };
 }
 
 /**
  * Calculate the installer's true net profit after fees and materials.
  *
- * Standard flow (Network Lead):
- *   Total: $877  →  Fee (15%): -$132  →  Collect: $745
- *   Materials: -$332  →  Net Profit: $413
- *
- * Pro flow (Partner Lead):
- *   Total: $877  →  Fee (1%): -$9  →  Collect: $868
- *   Materials: -$332  →  Net Profit: $536
+ * Network lead:          Fee 15% always
+ * Direct lead (Free):    Fee 15%
+ * Direct lead (Pro):     Fee 1%
  */
 export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
-  const { totalPrice, materialCost, feeStatus } = input;
-  const isPro = feeStatus === "waived";
-  const feeRate = isPro ? PRO_FEE_RATE : STANDARD_FEE_RATE;
+  const { totalPrice, materialCost, feeStatus, source, isPro: isProInput } = input;
+  // Backward compat: feeStatus="waived" + partner_link → Pro
+  const isPro = isProInput ?? feeStatus === "waived";
+  const { rate: feeRate, label: feeLabel } = resolveFeeRate(source, isPro);
 
   const depositAmount = Math.round(totalPrice * feeRate * 100) / 100;
   const amountToCollect = Math.round((totalPrice - depositAmount) * 100) / 100;
@@ -50,8 +73,9 @@ export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
     amountToCollect,
     estMaterials: materialCost,
     netProfit,
-    feeWaived: isPro,
+    feeWaived: isPro && source === "partner_link",
     feeRate,
+    feeLabel,
   };
 }
 

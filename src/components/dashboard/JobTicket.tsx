@@ -126,8 +126,10 @@ export default function JobTicket({
         totalPrice,
         materialCost: estMaterials,
         feeStatus,
+        source: source ?? undefined,
+        isPro,
       }),
-    [totalPrice, estMaterials, feeStatus]
+    [totalPrice, estMaterials, feeStatus, source, isPro]
   );
 
   const isPaid = status === "paid";
@@ -346,21 +348,24 @@ export default function JobTicket({
 
   return (
     <section className="space-y-4">
-      {/* ── Pro Lead Badge ─────────────────────────────────────────── */}
-      {source === "partner_link" && isPro && (
+      {/* ── Source + Fee Badge ────────────────────────────────────── */}
+      {source === "partner_link" && isPro ? (
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
-            PRO LEAD: 1% INFRASTRUCTURE FEE
+            DIRECT LEAD — 1% PRO FEE
           </span>
         </div>
-      )}
-      {/* ── Waived Fee Pill ──────────────────────────────────────────── */}
-      {profit.feeWaived && !isPro && (
+      ) : source === "partner_link" ? (
         <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400/15 px-3 py-1 text-[11px] font-bold text-yellow-400">
-            <CheckCircle2 className="h-3 w-3" />
-            Waived Fee — Pro
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-400/15 px-3 py-1 text-[11px] font-bold text-purple-400">
+            Direct Lead — 15% Fee
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-400/15 px-3 py-1 text-[11px] font-bold text-blue-400">
+            Network Lead — 15% Fee
           </span>
         </div>
       )}
@@ -389,7 +394,7 @@ export default function JobTicket({
             {fmt(profit.amountToCollect)}
           </div>
           <div className="mt-1 text-[10px] text-stone-500">
-            {profit.feeWaived ? "no deposit (Pro)" : "after deposit"}
+            {profit.feeWaived ? "after 1% fee (Pro)" : "after deposit"}
           </div>
         </div>
 
@@ -414,7 +419,7 @@ export default function JobTicket({
         </span>
         {!profit.feeWaived && (
           <span>
-            Deposit ({Math.round(profit.feeRate * 100)}%):{" "}
+            {profit.feeLabel}:{" "}
             <span className="font-bold text-emerald-400">
               -{fmt(profit.depositAmount)}
             </span>

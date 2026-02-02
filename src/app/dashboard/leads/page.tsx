@@ -296,15 +296,14 @@ function JobCard({ lead }: { lead: LeadItem }) {
 function SourceBadge({ source }: { source: string }) {
   if (source === "partner_link") {
     return (
-      <span className="ml-2 shrink-0 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold text-blue-400">
-        My Client
+      <span className="ml-2 shrink-0 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-400">
+        Direct Lead
       </span>
     );
   }
 
-  // Default: platform / network lead
   return (
-    <span className="ml-2 shrink-0 rounded-full bg-yellow-400/20 px-2.5 py-0.5 text-[10px] font-bold text-yellow-400">
+    <span className="ml-2 shrink-0 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold text-blue-400">
       Network Lead
     </span>
   );
