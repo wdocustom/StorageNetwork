@@ -2,11 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import { CheckCircle2, Mail, ArrowLeft } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Success Page — Post-Checkout Confirmation (dark theme, floating 3D)
+// Success Page — Post-Checkout Confirmation (clean text + badge, no 3D)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function SuccessPage() {
@@ -21,11 +20,6 @@ function SuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const installerName = searchParams.get("name") || "";
-  const cols = parseInt(searchParams.get("cols") || "4") || 4;
-  const rows = parseInt(searchParams.get("rows") || "4") || 4;
-  const toteType = (searchParams.get("tote") || "HDX") as "HDX" | "GM";
-  const hasWheels = searchParams.get("wheels") !== "false";
-  const hasTop = searchParams.get("top") !== "false";
   const redirectTo = searchParams.get("redirect") || null;
 
   const [countdown, setCountdown] = useState(redirectTo ? 8 : 0);
@@ -83,27 +77,6 @@ function SuccessInner() {
             Your installer has been notified.
           </p>
         )}
-
-        {/* 3D Rack Visualizer — transparent bg, floating in dark void */}
-        <div className="mb-8 w-full max-w-lg overflow-hidden rounded-2xl border border-slate-800 shadow-2xl shadow-yellow-400/10" style={{ background: "transparent" }}>
-          <div style={{ height: 320 }}>
-            <RackVisualizer
-              cols={cols}
-              rows={rows}
-              toteType={toteType}
-              hasTotes
-              hasWheels={hasWheels}
-              hasTop={hasTop}
-              totalW={0}
-              totalH={0}
-            />
-          </div>
-          <div className="border-t border-slate-800 bg-slate-950 px-4 py-3 text-center">
-            <span className="text-xs font-bold uppercase tracking-widest text-stone-500">
-              {cols} Wide &times; {rows} High
-            </span>
-          </div>
-        </div>
 
         {/* Email prompt */}
         <div className="mb-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">

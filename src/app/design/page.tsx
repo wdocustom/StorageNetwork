@@ -189,8 +189,10 @@ function DesignPageInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  // Address is captured in BookingModal, not the sidebar form
-  const address = "";
+  const [streetAddress, setStreetAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [addrState, setAddrState] = useState("");
+  const [addrZip, setAddrZip] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -337,11 +339,16 @@ function DesignPageInner() {
 
     setSubmitting(true);
     try {
+      const compositeAddress = [streetAddress, city, addrState, addrZip].filter(Boolean).join(", ");
       const result = await submitNetworkLead({
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
-        address,
+        address: compositeAddress,
+        address_line1: streetAddress,
+        address_city: city,
+        address_state: addrState,
+        address_zip: addrZip,
         quote_data: orderItems,
         grand_total: grandTotal,
         installer_id: installerId || undefined,
@@ -730,6 +737,36 @@ function DesignPageInner() {
                         placeholder="Phone *"
                         className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                       />
+                      <input
+                        type="text"
+                        value={streetAddress}
+                        onChange={(e) => setStreetAddress(e.target.value)}
+                        placeholder="Street Address"
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="City"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <input
+                          type="text"
+                          value={addrState}
+                          onChange={(e) => setAddrState(e.target.value)}
+                          placeholder="State"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <input
+                          type="text"
+                          value={addrZip}
+                          onChange={(e) => setAddrZip(e.target.value)}
+                          placeholder="Zip"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
                       <button
                         onClick={handleBookDeposit}
                         disabled={submitting}

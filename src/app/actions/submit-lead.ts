@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { calculateWeight } from "@/utils/scheduling";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = createClient(
@@ -30,10 +31,15 @@ export interface SubmitQuoteInput {
   customer_email: string;
   customer_phone: string;
   address: string;
+  address_line1?: string;
+  address_city?: string;
+  address_state?: string;
+  address_zip?: string;
   quote_data: QuoteUnit[];
   grand_total: number;
   installer_id?: string;
   source?: "platform" | "partner_link";
+  scheduled_at?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,6 +76,35 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
     })),
   };
 
+  // ── Scheduling Guard: enforce 3 points/day max ─────────────────────────
+  if (input.scheduled_at && input.installer_id) {
+    const maxCols = Math.max(...input.quote_data.map((u) => u.cols));
+    const newJobWeight = calculateWeight(maxCols);
+
+    const { data: existingJobs } = await supabase
+      .from("leads")
+      .select("scheduled_at, quote_data")
+      .eq("installer_id", input.installer_id)
+      .eq("scheduled_at", input.scheduled_at)
+      .not("status", "in", '("cancelled","archived")');
+
+    let currentWeight = 0;
+    if (existingJobs) {
+      for (const job of existingJobs) {
+        const jobCols = Array.isArray(job.quote_data)
+          ? Math.max(...(job.quote_data as any[]).map((u: any) => u.cols || 4))
+          : 4;
+        currentWeight += calculateWeight(jobCols);
+      }
+    }
+
+    if (currentWeight + newJobWeight > 3) {
+      throw new Error(
+        `This date is fully booked (${currentWeight}/3 points used). Please select another date.`
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("leads")
     .insert({
@@ -79,6 +114,10 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
       customer_email: input.customer_email.trim(),
       customer_phone: input.customer_phone?.trim() || null,
       address: input.address?.trim() || null,
+      address_line1: input.address_line1?.trim() || null,
+      address_city: input.address_city?.trim() || null,
+      address_state: input.address_state?.trim() || null,
+      address_zip: input.address_zip?.trim() || null,
       dimensions: dimensionsSummary,
       quote_data: input.quote_data,
       estimated_price: input.grand_total,
@@ -86,7 +125,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput) {
       deposit_paid: false,
       balance_due: Math.round(input.grand_total * 0.85 * 100) / 100,
       source: input.source || (input.installer_id ? "partner_link" : "platform"),
-      status: "new",
+      status: "pending_payment",
+      scheduled_at: input.scheduled_at || null,
       notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}`,
     })
     .select("id")
