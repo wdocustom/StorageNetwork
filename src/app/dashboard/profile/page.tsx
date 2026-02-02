@@ -49,6 +49,8 @@ interface Profile {
   trade_name: string | null;
   phone: string | null;
   service_zip: string | null;
+  city: string | null;
+  state: string | null;
   avatar_url: string | null;
   slug: string | null;
   subscription_tier: string;
@@ -75,6 +77,8 @@ function ProfilePageInner() {
   const [tradeName, setTradeName] = useState("");
   const [phone, setPhone] = useState("");
   const [serviceZip, setServiceZip] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Stripe state
@@ -112,6 +116,8 @@ function ProfilePageInner() {
       setTradeName(p.trade_name || "");
       setPhone(p.phone || "");
       setServiceZip(p.service_zip || "");
+      setCity(p.city || "");
+      setState(p.state || "");
       setAvatarUrl(p.avatar_url);
       // Fetch Stripe status
       const status = await getStripeStatus(user.id);
@@ -225,6 +231,12 @@ function ProfilePageInner() {
     setSaving(true);
     setSaveMessage("");
 
+    if (!city.trim() || !state.trim()) {
+      setSaveMessage("City and State are required.");
+      setSaving(false);
+      return;
+    }
+
     const result = await updateProfile({
       user_id: profile.id,
       first_name: firstName || undefined,
@@ -233,6 +245,8 @@ function ProfilePageInner() {
       trade_name: tradeName || undefined,
       phone: phone || undefined,
       service_zip: serviceZip || undefined,
+      city: city.trim(),
+      state: state.trim(),
     });
 
     if (result.success) {
@@ -456,6 +470,38 @@ function ProfilePageInner() {
                   }
                   placeholder="90210"
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  City <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Los Angeles"
+                  className={`w-full rounded-lg border bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
+                    !city.trim() ? "border-red-500/50" : "border-slate-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  State <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="CA"
+                  maxLength={2}
+                  className={`w-full rounded-lg border bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
+                    !state.trim() ? "border-red-500/50" : "border-slate-700"
+                  }`}
                 />
               </div>
             </div>

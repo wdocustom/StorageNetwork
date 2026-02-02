@@ -14,8 +14,8 @@ interface ProUpgradeModalProps {
 const BENEFITS = [
   {
     icon: Percent,
-    title: "Only 1% Infrastructure Fee",
-    desc: "Drop from 15% to just 1% on every job booked through your link. Pays for itself in one job.",
+    title: "Only 5% Infrastructure Fee",
+    desc: "Drop from 15% to just 5% on every job booked through your link. Pays for itself in one job.",
   },
   {
     icon: Link2,
@@ -25,7 +25,7 @@ const BENEFITS = [
   },
   {
     icon: Palette,
-    title: "Remove Platform Branding",
+    title: "Customize Link & Remove Platform Branding",
     desc: "Your clients see your name on the design tool, not ours.",
   },
 ];

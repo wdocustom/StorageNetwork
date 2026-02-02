@@ -38,6 +38,8 @@ interface Profile {
   subscription_tier?: string;
   stripe_account_id?: string | null;
   slug?: string | null;
+  city?: string | null;
+  state?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -216,6 +218,24 @@ export default function DashboardPage() {
                 className="font-bold underline hover:text-amber-200"
               >
                 Settings
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Incomplete Profile Banner ──────────────────────────────── */}
+      {profile && (!profile.city || !profile.state) && (
+        <div className="shrink-0 border-b border-red-400/20 bg-red-400/5 px-4 py-2.5">
+          <div className="mx-auto flex max-w-lg items-center justify-between">
+            <p className="text-xs text-red-300">
+              <span className="font-bold">Incomplete Profile:</span> City & State are required.{" "}
+              <a
+                href="/dashboard/profile"
+                className="font-bold underline hover:text-red-200"
+              >
+                Update now
               </a>
               .
             </p>

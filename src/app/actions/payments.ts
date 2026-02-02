@@ -21,8 +21,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ── Platform fee: 1% of the total amount ─────────────────────────────────
-const PLATFORM_FEE_RATE = 0.01;
+// ── Platform fee: 5% of the total amount (Pro direct leads) ──────────────
+const PLATFORM_FEE_RATE = 0.05;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // createPaymentSession — Generates a Stripe Checkout URL

@@ -61,7 +61,7 @@ export default function TermsPage() {
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>The remaining 85% balance is due upon completion of the installation.</li>
-            <li>A platform service fee of 1% is applied to each transaction.</li>
+            <li>A platform service fee of up to 15% is applied to each transaction, depending on the installer&apos;s plan and lead source.</li>
             <li>All prices quoted through the configurator are estimates; final pricing may vary
               based on site conditions.</li>
           </ul>
