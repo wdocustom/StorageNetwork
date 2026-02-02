@@ -5,14 +5,15 @@ import {
   getInstallerBySlug,
   type AvailabilityResult,
 } from "@/app/actions/customer";
+import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Design Page — Server Component
 //
-// Resolves the installer profile SERVER-SIDE from URL params, then passes
-// the result as a prop to the client component. This eliminates the
-// "amnesia bug" where the page loaded generic before the useEffect fired.
+// Resolves the installer SERVER-SIDE, maps to a DesignPageViewModel,
+// then passes ONLY the view model to the client. The raw profile
+// (including is_pro, business_name, logo_url) never reaches the browser.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface PageProps {
@@ -32,40 +33,31 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const installerParamIsUUID = UUID_RE.test(installerParam);
 
   // ── Server-side installer resolution ────────────────────────────────
-  let initialInstaller: AvailabilityResult | null = null;
+  let rawInstaller: AvailabilityResult | null = null;
 
   if (ref) {
     const res = await getInstallerByRef(ref);
-    if (res.available) initialInstaller = res;
+    if (res.available) rawInstaller = res;
   } else if (installerId) {
     const res = await getInstallerById(installerId);
-    if (res.available) initialInstaller = res;
+    if (res.available) rawInstaller = res;
   } else if (installerParam && installerParamIsUUID) {
-    // ?installer=UUID → look up by ID
     const res = await getInstallerById(installerParam);
-    if (res.available) initialInstaller = res;
+    if (res.available) rawInstaller = res;
   } else if (installerParam) {
-    // ?installer=my-slug → look up by vanity slug
     const res = await getInstallerBySlug(installerParam);
-    if (res.available) initialInstaller = res;
+    if (res.available) rawInstaller = res;
   }
 
-  // ── Branding gate: Free plan installers get platform branding ────────
-  // The installer ID is preserved for lead routing, but display identity
-  // is stripped to enforce Pro-only custom branding.
-  if (initialInstaller && !initialInstaller.installer_is_pro) {
-    initialInstaller = {
-      ...initialInstaller,
-      installer_name: "Professional Grade Storage",
-      installer_logo_url: null,
-      installer_avatar_url: null,
-    };
-  }
+  // ── Map to View Model — branding gate applied here ──────────────────
+  // The raw installer object dies here. Only the view model is serialized
+  // to the client. Free installers get platform branding; Pro gets theirs.
+  const viewModel = mapToDesignViewModel(rawInstaller);
 
   return (
     <Suspense>
       <DesignConfigurator
-        initialInstaller={initialInstaller}
+        initialData={viewModel}
         initialZip={zip}
         mode={mode}
       />

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import DesignConfigurator from "../DesignConfigurator";
-import type { AvailabilityResult } from "@/app/actions/customer";
+import type { DesignPageViewModel } from "@/types/viewModels";
 
 export const metadata: Metadata = {
   title: "Demo — The Storage Network Configurator",
@@ -14,23 +14,27 @@ export const metadata: Metadata = {
  * Payment is intercepted — no Stripe calls, no database writes.
  */
 export default function DemoPage() {
-  const platformProfile: AvailabilityResult = {
+  const demoViewModel: DesignPageViewModel = {
+    routing: {
+      installerId: "demo-platform",
+      stripeAccountId: "demo_stripe_placeholder",
+      phone: null,
+      leadTime: 5,
+      workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    },
+    branding: {
+      title: "Professional Grade Storage",
+      subtitle: "Heavy-duty tote shelving designed, built & installed by certified local pros.",
+      logoUrl: null,
+      isVerified: false,
+    },
     available: true,
-    installer_id: "demo-platform",
-    installer_name: "The Storage Network",
-    installer_stripe_id: "demo_stripe_placeholder",
-    installer_avatar_url: null,
-    installer_phone: null,
-    installer_lead_time: 5,
-    installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-    installer_is_pro: true,
-    installer_logo_url: "/logo-storage-network.png",
     message: "Demo mode — The Storage Network",
   };
 
   return (
     <DesignConfigurator
-      initialInstaller={platformProfile}
+      initialData={demoViewModel}
       initialZip=""
       mode=""
       isDemo

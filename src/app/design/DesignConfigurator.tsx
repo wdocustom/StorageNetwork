@@ -5,6 +5,8 @@ import {
   checkAvailability,
   type AvailabilityResult,
 } from "@/app/actions/customer";
+import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
+import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { calculateBuild } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
@@ -51,10 +53,11 @@ interface ServerBuild {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Props — hydrated from server component
+// Props — accepts a DesignPageViewModel from the server.
+// The client NEVER sees is_pro, business_name, or raw logo_url.
 // ═══════════════════════════════════════════════════════════════════════════
 interface DesignConfiguratorProps {
-  initialInstaller: AvailabilityResult | null;
+  initialData: DesignPageViewModel | null;
   initialZip: string;
   mode: string;
   isDemo?: boolean;
@@ -74,27 +77,28 @@ function getInstallerCookie(): string {
 // ═══════════════════════════════════════════════════════════════════════════
 // DesignConfigurator — Client Component
 //
-// State is initialized DIRECTLY from server-resolved props.
-// No useEffect race condition for installer resolution.
+// Renders the DesignPageViewModel. No branding decisions are made here.
+// The server already decided what title, subtitle, and logo to show.
 // ═══════════════════════════════════════════════════════════════════════════
 export default function DesignConfigurator({
-  initialInstaller,
+  initialData,
   initialZip,
   mode,
   isDemo = false,
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
-  // ── Installer context (hydrated from server) ─────────────────────────
-  const [installerId, setInstallerId] = useState(initialInstaller?.installer_id || "");
-  const [installer, setInstaller] = useState<AvailabilityResult | null>(initialInstaller);
-  const [installerLocked, setInstallerLocked] = useState(!!initialInstaller);
+
+  // ── Installer context (hydrated from server view model) ────────────
+  const [installerId, setInstallerId] = useState(initialData?.routing.installerId || "");
+  const [data, setData] = useState<DesignPageViewModel | null>(initialData);
+  const [installerLocked, setInstallerLocked] = useState(!!initialData);
   const [installerLoading] = useState(false);
 
   // Set cookie on mount if installer was resolved server-side
   useEffect(() => {
-    if (initialInstaller?.installer_id) {
-      setInstallerCookie(initialInstaller.installer_id);
+    if (initialData?.routing.installerId) {
+      setInstallerCookie(initialData.routing.installerId);
     } else {
       // No installer from server — check cookie fallback
       const cookieId = getInstallerCookie();
@@ -109,7 +113,7 @@ export default function DesignConfigurator({
   const [zipResult, setZipResult] = useState<AvailabilityResult | null>(null);
 
   useEffect(() => {
-    if (initialZip.length === 5 && !initialInstaller) {
+    if (initialZip.length === 5 && !initialData) {
       handleZipCheckAuto(initialZip);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,9 +126,13 @@ export default function DesignConfigurator({
       const res = await checkAvailability(zipCode);
       setZipResult(res);
       if (res.available && res.installer_id) {
-        setInstaller(res);
-        setInstallerId(res.installer_id);
-        setInstallerCookie(res.installer_id);
+        // Map through the same branding gate used by the server
+        const vm = mapAvailabilityToViewModel(res);
+        if (vm) {
+          setData(vm);
+          setInstallerId(vm.routing.installerId);
+          setInstallerCookie(vm.routing.installerId);
+        }
       }
     } catch {
       setZipResult({
@@ -190,6 +198,9 @@ export default function DesignConfigurator({
   const anyHasWheels = orderItems.some((it) => it.hasWheels);
   // Total cols of largest unit (for capacity weight)
   const maxCols = orderItems.reduce((max, it) => Math.max(max, it.cols), 0);
+
+  // ── Convenience: routing shortcuts ──────────────────────────────────
+  const stripeAccountId = data?.routing.stripeAccountId || null;
 
   // ── Debounced server call ─────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -345,7 +356,7 @@ export default function DesignConfigurator({
       setLeadId(result.id);
 
       // If installer has Stripe connected, open the booking modal for inline payment
-      if (installer?.installer_stripe_id) {
+      if (stripeAccountId) {
         setShowBookingModal(true);
       } else {
         // No Stripe — just show confirmation
@@ -361,7 +372,7 @@ export default function DesignConfigurator({
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // RENDER
+  // RENDER — The client blindly renders the view model. No is_pro checks.
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
@@ -374,10 +385,10 @@ export default function DesignConfigurator({
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            {installer?.installer_is_pro && (installer.installer_logo_url || installer.installer_avatar_url) ? (
+            {data?.branding.logoUrl ? (
               <img
-                src={(installer.installer_logo_url || installer.installer_avatar_url)!}
-                alt={installer.installer_name || "Installer"}
+                src={data.branding.logoUrl}
+                alt={data.branding.title}
                 className="h-14 w-auto object-contain"
               />
             ) : (
@@ -386,14 +397,10 @@ export default function DesignConfigurator({
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
-              {installer?.installer_is_pro
-                ? (installer.installer_name || "Authorized Installer")
-                : "Professional Grade Storage"}
+              {data?.branding.title || "Professional Grade Storage"}
             </h1>
             <p className="text-[10px] uppercase tracking-wider text-yellow-400">
-              {installer?.installer_is_pro
-                ? "Authorized Installer"
-                : "Build Configurator"}
+              {data?.branding.subtitle || "Build Configurator"}
             </p>
           </div>
           <a
@@ -414,12 +421,12 @@ export default function DesignConfigurator({
         </div>
       )}
 
-      {/* ── Installer locked banner (Scenario B) ──────────────────────── */}
-      {installerLocked && installer?.installer_name && (
+      {/* ── Installer locked banner ──────────────────────────────────── */}
+      {installerLocked && data?.branding.isVerified && (
         <div className="shrink-0 bg-emerald-600 px-4 py-2 text-center">
           <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
             <User className="h-3.5 w-3.5" />
-            Designing with {installer.installer_name}
+            Designing with {data.branding.title}
           </span>
         </div>
       )}
@@ -700,7 +707,7 @@ export default function DesignConfigurator({
                   <div className="mt-1 text-4xl font-black text-gray-900">
                     ${grandTotal.toLocaleString()}
                   </div>
-                  {installer?.installer_stripe_id && (
+                  {stripeAccountId && (
                     <div className="mt-1 text-xs text-stone-500">
                       Deposit (15%):{" "}
                       <span className="font-bold text-yellow-600">
@@ -778,7 +785,7 @@ export default function DesignConfigurator({
                       >
                         {submitting ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : installer?.installer_stripe_id ? (
+                        ) : stripeAccountId ? (
                           <CreditCard className="h-4 w-4" />
                         ) : (
                           <Send className="h-4 w-4" />
@@ -787,7 +794,7 @@ export default function DesignConfigurator({
                           ? "Demo Mode — No Payment"
                           : submitting
                           ? "Submitting…"
-                          : installer?.installer_stripe_id
+                          : stripeAccountId
                           ? "Pay Deposit & Book"
                           : "Submit Quote Request"}
                       </button>
@@ -872,7 +879,7 @@ export default function DesignConfigurator({
         </div>
       )}
 
-      {leadId && installer?.installer_stripe_id && (
+      {leadId && stripeAccountId && (
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => {
@@ -882,11 +889,11 @@ export default function DesignConfigurator({
           leadId={leadId}
           depositAmount={depositAmount}
           totalPrice={grandTotal}
-          installerStripeId={installer.installer_stripe_id}
+          installerStripeId={stripeAccountId}
           customerEmail={email || undefined}
           customerName={name || undefined}
-          installerLeadTime={installer.installer_lead_time}
-          installerWorkingDays={installer.installer_working_days}
+          installerLeadTime={data?.routing.leadTime ?? 5}
+          installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
           hasWheels={anyHasWheels}
           totalCols={maxCols}
           onSuccess={() => {
