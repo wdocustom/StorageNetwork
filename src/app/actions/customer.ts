@@ -147,6 +147,32 @@ export async function getInstallerById(
 }
 
 /**
+ * Fetch installer profile by vanity slug (for URL param ?installer=slug).
+ */
+export async function getInstallerBySlug(
+  slug: string
+): Promise<AvailabilityResult> {
+  if (!slug) return toResult(null, "No installer specified.");
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(INSTALLER_SELECT)
+      .eq("slug", slug.toLowerCase().trim())
+      .maybeSingle();
+
+    if (error || !data) {
+      // Fallback: try ref_slug for backward compat
+      return getInstallerByRef(slug);
+    }
+
+    return toResult(data, "");
+  } catch {
+    return toResult(null, "Unable to load installer profile.");
+  }
+}
+
+/**
  * Fetch installer profile by ref slug (for URL param ?ref=slug).
  */
 export async function getInstallerByRef(

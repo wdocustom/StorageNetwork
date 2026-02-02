@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getInstallerLink } from "@/lib/utils";
 import {
   Copy,
   Check,
@@ -11,31 +12,55 @@ import {
   Lock,
   ArrowLeft,
   Loader2,
+  Zap,
 } from "lucide-react";
 import SocialGenerator from "@/components/dashboard/SocialGenerator";
+import ProUpgradeModal from "@/components/dashboard/ProUpgradeModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Marketing & Promotion — Installer sales toolkit
 // ═══════════════════════════════════════════════════════════════════════════
 
+interface UserProfile {
+  id: string;
+  slug: string | null;
+  is_pro: boolean;
+}
+
 export default function MarketingPage() {
   const supabase = getSupabaseBrowserClient();
-  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showProModal, setShowProModal] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
         window.location.href = "/login";
         return;
       }
-      setUserId(data.user.id);
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, slug, is_pro")
+        .eq("id", user.id)
+        .single();
+
+      setProfile(
+        data
+          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro }
+          : { id: user.id, slug: null, is_pro: false }
+      );
       setLoading(false);
-    });
+    }
+    load();
   }, [supabase]);
 
-  if (loading || !userId) {
+  if (loading || !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
@@ -43,8 +68,7 @@ export default function MarketingPage() {
     );
   }
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const bookingLink = `${baseUrl}/design?installer_id=${userId}`;
+  const bookingLink = getInstallerLink(profile);
 
   function copyLink() {
     navigator.clipboard.writeText(bookingLink);
@@ -80,10 +104,16 @@ export default function MarketingPage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
               Your Booking Link
             </h2>
+            {profile.is_pro && (
+              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+                Pro
+              </span>
+            )}
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            This is your unique booking link. Send this to clients to let them
-            design and book their own jobs.
+            {profile.slug
+              ? "Your custom branded link is active. Clients see your business name in the URL."
+              : "This is your unique booking link. Send this to clients to let them design and book their own jobs."}
           </p>
 
           {/* Link display */}
@@ -122,16 +152,34 @@ export default function MarketingPage() {
             </a>
           </div>
 
-          {/* Pro feature teaser */}
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 py-3">
-            <Lock className="h-3.5 w-3.5 text-stone-600" />
-            <p className="text-xs text-stone-600">
-              Custom Domain & White Labeling{" "}
-              <span className="font-semibold text-stone-500">
-                (Pro Plan Coming Soon)
-              </span>
-            </p>
-          </div>
+          {/* Pro feature: Customize Link */}
+          {!profile.is_pro ? (
+            <button
+              onClick={() => setShowProModal(true)}
+              className="mt-4 flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 py-3 text-left transition-colors hover:border-yellow-400/30 hover:bg-slate-800/50"
+            >
+              <Lock className="h-3.5 w-3.5 text-stone-600" />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-stone-500">
+                  Customize Link & Remove Branding
+                </p>
+                <p className="text-[11px] text-stone-600">
+                  Get a branded URL like{" "}
+                  <span className="text-blue-400/60">
+                    ?installer=your-business
+                  </span>
+                </p>
+              </div>
+              <Zap className="h-3.5 w-3.5 text-yellow-400/50" />
+            </button>
+          ) : (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <p className="text-xs font-semibold text-emerald-400">
+                Pro features active &mdash; Custom link & 0% fees on your leads
+              </p>
+            </div>
+          )}
         </section>
 
         {/* ── Section 2: Social Post Generator ─────────────────────── */}
@@ -150,6 +198,11 @@ export default function MarketingPage() {
           <SocialGenerator bookingLink={bookingLink} />
         </section>
       </main>
+
+      <ProUpgradeModal
+        open={showProModal}
+        onClose={() => setShowProModal(false)}
+      />
     </div>
   );
 }

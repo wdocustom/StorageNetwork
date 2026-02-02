@@ -6,6 +6,7 @@ import {
   checkAvailability,
   getInstallerById,
   getInstallerByRef,
+  getInstallerBySlug,
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
@@ -79,7 +80,8 @@ function DesignPageInner() {
   const searchParams = useSearchParams();
   const incomingZip = searchParams.get("zip") || "";
   const mode = searchParams.get("mode") || "";
-  const paramInstallerId = searchParams.get("installer_id") || searchParams.get("installer") || "";
+  const paramInstallerId = searchParams.get("installer_id") || "";
+  const paramInstallerSlug = searchParams.get("installer") || "";
   const paramRef = searchParams.get("ref") || "";
 
   // ── Installer context ─────────────────────────────────────────────────
@@ -92,7 +94,7 @@ function DesignPageInner() {
   useEffect(() => {
     async function resolveInstaller() {
       if (paramRef) {
-        // Scenario B: /design?ref=storage-network
+        // /design?ref=storage-network
         setInstallerLoading(true);
         const res = await getInstallerByRef(paramRef);
         if (res.available && res.installer_id) {
@@ -102,8 +104,19 @@ function DesignPageInner() {
           setInstallerLocked(true);
         }
         setInstallerLoading(false);
+      } else if (paramInstallerSlug) {
+        // /design?installer=my-business (vanity slug — Pro feature)
+        setInstallerLoading(true);
+        const res = await getInstallerBySlug(paramInstallerSlug);
+        if (res.available && res.installer_id) {
+          setInstaller(res);
+          setInstallerId(res.installer_id);
+          setInstallerCookie(res.installer_id);
+          setInstallerLocked(true);
+        }
+        setInstallerLoading(false);
       } else if (paramInstallerId) {
-        // Scenario B: /design?installer=uuid
+        // /design?installer_id=uuid (standard link)
         setInstallerLoading(true);
         const res = await getInstallerById(paramInstallerId);
         if (res.available && res.installer_id) {
@@ -129,7 +142,7 @@ function DesignPageInner() {
   const [zipResult, setZipResult] = useState<AvailabilityResult | null>(null);
 
   useEffect(() => {
-    if (incomingZip.length === 5 && !paramInstallerId && !paramRef) {
+    if (incomingZip.length === 5 && !paramInstallerId && !paramInstallerSlug && !paramRef) {
       handleZipCheckAuto(incomingZip);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

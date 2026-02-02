@@ -22,6 +22,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
+import { getInstallerLink } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -120,9 +121,8 @@ export default function DashboardPage() {
   // Dynamic welcome name
   const welcomeName = profile?.business_name || profile?.first_name || "Partner";
 
-  // Links
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const leadLink = `${baseUrl}/design?installer_id=${profile?.id}`;
+  // Links — uses slug (Pro) or UUID (Basic) automatically
+  const leadLink = profile ? getInstallerLink(profile) : "";
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950">

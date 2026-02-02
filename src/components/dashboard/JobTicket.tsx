@@ -53,6 +53,8 @@ interface JobTicketProps {
   customerPhone?: string | null;
   scheduledAt?: string | null;
   installerStripeId: string | null;
+  source?: string | null;
+  isPro?: boolean;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -72,6 +74,8 @@ export default function JobTicket({
   customerPhone,
   scheduledAt,
   installerStripeId,
+  source,
+  isPro,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -322,8 +326,17 @@ export default function JobTicket({
 
   return (
     <section className="space-y-4">
+      {/* ── Pro Lead Badge ─────────────────────────────────────────── */}
+      {source === "partner_link" && isPro && (
+        <div className="flex items-center justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" />
+            PRO LEAD: 0% FEE APPLIED
+          </span>
+        </div>
+      )}
       {/* ── Waived Fee Pill ──────────────────────────────────────────── */}
-      {profit.feeWaived && (
+      {profit.feeWaived && !isPro && (
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-400/15 px-3 py-1 text-[11px] font-bold text-yellow-400">
             <CheckCircle2 className="h-3 w-3" />
