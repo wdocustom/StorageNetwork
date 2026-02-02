@@ -22,10 +22,14 @@ interface PageProps {
 export default async function DesignPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const installerId = typeof params.installer_id === "string" ? params.installer_id : "";
-  const installerSlug = typeof params.installer === "string" ? params.installer : "";
+  const installerParam = typeof params.installer === "string" ? params.installer : "";
   const ref = typeof params.ref === "string" ? params.ref : "";
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
+
+  // UUID detection — route ?installer=UUID to getInstallerById, not slug lookup
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const installerParamIsUUID = UUID_RE.test(installerParam);
 
   // ── Server-side installer resolution ────────────────────────────────
   let initialInstaller: AvailabilityResult | null = null;
@@ -33,11 +37,16 @@ export default async function DesignPage({ searchParams }: PageProps) {
   if (ref) {
     const res = await getInstallerByRef(ref);
     if (res.available) initialInstaller = res;
-  } else if (installerSlug) {
-    const res = await getInstallerBySlug(installerSlug);
-    if (res.available) initialInstaller = res;
   } else if (installerId) {
     const res = await getInstallerById(installerId);
+    if (res.available) initialInstaller = res;
+  } else if (installerParam && installerParamIsUUID) {
+    // ?installer=UUID → look up by ID
+    const res = await getInstallerById(installerParam);
+    if (res.available) initialInstaller = res;
+  } else if (installerParam) {
+    // ?installer=my-slug → look up by vanity slug
+    const res = await getInstallerBySlug(installerParam);
     if (res.available) initialInstaller = res;
   }
 
