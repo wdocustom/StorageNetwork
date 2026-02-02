@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import SocialGenerator from "@/components/dashboard/SocialGenerator";
+import LocalScriptGenerator from "@/components/dashboard/LocalScriptGenerator";
 import ProUpgradeModal from "@/components/dashboard/ProUpgradeModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25,6 +26,8 @@ interface UserProfile {
   id: string;
   slug: string | null;
   is_pro: boolean;
+  city: string | null;
+  state: string | null;
 }
 
 export default function MarketingPage() {
@@ -46,14 +49,14 @@ export default function MarketingPage() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, slug, is_pro")
+        .select("id, slug, is_pro, city, state")
         .eq("id", user.id)
         .single();
 
       setProfile(
         data
-          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro }
-          : { id: user.id, slug: null, is_pro: false }
+          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro, city: data.city ?? null, state: data.state ?? null }
+          : { id: user.id, slug: null, is_pro: false, city: null, state: null }
       );
       setLoading(false);
     }
@@ -197,6 +200,12 @@ export default function MarketingPage() {
 
           <SocialGenerator bookingLink={bookingLink} />
         </section>
+        {/* ── Section 3: Localized Sales Scripts ────────────────────── */}
+        <LocalScriptGenerator
+          city={profile.city}
+          state={profile.state}
+          bookingLink={bookingLink}
+        />
       </main>
 
       <ProUpgradeModal
