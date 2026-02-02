@@ -50,6 +50,18 @@ export default async function DesignPage({ searchParams }: PageProps) {
     if (res.available) initialInstaller = res;
   }
 
+  // ── Branding gate: Free plan installers get platform branding ────────
+  // The installer ID is preserved for lead routing, but display identity
+  // is stripped to enforce Pro-only custom branding.
+  if (initialInstaller && !initialInstaller.installer_is_pro) {
+    initialInstaller = {
+      ...initialInstaller,
+      installer_name: "Professional Grade Storage",
+      installer_logo_url: null,
+      installer_avatar_url: null,
+    };
+  }
+
   return (
     <Suspense>
       <DesignConfigurator

@@ -391,7 +391,9 @@ export default function DesignConfigurator({
                 : "Professional Grade Storage"}
             </h1>
             <p className="text-[10px] uppercase tracking-wider text-yellow-400">
-              Build Configurator
+              {installer?.installer_is_pro
+                ? "Authorized Installer"
+                : "Build Configurator"}
             </p>
           </div>
           <a
