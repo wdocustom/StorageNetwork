@@ -376,7 +376,19 @@ function RackAssembly({
 
           {/* Plywood top — mandatory for Mini, optional for Standard */}
           {hasTop && (
-            <mesh position={[totalW / 2, frameH + PLY_TOP_H / 2, unitDepth / 2]} castShadow receiveShadow>
+            <mesh
+              position={[
+                totalW / 2,
+                // Mini: plywood sits directly on posts (postH + PLATE_H + half of plywood thickness)
+                // Standard: plywood sits on top of top 2x4 plate (frameH + half of plywood thickness)
+                isMini
+                  ? PLATE_H + postH + PLY_TOP_H / 2
+                  : frameH + PLY_TOP_H / 2,
+                unitDepth / 2
+              ]}
+              castShadow
+              receiveShadow
+            >
               <boxGeometry args={[totalW + 2, PLY_TOP_H, unitDepth + 2]} />
               <meshStandardMaterial color="#D4B896" roughness={0.6} metalness={0.0} />
             </mesh>

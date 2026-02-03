@@ -269,6 +269,22 @@ export default function DesignConfigurator({
     }
   }, [numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
 
+  // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
+  const prevUnitTypeRef = useRef(unitType);
+  useEffect(() => {
+    if (prevUnitTypeRef.current !== unitType) {
+      prevUnitTypeRef.current = unitType;
+      // If wall dimensions are set, trigger auto-fit for the new unit type
+      const wW = parseFloat(wallWidth);
+      const wH = parseFloat(wallHeight);
+      if (wW > 0 && wH > 0) {
+        // Trigger auto-fit with new unit type
+        handleWallFit();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitType]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   async function handleZipCheck() {
@@ -622,7 +638,7 @@ export default function DesignConfigurator({
                   <input
                     type="number"
                     min={1}
-                    max={10}
+                    max={unitType === "mini" ? 4 : 10}
                     value={rows}
                     onFocus={(e) => e.target.select()}
                     onChange={(e) => {
@@ -631,10 +647,16 @@ export default function DesignConfigurator({
                     }}
                     onBlur={() => {
                       const n = typeof rows === "number" ? rows : parseInt(rows as string);
-                      setRows(Math.min(10, Math.max(1, n || 1)));
+                      const maxTiers = unitType === "mini" ? 4 : 10;
+                      setRows(Math.min(maxTiers, Math.max(1, n || 1)));
                     }}
                     className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                   />
+                  {unitType === "mini" && (
+                    <p className="mt-1 text-[10px] italic text-amber-600">
+                      Max 4 tiers to prevent tipping. Taller units require custom anchoring.
+                    </p>
+                  )}
                 </div>
               </div>
 

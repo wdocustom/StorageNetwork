@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 // Server Action: computes shelf specs, cut lists, shopping lists, and pricing
 // with add-on support (totes, wheels, plywood top).
+// Supports both Standard (27 Gallon) and Mini (6.5 Quart) units.
 // ---------------------------------------------------------------------------
 
 const TOTE_WIDTHS = {
@@ -13,14 +14,25 @@ const TOTE_WIDTHS = {
 } as const;
 
 type ToteType = keyof typeof TOTE_WIDTHS;
+type UnitType = "standard" | "mini";
 
 const POST_WIDTH = 1.5; // 2×4 vertical post
-const TIER_HEIGHT = 16; // inches per tier (vertical spacing)
-const PRICE_PER_SLOT = 40; // dollars per opening
+const TIER_HEIGHT = 16; // inches per tier (vertical spacing) - Standard
+const PRICE_PER_SLOT = 40; // dollars per opening - Standard
+
+// Mini unit constants
+const MINI_SLOT_WIDTH = 8.25; // Mini slot width
+const MINI_TIER_HEIGHT = 7; // Mini vertical spacing
+const MINI_FIRST_RAIL_HEIGHT = 5.25; // Mini first rail from bottom plate
+const MINI_DEPTH = 12.75; // Mini unit depth
+const MINI_RAIL_WIDTH = 1.0; // 1" wide plywood rails
+const MINI_PRICE_PER_SLOT = 25; // Mini pricing
 
 // Add-on pricing
-const ADDON_TOTE_PRICE = 12; // per tote
-const ADDON_WHEELS_PRICE = 45; // flat fee
+const ADDON_TOTE_PRICE = 12; // per tote - Standard
+const ADDON_MINI_TOTE_PRICE = 4; // per tote - Mini (6.5qt)
+const ADDON_WHEELS_PRICE = 45; // flat fee - Standard
+const ADDON_MINI_WHEELS_PRICE = 40; // flat fee - Mini
 const ADDON_PLYWOOD_TOP_PRICE = 75; // flat fee
 
 // -- Result types -----------------------------------------------------------
@@ -47,6 +59,7 @@ export interface AddOns {
   includeTotes: boolean;
   includeWheels: boolean;
   includePlywoodTop: boolean;
+  unitType?: UnitType;
 }
 
 export interface LineItem {
@@ -120,63 +133,171 @@ export async function calculateShelfMaterials(
     throw new Error(check.error);
   }
 
-  const toteWidth = TOTE_WIDTHS[check.tote];
+  const unitType: UnitType = addOns?.unitType ?? "standard";
+  const isMini = unitType === "mini";
+
+  const toteWidth = isMini ? MINI_SLOT_WIDTH : TOTE_WIDTHS[check.tote];
+  const tierHeight = isMini ? MINI_TIER_HEIGHT : TIER_HEIGHT;
+  const pricePerSlot = isMini ? MINI_PRICE_PER_SLOT : PRICE_PER_SLOT;
+  const unitDepth = isMini ? MINI_DEPTH : 30;
+
   const opts: AddOns = addOns ?? {
     includeTotes: false,
     includeWheels: false,
     includePlywoodTop: false,
+    unitType: "standard",
   };
+
+  // For Mini units, plywood top is always included (mandatory)
+  const effectiveIncludePlywoodTop = isMini ? true : opts.includePlywoodTop;
 
   // -- Dimensions -----------------------------------------------------------
   const totalWidth = POST_WIDTH + cols * (toteWidth + POST_WIDTH);
-  const totalHeight = rows * TIER_HEIGHT;
+
+  let totalHeight: number;
+  if (isMini) {
+    // Mini: bottom plate + first rail + (rows-1) * spacing + clearance + plywood top
+    const lastRailHeight = MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT;
+    totalHeight = 1.5 + lastRailHeight + 2 + 0.75; // plate + rails + clearance + plywood
+  } else {
+    totalHeight = rows * tierHeight;
+  }
 
   // -- Slots ----------------------------------------------------------------
   const totalSlots = rows * cols;
 
   // -- Cut list -------------------------------------------------------------
-  const verticalPostQty = cols + 1;
-  const railLength = totalWidth - POST_WIDTH * 2;
-  const horizontalRailSets = rows + 1;
-  const horizontalRailQty = horizontalRailSets * 2;
-  const shelfQty = rows;
+  const cut_list: CutListItem[] = [];
 
-  const cut_list: CutListItem[] = [
-    {
+  if (isMini) {
+    // Mini unit cut list
+    const verticalPostQty = (cols + 1) * 2; // Front + back posts
+    const postHeight = MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2; // Up to clearance above top rail
+
+    // 2x4 Vertical Posts
+    cut_list.push({
+      part_name: "Vertical Post (2×4)",
+      length: parseFloat(postHeight.toFixed(2)),
+      qty: verticalPostQty,
+    });
+
+    // 2x4 Bottom Plates (front + back, no top plates for mini)
+    cut_list.push({
+      part_name: "Bottom Plate (2×4)",
+      length: parseFloat(totalWidth.toFixed(2)),
+      qty: 2, // Front and back
+    });
+
+    // 3/4" Plywood Rails (1" wide x 12.75" long)
+    const railQty = cols * rows * 2; // 2 rails per slot (left + right)
+    cut_list.push({
+      part_name: `3/4" Plywood Rail (${MINI_RAIL_WIDTH}" × ${MINI_DEPTH}")`,
+      length: MINI_DEPTH,
+      qty: railQty,
+    });
+
+    // 3/4" Plywood Top (mandatory for mini)
+    cut_list.push({
+      part_name: `3/4" Plywood Top (${totalWidth.toFixed(1)}" × ${MINI_DEPTH}")`,
+      length: totalWidth,
+      qty: 1,
+    });
+
+  } else {
+    // Standard unit cut list (original logic)
+    const verticalPostQty = cols + 1;
+    const railLength = totalWidth - POST_WIDTH * 2;
+    const horizontalRailSets = rows + 1; // Top + bottom + intermediate
+    const horizontalRailQty = horizontalRailSets * 2;
+    const shelfQty = rows;
+
+    cut_list.push({
       part_name: "Vertical Post (2×4)",
       length: parseFloat(totalHeight.toFixed(2)),
       qty: verticalPostQty,
-    },
-    {
+    });
+
+    cut_list.push({
       part_name: "Horizontal Rail (2×4)",
       length: parseFloat(railLength.toFixed(2)),
       qty: horizontalRailQty,
-    },
-    {
+    });
+
+    cut_list.push({
       part_name: "Shelf Platform (plywood/OSB)",
       length: parseFloat(railLength.toFixed(2)),
       qty: shelfQty,
-    },
-  ];
+    });
+
+    // Top plates (2x4) for standard units
+    cut_list.push({
+      part_name: "Top Plate (2×4)",
+      length: parseFloat(totalWidth.toFixed(2)),
+      qty: 2, // Front and back
+    });
+
+    // Bottom plates (2x4) for standard units
+    cut_list.push({
+      part_name: "Bottom Plate (2×4)",
+      length: parseFloat(totalWidth.toFixed(2)),
+      qty: 2, // Front and back
+    });
+  }
 
   // -- Shopping list --------------------------------------------------------
   const STUD_LENGTH = 96;
-  const totalVerticalLinear = verticalPostQty * totalHeight;
-  const totalHorizontalLinear = horizontalRailQty * railLength;
-  const totalLinearInches = totalVerticalLinear + totalHorizontalLinear;
-  const studsNeeded = Math.ceil(totalLinearInches / STUD_LENGTH);
-
   const SHEET_W = 48;
   const SHEET_L = 96;
-  const shelfDepth = 20;
-  const shelvesAcrossLength = Math.max(1, Math.floor(SHEET_L / railLength));
-  const shelvesAcrossWidth = Math.max(1, Math.floor(SHEET_W / shelfDepth));
-  const shelvesPerSheet = shelvesAcrossLength * shelvesAcrossWidth;
-  const sheetsNeeded = Math.ceil(shelfQty / shelvesPerSheet);
 
-  const screwJoints = horizontalRailQty * 2;
-  const screwsNeeded = screwJoints * 8;
-  const screwBoxes = Math.ceil(screwsNeeded / 100);
+  let studsNeeded: number;
+  let sheetsNeeded: number;
+  let screwBoxes: number;
+
+  if (isMini) {
+    // Mini shopping list
+    const postHeight = MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+    const verticalPostQty = (cols + 1) * 2;
+    const totalPostLinear = verticalPostQty * postHeight;
+    const totalPlateLinear = totalWidth * 2; // Bottom plates only
+    studsNeeded = Math.ceil((totalPostLinear + totalPlateLinear) / STUD_LENGTH);
+
+    // Plywood for rails + top
+    const railQty = cols * rows * 2;
+    const railSqIn = railQty * MINI_RAIL_WIDTH * MINI_DEPTH;
+    const topSqIn = totalWidth * MINI_DEPTH;
+    const totalPlywoodSqIn = railSqIn + topSqIn;
+    const sheetSqIn = SHEET_W * SHEET_L;
+    sheetsNeeded = Math.ceil(totalPlywoodSqIn / sheetSqIn);
+
+    // Screws: 3" for base/posts, 1.625" for top
+    const baseScrews = verticalPostQty * 4 + 8; // Posts to plates + plate joints
+    const topScrews = (cols + 1) * 2 * 2; // Plywood top to posts (1.625")
+    const railScrews = railQty * 2; // Rails to posts
+    screwBoxes = Math.ceil((baseScrews + topScrews + railScrews) / 100);
+
+  } else {
+    // Standard shopping list (original logic)
+    const verticalPostQty = cols + 1;
+    const railLength = totalWidth - POST_WIDTH * 2;
+    const horizontalRailSets = rows + 1;
+    const horizontalRailQty = horizontalRailSets * 2;
+
+    const totalVerticalLinear = verticalPostQty * totalHeight;
+    const totalHorizontalLinear = horizontalRailQty * railLength;
+    const totalPlateLinear = totalWidth * 4; // Top + bottom plates (front + back each)
+    const totalLinearInches = totalVerticalLinear + totalHorizontalLinear + totalPlateLinear;
+    studsNeeded = Math.ceil(totalLinearInches / STUD_LENGTH);
+
+    const shelfDepth = 20;
+    const shelvesAcrossLength = Math.max(1, Math.floor(SHEET_L / railLength));
+    const shelvesAcrossWidth = Math.max(1, Math.floor(SHEET_W / shelfDepth));
+    const shelvesPerSheet = shelvesAcrossLength * shelvesAcrossWidth;
+    sheetsNeeded = Math.ceil(rows / shelvesPerSheet);
+
+    const screwJoints = horizontalRailQty * 2;
+    const screwsNeeded = screwJoints * 8;
+    screwBoxes = Math.ceil(screwsNeeded / 100);
+  }
 
   const shopping_list: ShoppingListItem[] = [
     { sku_name: '2×4×96" Stud', qty: studsNeeded },
@@ -185,13 +306,14 @@ export async function calculateShelfMaterials(
   ];
 
   // -- Line items & pricing -------------------------------------------------
-  const basePrice = totalSlots * PRICE_PER_SLOT;
+  const basePrice = totalSlots * pricePerSlot;
+  const unitLabel = isMini ? "Mini" : "Standard";
 
   const line_items: LineItem[] = [
     {
-      label: `Shelf Unit (${cols}×${rows})`,
+      label: `${unitLabel} Shelf Unit (${cols}×${rows})`,
       qty: totalSlots,
-      unit_price: PRICE_PER_SLOT,
+      unit_price: pricePerSlot,
       total: basePrice,
     },
   ];
@@ -199,27 +321,31 @@ export async function calculateShelfMaterials(
   let addonsTotal = 0;
 
   if (opts.includeTotes) {
-    const toteTotal = totalSlots * ADDON_TOTE_PRICE;
+    const totePrice = isMini ? ADDON_MINI_TOTE_PRICE : ADDON_TOTE_PRICE;
+    const toteTotal = totalSlots * totePrice;
+    const toteLabel = isMini ? "6.5qt Clear Totes (Yellow Lids)" : `${check.tote.toUpperCase()} Totes`;
     line_items.push({
-      label: `${check.tote.toUpperCase()} Totes`,
+      label: toteLabel,
       qty: totalSlots,
-      unit_price: ADDON_TOTE_PRICE,
+      unit_price: totePrice,
       total: toteTotal,
     });
     addonsTotal += toteTotal;
   }
 
   if (opts.includeWheels) {
+    const wheelPrice = isMini ? ADDON_MINI_WHEELS_PRICE : ADDON_WHEELS_PRICE;
     line_items.push({
       label: "Locking Caster Wheels",
       qty: null,
-      unit_price: ADDON_WHEELS_PRICE,
-      total: ADDON_WHEELS_PRICE,
+      unit_price: wheelPrice,
+      total: wheelPrice,
     });
-    addonsTotal += ADDON_WHEELS_PRICE;
+    addonsTotal += wheelPrice;
   }
 
-  if (opts.includePlywoodTop) {
+  if (effectiveIncludePlywoodTop && !isMini) {
+    // Standard units: plywood top is optional add-on
     line_items.push({
       label: "Finished Plywood Top",
       qty: null,
@@ -228,6 +354,7 @@ export async function calculateShelfMaterials(
     });
     addonsTotal += ADDON_PLYWOOD_TOP_PRICE;
   }
+  // Mini units: plywood top is included in base price (mandatory), no separate line item
 
   return {
     specs: {

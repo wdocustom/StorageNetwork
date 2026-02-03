@@ -142,6 +142,13 @@ function getUnitConfig(unitType: UnitType): UnitDimensionConfig {
   return unitType === "mini" ? MINI_CONFIG : STANDARD_CONFIG;
 }
 
+// ── Mini Unit Constraints ────────────────────────────────────────────────
+const MINI_MAX_TIERS = 4;        // Max 4 tiers to prevent tipping
+const MINI_MAX_WIDTH = 96;       // Max 96" (8 ft) total width
+
+// ── Wheel Height ─────────────────────────────────────────────────────────
+const WHEEL_HEIGHT = 2.75;       // Industrial caster height for calculations
+
 // ── Proprietary constants (legacy, kept for reference) ───────────────────
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
@@ -169,12 +176,22 @@ export async function calculateBuild(
     if (!wallWidth || !wallHeight || wallWidth <= 0 || wallHeight <= 0) {
       return { success: false, error: "Valid wall dimensions are required." };
     }
+    // For Mini units, cap the effective wall width at MINI_MAX_WIDTH (96")
+    const effectiveWallWidth = unitType === "mini"
+      ? Math.min(wallWidth, MINI_MAX_WIDTH)
+      : wallWidth;
+
     // Wall fit calculation using config values
-    cols = Math.floor((wallWidth - config.postWidth) / (opening + config.postWidth));
+    cols = Math.floor((effectiveWallWidth - config.postWidth) / (opening + config.postWidth));
     const usableHeight = wallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
     rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
     if (cols < 1) cols = 1;
     if (rows < 1) rows = 1;
+
+    // Apply Mini max tier constraint
+    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+      rows = MINI_MAX_TIERS;
+    }
   } else {
     cols = input.cols ?? 1;
     rows = input.rows ?? 1;
@@ -182,22 +199,30 @@ export async function calculateBuild(
     if (cols > 20) cols = 20;
     if (rows < 1) rows = 1;
     if (rows > 20) rows = 20;
+
+    // Apply Mini max tier constraint for manual mode too
+    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+      rows = MINI_MAX_TIERS;
+    }
   }
 
   // ── Dimensions ─────────────────────────────────────────────────────────
   const totalW = cols * opening + (cols + 1) * config.postWidth;
 
   // Height calculation differs for Standard vs Mini
-  let totalH: number;
+  let frameH: number;
   if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood
     // No top 2x4 plates, just plywood top
     const lastRailHeight = config.firstRailHeight + (rows - 1) * config.verticalSpacing;
-    totalH = config.plateHeight + lastRailHeight + 2 + 0.75; // +2" clearance above last rail + 3/4" plywood top
+    frameH = config.plateHeight + lastRailHeight + 2 + 0.75; // +2" clearance above last rail + 3/4" plywood top
   } else {
     // Standard: bottom plate + top plate + rails + top gap
-    totalH = rows * config.verticalSpacing + config.plateHeight * 2 + config.topGap;
+    frameH = rows * config.verticalSpacing + config.plateHeight * 2 + config.topGap;
   }
+
+  // Total height includes wheel height if wheels are selected
+  const totalH = addOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
 
   // ── Pricing ────────────────────────────────────────────────────────────
   const slots = cols * rows;
