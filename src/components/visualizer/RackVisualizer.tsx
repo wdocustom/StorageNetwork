@@ -13,11 +13,13 @@ const Rack3D = lazy(() => import("./Rack3D"));
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type UnitType = "standard" | "mini";
 
 interface RackVisualizerProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  unitType: UnitType;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -71,6 +73,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             cols={props.cols}
             rows={props.rows}
             toteType={props.toteType}
+            unitType={props.unitType}
             hasTotes={props.hasTotes}
             hasWheels={props.hasWheels}
             hasTop={props.hasTop}
@@ -99,6 +102,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               cols={props.cols}
               rows={props.rows}
               toteType={props.toteType}
+              unitType={props.unitType}
               hasTotes={props.hasTotes}
               hasWheels={props.hasWheels}
               hasTop={props.hasTop}

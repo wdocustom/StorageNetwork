@@ -8,11 +8,13 @@ import { useCallback, useEffect, useRef } from "react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type UnitType = "standard" | "mini";
 
 interface BlueprintCanvasProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  unitType: UnitType;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -24,6 +26,7 @@ export default function BlueprintCanvas({
   cols,
   rows,
   toteType,
+  unitType,
   hasTotes,
   hasWheels,
   hasTop,
@@ -33,15 +36,23 @@ export default function BlueprintCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const RENDER_GAP = 1.5;
-  const RENDER_TIER = 16;
+  // Unit-type specific dimensions
+  const isMini = unitType === "mini";
+  const RENDER_GAP = 1.5; // Post width (same for both)
+  const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing
   const RENDER_PLATE = 1.5;
-  const RENDER_TOP_GAP = 2.5;
-  const opening = toteType === "HDX" ? 19.75 : 20.75;
+  const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
+  const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
+  const opening = isMini ? 8.25 : (toteType === "HDX" ? 19.75 : 20.75);
 
-  const realW = totalW > 0 ? totalW : cols * opening + (cols + 1) * RENDER_GAP;
-  const realH =
-    totalH > 0 ? totalH : rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
+  // Calculate dimensions
+  const calcW = cols * opening + (cols + 1) * RENDER_GAP;
+  const calcH = isMini
+    ? RENDER_PLATE + RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2 + 0.75
+    : rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
+
+  const realW = totalW > 0 ? totalW : calcW;
+  const realH = totalH > 0 ? totalH : calcH;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -113,15 +124,18 @@ export default function BlueprintCanvas({
     }
 
     // Rails + Totes
-    const railH = 1.5 * scale;
-    const railW = 1.5 * scale;
+    const railH = (isMini ? 1.0 : 1.875) * scale; // Mini uses 1" wide rails
+    const railW = 0.75 * scale; // Rail thickness (same for both)
 
     for (let c = 0; c < cols; c++) {
       const bayLeftX = startX + pStud + c * (pBay + pStud);
       const bayRightX = bayLeftX + pBay;
 
       for (let r = 1; r <= rows; r++) {
-        const levelY = startY + pPlate + pTopGap + (r - 1) * 16 * scale;
+        // Calculate rail Y position based on unit type
+        const levelY = isMini
+          ? startY + pPlate + (RENDER_FIRST_RAIL + (r - 1) * RENDER_TIER) * scale
+          : startY + pPlate + pTopGap + (r - 1) * RENDER_TIER * scale;
 
         ctx.fillStyle = woodFill;
         ctx.strokeStyle = woodStroke;
@@ -131,21 +145,25 @@ export default function BlueprintCanvas({
         ctx.strokeRect(bayRightX - railW, levelY, railW, railH);
 
         if (hasTotes) {
+          // Tote dimensions based on unit type
+          const toteBodyH = isMini ? 6.25 : 11; // Mini totes are shorter
           const tW = pBay * 0.94;
-          const tH = 12 * scale;
+          const tH = toteBodyH * scale;
           const tX = bayLeftX + (pBay - tW) / 2;
           const tY = levelY;
-          const lidH = 1.5 * scale;
+          const lidH = (isMini ? 1.0 : 1.5) * scale;
 
+          // Tote lid/rim color (yellow for both, but mini is specifically "yellow lids")
           ctx.fillStyle = "#fbbf24";
           ctx.strokeStyle = "#d97706";
           ctx.fillRect(tX, tY - lidH, tW, lidH);
           ctx.strokeRect(tX, tY - lidH, tW, lidH);
 
+          // Tote body (clear/dark for mini, dark navy for standard)
           const bodyW = tW * 0.9;
           const bodyX = tX + (tW - bodyW) / 2;
-          ctx.fillStyle = "#1e293b";
-          ctx.strokeStyle = "#0f172a";
+          ctx.fillStyle = isMini ? "#e5e7eb" : "#1e293b"; // Clear gray for mini
+          ctx.strokeStyle = isMini ? "#9ca3af" : "#0f172a";
           ctx.fillRect(bodyX, tY, bodyW, tH);
           ctx.strokeRect(bodyX, tY, bodyW, tH);
         }
@@ -186,7 +204,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop]);
+  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, RENDER_TIER, RENDER_FIRST_RAIL]);
 
   useEffect(() => {
     draw();

@@ -12,25 +12,34 @@ import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 // All geometry in INCHES, uniformly scaled to scene units.
 //
 // PHYSICAL CONSTRUCTION:
+//   Standard (27 Gallon):
 //   - Vertical 2×4 posts at each column line (front + back)
 //   - 3/4" plywood rails screwed to post SIDE FACES, full 30" depth
 //   - Totes: yellow rim sits ON TOP of plywood rail, body hangs BELOW
-//   - Bottom/Top plates span full width
+//   - Bottom/Top 2x4 plates span full width
 //   - 4 industrial casters at the 4 outer corners
+//
+//   Mini (6.5 Quart):
+//   - Same 2×4 posts but closer together (8.25" slots)
+//   - 1" wide plywood rails, 12.75" depth
+//   - No top 2x4 plates, solid plywood top instead
+//   - Smaller shoebox totes (8" x 12.75" x 6.25")
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type UnitType = "standard" | "mini";
 
 interface Rack3DProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  unitType: UnitType;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
 }
 
-// ── Constants (inches) ───────────────────────────────────────────────────
+// ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
 
 const POST_W = 1.5;            // 2×4 narrow face
 const POST_D = 3.5;            // 2×4 wide face
@@ -44,7 +53,7 @@ const RACK_DEPTH = 30;         // front-to-back
 const TIER_SPACING = 16;       // center-to-center between rails
 const PLY_TOP_H = 0.75;        // plywood top sheet
 
-// Tote
+// Tote (Standard 27 Gallon)
 const TOTE_FULL_W_HDX = 19.75;
 const TOTE_FULL_W_GM = 20.75;
 const TOTE_RIM_H = 1.0;
@@ -52,12 +61,29 @@ const TOTE_BODY_H = 11.0;
 const TOTE_BODY_TAPER = 0.85;
 const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for equal front/back gap
 
+// ── Mini Unit Constants (6.5 Quart) ──────────────────────────────────────
+
+const MINI_SLOT_W = 8.25;         // Slot width (fits 8" wide tote)
+const MINI_TIER_SPACING = 7;      // Rail-to-rail vertical spacing
+const MINI_FIRST_RAIL_H = 5.25;   // First rail height from bottom plate
+const MINI_DEPTH = 12.75;         // Rail length / unit depth
+const MINI_RAIL_HEIGHT = 1.0;     // 1" wide plywood strips
+
+// Mini Tote (6.5 Quart shoebox)
+const MINI_TOTE_W = 8.0;          // Tote width
+const MINI_TOTE_H = 6.25;         // Tote body height
+const MINI_TOTE_D = 12.75;        // Tote depth (matches unit depth)
+const MINI_TOTE_RIM_H = 0.75;     // Rim/lid height
+
 // Inches → scene units
 const S = 1 / 48;
 
 // ── Derived ──────────────────────────────────────────────────────────────
 
-function getBayWidth(toteType: ToteType): number {
+function getBayWidth(toteType: ToteType, unitType: UnitType): number {
+  if (unitType === "mini") {
+    return MINI_SLOT_W;
+  }
   const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
   return toteW - 2 * BIN_LIP_WIDTH + 2 * BIN_GAP;
 }
@@ -66,10 +92,29 @@ function getPostX(i: number, bayW: number): number {
   return i * (bayW + POST_W) + POST_W / 2;
 }
 
-// First rail Y offset from bottom plate top.
-// Tote hangs: TOTE_BODY_H below rail top. Rail top = railY + RAIL_HEIGHT/2.
-// Tote bottom = railY + RAIL_HEIGHT/2 - TOTE_BODY_H
-// Must be > 0 (above bottom plate) with 2" safety.
+function getUnitDepth(unitType: UnitType): number {
+  return unitType === "mini" ? MINI_DEPTH : RACK_DEPTH;
+}
+
+function getRailHeight(unitType: UnitType): number {
+  return unitType === "mini" ? MINI_RAIL_HEIGHT : RAIL_HEIGHT;
+}
+
+function getTierSpacing(unitType: UnitType): number {
+  return unitType === "mini" ? MINI_TIER_SPACING : TIER_SPACING;
+}
+
+function getFirstRailY(unitType: UnitType): number {
+  if (unitType === "mini") {
+    return MINI_FIRST_RAIL_H;
+  }
+  // Standard: First rail Y offset from bottom plate top.
+  // Tote hangs: TOTE_BODY_H below rail top. Rail top = railY + RAIL_HEIGHT/2.
+  const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
+  return Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
+}
+
+// First rail Y offset from bottom plate top (Standard units only).
 const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
 
 // ── Materials ────────────────────────────────────────────────────────────
@@ -103,20 +148,22 @@ function Lumber({ position, size }: {
   );
 }
 
-function PlywoodStrip({ position, length }: {
+function PlywoodStrip({ position, length, railHeight }: {
   position: [number, number, number];
   length: number;
+  railHeight?: number;
 }) {
+  const height = railHeight ?? RAIL_HEIGHT;
   return (
     <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
-      <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
+      <boxGeometry args={[RAIL_THICKNESS, height, length]} />
     </mesh>
   );
 }
 
 // ── Tote ─────────────────────────────────────────────────────────────────
 // Group origin = BOTTOM of tote body.
-//   Body: y = 0 → TOTE_BODY_H (black, tapered)
+//   Body: y = 0 → TOTE_BODY_H (black/clear, tapered)
 //   Rim:  y = TOTE_BODY_H → TOTE_BODY_H + TOTE_RIM_H (colored)
 //
 // PLACEMENT RULE:
@@ -126,27 +173,38 @@ function PlywoodStrip({ position, length }: {
 //   So: toteGroupY = railCenterY + RAIL_HEIGHT/2 - TOTE_BODY_H
 //   Body hangs BELOW the rail. Rim is above the rail.
 
-function Tote({ position, bayW, toteType }: {
+function Tote({ position, bayW, toteType, unitType }: {
   position: [number, number, number];
   bayW: number;
   toteType: ToteType;
+  unitType: UnitType;
 }) {
-  const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
-  const color = toteType === "HDX" ? "#fbbf24" : "#ef4444";
+  const isMini = unitType === "mini";
+
+  // Tote dimensions based on unit type
+  const toteW = isMini ? MINI_TOTE_W : (toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM);
+  const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
+  const toteRimH = isMini ? MINI_TOTE_RIM_H : TOTE_RIM_H;
+  const toteDepth = isMini ? MINI_TOTE_D : TOTE_DEPTH;
+
+  // Mini totes are clear with yellow lids, standard uses color based on type
+  const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
+  const bodyColor = isMini ? "#d4d4d8" : "#1a1a1a"; // Clear gray for mini, dark for standard
+  const bodyOpacity = isMini ? 0.7 : 1.0;
 
   const rimW = toteW;
   // Body fits between the rails
   const bodyTopW = bayW - BIN_GAP * 2;
-  const bodyBotW = bodyTopW * TOTE_BODY_TAPER;
-  // Tote depth = full 30" (matches unit depth)
-  const bodyTopD = TOTE_DEPTH * 0.95;
-  const bodyBotD = TOTE_DEPTH * 0.82;
-  const rimD = TOTE_DEPTH;
+  const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
+  // Tote depth
+  const bodyTopD = toteDepth * 0.95;
+  const bodyBotD = toteDepth * 0.82;
+  const rimD = toteDepth;
 
   const bodyGeo = useMemo(() => {
     const hw_t = bodyTopW / 2, hw_b = bodyBotW / 2;
     const hd_t = bodyTopD / 2, hd_b = bodyBotD / 2;
-    const h = TOTE_BODY_H;
+    const h = toteBodyH;
     const v = new Float32Array([
       -hw_b, 0, -hd_b, hw_b, 0, -hd_b, hw_b, 0, hd_b, -hw_b, 0, hd_b,
       -hw_t, h, -hd_t, hw_t, h, -hd_t, hw_t, h, hd_t, -hw_t, h, hd_t,
@@ -161,20 +219,27 @@ function Tote({ position, bayW, toteType }: {
     geo.setIndex(idx);
     geo.computeVertexNormals();
     return geo;
-  }, [bodyTopW, bodyBotW, bodyTopD, bodyBotD]);
+  }, [bodyTopW, bodyBotW, bodyTopD, bodyBotD, toteBodyH]);
 
   return (
     <group position={position}>
       <mesh geometry={bodyGeo} castShadow>
-        <meshStandardMaterial color="#1a1a1a" roughness={0.55} metalness={0.02} side={THREE.DoubleSide} />
+        <meshStandardMaterial
+          color={bodyColor}
+          roughness={isMini ? 0.3 : 0.55}
+          metalness={0.02}
+          transparent={isMini}
+          opacity={bodyOpacity}
+          side={THREE.DoubleSide}
+        />
       </mesh>
-      <mesh position={[0, TOTE_BODY_H + TOTE_RIM_H / 2, 0]} castShadow>
-        <boxGeometry args={[rimW, TOTE_RIM_H, rimD]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.05} />
+      <mesh position={[0, toteBodyH + toteRimH / 2, 0]} castShadow>
+        <boxGeometry args={[rimW, toteRimH, rimD]} />
+        <meshStandardMaterial color={rimColor} roughness={0.3} metalness={0.05} />
       </mesh>
-      <mesh position={[0, TOTE_BODY_H + TOTE_RIM_H + 0.12, 0]}>
+      <mesh position={[0, toteBodyH + toteRimH + 0.12, 0]}>
         <boxGeometry args={[rimW - 0.5, 0.25, rimD - 0.5]} />
-        <meshStandardMaterial color={color} roughness={0.25} metalness={0.08} />
+        <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.08} />
       </mesh>
     </group>
   );
@@ -183,28 +248,48 @@ function Tote({ position, bayW, toteType }: {
 // ── Rack Assembly ────────────────────────────────────────────────────────
 
 function RackAssembly({
-  cols, rows, toteType, hasTotes, hasWheels, hasTop,
+  cols, rows, toteType, unitType, hasTotes, hasWheels, hasTop,
 }: Rack3DProps) {
-  const bayW = getBayWidth(toteType);
+  const isMini = unitType === "mini";
+  const bayW = getBayWidth(toteType, unitType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
 
-  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
-  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
-  const topGap = 3;
-  const frameH = PLATE_H + lastRailY + topGap + PLATE_H;
+  // Get unit-specific values
+  const unitDepth = getUnitDepth(unitType);
+  const railHeight = getRailHeight(unitType);
+  const tierSpacing = getTierSpacing(unitType);
+  const firstRailY = getFirstRailY(unitType);
+
+  const lastRailY = firstRailY + (rows - 1) * tierSpacing;
+
+  // Frame height calculation differs for Mini (no top plates)
+  let frameH: number;
+  if (isMini) {
+    // Mini: bottom plate + rails + clearance above top rail + plywood top
+    frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
+  } else {
+    // Standard: bottom plate + rails + gap + top plate
+    const topGap = 3;
+    frameH = PLATE_H + lastRailY + topGap + PLATE_H;
+  }
 
   const lift = hasWheels ? CASTER_HEIGHT : 0;
   const overallH = frameH + lift;
 
   const cx = totalW / 2;
   const cy = overallH / 2;
-  const cz = RACK_DEPTH / 2;
+  const cz = unitDepth / 2;
 
-  // Rails span the FULL 30" depth (front face to back face of the unit).
-  // They are the "rungs" of the ladder — full length.
-  const railLen = RACK_DEPTH;
+  // Rails span the full depth
+  const railLen = unitDepth;
 
-  const postH = frameH - PLATE_H * 2;
+  // Post height differs for Mini (no top 2x4 plates)
+  const postH = isMini
+    ? lastRailY + 2 // Just past the top rail
+    : frameH - PLATE_H * 2;
+
+  // Tote body height for positioning
+  const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
 
   return (
     <group scale={[S, S, S]}>
@@ -213,13 +298,17 @@ function RackAssembly({
         {/* ── WOOD FRAME — lifted by caster height ── */}
         <group position={[0, lift, 0]}>
 
-          {/* Bottom plates */}
+          {/* Bottom plates (same for both unit types) */}
           <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
-          <Lumber position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+          <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
 
-          {/* Top plates */}
-          <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
-          <Lumber position={[totalW / 2, frameH - PLATE_H / 2, RACK_DEPTH - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+          {/* Top plates — only for Standard units */}
+          {!isMini && (
+            <>
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+            </>
+          )}
 
           {/* Ladder frames: posts + rails */}
           {Array.from({ length: cols + 1 }).map((_, i) => {
@@ -228,20 +317,34 @@ function RackAssembly({
               <group key={`ladder-${i}`}>
                 {/* Front + Back posts */}
                 <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
-                <Lumber position={[px, PLATE_H + postH / 2, RACK_DEPTH - POST_D / 2]} size={[POST_W, postH, POST_D]} />
+                <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
 
-                {/* Right-face rails (serve bay i) — full 30" depth */}
+                {/* Right-face rails (serve bay i) */}
                 {i < cols && Array.from({ length: rows }).map((_, r) => {
-                  const railY = PLATE_H + firstRailY + r * TIER_SPACING;
+                  const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
-                  return <PlywoodStrip key={`rr-${i}-${r}`} position={[railX, railY, RACK_DEPTH / 2]} length={railLen} />;
+                  return (
+                    <PlywoodStrip
+                      key={`rr-${i}-${r}`}
+                      position={[railX, railY, unitDepth / 2]}
+                      length={railLen}
+                      railHeight={railHeight}
+                    />
+                  );
                 })}
 
-                {/* Left-face rails (serve bay i-1) — full 30" depth */}
+                {/* Left-face rails (serve bay i-1) */}
                 {i > 0 && Array.from({ length: rows }).map((_, r) => {
-                  const railY = PLATE_H + firstRailY + r * TIER_SPACING;
+                  const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
-                  return <PlywoodStrip key={`rl-${i}-${r}`} position={[railX, railY, RACK_DEPTH / 2]} length={railLen} />;
+                  return (
+                    <PlywoodStrip
+                      key={`rl-${i}-${r}`}
+                      position={[railX, railY, unitDepth / 2]}
+                      length={railLen}
+                      railHeight={railHeight}
+                    />
+                  );
                 })}
               </group>
             );
@@ -254,26 +357,27 @@ function RackAssembly({
             const bayCenterX = (leftPostX + rightPostX) / 2;
 
             return Array.from({ length: rows }).map((_, r) => {
-              const railCenterY = PLATE_H + firstRailY + r * TIER_SPACING;
-              const railTop = railCenterY + RAIL_HEIGHT / 2;
-              // Rim bottom = rail top → body bottom = rail top - TOTE_BODY_H
-              const toteGroupY = railTop - TOTE_BODY_H;
+              const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
+              const railTop = railCenterY + railHeight / 2;
+              // Rim bottom = rail top → body bottom = rail top - toteBodyH
+              const toteGroupY = railTop - toteBodyH;
 
               return (
                 <Tote
                   key={`tote-${c}-${r}`}
-                  position={[bayCenterX, toteGroupY, RACK_DEPTH / 2]}
+                  position={[bayCenterX, toteGroupY, unitDepth / 2]}
                   bayW={bayW}
                   toteType={toteType}
+                  unitType={unitType}
                 />
               );
             });
           })}
 
-          {/* Plywood top */}
+          {/* Plywood top — mandatory for Mini, optional for Standard */}
           {hasTop && (
-            <mesh position={[totalW / 2, frameH + PLY_TOP_H / 2, RACK_DEPTH / 2]} castShadow receiveShadow>
-              <boxGeometry args={[totalW + 2, PLY_TOP_H, RACK_DEPTH + 2]} />
+            <mesh position={[totalW / 2, frameH + PLY_TOP_H / 2, unitDepth / 2]} castShadow receiveShadow>
+              <boxGeometry args={[totalW + 2, PLY_TOP_H, unitDepth + 2]} />
               <meshStandardMaterial color="#D4B896" roughness={0.6} metalness={0.0} />
             </mesh>
           )}
@@ -287,8 +391,8 @@ function RackAssembly({
             <>
               <IndustrialCaster position={[firstPostX, 0, POST_D / 2]} />
               <IndustrialCaster position={[lastPostX, 0, POST_D / 2]} />
-              <IndustrialCaster position={[firstPostX, 0, RACK_DEPTH - POST_D / 2]} />
-              <IndustrialCaster position={[lastPostX, 0, RACK_DEPTH - POST_D / 2]} />
+              <IndustrialCaster position={[firstPostX, 0, unitDepth - POST_D / 2]} />
+              <IndustrialCaster position={[lastPostX, 0, unitDepth - POST_D / 2]} />
             </>
           );
         })()}
@@ -299,21 +403,32 @@ function RackAssembly({
 
 // ── Camera rig ───────────────────────────────────────────────────────────
 
-function CameraRig({ cols, rows, toteType, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "hasWheels">) {
+function CameraRig({ cols, rows, toteType, unitType, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "hasWheels">) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
-  const bayW = getBayWidth(toteType);
+  const isMini = unitType === "mini";
+  const bayW = getBayWidth(toteType, unitType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
-  const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
-  const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
-  const frameH = PLATE_H + lastRailY + 3 + PLATE_H;
+  const unitDepth = getUnitDepth(unitType);
+  const tierSpacing = getTierSpacing(unitType);
+  const firstRailY = getFirstRailY(unitType);
+
+  const lastRailY = firstRailY + (rows - 1) * tierSpacing;
+
+  let frameH: number;
+  if (isMini) {
+    frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
+  } else {
+    frameH = PLATE_H + lastRailY + 3 + PLATE_H;
+  }
+
   const lift = hasWheels ? CASTER_HEIGHT : 0;
   const overallH = frameH + lift;
 
   const sw = totalW * S;
   const sh = overallH * S;
-  const sd = RACK_DEPTH * S;
+  const sd = unitDepth * S;
   const maxDim = Math.max(sw, sh, sd);
   const dist = maxDim * 2.2;
 
@@ -390,6 +505,7 @@ export default function Rack3D(props: Rack3DProps) {
           cols={props.cols}
           rows={props.rows}
           toteType={props.toteType}
+          unitType={props.unitType}
           hasWheels={props.hasWheels}
         />
 

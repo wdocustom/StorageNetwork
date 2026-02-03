@@ -8,7 +8,7 @@ import {
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { calculateBuild } from "@/app/actions/calculator";
+import { calculateBuild, type UnitType } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import {
@@ -34,12 +34,14 @@ interface UnitConfig {
   cols: number;
   rows: number;
   toteType: ToteType;
+  unitType: UnitType;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
   price: number;
   totalW: number;
   totalH: number;
+  depth: number;
   desc: string;
 }
 
@@ -49,7 +51,9 @@ interface ServerBuild {
   price: number;
   totalW: number;
   totalH: number;
+  depth: number;
   slots: number;
+  unitType: UnitType;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -161,6 +165,7 @@ export default function DesignConfigurator({
   const [wallFitMsg, setWallFitMsg] = useState("");
 
   // ── Design inputs ─────────────────────────────────────────────────────
+  const [unitType, setUnitType] = useState<UnitType>("standard");
   const [cols, setCols] = useState<number | string>(4);
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
@@ -170,7 +175,7 @@ export default function DesignConfigurator({
 
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
-    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, slots: 0,
+    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard",
   });
   const [buildLoading, setBuildLoading] = useState(false);
 
@@ -212,6 +217,7 @@ export default function DesignConfigurator({
       c: number,
       r: number,
       model: ToteType,
+      unit: UnitType,
       totes: boolean,
       wheels: boolean,
       top: boolean
@@ -224,6 +230,7 @@ export default function DesignConfigurator({
             cols: c,
             rows: r,
             toteModel: model,
+            unitType: unit,
             addOns: { totes, wheels, top },
             mode: "manual",
           });
@@ -234,7 +241,9 @@ export default function DesignConfigurator({
               price: res.price,
               totalW: res.dimensions.totalW,
               totalH: res.dimensions.totalH,
+              depth: res.dimensions.depth,
               slots: res.config.slots,
+              unitType: res.config.unitType,
             });
           }
         } catch {
@@ -250,11 +259,15 @@ export default function DesignConfigurator({
   // Fire on every config change (only when cols/rows are valid numbers)
   const numCols = typeof cols === "number" ? cols : parseInt(cols as string) || 0;
   const numRows = typeof rows === "number" ? rows : parseInt(rows as string) || 0;
+
+  // For mini units, plywood top is always included (mandatory)
+  const effectiveHasTop = unitType === "mini" ? true : hasTop;
+
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, hasTotes, hasWheels, hasTop);
+      fetchBuild(numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop);
     }
-  }, [numCols, numRows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -274,7 +287,8 @@ export default function DesignConfigurator({
         wallWidth: wW,
         wallHeight: wH,
         toteModel: toteType,
-        addOns: { totes: hasTotes, wheels: hasWheels, top: hasTop },
+        unitType,
+        addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
         mode: "wallFit",
       });
       if (res.success) {
@@ -286,7 +300,9 @@ export default function DesignConfigurator({
           price: res.price,
           totalW: res.dimensions.totalW,
           totalH: res.dimensions.totalH,
+          depth: res.dimensions.depth,
           slots: res.config.slots,
+          unitType: res.config.unitType,
         });
         setWallFitMsg(
           `Max fit: ${res.cols} Wide × ${res.rows} High for that wall.`
@@ -300,19 +316,22 @@ export default function DesignConfigurator({
   }
 
   function handleAddUnit() {
+    const unitLabel = unitType === "mini" ? "Mini" : "Standard";
     setOrderItems((prev) => [
       ...prev,
       {
         cols: build.cols,
         rows: build.rows,
         toteType,
+        unitType,
         hasTotes,
         hasWheels,
-        hasTop,
+        hasTop: effectiveHasTop,
         price: build.price,
         totalW: build.totalW,
         totalH: build.totalH,
-        desc: `${build.cols} Wide × ${build.rows} High`,
+        depth: build.depth,
+        desc: `${unitLabel}: ${build.cols}W × ${build.rows}H`,
       },
     ]);
   }
@@ -554,6 +573,26 @@ export default function DesignConfigurator({
                 Manual Configuration
               </h2>
 
+              {/* Unit Size Selector */}
+              <div className="mb-4">
+                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                  Unit Size
+                </label>
+                <select
+                  value={unitType}
+                  onChange={(e) => setUnitType(e.target.value as UnitType)}
+                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                >
+                  <option value="standard">Standard (27 Gallon Totes)</option>
+                  <option value="mini">Mini (6.5 Quart Totes)</option>
+                </select>
+                {unitType === "mini" && (
+                  <p className="mt-1 text-[10px] italic text-amber-600">
+                    Mini units use compact 6.5qt shoebox totes with 1&quot; plywood rails.
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
@@ -599,41 +638,69 @@ export default function DesignConfigurator({
                 </div>
               </div>
 
-              <div className="mt-3">
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Tote Model
-                </label>
-                <select
-                  value={toteType}
-                  onChange={(e) => setToteType(e.target.value as ToteType)}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="HDX">HDX / Standard (19.75&quot; Wide)</option>
-                  <option value="GM">Greenmade / Large (20.75&quot; Wide)</option>
-                </select>
-                <p className="mt-1 text-[10px] italic text-stone-400">
-                  *Have your own? Measure top width rim-to-rim. Select closest
-                  size.
-                </p>
-              </div>
+              {/* Tote Model - Only show for Standard units */}
+              {unitType === "standard" ? (
+                <div className="mt-3">
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tote Model
+                  </label>
+                  <select
+                    value={toteType}
+                    onChange={(e) => setToteType(e.target.value as ToteType)}
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    <option value="HDX">HDX / Standard (19.75&quot; Wide)</option>
+                    <option value="GM">Greenmade / Large (20.75&quot; Wide)</option>
+                  </select>
+                  <p className="mt-1 text-[10px] italic text-stone-400">
+                    *Have your own? Measure top width rim-to-rim. Select closest
+                    size.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tote Type
+                  </label>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-gray-700">
+                    6.5 Quart Clear Totes (Yellow Lids)
+                  </div>
+                  <p className="mt-1 text-[10px] italic text-stone-400">
+                    Mini units use standard 6.5qt shoebox totes (8&quot; × 12.75&quot; × 6.25&quot;).
+                  </p>
+                </div>
+              )}
 
               {/* Toggles */}
               <div className="mt-4 space-y-2">
                 <Toggle
                   checked={hasTotes}
                   onChange={setHasTotes}
-                  label="Totes"
+                  label={unitType === "mini" ? "Include Clear Totes (Yellow Lids)" : "Totes"}
                 />
                 <Toggle
                   checked={hasWheels}
                   onChange={setHasWheels}
-                  label="Wheels"
+                  label={unitType === "mini" ? "Wheels (+$40)" : "Wheels"}
                 />
-                <Toggle
-                  checked={hasTop}
-                  onChange={setHasTop}
-                  label="Plywood Top"
-                />
+                {unitType === "standard" ? (
+                  <Toggle
+                    checked={hasTop}
+                    onChange={setHasTop}
+                    label="Plywood Top"
+                  />
+                ) : (
+                  <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                    <div className="flex h-5 w-5 items-center justify-center rounded border border-emerald-400 bg-emerald-400">
+                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="flex-1 text-sm font-medium text-emerald-800">
+                      Plywood Top (Included)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Price + Add to Quote */}
@@ -837,23 +904,29 @@ export default function DesignConfigurator({
               cols={build.cols || numCols || 1}
               rows={build.rows || numRows || 1}
               toteType={toteType}
+              unitType={unitType}
               hasTotes={hasTotes}
               hasWheels={hasWheels}
-              hasTop={hasTop}
+              hasTop={effectiveHasTop}
               totalW={build.totalW}
               totalH={build.totalH}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {build.totalW > 0 ? build.totalW.toFixed(0) : "—"}&quot; W
+            {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
             &times;{" "}
-            {build.totalH > 0 ? build.totalH.toFixed(0) : "—"}&quot; H
-            &times; 30&quot; D &nbsp;&mdash;&nbsp;
+            {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
+            &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : 30)}&quot; D &nbsp;&mdash;&nbsp;
             <span className="font-bold text-gray-900">
               {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
               {build.slots || (numCols || 1) * (numRows || 1)} slots
             </span>
+            {unitType === "mini" && (
+              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                MINI
+              </span>
+            )}
           </div>
         </main>
       </div>
