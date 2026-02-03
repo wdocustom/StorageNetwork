@@ -114,7 +114,7 @@ export default function MarketingPage() {
             )}
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            {profile.slug
+            {profile.is_pro && profile.slug
               ? "Your custom branded link is active. Clients see your business name in the URL."
               : "This is your unique booking link. Send this to clients to let them design and book their own jobs."}
           </p>

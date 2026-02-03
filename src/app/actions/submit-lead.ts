@@ -183,6 +183,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
           if (email) {
             const result = await sendNewLeadAlert(email, input.address || "Unknown", {
               customerName: input.customer_name,
+              customerEmail: input.customer_email || undefined,
+              address: input.address || undefined,
               unitCount: input.quote_data.length,
               totalPrice: input.grand_total,
               leadId,

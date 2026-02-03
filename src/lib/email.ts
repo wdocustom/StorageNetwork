@@ -213,6 +213,13 @@ export async function sendBookingConfirmation(
       </a>
     </div>
 
+    <!-- Cancellation Policy -->
+    <div style="background-color:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;color:#92400e;font-size:12px;line-height:1.6;">
+        <strong>Need to reschedule?</strong> Please contact your installer at least 48 hours before your appointment to avoid fees.
+      </p>
+    </div>
+
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
       Your installer will reach out to confirm. Questions? Reply to this email.
     </p>
@@ -237,6 +244,8 @@ export async function sendNewLeadAlert(
   city: string,
   leadDetails: {
     customerName: string;
+    customerEmail?: string;
+    address?: string;
     unitCount: number;
     totalPrice: number;
     leadId: string;
@@ -247,8 +256,15 @@ export async function sendNewLeadAlert(
   const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
 
   const html = emailShell(
-    "NEW LEAD: Deposit Paid",
+    "New Lead Alert!",
     `
+    <!-- Action Required Banner -->
+    <div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0;color:#dc2626;font-size:14px;font-weight:700;">
+        Action Required: Contact customer within 24 hours
+      </p>
+    </div>
+
     <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 4px;color:#16a34a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">New Job &mdash; ${city}</p>
       <p style="margin:0;color:#1e293b;font-size:28px;font-weight:800;">$${profitEstimate.toLocaleString()}</p>
@@ -256,12 +272,13 @@ export async function sendNewLeadAlert(
     </div>
     <table style="width:100%;margin-bottom:24px;font-size:14px;color:#334155;">
       <tr><td style="padding:8px 0;color:#64748b;width:120px;">Customer</td><td style="padding:8px 0;font-weight:600;">${leadDetails.customerName}</td></tr>
-      <tr><td style="padding:8px 0;color:#64748b;">Location</td><td style="padding:8px 0;font-weight:600;">${city}</td></tr>
+      ${leadDetails.customerEmail ? `<tr><td style="padding:8px 0;color:#64748b;">Email</td><td style="padding:8px 0;font-weight:600;">${leadDetails.customerEmail}</td></tr>` : ""}
+      <tr><td style="padding:8px 0;color:#64748b;">Address</td><td style="padding:8px 0;font-weight:600;">${leadDetails.address || city}</td></tr>
       <tr><td style="padding:8px 0;color:#64748b;">Units</td><td style="padding:8px 0;font-weight:600;">${leadDetails.unitCount} shelving unit${leadDetails.unitCount !== 1 ? "s" : ""}</td></tr>
     </table>
     <div style="text-align:center;margin-bottom:24px;">
       <a href="${jobUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        Claim Job
+        View Job Details
       </a>
     </div>
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">

@@ -12,9 +12,10 @@ export function getInstallerLink(user: {
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== "undefined" ? window.location.origin : "https://storage-network.app");
 
-  // STRICT: Only Pro users with a slug get the vanity link
+  // STRICT: Only Pro users with a slug get the vanity link.
+  // user.is_pro must be exactly true — no truthy coercion from stale DB values.
   const param =
-    user.is_pro && user.slug
+    user.is_pro === true && user.slug
       ? `installer=${encodeURIComponent(user.slug)}`
       : `installer_id=${user.id}`;
 

@@ -9,6 +9,7 @@ import {
   Square,
   ClipboardList,
   BookOpen,
+  PlayCircle,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -362,15 +363,71 @@ export default function GuidesPage() {
           </div>
         </section>
 
-        {/* ── Coming Soon ───────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-6 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-stone-600">
-            More Guides Coming Soon
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C: Tutorials
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <PlayCircle className="h-4 w-4 text-purple-400" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+              Tutorials
+            </h2>
+          </div>
+
+          <p className="mb-4 text-sm text-stone-400">
+            Step-by-step guides to help you get the most out of the platform.
           </p>
-          <p className="mt-1 text-sm text-stone-500">
-            Video tutorials, advanced techniques, and troubleshooting.
-          </p>
-        </div>
+
+          <div className="space-y-3">
+            {/* Tutorial 1 */}
+            <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+                <PlayCircle className="h-6 w-6 text-purple-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-white">How to Quote a Job</h3>
+                <p className="text-[11px] text-stone-500">
+                  Walk through the build tool from unit sizing to sending a professional quote.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
+
+            {/* Tutorial 2 */}
+            <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                <PlayCircle className="h-6 w-6 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-white">Using the 3D Configurator</h3>
+                <p className="text-[11px] text-stone-500">
+                  Learn how customers use the interactive designer and how leads flow to your dashboard.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
+
+            {/* Tutorial 3 */}
+            <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+                <PlayCircle className="h-6 w-6 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-white">Marketing Your Business</h3>
+                <p className="text-[11px] text-stone-500">
+                  Tips for sharing your link, using scripts, and converting local leads.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );

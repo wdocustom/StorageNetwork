@@ -896,6 +896,12 @@ export default function DesignConfigurator({
           installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
           hasWheels={anyHasWheels}
           totalCols={maxCols}
+          initialAddress={{
+            line1: streetAddress || undefined,
+            city: city || undefined,
+            state: addrState || undefined,
+            zip: addrZip || zip || undefined,
+          }}
           onSuccess={() => {
             setShowBookingModal(false);
             setSubmitted(true);

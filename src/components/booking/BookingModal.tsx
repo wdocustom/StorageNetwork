@@ -59,6 +59,7 @@ interface BookingModalProps {
   installerWorkingDays?: string[];
   hasWheels?: boolean;
   totalCols?: number;
+  initialAddress?: Partial<BookingAddress>;
   onSuccess?: (scheduledDate: string, address: BookingAddress) => void;
 }
 
@@ -75,15 +76,18 @@ export default function BookingModal({
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
   hasWheels = false,
   totalCols = 1,
+  initialAddress,
   onSuccess,
 }: BookingModalProps) {
-  const [step, setStep] = useState<Step>("address");
+  // Pre-fill address from lead flow data if available
+  const prefilled = !!(initialAddress?.line1 && initialAddress?.city && initialAddress?.state && initialAddress?.zip);
+  const [step, setStep] = useState<Step>(prefilled ? "schedule" : "address");
   const [address, setAddress] = useState<BookingAddress>({
-    line1: "",
-    line2: "",
-    city: "",
-    state: "",
-    zip: "",
+    line1: initialAddress?.line1 || "",
+    line2: initialAddress?.line2 || "",
+    city: initialAddress?.city || "",
+    state: initialAddress?.state || "",
+    zip: initialAddress?.zip || "",
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);

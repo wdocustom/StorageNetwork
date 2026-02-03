@@ -307,6 +307,8 @@ export async function POST(request: NextRequest) {
           console.log("[Webhook] Sending lead alert to installer:", installerEmail);
           const alertResult = await sendNewLeadAlert(installerEmail, city, {
             customerName,
+            customerEmail: customerEmail || undefined,
+            address: lead.address || fullAddress || undefined,
             unitCount,
             totalPrice: lead.estimated_price ?? amountPaid,
             leadId,
@@ -419,6 +421,8 @@ export async function POST(request: NextRequest) {
               const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
               await sendNewLeadAlert(installerEmail, city, {
                 customerName: piName,
+                customerEmail: piEmail || undefined,
+                address: lead.address || undefined,
                 unitCount,
                 totalPrice: lead.estimated_price ?? amountPaidPI,
                 leadId,

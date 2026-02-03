@@ -321,21 +321,6 @@ export default function DashboardPage() {
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
 
-          {/* PLANS & GUIDES Tile */}
-          <a
-            href="/dashboard/guides"
-            className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
-          >
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
-              <BookOpen className="h-8 w-8" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">Plans & Guides</h2>
-              <p className="text-sm text-stone-500">Training Library</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-          </a>
-
           {/* MARKETING Tile */}
           <a
             href="/dashboard/marketing"
@@ -362,6 +347,21 @@ export default function DashboardPage() {
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-white">Schedule</h2>
               <p className="text-sm text-stone-500">Blackout dates & availability</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
+          </a>
+
+          {/* PLANS & GUIDES Tile */}
+          <a
+            href="/dashboard/guides"
+            className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+          >
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
+              <BookOpen className="h-8 w-8" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-white">Plans & Guides</h2>
+              <p className="text-sm text-stone-500">Training Library</p>
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
