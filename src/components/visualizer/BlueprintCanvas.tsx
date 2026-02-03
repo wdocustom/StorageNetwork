@@ -193,7 +193,7 @@ export default function BlueprintCanvas({
           // Mini: first rail at RENDER_FIRST_RAIL from bottom plate
           // Drawing from top: plywood top is at startY, so rails are below
           const railFromBottom = RENDER_FIRST_RAIL + r * RENDER_TIER;
-          railY = startY + pFrameH - pPlate - railFromBottom * scale - railH / 2;
+          railY = startY + pFrameH - pPlate - railFromBottom * scale;
         } else {
           // Standard: rails positioned from top plate down
           railY = startY + pPlate + pTopGap + r * RENDER_TIER * scale;
