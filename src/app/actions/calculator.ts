@@ -131,7 +131,7 @@ const MINI_CONFIG: UnitDimensionConfig = {
   hasTopPlate: false,          // No 2x4 top plates
   topIsMandatory: true,        // Always has plywood top
 
-  pricePerSlot: 25,            // Lower price for mini
+  pricePerSlot: 15,            // Lower price for mini
   pricePerTote: 4,             // 6.5qt totes are cheaper
   priceWheels: 40,             // Slightly cheaper wheels
   pricePlywoodSheet: 75,       // Same plywood price
