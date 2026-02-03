@@ -45,7 +45,8 @@ export default function BlueprintCanvas({
   const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing
   const RENDER_PLATE = 1.5;
   const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
-  const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
+  // Mini first rail must be >= tote body height (6.25") for clearance above bottom plate
+  const RENDER_FIRST_RAIL = isMini ? 7 : 13; // First rail height from bottom
   const PLY_TOP_H = 0.75; // Plywood top thickness
   const opening = isMini ? 8.25 : (toteType === "HDX" ? 19.75 : 20.75);
 

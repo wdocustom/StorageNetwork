@@ -23,7 +23,7 @@ const PRICE_PER_SLOT = 40; // dollars per opening - Standard
 // Mini unit constants
 const MINI_SLOT_WIDTH = 8.25; // Mini slot width
 const MINI_TIER_HEIGHT = 7; // Mini vertical spacing
-const MINI_FIRST_RAIL_HEIGHT = 5.25; // Mini first rail from bottom plate
+const MINI_FIRST_RAIL_HEIGHT = 7; // Mini first rail from bottom plate (must be >= tote height 6.25")
 const MINI_DEPTH = 12.75; // Mini unit depth
 const MINI_RAIL_WIDTH = 1.0; // 1" wide plywood rails
 const MINI_PRICE_PER_SLOT = 25; // Mini pricing

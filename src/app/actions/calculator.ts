@@ -113,7 +113,7 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
 const MINI_CONFIG: UnitDimensionConfig = {
   slotWidth: 8.25,             // Fits 8" wide tote
   verticalSpacing: 7,          // 7" rail-to-rail
-  firstRailHeight: 5.25,       // 5.25" from bottom plate
+  firstRailHeight: 7,          // 7" from bottom plate (must be >= tote height 6.25")
   depth: 12.75,                // 12.75" deep
 
   postWidth: 1.5,              // 2x4 narrow face (same as standard)

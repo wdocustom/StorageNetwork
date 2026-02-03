@@ -65,7 +65,7 @@ const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for 
 
 const MINI_SLOT_W = 8.25;         // Slot width (fits 8" wide tote)
 const MINI_TIER_SPACING = 7;      // Rail-to-rail vertical spacing
-const MINI_FIRST_RAIL_H = 5.25;   // First rail height from bottom plate
+const MINI_FIRST_RAIL_H = 7;      // First rail height from bottom plate (must be >= tote height 6.25")
 const MINI_DEPTH = 12.75;         // Rail length / unit depth
 const MINI_RAIL_HEIGHT = 1.0;     // 1" wide plywood strips
 
