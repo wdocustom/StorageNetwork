@@ -361,3 +361,137 @@ export async function createDepositIntent(
     };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// verifyAndConfirmDeposit — Webhook fallback
+//
+// Called from the /success page after redirect. Checks Stripe for paid
+// PaymentIntents linked to the lead and updates DB if the webhook missed it.
+// Also triggers customer + installer emails if they haven't been sent.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function verifyAndConfirmDeposit(
+  leadId: string
+): Promise<{ success: boolean; alreadyPaid?: boolean; error?: string }> {
+  if (!leadId) return { success: false, error: "No lead ID" };
+
+  console.log("[VerifyDeposit] Checking lead:", leadId);
+
+  // 1. Check if already marked as paid
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("deposit_paid, customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, deposit_amount")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { success: false, error: "Lead not found" };
+  if (lead.deposit_paid) {
+    console.log("[VerifyDeposit] Already paid, skipping");
+    return { success: true, alreadyPaid: true };
+  }
+
+  // 2. Search Stripe for a succeeded PaymentIntent with this leadId
+  try {
+    const paymentIntents = await stripe.paymentIntents.search({
+      query: `metadata["leadId"]:"${leadId}" status:"succeeded"`,
+    });
+
+    const pi = paymentIntents.data[0];
+    if (!pi) {
+      console.log("[VerifyDeposit] No succeeded PI found for lead:", leadId);
+      return { success: false, error: "No payment found" };
+    }
+
+    const amountPaid = pi.amount / 100;
+    console.log("[VerifyDeposit] Found succeeded PI:", pi.id, "| amount:", amountPaid);
+
+    // 3. Update DB — same as webhook would do
+    const { error: updateError } = await supabase
+      .from("leads")
+      .update({
+        deposit_paid: true,
+        deposit_amount: amountPaid,
+        payout_status: "deposit_collected",
+        status: "open",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
+
+    if (updateError) {
+      console.error("[VerifyDeposit] DB update failed:", updateError);
+      return { success: false, error: "DB update failed" };
+    }
+
+    console.log("[VerifyDeposit] Deposit confirmed for lead:", leadId);
+
+    // 4. Fire emails (non-blocking)
+    import("@/lib/email").then(async ({ sendBookingConfirmation, sendNewLeadAlert }) => {
+      try {
+        // Resolve installer info
+        let installerName = "Your Installer";
+        let installerPhone: string | undefined;
+        let installerAvatar: string | undefined;
+
+        if (lead.installer_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, business_name, phone, avatar_url")
+            .eq("id", lead.installer_id)
+            .single();
+          if (profile) {
+            installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
+            installerPhone = profile.phone || undefined;
+            installerAvatar = profile.avatar_url || undefined;
+          }
+        }
+
+        const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+        const customerEmail = lead.customer_email || pi.receipt_email;
+        const customerName = lead.customer_name || "Customer";
+
+        // Customer confirmation
+        if (customerEmail) {
+          await sendBookingConfirmation({
+            customerName,
+            customerEmail,
+            installerName,
+            installerPhone,
+            installerAvatarUrl: installerAvatar,
+            scheduledDate: lead.scheduled_at ?? "TBD",
+            address: lead.address ?? "Address Pending",
+            depositAmount: amountPaid,
+            totalPrice: lead.estimated_price ?? amountPaid,
+            jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+            leadId,
+          });
+          console.log("[VerifyDeposit] Customer confirmation sent");
+        }
+
+        // Installer alert
+        if (lead.installer_id) {
+          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+          const installerEmail = authUser?.user?.email;
+          if (installerEmail) {
+            const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
+            await sendNewLeadAlert(installerEmail, city, {
+              customerName,
+              customerEmail: customerEmail || undefined,
+              address: lead.address || undefined,
+              unitCount,
+              totalPrice: lead.estimated_price ?? amountPaid,
+              leadId,
+            });
+            console.log("[VerifyDeposit] Installer alert sent");
+          }
+        }
+      } catch (emailErr) {
+        console.error("[VerifyDeposit] Email error (non-fatal):", emailErr);
+      }
+    }).catch(console.error);
+
+    return { success: true };
+  } catch (stripeErr) {
+    console.error("[VerifyDeposit] Stripe search error:", stripeErr);
+    return { success: false, error: "Stripe verification failed" };
+  }
+}

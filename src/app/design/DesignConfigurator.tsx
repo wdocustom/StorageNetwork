@@ -61,6 +61,7 @@ interface DesignConfiguratorProps {
   initialZip: string;
   mode: string;
   isDemo?: boolean;
+  leadSource?: "platform" | "partner_link";
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -85,6 +86,7 @@ export default function DesignConfigurator({
   initialZip,
   mode,
   isDemo = false,
+  leadSource = "platform",
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
@@ -345,6 +347,7 @@ export default function DesignConfigurator({
         quote_data: orderItems,
         grand_total: grandTotal,
         installer_id: installerId || undefined,
+        source: leadSource,
       });
 
       if (!result.success || !result.id) {

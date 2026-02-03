@@ -49,6 +49,11 @@ export default async function DesignPage({ searchParams }: PageProps) {
     if (res.available) rawInstaller = res;
   }
 
+  // Determine lead source: if installer was resolved from a URL param, it's a
+  // direct/partner lead. If the customer arrives with only a ZIP (or nothing),
+  // they'll find an installer via the client-side ZIP lookup = network lead.
+  const isDirectLead = !!(rawInstaller && (ref || installerId || installerParam));
+
   // ── Map to View Model — branding gate applied here ──────────────────
   // The raw installer object dies here. Only the view model is serialized
   // to the client. Free installers get platform branding; Pro gets theirs.
@@ -60,6 +65,7 @@ export default async function DesignPage({ searchParams }: PageProps) {
         initialData={viewModel}
         initialZip={zip}
         mode={mode}
+        leadSource={isDirectLead ? "partner_link" : "platform"}
       />
     </Suspense>
   );

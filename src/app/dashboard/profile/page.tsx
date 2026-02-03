@@ -12,7 +12,7 @@ import {
   getStripeStatus,
   getStripeDashboardLink,
 } from "@/app/actions/stripe-connect";
-import { sendTestEmail, deactivateAccount } from "@/app/actions/debug";
+import { deactivateAccount } from "@/app/actions/debug";
 import { siteConfig } from "@/config/site";
 import {
   ArrowLeft,
@@ -23,7 +23,6 @@ import {
   ExternalLink,
   CreditCard,
   User,
-  Mail,
   Save,
   Upload,
 } from "lucide-react";
@@ -89,8 +88,6 @@ function ProfilePageInner() {
   } | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeMessage, setStripeMessage] = useState("");
-  const [testEmailLoading, setTestEmailLoading] = useState(false);
-  const [testEmailMessage, setTestEmailMessage] = useState("");
 
   const fetchData = useCallback(async () => {
     const {
@@ -615,44 +612,6 @@ function ProfilePageInner() {
               Contractor Agreement
             </a>.
           </p>
-        </section>
-
-        {/* ── Email Test ─────────────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-stone-500">
-            Email Credentials Test
-          </h2>
-          <p className="mb-4 text-xs text-stone-400">
-            Send a test email to verify your Resend API key is working.
-          </p>
-          <button
-            onClick={async () => {
-              if (!profile?.email) return;
-              setTestEmailLoading(true);
-              setTestEmailMessage("");
-              const result = await sendTestEmail(profile.email);
-              setTestEmailLoading(false);
-              setTestEmailMessage(
-                result.success
-                  ? `Test email sent to ${profile.email}`
-                  : `Failed: ${result.error || "Unknown error"}`
-              );
-            }}
-            disabled={testEmailLoading}
-            className="flex items-center gap-2 rounded-lg bg-yellow-500 px-5 py-2.5 text-sm font-bold text-slate-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
-          >
-            {testEmailLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mail className="h-4 w-4" />
-            )}
-            Send Test Email
-          </button>
-          {testEmailMessage && (
-            <p className={`mt-3 text-xs font-semibold ${testEmailMessage.startsWith("Failed") ? "text-red-400" : "text-emerald-400"}`}>
-              {testEmailMessage}
-            </p>
-          )}
         </section>
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}

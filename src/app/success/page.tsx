@@ -2,10 +2,12 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { CheckCircle2, Mail, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Mail, ArrowLeft, Loader2 } from "lucide-react";
+import { verifyAndConfirmDeposit } from "@/app/actions/payments";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Success Page — Post-Checkout Confirmation (clean text + badge, no 3D)
+// Also verifies payment as a webhook fallback.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function SuccessPage() {
@@ -20,9 +22,26 @@ function SuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const installerName = searchParams.get("name") || "";
+  const jobId = searchParams.get("jobId") || "";
   const redirectTo = searchParams.get("redirect") || null;
 
+  const [verifying, setVerifying] = useState(!!jobId);
   const [countdown, setCountdown] = useState(redirectTo ? 8 : 0);
+
+  // Webhook fallback: verify payment was recorded
+  useEffect(() => {
+    if (!jobId) return;
+    verifyAndConfirmDeposit(jobId)
+      .then((res) => {
+        if (res.success) {
+          console.log("[Success] Deposit verified:", res.alreadyPaid ? "already paid" : "just confirmed");
+        } else {
+          console.warn("[Success] Deposit verification issue:", res.error);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setVerifying(false));
+  }, [jobId]);
 
   useEffect(() => {
     if (!redirectTo) return;
@@ -55,7 +74,11 @@ function SuccessInner() {
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
         {/* Success badge */}
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/30">
-          <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+          {verifying ? (
+            <Loader2 className="h-10 w-10 animate-spin text-yellow-400" />
+          ) : (
+            <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+          )}
         </div>
 
         {/* Headline */}
