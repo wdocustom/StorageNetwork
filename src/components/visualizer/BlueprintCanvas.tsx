@@ -149,8 +149,9 @@ export default function BlueprintCanvas({
         const topThick = PLY_TOP_H * scale;
         const overhang = 1 * scale;
         ctx.fillStyle = plywoodFill;
-        ctx.fillRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-        ctx.strokeRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
+        // Plywood sits AT startY, connecting with posts that start at startY + topThick
+        ctx.fillRect(startX - overhang, startY, pTotalW + overhang * 2, topThick);
+        ctx.strokeRect(startX - overhang, startY, pTotalW + overhang * 2, topThick);
         ctx.fillStyle = woodFill;
       }
     } else {

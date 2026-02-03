@@ -1,16 +1,26 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
 // No Stripe friction at signup. They connect Stripe later from profile.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 export interface OnboardInput {
   name: string;
@@ -47,7 +57,7 @@ export async function onboardInstaller(
   try {
     // 1. Create auth user
     const { data: authData, error: authError } =
-      await supabase.auth.admin.createUser({
+      await getSupabase().auth.admin.createUser({
         email: email.trim().toLowerCase(),
         password,
         email_confirm: true,
@@ -71,7 +81,7 @@ export async function onboardInstaller(
     const lastName = nameParts.slice(1).join(" ") || "";
 
     // 2. Create profile
-    await supabase.from("profiles").upsert({
+    await getSupabase().from("profiles").upsert({
       id: userId,
       first_name: firstName,
       last_name: lastName,

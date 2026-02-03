@@ -1,12 +1,22 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 export interface UpdateProfileInput {
   installer_id: string;
@@ -58,7 +68,7 @@ export async function updateInstallerProfile(
     updateData.business_name = input.business_name;
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("profiles")
     .update(updateData)
     .eq("id", installer_id);

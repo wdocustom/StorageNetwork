@@ -1,12 +1,22 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // completeJobWithProof — Upload proof sets status to payment_pending
@@ -23,7 +33,7 @@ export async function completeJobWithProof(
   paymentUrl?: string
 ) {
   // 1. Update DB — mark proof uploaded, status = payment_pending
-  await supabase
+  await getSupabase()
     .from("leads")
     .update({
       status: "payment_pending",
@@ -73,7 +83,7 @@ export async function markJobPaidManual(
   leadId: string,
   method: string = "cash"
 ) {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("leads")
     .update({
       status: "paid",
@@ -103,7 +113,7 @@ export async function rescheduleJob(
   customerEmail: string,
   customerName: string
 ) {
-  await supabase
+  await getSupabase()
     .from("leads")
     .update({ scheduled_at: newDate, updated_at: new Date().toISOString() })
     .eq("id", leadId);

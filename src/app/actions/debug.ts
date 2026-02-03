@@ -1,12 +1,22 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 export async function sendTestEmail(toEmail: string): Promise<{ success: boolean; error?: string }> {
   console.log("[Debug] sendTestEmail called for:", toEmail);
@@ -36,7 +46,7 @@ export async function deactivateAccount(userId: string): Promise<{ success: bool
   console.log("[Debug] deactivateAccount called for:", userId);
 
   try {
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from("profiles")
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq("id", userId);

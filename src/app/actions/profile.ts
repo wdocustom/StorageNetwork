@@ -1,15 +1,25 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile — Server actions for profile management
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 export interface ProfileUpdateInput {
   user_id: string;
@@ -52,7 +62,7 @@ export async function updateProfile(
   console.log("[Profile Update] user_id:", user_id);
   console.log("[Profile Update] fields:", Object.keys(cleanUpdates));
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("profiles")
     .update(cleanUpdates)
     .eq("id", user_id);
@@ -105,7 +115,7 @@ export async function checkSlugAvailability(
   }
 
   // Check database for existing slug (excluding current user)
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("profiles")
     .select("id")
     .eq("slug", normalized)
@@ -146,7 +156,7 @@ export async function updateSlug(
   }
 
   // Check if user is PRO
-  const { data: profile } = await supabase
+  const { data: profile } = await getSupabase()
     .from("profiles")
     .select("subscription_tier")
     .eq("id", userId)
@@ -157,7 +167,7 @@ export async function updateSlug(
   }
 
   // Update
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("profiles")
     .update({ slug: normalized })
     .eq("id", userId);
@@ -173,7 +183,7 @@ export async function updateSlug(
  * Get profile by slug (for branded booking page resolution).
  */
 export async function getProfileBySlug(slug: string) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("profiles")
     .select("id, business_name, avatar_url")
     .eq("slug", slug.toLowerCase())
@@ -206,7 +216,7 @@ export async function getAvatarUploadUrl(
   try {
     console.log("[Avatar Upload] Requesting signed URL for path:", path);
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await getSupabase().storage
       .from("avatars")
       .createSignedUploadUrl(path);
 
@@ -236,7 +246,7 @@ export async function getAvatarUploadUrl(
  * Get the public URL for an avatar.
  */
 export async function getAvatarPublicUrl(path: string): Promise<string | null> {
-  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const { data } = getSupabase().storage.from("avatars").getPublicUrl(path);
   return data?.publicUrl || null;
 }
 
@@ -263,7 +273,7 @@ export async function uploadAvatarServerSide(
     const buffer = Buffer.from(base64Data, "base64");
     const mimeType = fileExt === "jpg" ? "image/jpeg" : `image/${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await getSupabase().storage
       .from("avatars")
       .upload(path, buffer, {
         contentType: mimeType,
@@ -279,14 +289,14 @@ export async function uploadAvatarServerSide(
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = getSupabase().storage
       .from("avatars")
       .getPublicUrl(path);
 
     const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
     // Update profile
-    const { error: profileError } = await supabase
+    const { error: profileError } = await getSupabase()
       .from("profiles")
       .update({ avatar_url: publicUrl })
       .eq("id", userId);

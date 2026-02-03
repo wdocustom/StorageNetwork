@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendInstallerWelcome } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
@@ -9,10 +9,20 @@ import { getAppUrl } from "@/lib/url-helper";
 // Verifies the account, marks onboarding complete, sends welcome email.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -37,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Find the installer profile by stripe_account_id
-    const { data: profile } = await supabase
+    const { data: profile } = await getSupabase()
       .from("profiles")
       .select("id, first_name, last_name, business_name")
       .eq("stripe_account_id", accountId)
@@ -48,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Mark onboarding as complete
-    await supabase
+    await getSupabase()
       .from("profiles")
       .update({
         stripe_details_submitted: true,

@@ -1,11 +1,21 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Checkout — Financial logic for Platform vs Partner Link deposits
@@ -55,7 +65,7 @@ export async function processCheckout(
 
   if (source === "partner_link" && installer_id) {
     // Self-lead: deposit goes to installer's Stripe Connect
-    const { data: profile } = await supabase
+    const { data: profile } = await getSupabase()
       .from("profiles")
       .select("stripe_account_id")
       .eq("id", installer_id)
@@ -71,7 +81,7 @@ export async function processCheckout(
   }
 
   // Update lead with deposit info
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("leads")
     .update({
       source,
@@ -106,7 +116,7 @@ export async function processCheckout(
  * Get checkout details for a lead (used to display payment info).
  */
 export async function getCheckoutDetails(leadId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("leads")
     .select(
       "id, estimated_price, deposit_amount, deposit_paid, balance_due, source, installer_id, payout_status"

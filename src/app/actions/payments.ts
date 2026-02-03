@@ -1,7 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16,10 +16,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 // ── Platform fee: 5% of the total amount (Pro direct leads) ──────────────
 const PLATFORM_FEE_RATE = 0.05;
@@ -102,7 +112,7 @@ export async function createPaymentSession(
     }
 
     // ── Update lead status to "payment_pending" ─────────────────────────
-    await supabase
+    await getSupabase()
       .from("leads")
       .update({
         payout_status: "payment_link_sent",
@@ -205,7 +215,7 @@ export async function sendPaymentInvoice(
     }
 
     // Update lead status
-    await supabase
+    await getSupabase()
       .from("leads")
       .update({
         payout_status: "invoice_sent",
@@ -229,7 +239,7 @@ export async function sendPaymentInvoice(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("leads")
     .update({
       deposit_paid: true,
@@ -246,7 +256,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   console.log("[MarkPaid] Firing booking confirmation for lead:", leadId);
   import("@/lib/email").then(async ({ sendBookingConfirmation }) => {
     try {
-      const { data: lead } = await supabase
+      const { data: lead } = await getSupabase()
         .from("leads")
         .select("customer_name, customer_email, address, scheduled_at, estimated_price, deposit_amount, installer_id, notes")
         .eq("id", leadId)
@@ -255,7 +265,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
       console.log("[MarkPaid] Lead data:", lead?.customer_email || "NO EMAIL", lead?.installer_id || "NO INSTALLER");
       if (!lead?.customer_email || !lead.installer_id) return;
 
-      const { data: installer } = await supabase
+      const { data: installer } = await getSupabase()
         .from("profiles")
         .select("business_name, phone, avatar_url")
         .eq("id", lead.installer_id)
@@ -340,7 +350,7 @@ export async function createDepositIntent(
 
     // Update lead with scheduling info if provided
     if (scheduledAt) {
-      await supabase
+      await getSupabase()
         .from("leads")
         .update({
           scheduled_at: scheduledAt,
@@ -378,7 +388,7 @@ export async function verifyAndConfirmDeposit(
   console.log("[VerifyDeposit] Checking lead:", leadId);
 
   // 1. Check if already marked as paid
-  const { data: lead } = await supabase
+  const { data: lead } = await getSupabase()
     .from("leads")
     .select("deposit_paid, customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, deposit_amount")
     .eq("id", leadId)
@@ -406,7 +416,7 @@ export async function verifyAndConfirmDeposit(
     console.log("[VerifyDeposit] Found succeeded PI:", pi.id, "| amount:", amountPaid);
 
     // 3. Update DB — same as webhook would do
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabase()
       .from("leads")
       .update({
         deposit_paid: true,
@@ -433,7 +443,7 @@ export async function verifyAndConfirmDeposit(
         let installerAvatar: string | undefined;
 
         if (lead.installer_id) {
-          const { data: profile } = await supabase
+          const { data: profile } = await getSupabase()
             .from("profiles")
             .select("first_name, last_name, business_name, phone, avatar_url")
             .eq("id", lead.installer_id)
@@ -469,7 +479,7 @@ export async function verifyAndConfirmDeposit(
 
         // Installer alert
         if (lead.installer_id) {
-          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+          const { data: authUser } = await getSupabase().auth.admin.getUserById(lead.installer_id);
           const installerEmail = authUser?.user?.email;
           if (installerEmail) {
             const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";

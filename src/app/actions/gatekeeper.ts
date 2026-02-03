@@ -1,11 +1,21 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Gatekeeper — Smart ZIP matchmaking + waitlist capture
@@ -29,7 +39,7 @@ export async function gatekeeperCheck(
     return { available: false, installer_id: null, installer_name: null };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("profiles")
     .select("id, business_name")
     .contains("service_zips", [trimmed])
@@ -65,7 +75,7 @@ export async function joinWaitlist(
   }
 
   // Dedup check
-  const { data: existing } = await supabase
+  const { data: existing } = await getSupabase()
     .from("waitlist")
     .select("id")
     .eq("email", trimmedEmail)
@@ -76,7 +86,7 @@ export async function joinWaitlist(
     return { success: true }; // Already on list, treat as success
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("waitlist")
     .insert({ email: trimmedEmail, zip_code: trimmedZip });
 

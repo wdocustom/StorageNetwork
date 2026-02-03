@@ -1,11 +1,21 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 export interface AvailabilityResult {
   available: boolean;
@@ -76,7 +86,7 @@ export async function checkAvailability(
 
   try {
     // Primary: search the service_zips array (covers radius)
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("profiles")
       .select(INSTALLER_SELECT)
       .contains("service_zips", [trimmed])
@@ -87,7 +97,7 @@ export async function checkAvailability(
       // Lead cap check: reset if needed, then check limit
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       if (data.leads_reset_at && new Date(data.leads_reset_at as string) < new Date(monthStart)) {
-        await supabase
+        await getSupabase()
           .from("profiles")
           .update({ current_month_leads: 0, leads_reset_at: monthStart })
           .eq("id", data.id);
@@ -102,7 +112,7 @@ export async function checkAvailability(
     }
 
     // Fallback: exact match on service_zip (the installer's base ZIP)
-    const { data: fallback, error: fbErr } = await supabase
+    const { data: fallback, error: fbErr } = await getSupabase()
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
@@ -136,7 +146,7 @@ export async function getInstallerById(
   if (!id) return toResult(null, "No installer specified.");
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("id", id)
@@ -161,7 +171,7 @@ export async function getInstallerBySlug(
   if (!slug) return toResult(null, "No installer specified.");
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("slug", slug.toLowerCase().trim())
@@ -187,7 +197,7 @@ export async function getInstallerByRef(
   if (!slug) return toResult(null, "No installer specified.");
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("ref_slug", slug.toLowerCase().trim())

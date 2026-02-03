@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
 
@@ -15,10 +15,20 @@ import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
 // If email crashes, the DB update is ALREADY committed.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -74,7 +84,7 @@ export async function POST(request: NextRequest) {
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {
       try {
-        const { error } = await supabase
+        const { error } = await getSupabase()
           .from("leads")
           .update({
             status: "paid",
@@ -96,7 +106,7 @@ export async function POST(request: NextRequest) {
 
       // Send receipt email
       try {
-        const { data: lead } = await supabase
+        const { data: lead } = await getSupabase()
           .from("leads")
           .select("customer_name, customer_email, estimated_price, deposit_amount, quote_data, installer_id")
           .eq("id", leadId)
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest) {
           const { sendJobReceipt } = await import("@/lib/email");
           let installerName = "Your Installer";
           if (lead.installer_id) {
-            const { data: profile } = await supabase
+            const { data: profile } = await getSupabase()
               .from("profiles")
               .select("first_name, last_name, business_name")
               .eq("id", lead.installer_id)
@@ -190,7 +200,7 @@ export async function POST(request: NextRequest) {
 
       console.log("[Webhook] DB update payload:", JSON.stringify(updatePayload));
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await getSupabase()
         .from("leads")
         .update(updatePayload)
         .eq("id", leadId);
@@ -213,7 +223,7 @@ export async function POST(request: NextRequest) {
     // Fetch lead details for email (isolated — if this fails, DB is saved)
     let lead: any = null;
     try {
-      const { data } = await supabase
+      const { data } = await getSupabase()
         .from("leads")
         .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
         .eq("id", leadId)
@@ -240,7 +250,7 @@ export async function POST(request: NextRequest) {
         let installerAvatar: string | undefined;
 
         if (resolvedInstallerId) {
-          const { data: profile } = await supabase
+          const { data: profile } = await getSupabase()
             .from("profiles")
             .select("first_name, last_name, business_name, phone, avatar_url")
             .eq("id", resolvedInstallerId)
@@ -295,7 +305,7 @@ export async function POST(request: NextRequest) {
     // ── Send new job alert to installer ───────────────────────────────
     if (resolvedInstallerId) {
       try {
-        const { data: authUser } = await supabase.auth.admin.getUserById(resolvedInstallerId);
+        const { data: authUser } = await getSupabase().auth.admin.getUserById(resolvedInstallerId);
         const installerEmail = authUser?.user?.email;
 
         if (installerEmail) {
@@ -346,7 +356,7 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           };
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await getSupabase()
             .from("leads")
             .update(updatePayload)
             .eq("id", leadId);
@@ -362,7 +372,7 @@ export async function POST(request: NextRequest) {
 
         // ── Send booking confirmation email ───────────────────────────
         try {
-          const { data: lead } = await supabase
+          const { data: lead } = await getSupabase()
             .from("leads")
             .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
             .eq("id", leadId)
@@ -379,7 +389,7 @@ export async function POST(request: NextRequest) {
             const instId = metadata.installer_stripe_id ? lead.installer_id : lead.installer_id;
 
             if (instId) {
-              const { data: profile } = await supabase
+              const { data: profile } = await getSupabase()
                 .from("profiles")
                 .select("first_name, last_name, business_name, phone, avatar_url")
                 .eq("id", instId)
@@ -414,7 +424,7 @@ export async function POST(request: NextRequest) {
 
           // ── Send installer alert ────────────────────────────────────
           if (lead?.installer_id) {
-            const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+            const { data: authUser } = await getSupabase().auth.admin.getUserById(lead.installer_id);
             const installerEmail = authUser?.user?.email;
             if (installerEmail) {
               const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
@@ -436,7 +446,7 @@ export async function POST(request: NextRequest) {
       } else {
         // ── FINAL PAYMENT (balance collection) ─────────────────────────
         try {
-          await supabase
+          await getSupabase()
             .from("leads")
             .update({
               status: "paid",

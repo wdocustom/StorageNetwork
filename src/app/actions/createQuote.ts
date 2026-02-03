@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
 import {
   sendTransactionalEmail,
@@ -12,10 +12,20 @@ import {
 // Saves lead, calculates price server-side, sends email via Brevo
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 const DEPOSIT_RATE = 0.15; // 15%
 
@@ -87,7 +97,7 @@ export async function createQuote(
   try {
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
-    const { data: existingCustomer } = await supabase
+    const { data: existingCustomer } = await getSupabase()
       .from("customers")
       .select("id")
       .eq("email", customer_email.toLowerCase().trim())
@@ -97,7 +107,7 @@ export async function createQuote(
     if (existingCustomer) {
       customerId = existingCustomer.id;
       // Update customer info
-      await supabase
+      await getSupabase()
         .from("customers")
         .update({
           name: customer_name.trim(),
@@ -108,7 +118,7 @@ export async function createQuote(
         .eq("id", customerId);
     } else {
       // Create new customer
-      const { data: newCustomer, error: customerError } = await supabase
+      const { data: newCustomer, error: customerError } = await getSupabase()
         .from("customers")
         .insert({
           name: customer_name.trim(),
@@ -137,7 +147,7 @@ export async function createQuote(
     const balanceDue = Math.round((finalTotal - depositAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
-    const { data: lead, error: leadError } = await supabase
+    const { data: lead, error: leadError } = await getSupabase()
       .from("leads")
       .insert({
         installer_id,

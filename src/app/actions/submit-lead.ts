@@ -1,13 +1,22 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { calculateWeight } from "@/utils/scheduling";
 
-// Uses the SERVICE ROLE key so we can insert without a logged-in user.
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types — matches the UnitConfig shape from page.tsx
@@ -92,7 +101,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     // ── Scheduling Guard: blackout dates + 3 points/day max ─────────────
     if (input.scheduled_at && input.installer_id) {
       // Check blackout dates
-      const { data: blackout } = await supabase
+      const { data: blackout } = await getSupabase()
         .from("installer_blackout_dates")
         .select("id")
         .eq("installer_id", input.installer_id)
@@ -110,7 +119,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       const maxCols = Math.max(...input.quote_data.map((u) => u.cols));
       const newJobWeight = calculateWeight(maxCols);
 
-      const { data: existingJobs } = await supabase
+      const { data: existingJobs } = await getSupabase()
         .from("leads")
         .select("scheduled_at, quote_data")
         .eq("installer_id", input.installer_id)
@@ -136,7 +145,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     }
 
     // 3. Create lead in database
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("leads")
       .insert({
         installer_id: input.installer_id || null,
@@ -177,7 +186,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       console.log("[SubmitLead] Firing new lead alert for installer:", input.installer_id);
       import("@/lib/email").then(async ({ sendNewLeadAlert }) => {
         try {
-          const { data: authUser } = await supabase.auth.admin.getUserById(input.installer_id!);
+          const { data: authUser } = await getSupabase().auth.admin.getUserById(input.installer_id!);
           const email = authUser?.user?.email;
           console.log("[SubmitLead] Installer email resolved:", email || "NOT FOUND");
           if (email) {

@@ -1,12 +1,22 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors
+let _supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables not configured");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 /**
  * Activate Pro subscription for a user.
@@ -21,7 +31,7 @@ export async function activateProSubscription(
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
   try {
     // Fetch the profile to get business_name
-    const { data: profile } = await supabase
+    const { data: profile } = await getSupabase()
       .from("profiles")
       .select("business_name, first_name, last_name, slug")
       .eq("id", userId)
@@ -33,7 +43,7 @@ export async function activateProSubscription(
 
     // If they already have a slug, keep it
     if (profile.slug) {
-      await supabase
+      await getSupabase()
         .from("profiles")
         .update({
           is_pro: true,
@@ -54,7 +64,7 @@ export async function activateProSubscription(
     if (!slug) slug = userId.slice(0, 8);
 
     // Check uniqueness
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabase()
       .from("profiles")
       .select("id")
       .eq("slug", slug)
@@ -66,7 +76,7 @@ export async function activateProSubscription(
     }
 
     // Double-check the fallback slug
-    const { data: existing2 } = await supabase
+    const { data: existing2 } = await getSupabase()
       .from("profiles")
       .select("id")
       .eq("slug", slug)
@@ -78,7 +88,7 @@ export async function activateProSubscription(
     }
 
     // Save
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from("profiles")
       .update({
         is_pro: true,
@@ -109,7 +119,7 @@ export async function activateProSubscription(
 export async function deactivateProSubscription(
   userId: string
 ): Promise<{ success: boolean }> {
-  await supabase
+  await getSupabase()
     .from("profiles")
     .update({
       is_pro: false,

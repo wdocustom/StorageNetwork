@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-initialize Supabase client to avoid build-time errors when env vars are missing
+let supabase: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Supabase environment variables are not configured");
+    }
+    supabase = createClient(url, key);
+  }
+  return supabase;
+}
 
 const INSTALLER_SELECT =
   "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, tier";
@@ -26,8 +36,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const db = getSupabase();
+
     // Primary: search the service_zips array (covers radius)
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("profiles")
       .select(INSTALLER_SELECT)
       .contains("service_zips", [zip])
@@ -52,7 +64,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fallback: exact match on service_zip
-    const { data: fallback, error: fbErr } = await supabase
+    const { data: fallback, error: fbErr } = await db
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("service_zip", zip)
