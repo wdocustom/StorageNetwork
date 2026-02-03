@@ -225,10 +225,12 @@ export default function BlueprintCanvas({
           // Tote body (hangs below the rail)
           const bodyW = tW * 0.9;
           const bodyX = tX + (tW - bodyW) / 2;
-          ctx.fillStyle = isMini ? "#e5e7eb" : "#1e293b"; // Clear gray for mini
-          ctx.strokeStyle = isMini ? "#9ca3af" : "#0f172a";
+          ctx.fillStyle = isMini ? "#cbd5e1" : "#1e293b"; // Light slate for mini (clear look), dark for standard
+          ctx.strokeStyle = isMini ? "#64748b" : "#0f172a";
+          ctx.lineWidth = isMini ? 1.5 : 2;
           ctx.fillRect(bodyX, tY, bodyW, tH);
           ctx.strokeRect(bodyX, tY, bodyW, tH);
+          ctx.lineWidth = 2; // Reset line width
         }
       }
     }
