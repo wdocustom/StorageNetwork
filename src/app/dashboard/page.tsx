@@ -1,3 +1,23 @@
+// --- INSERT LINE 1 HERE (At the very top) ---
+import TestPaymentButton from '@/components/TestPaymentButton'; 
+
+export default function Dashboard() {
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      
+      {/* Existing content might be here... */}
+      <p>Welcome to your dashboard.</p>
+
+      {/* --- INSERT LINE 2 HERE (Inside the return) --- */}
+      <div className="mt-8">
+        <TestPaymentButton />
+      </div>
+
+    </div>
+  );
+}
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
