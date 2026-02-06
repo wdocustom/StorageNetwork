@@ -14,12 +14,14 @@ const Rack3D = lazy(() => import("./Rack3D"));
 
 type ToteType = "HDX" | "GM";
 type UnitType = "standard" | "mini";
+type Orientation = "standard" | "sideways";
 
 interface RackVisualizerProps {
   cols: number;
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -74,6 +76,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             rows={props.rows}
             toteType={props.toteType}
             unitType={props.unitType}
+            orientation={props.orientation}
             hasTotes={props.hasTotes}
             hasWheels={props.hasWheels}
             hasTop={props.hasTop}
@@ -103,6 +106,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               rows={props.rows}
               toteType={props.toteType}
               unitType={props.unitType}
+              orientation={props.orientation}
               hasTotes={props.hasTotes}
               hasWheels={props.hasWheels}
               hasTop={props.hasTop}

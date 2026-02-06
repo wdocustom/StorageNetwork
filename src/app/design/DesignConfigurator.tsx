@@ -8,7 +8,7 @@ import {
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { calculateBuild, type UnitType } from "@/app/actions/calculator";
+import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import {
@@ -35,6 +35,7 @@ interface UnitConfig {
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -54,6 +55,7 @@ interface ServerBuild {
   depth: number;
   slots: number;
   unitType: UnitType;
+  orientation: Orientation;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -166,6 +168,7 @@ export default function DesignConfigurator({
 
   // ── Design inputs ─────────────────────────────────────────────────────
   const [unitType, setUnitType] = useState<UnitType>("standard");
+  const [orientation, setOrientation] = useState<Orientation>("standard");
   const [cols, setCols] = useState<number | string>(4);
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
@@ -175,7 +178,7 @@ export default function DesignConfigurator({
 
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
-    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard",
+    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard", orientation: "standard",
   });
   const [buildLoading, setBuildLoading] = useState(false);
 
@@ -218,6 +221,7 @@ export default function DesignConfigurator({
       r: number,
       model: ToteType,
       unit: UnitType,
+      orient: Orientation,
       totes: boolean,
       wheels: boolean,
       top: boolean
@@ -231,6 +235,7 @@ export default function DesignConfigurator({
             rows: r,
             toteModel: model,
             unitType: unit,
+            orientation: orient,
             addOns: { totes, wheels, top },
             mode: "manual",
           });
@@ -244,6 +249,7 @@ export default function DesignConfigurator({
               depth: res.dimensions.depth,
               slots: res.config.slots,
               unitType: res.config.unitType,
+              orientation: res.config.orientation,
             });
           }
         } catch {
@@ -263,11 +269,14 @@ export default function DesignConfigurator({
   // For mini units, plywood top is always included (mandatory)
   const effectiveHasTop = unitType === "mini" ? true : hasTop;
 
+  // Effective orientation: only applies to standard units
+  const effectiveOrientation: Orientation = unitType === "standard" ? orientation : "standard";
+
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop);
+      fetchBuild(numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
     }
-  }, [numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
 
   // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
   const prevUnitTypeRef = useRef(unitType);
@@ -304,6 +313,7 @@ export default function DesignConfigurator({
         wallHeight: wH,
         toteModel: toteType,
         unitType,
+        orientation: effectiveOrientation,
         addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
         mode: "wallFit",
       });
@@ -319,6 +329,7 @@ export default function DesignConfigurator({
           depth: res.dimensions.depth,
           slots: res.config.slots,
           unitType: res.config.unitType,
+          orientation: res.config.orientation,
         });
         setWallFitMsg(
           `Max fit: ${res.cols} Wide × ${res.rows} High for that wall.`
@@ -332,7 +343,10 @@ export default function DesignConfigurator({
   }
 
   function handleAddUnit() {
-    const unitLabel = unitType === "mini" ? "Mini" : "Standard";
+    let unitLabel = unitType === "mini" ? "Mini" : "Standard";
+    if (unitType === "standard" && effectiveOrientation === "sideways") {
+      unitLabel = "Standard (Sideways)";
+    }
     setOrderItems((prev) => [
       ...prev,
       {
@@ -340,6 +354,7 @@ export default function DesignConfigurator({
         rows: build.rows,
         toteType,
         unitType,
+        orientation: effectiveOrientation,
         hasTotes,
         hasWheels,
         hasTop: effectiveHasTop,
@@ -596,7 +611,13 @@ export default function DesignConfigurator({
                 </label>
                 <select
                   value={unitType}
-                  onChange={(e) => setUnitType(e.target.value as UnitType)}
+                  onChange={(e) => {
+                    setUnitType(e.target.value as UnitType);
+                    // Reset orientation when switching unit types
+                    if (e.target.value === "mini") {
+                      setOrientation("standard");
+                    }
+                  }}
                   className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
                   <option value="standard">Standard (27 Gallon Totes)</option>
@@ -608,6 +629,28 @@ export default function DesignConfigurator({
                   </p>
                 )}
               </div>
+
+              {/* Orientation Selector - Only for Standard units */}
+              {unitType === "standard" && (
+                <div className="mb-4">
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tote Orientation
+                  </label>
+                  <select
+                    value={orientation}
+                    onChange={(e) => setOrientation(e.target.value as Orientation)}
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    <option value="standard">Standard (30&quot; Deep)</option>
+                    <option value="sideways">Sideways (20&quot; Deep)</option>
+                  </select>
+                  {orientation === "sideways" && (
+                    <p className="mt-1 text-[10px] italic text-amber-600">
+                      Sideways orientation: Totes rotated 90° for shallower depth (20&quot;).
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -927,6 +970,7 @@ export default function DesignConfigurator({
               rows={build.rows || numRows || 1}
               toteType={toteType}
               unitType={unitType}
+              orientation={effectiveOrientation}
               hasTotes={hasTotes}
               hasWheels={hasWheels}
               hasTop={effectiveHasTop}

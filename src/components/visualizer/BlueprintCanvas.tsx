@@ -9,12 +9,14 @@ import { useCallback, useEffect, useRef } from "react";
 
 type ToteType = "HDX" | "GM";
 type UnitType = "standard" | "mini";
+type Orientation = "standard" | "sideways";
 
 interface BlueprintCanvasProps {
   cols: number;
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -30,6 +32,7 @@ export default function BlueprintCanvas({
   rows,
   toteType,
   unitType,
+  orientation,
   hasTotes,
   hasWheels,
   hasTop,
@@ -41,13 +44,15 @@ export default function BlueprintCanvas({
 
   // Unit-type specific dimensions
   const isMini = unitType === "mini";
+  const isSideways = unitType === "standard" && orientation === "sideways";
   const RENDER_GAP = 1.5; // Post width (same for both)
   const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing
   const RENDER_PLATE = 1.5;
   const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
   const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
   const PLY_TOP_H = 0.75; // Plywood top thickness
-  const opening = isMini ? 8.25 : (toteType === "HDX" ? 19.75 : 20.75);
+  // Opening width: sideways uses 30.25", standard uses tote width
+  const opening = isMini ? 8.25 : (isSideways ? 30.25 : (toteType === "HDX" ? 19.75 : 20.75));
 
   // Calculate dimensions (frame height without wheels)
   const calcW = cols * opening + (cols + 1) * RENDER_GAP;
@@ -253,7 +258,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
+  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, isSideways, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();
