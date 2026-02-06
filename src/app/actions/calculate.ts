@@ -18,7 +18,7 @@ type UnitType = "standard" | "mini";
 
 const POST_WIDTH = 1.5; // 2×4 vertical post
 const TIER_HEIGHT = 16; // inches per tier (vertical spacing) - Standard
-const PRICE_PER_SLOT = 40; // dollars per opening - Standard
+const PRICE_PER_SLOT = 30; // dollars per opening - Standard
 
 // Mini unit constants
 const MINI_SLOT_WIDTH = 8.25; // Mini slot width
@@ -29,9 +29,9 @@ const MINI_RAIL_WIDTH = 1.0; // 1" wide plywood rails
 const MINI_PRICE_PER_SLOT = 25; // Mini pricing
 
 // Add-on pricing
-const ADDON_TOTE_PRICE = 12; // per tote - Standard
+const ADDON_TOTE_PRICE = 10; // per tote - Standard
 const ADDON_MINI_TOTE_PRICE = 4; // per tote - Mini (6.5qt)
-const ADDON_WHEELS_PRICE = 45; // flat fee - Standard
+const ADDON_WHEELS_PRICE = 50; // flat fee - Standard
 const ADDON_MINI_WHEELS_PRICE = 40; // flat fee - Mini
 const ADDON_PLYWOOD_TOP_PRICE = 75; // flat fee
 
@@ -74,7 +74,7 @@ export interface CalculationResult {
   cut_list: CutListItem[];
   shopping_list: ShoppingListItem[];
   line_items: LineItem[];
-  price: number; // base unit price (slots × $40)
+  price: number; // base unit price (slots × pricePerSlot)
   addons_total: number;
   grand_total: number;
 }

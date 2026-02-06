@@ -127,7 +127,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     if (hasWheels) {
       gWheels++;
       gScrew1 += 16;
-      gRetail += 45;
+      gRetail += 50;
     }
 
     let unitTotalWidth = 0;
@@ -169,8 +169,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       gScrew3 += (cols + 1) * 20;
 
       // ── Retail ────────────────────────────────────────────────────
-      let modRetail = slots * 40;
-      if (hasTotes) modRetail += slots * 12;
+      let modRetail = slots * 30;
+      if (hasTotes) modRetail += slots * 10;
       gRetail += modRetail;
 
       if (hasTotes) gTotes += slots;

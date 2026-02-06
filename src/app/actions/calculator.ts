@@ -103,9 +103,9 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
   hasTopPlate: true,
   topIsMandatory: false,
 
-  pricePerSlot: 40,
-  pricePerTote: 12,
-  priceWheels: 45,
+  pricePerSlot: 30,
+  pricePerTote: 10,
+  priceWheels: 50,
   pricePlywoodSheet: 75,
 };
 
