@@ -187,19 +187,39 @@ function PlywoodStrip({ position, length, railHeight }: {
 //   So: toteGroupY = railCenterY + RAIL_HEIGHT/2 - TOTE_BODY_H
 //   Body hangs BELOW the rail. Rim is above the rail.
 
-function Tote({ position, bayW, toteType, unitType }: {
+function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
   position: [number, number, number];
   bayW: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
+  unitDepth: number;
 }) {
   const isMini = unitType === "mini";
+  const isSideways = unitType === "standard" && orientation === "sideways";
 
-  // Tote dimensions based on unit type
-  const toteW = isMini ? MINI_TOTE_W : (toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM);
+  // Tote dimensions based on unit type and orientation
   const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
   const toteRimH = isMini ? MINI_TOTE_RIM_H : TOTE_RIM_H;
-  const toteDepth = isMini ? MINI_TOTE_D : TOTE_DEPTH;
+
+  // In sideways mode, the tote is rotated 90°:
+  // - Rim width spans the bay width (slot is 30.25" wide)
+  // - Tote depth fits within unit depth (20")
+  let toteW: number;
+  let toteDepth: number;
+
+  if (isMini) {
+    toteW = MINI_TOTE_W;
+    toteDepth = MINI_TOTE_D;
+  } else if (isSideways) {
+    // Sideways: tote rotated 90°, rim spans the wider slot
+    toteW = bayW - BIN_GAP * 2; // Rim fits in the bay
+    toteDepth = unitDepth - 2; // Tote depth fits within unit depth with small gap
+  } else {
+    // Standard orientation
+    toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
+    toteDepth = TOTE_DEPTH;
+  }
 
   // Mini totes are clear with yellow lids, standard uses color based on type
   const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
@@ -383,6 +403,8 @@ function RackAssembly({
                   bayW={bayW}
                   toteType={toteType}
                   unitType={unitType}
+                  orientation={orientation}
+                  unitDepth={unitDepth}
                 />
               );
             });

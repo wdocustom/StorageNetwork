@@ -294,6 +294,22 @@ export default function DesignConfigurator({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitType]);
 
+  // ── Smart Orientation Switching: Re-trigger Auto-Fit when orientation changes ──
+  const prevOrientationRef = useRef(effectiveOrientation);
+  useEffect(() => {
+    if (prevOrientationRef.current !== effectiveOrientation) {
+      prevOrientationRef.current = effectiveOrientation;
+      // If wall dimensions are set, trigger auto-fit for the new orientation
+      const wW = parseFloat(wallWidth);
+      const wH = parseFloat(wallHeight);
+      if (wW > 0 && wH > 0) {
+        // Trigger auto-fit with new orientation
+        handleWallFit();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveOrientation]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   async function handleZipCheck() {
