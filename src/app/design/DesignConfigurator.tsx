@@ -446,11 +446,12 @@ export default function DesignConfigurator({
 
       setLeadId(result.id);
 
-      // If installer has Stripe connected, open the booking modal for inline payment
-      if (stripeAccountId) {
+      // Open booking modal for inline deposit payment
+      // (Payments route to platform if installer doesn't have Stripe connected)
+      if (installerId) {
         setShowBookingModal(true);
       } else {
-        // No Stripe — just show confirmation
+        // No installer — just show confirmation
         setSubmitted(true);
       }
     } catch (err) {
@@ -1069,7 +1070,7 @@ export default function DesignConfigurator({
         </div>
       )}
 
-      {leadId && stripeAccountId && (
+      {leadId && installerId && (
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => {
@@ -1079,7 +1080,8 @@ export default function DesignConfigurator({
           leadId={leadId}
           depositAmount={depositAmount}
           totalPrice={grandTotal}
-          installerStripeId={stripeAccountId}
+          installerId={installerId}
+          source={leadSource}
           customerEmail={email || undefined}
           customerName={name || undefined}
           installerLeadTime={data?.routing.leadTime ?? 5}

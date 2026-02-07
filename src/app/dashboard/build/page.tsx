@@ -420,8 +420,8 @@ export default function BuildConfiguratorPage() {
                 </button>
               </div>
 
-              {/* Book Installation — visible when quote has been sent and Stripe is connected */}
-              {installerStripeId && leadIdForBooking && (
+              {/* Book Installation — visible when quote has been sent */}
+              {leadIdForBooking && (
                 <button
                   onClick={() => setShowBookingModal(true)}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
@@ -737,14 +737,15 @@ export default function BuildConfiguratorPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           BOOKING MODAL
       ═══════════════════════════════════════════════════════════════════ */}
-      {buildResult && installerStripeId && leadIdForBooking && (
+      {buildResult && userId && leadIdForBooking && (
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
           leadId={leadIdForBooking}
           depositAmount={Math.round(buildResult.price * 0.15)}
           totalPrice={buildResult.price}
-          installerStripeId={installerStripeId}
+          installerId={userId}
+          source="partner_link"
           customerEmail={customerEmail || undefined}
           customerName={customerName || undefined}
           hasWheels={hasWheels}

@@ -18,7 +18,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import NativeScheduler from "./NativeScheduler";
-import { createDepositIntent } from "@/app/actions/payments";
+import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -52,7 +52,8 @@ interface BookingModalProps {
   leadId: string;
   depositAmount: number;
   totalPrice: number;
-  installerStripeId: string;
+  installerId: string;               // Supabase user ID (not Stripe account)
+  source: LeadSource;                // "platform" | "partner_link"
   customerEmail?: string;
   customerName?: string;
   installerLeadTime?: number;
@@ -69,7 +70,8 @@ export default function BookingModal({
   leadId,
   depositAmount,
   totalPrice,
-  installerStripeId,
+  installerId,
+  source,
   customerEmail,
   customerName,
   installerLeadTime = 5,
@@ -122,7 +124,8 @@ export default function BookingModal({
     const result = await createDepositIntent({
       leadId,
       amount: depositAmount,
-      installerStripeId,
+      installerId,
+      source,
       customerEmail,
       customerName,
       scheduledAt: selectedDate,
@@ -136,7 +139,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, installerStripeId, customerEmail, customerName]);
+  }, [selectedDate, leadId, depositAmount, installerId, source, customerEmail, customerName]);
 
   if (!isOpen) return null;
 
