@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
+import {
+  activateProSubscription,
+  deactivateProSubscription,
+} from "@/app/actions/pro-subscription";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -322,6 +326,32 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
+  }
+
+  // ── Handle Pro subscription events ──────────────────────────────────────
+  if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const userId = subscription.metadata?.userId;
+
+    if (userId && subscription.status === "active") {
+      console.log("[Webhook] Pro subscription activated for user:", userId);
+      const result = await activateProSubscription(userId, subscription.id);
+      if (result.success) {
+        console.log("[Webhook] Pro activated, slug:", result.slug);
+      } else {
+        console.error("[Webhook] Pro activation failed:", result.error);
+      }
+    }
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const userId = subscription.metadata?.userId;
+
+    if (userId) {
+      console.log("[Webhook] Pro subscription cancelled for user:", userId);
+      await deactivateProSubscription(userId);
+    }
   }
 
   // ── Handle payment_intent.succeeded (deposits via BookingModal + balance payments) ──

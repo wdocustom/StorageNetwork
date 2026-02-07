@@ -25,7 +25,9 @@ import {
   User,
   Save,
   Upload,
+  Zap,
 } from "lucide-react";
+import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -53,6 +55,7 @@ interface Profile {
   avatar_url: string | null;
   slug: string | null;
   subscription_tier: string;
+  is_pro: boolean;
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
 }
@@ -61,6 +64,7 @@ function ProfilePageInner() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const stripeParam = searchParams.get("stripe");
+  const proParam = searchParams.get("pro");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -88,6 +92,9 @@ function ProfilePageInner() {
   } | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeMessage, setStripeMessage] = useState("");
+
+  // Pro subscription state
+  const [proMessage, setProMessage] = useState("");
 
   const fetchData = useCallback(async () => {
     const {
@@ -140,6 +147,17 @@ function ProfilePageInner() {
       setStripeMessage("Stripe setup was interrupted. Click below to continue.");
     }
   }, [stripeParam, profile]);
+
+  // Handle Pro subscription return params
+  useEffect(() => {
+    if (proParam === "success") {
+      setProMessage("Welcome to Pro! Your subscription is now active.");
+      // Refresh profile to get updated is_pro status
+      fetchData();
+    } else if (proParam === "cancelled") {
+      setProMessage("Upgrade cancelled. You can upgrade anytime.");
+    }
+  }, [proParam, fetchData]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -296,7 +314,7 @@ function ProfilePageInner() {
     );
   }
 
-  const isPro = profile?.subscription_tier === "pro";
+  const isPro = profile?.is_pro === true;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -613,6 +631,70 @@ function ProfilePageInner() {
             </a>.
           </p>
         </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C: Pro Upgrade CTA (Non-Pro users only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {!isPro && profile && (
+          <ProUpgradeCTA userId={profile.id} />
+        )}
+
+        {/* Pro Upgrade Success/Cancel Message */}
+        {proMessage && (
+          <div
+            className={`rounded-xl border p-4 text-center ${
+              proMessage.includes("active")
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-amber-500/30 bg-amber-500/10"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {proMessage.includes("active") ? (
+                <Zap className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-amber-400" />
+              )}
+              <p
+                className={`text-sm font-semibold ${
+                  proMessage.includes("active")
+                    ? "text-emerald-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {proMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pro Status (Pro users only) */}
+        {isPro && (
+          <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400">
+                <Zap className="h-5 w-5 text-gray-950" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-yellow-400">
+                  Pro Subscription Active
+                </h2>
+                <p className="text-xs text-stone-500">
+                  You're enjoying 5% platform fees and custom branding
+                </p>
+              </div>
+            </div>
+            {profile?.slug && (
+              <div className="mt-3 rounded-lg bg-slate-800/50 px-3 py-2">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-stone-500">
+                  Your Custom Link
+                </p>
+                <p className="text-sm font-medium text-blue-400">
+                  storage-network.app/design?installer={profile.slug}
+                </p>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
