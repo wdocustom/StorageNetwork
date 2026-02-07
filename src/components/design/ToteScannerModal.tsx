@@ -45,8 +45,7 @@ export default function ToteScannerModal({
   // ── Initialize barcode detector ─────────────────────────────────────────
   useEffect(() => {
     if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-      // @ts-expect-error - BarcodeDetector is not in TypeScript's lib yet
-      barcodeDetectorRef.current = new window.BarcodeDetector({
+      barcodeDetectorRef.current = new BarcodeDetector({
         formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39"],
       });
     }
