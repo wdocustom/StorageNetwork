@@ -11,6 +11,7 @@ import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
+import ScanWizard from "@/components/design/ScanWizard";
 import {
   MapPin,
   CheckCircle2,
@@ -23,6 +24,7 @@ import {
   ArrowLeft,
   User,
   CreditCard,
+  Scan,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -201,6 +203,9 @@ export default function DesignConfigurator({
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
 
+  // ── Scan Wizard modal ───────────────────────────────────────────────────
+  const [showScanWizard, setShowScanWizard] = useState(false);
+
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
 
@@ -355,6 +360,23 @@ export default function DesignConfigurator({
       // keep previous state on error
     } finally {
       setBuildLoading(false);
+    }
+  }
+
+  // Handler for ScanWizard completion
+  function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
+    // Set wall dimensions from AI measurement
+    setWallWidth(width.toFixed(1));
+    if (height) {
+      setWallHeight(height.toFixed(1));
+    }
+    // Set tote type based on scanned tote
+    setToteType(toteConfigKey);
+    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide${height ? ` × ${height.toFixed(1)}" tall` : ""}`);
+    // Trigger auto-fit if we have both dimensions
+    if (height) {
+      // Small delay to let state update, then trigger auto-fit
+      setTimeout(() => handleWallFit(), 100);
     }
   }
 
@@ -566,6 +588,16 @@ export default function DesignConfigurator({
                 <Maximize2 className="h-4 w-4 text-yellow-600" />
                 Auto-Fit Wall Calculator
               </h2>
+
+              {/* Scan Wall Button */}
+              <button
+                onClick={() => setShowScanWizard(true)}
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-yellow-400 bg-yellow-50 py-3 text-sm font-bold uppercase tracking-wide text-yellow-700 transition-colors hover:bg-yellow-100"
+              >
+                <Scan className="h-5 w-5" />
+                Scan Wall with AI
+              </button>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
@@ -1066,6 +1098,13 @@ export default function DesignConfigurator({
           }}
         />
       )}
+
+      {/* ── Scan-to-Build Wizard ───────────────────────────────────────── */}
+      <ScanWizard
+        isOpen={showScanWizard}
+        onClose={() => setShowScanWizard(false)}
+        onComplete={handleScanWizardComplete}
+      />
     </div>
   );
 }
