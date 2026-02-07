@@ -48,10 +48,14 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
     // 2. Create a new Stripe Connect account if needed
     if (!stripeAccountId) {
       const account = await stripe.accounts.create({
-        type: "standard",
+        type: "express",
         email: profile?.email || undefined,
         metadata: {
           supabase_user_id: userId,
+        },
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
         },
       });
 
