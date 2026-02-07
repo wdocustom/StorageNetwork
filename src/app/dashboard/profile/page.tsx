@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
+import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -667,33 +668,9 @@ function ProfilePageInner() {
           </div>
         )}
 
-        {/* Pro Status (Pro users only) */}
-        {isPro && (
-          <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900 p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400">
-                <Zap className="h-5 w-5 text-gray-950" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-yellow-400">
-                  Pro Subscription Active
-                </h2>
-                <p className="text-xs text-stone-500">
-                  You're enjoying 5% platform fees and custom branding
-                </p>
-              </div>
-            </div>
-            {profile?.slug && (
-              <div className="mt-3 rounded-lg bg-slate-800/50 px-3 py-2">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-stone-500">
-                  Your Custom Link
-                </p>
-                <p className="text-sm font-medium text-blue-400">
-                  storage-network.app/design?installer={profile.slug}
-                </p>
-              </div>
-            )}
-          </section>
+        {/* Pro Subscription Management (Pro users only) */}
+        {isPro && profile && (
+          <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
         )}
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}
