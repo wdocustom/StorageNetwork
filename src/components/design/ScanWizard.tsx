@@ -23,7 +23,7 @@ type WizardStep =
 interface ScanWizardProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (wallWidth: number, wallHeight?: number, toteType: "HDX" | "GM") => void;
+  onComplete: (wallWidth: number, wallHeight: number | undefined, toteType: "HDX" | "GM") => void;
 }
 
 // ── Barcode Scanner Hook ────────────────────────────────────────────────────
