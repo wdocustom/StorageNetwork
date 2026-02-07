@@ -15,10 +15,15 @@ const TOTE_WIDTHS = {
 
 type ToteType = keyof typeof TOTE_WIDTHS;
 type UnitType = "standard" | "mini";
+type Orientation = "standard" | "sideways";
 
 const POST_WIDTH = 1.5; // 2×4 vertical post
 const TIER_HEIGHT = 16; // inches per tier (vertical spacing) - Standard
 const PRICE_PER_SLOT = 30; // dollars per opening - Standard
+
+// Sideways orientation constants (27-gal totes rotated 90°)
+const SIDEWAYS_SLOT_WIDTH = 30.25; // Tote depth becomes slot width
+const SIDEWAYS_DEPTH = 20; // Tote width becomes unit depth
 
 // Mini unit constants
 const MINI_SLOT_WIDTH = 8.25; // Mini slot width
@@ -60,6 +65,7 @@ export interface AddOns {
   includeWheels: boolean;
   includePlywoodTop: boolean;
   unitType?: UnitType;
+  orientation?: Orientation;
 }
 
 export interface LineItem {
@@ -85,15 +91,31 @@ export interface CalculationResult {
 export async function getMaxFit(
   wallWidth: number,
   wallHeight: number,
-  toteType: string
+  toteType: string,
+  unitType: UnitType = "standard",
+  orientation: Orientation = "standard"
 ): Promise<{ maxCols: number; maxRows: number }> {
-  const key = toteType.toLowerCase() as ToteType;
-  const toteWidth = TOTE_WIDTHS[key] ?? TOTE_WIDTHS.hdx;
+  // Determine slot width based on unit type and orientation
+  let slotWidth: number;
+  let tierHeight: number;
+
+  if (unitType === "mini") {
+    slotWidth = MINI_SLOT_WIDTH;
+    tierHeight = MINI_TIER_HEIGHT;
+  } else if (orientation === "sideways") {
+    slotWidth = SIDEWAYS_SLOT_WIDTH;
+    tierHeight = TIER_HEIGHT;
+  } else {
+    const key = toteType.toLowerCase() as ToteType;
+    slotWidth = TOTE_WIDTHS[key] ?? TOTE_WIDTHS.hdx;
+    tierHeight = TIER_HEIGHT;
+  }
+
   const maxCols = Math.max(
     1,
-    Math.floor((wallWidth - POST_WIDTH) / (toteWidth + POST_WIDTH))
+    Math.floor((wallWidth - POST_WIDTH) / (slotWidth + POST_WIDTH))
   );
-  const maxRows = Math.max(1, Math.floor(wallHeight / TIER_HEIGHT));
+  const maxRows = Math.max(1, Math.floor(wallHeight / tierHeight));
   return { maxCols, maxRows };
 }
 
@@ -134,18 +156,39 @@ export async function calculateShelfMaterials(
   }
 
   const unitType: UnitType = addOns?.unitType ?? "standard";
+  const orientation: Orientation = addOns?.orientation ?? "standard";
   const isMini = unitType === "mini";
+  const isSideways = unitType === "standard" && orientation === "sideways";
 
-  const toteWidth = isMini ? MINI_SLOT_WIDTH : TOTE_WIDTHS[check.tote];
+  // Determine slot width based on unit type and orientation
+  let toteWidth: number;
+  if (isMini) {
+    toteWidth = MINI_SLOT_WIDTH;
+  } else if (isSideways) {
+    toteWidth = SIDEWAYS_SLOT_WIDTH;
+  } else {
+    toteWidth = TOTE_WIDTHS[check.tote];
+  }
+
   const tierHeight = isMini ? MINI_TIER_HEIGHT : TIER_HEIGHT;
   const pricePerSlot = isMini ? MINI_PRICE_PER_SLOT : PRICE_PER_SLOT;
-  const unitDepth = isMini ? MINI_DEPTH : 30;
+
+  // Determine depth based on unit type and orientation
+  let unitDepth: number;
+  if (isMini) {
+    unitDepth = MINI_DEPTH;
+  } else if (isSideways) {
+    unitDepth = SIDEWAYS_DEPTH;
+  } else {
+    unitDepth = 30; // Standard depth
+  }
 
   const opts: AddOns = addOns ?? {
     includeTotes: false,
     includeWheels: false,
     includePlywoodTop: false,
     unitType: "standard",
+    orientation: "standard",
   };
 
   // For Mini units, plywood top is always included (mandatory)
@@ -204,7 +247,8 @@ export async function calculateShelfMaterials(
     });
 
   } else {
-    // Standard unit cut list (original logic)
+    // Standard unit cut list (works for both standard and sideways orientation)
+    const orientationSuffix = isSideways ? " (Sideways)" : "";
     const verticalPostQty = cols + 1;
     const railLength = totalWidth - POST_WIDTH * 2;
     const horizontalRailSets = rows + 1; // Top + bottom + intermediate
@@ -212,33 +256,33 @@ export async function calculateShelfMaterials(
     const shelfQty = rows;
 
     cut_list.push({
-      part_name: "Vertical Post (2×4)",
+      part_name: `Vertical Post (2×4)${orientationSuffix}`,
       length: parseFloat(totalHeight.toFixed(2)),
       qty: verticalPostQty,
     });
 
     cut_list.push({
-      part_name: "Horizontal Rail (2×4)",
+      part_name: `Horizontal Rail (2×4)${orientationSuffix}`,
       length: parseFloat(railLength.toFixed(2)),
       qty: horizontalRailQty,
     });
 
     cut_list.push({
-      part_name: "Shelf Platform (plywood/OSB)",
+      part_name: `Shelf Platform (plywood/OSB) ${unitDepth}" deep`,
       length: parseFloat(railLength.toFixed(2)),
       qty: shelfQty,
     });
 
     // Top plates (2x4) for standard units
     cut_list.push({
-      part_name: "Top Plate (2×4)",
+      part_name: `Top Plate (2×4)${orientationSuffix}`,
       length: parseFloat(totalWidth.toFixed(2)),
       qty: 2, // Front and back
     });
 
     // Bottom plates (2x4) for standard units
     cut_list.push({
-      part_name: "Bottom Plate (2×4)",
+      part_name: `Bottom Plate (2×4)${orientationSuffix}`,
       length: parseFloat(totalWidth.toFixed(2)),
       qty: 2, // Front and back
     });
@@ -276,7 +320,7 @@ export async function calculateShelfMaterials(
     screwBoxes = Math.ceil((baseScrews + topScrews + railScrews) / 100);
 
   } else {
-    // Standard shopping list (original logic)
+    // Standard shopping list (works for both standard and sideways orientation)
     const verticalPostQty = cols + 1;
     const railLength = totalWidth - POST_WIDTH * 2;
     const horizontalRailSets = rows + 1;
@@ -288,7 +332,8 @@ export async function calculateShelfMaterials(
     const totalLinearInches = totalVerticalLinear + totalHorizontalLinear + totalPlateLinear;
     studsNeeded = Math.ceil(totalLinearInches / STUD_LENGTH);
 
-    const shelfDepth = 20;
+    // Use unitDepth which reflects orientation (30" standard, 20" sideways)
+    const shelfDepth = unitDepth;
     const shelvesAcrossLength = Math.max(1, Math.floor(SHEET_L / railLength));
     const shelvesAcrossWidth = Math.max(1, Math.floor(SHEET_W / shelfDepth));
     const shelvesPerSheet = shelvesAcrossLength * shelvesAcrossWidth;
@@ -307,7 +352,14 @@ export async function calculateShelfMaterials(
 
   // -- Line items & pricing -------------------------------------------------
   const basePrice = totalSlots * pricePerSlot;
-  const unitLabel = isMini ? "Mini" : "Standard";
+  let unitLabel: string;
+  if (isMini) {
+    unitLabel = "Mini";
+  } else if (isSideways) {
+    unitLabel = "Standard (Sideways)";
+  } else {
+    unitLabel = "Standard";
+  }
 
   const line_items: LineItem[] = [
     {

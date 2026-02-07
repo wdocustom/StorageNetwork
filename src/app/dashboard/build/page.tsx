@@ -56,7 +56,10 @@ export default function BuildConfiguratorPage() {
     price: number;
     totalW: number;
     totalH: number;
+    depth: number;
     slots: number;
+    unitType: "standard" | "mini";
+    orientation: "standard" | "sideways";
   } | null>(null);
   const [manifest, setManifest] = useState<BuildManifest | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -142,7 +145,10 @@ export default function BuildConfiguratorPage() {
         price: res.price,
         totalW: res.dimensions.totalW,
         totalH: res.dimensions.totalH,
+        depth: res.dimensions.depth,
         slots: res.config.slots,
+        unitType: res.config.unitType,
+        orientation: res.config.orientation,
       };
       setBuildResult(result);
 
@@ -151,12 +157,15 @@ export default function BuildConfiguratorPage() {
         cols: res.cols,
         rows: res.rows,
         toteType,
+        unitType: res.config.unitType,
+        orientation: res.config.orientation,
         hasTotes,
         hasWheels,
         hasTop,
         price: res.price,
         totalW: res.dimensions.totalW,
         totalH: res.dimensions.totalH,
+        depth: res.dimensions.depth,
         desc: `${res.cols} Wide × ${res.rows} High`,
       };
       setManifest(generateBuildManifest([unit]));
@@ -185,12 +194,15 @@ export default function BuildConfiguratorPage() {
         cols: buildResult.cols,
         rows: buildResult.rows,
         toteType,
+        unitType: buildResult.unitType,
+        orientation: buildResult.orientation,
         hasTotes,
         hasWheels,
         hasTop,
         price: buildResult.price,
         totalW: buildResult.totalW,
         totalH: buildResult.totalH,
+        depth: buildResult.depth,
         desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
       };
 
