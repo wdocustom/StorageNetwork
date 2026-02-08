@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { sendInstallerOnboardingEmail } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
@@ -83,7 +84,17 @@ export async function onboardInstaller(
 
     console.log("✅ Installer account created:", userId);
 
-    // 3. Redirect to dashboard (no Stripe step)
+    // 3. Send welcome email with fee structure
+    const displayName = businessName.trim() || firstName || name.trim();
+    await sendInstallerOnboardingEmail(email.trim().toLowerCase(), {
+      name: displayName,
+      isPro: false,
+    }).catch((err) => {
+      // Don't fail onboarding if email fails
+      console.error("[Onboard] Welcome email failed:", err);
+    });
+
+    // 4. Redirect to dashboard (no Stripe step)
     return { success: true, redirectUrl: "/dashboard" };
   } catch (err) {
     console.error("[Onboard] FULL ERROR:", err);
