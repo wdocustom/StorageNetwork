@@ -124,6 +124,7 @@ export default function BookingModal({
     const result = await createDepositIntent({
       leadId,
       amount: depositAmount,
+      totalPrice,
       installerId,
       source,
       customerEmail,
@@ -139,7 +140,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, installerId, source, customerEmail, customerName]);
+  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName]);
 
   if (!isOpen) return null;
 

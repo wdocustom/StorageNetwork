@@ -326,6 +326,7 @@ export type LeadSource = "platform" | "partner_link";
 export interface DepositIntentInput {
   leadId: string;
   amount: number;                    // Deposit amount in dollars
+  totalPrice: number;                // Total job price in dollars (for fee calculation)
   installerId: string;               // Supabase user ID of installer
   source: LeadSource;                // Where the lead came from
   customerEmail?: string;
@@ -342,20 +343,26 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, installerId, source, customerEmail, customerName, scheduledAt } = input;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt } = input;
 
-  if (!leadId || !amount || !installerId) {
+  if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
   }
 
   try {
     const amountCents = Math.round(amount * 100);
+    const totalPriceCents = Math.round(totalPrice * 100);
 
     // ── Determine fee routing based on source + Pro status ───────────────
     //
     // Platform Lead:          100% to Platform (no destination charge)
     // Partner Link + Non-Pro: 100% to Platform (no destination charge)
     // Partner Link + Pro:     10% to Installer, 5% to Platform (destination charge)
+    //
+    // IMPORTANT: The 5% platform fee is calculated from the TOTAL job price,
+    // not from the deposit amount. This ensures:
+    //   - Platform gets 5% of total
+    //   - Installer gets 10% of total (deposit minus platform fee)
     //
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
@@ -367,9 +374,11 @@ export async function createDepositIntent(
     let paymentIntent;
 
     if (routeToInstaller && installerStripeId) {
-      // ── Pro Partner Link: Destination charge with 5% platform fee ────
-      // Installer receives 10% of the total (amount - platform fee)
-      const platformFeeCents = Math.round(amountCents * PRO_PLATFORM_FEE_RATE);
+      // ── Pro Partner Link: Destination charge ────────────────────────────
+      // Fee is calculated from TOTAL job price, not deposit:
+      //   - Platform fee: 5% of total
+      //   - Installer receives: deposit - platform fee = 10% of total
+      const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE);
 
       paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents,
@@ -398,7 +407,7 @@ export async function createDepositIntent(
         },
       });
 
-      console.log(`[Deposit] Pro Partner Link: $${amount} → Installer gets $${(amountCents - platformFeeCents) / 100}, Platform gets $${platformFeeCents / 100}`);
+      console.log(`[Deposit] Pro Partner Link: Total $${totalPrice} | Deposit $${amount} → Installer gets $${(amountCents - platformFeeCents) / 100} (10%), Platform gets $${platformFeeCents / 100} (5%)`);
     } else {
       // ── Platform Lead OR Non-Pro Partner Link: All to Platform ───────
       // No destination charge — entire deposit goes to platform account
