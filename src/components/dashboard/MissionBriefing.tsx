@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import SocialGenerator from "@/components/dashboard/SocialGenerator";
+import { getInstallerLink } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Quick Start Guide — New installer onboarding widget
@@ -20,6 +21,8 @@ import SocialGenerator from "@/components/dashboard/SocialGenerator";
 
 interface MissionBriefingProps {
   userId: string;
+  slug?: string | null;
+  isPro?: boolean;
 }
 
 const STEPS = [
@@ -40,15 +43,15 @@ const STEPS = [
   },
 ] as const;
 
-export default function MissionBriefing({ userId }: MissionBriefingProps) {
+export default function MissionBriefing({ userId, slug, isPro }: MissionBriefingProps) {
   const [activeStep, setActiveStep] = useState(1);
   const [copied, setCopied] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const bookingLink = `${baseUrl}/design?installer_id=${userId}`;
+  // Use the centralized link generator (handles Pro/Basic links)
+  const bookingLink = getInstallerLink({ id: userId, slug, is_pro: isPro });
 
   function copyLink() {
     navigator.clipboard.writeText(bookingLink);
@@ -137,7 +140,7 @@ export default function MissionBriefing({ userId }: MissionBriefingProps) {
                   className="flex items-center gap-1.5 rounded border border-slate-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-700"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  Launch Configurator
+                  Open Link
                 </a>
               </div>
             </div>

@@ -248,7 +248,7 @@ export default function DashboardPage() {
         <div className="mx-auto grid w-full max-w-lg gap-4">
           {/* ── Mission Briefing (new installers only) ────────────── */}
           {completedCount === 0 && profile && (
-            <MissionBriefing userId={profile.id} />
+            <MissionBriefing userId={profile.id} slug={profile.slug} isPro={profile.is_pro} />
           )}
 
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}

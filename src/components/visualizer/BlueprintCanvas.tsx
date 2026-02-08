@@ -214,15 +214,21 @@ export default function BlueprintCanvas({
           ctx.fillRect(tX, railY - lidH, tW, lidH);
           ctx.strokeRect(tX, railY - lidH, tW, lidH);
 
-          // Tote body (connects directly to bottom of lid, not below the rail)
+          // Tote body (connects directly to bottom of lid, hangs down)
           const bodyW = tW * 0.9;
           const bodyX = tX + (tW - bodyW) / 2;
           const bodyY = railY; // Body starts at bottom of lid (top of rail)
+
+          // Clamp tote body so it doesn't extend below the bottom plate
+          const bottomPlateTop = startY + pFrameH - pPlate;
+          const maxBodyH = Math.max(0, bottomPlateTop - bodyY);
+          const clampedBodyH = Math.min(tH, maxBodyH);
+
           ctx.fillStyle = isMini ? "#cbd5e1" : "#1e293b"; // Light slate for mini (clear look), dark for standard
           ctx.strokeStyle = isMini ? "#64748b" : "#0f172a";
           ctx.lineWidth = isMini ? 1.5 : 2;
-          ctx.fillRect(bodyX, bodyY, bodyW, tH);
-          ctx.strokeRect(bodyX, bodyY, bodyW, tH);
+          ctx.fillRect(bodyX, bodyY, bodyW, clampedBodyH);
+          ctx.strokeRect(bodyX, bodyY, bodyW, clampedBodyH);
           ctx.lineWidth = 2; // Reset line width
         }
       }

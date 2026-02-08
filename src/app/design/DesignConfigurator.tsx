@@ -590,14 +590,21 @@ export default function DesignConfigurator({
                 Auto-Fit Wall Calculator
               </h2>
 
-              {/* Scan Wall Button */}
-              <button
-                onClick={() => setShowScanWizard(true)}
-                className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-yellow-400 bg-yellow-50 py-3 text-sm font-bold uppercase tracking-wide text-yellow-700 transition-colors hover:bg-yellow-100"
-              >
-                <Scan className="h-5 w-5" />
-                Scan Wall with AI
-              </button>
+              {/* Scan Wall Button - Coming Soon */}
+              <div className="relative mb-3">
+                <button
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 border-dashed border-stone-300 bg-stone-100 py-3 text-sm font-bold uppercase tracking-wide text-stone-400"
+                >
+                  <Scan className="h-5 w-5" />
+                  Scan Wall with AI
+                </button>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-gray-900 shadow-lg">
+                    Coming Soon
+                  </span>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
