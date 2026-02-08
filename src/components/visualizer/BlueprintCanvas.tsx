@@ -147,31 +147,20 @@ export default function BlueprintCanvas({
     ctx.fillRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
     ctx.strokeRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
 
-    // ── Top plate / Plywood top ──
-    if (isMini) {
-      // Mini: No 2x4 top plate. Draw solid 3/4" plywood top sitting on posts.
-      if (hasTop) {
-        const topThick = PLY_TOP_H * scale;
-        const overhang = 1 * scale;
-        ctx.fillStyle = plywoodFill;
-        ctx.fillRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-        ctx.strokeRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-        ctx.fillStyle = woodFill;
-      }
-    } else {
-      // Standard: Draw 2x4 top plate
+    // ── Top 2x4 plate (Standard only - Mini has no 2x4 top plate) ──
+    if (!isMini) {
       ctx.fillRect(startX, startY, pTotalW, pPlate);
       ctx.strokeRect(startX, startY, pTotalW, pPlate);
     }
 
     // ── Vertical posts ──
-    // Mini: posts go from bottom plate to just above top rail (no top 2x4)
+    // Mini: posts go from plywood top (at startY) down to bottom plate
     // Standard: posts go between bottom and top 2x4 plates
     const postH = isMini
-      ? (RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2) * scale // Posts up to top rail + clearance
+      ? pFrameH - pPlate // Posts from top of frame to top of bottom plate
       : pFrameH - pPlate * 2;
     const postY = isMini
-      ? startY + PLY_TOP_H * scale // Posts start below plywood top
+      ? startY // Posts start at frame top (connects to plywood)
       : startY + pPlate;
 
     for (let i = 0; i <= cols; i++) {
@@ -239,8 +228,9 @@ export default function BlueprintCanvas({
       }
     }
 
-    // ── Plywood top for Standard units (optional) ──
-    if (hasTop && !isMini) {
+    // ── Plywood top (optional - for both Mini and Standard) ──
+    // Drawn AFTER posts so it appears to sit on top of them
+    if (hasTop) {
       const topThick = PLY_TOP_H * scale;
       const overhang = 1 * scale;
       ctx.fillStyle = plywoodFill;
