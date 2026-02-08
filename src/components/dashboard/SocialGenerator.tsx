@@ -11,17 +11,22 @@ const TEMPLATES = {
   standard: {
     label: "Standard",
     text: (link: string) =>
-      `I'm now a certified installer for the Storage Network. Use my 3D design tool to build your custom garage storage. Link below:\n\n${link}`,
+      `Tired of clutter taking over your space? 🗂️ I install custom tote storage systems that transform any room — garages, basements, sheds, you name it. Design yours in 30 seconds with my free 3D tool:\n\n${link}`,
   },
   urgent: {
     label: "Urgent",
     text: (link: string) =>
-      `I have two install slots open for next week! Design your unit in 30 seconds and book me directly here:\n\n${link}`,
+      `🚨 I have 3 install spots open this week! These heavy-duty tote organizers are flying off the shelves. Design your custom setup and lock in your spot before they're gone:\n\n${link}`,
   },
   casual: {
     label: "Casual",
     text: (link: string) =>
-      `Check out this 3D builder I'm using for client storage jobs. Let me know if you want a quote:\n\n${link}`,
+      `Finally found a storage solution that actually works 💪 Custom-built tote systems for any space. Check out my 3D design tool — takes 30 seconds to see what fits your wall:\n\n${link}`,
+  },
+  valuedriven: {
+    label: "Value-Driven",
+    text: (link: string) =>
+      `Stop buying cheap shelving that falls apart. My heavy-duty tote storage systems are built to last and hold 1000+ lbs per unit. See what fits your space:\n\n${link}`,
   },
 } as const;
 
