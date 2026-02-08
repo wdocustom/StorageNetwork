@@ -419,6 +419,135 @@ export async function sendPaymentReceivedAlert(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Installer Onboarding Welcome
+// Trigger: New installer signs up / completes registration
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendInstallerOnboardingEmail(
+  email: string,
+  data: {
+    name: string;
+    isPro?: boolean;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const upgradeUrl = `${getAppUrl()}/upgrade`;
+
+  const html = emailShell(
+    "Welcome to Storage Network",
+    `
+    <!-- Hero Welcome -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <p style="margin:0 0 8px;font-size:32px;">&#128075;</p>
+      <p style="margin:0;color:#334155;font-size:18px;font-weight:700;">Welcome aboard, ${data.name}!</p>
+    </div>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      You&rsquo;ve just joined a growing network of skilled installers building custom tote storage systems
+      for customers across the country. Here&rsquo;s everything you need to know to get started.
+    </p>
+
+    <!-- How It Works -->
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">How It Works</p>
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;width:32px;font-size:20px;">1&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Leads come to you</strong> — Customers design their system and pay a deposit. You get notified instantly.</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;font-size:20px;">2&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Everything&rsquo;s ready</strong> — Each job includes a cut list, materials list, and step-by-step assembly guide.</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;font-size:20px;">3&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Get paid fast</strong> — Collect the balance on-site with one tap. Funds go straight to your bank.</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Fee Structure Comparison -->
+    <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Simple, Transparent Pricing</p>
+
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:separate;border-spacing:12px 0;">
+        <tr>
+          <!-- Free Plan -->
+          <td style="width:50%;vertical-align:top;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+            <div style="text-align:center;margin-bottom:16px;">
+              <span style="display:inline-block;background-color:#64748b;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Free</span>
+            </div>
+            <p style="margin:0 0 4px;text-align:center;color:#1e293b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
+            <p style="margin:0 0 16px;text-align:center;color:#334155;font-size:28px;font-weight:900;">15%</p>
+            <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
+              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Automated leads in your ZIP</p>
+              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Cut lists &amp; material guides</p>
+              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; One-tap payment collection</p>
+              <p style="margin:0;color:#64748b;font-size:12px;">&#10003; Direct bank payouts</p>
+            </div>
+          </td>
+
+          <!-- Pro Plan -->
+          <td style="width:50%;vertical-align:top;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;position:relative;">
+            <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:9px;font-weight:900;padding:4px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;">Recommended</div>
+            <div style="text-align:center;margin-bottom:16px;">
+              <span style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Pro</span>
+            </div>
+            <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
+            <p style="margin:0;text-align:center;color:#facc15;font-size:28px;font-weight:900;">5%</p>
+            <p style="margin:0 0 16px;text-align:center;color:#94a3b8;font-size:11px;">on your direct leads</p>
+            <div style="border-top:1px solid #475569;padding-top:16px;">
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Everything in Free, plus:</p>
+              <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 5% on partner link leads</p>
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Custom branded partner link</p>
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Priority lead routing</p>
+              <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools &amp; QR codes</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Savings Example -->
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;color:#16a34a;font-size:13px;line-height:1.6;">
+        <strong>&#128176; Pro Math:</strong> On a $1,500 job from your own customer, Free takes $225 in fees.
+        Pro takes just $75 &mdash; that&rsquo;s <strong>$150 more in your pocket</strong>.
+      </p>
+    </div>
+
+    <!-- CTA Buttons -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+        Open Dashboard
+      </a>
+      ${!data.isPro ? `<a href="${upgradeUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
+        Upgrade to Pro
+      </a>` : ""}
+    </div>
+
+    <!-- Closing -->
+    <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;margin-bottom:16px;">
+      <p style="margin:0;color:#1e293b;font-size:16px;font-weight:700;">
+        We look forward to building with you! &#128170;
+      </p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Just reply to this email &mdash; we&rsquo;re here to help.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Welcome to Storage Network — Let's Build!",
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Template: Installer Welcome
 // Trigger: Stripe onboarding complete
 // ═══════════════════════════════════════════════════════════════════════════
