@@ -94,6 +94,10 @@ function ProfilePageInner() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeMessage, setStripeMessage] = useState("");
 
+  // Deactivate state
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
   // Pro subscription state
   const [proMessage, setProMessage] = useState("");
 
@@ -684,23 +688,50 @@ function ProfilePageInner() {
             Deactivate your account. Your data will be preserved but your profile
             will be hidden from the platform.
           </p>
-          <button
-            onClick={async () => {
-              if (!profile?.id) return;
-              if (!confirm("Are you sure you want to deactivate your account? This will hide your profile from customers.")) return;
-              const result = await deactivateAccount(profile.id);
-              if (result.success) {
-                alert("Account deactivated. You will be signed out.");
-                await supabase.auth.signOut();
-                window.location.href = "/";
-              } else {
-                alert("Failed to deactivate: " + (result.error || "Unknown error"));
-              }
-            }}
-            className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
-          >
-            Deactivate Account
-          </button>
+
+          {!showDeactivateConfirm ? (
+            <button
+              onClick={() => setShowDeactivateConfirm(true)}
+              className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
+            >
+              Deactivate Account
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-700 bg-red-950/50 p-4">
+              <p className="mb-3 text-sm font-semibold text-red-300">
+                Are you sure? This will hide your profile from customers.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!profile?.id) return;
+                    setDeactivating(true);
+                    const result = await deactivateAccount(profile.id);
+                    if (result.success) {
+                      await supabase.auth.signOut();
+                      window.location.href = "/";
+                    } else {
+                      setDeactivating(false);
+                      setShowDeactivateConfirm(false);
+                      setSaveMessage("Failed to deactivate: " + (result.error || "Unknown error"));
+                    }
+                  }}
+                  disabled={deactivating}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-red-500 disabled:opacity-50"
+                >
+                  {deactivating && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {deactivating ? "Deactivating..." : "Yes, Deactivate"}
+                </button>
+                <button
+                  onClick={() => setShowDeactivateConfirm(false)}
+                  disabled={deactivating}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── Plan Badge ────────────────────────────────────────────────── */}

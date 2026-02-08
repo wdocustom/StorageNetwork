@@ -70,17 +70,62 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
     // 3. Generate an Account Link for onboarding
     const { getAppUrl } = await import("@/lib/url-helper");
     const baseUrl = getAppUrl();
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      refresh_url: `${baseUrl}/dashboard/profile?stripe=refresh`,
-      return_url: `${baseUrl}/dashboard/profile?stripe=success`,
-      type: "account_onboarding",
-    });
 
-    return {
-      success: true,
-      url: accountLink.url,
-    };
+    try {
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: `${baseUrl}/dashboard/profile?stripe=refresh`,
+        return_url: `${baseUrl}/dashboard/profile?stripe=success`,
+        type: "account_onboarding",
+      });
+
+      return {
+        success: true,
+        url: accountLink.url,
+      };
+    } catch (linkError: unknown) {
+      // If account link fails (account doesn't exist on this platform),
+      // clear the old ID and create a fresh account
+      const errorMessage = linkError instanceof Error ? linkError.message : String(linkError);
+      if (errorMessage.includes("not connected to your platform") ||
+          errorMessage.includes("does not exist")) {
+        console.log("[Stripe] Invalid account ID, creating fresh account for user:", userId);
+
+        // Create a new account
+        const newAccount = await stripe.accounts.create({
+          type: "standard",
+          email: profile?.email || undefined,
+          metadata: {
+            supabase_user_id: userId,
+          },
+        });
+
+        // Update database with new account ID
+        await supabase
+          .from("profiles")
+          .update({
+            stripe_account_id: newAccount.id,
+            stripe_details_submitted: false,
+          })
+          .eq("id", userId);
+
+        // Generate account link for new account
+        const accountLink = await stripe.accountLinks.create({
+          account: newAccount.id,
+          refresh_url: `${baseUrl}/dashboard/profile?stripe=refresh`,
+          return_url: `${baseUrl}/dashboard/profile?stripe=success`,
+          type: "account_onboarding",
+        });
+
+        return {
+          success: true,
+          url: accountLink.url,
+        };
+      }
+
+      // Re-throw if it's a different error
+      throw linkError;
+    }
   } catch (err) {
     console.error("Stripe Connect error:", err);
     return {
