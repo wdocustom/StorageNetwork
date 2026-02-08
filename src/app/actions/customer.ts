@@ -81,10 +81,12 @@ export async function checkAvailability(
   try {
     // Primary: search the service_zips array (covers radius)
     // Sort by Pro status (Pro first), then by current_month_leads (lowest first)
+    // Only include active installers
     const { data: matches, error } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
       .contains("service_zips", [trimmed])
+      .neq("active", false)  // Exclude deactivated accounts
       .order("is_pro", { ascending: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
