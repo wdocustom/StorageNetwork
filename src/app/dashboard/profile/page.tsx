@@ -315,7 +315,9 @@ function ProfilePageInner() {
     );
   }
 
-  const isPro = profile?.is_pro === true;
+  // isPro: true if database says so OR if just returned from successful checkout
+  // (webhook may still be processing, so we trust the success redirect)
+  const isPro = profile?.is_pro === true || proParam === "success";
 
   return (
     <div className="min-h-screen bg-slate-950">
