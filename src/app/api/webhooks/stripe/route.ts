@@ -365,7 +365,7 @@ export async function POST(request: NextRequest) {
       const amountPaidPI = (paymentIntent.amount || 0) / 100;
       console.log("[Webhook] payment_intent.succeeded for lead:", leadId, "| type:", paymentType, "| amount:", amountPaidPI);
 
-      if (paymentType === "booking") {
+      if (paymentType === "booking" || paymentType === "deposit") {
         // ── DEPOSIT via BookingModal (inline Stripe Elements) ──────────
         try {
           const updatePayload: Record<string, unknown> = {

@@ -120,8 +120,8 @@ export async function createPaymentSession(
         },
       },
       customer_email: customerEmail || undefined,
-      success_url: `${baseUrl}/dashboard/leads/${leadId}?payment=success`,
-      cancel_url: `${baseUrl}/dashboard/leads/${leadId}?payment=cancelled`,
+      success_url: `${baseUrl}/payment/success?job=${leadId}`,
+      cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
       metadata: {
         lead_id: leadId,
         type: "final_payment",
