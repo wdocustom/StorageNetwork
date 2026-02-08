@@ -392,15 +392,17 @@ export async function POST(request: NextRequest) {
           // Extract all relevant data from metadata
           const customerEmail = metadata.customer_email || paymentIntent.receipt_email || null;
           const customerName = metadata.customer_name || null;
-          const source = metadata.source || "platform"; // Default to platform if not specified
           const scheduledAt = metadata.scheduled_at || null;
 
+          // NOTE: Do NOT overwrite source here. It's already set correctly when
+          // the lead is created (submitNetworkLead) and when deposit is initiated
+          // (createDepositIntent). Overwriting with metadata.source can cause issues
+          // if metadata is empty/undefined.
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
             deposit_amount: amountPaidPI,
             payout_status: "deposit_collected",
             status: "open",
-            source, // Save the lead source!
             updated_at: new Date().toISOString(),
           };
 
@@ -425,7 +427,7 @@ export async function POST(request: NextRequest) {
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
           } else {
-            console.log("[Webhook] Deposit recorded for lead:", leadId, "| source:", source, "| email:", customerEmail);
+            console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);
