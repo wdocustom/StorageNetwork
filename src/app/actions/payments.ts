@@ -512,70 +512,9 @@ export async function verifyAndConfirmDeposit(
 
     console.log("[VerifyDeposit] Deposit confirmed for lead:", leadId);
 
-    // 4. Fire emails (non-blocking)
-    import("@/lib/email").then(async ({ sendBookingConfirmation, sendNewLeadAlert }) => {
-      try {
-        // Resolve installer info
-        let installerName = "Your Installer";
-        let installerPhone: string | undefined;
-        let installerAvatar: string | undefined;
-
-        if (lead.installer_id) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("first_name, last_name, business_name, phone, avatar_url")
-            .eq("id", lead.installer_id)
-            .single();
-          if (profile) {
-            installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
-            installerPhone = profile.phone || undefined;
-            installerAvatar = profile.avatar_url || undefined;
-          }
-        }
-
-        const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-        const customerEmail = lead.customer_email || pi.receipt_email;
-        const customerName = lead.customer_name || "Customer";
-
-        // Customer confirmation
-        if (customerEmail) {
-          await sendBookingConfirmation({
-            customerName,
-            customerEmail,
-            installerName,
-            installerPhone,
-            installerAvatarUrl: installerAvatar,
-            scheduledDate: lead.scheduled_at ?? "TBD",
-            address: lead.address ?? "Address Pending",
-            depositAmount: amountPaid,
-            totalPrice: lead.estimated_price ?? amountPaid,
-            jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
-            leadId,
-          });
-          console.log("[VerifyDeposit] Customer confirmation sent");
-        }
-
-        // Installer alert
-        if (lead.installer_id) {
-          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
-          const installerEmail = authUser?.user?.email;
-          if (installerEmail) {
-            const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
-            await sendNewLeadAlert(installerEmail, city, {
-              customerName,
-              customerEmail: customerEmail || undefined,
-              address: lead.address || undefined,
-              unitCount,
-              totalPrice: lead.estimated_price ?? amountPaid,
-              leadId,
-            });
-            console.log("[VerifyDeposit] Installer alert sent");
-          }
-        }
-      } catch (emailErr) {
-        console.error("[VerifyDeposit] Email error (non-fatal):", emailErr);
-      }
-    }).catch(console.error);
+    // NOTE: Emails are sent by the webhook (payment_intent.succeeded).
+    // This fallback only updates the DB if webhook missed it.
+    // Do NOT send emails here to avoid duplicates.
 
     return { success: true };
   } catch (stripeErr) {
