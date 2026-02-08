@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// 1. Initialize Stripe with your Secret Key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 export async function POST(request: Request) {
+  // Initialize Stripe inside handler to avoid build-time errors
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-12-15.clover",
+  });
+
   try {
     // 2. Create the Checkout Session
     const session = await stripe.checkout.sessions.create({
