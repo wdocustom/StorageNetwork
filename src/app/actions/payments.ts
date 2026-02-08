@@ -32,9 +32,7 @@ const supabase = createClient(
 const DEPOSIT_RATE = 0.15;           // 15% deposit from customer
 const PRO_PLATFORM_FEE_RATE = 0.05;  // 5% platform fee for Pro installers
 const PRO_INSTALLER_RATE = 0.10;     // 10% to installer for Pro (from the 15%)
-
-// For final payments (balance collection), Pro gets 95%
-const FINAL_PAYMENT_PLATFORM_FEE_RATE = 0.05;
+// Note: Balance payments have NO platform fee — platform already took their cut from deposit
 
 // ── Helper: Check if installer is Pro ────────────────────────────────────
 async function isInstallerPro(installerId: string): Promise<boolean> {
@@ -90,14 +88,15 @@ export async function createPaymentSession(
   }
 
   try {
-    // ── Black Box: Fee Calculation ──────────────────────────────────────
-    // Final payments (balance collection): 5% to Platform, 95% to Installer
+    // ── Balance Collection ───────────────────────────────────────────────
+    // Platform already collected their fee (15% or 5%) from the deposit.
+    // Balance goes 100% to installer via Stripe Connect — NO additional fee.
     const amountCents = Math.round(amount * 100);
-    const platformFeeCents = Math.round(amountCents * FINAL_PAYMENT_PLATFORM_FEE_RATE);
 
     const baseUrl = siteConfig.baseUrl;
 
     // ── Create Stripe Checkout Session with destination charge ──────────
+    // 100% of payment transfers to installer (no application_fee_amount)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -114,7 +113,7 @@ export async function createPaymentSession(
         },
       ],
       payment_intent_data: {
-        application_fee_amount: platformFeeCents,
+        // No application_fee_amount — platform already took their cut from deposit
         transfer_data: {
           destination: installerStripeId,
         },
@@ -125,7 +124,6 @@ export async function createPaymentSession(
       metadata: {
         lead_id: leadId,
         type: "final_payment",
-        platform_fee_cents: String(platformFeeCents),
         installer_stripe_id: installerStripeId,
       },
     });
