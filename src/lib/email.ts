@@ -360,6 +360,63 @@ export async function sendJobReceipt(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Payment Received Alert (Installer)
+// Trigger: Customer pays final balance via Stripe
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendPaymentReceivedAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    amountReceived: number;
+    jobTotal: number;
+    leadId: string;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
+
+  const html = emailShell(
+    "Payment Received",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      Great news! <strong>${data.customerName}</strong> just paid the remaining balance for their installation.
+    </p>
+
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 4px;color:#16a34a;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Payment Received</p>
+      <p style="margin:0;color:#16a34a;font-size:36px;font-weight:900;">$${data.amountReceived.toLocaleString()}</p>
+    </div>
+
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr><td style="padding:6px 0;color:#64748b;">Customer</td><td style="padding:6px 0;font-weight:600;text-align:right;">${data.customerName}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Job Total</td><td style="padding:6px 0;font-weight:600;text-align:right;">$${data.jobTotal.toLocaleString()}</td></tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+        View Job Ticket
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Funds will transfer to your connected bank account per your Stripe payout schedule.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: `Payment Received — $${data.amountReceived.toLocaleString()} from ${data.customerName}`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Template: Installer Welcome
 // Trigger: Stripe onboarding complete
 // ═══════════════════════════════════════════════════════════════════════════

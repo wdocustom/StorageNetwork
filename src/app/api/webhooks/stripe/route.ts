@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         console.error("[Webhook] Final payment update threw:", err);
       }
 
-      // Send receipt email
+      // Send emails: receipt to customer, payment alert to installer
       try {
         const { data: lead } = await supabase
           .from("leads")
@@ -106,22 +106,31 @@ export async function POST(request: NextRequest) {
           .eq("id", leadId)
           .single();
 
-        if (lead?.customer_email) {
-          const { sendJobReceipt } = await import("@/lib/email");
-          let installerName = "Your Installer";
-          if (lead.installer_id) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("first_name, last_name, business_name")
-              .eq("id", lead.installer_id)
-              .single();
-            if (profile) {
-              installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
-            }
+        const { sendJobReceipt, sendPaymentReceivedAlert } = await import("@/lib/email");
+        let installerName = "Your Installer";
+        let installerEmail: string | null = null;
+
+        if (lead?.installer_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, business_name")
+            .eq("id", lead.installer_id)
+            .single();
+          if (profile) {
+            installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
           }
-          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+          // Get installer's email from auth
+          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+          installerEmail = authUser?.user?.email || null;
+        }
+
+        const unitCount = Array.isArray(lead?.quote_data) ? lead.quote_data.length : 1;
+        const customerName = lead?.customer_name ?? "Customer";
+
+        // Send receipt to customer
+        if (lead?.customer_email) {
           await sendJobReceipt(lead.customer_email, {
-            customerName: lead.customer_name ?? "Customer",
+            customerName,
             installerName,
             totalAmount: lead.estimated_price ?? amountPaid,
             depositPaid: lead.deposit_amount ?? 0,
@@ -129,10 +138,22 @@ export async function POST(request: NextRequest) {
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
             completedDate: new Date().toISOString(),
           });
-          console.log("[Webhook] Receipt email sent for final payment");
+          console.log("[Webhook] Receipt email sent to customer");
+        }
+
+        // Send payment alert to installer
+        if (installerEmail) {
+          await sendPaymentReceivedAlert(installerEmail, {
+            installerName,
+            customerName,
+            amountReceived: amountPaid,
+            jobTotal: lead?.estimated_price ?? amountPaid,
+            leadId,
+          });
+          console.log("[Webhook] Payment alert sent to installer:", installerEmail);
         }
       } catch (emailErr: any) {
-        console.error("[Webhook] Receipt email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
+        console.error("[Webhook] Final payment email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
       }
 
       return NextResponse.json({ received: true });
