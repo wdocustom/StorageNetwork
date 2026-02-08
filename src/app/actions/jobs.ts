@@ -94,7 +94,7 @@ export async function markJobPaidManual(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// rescheduleJob — Update date + send reschedule email
+// rescheduleJob — Update date + send reschedule email (replies go to installer)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function rescheduleJob(
@@ -103,6 +103,7 @@ export async function rescheduleJob(
   customerEmail: string,
   customerName: string
 ) {
+  // Update the lead with new date
   await supabase
     .from("leads")
     .update({ scheduled_at: newDate, updated_at: new Date().toISOString() })
@@ -110,6 +111,15 @@ export async function rescheduleJob(
 
   if (customerEmail) {
     try {
+      // Fetch lead with installer profile to get installer's email
+      const { data: lead } = await supabase
+        .from("leads")
+        .select("installer_id, installers(email)")
+        .eq("id", leadId)
+        .single();
+
+      const installerEmail = (lead?.installers as { email?: string } | null)?.email || undefined;
+
       const formattedDate = new Date(newDate + "T12:00:00").toLocaleDateString(
         "en-US",
         { weekday: "long", month: "long", day: "numeric", year: "numeric" }
@@ -127,8 +137,9 @@ export async function rescheduleJob(
           </div>
           <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Questions? Reply to this email.</p>
         </div>`,
+        replyTo: installerEmail,
       });
-      console.log("[Reschedule] Email sent to:", customerEmail);
+      console.log("[Reschedule] Email sent to:", customerEmail, "| Reply-to:", installerEmail);
     } catch (err) {
       console.error("[Reschedule] Email failed:", err);
     }

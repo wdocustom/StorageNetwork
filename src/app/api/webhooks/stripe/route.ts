@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
+import { sendBookingConfirmation, sendNewLeadAlert, sendProWelcomeEmail } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -317,34 +317,8 @@ export async function POST(request: NextRequest) {
       console.warn("[Webhook] No customer email — skipping booking confirmation");
     }
 
-    // ── Send new job alert to installer ───────────────────────────────
-    if (resolvedInstallerId) {
-      try {
-        const { data: authUser } = await supabase.auth.admin.getUserById(resolvedInstallerId);
-        const installerEmail = authUser?.user?.email;
-
-        if (installerEmail) {
-          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-          const city = lead.address
-            ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
-            : "Unknown";
-
-          console.log("[Webhook] Sending lead alert to installer:", installerEmail);
-          const alertResult = await sendNewLeadAlert(installerEmail, city, {
-            customerName,
-            customerEmail: customerEmail || undefined,
-            address: lead.address || fullAddress || undefined,
-            unitCount,
-            totalPrice: lead.estimated_price ?? amountPaid,
-            leadId,
-          });
-          console.log("[Webhook] Lead alert result:", JSON.stringify(alertResult));
-        }
-      } catch (alertErr: any) {
-        console.error("[Webhook] Installer alert FAILED (Non-Fatal):", alertErr?.message ?? alertErr);
-        // DO NOT THROW.
-      }
-    }
+    // NOTE: Installer new lead alert is sent from payment_intent.succeeded handler.
+    // This prevents double-emailing since checkout sessions also trigger payment_intent.succeeded.
 
     console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
   }
@@ -357,8 +331,31 @@ export async function POST(request: NextRequest) {
     if (userId && subscription.status === "active") {
       console.log("[Webhook] Pro subscription activated for user:", userId);
       const result = await activateProSubscription(userId, subscription.id);
-      if (result.success) {
+      if (result.success && result.slug) {
         console.log("[Webhook] Pro activated, slug:", result.slug);
+
+        // Send Pro welcome email
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, business_name")
+            .eq("id", userId)
+            .single();
+
+          const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+          const email = authUser?.user?.email;
+
+          if (email && profile) {
+            const name = profile.business_name ||
+              [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+              "Partner";
+
+            await sendProWelcomeEmail(email, { name, slug: result.slug });
+            console.log("[Webhook] Pro welcome email sent to:", email);
+          }
+        } catch (emailErr) {
+          console.error("[Webhook] Pro welcome email failed:", emailErr);
+        }
       } else {
         console.error("[Webhook] Pro activation failed:", result.error);
       }

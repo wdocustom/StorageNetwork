@@ -25,6 +25,7 @@ export interface SendEmailParams {
   subject: string;
   html: string;
   senderName?: string;
+  replyTo?: string;
 }
 
 export interface SendEmailResult {
@@ -41,13 +42,13 @@ const SENDER_NAME = process.env.RESEND_SENDER_NAME || "Storage Network";
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, senderName } = params;
+  const { to, subject, html, senderName, replyTo } = params;
 
   console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 
   // Development safety trap — log instead of sending
   if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY) {
-    console.log("[Email DEV] Would send:", { to, subject });
+    console.log("[Email DEV] Would send:", { to, subject, replyTo });
     return { success: true, messageId: "dev-" + Date.now() };
   }
 
@@ -63,6 +64,7 @@ export async function sendTransactionalEmail(
       to: [to],
       subject,
       html,
+      ...(replyTo && { reply_to: replyTo }),
     });
 
     if (error) {
@@ -100,7 +102,7 @@ function emailShell(title: string, body: string): string {
     <div style="background-color:#ffffff;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);overflow:hidden;">
       <!-- Header with Logo -->
       <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:28px 32px;text-align:center;">
-        <img src="${logoUrl}" alt="Storage Network" width="64" height="64" style="border-radius:50%;margin-bottom:12px;" />
+        <img src="${logoUrl}" alt="Storage Network" style="max-width:64px;max-height:64px;width:auto;height:auto;margin-bottom:12px;" />
         <h1 style="margin:0;color:#facc15;font-size:22px;font-weight:700;letter-spacing:-0.3px;">${title}</h1>
       </div>
       <!-- Body -->
@@ -229,7 +231,7 @@ export async function sendBookingConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Order Confirmed: Garage Storage Installation — ${formattedDate}`,
+    subject: `Order Confirmed: Tote Storage Installation — ${formattedDate}`,
     html,
   });
 }
@@ -457,6 +459,77 @@ export async function sendInstallerWelcome(
     to: email,
     toName: name,
     subject: "Welcome to the Storage Network Partner Program — You're Live!",
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Pro Subscription Confirmation
+// Trigger: Installer subscribes to Pro plan
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendProWelcomeEmail(
+  email: string,
+  data: {
+    name: string;
+    slug: string;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
+
+  const html = emailShell(
+    "Welcome to Pro!",
+    `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#9733;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.name},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      You&rsquo;re now a <strong style="color:#facc15;">Pro Partner</strong>! Here&rsquo;s what you&rsquo;ve unlocked:
+    </p>
+
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;width:24px;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>Lower Fees</strong> — Only 5% platform fee on direct link leads (vs 15%)</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>Your Partner Link</strong> — Share your custom URL with customers</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>White-Label Experience</strong> — Your branding, your customers</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Your Partner Link</p>
+      <p style="margin:0;color:#facc15;font-size:16px;font-weight:700;word-break:break-all;">${partnerLinkUrl}</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}/marketing" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+        View Marketing Tools
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Share your link with customers to start earning more on every job.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Welcome to Pro — Your Partner Link is Live!",
     html,
   });
 }
