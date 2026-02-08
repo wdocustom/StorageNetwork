@@ -368,13 +368,33 @@ export async function POST(request: NextRequest) {
       if (paymentType === "booking" || paymentType === "deposit") {
         // ── DEPOSIT via BookingModal (inline Stripe Elements) ──────────
         try {
+          // Extract all relevant data from metadata
+          const customerEmail = metadata.customer_email || paymentIntent.receipt_email || null;
+          const customerName = metadata.customer_name || null;
+          const source = metadata.source || "platform"; // Default to platform if not specified
+          const scheduledAt = metadata.scheduled_at || null;
+
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
             deposit_amount: amountPaidPI,
             payout_status: "deposit_collected",
             status: "open",
+            source, // Save the lead source!
             updated_at: new Date().toISOString(),
           };
+
+          // Add customer info if available
+          if (customerEmail) {
+            updatePayload.customer_email = customerEmail;
+          }
+          if (customerName) {
+            updatePayload.customer_name = customerName;
+          }
+          if (scheduledAt) {
+            updatePayload.scheduled_at = scheduledAt;
+          }
+
+          console.log("[Webhook] Deposit update payload:", JSON.stringify(updatePayload));
 
           const { error: updateError } = await supabase
             .from("leads")
@@ -384,7 +404,7 @@ export async function POST(request: NextRequest) {
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
           } else {
-            console.log("[Webhook] Deposit recorded for lead:", leadId);
+            console.log("[Webhook] Deposit recorded for lead:", leadId, "| source:", source, "| email:", customerEmail);
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);

@@ -106,7 +106,8 @@ export default function LandingPage() {
 
   function handleStartDesigning() {
     if (!foundInstaller?.installer_id) return;
-    router.push(`/design?installer=${foundInstaller.installer_id}`);
+    // Add from=network to indicate this came from platform ZIP lookup (not installer's direct link)
+    router.push(`/design?installer=${foundInstaller.installer_id}&from=network`);
   }
 
   return (

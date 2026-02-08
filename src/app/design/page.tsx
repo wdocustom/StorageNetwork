@@ -27,6 +27,7 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const ref = typeof params.ref === "string" ? params.ref : "";
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
+  const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
 
   // UUID detection — route ?installer=UUID to getInstallerById, not slug lookup
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,10 +50,11 @@ export default async function DesignPage({ searchParams }: PageProps) {
     if (res.available) rawInstaller = res;
   }
 
-  // Determine lead source: if installer was resolved from a URL param, it's a
-  // direct/partner lead. If the customer arrives with only a ZIP (or nothing),
-  // they'll find an installer via the client-side ZIP lookup = network lead.
-  const isDirectLead = !!(rawInstaller && (ref || installerId || installerParam));
+  // Determine lead source:
+  // - Direct lead (partner_link): customer used installer's custom link (ref param or slug)
+  // - Network lead (platform): customer found installer via platform ZIP lookup (from=network)
+  // If from=network is set, it's always a platform lead even if installer param exists
+  const isDirectLead = !fromNetwork && !!(rawInstaller && (ref || installerId || installerParam));
 
   // ── Map to View Model — branding gate applied here ──────────────────
   // The raw installer object dies here. Only the view model is serialized
