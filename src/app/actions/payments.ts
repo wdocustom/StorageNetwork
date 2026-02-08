@@ -376,6 +376,9 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents,
         currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
         application_fee_amount: platformFeeCents,
         transfer_data: {
           destination: installerStripeId,
@@ -404,6 +407,9 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents,
         currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
         receipt_email: customerEmail || undefined,
         metadata: {
           lead_id: leadId,
