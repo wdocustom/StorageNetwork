@@ -457,11 +457,11 @@ export async function sendInstallerOnboardingEmail(
         </tr>
         <tr>
           <td style="padding:10px 0;vertical-align:top;font-size:20px;">2&#65039;&#8419;</td>
-          <td style="padding:10px 0;"><strong>Everything&rsquo;s ready</strong> — Each job includes a cut list, materials list, and step-by-step assembly guide.</td>
+          <td style="padding:10px 0;"><strong>Everything&rsquo;s ready</strong> — Each job includes a cut list and materials list so you know exactly what to build.</td>
         </tr>
         <tr>
           <td style="padding:10px 0;vertical-align:top;font-size:20px;">3&#65039;&#8419;</td>
-          <td style="padding:10px 0;"><strong>Get paid fast</strong> — Collect the balance on-site with one tap. Funds go straight to your bank.</td>
+          <td style="padding:10px 0;"><strong>Flexible payments</strong> — Collect the balance on-site however works best: Venmo, cash, check, or process cards through Stripe.</td>
         </tr>
       </table>
     </div>
@@ -482,7 +482,6 @@ export async function sendInstallerOnboardingEmail(
             <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
               <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Automated leads in your ZIP</p>
               <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Cut lists &amp; material guides</p>
-              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; One-tap payment collection</p>
               <p style="margin:0;color:#64748b;font-size:12px;">&#10003; Direct bank payouts</p>
             </div>
           </td>
@@ -501,7 +500,7 @@ export async function sendInstallerOnboardingEmail(
               <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 5% on partner link leads</p>
               <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Custom branded partner link</p>
               <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Priority lead routing</p>
-              <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools &amp; QR codes</p>
+              <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools</p>
             </div>
           </td>
         </tr>
