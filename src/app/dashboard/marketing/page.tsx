@@ -151,7 +151,7 @@ export default function MarketingPage() {
               className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-transparent px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-800"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Launch Configurator
+              Open Link
             </a>
           </div>
 

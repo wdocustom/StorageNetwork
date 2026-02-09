@@ -67,11 +67,12 @@ export default function DashboardPage() {
 
     const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
+      // Only count leads with deposit paid (exclude pending_payment/abandoned)
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("installer_id", user.id)
-        .in("status", ["new", "pending_payment", "open"]),
+        .in("status", ["new", "open"]),
       supabase
         .from("leads")
         .select("estimated_price, balance_due, payout_status")
@@ -248,7 +249,7 @@ export default function DashboardPage() {
         <div className="mx-auto grid w-full max-w-lg gap-4">
           {/* ── Mission Briefing (new installers only) ────────────── */}
           {completedCount === 0 && profile && (
-            <MissionBriefing userId={profile.id} />
+            <MissionBriefing userId={profile.id} slug={profile.slug} isPro={profile.is_pro} />
           )}
 
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}

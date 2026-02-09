@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { Loader2, Mail, ArrowLeft } from "lucide-react";
 
@@ -10,6 +11,8 @@ import { Loader2, Mail, ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
   const supabase = getSupabaseBrowserClient();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,7 +70,7 @@ export default function LoginPage() {
         if (signInError) {
           setError(signInError.message);
         } else {
-          window.location.href = "/dashboard";
+          window.location.href = redirectTo;
         }
       }
     } catch {

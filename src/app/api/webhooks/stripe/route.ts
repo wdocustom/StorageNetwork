@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { sendBookingConfirmation, sendNewLeadAlert } from "@/lib/email";
+import { sendBookingConfirmation, sendNewLeadAlert, sendProWelcomeEmail } from "@/lib/email";
+import {
+  activateProSubscription,
+  deactivateProSubscription,
+} from "@/app/actions/pro-subscription";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -94,7 +98,7 @@ export async function POST(request: NextRequest) {
         console.error("[Webhook] Final payment update threw:", err);
       }
 
-      // Send receipt email
+      // Send emails: receipt to customer, payment alert to installer
       try {
         const { data: lead } = await supabase
           .from("leads")
@@ -102,22 +106,31 @@ export async function POST(request: NextRequest) {
           .eq("id", leadId)
           .single();
 
-        if (lead?.customer_email) {
-          const { sendJobReceipt } = await import("@/lib/email");
-          let installerName = "Your Installer";
-          if (lead.installer_id) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("first_name, last_name, business_name")
-              .eq("id", lead.installer_id)
-              .single();
-            if (profile) {
-              installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
-            }
+        const { sendJobReceipt, sendPaymentReceivedAlert } = await import("@/lib/email");
+        let installerName = "Your Installer";
+        let installerEmail: string | null = null;
+
+        if (lead?.installer_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, business_name")
+            .eq("id", lead.installer_id)
+            .single();
+          if (profile) {
+            installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
           }
-          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+          // Get installer's email from auth
+          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+          installerEmail = authUser?.user?.email || null;
+        }
+
+        const unitCount = Array.isArray(lead?.quote_data) ? lead.quote_data.length : 1;
+        const customerName = lead?.customer_name ?? "Customer";
+
+        // Send receipt to customer
+        if (lead?.customer_email) {
           await sendJobReceipt(lead.customer_email, {
-            customerName: lead.customer_name ?? "Customer",
+            customerName,
             installerName,
             totalAmount: lead.estimated_price ?? amountPaid,
             depositPaid: lead.deposit_amount ?? 0,
@@ -125,10 +138,22 @@ export async function POST(request: NextRequest) {
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
             completedDate: new Date().toISOString(),
           });
-          console.log("[Webhook] Receipt email sent for final payment");
+          console.log("[Webhook] Receipt email sent to customer");
+        }
+
+        // Send payment alert to installer
+        if (installerEmail) {
+          await sendPaymentReceivedAlert(installerEmail, {
+            installerName,
+            customerName,
+            amountReceived: amountPaid,
+            jobTotal: lead?.estimated_price ?? amountPaid,
+            leadId,
+          });
+          console.log("[Webhook] Payment alert sent to installer:", installerEmail);
         }
       } catch (emailErr: any) {
-        console.error("[Webhook] Receipt email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
+        console.error("[Webhook] Final payment email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
       }
 
       return NextResponse.json({ received: true });
@@ -292,36 +317,59 @@ export async function POST(request: NextRequest) {
       console.warn("[Webhook] No customer email — skipping booking confirmation");
     }
 
-    // ── Send new job alert to installer ───────────────────────────────
-    if (resolvedInstallerId) {
-      try {
-        const { data: authUser } = await supabase.auth.admin.getUserById(resolvedInstallerId);
-        const installerEmail = authUser?.user?.email;
-
-        if (installerEmail) {
-          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-          const city = lead.address
-            ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
-            : "Unknown";
-
-          console.log("[Webhook] Sending lead alert to installer:", installerEmail);
-          const alertResult = await sendNewLeadAlert(installerEmail, city, {
-            customerName,
-            customerEmail: customerEmail || undefined,
-            address: lead.address || fullAddress || undefined,
-            unitCount,
-            totalPrice: lead.estimated_price ?? amountPaid,
-            leadId,
-          });
-          console.log("[Webhook] Lead alert result:", JSON.stringify(alertResult));
-        }
-      } catch (alertErr: any) {
-        console.error("[Webhook] Installer alert FAILED (Non-Fatal):", alertErr?.message ?? alertErr);
-        // DO NOT THROW.
-      }
-    }
+    // NOTE: Installer new lead alert is sent from payment_intent.succeeded handler.
+    // This prevents double-emailing since checkout sessions also trigger payment_intent.succeeded.
 
     console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
+  }
+
+  // ── Handle Pro subscription events ──────────────────────────────────────
+  if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const userId = subscription.metadata?.userId;
+
+    if (userId && subscription.status === "active") {
+      console.log("[Webhook] Pro subscription activated for user:", userId);
+      const result = await activateProSubscription(userId, subscription.id);
+      if (result.success && result.slug) {
+        console.log("[Webhook] Pro activated, slug:", result.slug);
+
+        // Send Pro welcome email
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name, last_name, business_name")
+            .eq("id", userId)
+            .single();
+
+          const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+          const email = authUser?.user?.email;
+
+          if (email && profile) {
+            const name = profile.business_name ||
+              [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+              "Partner";
+
+            await sendProWelcomeEmail(email, { name, slug: result.slug });
+            console.log("[Webhook] Pro welcome email sent to:", email);
+          }
+        } catch (emailErr) {
+          console.error("[Webhook] Pro welcome email failed:", emailErr);
+        }
+      } else {
+        console.error("[Webhook] Pro activation failed:", result.error);
+      }
+    }
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const userId = subscription.metadata?.userId;
+
+    if (userId) {
+      console.log("[Webhook] Pro subscription cancelled for user:", userId);
+      await deactivateProSubscription(userId);
+    }
   }
 
   // ── Handle payment_intent.succeeded (deposits via BookingModal + balance payments) ──
@@ -335,9 +383,18 @@ export async function POST(request: NextRequest) {
       const amountPaidPI = (paymentIntent.amount || 0) / 100;
       console.log("[Webhook] payment_intent.succeeded for lead:", leadId, "| type:", paymentType, "| amount:", amountPaidPI);
 
-      if (paymentType === "booking") {
+      if (paymentType === "booking" || paymentType === "deposit") {
         // ── DEPOSIT via BookingModal (inline Stripe Elements) ──────────
         try {
+          // Extract all relevant data from metadata
+          const customerEmail = metadata.customer_email || paymentIntent.receipt_email || null;
+          const customerName = metadata.customer_name || null;
+          const scheduledAt = metadata.scheduled_at || null;
+
+          // NOTE: Do NOT overwrite source here. It's already set correctly when
+          // the lead is created (submitNetworkLead) and when deposit is initiated
+          // (createDepositIntent). Overwriting with metadata.source can cause issues
+          // if metadata is empty/undefined.
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
             deposit_amount: amountPaidPI,
@@ -345,6 +402,19 @@ export async function POST(request: NextRequest) {
             status: "open",
             updated_at: new Date().toISOString(),
           };
+
+          // Add customer info if available
+          if (customerEmail) {
+            updatePayload.customer_email = customerEmail;
+          }
+          if (customerName) {
+            updatePayload.customer_name = customerName;
+          }
+          if (scheduledAt) {
+            updatePayload.scheduled_at = scheduledAt;
+          }
+
+          console.log("[Webhook] Deposit update payload:", JSON.stringify(updatePayload));
 
           const { error: updateError } = await supabase
             .from("leads")
@@ -354,7 +424,7 @@ export async function POST(request: NextRequest) {
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
           } else {
-            console.log("[Webhook] Deposit recorded for lead:", leadId);
+            console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);

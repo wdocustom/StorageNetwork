@@ -7,6 +7,7 @@ import {
   updateProfile,
   uploadAvatarServerSide,
 } from "@/app/actions/profile";
+import { updateInstallerProfile } from "@/app/actions/installer";
 import {
   connectStripe,
   getStripeStatus,
@@ -25,7 +26,12 @@ import {
   User,
   Save,
   Upload,
+  Zap,
+  MapPin,
+  Target,
 } from "lucide-react";
+import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
+import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -48,11 +54,13 @@ interface Profile {
   trade_name: string | null;
   phone: string | null;
   service_zip: string | null;
+  service_radius_miles: number | null;
   city: string | null;
   state: string | null;
   avatar_url: string | null;
   slug: string | null;
   subscription_tier: string;
+  is_pro: boolean;
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
 }
@@ -61,6 +69,7 @@ function ProfilePageInner() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const stripeParam = searchParams.get("stripe");
+  const proParam = searchParams.get("pro");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -80,6 +89,12 @@ function ProfilePageInner() {
   const [state, setState] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // Service radius state
+  const [serviceRadius, setServiceRadius] = useState(25);
+  const [radiusSaving, setRadiusSaving] = useState(false);
+  const [radiusMessage, setRadiusMessage] = useState("");
+  const [zipsCovered, setZipsCovered] = useState<number | null>(null);
+
   // Stripe state
   const [stripeStatus, setStripeStatus] = useState<{
     connected: boolean;
@@ -88,6 +103,13 @@ function ProfilePageInner() {
   } | null>(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeMessage, setStripeMessage] = useState("");
+
+  // Deactivate state
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
+  // Pro subscription state
+  const [proMessage, setProMessage] = useState("");
 
   const fetchData = useCallback(async () => {
     const {
@@ -113,6 +135,7 @@ function ProfilePageInner() {
       setTradeName(p.trade_name || "");
       setPhone(p.phone || "");
       setServiceZip(p.service_zip || "");
+      setServiceRadius(p.service_radius_miles ?? 25);
       setCity(p.city || "");
       setState(p.state || "");
       setAvatarUrl(p.avatar_url);
@@ -140,6 +163,17 @@ function ProfilePageInner() {
       setStripeMessage("Stripe setup was interrupted. Click below to continue.");
     }
   }, [stripeParam, profile]);
+
+  // Handle Pro subscription return params
+  useEffect(() => {
+    if (proParam === "success") {
+      setProMessage("Welcome to Pro! Your subscription is now active.");
+      // Refresh profile to get updated is_pro status
+      fetchData();
+    } else if (proParam === "cancelled") {
+      setProMessage("Upgrade cancelled. You can upgrade anytime.");
+    }
+  }, [proParam, fetchData]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -284,6 +318,30 @@ function ProfilePageInner() {
     setStripeLoading(false);
   }
 
+  async function handleSaveRadius() {
+    if (!profile || !serviceZip || serviceZip.length !== 5) {
+      setRadiusMessage("Please set a valid 5-digit ZIP code first.");
+      return;
+    }
+    setRadiusSaving(true);
+    setRadiusMessage("");
+
+    const result = await updateInstallerProfile({
+      installer_id: profile.id,
+      service_zip: serviceZip,
+      service_radius_miles: serviceRadius,
+    });
+
+    if (result.success) {
+      setZipsCovered(result.zips_covered);
+      setRadiusMessage(`Service area updated! Covering ${result.zips_covered.toLocaleString()} ZIP codes.`);
+      setTimeout(() => setRadiusMessage(""), 4000);
+    } else {
+      setRadiusMessage(result.error || "Failed to update service area.");
+    }
+    setRadiusSaving(false);
+  }
+
   // ═════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═════════════════════════════════════════════════════════════════════════
@@ -296,7 +354,9 @@ function ProfilePageInner() {
     );
   }
 
-  const isPro = profile?.subscription_tier === "pro";
+  // isPro: true if database says so OR if just returned from successful checkout
+  // (webhook may still be processing, so we trust the success redirect)
+  const isPro = profile?.is_pro === true || proParam === "success";
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -529,6 +589,147 @@ function ProfilePageInner() {
         </section>
 
         {/* ═══════════════════════════════════════════════════════════════
+            SECTION A.5: Service Area Radius
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Target className="h-4 w-4 text-yellow-400" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+              Service Area
+            </h2>
+          </div>
+
+          {/* Current ZIP Display */}
+          <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400/10">
+                  <MapPin className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-stone-500">Home Base ZIP</p>
+                  <p className="text-lg font-bold text-white">
+                    {serviceZip || "Not set"}
+                  </p>
+                </div>
+              </div>
+              {zipsCovered !== null && (
+                <div className="text-right">
+                  <p className="text-2xl font-black text-yellow-400">
+                    {zipsCovered.toLocaleString()}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wider text-stone-500">
+                    ZIP Codes
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Radius Slider */}
+          <div className="mb-5">
+            <div className="mb-3 flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                Service Radius
+              </label>
+              <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-sm font-bold text-yellow-400">
+                {serviceRadius} miles
+              </span>
+            </div>
+
+            {/* Custom Slider Track */}
+            <div className="relative">
+              {/* Track background */}
+              <div className="h-3 rounded-full bg-slate-700">
+                {/* Filled portion */}
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-400"
+                  style={{ width: `${((serviceRadius - 5) / 95) * 100}%` }}
+                />
+              </div>
+              {/* Hidden range input */}
+              <input
+                type="range"
+                min={5}
+                max={100}
+                step={5}
+                value={serviceRadius}
+                onChange={(e) => setServiceRadius(Number(e.target.value))}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+              {/* Custom thumb */}
+              <div
+                className="pointer-events-none absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-yellow-400 bg-slate-900 shadow-lg transition-all"
+                style={{ left: `calc(${((serviceRadius - 5) / 95) * 100}% - 12px)` }}
+              />
+            </div>
+
+            {/* Preset Quick Buttons */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[10, 25, 50, 75, 100].map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => setServiceRadius(preset)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                    serviceRadius === preset
+                      ? "bg-yellow-400 text-gray-950"
+                      : "bg-slate-800 text-stone-400 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  {preset} mi
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visual Distance Reference */}
+          <div className="mb-5 rounded-lg border border-slate-700 bg-slate-800/30 p-3">
+            <p className="text-xs text-stone-400">
+              <span className="font-semibold text-white">{serviceRadius} miles</span> ≈{" "}
+              {serviceRadius <= 15
+                ? "local neighborhood coverage"
+                : serviceRadius <= 30
+                ? "city-wide coverage"
+                : serviceRadius <= 50
+                ? "metro area coverage"
+                : serviceRadius <= 75
+                ? "regional coverage"
+                : "multi-city / statewide coverage"}
+            </p>
+          </div>
+
+          {/* Save Button */}
+          <button
+            onClick={handleSaveRadius}
+            disabled={radiusSaving || !serviceZip || serviceZip.length !== 5}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+          >
+            {radiusSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Target className="h-4 w-4" />
+            )}
+            {radiusSaving ? "Updating..." : "Update Service Area"}
+          </button>
+
+          {radiusMessage && (
+            <p
+              className={`mt-2 text-center text-xs font-medium ${
+                radiusMessage.includes("updated") ? "text-emerald-400" : "text-amber-400"
+              }`}
+            >
+              {radiusMessage}
+            </p>
+          )}
+
+          {!serviceZip || serviceZip.length !== 5 ? (
+            <p className="mt-2 text-center text-xs text-amber-400">
+              Set your Service ZIP above to configure your service area.
+            </p>
+          ) : null}
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
             SECTION B: Stripe Connect (Payouts)
         ═══════════════════════════════════════════════════════════════ */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
@@ -614,6 +815,46 @@ function ProfilePageInner() {
           </p>
         </section>
 
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C: Pro Upgrade CTA (Non-Pro users only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {!isPro && profile && (
+          <ProUpgradeCTA userId={profile.id} />
+        )}
+
+        {/* Pro Upgrade Success/Cancel Message */}
+        {proMessage && (
+          <div
+            className={`rounded-xl border p-4 text-center ${
+              proMessage.includes("active")
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-amber-500/30 bg-amber-500/10"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {proMessage.includes("active") ? (
+                <Zap className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-amber-400" />
+              )}
+              <p
+                className={`text-sm font-semibold ${
+                  proMessage.includes("active")
+                    ? "text-emerald-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {proMessage}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pro Subscription Management (Pro users only) */}
+        {isPro && profile && (
+          <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
+        )}
+
         {/* ── Danger Zone ─────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-red-400">
@@ -623,23 +864,50 @@ function ProfilePageInner() {
             Deactivate your account. Your data will be preserved but your profile
             will be hidden from the platform.
           </p>
-          <button
-            onClick={async () => {
-              if (!profile?.id) return;
-              if (!confirm("Are you sure you want to deactivate your account? This will hide your profile from customers.")) return;
-              const result = await deactivateAccount(profile.id);
-              if (result.success) {
-                alert("Account deactivated. You will be signed out.");
-                await supabase.auth.signOut();
-                window.location.href = "/";
-              } else {
-                alert("Failed to deactivate: " + (result.error || "Unknown error"));
-              }
-            }}
-            className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
-          >
-            Deactivate Account
-          </button>
+
+          {!showDeactivateConfirm ? (
+            <button
+              onClick={() => setShowDeactivateConfirm(true)}
+              className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
+            >
+              Deactivate Account
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-700 bg-red-950/50 p-4">
+              <p className="mb-3 text-sm font-semibold text-red-300">
+                Are you sure? This will hide your profile from customers.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!profile?.id) return;
+                    setDeactivating(true);
+                    const result = await deactivateAccount(profile.id);
+                    if (result.success) {
+                      await supabase.auth.signOut();
+                      window.location.href = "/";
+                    } else {
+                      setDeactivating(false);
+                      setShowDeactivateConfirm(false);
+                      setSaveMessage("Failed to deactivate: " + (result.error || "Unknown error"));
+                    }
+                  }}
+                  disabled={deactivating}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-red-500 disabled:opacity-50"
+                >
+                  {deactivating && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {deactivating ? "Deactivating..." : "Yes, Deactivate"}
+                </button>
+                <button
+                  onClick={() => setShowDeactivateConfirm(false)}
+                  disabled={deactivating}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── Plan Badge ────────────────────────────────────────────────── */}

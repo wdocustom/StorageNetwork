@@ -9,12 +9,14 @@ import { useCallback, useEffect, useRef } from "react";
 
 type ToteType = "HDX" | "GM";
 type UnitType = "standard" | "mini";
+type Orientation = "standard" | "sideways";
 
 interface BlueprintCanvasProps {
   cols: number;
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -30,6 +32,7 @@ export default function BlueprintCanvas({
   rows,
   toteType,
   unitType,
+  orientation,
   hasTotes,
   hasWheels,
   hasTop,
@@ -41,13 +44,15 @@ export default function BlueprintCanvas({
 
   // Unit-type specific dimensions
   const isMini = unitType === "mini";
+  const isSideways = unitType === "standard" && orientation === "sideways";
   const RENDER_GAP = 1.5; // Post width (same for both)
   const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing
   const RENDER_PLATE = 1.5;
   const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
   const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
   const PLY_TOP_H = 0.75; // Plywood top thickness
-  const opening = isMini ? 8.25 : (toteType === "HDX" ? 19.75 : 20.75);
+  // Opening width: sideways uses 30.25", standard uses tote width
+  const opening = isMini ? 8.25 : (isSideways ? 30.25 : (toteType === "HDX" ? 19.75 : 20.75));
 
   // Calculate dimensions (frame height without wheels)
   const calcW = cols * opening + (cols + 1) * RENDER_GAP;
@@ -142,31 +147,20 @@ export default function BlueprintCanvas({
     ctx.fillRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
     ctx.strokeRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
 
-    // ── Top plate / Plywood top ──
-    if (isMini) {
-      // Mini: No 2x4 top plate. Draw solid 3/4" plywood top sitting on posts.
-      if (hasTop) {
-        const topThick = PLY_TOP_H * scale;
-        const overhang = 1 * scale;
-        ctx.fillStyle = plywoodFill;
-        ctx.fillRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-        ctx.strokeRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-        ctx.fillStyle = woodFill;
-      }
-    } else {
-      // Standard: Draw 2x4 top plate
+    // ── Top 2x4 plate (Standard only - Mini has no 2x4 top plate) ──
+    if (!isMini) {
       ctx.fillRect(startX, startY, pTotalW, pPlate);
       ctx.strokeRect(startX, startY, pTotalW, pPlate);
     }
 
     // ── Vertical posts ──
-    // Mini: posts go from bottom plate to just above top rail (no top 2x4)
+    // Mini: posts go from plywood top (at startY) down to bottom plate
     // Standard: posts go between bottom and top 2x4 plates
     const postH = isMini
-      ? (RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2) * scale // Posts up to top rail + clearance
+      ? pFrameH - pPlate // Posts from top of frame to top of bottom plate
       : pFrameH - pPlate * 2;
     const postY = isMini
-      ? startY + PLY_TOP_H * scale // Posts start below plywood top
+      ? startY // Posts start at frame top (connects to plywood)
       : startY + pPlate;
 
     for (let i = 0; i <= cols; i++) {
@@ -220,22 +214,29 @@ export default function BlueprintCanvas({
           ctx.fillRect(tX, railY - lidH, tW, lidH);
           ctx.strokeRect(tX, railY - lidH, tW, lidH);
 
-          // Tote body (connects directly to bottom of lid, not below the rail)
+          // Tote body (connects directly to bottom of lid, hangs down)
           const bodyW = tW * 0.9;
           const bodyX = tX + (tW - bodyW) / 2;
           const bodyY = railY; // Body starts at bottom of lid (top of rail)
+
+          // Clamp tote body so it doesn't extend below the bottom plate
+          const bottomPlateTop = startY + pFrameH - pPlate;
+          const maxBodyH = Math.max(0, bottomPlateTop - bodyY);
+          const clampedBodyH = Math.min(tH, maxBodyH);
+
           ctx.fillStyle = isMini ? "#cbd5e1" : "#1e293b"; // Light slate for mini (clear look), dark for standard
           ctx.strokeStyle = isMini ? "#64748b" : "#0f172a";
           ctx.lineWidth = isMini ? 1.5 : 2;
-          ctx.fillRect(bodyX, bodyY, bodyW, tH);
-          ctx.strokeRect(bodyX, bodyY, bodyW, tH);
+          ctx.fillRect(bodyX, bodyY, bodyW, clampedBodyH);
+          ctx.strokeRect(bodyX, bodyY, bodyW, clampedBodyH);
           ctx.lineWidth = 2; // Reset line width
         }
       }
     }
 
-    // ── Plywood top for Standard units (optional) ──
-    if (hasTop && !isMini) {
+    // ── Plywood top (optional - for both Mini and Standard) ──
+    // Drawn AFTER posts so it appears to sit on top of them
+    if (hasTop) {
       const topThick = PLY_TOP_H * scale;
       const overhang = 1 * scale;
       ctx.fillStyle = plywoodFill;
@@ -253,7 +254,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
+  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, isSideways, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();

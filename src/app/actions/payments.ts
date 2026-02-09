@@ -10,6 +10,13 @@ import { siteConfig } from "@/config/site";
 // All fee calculations and Stripe API calls happen here.
 // The client NEVER sees fee formulas, API keys, or session internals.
 // It only receives a redirect URL.
+//
+// FEE STRUCTURE:
+// ─────────────────────────────────────────────────────────────────────────
+// Platform Lead (organic):     15% deposit → 100% to Platform
+// Partner Link + Non-Pro:      15% deposit → 100% to Platform
+// Partner Link + Pro ($99/mo): 15% deposit → 10% to Installer, 5% to Platform
+// ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -21,8 +28,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ── Platform fee: 5% of the total amount (Pro direct leads) ──────────────
-const PLATFORM_FEE_RATE = 0.05;
+// ── Fee Constants ────────────────────────────────────────────────────────
+const DEPOSIT_RATE = 0.15;           // 15% deposit from customer
+const PRO_PLATFORM_FEE_RATE = 0.05;  // 5% platform fee for Pro installers
+const PRO_INSTALLER_RATE = 0.10;     // 10% to installer for Pro (from the 15%)
+// Note: Balance payments have NO platform fee — platform already took their cut from deposit
+
+// ── Helper: Check if installer is Pro ────────────────────────────────────
+async function isInstallerPro(installerId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_pro")
+    .eq("id", installerId)
+    .single();
+  return data?.is_pro === true;
+}
+
+// ── Helper: Get installer profile with Stripe account ────────────────────
+async function getInstallerProfile(installerId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("stripe_account_id, is_pro")
+    .eq("id", installerId)
+    .single();
+  return data;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // createPaymentSession — Generates a Stripe Checkout URL
@@ -58,13 +88,15 @@ export async function createPaymentSession(
   }
 
   try {
-    // ── Black Box: Fee Calculation ──────────────────────────────────────
+    // ── Balance Collection ───────────────────────────────────────────────
+    // Platform already collected their fee (15% or 5%) from the deposit.
+    // Balance goes 100% to installer via Stripe Connect — NO additional fee.
     const amountCents = Math.round(amount * 100);
-    const platformFeeCents = Math.round(amountCents * PLATFORM_FEE_RATE);
 
     const baseUrl = siteConfig.baseUrl;
 
-    // ── Create Stripe Checkout Session ──────────────────────────────────
+    // ── Create Stripe Checkout Session with destination charge ──────────
+    // 100% of payment transfers to installer (no application_fee_amount)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -81,18 +113,17 @@ export async function createPaymentSession(
         },
       ],
       payment_intent_data: {
-        application_fee_amount: platformFeeCents,
+        // No application_fee_amount — platform already took their cut from deposit
         transfer_data: {
           destination: installerStripeId,
         },
       },
       customer_email: customerEmail || undefined,
-      success_url: `${baseUrl}/dashboard/leads/${leadId}?payment=success`,
-      cancel_url: `${baseUrl}/dashboard/leads/${leadId}?payment=cancelled`,
+      success_url: `${baseUrl}/payment/success?job=${leadId}`,
+      cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
       metadata: {
         lead_id: leadId,
         type: "final_payment",
-        platform_fee_cents: String(platformFeeCents),
         installer_stripe_id: installerStripeId,
       },
     });
@@ -290,10 +321,14 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 // Used by BookingModal for inline deposit collection.
 // ═══════════════════════════════════════════════════════════════════════════
 
+export type LeadSource = "platform" | "partner_link";
+
 export interface DepositIntentInput {
   leadId: string;
-  amount: number;
-  installerStripeId: string;
+  amount: number;                    // Deposit amount in dollars
+  totalPrice: number;                // Total job price in dollars (for fee calculation)
+  installerId?: string;              // Supabase user ID of installer (optional for platform leads)
+  source: LeadSource;                // Where the lead came from
   customerEmail?: string;
   customerName?: string;
   scheduledAt?: string;
@@ -308,46 +343,108 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, installerStripeId, customerEmail, customerName, scheduledAt } = input;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt } = input;
 
-  if (!leadId || !amount || !installerStripeId) {
+  if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
   }
 
   try {
     const amountCents = Math.round(amount * 100);
-    const platformFeeCents = Math.round(amountCents * PLATFORM_FEE_RATE);
+    const totalPriceCents = Math.round(totalPrice * 100);
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: "usd",
-      application_fee_amount: platformFeeCents,
-      transfer_data: {
-        destination: installerStripeId,
-      },
-      receipt_email: customerEmail || undefined,
-      metadata: {
-        lead_id: leadId,
-        leadId,
-        type: "booking",
-        customer_name: customerName || "",
-        customer_email: customerEmail || "",
-        platform_fee_cents: String(platformFeeCents),
-        installer_stripe_id: installerStripeId,
-        scheduled_at: scheduledAt || "",
-      },
-    });
+    // ── Determine fee routing based on source + Pro status ───────────────
+    //
+    // Platform Lead:          100% to Platform (no destination charge)
+    // Partner Link + Non-Pro: 100% to Platform (no destination charge)
+    // Partner Link + Pro:     10% to Installer, 5% to Platform (destination charge)
+    //
+    // IMPORTANT: The 5% platform fee is calculated from the TOTAL job price,
+    // not from the deposit amount. This ensures:
+    //   - Platform gets 5% of total
+    //   - Installer gets 10% of total (deposit minus platform fee)
+    //
+    const installerProfile = await getInstallerProfile(installerId);
+    const isPro = installerProfile?.is_pro === true;
+    const installerStripeId = installerProfile?.stripe_account_id;
 
-    // Update lead with scheduling info if provided
-    if (scheduledAt) {
-      await supabase
-        .from("leads")
-        .update({
-          scheduled_at: scheduledAt,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", leadId);
+    // Route to installer only if: partner_link + Pro + has Stripe connected
+    const routeToInstaller = source === "partner_link" && isPro && installerStripeId;
+
+    let paymentIntent;
+
+    if (routeToInstaller && installerStripeId) {
+      // ── Pro Partner Link: Destination charge ────────────────────────────
+      // Fee is calculated from TOTAL job price, not deposit:
+      //   - Platform fee: 5% of total
+      //   - Installer receives: deposit - platform fee = 10% of total
+      const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE);
+
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amountCents,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        application_fee_amount: platformFeeCents,
+        transfer_data: {
+          destination: installerStripeId,
+        },
+        receipt_email: customerEmail || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "deposit",
+          source,
+          installer_id: installerId,
+          is_pro: "true",
+          customer_name: customerName || "",
+          customer_email: customerEmail || "",
+          platform_fee_cents: String(platformFeeCents),
+          installer_receives_cents: String(amountCents - platformFeeCents),
+          installer_stripe_id: installerStripeId,
+          scheduled_at: scheduledAt || "",
+        },
+      });
+
+      console.log(`[Deposit] Pro Partner Link: Total $${totalPrice} | Deposit $${amount} → Installer gets $${(amountCents - platformFeeCents) / 100} (10%), Platform gets $${platformFeeCents / 100} (5%)`);
+    } else {
+      // ── Platform Lead OR Non-Pro Partner Link: All to Platform ───────
+      // No destination charge — entire deposit goes to platform account
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amountCents,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        receipt_email: customerEmail || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "deposit",
+          source,
+          installer_id: installerId,
+          is_pro: isPro ? "true" : "false",
+          customer_name: customerName || "",
+          customer_email: customerEmail || "",
+          platform_fee_cents: String(amountCents), // Platform keeps 100%
+          installer_receives_cents: "0",
+          scheduled_at: scheduledAt || "",
+        },
+      });
+
+      console.log(`[Deposit] ${source === "platform" ? "Platform Lead" : "Non-Pro Partner Link"}: $${amount} → 100% to Platform`);
     }
+
+    // Update lead with scheduling info and source
+    await supabase
+      .from("leads")
+      .update({
+        source,
+        scheduled_at: scheduledAt || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
 
     return {
       success: true,
@@ -424,70 +521,9 @@ export async function verifyAndConfirmDeposit(
 
     console.log("[VerifyDeposit] Deposit confirmed for lead:", leadId);
 
-    // 4. Fire emails (non-blocking)
-    import("@/lib/email").then(async ({ sendBookingConfirmation, sendNewLeadAlert }) => {
-      try {
-        // Resolve installer info
-        let installerName = "Your Installer";
-        let installerPhone: string | undefined;
-        let installerAvatar: string | undefined;
-
-        if (lead.installer_id) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("first_name, last_name, business_name, phone, avatar_url")
-            .eq("id", lead.installer_id)
-            .single();
-          if (profile) {
-            installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
-            installerPhone = profile.phone || undefined;
-            installerAvatar = profile.avatar_url || undefined;
-          }
-        }
-
-        const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-        const customerEmail = lead.customer_email || pi.receipt_email;
-        const customerName = lead.customer_name || "Customer";
-
-        // Customer confirmation
-        if (customerEmail) {
-          await sendBookingConfirmation({
-            customerName,
-            customerEmail,
-            installerName,
-            installerPhone,
-            installerAvatarUrl: installerAvatar,
-            scheduledDate: lead.scheduled_at ?? "TBD",
-            address: lead.address ?? "Address Pending",
-            depositAmount: amountPaid,
-            totalPrice: lead.estimated_price ?? amountPaid,
-            jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
-            leadId,
-          });
-          console.log("[VerifyDeposit] Customer confirmation sent");
-        }
-
-        // Installer alert
-        if (lead.installer_id) {
-          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
-          const installerEmail = authUser?.user?.email;
-          if (installerEmail) {
-            const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
-            await sendNewLeadAlert(installerEmail, city, {
-              customerName,
-              customerEmail: customerEmail || undefined,
-              address: lead.address || undefined,
-              unitCount,
-              totalPrice: lead.estimated_price ?? amountPaid,
-              leadId,
-            });
-            console.log("[VerifyDeposit] Installer alert sent");
-          }
-        }
-      } catch (emailErr) {
-        console.error("[VerifyDeposit] Email error (non-fatal):", emailErr);
-      }
-    }).catch(console.error);
+    // NOTE: Emails are sent by the webhook (payment_intent.succeeded).
+    // This fallback only updates the DB if webhook missed it.
+    // Do NOT send emails here to avoid duplicates.
 
     return { success: true };
   } catch (stripeErr) {

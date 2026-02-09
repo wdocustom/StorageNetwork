@@ -65,6 +65,10 @@ function toResult(
  * Check if any installer covers the given ZIP code.
  * Uses service_zips array first, falls back to service_zip exact match.
  * Returns full installer context needed for booking flow.
+ *
+ * When multiple installers cover a ZIP:
+ * - Pro installers get priority over Basic
+ * - Among same tier, installer with fewer current leads gets the job
  */
 export async function checkAvailability(
   zip: string
@@ -76,46 +80,58 @@ export async function checkAvailability(
 
   try {
     // Primary: search the service_zips array (covers radius)
-    const { data, error } = await supabase
+    // Sort by Pro status (Pro first), then by current_month_leads (lowest first)
+    // Only include active installers
+    const { data: matches, error } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
       .contains("service_zips", [trimmed])
-      .limit(1)
-      .maybeSingle();
+      .neq("active", false)  // Exclude deactivated accounts
+      .order("is_pro", { ascending: false })
+      .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-    if (!error && data) {
-      // Lead cap check: reset if needed, then check limit
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-      if (data.leads_reset_at && new Date(data.leads_reset_at as string) < new Date(monthStart)) {
-        await supabase
-          .from("profiles")
-          .update({ current_month_leads: 0, leads_reset_at: monthStart })
-          .eq("id", data.id);
-        (data as Record<string, unknown>).current_month_leads = 0;
+    if (!error && matches && matches.length > 0) {
+      // Find the first installer who isn't at capacity
+      for (const installer of matches) {
+        // Lead cap check: reset if needed
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
+          await supabase
+            .from("profiles")
+            .update({ current_month_leads: 0, leads_reset_at: monthStart })
+            .eq("id", installer.id);
+          (installer as Record<string, unknown>).current_month_leads = 0;
+        }
+
+        const currentLeads = (installer.current_month_leads as number) ?? 0;
+        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+
+        if (currentLeads < maxLeads) {
+          return toResult(installer, "");
+        }
       }
-      const currentLeads = (data.current_month_leads as number) ?? 0;
-      const maxLeads = (data.max_monthly_leads as number) ?? 25;
-      if (currentLeads >= maxLeads) {
-        return toResult(null, "This installer\u2019s schedule is currently full. Join the waitlist?");
-      }
-      return toResult(data, "");
+      // All installers at capacity
+      return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
     }
 
     // Fallback: exact match on service_zip (the installer's base ZIP)
-    const { data: fallback, error: fbErr } = await supabase
+    const { data: fallbackMatches, error: fbErr } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
-      .limit(1)
-      .maybeSingle();
+      .order("is_pro", { ascending: false })
+      .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-    if (!fbErr && fallback) {
-      const currentLeads = (fallback.current_month_leads as number) ?? 0;
-      const maxLeads = (fallback.max_monthly_leads as number) ?? 25;
-      if (currentLeads >= maxLeads) {
-        return toResult(null, "This installer\u2019s schedule is currently full. Join the waitlist?");
+    if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
+      for (const installer of fallbackMatches) {
+        const currentLeads = (installer.current_month_leads as number) ?? 0;
+        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+
+        if (currentLeads < maxLeads) {
+          return toResult(installer, "");
+        }
       }
-      return toResult(fallback, "");
+      return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
     }
 
     return toResult(

@@ -6,16 +6,22 @@
 
 // ── Types ────────────────────────────────────────────────────────────────
 
+export type UnitType = "standard" | "mini";
+export type Orientation = "standard" | "sideways";
+
 export interface QuoteUnit {
   cols: number;
   rows: number;
   toteType: "HDX" | "GM";
+  unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
   price: number;
   totalW: number;
   totalH: number;
+  depth: number;
   desc: string;
 }
 
@@ -74,11 +80,55 @@ export interface BuildManifest {
 
 const STOCK_LENGTH = 96; // 8ft board in inches
 const KERF = 0.125; // blade width
+const DEPOSIT_RATE = 0.15; // 15%
+
+// ── Standard Unit Constants ─────────────────────────────────────────────
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
-const GAP = 1.5; // post width (2x4)
-const TIER_HEIGHT = 16;
-const DEPOSIT_RATE = 0.15; // 15%
+const STANDARD_GAP = 1.5; // post width (2x4)
+const STANDARD_TIER_HEIGHT = 16;
+const STANDARD_DEPTH = 30;
+
+// ── Sideways Orientation Constants (27-gal totes rotated 90°) ───────────
+const SIDEWAYS_OPENING = 30.25; // Tote depth becomes slot width
+const SIDEWAYS_DEPTH = 20; // Tote width becomes unit depth
+
+// ── Mini Unit Constants ─────────────────────────────────────────────────
+const MINI_OPENING = 8.25; // 8" wide tote + clearance
+const MINI_GAP = 1.5; // same post width
+const MINI_TIER_HEIGHT = 7; // shorter vertical spacing
+const MINI_DEPTH = 12.75;
+const MINI_FIRST_RAIL_HEIGHT = 5.25;
+
+// ── Pricing Constants ───────────────────────────────────────────────────
+const STANDARD_PRICE_PER_SLOT = 30;
+const MINI_PRICE_PER_SLOT = 15;
+const STANDARD_TOTE_PRICE = 10;
+const MINI_TOTE_PRICE = 4;
+const STANDARD_WHEELS_PRICE = 50;
+const MINI_WHEELS_PRICE = 40;
+const PLYWOOD_TOP_PRICE = 75;
+
+// ── Helper to get opening based on unit type and orientation ────────────
+function getOpening(toteType: "HDX" | "GM", unitType: UnitType, orientation: Orientation): number {
+  if (unitType === "mini") return MINI_OPENING;
+  if (orientation === "sideways") return SIDEWAYS_OPENING;
+  return toteType === "HDX" ? OPENING_HDX : OPENING_GM;
+}
+
+function getGap(unitType: UnitType): number {
+  return unitType === "mini" ? MINI_GAP : STANDARD_GAP;
+}
+
+function getTierHeight(unitType: UnitType): number {
+  return unitType === "mini" ? MINI_TIER_HEIGHT : STANDARD_TIER_HEIGHT;
+}
+
+function getDepth(unitType: UnitType, orientation: Orientation): number {
+  if (unitType === "mini") return MINI_DEPTH;
+  if (orientation === "sideways") return SIDEWAYS_DEPTH;
+  return STANDARD_DEPTH;
+}
 
 // ── Main Export ──────────────────────────────────────────────────────────
 
@@ -107,12 +157,31 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     railStrips: number;
     backSupports: number;
     moduleWidth: number;
+    unitType: UnitType;
+    orientation: Orientation;
   }[] = [];
 
   quoteData.forEach((unit, unitIdx) => {
-    const { cols: totalCols, rows, toteType, hasTotes, hasWheels, hasTop } = unit;
+    const {
+      cols: totalCols,
+      rows,
+      toteType,
+      unitType = "standard",
+      orientation = "standard",
+      hasTotes,
+      hasWheels,
+      hasTop
+    } = unit;
 
     if (totalCols < 1 || rows < 1) return;
+
+    // Get config based on unit type and orientation
+    const opening = getOpening(toteType, unitType, orientation);
+    const gap = getGap(unitType);
+    const tierHeight = getTierHeight(unitType);
+    const pricePerSlot = unitType === "mini" ? MINI_PRICE_PER_SLOT : STANDARD_PRICE_PER_SLOT;
+    const totePrice = unitType === "mini" ? MINI_TOTE_PRICE : STANDARD_TOTE_PRICE;
+    const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
 
     // ── Auto-Split Logic (max 4 cols per module) ─────────────────────
     const modules: number[] = [];
@@ -127,31 +196,44 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     if (hasWheels) {
       gWheels++;
       gScrew1 += 16;
-      gRetail += 45;
+      gRetail += wheelsPrice;
     }
 
     let unitTotalWidth = 0;
 
     modules.forEach((cols, modIndex) => {
-      const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-      const modWidth = cols * opening + (cols + 1) * GAP;
+      const modWidth = cols * opening + (cols + 1) * gap;
       const slots = cols * rows;
       unitTotalWidth += modWidth;
 
+      // Calculate upright height based on unit type
+      let uprightHeight: number;
+      if (unitType === "mini") {
+        // Mini: first rail + (rows-1) * tier height + clearance
+        uprightHeight = MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+      } else {
+        uprightHeight = rows * tierHeight;
+      }
+
       // Collect parts for global bin packing
-      for (let i = 0; i < (cols + 1) * 2; i++) {
+      // For mini units, we have front + back posts
+      const postMultiplier = unitType === "mini" ? 2 : 2; // Both have front + back
+      for (let i = 0; i < (cols + 1) * postMultiplier; i++) {
         allParts.push({
-          len: rows * TIER_HEIGHT,
-          name: "Upright",
+          len: uprightHeight,
+          name: unitType === "mini" ? "Mini Upright" : "Upright",
           type: "upright",
           unitIdx,
           modIndex,
         });
       }
-      for (let k = 0; k < 4; k++) {
+
+      // Rails (top and bottom plates for standard, bottom only for mini)
+      const numRailSets = unitType === "mini" ? 2 : 4; // Mini has fewer 2x4 rails
+      for (let k = 0; k < numRailSets; k++) {
         allParts.push({
           len: modWidth,
-          name: "Rail",
+          name: unitType === "mini" ? "Mini Rail" : "Rail",
           type: "rail",
           unitIdx,
           modIndex,
@@ -169,8 +251,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       gScrew3 += (cols + 1) * 20;
 
       // ── Retail ────────────────────────────────────────────────────
-      let modRetail = slots * 40;
-      if (hasTotes) modRetail += slots * 12;
+      let modRetail = slots * pricePerSlot;
+      if (hasTotes) modRetail += slots * totePrice;
       gRetail += modRetail;
 
       if (hasTotes) gTotes += slots;
@@ -184,18 +266,22 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
         railStrips: numRails,
         backSupports,
         moduleWidth: modWidth,
+        unitType,
+        orientation,
       });
     });
 
     // ── Top Sheets (per unit width) ─────────────────────────────────
-    if (hasTop) {
+    // Mini units always have a top; standard units it's optional
+    const effectiveHasTop = unitType === "mini" || hasTop;
+    if (effectiveHasTop) {
       let sheetsForUnit = 0;
       if (unitTotalWidth > 192) sheetsForUnit = 3;
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
       else sheetsForUnit = 1;
 
       globalTopSheets += sheetsForUnit;
-      gRetail += sheetsForUnit * 75;
+      gRetail += sheetsForUnit * PLYWOOD_TOP_PRICE;
     }
   });
 

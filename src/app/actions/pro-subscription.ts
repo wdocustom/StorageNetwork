@@ -2,11 +2,96 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
+import { getAppUrl } from "@/lib/url-helper";
+import Stripe from "stripe";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
+// Pro subscription price: $99/month
+const PRO_MONTHLY_PRICE_CENTS = 9900;
+
+/**
+ * Create a Stripe checkout session for Pro subscription.
+ * Returns the checkout URL for redirect.
+ */
+export async function createProCheckoutSession(
+  userId: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    // Get user email for Stripe
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("business_name, first_name, last_name")
+      .eq("id", userId)
+      .single();
+
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+    const email = authUser?.user?.email;
+
+    if (!email) {
+      return { success: false, error: "User email not found" };
+    }
+
+    const businessName =
+      profile?.business_name ||
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+      "Installer";
+
+    const baseUrl = getAppUrl();
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      customer_email: email,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Storage Network Pro",
+              description: "Pro subscription: 5% fees, custom link, white-label branding",
+            },
+            unit_amount: PRO_MONTHLY_PRICE_CENTS,
+            recurring: {
+              interval: "month",
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        userId,
+        type: "pro_subscription",
+      },
+      subscription_data: {
+        metadata: {
+          userId,
+        },
+      },
+      success_url: `${baseUrl}/dashboard/profile?pro=success`,
+      cancel_url: `${baseUrl}/dashboard/profile?pro=cancelled`,
+    });
+
+    return { success: true, url: session.url ?? undefined };
+  } catch (err) {
+    console.error("[ProCheckout] Error creating session:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to create checkout",
+    };
+  }
+}
 
 /**
  * Activate Pro subscription for a user.
@@ -104,7 +189,7 @@ export async function activateProSubscription(
 }
 
 /**
- * Deactivate Pro subscription.
+ * Deactivate Pro subscription (called by webhook when subscription ends).
  */
 export async function deactivateProSubscription(
   userId: string
@@ -118,4 +203,194 @@ export async function deactivateProSubscription(
     .eq("id", userId);
 
   return { success: true };
+}
+
+/**
+ * Get Pro subscription status from Stripe.
+ * Returns subscription details including cancel_at_period_end.
+ */
+export async function getProSubscriptionStatus(
+  userId: string
+): Promise<{
+  success: boolean;
+  status?: string;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string;
+  error?: string;
+}> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_subscription_id, is_pro")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.stripe_subscription_id) {
+      return { success: false, error: "No active subscription" };
+    }
+
+    const subscription = (await stripe.subscriptions.retrieve(
+      profile.stripe_subscription_id
+    )) as Stripe.Subscription;
+
+    // In Stripe SDK v20+, current_period_end is on subscription items
+    const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
+
+    return {
+      success: true,
+      status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodEnd: currentPeriodEnd
+        ? new Date(currentPeriodEnd * 1000).toISOString()
+        : undefined,
+    };
+  } catch (err) {
+    console.error("[ProSubscription] Error fetching status:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch status",
+    };
+  }
+}
+
+/**
+ * Cancel Pro subscription at end of billing period.
+ * User keeps Pro benefits until the period ends.
+ */
+export async function cancelProSubscription(
+  userId: string
+): Promise<{ success: boolean; cancelDate?: string; error?: string }> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_subscription_id")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.stripe_subscription_id) {
+      return { success: false, error: "No active subscription found" };
+    }
+
+    // Cancel at period end (user keeps access until then)
+    const subscription = (await stripe.subscriptions.update(
+      profile.stripe_subscription_id,
+      { cancel_at_period_end: true }
+    )) as Stripe.Subscription;
+
+    // In Stripe SDK v20+, current_period_end is on subscription items
+    const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
+    const cancelDate = currentPeriodEnd
+      ? new Date(currentPeriodEnd * 1000).toISOString()
+      : new Date().toISOString();
+
+    console.log(
+      `[ProSubscription] Subscription ${profile.stripe_subscription_id} set to cancel on ${cancelDate}`
+    );
+
+    return { success: true, cancelDate };
+  } catch (err) {
+    console.error("[ProSubscription] Cancel failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to cancel",
+    };
+  }
+}
+
+/**
+ * Reactivate a Pro subscription that was set to cancel.
+ * Only works if the subscription hasn't ended yet.
+ */
+export async function reactivateProSubscription(
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_subscription_id")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.stripe_subscription_id) {
+      return { success: false, error: "No subscription found" };
+    }
+
+    // Remove the cancel_at_period_end flag
+    await stripe.subscriptions.update(profile.stripe_subscription_id, {
+      cancel_at_period_end: false,
+    });
+
+    console.log(
+      `[ProSubscription] Subscription ${profile.stripe_subscription_id} reactivated`
+    );
+
+    return { success: true };
+  } catch (err) {
+    console.error("[ProSubscription] Reactivate failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to reactivate",
+    };
+  }
+}
+
+/**
+ * Create a Stripe Customer Portal session for subscription management.
+ * Allows user to update payment method, view invoices, cancel, etc.
+ */
+export async function createCustomerPortalSession(
+  userId: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_subscription_id")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.stripe_subscription_id) {
+      return { success: false, error: "No active subscription" };
+    }
+
+    // Get the subscription to find the customer ID
+    const subscription = (await stripe.subscriptions.retrieve(
+      profile.stripe_subscription_id
+    )) as Stripe.Subscription;
+
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id;
+
+    const baseUrl = getAppUrl();
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${baseUrl}/dashboard/profile`,
+    });
+
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[ProSubscription] Portal session failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to create portal",
+    };
+  }
 }

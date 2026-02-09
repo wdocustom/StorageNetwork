@@ -6,6 +6,7 @@ import { calculateBuild } from "@/app/actions/calculator";
 import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
+import { calculateMaterialCost, type MaterialBreakdown } from "@/utils/calculateMaterials";
 import {
   ArrowLeft,
   HardHat,
@@ -19,6 +20,8 @@ import {
   Send,
   CheckCircle2,
   Box,
+  Calculator,
+  TrendingUp,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -56,9 +59,13 @@ export default function BuildConfiguratorPage() {
     price: number;
     totalW: number;
     totalH: number;
+    depth: number;
     slots: number;
+    unitType: "standard" | "mini";
+    orientation: "standard" | "sideways";
   } | null>(null);
   const [manifest, setManifest] = useState<BuildManifest | null>(null);
+  const [materialBreakdown, setMaterialBreakdown] = useState<MaterialBreakdown | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState("");
 
@@ -121,6 +128,7 @@ export default function BuildConfiguratorPage() {
     setCalculating(true);
     setBuildResult(null);
     setManifest(null);
+    setMaterialBreakdown(null);
 
     try {
       const res = await calculateBuild({
@@ -142,7 +150,10 @@ export default function BuildConfiguratorPage() {
         price: res.price,
         totalW: res.dimensions.totalW,
         totalH: res.dimensions.totalH,
+        depth: res.dimensions.depth,
         slots: res.config.slots,
+        unitType: res.config.unitType,
+        orientation: res.config.orientation,
       };
       setBuildResult(result);
 
@@ -151,15 +162,28 @@ export default function BuildConfiguratorPage() {
         cols: res.cols,
         rows: res.rows,
         toteType,
+        unitType: res.config.unitType,
+        orientation: res.config.orientation,
         hasTotes,
         hasWheels,
         hasTop,
         price: res.price,
         totalW: res.dimensions.totalW,
         totalH: res.dimensions.totalH,
+        depth: res.dimensions.depth,
         desc: `${res.cols} Wide × ${res.rows} High`,
       };
       setManifest(generateBuildManifest([unit]));
+
+      // Calculate material cost for profit breakdown
+      setMaterialBreakdown(calculateMaterialCost({
+        cols: res.cols,
+        rows: res.rows,
+        toteType,
+        hasTotes,
+        hasWheels,
+        hasTop,
+      }));
     } catch {
       setCalcError("Calculation failed. Please try again.");
     } finally {
@@ -185,12 +209,15 @@ export default function BuildConfiguratorPage() {
         cols: buildResult.cols,
         rows: buildResult.rows,
         toteType,
+        unitType: buildResult.unitType,
+        orientation: buildResult.orientation,
         hasTotes,
         hasWheels,
         hasTop,
         price: buildResult.price,
         totalW: buildResult.totalW,
         totalH: buildResult.totalH,
+        depth: buildResult.depth,
         desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
       };
 
@@ -408,8 +435,8 @@ export default function BuildConfiguratorPage() {
                 </button>
               </div>
 
-              {/* Book Installation — visible when quote has been sent and Stripe is connected */}
-              {installerStripeId && leadIdForBooking && (
+              {/* Book Installation — visible when quote has been sent */}
+              {leadIdForBooking && (
                 <button
                   onClick={() => setShowBookingModal(true)}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
@@ -417,6 +444,138 @@ export default function BuildConfiguratorPage() {
                   <ShoppingCart className="h-4 w-4" />
                   Book Installation
                 </button>
+              )}
+            </section>
+
+            {/* ── Profit Calculator ────────────────────────────────────── */}
+            <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+                <Calculator className="h-4 w-4 text-yellow-400" />
+                Profit Calculator
+              </h2>
+
+              {materialBreakdown && (
+                <div className="space-y-4">
+                  {/* Material Cost Breakdown */}
+                  <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase text-stone-500">Est. Material Cost</span>
+                      <span className="text-lg font-black text-orange-400">
+                        ${materialBreakdown.totalCost.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs text-stone-400">
+                      {materialBreakdown.items.map((item, i) => (
+                        <div key={i} className="flex justify-between">
+                          <span>{item.name} × {item.qty}</span>
+                          <span className="font-mono">${item.subtotal.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Profit Scenarios Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Network Lead Scenario */}
+                    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                      <div className="mb-2 text-center">
+                        <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+                          NETWORK LEAD
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between text-stone-400">
+                          <span>Job Price</span>
+                          <span>${buildResult.price.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-red-400">
+                          <span>Platform Fee (15%)</span>
+                          <span>-${Math.round(buildResult.price * 0.15).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-stone-400">
+                          <span>You Collect</span>
+                          <span>${Math.round(buildResult.price * 0.85).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-orange-400">
+                          <span>Materials</span>
+                          <span>-${materialBreakdown.totalCost.toLocaleString()}</span>
+                        </div>
+                        <div className="mt-2 border-t border-slate-600 pt-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-stone-300">Net Profit</span>
+                            <span className="text-lg font-black text-emerald-400">
+                              ${Math.max(0, Math.round(buildResult.price * 0.85 - materialBreakdown.totalCost)).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Direct Lead Scenario */}
+                    <div className={`relative rounded-lg border p-3 ${isPro ? "border-yellow-400/50 bg-yellow-400/5" : "border-slate-700 bg-slate-800/50"}`}>
+                      <div className="mb-2 text-center">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isPro ? "bg-yellow-400/20 text-yellow-400" : "bg-slate-600/50 text-stone-400"}`}>
+                          DIRECT LEAD
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between text-stone-400">
+                          <span>Job Price</span>
+                          <span>${buildResult.price.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-red-400">
+                          <span>Platform Fee ({isPro ? "5%" : "15%"})</span>
+                          <span>-${Math.round(buildResult.price * (isPro ? 0.05 : 0.15)).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-stone-400">
+                          <span>You Collect</span>
+                          <span>${Math.round(buildResult.price * (isPro ? 0.95 : 0.85)).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-orange-400">
+                          <span>Materials</span>
+                          <span>-${materialBreakdown.totalCost.toLocaleString()}</span>
+                        </div>
+                        <div className="mt-2 border-t border-slate-600 pt-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-stone-300">Net Profit</span>
+                            <span className="text-lg font-black text-emerald-400">
+                              ${Math.max(0, Math.round(buildResult.price * (isPro ? 0.95 : 0.85) - materialBreakdown.totalCost)).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {isPro && (
+                        <div className="absolute -top-2 right-2">
+                          <span className="rounded bg-yellow-400 px-1.5 py-0.5 text-[9px] font-black text-gray-950">PRO</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pro Upsell for Free Users */}
+                  {!isPro && (
+                    <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-400/10">
+                          <TrendingUp className="h-4 w-4 text-yellow-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-yellow-400">Save 10% on Direct Leads with Pro</p>
+                          <p className="mt-0.5 text-[11px] text-stone-400">
+                            Upgrade to Pro and keep more profit on jobs from your own customers.
+                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${Math.round(buildResult.price * 0.10).toLocaleString()}</span>.
+                          </p>
+                          <a
+                            href="/upgrade"
+                            className="mt-2 inline-block rounded bg-yellow-400 px-3 py-1.5 text-[10px] font-bold uppercase text-gray-950 transition-colors hover:bg-yellow-300"
+                          >
+                            Upgrade to Pro
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </section>
 
@@ -725,14 +884,15 @@ export default function BuildConfiguratorPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           BOOKING MODAL
       ═══════════════════════════════════════════════════════════════════ */}
-      {buildResult && installerStripeId && leadIdForBooking && (
+      {buildResult && userId && leadIdForBooking && (
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
           leadId={leadIdForBooking}
           depositAmount={Math.round(buildResult.price * 0.15)}
           totalPrice={buildResult.price}
-          installerStripeId={installerStripeId}
+          installerId={userId}
+          source="partner_link"
           customerEmail={customerEmail || undefined}
           customerName={customerName || undefined}
           hasWheels={hasWheels}

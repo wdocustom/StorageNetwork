@@ -9,9 +9,21 @@ const supabase = createClient(
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Checkout — Financial logic for Platform vs Partner Link deposits
+//
+// FEE STRUCTURE:
+// ─────────────────────────────────────────────────────────────────────────
+// Platform Lead:            15% deposit → 100% to Platform
+// Partner Link + Non-Pro:   15% deposit → 100% to Platform
+// Partner Link + Pro:       15% deposit → 10% to Installer, 5% to Platform
+// ─────────────────────────────────────────────────────────────────────────
+//
+// This module handles lead record updates after checkout.
+// Actual Stripe payment processing is in /app/actions/payments.ts
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DEPOSIT_RATE = 0.15; // 15%
+const PRO_INSTALLER_RATE = 0.10; // 10% goes to Pro installer (from the 15%)
+const PRO_PLATFORM_RATE = 0.05;  // 5% goes to platform for Pro partner links
 
 export type LeadSource = "platform" | "partner_link";
 
@@ -26,7 +38,10 @@ export interface CheckoutResult {
   success: boolean;
   deposit_amount: number;
   balance_due: number;
-  payout_to: "platform" | "installer";
+  payout_to: "platform" | "installer" | "split";
+  platform_amount: number;      // Amount going to platform
+  installer_amount: number;     // Amount going to installer (0 for non-Pro)
+  is_pro: boolean;
   stripe_account_id: string | null;
   error?: string;
 }
@@ -34,13 +49,11 @@ export interface CheckoutResult {
 /**
  * Process deposit checkout with source-aware financial routing.
  *
- * Scenario A (Platform Lead): source = 'platform'
- *   → Deposit (15%) goes to The Storage-Network Platform Account
- *   → Installer collects 85% on site
+ * Platform Lead:            100% of 15% deposit → Platform
+ * Partner Link + Non-Pro:   100% of 15% deposit → Platform
+ * Partner Link + Pro:       10% → Installer, 5% → Platform (split)
  *
- * Scenario B (Self Lead): source = 'partner_link'
- *   → Deposit (15%) goes to Installer's Stripe Connect Account (0% platform fee)
- *   → Installer collects 85% on site
+ * In all cases, installer collects 85% balance on site.
  */
 export async function processCheckout(
   input: CheckoutInput
@@ -51,21 +64,31 @@ export async function processCheckout(
   const balanceDue = Math.round((grand_total - depositAmount) * 100) / 100;
 
   let stripeAccountId: string | null = null;
-  let payoutTo: "platform" | "installer" = "platform";
+  let payoutTo: "platform" | "installer" | "split" = "platform";
+  let platformAmount = depositAmount;
+  let installerAmount = 0;
+  let isPro = false;
 
   if (source === "partner_link" && installer_id) {
-    // Self-lead: deposit goes to installer's Stripe Connect
+    // Partner link: check installer's Pro status and Stripe connection
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_account_id")
+      .select("stripe_account_id, is_pro")
       .eq("id", installer_id)
       .single();
 
-    if (profile?.stripe_account_id) {
-      stripeAccountId = profile.stripe_account_id;
-      payoutTo = "installer";
+    isPro = profile?.is_pro === true;
+    stripeAccountId = profile?.stripe_account_id || null;
+
+    if (isPro && stripeAccountId) {
+      // Pro installer with Stripe connected: split deposit
+      platformAmount = Math.round(grand_total * PRO_PLATFORM_RATE * 100) / 100;
+      installerAmount = Math.round(grand_total * PRO_INSTALLER_RATE * 100) / 100;
+      payoutTo = "split";
     } else {
-      // Installer hasn't connected Stripe — fall back to platform
+      // Non-Pro OR no Stripe: platform keeps 100%
+      platformAmount = depositAmount;
+      installerAmount = 0;
       payoutTo = "platform";
     }
   }
@@ -88,6 +111,9 @@ export async function processCheckout(
       deposit_amount: depositAmount,
       balance_due: balanceDue,
       payout_to: payoutTo,
+      platform_amount: platformAmount,
+      installer_amount: installerAmount,
+      is_pro: isPro,
       stripe_account_id: stripeAccountId,
       error: "Failed to process checkout.",
     };
@@ -98,6 +124,9 @@ export async function processCheckout(
     deposit_amount: depositAmount,
     balance_due: balanceDue,
     payout_to: payoutTo,
+    platform_amount: platformAmount,
+    installer_amount: installerAmount,
+    is_pro: isPro,
     stripe_account_id: stripeAccountId,
   };
 }

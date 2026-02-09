@@ -25,6 +25,7 @@ export interface SendEmailParams {
   subject: string;
   html: string;
   senderName?: string;
+  replyTo?: string;
 }
 
 export interface SendEmailResult {
@@ -41,13 +42,13 @@ const SENDER_NAME = process.env.RESEND_SENDER_NAME || "Storage Network";
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, senderName } = params;
+  const { to, subject, html, senderName, replyTo } = params;
 
   console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 
   // Development safety trap — log instead of sending
   if (process.env.NODE_ENV === "development" && !process.env.RESEND_API_KEY) {
-    console.log("[Email DEV] Would send:", { to, subject });
+    console.log("[Email DEV] Would send:", { to, subject, replyTo });
     return { success: true, messageId: "dev-" + Date.now() };
   }
 
@@ -63,6 +64,7 @@ export async function sendTransactionalEmail(
       to: [to],
       subject,
       html,
+      ...(replyTo && { reply_to: replyTo }),
     });
 
     if (error) {
@@ -100,7 +102,7 @@ function emailShell(title: string, body: string): string {
     <div style="background-color:#ffffff;border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);overflow:hidden;">
       <!-- Header with Logo -->
       <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:28px 32px;text-align:center;">
-        <img src="${logoUrl}" alt="Storage Network" width="64" height="64" style="border-radius:50%;margin-bottom:12px;" />
+        <img src="${logoUrl}" alt="Storage Network" style="max-width:64px;max-height:64px;width:auto;height:auto;margin-bottom:12px;" />
         <h1 style="margin:0;color:#facc15;font-size:22px;font-weight:700;letter-spacing:-0.3px;">${title}</h1>
       </div>
       <!-- Body -->
@@ -229,7 +231,7 @@ export async function sendBookingConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Order Confirmed: Garage Storage Installation — ${formattedDate}`,
+    subject: `Order Confirmed: Tote Storage Installation — ${formattedDate}`,
     html,
   });
 }
@@ -360,6 +362,191 @@ export async function sendJobReceipt(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Payment Received Alert (Installer)
+// Trigger: Customer pays final balance via Stripe
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendPaymentReceivedAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    amountReceived: number;
+    jobTotal: number;
+    leadId: string;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
+
+  const html = emailShell(
+    "Payment Received",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      Great news! <strong>${data.customerName}</strong> just paid the remaining balance for their installation.
+    </p>
+
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 4px;color:#16a34a;font-size:12px;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Payment Received</p>
+      <p style="margin:0;color:#16a34a;font-size:36px;font-weight:900;">$${data.amountReceived.toLocaleString()}</p>
+    </div>
+
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr><td style="padding:6px 0;color:#64748b;">Customer</td><td style="padding:6px 0;font-weight:600;text-align:right;">${data.customerName}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">Job Total</td><td style="padding:6px 0;font-weight:600;text-align:right;">$${data.jobTotal.toLocaleString()}</td></tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+        View Job Ticket
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Funds will transfer to your connected bank account per your Stripe payout schedule.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: `Payment Received — $${data.amountReceived.toLocaleString()} from ${data.customerName}`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Installer Onboarding Welcome
+// Trigger: New installer signs up / completes registration
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendInstallerOnboardingEmail(
+  email: string,
+  data: {
+    name: string;
+    isPro?: boolean;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const upgradeUrl = `${getAppUrl()}/upgrade`;
+
+  const html = emailShell(
+    "Welcome to Storage Network",
+    `
+    <!-- Hero Welcome -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <p style="margin:0 0 8px;font-size:32px;">&#128075;</p>
+      <p style="margin:0;color:#334155;font-size:18px;font-weight:700;">Welcome aboard, ${data.name}!</p>
+    </div>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      You&rsquo;ve just joined a growing network of skilled installers building custom tote storage systems
+      for customers across the country. Here&rsquo;s everything you need to know to get started.
+    </p>
+
+    <!-- How It Works -->
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">How It Works</p>
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;width:32px;font-size:20px;">1&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Leads come to you</strong> — Customers design their system and pay a deposit. You get notified instantly.</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;font-size:20px;">2&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Everything&rsquo;s ready</strong> — Each job includes a cut list and materials list so you know exactly what to build.</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;font-size:20px;">3&#65039;&#8419;</td>
+          <td style="padding:10px 0;"><strong>Flexible payments</strong> — Collect the balance on-site however works best: Venmo, cash, check, or process cards through Stripe.</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Fee Structure Comparison -->
+    <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Simple, Transparent Pricing</p>
+
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:separate;border-spacing:12px 0;">
+        <tr>
+          <!-- Free Plan -->
+          <td style="width:50%;vertical-align:top;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+            <div style="text-align:center;margin-bottom:16px;">
+              <span style="display:inline-block;background-color:#64748b;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Free</span>
+            </div>
+            <p style="margin:0 0 4px;text-align:center;color:#1e293b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
+            <p style="margin:0 0 16px;text-align:center;color:#334155;font-size:28px;font-weight:900;">15%</p>
+            <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
+              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Automated leads in your ZIP</p>
+              <p style="margin:0 0 8px;color:#64748b;font-size:12px;">&#10003; Cut lists &amp; material guides</p>
+              <p style="margin:0;color:#64748b;font-size:12px;">&#10003; Direct bank payouts</p>
+            </div>
+          </td>
+
+          <!-- Pro Plan -->
+          <td style="width:50%;vertical-align:top;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;position:relative;">
+            <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:9px;font-weight:900;padding:4px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;">Recommended</div>
+            <div style="text-align:center;margin-bottom:16px;">
+              <span style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Pro</span>
+            </div>
+            <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
+            <p style="margin:0;text-align:center;color:#facc15;font-size:28px;font-weight:900;">5%</p>
+            <p style="margin:0 0 16px;text-align:center;color:#94a3b8;font-size:11px;">on your direct leads</p>
+            <div style="border-top:1px solid #475569;padding-top:16px;">
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Everything in Free, plus:</p>
+              <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 5% on partner link leads</p>
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Custom branded partner link</p>
+              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Priority lead routing</p>
+              <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Savings Example -->
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;color:#16a34a;font-size:13px;line-height:1.6;">
+        <strong>&#128176; Pro Math:</strong> On a $1,500 job from your own customer, Free takes $225 in fees.
+        Pro takes just $75 &mdash; that&rsquo;s <strong>$150 more in your pocket</strong>.
+      </p>
+    </div>
+
+    <!-- CTA Buttons -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+        Open Dashboard
+      </a>
+      ${!data.isPro ? `<a href="${upgradeUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
+        Upgrade to Pro
+      </a>` : ""}
+    </div>
+
+    <!-- Closing -->
+    <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:12px;margin-bottom:16px;">
+      <p style="margin:0;color:#1e293b;font-size:16px;font-weight:700;">
+        We look forward to building with you! &#128170;
+      </p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Just reply to this email &mdash; we&rsquo;re here to help.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Welcome to Storage Network — Let's Build!",
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Template: Installer Welcome
 // Trigger: Stripe onboarding complete
 // ═══════════════════════════════════════════════════════════════════════════
@@ -400,6 +587,77 @@ export async function sendInstallerWelcome(
     to: email,
     toName: name,
     subject: "Welcome to the Storage Network Partner Program — You're Live!",
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Pro Subscription Confirmation
+// Trigger: Installer subscribes to Pro plan
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendProWelcomeEmail(
+  email: string,
+  data: {
+    name: string;
+    slug: string;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
+
+  const html = emailShell(
+    "Welcome to Pro!",
+    `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#9733;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.name},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      You&rsquo;re now a <strong style="color:#facc15;">Pro Partner</strong>! Here&rsquo;s what you&rsquo;ve unlocked:
+    </p>
+
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;width:24px;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>Lower Fees</strong> — Only 5% platform fee on direct link leads (vs 15%)</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>Your Partner Link</strong> — Share your custom URL with customers</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:10px 0;"><strong>White-Label Experience</strong> — Your branding, your customers</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Your Partner Link</p>
+      <p style="margin:0;color:#facc15;font-size:16px;font-weight:700;word-break:break-all;">${partnerLinkUrl}</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}/marketing" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+        View Marketing Tools
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Share your link with customers to start earning more on every job.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Welcome to Pro — Your Partner Link is Live!",
     html,
   });
 }
@@ -458,4 +716,94 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     </p>
     `
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Abandoned Cart Recovery
+// Trigger: Customer abandons checkout (30+ minutes without payment)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendAbandonedCartEmail(
+  email: string,
+  data: {
+    customerName: string;
+    totalPrice: number;
+    depositAmount: number;
+    resumeUrl: string;
+    installerName?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const installerLine = data.installerName
+    ? `with <strong>${data.installerName}</strong>`
+    : "for your custom storage system";
+
+  const html = emailShell(
+    "Complete Your Order",
+    `
+    <!-- Attention Grabber -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:#fef3c7;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#128722;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${data.customerName},</p>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      Looks like you didn&rsquo;t finish your order ${installerLine}.
+      No worries &mdash; your custom configuration is saved and ready to go!
+    </p>
+
+    <!-- Order Summary Card -->
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Your Order Summary</p>
+      <table style="width:100%;">
+        <tr>
+          <td style="color:#64748b;font-size:14px;padding:8px 0;">Total Estimate</td>
+          <td style="text-align:right;color:#1e293b;font-size:20px;font-weight:800;">$${data.totalPrice.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="color:#64748b;font-size:14px;padding:8px 0;border-top:1px dashed #e2e8f0;">Deposit to Reserve (15%)</td>
+          <td style="text-align:right;color:#f59e0b;font-size:18px;font-weight:700;padding-top:8px;border-top:1px dashed #e2e8f0;">$${data.depositAmount.toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Urgency Note -->
+    <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
+        <strong>&#9888; Heads up:</strong> Your order will expire in 7 days. Complete your purchase to lock in your spot on the schedule.
+      </p>
+    </div>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="${data.resumeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(250,204,21,0.3);">
+        Complete My Order
+      </a>
+    </div>
+
+    <!-- Trust Signals -->
+    <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:12px;color:#64748b;">
+        <tr>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#128274; Secure Checkout</td>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#128176; 15% Deposit Only</td>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#9989; Satisfaction Guaranteed</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Changed your mind? No problem &mdash; just ignore this email. Your order will automatically expire.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.customerName,
+    subject: "Don't forget your storage system! Complete your order",
+    html,
+  });
 }

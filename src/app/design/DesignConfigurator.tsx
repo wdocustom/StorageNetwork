@@ -8,9 +8,10 @@ import {
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { calculateBuild, type UnitType } from "@/app/actions/calculator";
+import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
+import ScanWizard from "@/components/design/ScanWizard";
 import {
   MapPin,
   CheckCircle2,
@@ -23,6 +24,7 @@ import {
   ArrowLeft,
   User,
   CreditCard,
+  Scan,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -35,6 +37,7 @@ interface UnitConfig {
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -54,6 +57,7 @@ interface ServerBuild {
   depth: number;
   slots: number;
   unitType: UnitType;
+  orientation: Orientation;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -166,6 +170,7 @@ export default function DesignConfigurator({
 
   // ── Design inputs ─────────────────────────────────────────────────────
   const [unitType, setUnitType] = useState<UnitType>("standard");
+  const [orientation, setOrientation] = useState<Orientation>("standard");
   const [cols, setCols] = useState<number | string>(4);
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
@@ -175,7 +180,7 @@ export default function DesignConfigurator({
 
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
-    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard",
+    cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard", orientation: "standard",
   });
   const [buildLoading, setBuildLoading] = useState(false);
 
@@ -183,13 +188,20 @@ export default function DesignConfigurator({
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
 
   // ── Booking form ──────────────────────────────────────────────────────
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [city, setCity] = useState("");
   const [addrState, setAddrState] = useState("");
   const [addrZip, setAddrZip] = useState("");
+  // Delivery address (if different from installation address)
+  const [hasDifferentDelivery, setHasDifferentDelivery] = useState(false);
+  const [deliveryStreet, setDeliveryStreet] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -197,6 +209,9 @@ export default function DesignConfigurator({
 
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // ── Scan Wizard modal ───────────────────────────────────────────────────
+  const [showScanWizard, setShowScanWizard] = useState(false);
 
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
@@ -218,6 +233,7 @@ export default function DesignConfigurator({
       r: number,
       model: ToteType,
       unit: UnitType,
+      orient: Orientation,
       totes: boolean,
       wheels: boolean,
       top: boolean
@@ -231,6 +247,7 @@ export default function DesignConfigurator({
             rows: r,
             toteModel: model,
             unitType: unit,
+            orientation: orient,
             addOns: { totes, wheels, top },
             mode: "manual",
           });
@@ -244,6 +261,7 @@ export default function DesignConfigurator({
               depth: res.dimensions.depth,
               slots: res.config.slots,
               unitType: res.config.unitType,
+              orientation: res.config.orientation,
             });
           }
         } catch {
@@ -263,11 +281,14 @@ export default function DesignConfigurator({
   // For mini units, plywood top is always included (mandatory)
   const effectiveHasTop = unitType === "mini" ? true : hasTop;
 
+  // Effective orientation: only applies to standard units
+  const effectiveOrientation: Orientation = unitType === "standard" ? orientation : "standard";
+
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop);
+      fetchBuild(numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
     }
-  }, [numCols, numRows, toteType, unitType, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
 
   // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
   const prevUnitTypeRef = useRef(unitType);
@@ -284,6 +305,22 @@ export default function DesignConfigurator({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitType]);
+
+  // ── Smart Orientation Switching: Re-trigger Auto-Fit when orientation changes ──
+  const prevOrientationRef = useRef(effectiveOrientation);
+  useEffect(() => {
+    if (prevOrientationRef.current !== effectiveOrientation) {
+      prevOrientationRef.current = effectiveOrientation;
+      // If wall dimensions are set, trigger auto-fit for the new orientation
+      const wW = parseFloat(wallWidth);
+      const wH = parseFloat(wallHeight);
+      if (wW > 0 && wH > 0) {
+        // Trigger auto-fit with new orientation
+        handleWallFit();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveOrientation]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -304,6 +341,7 @@ export default function DesignConfigurator({
         wallHeight: wH,
         toteModel: toteType,
         unitType,
+        orientation: effectiveOrientation,
         addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
         mode: "wallFit",
       });
@@ -319,6 +357,7 @@ export default function DesignConfigurator({
           depth: res.dimensions.depth,
           slots: res.config.slots,
           unitType: res.config.unitType,
+          orientation: res.config.orientation,
         });
         setWallFitMsg(
           `Max fit: ${res.cols} Wide × ${res.rows} High for that wall.`
@@ -331,8 +370,28 @@ export default function DesignConfigurator({
     }
   }
 
+  // Handler for ScanWizard completion
+  function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
+    // Set wall dimensions from AI measurement
+    setWallWidth(width.toFixed(1));
+    if (height) {
+      setWallHeight(height.toFixed(1));
+    }
+    // Set tote type based on scanned tote
+    setToteType(toteConfigKey);
+    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide${height ? ` × ${height.toFixed(1)}" tall` : ""}`);
+    // Trigger auto-fit if we have both dimensions
+    if (height) {
+      // Small delay to let state update, then trigger auto-fit
+      setTimeout(() => handleWallFit(), 100);
+    }
+  }
+
   function handleAddUnit() {
-    const unitLabel = unitType === "mini" ? "Mini" : "Standard";
+    let unitLabel = unitType === "mini" ? "Mini" : "Standard";
+    if (unitType === "standard" && effectiveOrientation === "sideways") {
+      unitLabel = "Standard (Sideways)";
+    }
     setOrderItems((prev) => [
       ...prev,
       {
@@ -340,6 +399,7 @@ export default function DesignConfigurator({
         rows: build.rows,
         toteType,
         unitType,
+        orientation: effectiveOrientation,
         hasTotes,
         hasWheels,
         hasTop: effectiveHasTop,
@@ -358,8 +418,8 @@ export default function DesignConfigurator({
 
   async function handleBookDeposit() {
     setSubmitError("");
-    if (!name.trim() || !email.trim() || !phone.trim()) {
-      setSubmitError("Name, email, and phone are required.");
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
+      setSubmitError("First name, last name, email, and phone are required.");
       return;
     }
     if (orderItems.length === 0) {
@@ -369,9 +429,13 @@ export default function DesignConfigurator({
 
     setSubmitting(true);
     try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
       const compositeAddress = [streetAddress, city, addrState, addrZip].filter(Boolean).join(", ");
+      const deliveryAddress = hasDifferentDelivery
+        ? [deliveryStreet, deliveryCity, deliveryState, deliveryZip].filter(Boolean).join(", ")
+        : undefined;
       const result = await submitNetworkLead({
-        customer_name: name,
+        customer_name: fullName,
         customer_email: email,
         customer_phone: phone,
         address: compositeAddress,
@@ -379,6 +443,7 @@ export default function DesignConfigurator({
         address_city: city,
         address_state: addrState,
         address_zip: addrZip,
+        delivery_address: deliveryAddress,
         quote_data: orderItems,
         grand_total: grandTotal,
         installer_id: installerId || undefined,
@@ -393,11 +458,12 @@ export default function DesignConfigurator({
 
       setLeadId(result.id);
 
-      // If installer has Stripe connected, open the booking modal for inline payment
-      if (stripeAccountId) {
+      // Open booking modal for inline deposit payment
+      // (Payments route to platform if installer doesn't have Stripe connected)
+      if (installerId) {
         setShowBookingModal(true);
       } else {
-        // No Stripe — just show confirmation
+        // No installer — just show confirmation
         setSubmitted(true);
       }
     } catch (err) {
@@ -535,6 +601,23 @@ export default function DesignConfigurator({
                 <Maximize2 className="h-4 w-4 text-yellow-600" />
                 Auto-Fit Wall Calculator
               </h2>
+
+              {/* Scan Wall Button - Coming Soon */}
+              <div className="relative mb-3">
+                <button
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 border-dashed border-stone-300 bg-stone-100 py-3 text-sm font-bold uppercase tracking-wide text-stone-400"
+                >
+                  <Scan className="h-5 w-5" />
+                  Scan Wall with AI
+                </button>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-gray-900 shadow-lg">
+                    Coming Soon
+                  </span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
@@ -596,7 +679,13 @@ export default function DesignConfigurator({
                 </label>
                 <select
                   value={unitType}
-                  onChange={(e) => setUnitType(e.target.value as UnitType)}
+                  onChange={(e) => {
+                    setUnitType(e.target.value as UnitType);
+                    // Reset orientation when switching unit types
+                    if (e.target.value === "mini") {
+                      setOrientation("standard");
+                    }
+                  }}
                   className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 >
                   <option value="standard">Standard (27 Gallon Totes)</option>
@@ -608,6 +697,28 @@ export default function DesignConfigurator({
                   </p>
                 )}
               </div>
+
+              {/* Orientation Selector - Only for Standard units */}
+              {unitType === "standard" && (
+                <div className="mb-4">
+                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    Tote Orientation
+                  </label>
+                  <select
+                    value={orientation}
+                    onChange={(e) => setOrientation(e.target.value as Orientation)}
+                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  >
+                    <option value="standard">Standard (30&quot; Deep)</option>
+                    <option value="sideways">Sideways (20&quot; Deep)</option>
+                  </select>
+                  {orientation === "sideways" && (
+                    <p className="mt-1 text-[10px] italic text-amber-600">
+                      Sideways orientation: Totes rotated 90° for shallower depth (20&quot;).
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -813,14 +924,25 @@ export default function DesignConfigurator({
                 <div className="mt-4 border-t border-stone-200 pt-4">
                   {!submitted ? (
                     <div className="space-y-2">
+                      {/* Name fields */}
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="Your name *"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First Name *"
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Last Name *"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
+                      {/* Contact info */}
+                      <div className="grid grid-cols-2 gap-2">
                         <input
                           type="email"
                           value={email}
@@ -828,21 +950,27 @@ export default function DesignConfigurator({
                           placeholder="Email *"
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="Phone *"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
                       </div>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="Phone *"
-                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                      />
-                      <input
-                        type="text"
-                        value={streetAddress}
-                        onChange={(e) => setStreetAddress(e.target.value)}
-                        placeholder="Street Address"
-                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                      />
+                      {/* Billing address */}
+                      <div className="pt-1">
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
+                          Billing Address
+                        </label>
+                        <input
+                          type="text"
+                          value={streetAddress}
+                          onChange={(e) => setStreetAddress(e.target.value)}
+                          placeholder="Street Address"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input
                           type="text"
@@ -866,6 +994,56 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
+                      {/* Installation address toggle */}
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
+                        <input
+                          type="checkbox"
+                          checked={hasDifferentDelivery}
+                          onChange={(e) => setHasDifferentDelivery(e.target.checked)}
+                          className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
+                        />
+                        <span className="text-xs font-medium text-stone-600">
+                          Installation address is different from billing
+                        </span>
+                      </label>
+                      {/* Installation address fields (conditional) */}
+                      {hasDifferentDelivery && (
+                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <label className="block text-[10px] font-semibold uppercase text-amber-700">
+                            Installation Address
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryStreet}
+                            onChange={(e) => setDeliveryStreet(e.target.value)}
+                            placeholder="Street Address"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={deliveryCity}
+                              onChange={(e) => setDeliveryCity(e.target.value)}
+                              placeholder="City"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                            <input
+                              type="text"
+                              value={deliveryState}
+                              onChange={(e) => setDeliveryState(e.target.value)}
+                              placeholder="State"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                            <input
+                              type="text"
+                              value={deliveryZip}
+                              onChange={(e) => setDeliveryZip(e.target.value)}
+                              placeholder="Zip"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                          </div>
+                        </div>
+                      )}
                       <button
                         onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
                         disabled={submitting}
@@ -927,6 +1105,7 @@ export default function DesignConfigurator({
               rows={build.rows || numRows || 1}
               toteType={toteType}
               unitType={unitType}
+              orientation={effectiveOrientation}
               hasTotes={hasTotes}
               hasWheels={hasWheels}
               hasTop={effectiveHasTop}
@@ -977,7 +1156,7 @@ export default function DesignConfigurator({
         </div>
       )}
 
-      {leadId && stripeAccountId && (
+      {leadId && installerId && (
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => {
@@ -987,9 +1166,10 @@ export default function DesignConfigurator({
           leadId={leadId}
           depositAmount={depositAmount}
           totalPrice={grandTotal}
-          installerStripeId={stripeAccountId}
+          installerId={installerId}
+          source={leadSource}
           customerEmail={email || undefined}
-          customerName={name || undefined}
+          customerName={[firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || undefined}
           installerLeadTime={data?.routing.leadTime ?? 5}
           installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
           hasWheels={anyHasWheels}
@@ -1006,6 +1186,13 @@ export default function DesignConfigurator({
           }}
         />
       )}
+
+      {/* ── Scan-to-Build Wizard ───────────────────────────────────────── */}
+      <ScanWizard
+        isOpen={showScanWizard}
+        onClose={() => setShowScanWizard(false)}
+        onComplete={handleScanWizardComplete}
+      />
     </div>
   );
 }

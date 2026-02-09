@@ -6,6 +6,7 @@
 
 export type ToteModel = "HDX" | "GM";
 export type UnitType = "standard" | "mini";
+export type Orientation = "standard" | "sideways";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -14,6 +15,7 @@ interface CalculateBuildInput {
   rows?: number;
   toteModel: ToteModel;
   unitType?: UnitType;
+  orientation?: Orientation; // Only applies to standard units
   addOns: {
     totes: boolean;
     wheels: boolean;
@@ -31,6 +33,7 @@ interface BuildResult {
   config: {
     toteModel: ToteModel;
     unitType: UnitType;
+    orientation: Orientation;
     hasTotes: boolean;
     hasWheels: boolean;
     hasTop: boolean;
@@ -103,9 +106,39 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
   hasTopPlate: true,
   topIsMandatory: false,
 
-  pricePerSlot: 40,
-  pricePerTote: 12,
-  priceWheels: 45,
+  pricePerSlot: 30,
+  pricePerTote: 10,
+  priceWheels: 50,
+  pricePlywoodSheet: 75,
+};
+
+// ── Standard Unit SIDEWAYS Orientation (27 Gallon Totes rotated 90°) ─────
+// Totes are placed sideways: width becomes 30.25", depth becomes 20"
+const SIDEWAYS_CONFIG: UnitDimensionConfig = {
+  slotWidth: 30.25,              // Tote placed sideways (30.25" wide slot)
+  verticalSpacing: 16,           // Same vertical spacing as standard
+  firstRailHeight: 13,           // Same as standard
+  depth: 20,                     // Reduced depth (tote width becomes depth)
+
+  postWidth: 1.5,                // 2x4 narrow face (same)
+  postDepth: 3.5,                // 2x4 wide face
+  plateHeight: 1.5,              // 2x4 flat
+  topGap: 2.5,                   // Same as standard
+
+  railWidth: 1.875,              // Same plywood strips
+  railThickness: 0.75,           // 3/4" plywood
+
+  toteWidth: 0,                  // Set by tote model (but oriented sideways)
+  toteHeight: 11,                // Body height (same)
+  toteDepth: 28.6,               // Tote depth (same physical tote)
+
+  hasTopPlate: true,
+  topIsMandatory: false,
+
+  // Same pricing as standard (for now)
+  pricePerSlot: 30,
+  pricePerTote: 10,
+  priceWheels: 50,
   pricePlywoodSheet: 75,
 };
 
@@ -138,8 +171,10 @@ const MINI_CONFIG: UnitDimensionConfig = {
 };
 
 // ── Config getter ────────────────────────────────────────────────────────
-function getUnitConfig(unitType: UnitType): UnitDimensionConfig {
-  return unitType === "mini" ? MINI_CONFIG : STANDARD_CONFIG;
+function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard"): UnitDimensionConfig {
+  if (unitType === "mini") return MINI_CONFIG;
+  // Standard unit: check orientation
+  return orientation === "sideways" ? SIDEWAYS_CONFIG : STANDARD_CONFIG;
 }
 
 // ── Mini Unit Constraints ────────────────────────────────────────────────
@@ -153,9 +188,13 @@ const WHEEL_HEIGHT = 2.75;       // Industrial caster height for calculations
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 
-function getOpening(model: ToteModel, unitType: UnitType): number {
+function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard"): number {
   if (unitType === "mini") {
     return MINI_CONFIG.slotWidth;
+  }
+  // Sideways orientation uses fixed 30.25" slot width
+  if (orientation === "sideways") {
+    return SIDEWAYS_CONFIG.slotWidth;
   }
   return model === "HDX" ? OPENING_HDX : OPENING_GM;
 }
@@ -165,8 +204,10 @@ export async function calculateBuild(
 ): Promise<BuildResult | BuildError> {
   const { toteModel, addOns, mode } = input;
   const unitType: UnitType = input.unitType ?? "standard";
-  const config = getUnitConfig(unitType);
-  const opening = getOpening(toteModel, unitType);
+  // Orientation only applies to standard units
+  const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
+  const config = getUnitConfig(unitType, orientation);
+  const opening = getOpening(toteModel, unitType, orientation);
 
   let cols: number;
   let rows: number;
@@ -181,9 +222,12 @@ export async function calculateBuild(
       ? Math.min(wallWidth, MINI_MAX_WIDTH)
       : wallWidth;
 
+    // If wheels are enabled, subtract wheel height from available wall height
+    const effectiveWallHeight = addOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
+
     // Wall fit calculation using config values
     cols = Math.floor((effectiveWallWidth - config.postWidth) / (opening + config.postWidth));
-    const usableHeight = wallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
+    const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
     rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
     if (cols < 1) cols = 1;
     if (rows < 1) rows = 1;
@@ -262,6 +306,7 @@ export async function calculateBuild(
     config: {
       toteModel,
       unitType,
+      orientation,
       hasTotes: addOns.totes,
       hasWheels: addOns.wheels,
       hasTop: effectiveHasTop,

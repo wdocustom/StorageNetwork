@@ -35,6 +35,7 @@ export interface SubmitQuoteInput {
   address_city?: string;
   address_state?: string;
   address_zip?: string;
+  delivery_address?: string;
   quote_data: QuoteUnit[];
   grand_total: number;
   installer_id?: string;
@@ -158,7 +159,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
         status: "pending_payment",
         scheduled_at: input.scheduled_at || null,
-        notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}`,
+        notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📍 Installation Address: ${input.delivery_address}` : ""}`,
       })
       .select("id")
       .single();
@@ -172,30 +173,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     const leadId: string = data.id;
     console.log("✅ Lead Created:", leadId);
 
-    // Fire new lead alert email to installer (non-blocking)
-    if (input.installer_id) {
-      console.log("[SubmitLead] Firing new lead alert for installer:", input.installer_id);
-      import("@/lib/email").then(async ({ sendNewLeadAlert }) => {
-        try {
-          const { data: authUser } = await supabase.auth.admin.getUserById(input.installer_id!);
-          const email = authUser?.user?.email;
-          console.log("[SubmitLead] Installer email resolved:", email || "NOT FOUND");
-          if (email) {
-            const result = await sendNewLeadAlert(email, input.address || "Unknown", {
-              customerName: input.customer_name,
-              customerEmail: input.customer_email || undefined,
-              address: input.address || undefined,
-              unitCount: input.quote_data.length,
-              totalPrice: input.grand_total,
-              leadId,
-            });
-            console.log("[SubmitLead] New lead alert result:", result);
-          }
-        } catch (err) {
-          console.error("[SubmitLead] New lead alert error:", err);
-        }
-      }).catch((err) => console.error("[SubmitLead] Email import failed:", err));
-    }
+    // NOTE: New lead alert email is sent from the Stripe webhook AFTER deposit is paid.
+    // This prevents double-emailing the installer (one at lead creation, one at payment).
 
     // 4. CRITICAL: Return only plain JSON — no Date objects, no DB rows
     return { success: true, id: leadId };

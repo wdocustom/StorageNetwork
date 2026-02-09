@@ -28,12 +28,14 @@ import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 
 type ToteType = "HDX" | "GM";
 type UnitType = "standard" | "mini";
+type Orientation = "standard" | "sideways";
 
 interface Rack3DProps {
   cols: number;
   rows: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -61,6 +63,11 @@ const TOTE_BODY_H = 11.0;
 const TOTE_BODY_TAPER = 0.85;
 const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for equal front/back gap
 
+// ── Sideways Orientation Constants (27 Gallon rotated 90°) ───────────────
+
+const SIDEWAYS_SLOT_W = 30.25;   // Tote placed sideways (wider slot)
+const SIDEWAYS_DEPTH = 20;       // Shallower depth
+
 // ── Mini Unit Constants (6.5 Quart) ──────────────────────────────────────
 
 const MINI_SLOT_W = 8.25;         // Slot width (fits 8" wide tote)
@@ -80,9 +87,13 @@ const S = 1 / 48;
 
 // ── Derived ──────────────────────────────────────────────────────────────
 
-function getBayWidth(toteType: ToteType, unitType: UnitType): number {
+function getBayWidth(toteType: ToteType, unitType: UnitType, orientation: Orientation = "standard"): number {
   if (unitType === "mini") {
     return MINI_SLOT_W;
+  }
+  // Sideways orientation uses fixed 30.25" slot width
+  if (orientation === "sideways") {
+    return SIDEWAYS_SLOT_W;
   }
   const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
   return toteW - 2 * BIN_LIP_WIDTH + 2 * BIN_GAP;
@@ -92,8 +103,11 @@ function getPostX(i: number, bayW: number): number {
   return i * (bayW + POST_W) + POST_W / 2;
 }
 
-function getUnitDepth(unitType: UnitType): number {
-  return unitType === "mini" ? MINI_DEPTH : RACK_DEPTH;
+function getUnitDepth(unitType: UnitType, orientation: Orientation = "standard"): number {
+  if (unitType === "mini") return MINI_DEPTH;
+  // Sideways orientation uses shallower depth
+  if (orientation === "sideways") return SIDEWAYS_DEPTH;
+  return RACK_DEPTH;
 }
 
 function getRailHeight(unitType: UnitType): number {
@@ -173,19 +187,39 @@ function PlywoodStrip({ position, length, railHeight }: {
 //   So: toteGroupY = railCenterY + RAIL_HEIGHT/2 - TOTE_BODY_H
 //   Body hangs BELOW the rail. Rim is above the rail.
 
-function Tote({ position, bayW, toteType, unitType }: {
+function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
   position: [number, number, number];
   bayW: number;
   toteType: ToteType;
   unitType: UnitType;
+  orientation: Orientation;
+  unitDepth: number;
 }) {
   const isMini = unitType === "mini";
+  const isSideways = unitType === "standard" && orientation === "sideways";
 
-  // Tote dimensions based on unit type
-  const toteW = isMini ? MINI_TOTE_W : (toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM);
+  // Tote dimensions based on unit type and orientation
   const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
   const toteRimH = isMini ? MINI_TOTE_RIM_H : TOTE_RIM_H;
-  const toteDepth = isMini ? MINI_TOTE_D : TOTE_DEPTH;
+
+  // In sideways mode, the tote is rotated 90°:
+  // - Rim width spans the bay width (slot is 30.25" wide)
+  // - Tote depth fits within unit depth (20")
+  let toteW: number;
+  let toteDepth: number;
+
+  if (isMini) {
+    toteW = MINI_TOTE_W;
+    toteDepth = MINI_TOTE_D;
+  } else if (isSideways) {
+    // Sideways: tote rotated 90°, rim spans the wider slot
+    toteW = bayW - BIN_GAP * 2; // Rim fits in the bay
+    toteDepth = unitDepth - 2; // Tote depth fits within unit depth with small gap
+  } else {
+    // Standard orientation
+    toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
+    toteDepth = TOTE_DEPTH;
+  }
 
   // Mini totes are clear with yellow lids, standard uses color based on type
   const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
@@ -248,14 +282,14 @@ function Tote({ position, bayW, toteType, unitType }: {
 // ── Rack Assembly ────────────────────────────────────────────────────────
 
 function RackAssembly({
-  cols, rows, toteType, unitType, hasTotes, hasWheels, hasTop,
+  cols, rows, toteType, unitType, orientation, hasTotes, hasWheels, hasTop,
 }: Rack3DProps) {
   const isMini = unitType === "mini";
-  const bayW = getBayWidth(toteType, unitType);
+  const bayW = getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
 
   // Get unit-specific values
-  const unitDepth = getUnitDepth(unitType);
+  const unitDepth = getUnitDepth(unitType, orientation);
   const railHeight = getRailHeight(unitType);
   const tierSpacing = getTierSpacing(unitType);
   const firstRailY = getFirstRailY(unitType);
@@ -369,6 +403,8 @@ function RackAssembly({
                   bayW={bayW}
                   toteType={toteType}
                   unitType={unitType}
+                  orientation={orientation}
+                  unitDepth={unitDepth}
                 />
               );
             });
@@ -415,14 +451,14 @@ function RackAssembly({
 
 // ── Camera rig ───────────────────────────────────────────────────────────
 
-function CameraRig({ cols, rows, toteType, unitType, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "hasWheels">) {
+function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "orientation" | "hasWheels">) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
   const isMini = unitType === "mini";
-  const bayW = getBayWidth(toteType, unitType);
+  const bayW = getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
-  const unitDepth = getUnitDepth(unitType);
+  const unitDepth = getUnitDepth(unitType, orientation);
   const tierSpacing = getTierSpacing(unitType);
   const firstRailY = getFirstRailY(unitType);
 
@@ -518,6 +554,7 @@ export default function Rack3D(props: Rack3DProps) {
           rows={props.rows}
           toteType={props.toteType}
           unitType={props.unitType}
+          orientation={props.orientation}
           hasWheels={props.hasWheels}
         />
 

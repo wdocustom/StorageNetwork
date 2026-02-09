@@ -35,15 +35,19 @@ export default function LocalScriptGenerator({
     ? [
         {
           label: 'The "Neighbor" Approach',
-          text: `Hey ${city} neighbors! 👋 I'm looking to fill 3 install spots for custom garage storage this week. If your garage is a mess, let me design a solution that fits perfectly. Check out my 3D design tool here: ${bookingLink}`,
+          text: `Hey ${city} neighbors! 👋 I'm filling my schedule for custom tote storage installs this week. Whether it's your basement, shed, or that cluttered corner you've been ignoring — I've got you. Design your setup in 30 seconds: ${bookingLink}`,
         },
         {
-          label: 'The "Urgency" Approach',
-          text: `Stop tripping over clutter. ${city} homeowners are loving these heavy-duty storage systems. I have openings in ${city}, ${state} next week. Get a free instant quote: ${bookingLink}`,
+          label: 'The "Problem Solver" Approach',
+          text: `🚨 ${city} homeowners: Stop stacking bins on the floor! My heavy-duty tote organizers hold 1000+ lbs and fit ANY space — basements, sheds, utility rooms, you name it. I have openings next week. Free instant quote: ${bookingLink}`,
         },
         {
-          label: 'The "Professional" Approach',
-          text: `Proudly serving the ${city} area with professional-grade garage storage. Don't settle for flimsy plastic racks. Build your custom setup with my 3D configurator: ${bookingLink}`,
+          label: 'The "Social Proof" Approach',
+          text: `Just wrapped another install in ${city}, ${state} 🔨 These custom tote storage systems are a game-changer for organization. Takes 30 seconds to design yours — see why homeowners are ditching cheap shelving: ${bookingLink}`,
+        },
+        {
+          label: 'The "Value" Approach',
+          text: `Attention ${city} area! Tired of flimsy shelves that sag and break? My professional-grade storage systems are built to last and transform any room. Design your custom unit free — no pressure, just results: ${bookingLink}`,
         },
       ]
     : [];
