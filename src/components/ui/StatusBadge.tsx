@@ -13,6 +13,24 @@ export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
   const isFullyPaid = status === "paid" || status === "completed";
   const isPaymentPending = status === "payment_pending";
   const isDepositPaid = depositPaid || status === "deposit_paid";
+  const isExpired = status === "expired";
+  const isPendingPayment = status === "pending_payment";
+
+  if (isExpired) {
+    return (
+      <span className="rounded-full bg-gray-500/20 px-2 py-0.5 text-[10px] font-bold text-gray-400">
+        Expired
+      </span>
+    );
+  }
+
+  if (isPendingPayment) {
+    return (
+      <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+        Abandoned
+      </span>
+    );
+  }
 
   if (isFullyPaid) {
     return (

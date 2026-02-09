@@ -87,13 +87,14 @@ export default function LeadsListPage() {
       return;
     }
 
+    // Filter out: cancelled, archived, pending_payment (unpaid/abandoned), expired
     const { data } = await supabase
       .from("leads")
       .select(
         "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
       )
       .eq("installer_id", user.id)
-      .not("status", "in", '("cancelled","archived")')
+      .not("status", "in", '("cancelled","archived","pending_payment","expired")')
       .order("created_at", { ascending: false });
 
     if (data) setLeads(data as LeadItem[]);

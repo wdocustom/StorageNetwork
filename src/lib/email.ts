@@ -718,3 +718,93 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     `
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Abandoned Cart Recovery
+// Trigger: Customer abandons checkout (30+ minutes without payment)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendAbandonedCartEmail(
+  email: string,
+  data: {
+    customerName: string;
+    totalPrice: number;
+    depositAmount: number;
+    resumeUrl: string;
+    installerName?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const installerLine = data.installerName
+    ? `with <strong>${data.installerName}</strong>`
+    : "for your custom storage system";
+
+  const html = emailShell(
+    "Complete Your Order",
+    `
+    <!-- Attention Grabber -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:#fef3c7;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#128722;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${data.customerName},</p>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      Looks like you didn&rsquo;t finish your order ${installerLine}.
+      No worries &mdash; your custom configuration is saved and ready to go!
+    </p>
+
+    <!-- Order Summary Card -->
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Your Order Summary</p>
+      <table style="width:100%;">
+        <tr>
+          <td style="color:#64748b;font-size:14px;padding:8px 0;">Total Estimate</td>
+          <td style="text-align:right;color:#1e293b;font-size:20px;font-weight:800;">$${data.totalPrice.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="color:#64748b;font-size:14px;padding:8px 0;border-top:1px dashed #e2e8f0;">Deposit to Reserve (15%)</td>
+          <td style="text-align:right;color:#f59e0b;font-size:18px;font-weight:700;padding-top:8px;border-top:1px dashed #e2e8f0;">$${data.depositAmount.toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Urgency Note -->
+    <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
+        <strong>&#9888; Heads up:</strong> Your order will expire in 7 days. Complete your purchase to lock in your spot on the schedule.
+      </p>
+    </div>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="${data.resumeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(250,204,21,0.3);">
+        Complete My Order
+      </a>
+    </div>
+
+    <!-- Trust Signals -->
+    <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:12px;color:#64748b;">
+        <tr>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#128274; Secure Checkout</td>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#128176; 15% Deposit Only</td>
+          <td style="padding:6px 8px;text-align:center;width:33%;">&#9989; Satisfaction Guaranteed</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Changed your mind? No problem &mdash; just ignore this email. Your order will automatically expire.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.customerName,
+    subject: "Don't forget your storage system! Complete your order",
+    html,
+  });
+}
