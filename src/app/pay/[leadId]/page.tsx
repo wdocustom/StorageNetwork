@@ -75,7 +75,7 @@ export default function ResumePaymentPage() {
     try {
       const result = await createDepositIntent({
         leadId: lead.id,
-        depositAmount: lead.deposit_amount,
+        amount: lead.deposit_amount,
         totalPrice: lead.estimated_price,
         installerId: lead.installer_id || undefined,
         customerEmail: lead.customer_email,

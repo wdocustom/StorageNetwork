@@ -327,7 +327,7 @@ export interface DepositIntentInput {
   leadId: string;
   amount: number;                    // Deposit amount in dollars
   totalPrice: number;                // Total job price in dollars (for fee calculation)
-  installerId: string;               // Supabase user ID of installer
+  installerId?: string;              // Supabase user ID of installer (optional for platform leads)
   source: LeadSource;                // Where the lead came from
   customerEmail?: string;
   customerName?: string;
