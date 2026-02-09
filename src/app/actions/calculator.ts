@@ -222,9 +222,12 @@ export async function calculateBuild(
       ? Math.min(wallWidth, MINI_MAX_WIDTH)
       : wallWidth;
 
+    // If wheels are enabled, subtract wheel height from available wall height
+    const effectiveWallHeight = addOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
+
     // Wall fit calculation using config values
     cols = Math.floor((effectiveWallWidth - config.postWidth) / (opening + config.postWidth));
-    const usableHeight = wallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
+    const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
     rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
     if (cols < 1) cols = 1;
     if (rows < 1) rows = 1;
