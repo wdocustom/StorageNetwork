@@ -418,8 +418,8 @@ export default function DesignConfigurator({
 
   async function handleBookDeposit() {
     setSubmitError("");
-    if (!firstName.trim() || !email.trim() || !phone.trim()) {
-      setSubmitError("First name, email, and phone are required.");
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
+      setSubmitError("First name, last name, email, and phone are required.");
       return;
     }
     if (orderItems.length === 0) {
@@ -937,7 +937,7 @@ export default function DesignConfigurator({
                           type="text"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Last Name"
+                          placeholder="Last Name *"
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
@@ -958,10 +958,10 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
-                      {/* Installation address */}
+                      {/* Billing address */}
                       <div className="pt-1">
                         <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
-                          Installation Address
+                          Billing Address
                         </label>
                         <input
                           type="text"
@@ -994,7 +994,7 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
-                      {/* Delivery address toggle */}
+                      {/* Installation address toggle */}
                       <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
                         <input
                           type="checkbox"
@@ -1003,14 +1003,14 @@ export default function DesignConfigurator({
                           className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
                         />
                         <span className="text-xs font-medium text-stone-600">
-                          Delivery address is different from installation
+                          Installation address is different from billing
                         </span>
                       </label>
-                      {/* Delivery address fields (conditional) */}
+                      {/* Installation address fields (conditional) */}
                       {hasDifferentDelivery && (
                         <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
                           <label className="block text-[10px] font-semibold uppercase text-amber-700">
-                            Delivery Address
+                            Installation Address
                           </label>
                           <input
                             type="text"
