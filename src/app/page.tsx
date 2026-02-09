@@ -179,7 +179,7 @@ export default function LandingPage() {
               <button
                 onClick={handleSearch}
                 disabled={searching || zip.length < 5}
-                className="m-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0"
+                className="m-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 {searching ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

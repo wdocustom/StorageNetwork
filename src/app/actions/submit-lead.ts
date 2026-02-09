@@ -35,6 +35,7 @@ export interface SubmitQuoteInput {
   address_city?: string;
   address_state?: string;
   address_zip?: string;
+  delivery_address?: string;
   quote_data: QuoteUnit[];
   grand_total: number;
   installer_id?: string;
@@ -158,7 +159,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
         status: "pending_payment",
         scheduled_at: input.scheduled_at || null,
-        notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}`,
+        notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📦 Delivery Address: ${input.delivery_address}` : ""}`,
       })
       .select("id")
       .single();

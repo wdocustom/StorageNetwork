@@ -188,13 +188,20 @@ export default function DesignConfigurator({
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
 
   // ── Booking form ──────────────────────────────────────────────────────
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [city, setCity] = useState("");
   const [addrState, setAddrState] = useState("");
   const [addrZip, setAddrZip] = useState("");
+  // Delivery address (if different from installation address)
+  const [hasDifferentDelivery, setHasDifferentDelivery] = useState(false);
+  const [deliveryStreet, setDeliveryStreet] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -411,8 +418,8 @@ export default function DesignConfigurator({
 
   async function handleBookDeposit() {
     setSubmitError("");
-    if (!name.trim() || !email.trim() || !phone.trim()) {
-      setSubmitError("Name, email, and phone are required.");
+    if (!firstName.trim() || !email.trim() || !phone.trim()) {
+      setSubmitError("First name, email, and phone are required.");
       return;
     }
     if (orderItems.length === 0) {
@@ -422,9 +429,13 @@ export default function DesignConfigurator({
 
     setSubmitting(true);
     try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
       const compositeAddress = [streetAddress, city, addrState, addrZip].filter(Boolean).join(", ");
+      const deliveryAddress = hasDifferentDelivery
+        ? [deliveryStreet, deliveryCity, deliveryState, deliveryZip].filter(Boolean).join(", ")
+        : undefined;
       const result = await submitNetworkLead({
-        customer_name: name,
+        customer_name: fullName,
         customer_email: email,
         customer_phone: phone,
         address: compositeAddress,
@@ -432,6 +443,7 @@ export default function DesignConfigurator({
         address_city: city,
         address_state: addrState,
         address_zip: addrZip,
+        delivery_address: deliveryAddress,
         quote_data: orderItems,
         grand_total: grandTotal,
         installer_id: installerId || undefined,
@@ -912,14 +924,25 @@ export default function DesignConfigurator({
                 <div className="mt-4 border-t border-stone-200 pt-4">
                   {!submitted ? (
                     <div className="space-y-2">
+                      {/* Name fields */}
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="Your name *"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="First Name *"
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Last Name"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
+                      {/* Contact info */}
+                      <div className="grid grid-cols-2 gap-2">
                         <input
                           type="email"
                           value={email}
@@ -927,21 +950,27 @@ export default function DesignConfigurator({
                           placeholder="Email *"
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="Phone *"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
                       </div>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="Phone *"
-                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                      />
-                      <input
-                        type="text"
-                        value={streetAddress}
-                        onChange={(e) => setStreetAddress(e.target.value)}
-                        placeholder="Street Address"
-                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                      />
+                      {/* Installation address */}
+                      <div className="pt-1">
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
+                          Installation Address
+                        </label>
+                        <input
+                          type="text"
+                          value={streetAddress}
+                          onChange={(e) => setStreetAddress(e.target.value)}
+                          placeholder="Street Address"
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
                         <input
                           type="text"
@@ -965,6 +994,56 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
+                      {/* Delivery address toggle */}
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
+                        <input
+                          type="checkbox"
+                          checked={hasDifferentDelivery}
+                          onChange={(e) => setHasDifferentDelivery(e.target.checked)}
+                          className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
+                        />
+                        <span className="text-xs font-medium text-stone-600">
+                          Delivery address is different from installation
+                        </span>
+                      </label>
+                      {/* Delivery address fields (conditional) */}
+                      {hasDifferentDelivery && (
+                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <label className="block text-[10px] font-semibold uppercase text-amber-700">
+                            Delivery Address
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryStreet}
+                            onChange={(e) => setDeliveryStreet(e.target.value)}
+                            placeholder="Street Address"
+                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              value={deliveryCity}
+                              onChange={(e) => setDeliveryCity(e.target.value)}
+                              placeholder="City"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                            <input
+                              type="text"
+                              value={deliveryState}
+                              onChange={(e) => setDeliveryState(e.target.value)}
+                              placeholder="State"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                            <input
+                              type="text"
+                              value={deliveryZip}
+                              onChange={(e) => setDeliveryZip(e.target.value)}
+                              placeholder="Zip"
+                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            />
+                          </div>
+                        </div>
+                      )}
                       <button
                         onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
                         disabled={submitting}
@@ -1090,7 +1169,7 @@ export default function DesignConfigurator({
           installerId={installerId}
           source={leadSource}
           customerEmail={email || undefined}
-          customerName={name || undefined}
+          customerName={[firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || undefined}
           installerLeadTime={data?.routing.leadTime ?? 5}
           installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
           hasWheels={anyHasWheels}
