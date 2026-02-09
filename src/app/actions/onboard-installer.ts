@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import zipcodes from "zipcodes";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12,6 +13,9 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Default service radius for new installers (miles)
+const DEFAULT_SERVICE_RADIUS = 25;
 
 export interface OnboardInput {
   name: string;
@@ -71,14 +75,18 @@ export async function onboardInstaller(
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    // 2. Create profile
+    // 2. Create profile with radius-expanded service area
+    const baseZip = zipCode.trim();
+    const coveredZips = zipcodes.radius(baseZip, DEFAULT_SERVICE_RADIUS) ?? [baseZip];
+
     await supabase.from("profiles").upsert({
       id: userId,
       first_name: firstName,
       last_name: lastName,
       business_name: businessName.trim(),
-      service_zip: zipCode.trim(),
-      service_zips: [zipCode.trim()],
+      service_zip: baseZip,
+      service_radius_miles: DEFAULT_SERVICE_RADIUS,
+      service_zips: coveredZips.length > 0 ? coveredZips : [baseZip],
       subscription_tier: "free",
     });
 
