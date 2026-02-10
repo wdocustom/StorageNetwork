@@ -205,8 +205,11 @@ export async function sendBookingConfirmation(
         <tr><td style="padding:8px 0;color:#64748b;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;">${address || "Address provided on arrival"}</td></tr>
         <tr><td style="padding:8px 0;color:#64748b;">Job</td><td style="padding:8px 0;font-weight:600;text-align:right;">${jobDescription}</td></tr>
         <tr style="border-top:1px solid #e2e8f0;"><td style="padding:12px 0 8px;color:#64748b;">Deposit Paid</td><td style="padding:12px 0 8px;font-weight:700;text-align:right;color:#16a34a;">$${depositAmount.toLocaleString()}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b;">Balance Due</td><td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#1e293b;">$${balanceDue.toLocaleString()}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;">Balance Due at Install</td><td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#1e293b;">$${balanceDue.toLocaleString()}*</td></tr>
       </table>
+      <p style="margin:12px 0 0;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
+        *Plus applicable sales tax, collected by your installer at installation.
+      </p>
     </div>
 
     <div style="text-align:center;margin-bottom:24px;">
@@ -707,7 +710,7 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
       </table>
     </div>
     <p style="margin:0 0 28px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
-      *Applicable sales tax will be calculated at checkout based on your billing address.
+      *Sales tax (if applicable) will be collected by your installer at the time of installation.
     </p>
     <div style="text-align:center;margin-bottom:28px;">
       <a href="${checkoutUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
@@ -772,7 +775,7 @@ export async function sendAbandonedCartEmail(
       </table>
     </div>
     <p style="margin:0 0 24px;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
-      *Sales tax will be calculated at checkout based on your billing address.
+      *Sales tax (if applicable) will be collected by your installer at the time of installation.
     </p>
 
     <!-- Urgency Note -->
