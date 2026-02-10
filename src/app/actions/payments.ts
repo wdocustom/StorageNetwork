@@ -11,11 +11,31 @@ import { siteConfig } from "@/config/site";
 // The client NEVER sees fee formulas, API keys, or session internals.
 // It only receives a redirect URL.
 //
-// FEE STRUCTURE:
+// FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
-// Platform Lead (organic):     15% deposit → 100% to Platform
-// Partner Link + Non-Pro:      15% deposit → 100% to Platform
-// Partner Link + Pro ($99/mo): 15% deposit → 10% to Installer, 5% to Platform
+// Platform Lead (organic):     15% of build → Platform fee
+// Partner Link + Non-Pro:      15% of build → Platform fee
+// Partner Link + Pro ($99/mo): 5% of build → Platform fee, 10% → Installer
+// ─────────────────────────────────────────────────────────────────────────
+//
+// SALES TAX HANDLING:
+// ─────────────────────────────────────────────────────────────────────────
+// - Tax is calculated on FULL BUILD PRICE (not deposit) and collected upfront
+// - Tax ALWAYS flows to the installer (they are responsible for remittance)
+// - For Pro: Tax included in destination charge (installer receives it directly)
+// - For Non-Pro: Tax collected by platform, owed to installer (manual settlement)
+//
+// Example: $1000 build, 6% tax ($60), 15% deposit ($150)
+// ─────────────────────────────────────────────────────────────────────────
+// Customer pays today: $210 (deposit + tax)
+//
+// Non-Pro:
+//   - Platform fee: $150 (15% of build)
+//   - Tax owed to installer: $60 (settled manually)
+//
+// Pro:
+//   - Platform fee: $50 (5% of build)
+//   - Installer receives via Stripe: $160 ($100 deposit share + $60 tax)
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -386,10 +406,13 @@ export async function createDepositIntent(
 
     if (routeToInstaller && installerStripeId) {
       // ── Pro Partner Link: Destination charge ────────────────────────────
-      // Fee is calculated from TOTAL job price, not deposit:
-      //   - Platform fee: 5% of total
-      //   - Installer receives: deposit - platform fee = 10% of total
+      // Fee is calculated from TOTAL BUILD PRICE, not deposit or tax:
+      //   - Platform fee: 5% of build price
+      //   - Installer receives: (deposit + tax) - platform fee
+      //     = 10% of build + full tax amount
       const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE);
+      const depositBaseCents = Math.round(depositBase * 100);
+      const installerReceivesCents = amountCents - platformFeeCents;
 
       paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents,
@@ -411,21 +434,30 @@ export async function createDepositIntent(
           is_pro: "true",
           customer_name: customerName || "",
           customer_email: customerEmail || "",
+          // Platform fee is 5% of build price only (NOT including tax)
           platform_fee_cents: String(platformFeeCents),
-          installer_receives_cents: String(amountCents - platformFeeCents),
+          // Installer receives deposit share (10%) + full tax via destination charge
+          installer_receives_cents: String(installerReceivesCents),
+          installer_tax_owed_cents: "0", // Tax included in destination charge, nothing owed
           installer_stripe_id: installerStripeId,
           scheduled_at: scheduledAt || "",
           // Tax info for installer records
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
-          deposit_base_cents: String(Math.round(depositBase * 100)),
+          deposit_base_cents: String(depositBaseCents),
         },
       });
 
-      console.log(`[Deposit] Pro Partner Link: Total $${totalPrice} | Deposit $${amount} → Installer gets $${(amountCents - platformFeeCents) / 100} (10%), Platform gets $${platformFeeCents / 100} (5%)`);
+      const installerDepositShare = depositBaseCents - platformFeeCents;
+      console.log(`[Deposit] Pro Partner Link: $${totalPrice} build | Platform fee: $${platformFeeCents / 100} (5%), Installer receives: $${installerReceivesCents / 100} ($${installerDepositShare / 100} deposit + $${taxCents / 100} tax)`);
     } else {
-      // ── Platform Lead OR Non-Pro Partner Link: All to Platform ───────
-      // No destination charge — entire deposit goes to platform account
+      // ── Platform Lead OR Non-Pro Partner Link: Deposit to Platform ───────
+      // No destination charge — payment goes to platform account.
+      // IMPORTANT: Platform fee is the DEPOSIT ONLY (15% of build).
+      // Sales tax is collected but must flow through to the installer.
+      // Tax settlement happens outside of Stripe (manual payout).
+      const depositBaseCents = Math.round(depositBase * 100);
+
       paymentIntent = await stripe.paymentIntents.create({
         amount: amountCents,
         currency: "usd",
@@ -442,18 +474,21 @@ export async function createDepositIntent(
           is_pro: isPro ? "true" : "false",
           customer_name: customerName || "",
           customer_email: customerEmail || "",
-          platform_fee_cents: String(amountCents), // Platform keeps 100%
+          // Platform fee is deposit only (15% of build), NOT including tax
+          platform_fee_cents: String(depositBaseCents),
+          // Installer receives $0 via Stripe, but is owed the tax amount
           installer_receives_cents: "0",
+          installer_tax_owed_cents: String(taxCents), // Tax flows to installer (manual settlement)
           scheduled_at: scheduledAt || "",
           // Tax info for installer records
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
-          deposit_base_cents: String(Math.round(depositBase * 100)),
+          deposit_base_cents: String(depositBaseCents),
         },
       });
 
       const sourceLabel = source === "platform" ? "Platform Lead" : isPro ? "Installer Lead (no Stripe)" : "Installer Lead (Non-Pro)";
-      console.log(`[Deposit] ${sourceLabel}: $${amount} → 100% to Platform`);
+      console.log(`[Deposit] ${sourceLabel}: $${totalPrice} build | Platform fee: $${depositBase}, Tax owed to installer: $${salesTaxAmount || 0}`);
     }
 
     // Update lead with scheduling info, source, and tax info
