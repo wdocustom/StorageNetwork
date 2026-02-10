@@ -137,8 +137,9 @@ export async function createQuote(
     const balanceDue = Math.round((finalTotal - depositAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
+    // status: "pending_payment" allows the /pay page to find and process the lead
     // deposit_paid: false ensures this doesn't appear in installer dashboard
-    // until the customer pays the deposit (which sets deposit_paid: true)
+    // until the customer pays the deposit (which sets deposit_paid: true, status: "open")
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .insert({
@@ -153,7 +154,7 @@ export async function createQuote(
         deposit_amount: depositAmount,
         balance_due: balanceDue,
         source: "installer_manual",
-        status: "new",
+        status: "pending_payment",
         deposit_paid: false,
       })
       .select("id")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   ArrowLeft,
@@ -9,7 +9,8 @@ import {
   Loader2,
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
-import JobCalendar from "@/components/calendar/JobCalendar";
+// TODO: Re-enable calendar after fixing re-render issues
+// import JobCalendar from "@/components/calendar/JobCalendar";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -78,7 +79,6 @@ export default function LeadsListPage() {
   const [leads, setLeads] = useState<LeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("active");
-  const dateRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const fetchLeads = useCallback(async () => {
     const {
@@ -131,29 +131,6 @@ export default function LeadsListPage() {
     () => (tab === "active" ? groupByDate(filtered) : null),
     [tab, filtered]
   );
-
-  // Build scheduledDates map for calendar (dateKey -> job count)
-  const scheduledDates = useMemo(() => {
-    const dateMap: Record<string, number> = {};
-    for (const lead of activeLeads) {
-      if (lead.scheduled_at) {
-        const dateKey = lead.scheduled_at.split("T")[0];
-        dateMap[dateKey] = (dateMap[dateKey] || 0) + 1;
-      }
-    }
-    return dateMap;
-  }, [activeLeads]);
-
-  // Handle calendar date click - scroll to date section
-  const handleCalendarDateClick = useCallback((dateKey: string, formattedDate: string) => {
-    // Try to find the section by formattedDate first
-    if (dateRefs.current[formattedDate]) {
-      dateRefs.current[formattedDate]?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -214,16 +191,6 @@ export default function LeadsListPage() {
       </div>
 
       <main className="mx-auto max-w-2xl p-4">
-        {/* Calendar - only show on active tab */}
-        {tab === "active" && (
-          <div className="mb-6">
-            <JobCalendar
-              scheduledDates={scheduledDates}
-              onDateClick={handleCalendarDateClick}
-            />
-          </div>
-        )}
-
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900">
@@ -242,11 +209,7 @@ export default function LeadsListPage() {
           /* ── Date-grouped active jobs ────────────────────────────────── */
           <div className="space-y-6">
             {Object.entries(grouped).map(([dateString, jobs]) => (
-              <div
-                key={dateString}
-                ref={(el) => { dateRefs.current[dateString] = el; }}
-                className="scroll-mt-4"
-              >
+              <div key={dateString}>
                 <h3 className="mb-3 border-b border-slate-700 pb-2 text-sm font-semibold uppercase tracking-wider text-stone-400">
                   {dateString}
                   <span className="ml-2 text-yellow-400">({jobs.length})</span>
