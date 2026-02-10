@@ -262,8 +262,8 @@ export default function BuildConfiguratorPage() {
     setUnits((prev) => prev.filter((u) => u.id !== unitId));
   }
 
-  // Calculate grand total from all units
-  const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0) + (buildResult?.price || 0);
+  // Calculate grand total from all units in Quote Builder only
+  const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0);
 
   // Calculate aggregate material breakdown and manifest for all units in Quote Builder
   const aggregateMaterials = useMemo(() => {
