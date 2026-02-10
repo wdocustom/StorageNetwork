@@ -109,15 +109,7 @@ export default function LeadsListPage() {
     fetchLeads();
   }, [fetchLeads]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-      </div>
-    );
-  }
-
-  // Memoize filtered leads to prevent unnecessary re-renders
+  // Memoize filtered leads - must be BEFORE any early returns (rules of hooks)
   const activeLeads = useMemo(
     () => leads.filter((l) => !["paid", "archived"].includes(l.status)),
     [leads]
@@ -131,6 +123,14 @@ export default function LeadsListPage() {
     () => (tab === "active" ? groupByDate(filtered) : null),
     [tab, filtered]
   );
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950">
