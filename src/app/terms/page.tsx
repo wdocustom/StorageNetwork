@@ -171,9 +171,12 @@ export default function TermsPage() {
             <h2 className="mb-4 text-xl font-bold text-yellow-400">7. Privacy</h2>
             <p className="text-stone-300 leading-relaxed">
               Your privacy is important to us. By using our services, you consent to the collection
-              and use of your information as described in our Privacy Policy. We collect only the
-              information necessary to process orders and facilitate communication between customers
-              and installers.
+              and use of your information as described in our{" "}
+              <a href="/privacy" className="text-yellow-400 hover:text-yellow-300 underline">
+                Privacy Policy
+              </a>
+              . We collect only the information necessary to process orders and facilitate
+              communication between customers and installers.
             </p>
           </section>
 
@@ -215,16 +218,21 @@ export default function TermsPage() {
           </section>
         </div>
 
-        {/* Footer CTA */}
-        <div className="mt-12 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
-          <p className="mb-4 text-sm text-stone-400">
-            Ready to design your custom storage system?
-          </p>
+        {/* Related Links */}
+        <div className="mt-12 flex gap-4">
+          <a
+            href="/privacy"
+            className="flex-1 rounded-xl border border-slate-800 bg-slate-900 p-4 text-center transition-colors hover:border-slate-700"
+          >
+            <p className="text-sm font-semibold text-white">Privacy Policy</p>
+            <p className="mt-1 text-xs text-stone-500">View our policy</p>
+          </a>
           <a
             href="/design"
-            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            className="flex-1 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-center transition-colors hover:bg-yellow-400/20"
           >
-            Start Designing
+            <p className="text-sm font-semibold text-yellow-400">Start Designing</p>
+            <p className="mt-1 text-xs text-stone-500">Build your system</p>
           </a>
         </div>
       </main>
