@@ -117,13 +117,20 @@ export default function LeadsListPage() {
     );
   }
 
-  // Show ALL leads except paid/archived — stop hiding failed webhook data
-  const activeLeads = leads.filter(
-    (l) => !["paid", "archived"].includes(l.status)
+  // Memoize filtered leads to prevent unnecessary re-renders
+  const activeLeads = useMemo(
+    () => leads.filter((l) => !["paid", "archived"].includes(l.status)),
+    [leads]
   );
-  const pastLeads = leads.filter((l) => l.status === "paid" || l.status === "completed");
+  const pastLeads = useMemo(
+    () => leads.filter((l) => l.status === "paid" || l.status === "completed"),
+    [leads]
+  );
   const filtered = tab === "active" ? activeLeads : pastLeads;
-  const grouped = tab === "active" ? groupByDate(filtered) : null;
+  const grouped = useMemo(
+    () => (tab === "active" ? groupByDate(filtered) : null),
+    [tab, filtered]
+  );
 
   // Build scheduledDates map for calendar (dateKey -> job count)
   const scheduledDates = useMemo(() => {
@@ -138,7 +145,7 @@ export default function LeadsListPage() {
   }, [activeLeads]);
 
   // Handle calendar date click - scroll to date section
-  function handleCalendarDateClick(dateKey: string, formattedDate: string) {
+  const handleCalendarDateClick = useCallback((dateKey: string, formattedDate: string) => {
     // Try to find the section by formattedDate first
     if (dateRefs.current[formattedDate]) {
       dateRefs.current[formattedDate]?.scrollIntoView({
@@ -146,7 +153,7 @@ export default function LeadsListPage() {
         block: "start",
       });
     }
-  }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950">
