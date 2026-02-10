@@ -163,7 +163,7 @@ export async function createQuote(
 
     // ── 4. Send Email via Brevo ───────────────────────────────────────────
     const baseUrl = siteConfig.baseUrl;
-    const checkoutUrl = `${baseUrl}/checkout?lead_id=${lead.id}`;
+    const checkoutUrl = `${baseUrl}/pay/${lead.id}`;
 
     // Build quote items for email
     const quoteItems = quote_data.map((unit) => ({

@@ -321,7 +321,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 // Used by BookingModal for inline deposit collection.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type LeadSource = "platform" | "partner_link";
+export type LeadSource = "platform" | "partner_link" | "installer_manual";
 
 export interface DepositIntentInput {
   leadId: string;
@@ -355,21 +355,25 @@ export async function createDepositIntent(
 
     // ── Determine fee routing based on source + Pro status ───────────────
     //
-    // Platform Lead:          100% to Platform (no destination charge)
-    // Partner Link + Non-Pro: 100% to Platform (no destination charge)
-    // Partner Link + Pro:     10% to Installer, 5% to Platform (destination charge)
+    // Platform Lead:                      100% to Platform (no destination charge)
+    // Partner Link/Manual + Non-Pro:      100% to Platform (no destination charge)
+    // Partner Link/Manual + Pro:          10% to Installer, 5% to Platform (destination charge)
     //
     // IMPORTANT: The 5% platform fee is calculated from the TOTAL job price,
     // not from the deposit amount. This ensures:
     //   - Platform gets 5% of total
     //   - Installer gets 10% of total (deposit minus platform fee)
     //
+    // NOTE: "installer_manual" source (quotes created by installer in /build)
+    // is treated the same as "partner_link" for fee purposes.
+    //
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
     const installerStripeId = installerProfile?.stripe_account_id;
 
-    // Route to installer only if: partner_link + Pro + has Stripe connected
-    const routeToInstaller = source === "partner_link" && isPro && installerStripeId;
+    // Route to installer only if: (partner_link OR installer_manual) + Pro + has Stripe connected
+    const isInstallerOwnedLead = source === "partner_link" || source === "installer_manual";
+    const routeToInstaller = isInstallerOwnedLead && isPro && installerStripeId;
 
     let paymentIntent;
 
@@ -433,7 +437,8 @@ export async function createDepositIntent(
         },
       });
 
-      console.log(`[Deposit] ${source === "platform" ? "Platform Lead" : "Non-Pro Partner Link"}: $${amount} → 100% to Platform`);
+      const sourceLabel = source === "platform" ? "Platform Lead" : isPro ? "Installer Lead (no Stripe)" : "Installer Lead (Non-Pro)";
+      console.log(`[Deposit] ${sourceLabel}: $${amount} → 100% to Platform`);
     }
 
     // Update lead with scheduling info and source
