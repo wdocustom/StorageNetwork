@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild } from "@/app/actions/calculator";
 import { generateBuildManifest } from "@/lib/buildEngine";
@@ -264,6 +264,45 @@ export default function BuildConfiguratorPage() {
 
   // Calculate grand total from all units
   const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0) + (buildResult?.price || 0);
+
+  // Calculate aggregate material breakdown and manifest for all units in Quote Builder
+  const aggregateMaterials = useMemo(() => {
+    if (units.length === 0) return null;
+    const configs = units.map((u) => ({
+      cols: u.cols,
+      rows: u.rows,
+      toteType: u.toteType,
+      hasTotes: u.hasTotes,
+      hasWheels: u.hasWheels,
+      hasTop: u.hasTop,
+    }));
+    return calculateMaterialCost(configs);
+  }, [units]);
+
+  const aggregateManifest = useMemo(() => {
+    if (units.length === 0) return null;
+    const quoteUnits: QuoteUnit[] = units.map((u) => ({
+      cols: u.cols,
+      rows: u.rows,
+      toteType: u.toteType,
+      unitType: "standard" as const,
+      orientation: "standard" as const,
+      hasTotes: u.hasTotes,
+      hasWheels: u.hasWheels,
+      hasTop: u.hasTop,
+      price: u.price || 0,
+      totalW: u.totalW || 0,
+      totalH: u.totalH || 0,
+      depth: u.depth || 30,
+      desc: `${u.cols} Wide × ${u.rows} High`,
+    }));
+    return generateBuildManifest(quoteUnits);
+  }, [units]);
+
+  // Use aggregate values when units exist, otherwise use single build values
+  const displayPrice = units.length > 0 ? units.reduce((sum, u) => sum + (u.price || 0), 0) : buildResult?.price || 0;
+  const displayMaterials = units.length > 0 ? aggregateMaterials : materialBreakdown;
+  const displayManifest = units.length > 0 ? aggregateManifest : manifest;
 
   async function handleSendQuote() {
     if (!customerName.trim() || !customerEmail.trim()) {
@@ -680,21 +719,21 @@ export default function BuildConfiguratorPage() {
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
                 <Calculator className="h-4 w-4 text-yellow-400" />
-                Profit Calculator
+                Profit Calculator {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
               </h2>
 
-              {materialBreakdown && (
+              {displayMaterials && (
                 <div className="space-y-4">
                   {/* Material Cost Breakdown */}
                   <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-bold uppercase text-stone-500">Est. Material Cost</span>
                       <span className="text-lg font-black text-orange-400">
-                        ${materialBreakdown.totalCost.toLocaleString()}
+                        ${displayMaterials.totalCost.toLocaleString()}
                       </span>
                     </div>
                     <div className="space-y-1 text-xs text-stone-400">
-                      {materialBreakdown.items.map((item, i) => (
+                      {displayMaterials.items.map((item, i) => (
                         <div key={i} className="flex justify-between">
                           <span>{item.name} × {item.qty}</span>
                           <span className="font-mono">${item.subtotal.toFixed(2)}</span>
@@ -715,25 +754,25 @@ export default function BuildConfiguratorPage() {
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between text-stone-400">
                           <span>Job Price</span>
-                          <span>${buildResult.price.toLocaleString()}</span>
+                          <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
                           <span>Platform Fee (15%)</span>
-                          <span>-${Math.round(buildResult.price * 0.15).toLocaleString()}</span>
+                          <span>-${Math.round(displayPrice * 0.15).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
                           <span>You Collect</span>
-                          <span>${Math.round(buildResult.price * 0.85).toLocaleString()}</span>
+                          <span>${Math.round(displayPrice * 0.85).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-orange-400">
                           <span>Materials</span>
-                          <span>-${materialBreakdown.totalCost.toLocaleString()}</span>
+                          <span>-${displayMaterials.totalCost.toLocaleString()}</span>
                         </div>
                         <div className="mt-2 border-t border-slate-600 pt-2">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-stone-300">Net Profit</span>
                             <span className="text-lg font-black text-emerald-400">
-                              ${Math.max(0, Math.round(buildResult.price * 0.85 - materialBreakdown.totalCost)).toLocaleString()}
+                              ${Math.max(0, Math.round(displayPrice * 0.85 - displayMaterials.totalCost)).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -750,25 +789,25 @@ export default function BuildConfiguratorPage() {
                       <div className="space-y-1 text-xs">
                         <div className="flex justify-between text-stone-400">
                           <span>Job Price</span>
-                          <span>${buildResult.price.toLocaleString()}</span>
+                          <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
                           <span>Platform Fee ({isPro ? "5%" : "15%"})</span>
-                          <span>-${Math.round(buildResult.price * (isPro ? 0.05 : 0.15)).toLocaleString()}</span>
+                          <span>-${Math.round(displayPrice * (isPro ? 0.05 : 0.15)).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
                           <span>You Collect</span>
-                          <span>${Math.round(buildResult.price * (isPro ? 0.95 : 0.85)).toLocaleString()}</span>
+                          <span>${Math.round(displayPrice * (isPro ? 0.95 : 0.85)).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-orange-400">
                           <span>Materials</span>
-                          <span>-${materialBreakdown.totalCost.toLocaleString()}</span>
+                          <span>-${displayMaterials.totalCost.toLocaleString()}</span>
                         </div>
                         <div className="mt-2 border-t border-slate-600 pt-2">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-stone-300">Net Profit</span>
                             <span className="text-lg font-black text-emerald-400">
-                              ${Math.max(0, Math.round(buildResult.price * (isPro ? 0.95 : 0.85) - materialBreakdown.totalCost)).toLocaleString()}
+                              ${Math.max(0, Math.round(displayPrice * (isPro ? 0.95 : 0.85) - displayMaterials.totalCost)).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -792,7 +831,7 @@ export default function BuildConfiguratorPage() {
                           <p className="text-xs font-bold text-yellow-400">Save 10% on Direct Leads with Pro</p>
                           <p className="mt-0.5 text-[11px] text-stone-400">
                             Upgrade to Pro and keep more profit on jobs from your own customers.
-                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${Math.round(buildResult.price * 0.10).toLocaleString()}</span>.
+                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${Math.round(displayPrice * 0.10).toLocaleString()}</span>.
                           </p>
                           <a
                             href="/upgrade"
@@ -812,13 +851,13 @@ export default function BuildConfiguratorPage() {
             <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
                 <ShoppingCart className="h-4 w-4 text-yellow-400" />
-                Material List
+                Material List {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
               </h2>
 
-              {manifest && (
+              {displayManifest && (
                 <div className={!isPro ? "select-none blur-[6px]" : ""}>
                   <ul className="space-y-1">
-                    {manifest.shopping_list.map((item, i) => (
+                    {displayManifest.shopping_list.map((item, i) => (
                       <li
                         key={i}
                         className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2"
@@ -867,12 +906,12 @@ export default function BuildConfiguratorPage() {
             <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
                 <Wrench className="h-4 w-4 text-yellow-400" />
-                Cut Plan
+                Cut Plan {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
               </h2>
 
-              {manifest && (
+              {displayManifest && (
                 <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                  {manifest.cut_plan_visuals.map((mod, mi) => (
+                  {displayManifest.cut_plan_visuals.map((mod, mi) => (
                     <div key={mi} className="mb-4">
                       <h3 className="mb-2 text-sm font-bold text-yellow-400">
                         Module {mod.moduleIndex} ({mod.cols}x{mod.rows})
