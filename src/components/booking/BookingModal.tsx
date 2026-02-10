@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -18,7 +18,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import NativeScheduler from "./NativeScheduler";
-import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
+import { createDepositIntent, checkInstallerPaymentInfo, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -96,21 +96,36 @@ export default function BookingModal({
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Track whether installer has Stripe connected (determines if tax is collected upfront)
+  const [collectTaxUpfront, setCollectTaxUpfront] = useState<boolean | null>(null);
+
+  // Fetch installer payment info when modal opens
+  useEffect(() => {
+    if (isOpen && installerId) {
+      checkInstallerPaymentInfo(installerId).then((info) => {
+        setCollectTaxUpfront(info.collectTaxUpfront);
+      });
+    }
+  }, [isOpen, installerId]);
+
   // Wheel Rule: 3 business day minimum for casters
   const effectiveLeadTime = hasWheels
     ? Math.max(installerLeadTime, 3)
     : installerLeadTime;
 
   // Calculate sales tax based on state
-  // IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT, not just the deposit.
-  // Customer pays: deposit + full tax upfront. Balance has no additional tax.
+  // Tax is assessed on the FULL BUILD AMOUNT (not just the deposit)
   const taxInfo = useMemo(() => {
     if (!address.state || address.state.length !== 2) return null;
     return calculateSalesTax(totalPrice, address.state);
   }, [totalPrice, address.state]);
 
-  // Total due today = deposit + tax on full build
-  const totalWithTax = depositAmount + (taxInfo?.taxAmount || 0);
+  // Total due today depends on whether installer has Stripe connected:
+  // - If Stripe connected: deposit + tax (tax sent to installer via Stripe)
+  // - If no Stripe: deposit only (installer collects tax with balance at installation)
+  const totalWithTax = collectTaxUpfront === false
+    ? depositAmount // No Stripe — deposit only, tax collected at installation
+    : depositAmount + (taxInfo?.taxAmount || 0); // Stripe connected — include tax
 
   // Address validation
   function handleAddressNext() {
@@ -292,7 +307,8 @@ export default function BookingModal({
                     <span className="text-stone-500">Deposit (15%)</span>
                     <span className="text-white">{formatCurrency(depositAmount)}</span>
                   </div>
-                  {taxInfo && taxInfo.taxAmount > 0 && (
+                  {/* Tax line - different display based on whether collected upfront or at installation */}
+                  {taxInfo && taxInfo.taxAmount > 0 && collectTaxUpfront !== false && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-stone-500">Sales Tax on Build ({formatTaxRate(taxInfo.taxRate)})</span>
                       <span className="text-white">{formatCurrency(taxInfo.taxAmount)}</span>
@@ -302,6 +318,23 @@ export default function BookingModal({
                     <span className="font-bold text-stone-400">Due Today</span>
                     <span className="font-black text-yellow-400">{formatCurrency(totalWithTax)}</span>
                   </div>
+                  {/* Balance due section */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-stone-500">Balance at Installation</span>
+                    <span className="text-stone-400">
+                      {formatCurrency(
+                        collectTaxUpfront === false
+                          ? (totalPrice - depositAmount) + (taxInfo?.taxAmount || 0) // Balance + tax
+                          : totalPrice - depositAmount // Just balance (tax already paid)
+                      )}
+                    </span>
+                  </div>
+                  {/* Note about tax collection timing */}
+                  {taxInfo && taxInfo.taxAmount > 0 && collectTaxUpfront === false && (
+                    <p className="text-[10px] text-stone-500 mt-2 text-center italic">
+                      Sales tax ({formatCurrency(taxInfo.taxAmount)}) collected at installation
+                    </p>
+                  )}
                 </div>
               </div>
 
