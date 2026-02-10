@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, CalendarRange } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20,11 +20,18 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-function formatDateKey(date: Date): string {
-  return date.toISOString().split("T")[0];
+// Use string format for date state to avoid Date object comparison issues
+function getTodayString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function formatFullDate(date: Date): string {
+function formatDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function formatFullDate(year: number, month: number, day: number): string {
+  const date = new Date(year, month, day);
   return date.toLocaleDateString("en-US", {
     weekday: "long",
     month: "numeric",
@@ -33,25 +40,26 @@ function formatFullDate(date: Date): string {
   });
 }
 
-export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendarProps) {
+function JobCalendar({ scheduledDates, onDateClick }: JobCalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Store as year-month-day string to avoid Date object issues
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentDay, setCurrentDay] = useState(() => new Date().getDate());
 
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
+  // Today's date as a stable string
+  const todayString = useMemo(() => getTodayString(), []);
+  const [todayYear, todayMonth, todayDay] = useMemo(() => {
+    const parts = todayString.split("-").map(Number);
+    return parts;
+  }, [todayString]);
 
   // Get days for current month view
   const monthDays = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
 
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-
-    const days: (Date | null)[] = [];
+    const days: ({ year: number; month: number; day: number } | null)[] = [];
 
     // Add empty slots for days before first of month
     for (let i = 0; i < firstDay.getDay(); i++) {
@@ -60,81 +68,129 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
 
     // Add all days of month
     for (let d = 1; d <= lastDay.getDate(); d++) {
-      days.push(new Date(year, month, d));
+      days.push({ year: currentYear, month: currentMonth, day: d });
     }
 
     return days;
-  }, [currentDate]);
+  }, [currentYear, currentMonth]);
 
   // Get days for current week view
   const weekDays = useMemo(() => {
-    const days: Date[] = [];
-    const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+    const days: { year: number; month: number; day: number }[] = [];
+    const startOfWeek = new Date(currentYear, currentMonth, currentDay);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
 
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek);
       day.setDate(startOfWeek.getDate() + i);
-      days.push(day);
+      days.push({ year: day.getFullYear(), month: day.getMonth(), day: day.getDate() });
     }
 
     return days;
-  }, [currentDate]);
+  }, [currentYear, currentMonth, currentDay]);
 
-  // Navigation
-  function goNext() {
-    const newDate = new Date(currentDate);
+  // Navigation callbacks
+  const goNext = useCallback(() => {
     if (viewMode === "month") {
-      newDate.setMonth(newDate.getMonth() + 1);
+      setCurrentMonth((m) => {
+        if (m === 11) {
+          setCurrentYear((y) => y + 1);
+          return 0;
+        }
+        return m + 1;
+      });
     } else if (viewMode === "week") {
-      newDate.setDate(newDate.getDate() + 7);
+      const newDate = new Date(currentYear, currentMonth, currentDay + 7);
+      setCurrentYear(newDate.getFullYear());
+      setCurrentMonth(newDate.getMonth());
+      setCurrentDay(newDate.getDate());
     } else {
-      newDate.setDate(newDate.getDate() + 1);
+      const newDate = new Date(currentYear, currentMonth, currentDay + 1);
+      setCurrentYear(newDate.getFullYear());
+      setCurrentMonth(newDate.getMonth());
+      setCurrentDay(newDate.getDate());
     }
-    setCurrentDate(newDate);
-  }
+  }, [viewMode, currentYear, currentMonth, currentDay]);
 
-  function goPrev() {
-    const newDate = new Date(currentDate);
+  const goPrev = useCallback(() => {
     if (viewMode === "month") {
-      newDate.setMonth(newDate.getMonth() - 1);
+      setCurrentMonth((m) => {
+        if (m === 0) {
+          setCurrentYear((y) => y - 1);
+          return 11;
+        }
+        return m - 1;
+      });
     } else if (viewMode === "week") {
-      newDate.setDate(newDate.getDate() - 7);
+      const newDate = new Date(currentYear, currentMonth, currentDay - 7);
+      setCurrentYear(newDate.getFullYear());
+      setCurrentMonth(newDate.getMonth());
+      setCurrentDay(newDate.getDate());
     } else {
-      newDate.setDate(newDate.getDate() - 1);
+      const newDate = new Date(currentYear, currentMonth, currentDay - 1);
+      setCurrentYear(newDate.getFullYear());
+      setCurrentMonth(newDate.getMonth());
+      setCurrentDay(newDate.getDate());
     }
-    setCurrentDate(newDate);
-  }
+  }, [viewMode, currentYear, currentMonth, currentDay]);
 
-  function goToday() {
-    setCurrentDate(new Date());
-  }
+  const goToday = useCallback(() => {
+    const now = new Date();
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
+    setCurrentDay(now.getDate());
+  }, []);
 
-  function handleDayClick(date: Date | null) {
-    if (!date || !onDateClick) return;
-    const dateKey = formatDateKey(date);
-    const formattedDate = formatFullDate(date);
+  const handleDayClick = useCallback((year: number, month: number, day: number) => {
+    if (!onDateClick) return;
+    const dateKey = formatDateKey(year, month, day);
+    const formattedDate = formatFullDate(year, month, day);
     onDateClick(dateKey, formattedDate);
-  }
+  }, [onDateClick]);
 
-  // Render helpers
-  function renderDayCell(date: Date | null, isCompact = false) {
-    if (!date) {
-      return <div className={isCompact ? "h-10" : "h-12"} />;
+  // Header title
+  const headerTitle = useMemo(() => {
+    if (viewMode === "month") {
+      return `${MONTHS[currentMonth]} ${currentYear}`;
+    } else if (viewMode === "week") {
+      const startOfWeek = new Date(currentYear, currentMonth, currentDay);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+        return `${MONTHS[startOfWeek.getMonth()]} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
+      }
+      return `${MONTHS[startOfWeek.getMonth()].slice(0, 3)} ${startOfWeek.getDate()} - ${MONTHS[endOfWeek.getMonth()].slice(0, 3)} ${endOfWeek.getDate()}, ${endOfWeek.getFullYear()}`;
+    } else {
+      const date = new Date(currentYear, currentMonth, currentDay);
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  }, [currentYear, currentMonth, currentDay, viewMode]);
+
+  // Render a single day cell
+  const renderDayCell = useCallback((dateInfo: { year: number; month: number; day: number } | null) => {
+    if (!dateInfo) {
+      return <div className="h-12" />;
     }
 
-    const dateKey = formatDateKey(date);
+    const { year, month, day } = dateInfo;
+    const dateKey = formatDateKey(year, month, day);
     const jobCount = scheduledDates[dateKey] || 0;
-    const isToday = date.getTime() === today.getTime();
-    const isPast = date < today;
+    const isToday = year === todayYear && month === todayMonth && day === todayDay;
+    const isPast = new Date(year, month, day) < new Date(todayYear, todayMonth, todayDay);
     const hasJobs = jobCount > 0;
 
     return (
       <button
-        onClick={() => handleDayClick(date)}
+        onClick={() => handleDayClick(year, month, day)}
         className={`
-          relative flex flex-col items-center justify-center rounded-lg transition-all
-          ${isCompact ? "h-10 w-10" : "h-12 w-full"}
+          relative flex flex-col items-center justify-center rounded-lg transition-all h-12 w-full
           ${isToday
             ? "bg-yellow-400 text-gray-950 font-bold"
             : isPast
@@ -144,45 +200,17 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
           ${hasJobs && !isToday ? "bg-slate-800" : ""}
         `}
       >
-        <span className={isCompact ? "text-sm" : "text-sm"}>{date.getDate()}</span>
+        <span className="text-sm">{day}</span>
         {hasJobs && (
           <span
-            className={`
-              absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center
-              rounded-full px-1 text-[10px] font-bold
-              ${isToday ? "bg-red-500 text-white" : "bg-red-500 text-white"}
-            `}
+            className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold bg-red-500 text-white"
           >
             {jobCount}
           </span>
         )}
       </button>
     );
-  }
-
-  // Header title
-  const headerTitle = useMemo(() => {
-    if (viewMode === "month") {
-      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-    } else if (viewMode === "week") {
-      const startOfWeek = new Date(currentDate);
-      startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-      if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
-        return `${MONTHS[startOfWeek.getMonth()]} ${startOfWeek.getDate()} - ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
-      }
-      return `${MONTHS[startOfWeek.getMonth()].slice(0, 3)} ${startOfWeek.getDate()} - ${MONTHS[endOfWeek.getMonth()].slice(0, 3)} ${endOfWeek.getDate()}, ${endOfWeek.getFullYear()}`;
-    } else {
-      return currentDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-  }, [currentDate, viewMode]);
+  }, [scheduledDates, todayYear, todayMonth, todayDay, handleDayClick]);
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -263,8 +291,8 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
 
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1">
-            {monthDays.map((date, i) => (
-              <div key={i}>{renderDayCell(date)}</div>
+            {monthDays.map((dateInfo, i) => (
+              <div key={i}>{renderDayCell(dateInfo)}</div>
             ))}
           </div>
         </div>
@@ -284,9 +312,9 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
 
           {/* Week Grid */}
           <div className="grid grid-cols-7 gap-2">
-            {weekDays.map((date, i) => (
+            {weekDays.map((dateInfo, i) => (
               <div key={i} className="flex justify-center">
-                {renderDayCell(date, false)}
+                {renderDayCell(dateInfo)}
               </div>
             ))}
           </div>
@@ -297,11 +325,11 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
       {viewMode === "day" && (
         <div className="text-center">
           <div className="mx-auto w-20">
-            {renderDayCell(currentDate, false)}
+            {renderDayCell({ year: currentYear, month: currentMonth, day: currentDay })}
           </div>
           <p className="mt-3 text-sm text-stone-400">
-            {scheduledDates[formatDateKey(currentDate)]
-              ? `${scheduledDates[formatDateKey(currentDate)]} job(s) scheduled`
+            {scheduledDates[formatDateKey(currentYear, currentMonth, currentDay)]
+              ? `${scheduledDates[formatDateKey(currentYear, currentMonth, currentDay)]} job(s) scheduled`
               : "No jobs scheduled"
             }
           </p>
@@ -324,3 +352,5 @@ export default function JobCalendar({ scheduledDates, onDateClick }: JobCalendar
     </div>
   );
 }
+
+export default memo(JobCalendar);
