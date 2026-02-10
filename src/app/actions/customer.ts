@@ -177,10 +177,11 @@ export async function getInstallerBySlug(
   if (!slug) return toResult(null, "No installer specified.");
 
   try {
+    // Use ilike for case-insensitive matching in case slug was stored with mixed case
     const { data, error } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
-      .eq("slug", slug.toLowerCase().trim())
+      .ilike("slug", slug.trim())
       .maybeSingle();
 
     if (error || !data) {
@@ -203,10 +204,11 @@ export async function getInstallerByRef(
   if (!slug) return toResult(null, "No installer specified.");
 
   try {
+    // Use ilike for case-insensitive matching in case ref_slug was stored with mixed case
     const { data, error } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
-      .eq("ref_slug", slug.toLowerCase().trim())
+      .ilike("ref_slug", slug.trim())
       .maybeSingle();
 
     if (error || !data) {
