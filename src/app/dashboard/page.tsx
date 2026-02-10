@@ -67,11 +67,12 @@ export default function DashboardPage() {
 
     const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
-      // Only count leads with deposit paid (exclude pending_payment/abandoned)
+      // Only count leads with deposit paid (exclude unpaid quotes)
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
         .eq("installer_id", user.id)
+        .eq("deposit_paid", true)
         .in("status", ["new", "open"]),
       supabase
         .from("leads")
