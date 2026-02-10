@@ -137,6 +137,8 @@ export async function createQuote(
     const balanceDue = Math.round((finalTotal - depositAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
+    // Status "quote_sent" ensures this doesn't appear in installer dashboard
+    // until the customer pays the deposit (which changes status to "open")
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .insert({
@@ -151,7 +153,7 @@ export async function createQuote(
         deposit_amount: depositAmount,
         balance_due: balanceDue,
         source: "installer_manual",
-        status: "new",
+        status: "quote_sent",
       })
       .select("id")
       .single();

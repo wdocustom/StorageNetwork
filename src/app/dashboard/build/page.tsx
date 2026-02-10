@@ -334,10 +334,11 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
-      if ("lead_id" in result && result.lead_id) {
-        setLeadIdForBooking(result.lead_id as string);
-      }
+      // Quote sent successfully - customer will receive email with payment link
+      // Job only appears in dashboard after customer pays deposit
       setQuoteSent(true);
+      // Clear units after successful quote
+      setUnits([]);
     } catch {
       setQuoteError("Failed to send quote. Please try again.");
     } finally {
@@ -615,16 +616,6 @@ export default function BuildConfiguratorPage() {
                 </button>
               </div>
 
-              {/* Book Installation — visible when quote has been sent */}
-              {leadIdForBooking && (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  Book Installation
-                </button>
-              )}
             </section>
 
             {/* ── Quote Builder (Multiple Units) ──────────────────────── */}
@@ -1004,8 +995,28 @@ export default function BuildConfiguratorPage() {
                   Send a professional quote to your customer
                 </p>
 
-                {/* Quote Details */}
-                {buildResult && (
+                {/* Quote Details - Show multi-unit summary if units exist, else current build */}
+                {units.length > 0 ? (
+                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                    <p className="mb-2 text-xs font-bold uppercase text-stone-500">
+                      {units.length} Unit{units.length > 1 ? "s" : ""} in Quote
+                    </p>
+                    <div className="space-y-1">
+                      {units.map((u, idx) => (
+                        <div key={u.id} className="flex justify-between text-sm">
+                          <span className="text-stone-400">Unit {idx + 1}: {u.cols}×{u.rows}</span>
+                          <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 border-t border-slate-700 pt-2 flex justify-between">
+                      <span className="text-sm font-bold text-stone-400">Total</span>
+                      <span className="text-xl font-black text-yellow-400">
+                        ${units.reduce((sum, u) => sum + (u.price || 0), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ) : buildResult && (
                   <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-center">
                     <p className="text-sm text-stone-400">
                       {buildResult.cols}×{buildResult.rows} Unit
