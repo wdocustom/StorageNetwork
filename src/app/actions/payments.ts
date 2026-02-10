@@ -19,24 +19,24 @@ import { siteConfig } from "@/config/site";
 //
 // SALES TAX HANDLING:
 // ─────────────────────────────────────────────────────────────────────────
-// - Tax is calculated on FULL BUILD PRICE (not deposit) and collected upfront
-// - Tax ALWAYS flows to the installer (they are responsible for remittance)
-// - If installer has Stripe: Tax collected upfront, sent via destination charge
-// - If NO Stripe: Tax NOT collected upfront — installer collects it with balance
+// - Tax is calculated on FULL BUILD PRICE (not deposit)
+// - Tax is ALWAYS collected by the installer at installation (with balance)
+// - Deposit payment is deposit only — NO tax collected upfront
+// - This keeps tax handling simple and uniform for all scenarios
 //
 // Example: $1000 build, 6% tax ($60), 15% deposit ($150)
 // ─────────────────────────────────────────────────────────────────────────
 //
-// Installer HAS Stripe connected:
-//   Customer pays today: $210 (deposit + tax)
-//   - Non-Pro: Platform $150, Installer receives $60 (tax)
-//   - Pro:     Platform $50, Installer receives $160 ($100 + $60 tax)
-//   Balance at install: $850 (no additional tax)
+// Non-Pro (or Pro without Stripe):
+//   Customer pays today: $150 (deposit)
+//   Platform keeps: $150 (15% fee)
+//   Balance at install: $910 ($850 + $60 tax → installer collects)
 //
-// Installer has NO Stripe:
-//   Customer pays today: $150 (deposit only, NO tax)
-//   - Platform fee: $150 (15% of build)
-//   Balance at install: $910 ($850 + $60 tax collected by installer)
+// Pro with Stripe connected:
+//   Customer pays today: $150 (deposit)
+//   Platform keeps: $50 (5% fee)
+//   Installer receives via Stripe: $100 (10%)
+//   Balance at install: $910 ($850 + $60 tax → installer collects)
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -336,18 +336,15 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// checkInstallerPaymentInfo — Check if installer has Stripe connected
+// checkInstallerPaymentInfo — Check installer's Stripe and Pro status
 //
-// Used by clients BEFORE showing payment amounts to determine:
-// - Whether tax will be collected upfront (with deposit) or at installation
-// - The correct amount to display to the customer
+// Used by clients to display correct fee breakdown.
+// Note: Tax is ALWAYS collected at installation, never upfront.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface InstallerPaymentInfo {
   hasStripeConnected: boolean;
   isPro: boolean;
-  // If no Stripe: tax collected at installation, not upfront
-  collectTaxUpfront: boolean;
 }
 
 export async function checkInstallerPaymentInfo(installerId: string): Promise<InstallerPaymentInfo> {
@@ -358,7 +355,6 @@ export async function checkInstallerPaymentInfo(installerId: string): Promise<In
   return {
     hasStripeConnected,
     isPro,
-    collectTaxUpfront: hasStripeConnected, // Only collect tax upfront if we can send it to installer
   };
 }
 
@@ -389,10 +385,6 @@ export interface DepositIntentResult {
   success: boolean;
   clientSecret?: string;
   error?: string;
-  // Info about what was actually charged (for UI updates)
-  actualAmountCharged?: number;      // In dollars
-  taxCollectedUpfront?: boolean;     // If false, installer will collect tax with balance
-  installerHasStripe?: boolean;      // Whether installer can receive direct payments
 }
 
 export async function createDepositIntent(
@@ -404,48 +396,39 @@ export async function createDepositIntent(
     return { success: false, error: "Missing required parameters." };
   }
 
-  // Calculate deposit base (amount before tax) for fee calculation
-  const depositBase = salesTaxAmount ? amount - salesTaxAmount : amount;
+  // Deposit is always charged WITHOUT tax. Tax is collected by installer at installation.
+  // The `amount` param may include tax from client calculation, so we use depositAmount directly.
+  const depositAmountCents = Math.round(amount * 100);
+  const totalPriceCents = Math.round(totalPrice * 100);
   const taxCents = salesTaxAmount ? Math.round(salesTaxAmount * 100) : 0;
+  const balanceWithTaxCents = (totalPriceCents - depositAmountCents) + taxCents;
 
   try {
-    const amountCents = Math.round(amount * 100);
-    const totalPriceCents = Math.round(totalPrice * 100);
-
     // ── Determine fee routing based on Pro status and Stripe connection ───────
     //
-    // Fee rates (calculated on BUILD PRICE, not deposit or tax):
-    //   - Non-Pro: 15% platform fee
-    //   - Pro:     5% platform fee (installer keeps 10%)
+    // DEPOSIT ONLY (no tax) is always charged. Tax collected at installation.
     //
-    // Tax handling:
-    //   - Tax ALWAYS flows to installer (they're responsible for remittance)
-    //   - If installer has Stripe: Send via destination charge
-    //   - If no Stripe: Platform holds, manual settlement required
+    // Fee rates (calculated on BUILD PRICE):
+    //   - Non-Pro (or no Stripe): 15% → all to Platform
+    //   - Pro + Stripe:           5% → Platform, 10% → Installer via Stripe
     //
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
     const installerStripeId = installerProfile?.stripe_account_id;
 
-    // Use destination charge if installer has Stripe connected (regardless of Pro status)
-    // This ensures tax flows directly to installer when possible
-    const canRouteToInstaller = !!installerStripeId;
+    // Only split deposit if Pro AND has Stripe connected
+    const shouldSplitDeposit = isPro && !!installerStripeId;
 
     let paymentIntent;
-    const depositBaseCents = Math.round(depositBase * 100);
 
-    if (canRouteToInstaller && installerStripeId) {
-      // ── Installer has Stripe connected: Use destination charge ────────────
-      // Platform fee depends on Pro status:
-      //   - Pro:     5% of build price
-      //   - Non-Pro: 15% of build price (full deposit)
-      // Installer receives the rest (including tax) via destination charge
-      const platformFeeRate = isPro ? PRO_PLATFORM_FEE_RATE : DEPOSIT_RATE;
-      const platformFeeCents = Math.round(totalPriceCents * platformFeeRate);
-      const installerReceivesCents = amountCents - platformFeeCents;
+    if (shouldSplitDeposit && installerStripeId) {
+      // ── Pro + Stripe: Split deposit via destination charge ────────────────
+      // Platform gets 5% of build, Installer gets 10% of build
+      const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 5%
+      const installerReceivesCents = depositAmountCents - platformFeeCents; // 10%
 
       paymentIntent = await stripe.paymentIntents.create({
-        amount: amountCents,
+        amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
@@ -461,37 +444,28 @@ export async function createDepositIntent(
           type: "deposit",
           source,
           installer_id: installerId,
-          is_pro: isPro ? "true" : "false",
+          is_pro: "true",
           customer_name: customerName || "",
           customer_email: customerEmail || "",
-          // Platform fee based on Pro status (NOT including tax)
           platform_fee_cents: String(platformFeeCents),
-          platform_fee_rate: isPro ? "5%" : "15%",
-          // Installer receives via Stripe (deposit share + tax for Pro, tax only for Non-Pro)
+          platform_fee_rate: "5%",
           installer_receives_cents: String(installerReceivesCents),
-          installer_tax_owed_cents: "0", // Tax sent via Stripe, nothing owed
           installer_stripe_id: installerStripeId,
           scheduled_at: scheduledAt || "",
-          // Tax info for installer records
+          // Tax info (for reference — installer collects at installation)
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
-          deposit_base_cents: String(depositBaseCents),
+          balance_due_with_tax_cents: String(balanceWithTaxCents),
         },
       });
 
-      const planLabel = isPro ? "Pro" : "Non-Pro";
-      const feePercent = isPro ? "5%" : "15%";
-      console.log(`[Deposit] ${planLabel} (Stripe connected): $${totalPrice} build | Platform fee: $${platformFeeCents / 100} (${feePercent}), Installer receives via Stripe: $${installerReceivesCents / 100} (includes $${taxCents / 100} tax)`);
+      console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (5%), Installer $${installerReceivesCents / 100} (10%) | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     } else {
-      // ── No Stripe connected: Deposit only, installer collects tax with balance ───────
-      // Platform collects DEPOSIT ONLY (no tax). Tax will be collected by installer
-      // when they collect the remaining balance at delivery/installation.
-      // This avoids any "tax owed" that needs manual settlement.
-      const platformFeeCents = depositBaseCents; // 15% of build
-      const chargeAmountCents = depositBaseCents; // Deposit only, NO tax
-
+      // ── Non-Pro OR no Stripe: Full deposit to Platform ────────────────────
+      // Platform keeps entire deposit (15% of build)
+      // Installer collects balance + tax at installation
       paymentIntent = await stripe.paymentIntents.create({
-        amount: chargeAmountCents, // Only charge deposit, not deposit+tax
+        amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
@@ -506,39 +480,28 @@ export async function createDepositIntent(
           is_pro: isPro ? "true" : "false",
           customer_name: customerName || "",
           customer_email: customerEmail || "",
-          // Platform fee is full deposit (15% of build)
-          platform_fee_cents: String(platformFeeCents),
+          platform_fee_cents: String(depositAmountCents),
           platform_fee_rate: "15%",
-          // No Stripe transfer — installer collects balance + tax at installation
           installer_receives_cents: "0",
-          installer_has_stripe: "false",
-          tax_collected_upfront: "false", // Tax will be collected with balance
           scheduled_at: scheduledAt || "",
-          // Tax info (for balance calculation — installer collects this with balance)
+          // Tax info (for reference — installer collects at installation)
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
-          deposit_base_cents: String(depositBaseCents),
-          // Balance due includes tax: (totalPrice - deposit) + tax
-          balance_due_with_tax_cents: String(totalPriceCents - depositBaseCents + taxCents),
+          balance_due_with_tax_cents: String(balanceWithTaxCents),
         },
       });
 
-      const balanceWithTax = (totalPriceCents - depositBaseCents + taxCents) / 100;
-      const planLabel = isPro ? "Pro (no Stripe)" : "Non-Pro (no Stripe)";
-      console.log(`[Deposit] ${planLabel}: $${totalPrice} build | Platform fee: $${depositBase} (15%), Installer collects at install: $${balanceWithTax} (balance $${(totalPriceCents - depositBaseCents) / 100} + tax $${taxCents / 100})`);
+      const planLabel = isPro ? "Pro (no Stripe)" : "Non-Pro";
+      console.log(`[Deposit] ${planLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%) | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     }
 
-    // Determine what was actually charged
-    const actuallyChargedCents = canRouteToInstaller ? amountCents : depositBaseCents;
-    const taxCollectedUpfront = canRouteToInstaller;
-
-    // Update lead with scheduling info, source, and tax info
+    // Update lead with scheduling info and tax info (for reference)
     await supabase
       .from("leads")
       .update({
         source,
         scheduled_at: scheduledAt || null,
-        sales_tax_amount: taxCollectedUpfront ? salesTaxAmount : null, // Only set if collected
+        sales_tax_amount: salesTaxAmount || null,
         billing_state: billingState || null,
         updated_at: new Date().toISOString(),
       })
@@ -547,9 +510,6 @@ export async function createDepositIntent(
     return {
       success: true,
       clientSecret: paymentIntent.client_secret || undefined,
-      actualAmountCharged: actuallyChargedCents / 100,
-      taxCollectedUpfront,
-      installerHasStripe: canRouteToInstaller,
     };
   } catch (err) {
     console.error("[Payment] PaymentIntent error:", err);

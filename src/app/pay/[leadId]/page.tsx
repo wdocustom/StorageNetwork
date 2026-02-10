@@ -110,16 +110,17 @@ export default function ResumePaymentPage() {
     loadLead();
   }, [leadId]);
 
-  // Calculate sales tax based on state
-  // IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT, not just the deposit.
-  // Customer pays: deposit + full tax upfront. Balance has no additional tax.
+  // Calculate sales tax based on state (for display purposes)
+  // Tax is assessed on the FULL BUILD AMOUNT and collected at installation
   const taxInfo = useMemo(() => {
     if (!lead || !address.state) return null;
     return calculateSalesTax(lead.estimated_price, address.state);
   }, [lead, address.state]);
 
-  // Total due today = deposit + tax on full build
-  const totalWithTax = (lead?.deposit_amount || 0) + (taxInfo?.taxAmount || 0);
+  // Balance at installation = remaining build cost + sales tax
+  const balanceAtInstall = lead
+    ? (lead.estimated_price - lead.deposit_amount) + (taxInfo?.taxAmount || 0)
+    : 0;
 
   // Address validation
   function handleAddressNext() {
@@ -145,13 +146,13 @@ export default function ResumePaymentPage() {
     try {
       const result = await createDepositIntent({
         leadId: lead.id,
-        amount: totalWithTax, // Include tax in the charge
+        amount: lead.deposit_amount, // Deposit only — tax collected at installation
         totalPrice: lead.estimated_price,
         installerId: lead.installer_id || undefined,
         customerEmail: lead.customer_email,
         customerName: lead.customer_name,
         source: (lead.source as LeadSource) || "platform",
-        // Pass tax info for records
+        // Tax info for records (collected at installation)
         salesTaxAmount: taxInfo?.taxAmount || 0,
         billingState: address.state,
       });
@@ -170,7 +171,7 @@ export default function ResumePaymentPage() {
     } finally {
       setInitializingPayment(false);
     }
-  }, [lead, totalWithTax, taxInfo, address.state]);
+  }, [lead, taxInfo, address.state]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — Loading State
@@ -339,41 +340,42 @@ export default function ResumePaymentPage() {
               <span className="text-stone-400">Total ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
               <span className="font-bold text-white">{formatCurrency(lead.estimated_price)}</span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-stone-400">Deposit Due (15%)</span>
-              <span className="font-bold text-white">{formatCurrency(lead.deposit_amount)}</span>
+
+            {/* Due Today = Deposit only */}
+            <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
+              <span className="font-bold text-stone-300">Due Today (Deposit)</span>
+              <span className="text-xl font-black text-yellow-400">
+                {formatCurrency(lead.deposit_amount)}
+              </span>
             </div>
 
-            {/* Tax line - show calculated or notice */}
-            {/* NOTE: Tax is calculated on the FULL BUILD AMOUNT, not just the deposit */}
-            {step === "address" ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-stone-500 italic">Sales Tax on Build</span>
-                <span className="text-xs text-stone-500 italic">Calculated after address</span>
+            {/* Balance at installation */}
+            <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-stone-500">Balance at Installation</span>
+                <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
               </div>
-            ) : taxInfo && taxInfo.taxAmount > 0 ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-stone-400">
-                  Sales Tax on Build ({formatTaxRate(taxInfo.taxRate)} - {taxInfo.stateName})
-                </span>
-                <span className="font-bold text-white">{formatCurrency(taxInfo.taxAmount)}</span>
-              </div>
-            ) : taxInfo && taxInfo.taxAmount === 0 ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-stone-500">Sales Tax ({taxInfo.stateName})</span>
-                <span className="text-stone-500">{formatCurrency(0)}</span>
-              </div>
-            ) : null}
-
-            {/* Total with tax */}
-            {step !== "address" && (
-              <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
-                <span className="font-bold text-stone-300">Total Due Today</span>
-                <span className="text-xl font-black text-yellow-400">
-                  {formatCurrency(totalWithTax)}
-                </span>
-              </div>
-            )}
+              {/* Tax line - show calculated or notice */}
+              {step === "address" ? (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-stone-500 italic">Sales Tax</span>
+                  <span className="text-xs text-stone-500 italic">Calculated after address</span>
+                </div>
+              ) : taxInfo && taxInfo.taxAmount > 0 ? (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-stone-500">
+                    Sales Tax ({formatTaxRate(taxInfo.taxRate)} - {taxInfo.stateName})
+                  </span>
+                  <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                </div>
+              ) : null}
+              {step !== "address" && (
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
+                  <span className="text-stone-400 font-medium">Total at Installation</span>
+                  <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -516,38 +518,39 @@ export default function ResumePaymentPage() {
               </button>
             </div>
 
-            {/* Tax breakdown */}
+            {/* Payment breakdown */}
             <div className="mb-4 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-stone-400">Build Total</span>
                 <span className="text-white">{formatCurrency(lead.estimated_price)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-stone-400">Deposit (15%)</span>
-                <span className="text-white">{formatCurrency(lead.deposit_amount)}</span>
-              </div>
-              {taxInfo && (
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-stone-400">
-                    Sales Tax on Build ({formatTaxRate(taxInfo.taxRate)})
-                  </span>
-                  <span className="text-white">{formatCurrency(taxInfo.taxAmount)}</span>
-                </div>
-              )}
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
-                <span className="font-bold text-white">Total Due Today</span>
+                <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">
-                  {formatCurrency(totalWithTax)}
+                  {formatCurrency(lead.deposit_amount)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs mt-2 pt-2 border-t border-yellow-400/10">
-                <span className="text-stone-500">Balance Due at Installation</span>
-                <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
+              {/* Balance at installation */}
+              <div className="mt-3 pt-2 border-t border-yellow-400/10 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-stone-500">Balance at Installation</span>
+                  <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
+                </div>
+                {taxInfo && taxInfo.taxAmount > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
+                    <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-yellow-400/10">
+                  <span className="text-stone-400 font-medium">Total at Installation</span>
+                  <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
+                </div>
               </div>
             </div>
 
             <p className="mb-4 text-xs text-stone-500 text-center">
-              Sales tax is collected upfront on the full build amount and remitted by your installer.
+              Sales tax will be collected by your installer at installation.
             </p>
 
             <button
@@ -560,7 +563,7 @@ export default function ResumePaymentPage() {
               ) : (
                 <CreditCard className="h-4 w-4" />
               )}
-              {initializingPayment ? "Initializing..." : `Pay ${formatCurrency(totalWithTax)}`}
+              {initializingPayment ? "Initializing..." : `Pay ${formatCurrency(lead.deposit_amount)}`}
             </button>
 
             {/* Trust Badges */}
@@ -605,7 +608,7 @@ export default function ResumePaymentPage() {
               }}
             >
               <PaymentForm
-                totalAmount={totalWithTax}
+                totalAmount={lead.deposit_amount}
                 onSuccess={() => setPaymentSuccess(true)}
                 onError={setError}
               />
@@ -691,8 +694,8 @@ function PaymentForm({
       </button>
 
       <p className="mt-3 text-center text-xs text-stone-500">
-        Your card will be charged {formatCurrency(totalAmount)} (includes tax). The remaining balance
-        is due upon installation.
+        Your card will be charged {formatCurrency(totalAmount)} for the deposit.
+        Sales tax will be collected by your installer at installation.
       </p>
     </form>
   );

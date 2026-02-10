@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -18,7 +18,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import NativeScheduler from "./NativeScheduler";
-import { createDepositIntent, checkInstallerPaymentInfo, type LeadSource } from "@/app/actions/payments";
+import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -96,36 +96,20 @@ export default function BookingModal({
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Track whether installer has Stripe connected (determines if tax is collected upfront)
-  const [collectTaxUpfront, setCollectTaxUpfront] = useState<boolean | null>(null);
-
-  // Fetch installer payment info when modal opens
-  useEffect(() => {
-    if (isOpen && installerId) {
-      checkInstallerPaymentInfo(installerId).then((info) => {
-        setCollectTaxUpfront(info.collectTaxUpfront);
-      });
-    }
-  }, [isOpen, installerId]);
-
   // Wheel Rule: 3 business day minimum for casters
   const effectiveLeadTime = hasWheels
     ? Math.max(installerLeadTime, 3)
     : installerLeadTime;
 
-  // Calculate sales tax based on state
-  // Tax is assessed on the FULL BUILD AMOUNT (not just the deposit)
+  // Calculate sales tax based on state (for display purposes)
+  // Tax is assessed on the FULL BUILD AMOUNT and collected at installation
   const taxInfo = useMemo(() => {
     if (!address.state || address.state.length !== 2) return null;
     return calculateSalesTax(totalPrice, address.state);
   }, [totalPrice, address.state]);
 
-  // Total due today depends on whether installer has Stripe connected:
-  // - If Stripe connected: deposit + tax (tax sent to installer via Stripe)
-  // - If no Stripe: deposit only (installer collects tax with balance at installation)
-  const totalWithTax = collectTaxUpfront === false
-    ? depositAmount // No Stripe — deposit only, tax collected at installation
-    : depositAmount + (taxInfo?.taxAmount || 0); // Stripe connected — include tax
+  // Balance at installation = remaining build cost + sales tax
+  const balanceAtInstall = (totalPrice - depositAmount) + (taxInfo?.taxAmount || 0);
 
   // Address validation
   function handleAddressNext() {
@@ -149,14 +133,14 @@ export default function BookingModal({
 
     const result = await createDepositIntent({
       leadId,
-      amount: totalWithTax, // Include tax in the charge
+      amount: depositAmount, // Deposit only — tax collected at installation
       totalPrice,
       installerId,
       source,
       customerEmail,
       customerName,
       scheduledAt: selectedDate,
-      // Tax info for installer records
+      // Tax info for installer records (collected at installation)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
     });
@@ -169,7 +153,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, totalWithTax, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state]);
+  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state]);
 
   if (!isOpen) return null;
 
@@ -284,7 +268,7 @@ export default function BookingModal({
               }}
             >
               <InlinePaymentForm
-                totalAmount={totalWithTax}
+                totalAmount={depositAmount}
                 leadId={leadId}
                 onError={(msg) => setError(msg)}
               />
@@ -303,38 +287,26 @@ export default function BookingModal({
                   </p>
                 </div>
                 <div className="border-t border-slate-700 pt-3 space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-stone-500">Deposit (15%)</span>
-                    <span className="text-white">{formatCurrency(depositAmount)}</span>
+                  {/* Due Today = Deposit only */}
+                  <div className="flex items-center justify-between text-sm pt-1">
+                    <span className="font-bold text-stone-400">Due Today (Deposit)</span>
+                    <span className="font-black text-yellow-400">{formatCurrency(depositAmount)}</span>
                   </div>
-                  {/* Tax line - different display based on whether collected upfront or at installation */}
-                  {taxInfo && taxInfo.taxAmount > 0 && collectTaxUpfront !== false && (
+                  {/* Balance at installation = remaining + tax */}
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-700/50 mt-2">
+                    <span className="text-stone-500">Balance at Installation</span>
+                    <span className="text-stone-400">{formatCurrency(totalPrice - depositAmount)}</span>
+                  </div>
+                  {taxInfo && taxInfo.taxAmount > 0 && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-500">Sales Tax on Build ({formatTaxRate(taxInfo.taxRate)})</span>
-                      <span className="text-white">{formatCurrency(taxInfo.taxAmount)}</span>
+                      <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
+                      <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-sm pt-1 border-t border-slate-700">
-                    <span className="font-bold text-stone-400">Due Today</span>
-                    <span className="font-black text-yellow-400">{formatCurrency(totalWithTax)}</span>
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
+                    <span className="text-stone-400 font-medium">Total at Installation</span>
+                    <span className="text-stone-300 font-semibold">{formatCurrency(balanceAtInstall)}</span>
                   </div>
-                  {/* Balance due section */}
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-stone-500">Balance at Installation</span>
-                    <span className="text-stone-400">
-                      {formatCurrency(
-                        collectTaxUpfront === false
-                          ? (totalPrice - depositAmount) + (taxInfo?.taxAmount || 0) // Balance + tax
-                          : totalPrice - depositAmount // Just balance (tax already paid)
-                      )}
-                    </span>
-                  </div>
-                  {/* Note about tax collection timing */}
-                  {taxInfo && taxInfo.taxAmount > 0 && collectTaxUpfront === false && (
-                    <p className="text-[10px] text-stone-500 mt-2 text-center italic">
-                      Sales tax ({formatCurrency(taxInfo.taxAmount)}) collected at installation
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -369,7 +341,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(totalWithTax)} &amp; Book
+                    Pay {formatCurrency(depositAmount)} &amp; Book
                   </>
                 )}
               </button>
@@ -514,10 +486,10 @@ function InlinePaymentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-xl bg-yellow-400/10 px-4 py-3 text-center">
         <span className="text-sm font-bold text-yellow-400">
-          Total: {formatCurrency(totalAmount)}
+          Deposit: {formatCurrency(totalAmount)}
         </span>
         <span className="block text-[10px] text-stone-500 mt-0.5">
-          (includes applicable sales tax)
+          Sales tax collected at installation
         </span>
       </div>
 
