@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
+import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -853,6 +854,11 @@ function ProfilePageInner() {
         {/* Pro Subscription Management (Pro users only) */}
         {isPro && profile && (
           <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
+        )}
+
+        {/* Pro QR Code Generator (Pro users with slug only) */}
+        {isPro && profile?.slug && (
+          <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
         )}
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}

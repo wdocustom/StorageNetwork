@@ -22,6 +22,9 @@ import {
   Box,
   Calculator,
   TrendingUp,
+  Grid3X3,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -35,6 +38,23 @@ const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide")
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type InputMode = "wallFit" | "custom";
+
+// Unit configuration for multi-unit quotes
+interface UnitConfig {
+  id: string;
+  cols: number;
+  rows: number;
+  toteType: ToteType;
+  hasTotes: boolean;
+  hasWheels: boolean;
+  hasTop: boolean;
+  price?: number;
+  totalW?: number;
+  totalH?: number;
+  depth?: number;
+  slots?: number;
+}
 
 export default function BuildConfiguratorPage() {
   const supabase = getSupabaseBrowserClient();
@@ -44,13 +64,25 @@ export default function BuildConfiguratorPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
 
-  // Inputs
+  // Input mode toggle
+  const [inputMode, setInputMode] = useState<InputMode>("wallFit");
+
+  // Wall fit inputs
   const [wallWidth, setWallWidth] = useState("");
   const [wallHeight, setWallHeight] = useState("");
+
+  // Custom grid inputs
+  const [customCols, setCustomCols] = useState("3");
+  const [customRows, setCustomRows] = useState("4");
+
+  // Common inputs
   const [toteType, setToteType] = useState<ToteType>("HDX");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(false);
+
+  // Multiple units for quotes
+  const [units, setUnits] = useState<UnitConfig[]>([]);
 
   // Results
   const [buildResult, setBuildResult] = useState<{
@@ -117,11 +149,21 @@ export default function BuildConfiguratorPage() {
   }, [fetchProfile]);
 
   async function handleCalculate() {
-    const wW = parseFloat(wallWidth);
-    const wH = parseFloat(wallHeight);
-    if (!wW || !wH) {
-      setCalcError("Enter valid wall dimensions.");
-      return;
+    // Validate inputs based on mode
+    if (inputMode === "wallFit") {
+      const wW = parseFloat(wallWidth);
+      const wH = parseFloat(wallHeight);
+      if (!wW || !wH) {
+        setCalcError("Enter valid wall dimensions.");
+        return;
+      }
+    } else {
+      const cols = parseInt(customCols);
+      const rows = parseInt(customRows);
+      if (!cols || cols < 1 || !rows || rows < 1) {
+        setCalcError("Enter valid columns and rows.");
+        return;
+      }
     }
 
     setCalcError("");
@@ -132,11 +174,13 @@ export default function BuildConfiguratorPage() {
 
     try {
       const res = await calculateBuild({
-        wallWidth: wW,
-        wallHeight: wH,
+        wallWidth: inputMode === "wallFit" ? parseFloat(wallWidth) : undefined,
+        wallHeight: inputMode === "wallFit" ? parseFloat(wallHeight) : undefined,
+        cols: inputMode === "custom" ? parseInt(customCols) : undefined,
+        rows: inputMode === "custom" ? parseInt(customRows) : undefined,
         toteModel: toteType,
         addOns: { totes: hasTotes, wheels: hasWheels, top: hasTop },
-        mode: "wallFit",
+        mode: inputMode === "wallFit" ? "wallFit" : "manual",
       });
 
       if (!res.success) {
@@ -191,12 +235,44 @@ export default function BuildConfiguratorPage() {
     }
   }
 
+  // Add current build to units list
+  function handleAddUnit() {
+    if (!buildResult) return;
+
+    const newUnit: UnitConfig = {
+      id: `unit-${Date.now()}`,
+      cols: buildResult.cols,
+      rows: buildResult.rows,
+      toteType,
+      hasTotes,
+      hasWheels,
+      hasTop,
+      price: buildResult.price,
+      totalW: buildResult.totalW,
+      totalH: buildResult.totalH,
+      depth: buildResult.depth,
+      slots: buildResult.slots,
+    };
+
+    setUnits((prev) => [...prev, newUnit]);
+  }
+
+  // Remove unit from list
+  function handleRemoveUnit(unitId: string) {
+    setUnits((prev) => prev.filter((u) => u.id !== unitId));
+  }
+
+  // Calculate grand total from all units
+  const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0) + (buildResult?.price || 0);
+
   async function handleSendQuote() {
     if (!customerName.trim() || !customerEmail.trim()) {
       setQuoteError("Name and email are required.");
       return;
     }
-    if (!buildResult || !userId) {
+    // Need either a current build result or units in the list
+    const hasUnits = units.length > 0 || buildResult;
+    if (!hasUnits || !userId) {
       setQuoteError("No build calculated or not logged in.");
       return;
     }
@@ -205,21 +281,43 @@ export default function BuildConfiguratorPage() {
     setQuoteSending(true);
 
     try {
-      const unit: QuoteUnit = {
-        cols: buildResult.cols,
-        rows: buildResult.rows,
-        toteType,
-        unitType: buildResult.unitType,
-        orientation: buildResult.orientation,
-        hasTotes,
-        hasWheels,
-        hasTop,
-        price: buildResult.price,
-        totalW: buildResult.totalW,
-        totalH: buildResult.totalH,
-        depth: buildResult.depth,
-        desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
-      };
+      // Build quote units from saved units list
+      const quoteUnits: QuoteUnit[] = units.map((u) => ({
+        cols: u.cols,
+        rows: u.rows,
+        toteType: u.toteType,
+        unitType: "standard" as const,
+        orientation: "standard" as const,
+        hasTotes: u.hasTotes,
+        hasWheels: u.hasWheels,
+        hasTop: u.hasTop,
+        price: u.price || 0,
+        totalW: u.totalW || 0,
+        totalH: u.totalH || 0,
+        depth: u.depth || 30,
+        desc: `${u.cols} Wide × ${u.rows} High`,
+      }));
+
+      // Add current build if not already in list
+      if (buildResult && units.length === 0) {
+        quoteUnits.push({
+          cols: buildResult.cols,
+          rows: buildResult.rows,
+          toteType,
+          unitType: buildResult.unitType,
+          orientation: buildResult.orientation,
+          hasTotes,
+          hasWheels,
+          hasTop,
+          price: buildResult.price,
+          totalW: buildResult.totalW,
+          totalH: buildResult.totalH,
+          depth: buildResult.depth,
+          desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
+        });
+      }
+
+      const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
 
       const result = await createQuote({
         installer_id: userId,
@@ -227,8 +325,8 @@ export default function BuildConfiguratorPage() {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone || undefined,
-        quote_data: [unit],
-        grand_total: buildResult.price,
+        quote_data: quoteUnits,
+        grand_total: totalPrice,
       });
 
       if (!result.success) {
@@ -294,39 +392,114 @@ export default function BuildConfiguratorPage() {
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ── Input Card ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-            <Maximize2 className="h-4 w-4 text-yellow-400" />
-            Wall Dimensions
-          </h2>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                Width (in)
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={wallWidth}
-                onChange={(e) => setWallWidth(e.target.value)}
-                placeholder="e.g. 120"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                Height (in)
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={wallHeight}
-                onChange={(e) => setWallHeight(e.target.value)}
-                placeholder="e.g. 96"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-              />
-            </div>
+          {/* Mode Toggle */}
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setInputMode("wallFit")}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
+                inputMode === "wallFit"
+                  ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                  : "border-slate-700 text-stone-400 hover:border-stone-600"
+              }`}
+            >
+              <Maximize2 className="h-4 w-4" />
+              Wall Fit
+            </button>
+            <button
+              onClick={() => setInputMode("custom")}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
+                inputMode === "custom"
+                  ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                  : "border-slate-700 text-stone-400 hover:border-stone-600"
+              }`}
+            >
+              <Grid3X3 className="h-4 w-4" />
+              Custom Grid
+            </button>
           </div>
+
+          {/* Wall Fit Mode */}
+          {inputMode === "wallFit" && (
+            <>
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+                <Maximize2 className="h-4 w-4 text-yellow-400" />
+                Wall Dimensions
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Width (in)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={wallWidth}
+                    onChange={(e) => setWallWidth(e.target.value)}
+                    placeholder="e.g. 120"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Height (in)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={wallHeight}
+                    onChange={(e) => setWallHeight(e.target.value)}
+                    placeholder="e.g. 96"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Custom Grid Mode */}
+          {inputMode === "custom" && (
+            <>
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+                <Grid3X3 className="h-4 w-4 text-yellow-400" />
+                Grid Configuration
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Columns (Wide)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="20"
+                    value={customCols}
+                    onChange={(e) => setCustomCols(e.target.value)}
+                    placeholder="e.g. 4"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Rows (High)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="20"
+                    value={customRows}
+                    onChange={(e) => setCustomRows(e.target.value)}
+                    placeholder="e.g. 5"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-stone-500">
+                Enter the number of tote columns and rows for your unit.
+              </p>
+            </>
+          )}
 
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
@@ -418,20 +591,27 @@ export default function BuildConfiguratorPage() {
               </div>
 
               {/* ACTION BUTTONS */}
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <button
+                  onClick={handleAddUnit}
+                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-blue-400 bg-blue-400/10 py-3 text-xs font-bold uppercase tracking-wider text-blue-400 transition-all hover:bg-blue-400/20"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Unit
+                </button>
                 <button
                   onClick={() => setShowQuoteModal(true)}
                   className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
                 >
                   <FileText className="h-4 w-4" />
-                  Create Quote
+                  Quote
                 </button>
                 <button
                   onClick={() => setShowAssemblyGuide(true)}
                   className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-400 bg-emerald-400/10 py-3 text-xs font-bold uppercase tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/20"
                 >
                   <Box className="h-4 w-4" />
-                  Explode View
+                  Explode
                 </button>
               </div>
 
@@ -446,6 +626,64 @@ export default function BuildConfiguratorPage() {
                 </button>
               )}
             </section>
+
+            {/* ── Quote Builder (Multiple Units) ──────────────────────── */}
+            {units.length > 0 && (
+              <section className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+                <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                  <ShoppingCart className="h-4 w-4" />
+                  Quote Builder ({units.length} unit{units.length > 1 ? "s" : ""})
+                </h2>
+
+                <div className="space-y-2">
+                  {units.map((unit, index) => (
+                    <div
+                      key={unit.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Unit {index + 1}: {unit.cols} × {unit.rows}
+                        </p>
+                        <p className="text-[11px] text-stone-500">
+                          {unit.toteType} • {unit.slots} slots
+                          {unit.hasTotes && " • Totes"}
+                          {unit.hasWheels && " • Wheels"}
+                          {unit.hasTop && " • Top"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-yellow-400">
+                          ${unit.price?.toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => handleRemoveUnit(unit.id)}
+                          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grand Total */}
+                <div className="mt-3 flex items-center justify-between rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3">
+                  <span className="text-sm font-bold uppercase text-stone-400">Grand Total</span>
+                  <span className="text-xl font-black text-yellow-400">
+                    ${grandTotal.toLocaleString()}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setShowQuoteModal(true)}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                >
+                  <FileText className="h-4 w-4" />
+                  Send Multi-Unit Quote
+                </button>
+              </section>
+            )}
 
             {/* ── Profit Calculator ────────────────────────────────────── */}
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
