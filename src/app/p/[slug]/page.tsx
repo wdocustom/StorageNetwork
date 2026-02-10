@@ -21,8 +21,9 @@ export default async function PartnerLinkPage({ params }: PageProps) {
     notFound();
   }
 
-  // Redirect to the installer's booking page
-  redirect(`/book/${profile.id}`);
+  // Redirect to the branded design page with installer slug
+  // The design page will resolve the slug, apply Pro branding, and hide ZIP lookup
+  redirect(`/design?installer=${slug}`);
 }
 
 // Generate metadata for SEO
