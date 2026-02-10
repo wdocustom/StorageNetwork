@@ -325,13 +325,16 @@ export type LeadSource = "platform" | "partner_link" | "installer_manual";
 
 export interface DepositIntentInput {
   leadId: string;
-  amount: number;                    // Deposit amount in dollars
+  amount: number;                    // Deposit amount in dollars (includes tax if applicable)
   totalPrice: number;                // Total job price in dollars (for fee calculation)
   installerId?: string;              // Supabase user ID of installer (optional for platform leads)
   source: LeadSource;                // Where the lead came from
   customerEmail?: string;
   customerName?: string;
   scheduledAt?: string;
+  // Tax info for installer records
+  salesTaxAmount?: number;           // Tax amount in dollars
+  billingState?: string;             // 2-letter state code
 }
 
 export interface DepositIntentResult {
@@ -343,11 +346,15 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt } = input;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState } = input;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
   }
+
+  // Calculate deposit base (amount before tax) for fee calculation
+  const depositBase = salesTaxAmount ? amount - salesTaxAmount : amount;
+  const taxCents = salesTaxAmount ? Math.round(salesTaxAmount * 100) : 0;
 
   try {
     const amountCents = Math.round(amount * 100);
@@ -408,6 +415,10 @@ export async function createDepositIntent(
           installer_receives_cents: String(amountCents - platformFeeCents),
           installer_stripe_id: installerStripeId,
           scheduled_at: scheduledAt || "",
+          // Tax info for installer records
+          sales_tax_cents: String(taxCents),
+          billing_state: billingState || "",
+          deposit_base_cents: String(Math.round(depositBase * 100)),
         },
       });
 
@@ -434,6 +445,10 @@ export async function createDepositIntent(
           platform_fee_cents: String(amountCents), // Platform keeps 100%
           installer_receives_cents: "0",
           scheduled_at: scheduledAt || "",
+          // Tax info for installer records
+          sales_tax_cents: String(taxCents),
+          billing_state: billingState || "",
+          deposit_base_cents: String(Math.round(depositBase * 100)),
         },
       });
 
@@ -441,12 +456,14 @@ export async function createDepositIntent(
       console.log(`[Deposit] ${sourceLabel}: $${amount} → 100% to Platform`);
     }
 
-    // Update lead with scheduling info and source
+    // Update lead with scheduling info, source, and tax info
     await supabase
       .from("leads")
       .update({
         source,
         scheduled_at: scheduledAt || null,
+        sales_tax_amount: salesTaxAmount || null,
+        billing_state: billingState || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", leadId);

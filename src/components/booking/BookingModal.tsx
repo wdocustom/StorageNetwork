@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -19,7 +19,7 @@ import {
 } from "@stripe/react-stripe-js";
 import NativeScheduler from "./NativeScheduler";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
-import { formatCurrency } from "@/utils/paymentHelpers";
+import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -101,6 +101,15 @@ export default function BookingModal({
     ? Math.max(installerLeadTime, 3)
     : installerLeadTime;
 
+  // Calculate sales tax based on state
+  const taxInfo = useMemo(() => {
+    if (!address.state || address.state.length !== 2) return null;
+    return calculateSalesTax(depositAmount, address.state);
+  }, [depositAmount, address.state]);
+
+  // Total with tax
+  const totalWithTax = taxInfo ? taxInfo.total : depositAmount;
+
   // Address validation
   function handleAddressNext() {
     if (!address.line1.trim() || !address.city.trim() || !address.state.trim() || !address.zip.trim()) {
@@ -123,13 +132,16 @@ export default function BookingModal({
 
     const result = await createDepositIntent({
       leadId,
-      amount: depositAmount,
+      amount: totalWithTax, // Include tax in the charge
       totalPrice,
       installerId,
       source,
       customerEmail,
       customerName,
       scheduledAt: selectedDate,
+      // Tax info for installer records
+      salesTaxAmount: taxInfo?.taxAmount || 0,
+      billingState: address.state,
     });
 
     setInitLoading(false);
@@ -140,7 +152,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName]);
+  }, [selectedDate, leadId, totalWithTax, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state]);
 
   if (!isOpen) return null;
 
@@ -255,7 +267,7 @@ export default function BookingModal({
               }}
             >
               <InlinePaymentForm
-                depositAmount={depositAmount}
+                totalAmount={totalWithTax}
                 leadId={leadId}
                 onError={(msg) => setError(msg)}
               />
@@ -264,19 +276,31 @@ export default function BookingModal({
             /* ── Date Selection ─────────────────────────────────────── */
             <div className="space-y-4">
               {/* Price summary */}
-              <div className="rounded-xl bg-slate-800 p-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
-                  Total Price
-                </p>
-                <p className="text-2xl font-black text-white">
-                  {formatCurrency(totalPrice)}
-                </p>
-                <p className="mt-1 text-xs text-stone-500">
-                  Deposit due today:{" "}
-                  <span className="font-bold text-yellow-400">
-                    {formatCurrency(depositAmount)}
-                  </span>
-                </p>
+              <div className="rounded-xl bg-slate-800 p-4">
+                <div className="text-center mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                    Total Price
+                  </p>
+                  <p className="text-2xl font-black text-white">
+                    {formatCurrency(totalPrice)}
+                  </p>
+                </div>
+                <div className="border-t border-slate-700 pt-3 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-500">Deposit (15%)</span>
+                    <span className="text-white">{formatCurrency(depositAmount)}</span>
+                  </div>
+                  {taxInfo && taxInfo.taxAmount > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
+                      <span className="text-white">{formatCurrency(taxInfo.taxAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm pt-1 border-t border-slate-700">
+                    <span className="font-bold text-stone-400">Due Today</span>
+                    <span className="font-black text-yellow-400">{formatCurrency(totalWithTax)}</span>
+                  </div>
+                </div>
               </div>
 
               {hasWheels && (
@@ -310,7 +334,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay Deposit ({formatCurrency(depositAmount)}) &amp; Book
+                    Pay {formatCurrency(totalWithTax)} &amp; Book
                   </>
                 )}
               </button>
@@ -417,11 +441,11 @@ export default function BookingModal({
 // ═══════════════════════════════════════════════════════════════════════════
 
 function InlinePaymentForm({
-  depositAmount,
+  totalAmount,
   leadId,
   onError,
 }: {
-  depositAmount: number;
+  totalAmount: number;
   leadId: string;
   onError: (msg: string) => void;
 }) {
@@ -455,7 +479,10 @@ function InlinePaymentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-xl bg-yellow-400/10 px-4 py-3 text-center">
         <span className="text-sm font-bold text-yellow-400">
-          Deposit: {formatCurrency(depositAmount)}
+          Total: {formatCurrency(totalAmount)}
+        </span>
+        <span className="block text-[10px] text-stone-500 mt-0.5">
+          (includes applicable sales tax)
         </span>
       </div>
 
@@ -475,7 +502,7 @@ function InlinePaymentForm({
         ) : (
           <>
             <CreditCard className="h-5 w-5" />
-            Complete Payment
+            Pay {formatCurrency(totalAmount)}
           </>
         )}
       </button>

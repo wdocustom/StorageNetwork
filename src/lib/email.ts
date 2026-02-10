@@ -683,7 +683,7 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
       (item, i) => `
       <tr>
         <td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;color:#334155;">${i + 1}. ${item.description}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#1e293b;">$${item.price.toLocaleString()}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#1e293b;">$${item.price.toFixed(2)}</td>
       </tr>`
     )
     .join("");
@@ -700,12 +700,15 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
     </table>
-    <div style="background-color:#f8fafc;border-radius:12px;padding:20px;margin-bottom:28px;border:1px solid #e2e8f0;">
+    <div style="background-color:#f8fafc;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #e2e8f0;">
       <table style="width:100%;">
-        <tr><td style="color:#64748b;font-size:14px;">Total Estimate</td><td style="text-align:right;color:#1e293b;font-size:24px;font-weight:800;">$${totalPrice.toLocaleString()}</td></tr>
-        <tr><td style="color:#64748b;font-size:14px;padding-top:12px;border-top:1px dashed #cbd5e1;">Deposit Due (15%)</td><td style="text-align:right;color:#facc15;font-size:18px;font-weight:700;padding-top:12px;border-top:1px dashed #cbd5e1;">$${depositAmount.toLocaleString()}</td></tr>
+        <tr><td style="color:#64748b;font-size:14px;">Total Estimate</td><td style="text-align:right;color:#1e293b;font-size:24px;font-weight:800;">$${totalPrice.toFixed(2)}</td></tr>
+        <tr><td style="color:#64748b;font-size:14px;padding-top:12px;border-top:1px dashed #cbd5e1;">Deposit Due (15%)</td><td style="text-align:right;color:#facc15;font-size:18px;font-weight:700;padding-top:12px;border-top:1px dashed #cbd5e1;">$${depositAmount.toFixed(2)}</td></tr>
       </table>
     </div>
+    <p style="margin:0 0 28px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
+      *Applicable sales tax will be calculated at checkout based on your billing address.
+    </p>
     <div style="text-align:center;margin-bottom:28px;">
       <a href="${checkoutUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
         Confirm &amp; Pay Deposit
@@ -755,19 +758,22 @@ export async function sendAbandonedCartEmail(
     </p>
 
     <!-- Order Summary Card -->
-    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;">
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px;">
       <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Your Order Summary</p>
       <table style="width:100%;">
         <tr>
           <td style="color:#64748b;font-size:14px;padding:8px 0;">Total Estimate</td>
-          <td style="text-align:right;color:#1e293b;font-size:20px;font-weight:800;">$${data.totalPrice.toLocaleString()}</td>
+          <td style="text-align:right;color:#1e293b;font-size:20px;font-weight:800;">$${data.totalPrice.toFixed(2)}</td>
         </tr>
         <tr>
           <td style="color:#64748b;font-size:14px;padding:8px 0;border-top:1px dashed #e2e8f0;">Deposit to Reserve (15%)</td>
-          <td style="text-align:right;color:#f59e0b;font-size:18px;font-weight:700;padding-top:8px;border-top:1px dashed #e2e8f0;">$${data.depositAmount.toLocaleString()}</td>
+          <td style="text-align:right;color:#f59e0b;font-size:18px;font-weight:700;padding-top:8px;border-top:1px dashed #e2e8f0;">$${data.depositAmount.toFixed(2)}</td>
         </tr>
       </table>
     </div>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
+      *Sales tax will be calculated at checkout based on your billing address.
+    </p>
 
     <!-- Urgency Note -->
     <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:24px;">
