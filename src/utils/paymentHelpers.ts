@@ -93,6 +93,17 @@ export function formatCurrency(n: number): string {
 // services (labor), but most tax the product portion. For simplicity, we
 // apply the state rate to the total (materials + labor combined).
 // The tax is passed to the installer for their tax compliance.
+//
+// IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT, not just the deposit.
+// When collecting a deposit, call calculateSalesTax(totalBuildPrice, state)
+// and the customer pays: deposit + taxAmount upfront.
+// The remaining balance (totalBuildPrice - deposit) has no additional tax.
+//
+// Example: $1000 build, 6% tax, 15% deposit
+//   - Tax: $1000 × 6% = $60 (on full build)
+//   - Deposit: $1000 × 15% = $150
+//   - Due today: $150 + $60 = $210
+//   - Balance due: $850 (no additional tax)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STATE_TAX_RATES: Record<string, number> = {
@@ -119,7 +130,13 @@ export interface SalesTaxResult {
 
 /**
  * Calculate sales tax based on state code.
- * Returns tax amount and total with tax.
+ *
+ * IMPORTANT: Pass the FULL BUILD AMOUNT as subtotal, not the deposit.
+ * Tax is assessed on the entire build price upfront.
+ *
+ * @param subtotal - The full build/job price (NOT the deposit)
+ * @param stateCode - 2-letter state code (e.g., "TX", "CA")
+ * @returns Tax amount, rate, and total (subtotal + tax)
  */
 export function calculateSalesTax(subtotal: number, stateCode: string): SalesTaxResult {
   const state = stateCode.toUpperCase().trim();

@@ -102,13 +102,15 @@ export default function BookingModal({
     : installerLeadTime;
 
   // Calculate sales tax based on state
+  // IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT, not just the deposit.
+  // Customer pays: deposit + full tax upfront. Balance has no additional tax.
   const taxInfo = useMemo(() => {
     if (!address.state || address.state.length !== 2) return null;
-    return calculateSalesTax(depositAmount, address.state);
-  }, [depositAmount, address.state]);
+    return calculateSalesTax(totalPrice, address.state);
+  }, [totalPrice, address.state]);
 
-  // Total with tax
-  const totalWithTax = taxInfo ? taxInfo.total : depositAmount;
+  // Total due today = deposit + tax on full build
+  const totalWithTax = depositAmount + (taxInfo?.taxAmount || 0);
 
   // Address validation
   function handleAddressNext() {
@@ -292,7 +294,7 @@ export default function BookingModal({
                   </div>
                   {taxInfo && taxInfo.taxAmount > 0 && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
+                      <span className="text-stone-500">Sales Tax on Build ({formatTaxRate(taxInfo.taxRate)})</span>
                       <span className="text-white">{formatCurrency(taxInfo.taxAmount)}</span>
                     </div>
                   )}
