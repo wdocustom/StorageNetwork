@@ -27,7 +27,7 @@ import {
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
-import { rescheduleJob, completeJob, markJobPaidManual } from "@/app/actions/jobs";
+import { rescheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
