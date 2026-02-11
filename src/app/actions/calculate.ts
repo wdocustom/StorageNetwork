@@ -34,11 +34,11 @@ const MINI_RAIL_WIDTH = 1.0; // 1" wide plywood rails
 const MINI_PRICE_PER_SLOT = 25; // Mini pricing
 
 // Add-on pricing
-const ADDON_TOTE_PRICE = 10; // per tote - Standard
+const ADDON_TOTE_PRICE = 12; // per tote - Standard
 const ADDON_MINI_TOTE_PRICE = 4; // per tote - Mini (6.5qt)
-const ADDON_WHEELS_PRICE = 50; // flat fee - Standard
+const ADDON_WHEELS_PRICE = 65; // flat fee - Standard
 const ADDON_MINI_WHEELS_PRICE = 40; // flat fee - Mini
-const ADDON_PLYWOOD_TOP_PRICE = 75; // flat fee
+const ADDON_PLYWOOD_TOP_PRICE = 95; // flat fee
 
 // -- Result types -----------------------------------------------------------
 

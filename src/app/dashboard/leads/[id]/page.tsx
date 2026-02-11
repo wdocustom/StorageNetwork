@@ -43,6 +43,7 @@ interface LeadDetail {
   address_city: string | null;
   address_state: string | null;
   address_zip: string | null;
+  source: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -64,12 +65,24 @@ export default function JobTicketPage() {
 
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
+  const [installerIsPro, setInstallerIsPro] = useState<boolean>(false);
 
   const fetchLead = useCallback(async () => {
+    // Check if user is logged in
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      // Store the current URL for redirect after login
+      const redirectUrl = encodeURIComponent(window.location.pathname);
+      window.location.href = `/login?redirect=${redirectUrl}`;
+      return;
+    }
+
+    // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
       .select("*")
       .eq("id", leadId)
+      .eq("installer_id", user.id)
       .single();
 
     if (err || !data) {
@@ -87,15 +100,18 @@ export default function JobTicketPage() {
       setManifest(m);
     }
 
-    // Fetch installer's Stripe account ID
+    // Fetch installer's Stripe account ID and Pro status
     if (leadData.installer_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("stripe_account_id")
+        .select("stripe_account_id, is_pro")
         .eq("id", leadData.installer_id)
         .single();
       if (profile?.stripe_account_id) {
         setInstallerStripeId(profile.stripe_account_id);
+      }
+      if (profile?.is_pro) {
+        setInstallerIsPro(profile.is_pro);
       }
     }
 
@@ -220,6 +236,8 @@ export default function JobTicketPage() {
           customerPhone={lead.customer_phone}
           scheduledAt={lead.scheduled_at}
           installerStripeId={installerStripeId}
+          source={lead.source}
+          isPro={installerIsPro}
           onRefresh={fetchLead}
         />
 
@@ -232,10 +250,11 @@ export default function JobTicketPage() {
             </h2>
             <div className="space-y-2">
               {lead.quote_data.map((unit, i) => {
-                const extras: string[] = [];
-                if (unit.hasTotes) extras.push("Totes");
-                if (unit.hasWheels) extras.push("Wheels");
-                if (unit.hasTop) extras.push("Top");
+                const addonsList: string[] = [
+                  unit.hasTotes ? "Yes Totes" : "No Totes",
+                  unit.hasWheels ? "Yes Wheels" : "No Wheels",
+                  unit.hasTop ? "Yes Top" : "No Top",
+                ];
                 return (
                   <div
                     key={i}
@@ -246,7 +265,7 @@ export default function JobTicketPage() {
                         Unit {i + 1}: {unit.desc}
                       </p>
                       <p className="text-[11px] text-stone-500">
-                        {unit.toteType} {extras.length > 0 ? `• ${extras.join(", ")}` : "• Frame Only"}
+                        {unit.toteType} • {addonsList.join(", ")}
                       </p>
                     </div>
                     <span className="text-sm font-bold text-yellow-400">

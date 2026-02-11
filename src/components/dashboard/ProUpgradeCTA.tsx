@@ -46,8 +46,8 @@ const BENEFITS = [
 
 // Pricing constants (matches /design calculator)
 const PRICE_PER_SLOT = 30; // $30 per storage opening
-const TOTE_PRICE = 10; // $10 per tote
-const WHEELS_PRICE = 50; // $50 flat for wheels
+const TOTE_PRICE = 12; // $12 per tote
+const WHEELS_PRICE = 65; // $65 flat for wheels
 
 const FREE_PLATFORM_FEE = 0.15; // 15%
 const PRO_PLATFORM_FEE = 0.05; // 5%

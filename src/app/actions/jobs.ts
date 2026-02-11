@@ -65,6 +65,29 @@ export async function completeJobWithProof(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// completeJob — Simple completion without requiring proof photo
+// Sets status to payment_pending so installer can collect payment
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function completeJob(leadId: string) {
+  const { error } = await supabase
+    .from("leads")
+    .update({
+      status: "payment_pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", leadId);
+
+  if (error) {
+    console.error("[CompleteJob] DB error:", error);
+    return { success: false, error: "Failed to complete job." };
+  }
+
+  console.log(`[CompleteJob] Lead ${leadId} marked as payment_pending (no photo required)`);
+  return { success: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // markJobPaidManual — Manual override for cash/venmo/check payments
 // Moves job to "paid" status (goes to Past Jobs).
 // ═══════════════════════════════════════════════════════════════════════════

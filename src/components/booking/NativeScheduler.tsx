@@ -16,11 +16,18 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+interface BlackoutDateRange {
+  start_date: string;
+  end_date: string;
+}
+
 interface NativeSchedulerProps {
   /** Installer's required lead time in days (default 5) */
   leadTimeDays?: number;
   /** Installer's working days, e.g. ["Mon", "Tue", "Wed", "Thu", "Fri"] */
   workingDays?: string[];
+  /** Blackout date ranges when installer is unavailable */
+  blackoutDates?: BlackoutDateRange[];
   /** Currently selected date */
   selectedDate: string | null;
   /** Callback when a date is selected (ISO date string YYYY-MM-DD) */
@@ -30,6 +37,7 @@ interface NativeSchedulerProps {
 export default function NativeScheduler({
   leadTimeDays = 5,
   workingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  blackoutDates = [],
   selectedDate,
   onSelectDate,
 }: NativeSchedulerProps) {
@@ -57,14 +65,27 @@ export default function NativeScheduler({
     return new Set(workingDays.map((d) => map[d] ?? -1));
   }, [workingDays]);
 
+  // Check if a date string is within any blackout range
+  const isBlackedOut = useMemo(() => {
+    return (dateStr: string): boolean => {
+      for (const range of blackoutDates) {
+        if (dateStr >= range.start_date && dateStr <= range.end_date) {
+          return true;
+        }
+      }
+      return false;
+    };
+  }, [blackoutDates]);
+
   // Auto-select first available date on mount
   useEffect(() => {
     if (selectedDate) return; // already selected
     const d = new Date(firstAvailable);
-    // Walk forward until we find a working day (max 30 day scan)
-    for (let i = 0; i < 30; i++) {
-      if (workingDayIndices.has(d.getDay())) {
-        onSelectDate(toDateStr(d));
+    // Walk forward until we find a working day that's not blacked out (max 60 day scan)
+    for (let i = 0; i < 60; i++) {
+      const dateStr = toDateStr(d);
+      if (workingDayIndices.has(d.getDay()) && !isBlackedOut(dateStr)) {
+        onSelectDate(dateStr);
         // Ensure calendar shows this month
         setViewMonth(d.getMonth());
         setViewYear(d.getFullYear());
@@ -111,11 +132,12 @@ export default function NativeScheduler({
       const dateStr = toDateStr(d);
       const isPastLeadTime = d >= firstAvailable;
       const isWorkDay = workingDayIndices.has(d.getDay());
+      const isNotBlackedOut = !isBlackedOut(dateStr);
       days.push({
         date: d,
         dayOfMonth: day,
         isCurrentMonth: true,
-        isAvailable: isPastLeadTime && isWorkDay,
+        isAvailable: isPastLeadTime && isWorkDay && isNotBlackedOut,
         isSelected: dateStr === selectedDate,
         isToday: d.getTime() === today.getTime(),
         dateStr,
@@ -138,7 +160,7 @@ export default function NativeScheduler({
     }
 
     return days;
-  }, [viewYear, viewMonth, firstAvailable, workingDayIndices, selectedDate, today]);
+  }, [viewYear, viewMonth, firstAvailable, workingDayIndices, isBlackedOut, selectedDate, today]);
 
   function prevMonth() {
     if (viewMonth === 0) {

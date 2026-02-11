@@ -27,7 +27,7 @@ import {
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
-import { rescheduleJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
+import { rescheduleJob, completeJob, markJobPaidManual } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -335,6 +335,15 @@ export default function JobTicket({
     }
   }
 
+  // ── Simple Complete Job (no photo required) ─────────────────────────────
+  async function handleCompleteJob() {
+    setPayLoading(true);
+    await completeJob(leadId);
+    setPayLoading(false);
+    onStatusChange?.("payment_pending");
+    onRefresh();
+  }
+
   // ── Reschedule ────────────────────────────────────────────────────────
   async function handleReschedule() {
     if (!rescheduleDate) return;
@@ -371,26 +380,26 @@ export default function JobTicket({
       )}
 
       {/* ── 3-Box Layout ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {/* Box 1: Est. Materials (slate) */}
-        <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 text-center">
+        <div className="rounded-xl border border-slate-700 bg-slate-800 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-stone-500">
             <Package className="h-3 w-3" />
             Materials
           </div>
-          <div className="text-xl font-black text-stone-300">
+          <div className="text-base font-black text-stone-300 sm:text-lg">
             {fmt(profit.estMaterials)}
           </div>
           <div className="mt-1 text-[10px] text-stone-600">estimated cost</div>
         </div>
 
         {/* Box 2: Amount to Collect (yellow — THE BIG NUMBER) */}
-        <div className="rounded-xl border-2 border-yellow-400 bg-yellow-400/5 p-4 text-center">
+        <div className="rounded-xl border-2 border-yellow-400 bg-yellow-400/5 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-yellow-400">
             <DollarSign className="h-3 w-3" />
             Collect
           </div>
-          <div className="text-3xl font-black text-white">
+          <div className="text-lg font-black text-white sm:text-xl">
             {fmt(profit.amountToCollect)}
           </div>
           <div className="mt-1 text-[10px] text-stone-500">
@@ -399,12 +408,12 @@ export default function JobTicket({
         </div>
 
         {/* Box 3: Net Profit (green) */}
-        <div className="rounded-xl border border-emerald-600/40 bg-emerald-500/5 p-4 text-center">
+        <div className="rounded-xl border border-emerald-600/40 bg-emerald-500/5 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
             <TrendingUp className="h-3 w-3" />
             Net Profit
           </div>
-          <div className="text-xl font-black text-emerald-400">
+          <div className="text-base font-black text-emerald-400 sm:text-lg">
             {fmt(profit.netProfit)}
           </div>
           <div className="mt-1 text-[10px] text-stone-600">after materials</div>
@@ -529,9 +538,9 @@ export default function JobTicket({
           )}
         </div>
       ) : isActive ? (
-        /* ── COMPLETE JOB button (opens photo modal) ──────────────── */
+        /* ── COMPLETE JOB button (transitions directly to payment) ──────────────── */
         <button
-          onClick={() => setShowCompletionModal(true)}
+          onClick={handleCompleteJob}
           disabled={payLoading}
           className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
         >
@@ -539,7 +548,7 @@ export default function JobTicket({
             <Loader2 className="h-6 w-6 animate-spin" />
           ) : (
             <>
-              <Camera className="h-6 w-6" />
+              <CheckCircle2 className="h-6 w-6" />
               COMPLETE JOB
             </>
           )}

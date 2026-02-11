@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -20,6 +20,7 @@ import {
 import NativeScheduler from "./NativeScheduler";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
+import { getBlackoutDates } from "@/app/actions/blackout-dates";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -95,6 +96,17 @@ export default function BookingModal({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
+  const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
+
+  // Fetch blackout dates when modal opens
+  useEffect(() => {
+    if (!isOpen || !installerId) return;
+    getBlackoutDates(installerId).then((result) => {
+      if (result.success) {
+        setBlackoutDates(result.dates.map(d => ({ start_date: d.start_date, end_date: d.end_date })));
+      }
+    });
+  }, [isOpen, installerId]);
 
   // Wheel Rule: 3 business day minimum for casters
   const effectiveLeadTime = hasWheels
@@ -320,6 +332,7 @@ export default function BookingModal({
               <NativeScheduler
                 leadTimeDays={effectiveLeadTime}
                 workingDays={installerWorkingDays}
+                blackoutDates={blackoutDates}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />

@@ -103,11 +103,11 @@ const MINI_FIRST_RAIL_HEIGHT = 5.25;
 // ── Pricing Constants ───────────────────────────────────────────────────
 const STANDARD_PRICE_PER_SLOT = 30;
 const MINI_PRICE_PER_SLOT = 15;
-const STANDARD_TOTE_PRICE = 10;
+const STANDARD_TOTE_PRICE = 12;
 const MINI_TOTE_PRICE = 4;
-const STANDARD_WHEELS_PRICE = 50;
+const STANDARD_WHEELS_PRICE = 65;
 const MINI_WHEELS_PRICE = 40;
-const PLYWOOD_TOP_PRICE = 75;
+const PLYWOOD_TOP_PRICE = 95;
 
 // ── Helper to get opening based on unit type and orientation ────────────
 function getOpening(toteType: "HDX" | "GM", unitType: UnitType, orientation: Orientation): number {

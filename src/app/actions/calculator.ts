@@ -107,9 +107,9 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
   topIsMandatory: false,
 
   pricePerSlot: 30,
-  pricePerTote: 10,
-  priceWheels: 50,
-  pricePlywoodSheet: 75,
+  pricePerTote: 12,
+  priceWheels: 65,
+  pricePlywoodSheet: 95,
 };
 
 // ── Standard Unit SIDEWAYS Orientation (27 Gallon Totes rotated 90°) ─────
@@ -137,9 +137,9 @@ const SIDEWAYS_CONFIG: UnitDimensionConfig = {
 
   // Same pricing as standard (for now)
   pricePerSlot: 30,
-  pricePerTote: 10,
-  priceWheels: 50,
-  pricePlywoodSheet: 75,
+  pricePerTote: 12,
+  priceWheels: 65,
+  pricePlywoodSheet: 95,
 };
 
 // ── Mini Unit (6.5 Quart Totes) ──────────────────────────────────────────
@@ -167,7 +167,7 @@ const MINI_CONFIG: UnitDimensionConfig = {
   pricePerSlot: 15,            // Lower price for mini
   pricePerTote: 4,             // 6.5qt totes are cheaper
   priceWheels: 40,             // Slightly cheaper wheels
-  pricePlywoodSheet: 75,       // Same plywood price
+  pricePlywoodSheet: 95,       // Same plywood price
 };
 
 // ── Config getter ────────────────────────────────────────────────────────
