@@ -10,7 +10,7 @@
 
 ALTER TABLE public.communication_logs ENABLE ROW LEVEL SECURITY;
 
--- Installers can read their own communication logs
+-- Users can read their own communication logs
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -19,11 +19,11 @@ BEGIN
   ) THEN
     CREATE POLICY comm_logs_select_own ON public.communication_logs
       FOR SELECT
-      USING (auth.uid() = installer_id);
+      USING (auth.uid() = created_by);
   END IF;
 END $$;
 
--- Installers can insert their own communication logs
+-- Users can insert their own communication logs
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -32,11 +32,11 @@ BEGIN
   ) THEN
     CREATE POLICY comm_logs_insert_own ON public.communication_logs
       FOR INSERT
-      WITH CHECK (auth.uid() = installer_id);
+      WITH CHECK (auth.uid() = created_by);
   END IF;
 END $$;
 
--- Installers can update their own communication logs
+-- Users can update their own communication logs
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -45,11 +45,11 @@ BEGIN
   ) THEN
     CREATE POLICY comm_logs_update_own ON public.communication_logs
       FOR UPDATE
-      USING (auth.uid() = installer_id);
+      USING (auth.uid() = created_by);
   END IF;
 END $$;
 
--- Installers can delete their own communication logs
+-- Users can delete their own communication logs
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -58,7 +58,7 @@ BEGIN
   ) THEN
     CREATE POLICY comm_logs_delete_own ON public.communication_logs
       FOR DELETE
-      USING (auth.uid() = installer_id);
+      USING (auth.uid() = created_by);
   END IF;
 END $$;
 
