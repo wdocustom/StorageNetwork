@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Auth Callback — Handles Supabase email confirmation redirects
+// Auth Callback — Handles Supabase email confirmation & password recovery
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
@@ -20,10 +20,21 @@ export async function GET(request: NextRequest) {
     );
 
     await supabase.auth.exchangeCodeForSession(code);
+
+    // Redirect to reset-password page for recovery flow, dashboard otherwise
+    if (type === "recovery") {
+      return NextResponse.redirect(`${origin}/reset-password`);
+    }
     return NextResponse.redirect(`${origin}/dashboard`);
   }
 
   if (token_hash && type) {
+    // Password recovery flow — redirect to reset password page
+    if (type === "recovery") {
+      return NextResponse.redirect(
+        `${origin}/reset-password#access_token=${token_hash}&type=${type}`
+      );
+    }
     // Magic link / email confirmation flow
     return NextResponse.redirect(
       `${origin}/dashboard#access_token=${token_hash}&type=${type}`

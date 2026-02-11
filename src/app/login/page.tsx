@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { Loader2, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowLeft, KeyRound } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Login Page — Supabase Magic Link Auth
+// Login Page — Supabase Email/Password Auth with Forgot Password
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function LoginPage() {
@@ -16,7 +16,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -33,7 +33,23 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (mode === "signup") {
+      if (mode === "forgot") {
+        // Send password reset email
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          trimmedEmail,
+          {
+            redirectTo: `${window.location.origin}/reset-password`,
+          }
+        );
+
+        if (resetError) {
+          setError(resetError.message);
+        } else {
+          setMessage(
+            "Check your email for a password reset link."
+          );
+        }
+      } else if (mode === "signup") {
         // Sign up with email + password
         if (password.length < 6) {
           setError("Password must be at least 6 characters.");
@@ -100,7 +116,9 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-stone-500">
             {mode === "login"
               ? "Sign in to your installer dashboard"
-              : "Create your installer account"}
+              : mode === "signup"
+              ? "Create your installer account"
+              : "Reset your password"}
           </p>
         </div>
 
@@ -131,24 +149,26 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              />
-            </div>
+            {/* Password - hidden in forgot mode */}
+            {mode !== "forgot" && (
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                />
+              </div>
+            )}
           </div>
 
           {error && (
@@ -169,30 +189,65 @@ export default function LoginPage() {
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : mode === "login" ? (
               "Sign In"
-            ) : (
+            ) : mode === "signup" ? (
               "Create Account"
+            ) : (
+              <>
+                <KeyRound className="h-4 w-4" />
+                Send Reset Link
+              </>
             )}
           </button>
 
           {/* Toggle mode */}
-          <div className="mt-4 text-center">
-            {mode === "login" ? (
+          <div className="mt-4 space-y-2 text-center">
+            {mode === "login" && (
+              <>
+                <p className="text-xs text-stone-500">
+                  <button
+                    onClick={() => {
+                      setMode("forgot");
+                      setError("");
+                      setMessage("");
+                    }}
+                    className="font-semibold text-stone-400 hover:text-yellow-400"
+                  >
+                    Forgot Password?
+                  </button>
+                </p>
+                <p className="text-xs text-stone-500">
+                  Don&apos;t have an account?{" "}
+                  <button
+                    onClick={() => {
+                      setMode("signup");
+                      setError("");
+                      setMessage("");
+                    }}
+                    className="font-semibold text-yellow-400 hover:text-yellow-300"
+                  >
+                    Sign Up
+                  </button>
+                </p>
+              </>
+            )}
+            {mode === "signup" && (
               <p className="text-xs text-stone-500">
-                Don&apos;t have an account?{" "}
+                Already have an account?{" "}
                 <button
                   onClick={() => {
-                    setMode("signup");
+                    setMode("login");
                     setError("");
                     setMessage("");
                   }}
                   className="font-semibold text-yellow-400 hover:text-yellow-300"
                 >
-                  Sign Up
+                  Sign In
                 </button>
               </p>
-            ) : (
+            )}
+            {mode === "forgot" && (
               <p className="text-xs text-stone-500">
-                Already have an account?{" "}
+                Remember your password?{" "}
                 <button
                   onClick={() => {
                     setMode("login");

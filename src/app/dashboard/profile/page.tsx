@@ -25,10 +25,11 @@ import {
   CreditCard,
   User,
   Save,
-  Upload,
+  KeyRound,
   Zap,
   MapPin,
   Target,
+  X,
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
@@ -111,6 +112,15 @@ function ProfilePageInner() {
 
   // Pro subscription state
   const [proMessage, setProMessage] = useState("");
+
+  // Change password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const fetchData = useCallback(async () => {
     const {
@@ -343,6 +353,47 @@ function ProfilePageInner() {
     setRadiusSaving(false);
   }
 
+  async function handleChangePassword() {
+    // Validate inputs
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setPasswordError("");
+    setPasswordMessage("");
+    setPasswordLoading(true);
+
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setPasswordError(updateError.message);
+      } else {
+        setPasswordMessage("Password updated successfully!");
+        // Clear form and close modal after a moment
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+          setPasswordMessage("");
+        }, 2000);
+      }
+    } catch {
+      setPasswordError("Something went wrong. Please try again.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   // ═════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═════════════════════════════════════════════════════════════════════════
@@ -436,12 +487,11 @@ function ProfilePageInner() {
               </p>
               <p className="text-stone-500">{profile?.email}</p>
               <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingPhoto}
+                onClick={() => setShowPasswordModal(true)}
                 className="mt-1 flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300"
               >
-                <Upload className="h-3 w-3" />
-                {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+                <KeyRound className="h-3 w-3" />
+                Change Password
               </button>
             </div>
           </div>
@@ -929,6 +979,122 @@ function ProfilePageInner() {
           </span>
         </div>
       </main>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          Change Password Modal
+      ═══════════════════════════════════════════════════════════════════ */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6">
+            {/* Modal Header */}
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-yellow-400" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                  Change Password
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordError("");
+                  setPasswordMessage("");
+                }}
+                className="rounded-lg p-1 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Success Message */}
+            {passwordMessage && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <p className="text-xs font-medium text-emerald-400">
+                  {passwordMessage}
+                </p>
+              </div>
+            )}
+
+            {/* Form */}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  placeholder="Min 6 characters"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  placeholder="Re-enter password"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {passwordError && (
+              <p className="mt-3 text-xs font-medium text-red-400">
+                {passwordError}
+              </p>
+            )}
+
+            {/* Buttons */}
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {passwordLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                {passwordLoading ? "Updating..." : "Update Password"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordError("");
+                  setPasswordMessage("");
+                }}
+                disabled={passwordLoading}
+                className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
