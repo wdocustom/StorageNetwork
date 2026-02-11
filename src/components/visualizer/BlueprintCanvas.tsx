@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type ToteColor = "black" | "clear";
 type UnitType = "standard" | "mini";
 type Orientation = "standard" | "sideways";
 
@@ -15,6 +16,7 @@ interface BlueprintCanvasProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
@@ -31,6 +33,7 @@ export default function BlueprintCanvas({
   cols,
   rows,
   toteType,
+  toteColor,
   unitType,
   orientation,
   hasTotes,
@@ -224,8 +227,10 @@ export default function BlueprintCanvas({
           const maxBodyH = Math.max(0, bottomPlateTop - bodyY);
           const clampedBodyH = Math.min(tH, maxBodyH);
 
-          ctx.fillStyle = isMini ? "#cbd5e1" : "#1e293b"; // Light slate for mini (clear look), dark for standard
-          ctx.strokeStyle = isMini ? "#64748b" : "#0f172a";
+          // Clear totes (mini or HDX clear) use light slate, standard uses dark
+          const isClear = !isMini && toteType === "HDX" && toteColor === "clear";
+          ctx.fillStyle = (isMini || isClear) ? "#cbd5e1" : "#1e293b"; // Light slate for clear look, dark for standard
+          ctx.strokeStyle = (isMini || isClear) ? "#64748b" : "#0f172a";
           ctx.lineWidth = isMini ? 1.5 : 2;
           ctx.fillRect(bodyX, bodyY, bodyW, clampedBodyH);
           ctx.strokeRect(bodyX, bodyY, bodyW, clampedBodyH);
@@ -254,7 +259,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, isSideways, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
+  }, [cols, rows, opening, realW, realH, hasTotes, hasWheels, hasTop, isMini, isSideways, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();

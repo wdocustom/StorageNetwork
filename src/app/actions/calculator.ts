@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type ToteModel = "HDX" | "GM";
+export type ToteColor = "black" | "clear";
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
@@ -14,6 +15,7 @@ interface CalculateBuildInput {
   cols?: number;
   rows?: number;
   toteModel: ToteModel;
+  toteColor?: ToteColor; // Only applies to HDX standard units
   unitType?: UnitType;
   orientation?: Orientation; // Only applies to standard units
   addOns: {
@@ -32,6 +34,7 @@ interface BuildResult {
   dimensions: { totalW: number; totalH: number; depth: number };
   config: {
     toteModel: ToteModel;
+    toteColor: ToteColor;
     unitType: UnitType;
     orientation: Orientation;
     hasTotes: boolean;
@@ -84,6 +87,10 @@ interface UnitDimensionConfig {
   pricePlywoodSheet: number;
 }
 
+// ── Tote Pricing Constants ────────────────────────────────────────────────
+const STANDARD_TOTE_BLACK_PRICE = 12;    // HDX Black/Yellow totes
+const STANDARD_TOTE_CLEAR_PRICE = 20;    // HDX Clear/Yellow totes (+$8)
+
 // ── Standard Unit (27 Gallon Totes) ──────────────────────────────────────
 const STANDARD_CONFIG: UnitDimensionConfig = {
   slotWidth: 0,                // Calculated from tote model (HDX/GM)
@@ -107,7 +114,7 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
   topIsMandatory: false,
 
   pricePerSlot: 30,
-  pricePerTote: 12,
+  pricePerTote: 12,            // Base price (black), clear uses STANDARD_TOTE_CLEAR_PRICE
   priceWheels: 65,
   pricePlywoodSheet: 95,
 };
@@ -206,6 +213,10 @@ export async function calculateBuild(
   const unitType: UnitType = input.unitType ?? "standard";
   // Orientation only applies to standard units
   const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
+  // Tote color only applies to HDX standard units with totes included
+  const toteColor: ToteColor = (toteModel === "HDX" && unitType === "standard" && addOns.totes)
+    ? (input.toteColor ?? "black")
+    : "black";
   const config = getUnitConfig(unitType, orientation);
   const opening = getOpening(toteModel, unitType, orientation);
 
@@ -271,7 +282,13 @@ export async function calculateBuild(
   // ── Pricing ────────────────────────────────────────────────────────────
   const slots = cols * rows;
   let price = slots * config.pricePerSlot;
-  if (addOns.totes) price += slots * config.pricePerTote;
+  if (addOns.totes) {
+    // Use clear tote pricing for HDX clear totes, otherwise use config price
+    const totePrice = (toteModel === "HDX" && unitType === "standard" && toteColor === "clear")
+      ? STANDARD_TOTE_CLEAR_PRICE
+      : config.pricePerTote;
+    price += slots * totePrice;
+  }
   if (addOns.wheels) price += config.priceWheels;
 
   // Plywood top calculation
@@ -305,6 +322,7 @@ export async function calculateBuild(
     dimensions: { totalW, totalH, depth: config.depth },
     config: {
       toteModel,
+      toteColor,
       unitType,
       orientation,
       hasTotes: addOns.totes,

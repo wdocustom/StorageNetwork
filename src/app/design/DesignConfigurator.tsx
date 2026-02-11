@@ -31,11 +31,13 @@ import {
 // Types (display-only — no pricing or math constants)
 // ═══════════════════════════════════════════════════════════════════════════
 type ToteType = "HDX" | "GM";
+type ToteColor = "black" | "clear";
 
 interface UnitConfig {
   cols: number;
   rows: number;
   toteType: ToteType;
+  toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
@@ -174,6 +176,7 @@ export default function DesignConfigurator({
   const [cols, setCols] = useState<number | string>(4);
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
+  const [toteColor, setToteColor] = useState<ToteColor>("black");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(true);
@@ -232,6 +235,7 @@ export default function DesignConfigurator({
       c: number,
       r: number,
       model: ToteType,
+      color: ToteColor,
       unit: UnitType,
       orient: Orientation,
       totes: boolean,
@@ -246,6 +250,7 @@ export default function DesignConfigurator({
             cols: c,
             rows: r,
             toteModel: model,
+            toteColor: color,
             unitType: unit,
             orientation: orient,
             addOns: { totes, wheels, top },
@@ -284,11 +289,14 @@ export default function DesignConfigurator({
   // Effective orientation: only applies to standard units
   const effectiveOrientation: Orientation = unitType === "standard" ? orientation : "standard";
 
+  // Effective tote color: only applies to HDX standard units with totes included
+  const effectiveToteColor: ToteColor = (toteType === "HDX" && unitType === "standard" && hasTotes) ? toteColor : "black";
+
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
+      fetchBuild(numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
     }
-  }, [numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
 
   // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
   const prevUnitTypeRef = useRef(unitType);
@@ -340,6 +348,7 @@ export default function DesignConfigurator({
         wallWidth: wW,
         wallHeight: wH,
         toteModel: toteType,
+        toteColor: effectiveToteColor,
         unitType,
         orientation: effectiveOrientation,
         addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
@@ -392,12 +401,18 @@ export default function DesignConfigurator({
     if (unitType === "standard" && effectiveOrientation === "sideways") {
       unitLabel = "Standard (Sideways)";
     }
+    // Add tote color to description if clear totes are selected
+    let toteDesc = "";
+    if (hasTotes && toteType === "HDX" && unitType === "standard" && effectiveToteColor === "clear") {
+      toteDesc = " (Clear Totes)";
+    }
     setOrderItems((prev) => [
       ...prev,
       {
         cols: build.cols,
         rows: build.rows,
         toteType,
+        toteColor: effectiveToteColor,
         unitType,
         orientation: effectiveOrientation,
         hasTotes,
@@ -407,7 +422,7 @@ export default function DesignConfigurator({
         totalW: build.totalW,
         totalH: build.totalH,
         depth: build.depth,
-        desc: `${unitLabel}: ${build.cols}W × ${build.rows}H`,
+        desc: `${unitLabel}: ${build.cols}W × ${build.rows}H${toteDesc}`,
       },
     ]);
   }
@@ -773,22 +788,72 @@ export default function DesignConfigurator({
 
               {/* Tote Model - Only show for Standard units */}
               {unitType === "standard" ? (
-                <div className="mt-3">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Model
-                  </label>
-                  <select
-                    value={toteType}
-                    onChange={(e) => setToteType(e.target.value as ToteType)}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="HDX">HDX / Standard (19.75&quot; Wide)</option>
-                    <option value="GM">Greenmade / Large (20.75&quot; Wide)</option>
-                  </select>
-                  <p className="mt-1 text-[10px] italic text-stone-400">
-                    *Have your own? Measure top width rim-to-rim. Select closest
-                    size.
-                  </p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                      Tote Size
+                    </label>
+                    <select
+                      value={toteType}
+                      onChange={(e) => {
+                        setToteType(e.target.value as ToteType);
+                        // Reset color to black when switching tote types
+                        if (e.target.value !== "HDX") setToteColor("black");
+                      }}
+                      className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                    >
+                      <option value="HDX">HDX 27 Gallon (19.75&quot; Wide)</option>
+                      <option value="GM">Greenmade 27 Gallon (20.75&quot; Wide)</option>
+                    </select>
+                    <p className="mt-1 text-[10px] italic text-stone-400">
+                      Select tote size based on what you have or plan to use.
+                    </p>
+                  </div>
+
+                  {/* HDX Color Selection - Only show when HDX is selected and totes are included */}
+                  {toteType === "HDX" && hasTotes && (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                      <label className="mb-1.5 block text-[10px] font-semibold uppercase text-yellow-700">
+                        HDX Tote Style
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setToteColor("black")}
+                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all ${
+                            toteColor === "black"
+                              ? "border-yellow-500 bg-white shadow-sm"
+                              : "border-stone-200 bg-white/50 hover:border-stone-300"
+                          }`}
+                        >
+                          <div className="flex h-6 w-6 items-center justify-center rounded border border-stone-300 bg-gray-900">
+                            <div className="h-2 w-4 rounded-sm bg-yellow-400" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-gray-900">Black / Yellow</div>
+                            <div className="text-[10px] text-stone-500">$12/tote</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setToteColor("clear")}
+                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all ${
+                            toteColor === "clear"
+                              ? "border-yellow-500 bg-white shadow-sm"
+                              : "border-stone-200 bg-white/50 hover:border-stone-300"
+                          }`}
+                        >
+                          <div className="flex h-6 w-6 items-center justify-center rounded border border-stone-300 bg-gradient-to-b from-stone-100 to-stone-200">
+                            <div className="h-2 w-4 rounded-sm bg-yellow-400" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-gray-900">Clear / Yellow</div>
+                            <div className="text-[10px] text-amber-600 font-medium">$20/tote (+$8)</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="mt-3">
@@ -867,7 +932,14 @@ export default function DesignConfigurator({
                 <ul className="space-y-2">
                   {orderItems.map((item, index) => {
                     const extras: string[] = [];
-                    if (item.hasTotes) extras.push("Totes");
+                    if (item.hasTotes) {
+                      // Add tote color info for HDX standard units
+                      if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
+                        extras.push("Clear Totes");
+                      } else {
+                        extras.push("Totes");
+                      }
+                    }
                     if (item.hasWheels) extras.push("Wheels");
                     if (item.hasTop) extras.push("Top");
                     const extraStr =
@@ -1104,6 +1176,7 @@ export default function DesignConfigurator({
               cols={build.cols || numCols || 1}
               rows={build.rows || numRows || 1}
               toteType={toteType}
+              toteColor={effectiveToteColor}
               unitType={unitType}
               orientation={effectiveOrientation}
               hasTotes={hasTotes}

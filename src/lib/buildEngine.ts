@@ -8,11 +8,13 @@
 
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
+export type ToteColor = "black" | "clear";
 
 export interface QuoteUnit {
   cols: number;
   rows: number;
   toteType: "HDX" | "GM";
+  toteColor?: ToteColor; // Optional for backward compatibility, defaults to "black"
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
@@ -104,6 +106,7 @@ const MINI_FIRST_RAIL_HEIGHT = 5.25;
 const STANDARD_PRICE_PER_SLOT = 30;
 const MINI_PRICE_PER_SLOT = 15;
 const STANDARD_TOTE_PRICE = 12;
+const STANDARD_TOTE_CLEAR_PRICE = 20;  // HDX Clear/Yellow totes (+$8)
 const MINI_TOTE_PRICE = 4;
 const STANDARD_WHEELS_PRICE = 65;
 const MINI_WHEELS_PRICE = 40;
@@ -166,6 +169,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       cols: totalCols,
       rows,
       toteType,
+      toteColor = "black",
       unitType = "standard",
       orientation = "standard",
       hasTotes,
@@ -180,7 +184,10 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     const gap = getGap(unitType);
     const tierHeight = getTierHeight(unitType);
     const pricePerSlot = unitType === "mini" ? MINI_PRICE_PER_SLOT : STANDARD_PRICE_PER_SLOT;
-    const totePrice = unitType === "mini" ? MINI_TOTE_PRICE : STANDARD_TOTE_PRICE;
+    // Use clear tote pricing for HDX clear totes
+    const totePrice = unitType === "mini"
+      ? MINI_TOTE_PRICE
+      : (toteType === "HDX" && toteColor === "clear" ? STANDARD_TOTE_CLEAR_PRICE : STANDARD_TOTE_PRICE);
     const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
 
     // ── Auto-Split Logic (max 4 cols per module) ─────────────────────

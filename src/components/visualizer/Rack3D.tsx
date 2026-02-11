@@ -27,6 +27,7 @@ import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type ToteColor = "black" | "clear";
 type UnitType = "standard" | "mini";
 type Orientation = "standard" | "sideways";
 
@@ -34,6 +35,7 @@ interface Rack3DProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
@@ -187,16 +189,18 @@ function PlywoodStrip({ position, length, railHeight }: {
 //   So: toteGroupY = railCenterY + RAIL_HEIGHT/2 - TOTE_BODY_H
 //   Body hangs BELOW the rail. Rim is above the rail.
 
-function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
+function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unitDepth }: {
   position: [number, number, number];
   bayW: number;
   toteType: ToteType;
+  toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   unitDepth: number;
 }) {
   const isMini = unitType === "mini";
   const isSideways = unitType === "standard" && orientation === "sideways";
+  const isClear = toteColor === "clear" && toteType === "HDX" && unitType === "standard";
 
   // Tote dimensions based on unit type and orientation
   const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
@@ -221,10 +225,14 @@ function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
     toteDepth = TOTE_DEPTH;
   }
 
-  // Mini totes are clear with yellow lids, standard uses color based on type
+  // Color logic:
+  // - Mini totes: clear body with yellow lid
+  // - Clear HDX: clear body with yellow lid (like mini but larger)
+  // - Standard HDX: dark body with yellow lid
+  // - Greenmade: dark body with red lid
   const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
-  const bodyColor = isMini ? "#d4d4d8" : "#1a1a1a"; // Clear gray for mini, dark for standard
-  const bodyOpacity = isMini ? 0.7 : 1.0;
+  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a"; // Clear gray for mini/clear HDX, dark for standard
+  const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
   const rimW = toteW;
   // Body fits between the rails
@@ -260,9 +268,9 @@ function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
       <mesh geometry={bodyGeo} castShadow>
         <meshStandardMaterial
           color={bodyColor}
-          roughness={isMini ? 0.3 : 0.55}
+          roughness={(isMini || isClear) ? 0.3 : 0.55}
           metalness={0.02}
-          transparent={isMini}
+          transparent={isMini || isClear}
           opacity={bodyOpacity}
           side={THREE.DoubleSide}
         />
@@ -282,7 +290,7 @@ function Tote({ position, bayW, toteType, unitType, orientation, unitDepth }: {
 // ── Rack Assembly ────────────────────────────────────────────────────────
 
 function RackAssembly({
-  cols, rows, toteType, unitType, orientation, hasTotes, hasWheels, hasTop,
+  cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop,
 }: Rack3DProps) {
   const isMini = unitType === "mini";
   const bayW = getBayWidth(toteType, unitType, orientation);
@@ -402,6 +410,7 @@ function RackAssembly({
                   position={[bayCenterX, toteGroupY, unitDepth / 2]}
                   bayW={bayW}
                   toteType={toteType}
+                  toteColor={toteColor}
                   unitType={unitType}
                   orientation={orientation}
                   unitDepth={unitDepth}
