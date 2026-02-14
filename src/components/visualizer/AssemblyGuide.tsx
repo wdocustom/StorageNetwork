@@ -927,9 +927,9 @@ function StepCard({
   const isLast = stepIndex === totalSteps - 1;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Step header */}
-      <div className="border-b border-slate-700 px-5 py-4">
+      <div className="shrink-0 border-b border-slate-700 px-5 py-4">
         <div className="mb-1 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-gray-950">
             {stepIndex + 1}
@@ -949,7 +949,7 @@ function StepCard({
       </div>
 
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {/* Instruction */}
         <div className="border-b border-slate-800 px-5 py-4">
           <div className="flex items-start gap-2">
@@ -1050,8 +1050,8 @@ function StepCard({
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="border-t border-slate-700 px-5 py-4">
+      {/* Navigation — always visible at bottom */}
+      <div className="shrink-0 border-t border-slate-700 px-5 py-4">
         <div className="flex gap-2">
           {stepIndex > 0 ? (
             <button
@@ -1271,8 +1271,8 @@ export default function AssemblyGuide({
             </div>
 
             {/* Floating Step Card — bottom left on desktop, bottom full-width on mobile */}
-            <div className="pointer-events-auto absolute bottom-4 left-4 right-4 max-h-[70vh] sm:right-auto sm:w-[400px]">
-              <div className="flex max-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 shadow-2xl backdrop-blur-sm">
+            <div className="pointer-events-auto absolute bottom-4 left-4 right-4 flex max-h-[70vh] flex-col sm:right-auto sm:w-[400px]">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 shadow-2xl backdrop-blur-sm">
                 <StepCard
                   step={currentStep}
                   stepIndex={stepIndex}
