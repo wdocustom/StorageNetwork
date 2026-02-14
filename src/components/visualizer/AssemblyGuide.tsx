@@ -1094,6 +1094,10 @@ function StepCard({
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — AssemblyGuide v2
+//
+// Full-screen 3D viewport with floating step card overlay.
+// The step card is an absolute-positioned window inside the viewport,
+// not a sidebar — works on all screen sizes.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface AssemblyGuideProps {
@@ -1140,82 +1144,70 @@ export default function AssemblyGuide({
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col bg-slate-950 lg:flex-row">
-      {/* ── 3D Viewport ─────────────────────────────────────────────── */}
-      <div className="relative flex-1" style={{ minHeight: "400px" }}>
-        <Canvas
-          shadows
-          camera={{ fov: 40 }}
-          gl={{ antialias: true, alpha: false }}
-          style={{ touchAction: "none" }}
-        >
-          <color attach="background" args={["#ffffff"]} />
+    <div className="relative h-full w-full bg-slate-950">
+      {/* ── Full-screen 3D Viewport ─────────────────────────────────── */}
+      <Canvas
+        shadows
+        camera={{ fov: 40 }}
+        gl={{ antialias: true, alpha: false }}
+        style={{ touchAction: "none", position: "absolute", inset: 0 }}
+      >
+        <color attach="background" args={["#ffffff"]} />
 
-          <ambientLight intensity={0.85} />
-          <directionalLight
-            position={[12, 18, 12]}
-            intensity={1.0}
-            castShadow
-            shadow-mapSize={[2048, 2048]}
-            shadow-camera-left={-4}
-            shadow-camera-right={4}
-            shadow-camera-top={4}
-            shadow-camera-bottom={-4}
-            shadow-bias={-0.0002}
-          />
-          <directionalLight position={[-10, 12, -8]} intensity={0.5} />
-          <directionalLight position={[0, 6, -12]} intensity={0.3} />
-          <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
+        <ambientLight intensity={0.85} />
+        <directionalLight
+          position={[12, 18, 12]}
+          intensity={1.0}
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+          shadow-camera-left={-4}
+          shadow-camera-right={4}
+          shadow-camera-top={4}
+          shadow-camera-bottom={-4}
+          shadow-bias={-0.0002}
+        />
+        <directionalLight position={[-10, 12, -8]} intensity={0.5} />
+        <directionalLight position={[0, 6, -12]} intensity={0.3} />
+        <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
 
-          <ContactShadows
-            position={[0, -0.001, 0]}
-            opacity={0.2}
-            scale={10}
-            blur={2.5}
-            far={4}
-            color="#444444"
-          />
+        <ContactShadows
+          position={[0, -0.001, 0]}
+          opacity={0.2}
+          scale={10}
+          blur={2.5}
+          far={4}
+          color="#444444"
+        />
 
-          <GuideCameraRig
-            cols={cols}
-            rows={rows}
-            toteType={toteType}
-            cameraHint={
-              mode === "step" ? currentStep?.cameraHint : "overview"
-            }
-            hasWheels={hasWheels}
-          />
+        <GuideCameraRig
+          cols={cols}
+          rows={rows}
+          toteType={toteType}
+          cameraHint={
+            mode === "step" ? currentStep?.cameraHint : "overview"
+          }
+          hasWheels={hasWheels}
+        />
 
-          <ExplodedAssembly
-            cols={cols}
-            rows={rows}
-            toteType={toteType}
-            mode={mode}
-            stepIndex={stepIndex}
-            steps={steps}
-            hasWheels={hasWheels}
-            hasTop={hasTop}
-          />
-        </Canvas>
+        <ExplodedAssembly
+          cols={cols}
+          rows={rows}
+          toteType={toteType}
+          mode={mode}
+          stepIndex={stepIndex}
+          steps={steps}
+          hasWheels={hasWheels}
+          hasTop={hasTop}
+        />
+      </Canvas>
 
-        {/* Overlay: Exploded mode "Start Build" button */}
-        {mode === "exploded" && (
-          <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-8">
-            <button
-              onClick={handleStartBuild}
-              className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-yellow-400 px-8 py-4 text-base font-extrabold uppercase tracking-wider text-gray-950 shadow-2xl shadow-yellow-400/30 transition-all hover:-translate-y-1 hover:bg-yellow-300 hover:shadow-yellow-400/50"
-            >
-              <Play className="h-5 w-5" />
-              Start Build Guide
-            </button>
-          </div>
-        )}
-
-        {/* Close button */}
+      {/* ── HTML Overlay Layer (above Canvas) ──────────────────────── */}
+      <div className="pointer-events-none absolute inset-0 z-10">
+        {/* Close button — top right (always visible) */}
         {onClose && (
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 rounded-full bg-slate-900/80 p-2 text-white shadow-lg backdrop-blur transition-colors hover:bg-slate-800"
+            className="pointer-events-auto absolute right-4 top-4 rounded-full bg-slate-900/80 p-2.5 text-white shadow-lg backdrop-blur transition-colors hover:bg-slate-800"
           >
             <svg
               className="h-5 w-5"
@@ -1233,50 +1225,70 @@ export default function AssemblyGuide({
           </button>
         )}
 
-        {/* Exploded mode label */}
+        {/* Exploded mode — top-left label + bottom-center Start button */}
         {mode === "exploded" && (
-          <div className="absolute left-4 top-4">
-            <div className="rounded-lg bg-slate-900/80 px-4 py-2 backdrop-blur">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
-                Exploded View
-              </p>
-              <p className="text-xs text-stone-400">
-                {cols}×{rows} Unit — Hover any piece for dimensions
-              </p>
+          <>
+            <div className="pointer-events-none absolute left-4 top-4">
+              <div className="rounded-xl bg-slate-900/90 px-5 py-3 shadow-xl backdrop-blur">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+                  Exploded View
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-white">
+                  {cols}×{rows} {toteType} Storage Unit
+                </p>
+                <p className="text-xs text-stone-400">
+                  Hover any piece for dimensions
+                  {hasWheels ? " — with casters" : ""}
+                  {hasTop ? " — with top" : ""}
+                </p>
+              </div>
             </div>
-          </div>
+
+            <div className="absolute inset-x-0 bottom-8 flex justify-center">
+              <button
+                onClick={handleStartBuild}
+                className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-yellow-400 px-10 py-4 text-lg font-extrabold uppercase tracking-wider text-gray-950 shadow-2xl shadow-yellow-400/30 transition-all hover:-translate-y-1 hover:bg-yellow-300 hover:shadow-yellow-400/50"
+              >
+                <Play className="h-6 w-6" />
+                Start Build Guide
+              </button>
+            </div>
+          </>
         )}
 
-        {/* Step mode: unit config badge */}
-        {mode === "step" && (
-          <div className="absolute left-4 top-4">
-            <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 backdrop-blur">
-              <p className="text-[10px] font-bold text-stone-400">
-                {cols}×{rows} {toteType}
-                {hasWheels ? " + Wheels" : ""}
-                {hasTop ? " + Top" : ""}
-              </p>
+        {/* Step mode — floating step card (bottom-left) + config badge (top-left) */}
+        {mode === "step" && currentStep && (
+          <>
+            {/* Config badge — top left */}
+            <div className="pointer-events-none absolute left-4 top-4">
+              <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
+                <p className="text-[10px] font-bold text-stone-400">
+                  {cols}×{rows} {toteType}
+                  {hasWheels ? " + Wheels" : ""}
+                  {hasTop ? " + Top" : ""}
+                </p>
+              </div>
             </div>
-          </div>
+
+            {/* Floating Step Card — bottom left on desktop, bottom full-width on mobile */}
+            <div className="pointer-events-auto absolute bottom-4 left-4 right-4 max-h-[70vh] sm:right-auto sm:w-[400px]">
+              <div className="flex max-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/95 shadow-2xl backdrop-blur-sm">
+                <StepCard
+                  step={currentStep}
+                  stepIndex={stepIndex}
+                  totalSteps={steps.length}
+                  cols={cols}
+                  rows={rows}
+                  config={config}
+                  onNext={handleNext}
+                  onPrev={handlePrev}
+                  onReset={handleReset}
+                />
+              </div>
+            </div>
+          </>
         )}
       </div>
-
-      {/* ── Step Card Panel (visible in step mode) ────────────────── */}
-      {mode === "step" && currentStep && (
-        <aside className="w-full shrink-0 border-t border-slate-700 bg-slate-900 lg:w-[380px] lg:border-l lg:border-t-0">
-          <StepCard
-            step={currentStep}
-            stepIndex={stepIndex}
-            totalSteps={steps.length}
-            cols={cols}
-            rows={rows}
-            config={config}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            onReset={handleReset}
-          />
-        </aside>
-      )}
     </div>
   );
 }
