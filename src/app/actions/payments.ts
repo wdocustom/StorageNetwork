@@ -13,8 +13,9 @@ import { siteConfig } from "@/config/site";
 //
 // FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
-// Non-Pro: 15% of build → Platform fee
-// Pro:     5% of build → Platform fee, 10% → Installer
+// Non-Pro:          15% of build → Platform fee
+// Pro:              5% of build → Platform fee, 10% → Installer
+// Fee Override (0): 0% → Platform, 15% → Installer (Founder accounts)
 // ─────────────────────────────────────────────────────────────────────────
 //
 // SALES TAX HANDLING:
@@ -69,7 +70,7 @@ async function isInstallerPro(installerId: string): Promise<boolean> {
 async function getInstallerProfile(installerId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("stripe_account_id, is_pro")
+    .select("stripe_account_id, is_pro, platform_fee_override")
     .eq("id", installerId)
     .single();
   return data;
@@ -415,13 +416,55 @@ export async function createDepositIntent(
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
     const installerStripeId = installerProfile?.stripe_account_id;
+    const feeOverride = installerProfile?.platform_fee_override;
+    const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
 
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
 
     let paymentIntent;
 
-    if (shouldSplitDeposit && installerStripeId) {
+    if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
+      // ── Fee Override (Founder / special rate) + Stripe ───────────────────
+      // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
+      const overrideRate = Number(feeOverride);
+      const platformFeeCents = Math.round(totalPriceCents * overrideRate);
+      const installerReceivesCents = depositAmountCents - platformFeeCents;
+
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: depositAmountCents,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        application_fee_amount: platformFeeCents,
+        transfer_data: {
+          destination: installerStripeId,
+        },
+        receipt_email: customerEmail || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "deposit",
+          source,
+          installer_id: installerId,
+          is_pro: "true",
+          fee_override: String(overrideRate),
+          customer_name: customerName || "",
+          customer_email: customerEmail || "",
+          platform_fee_cents: String(platformFeeCents),
+          platform_fee_rate: `${overrideRate * 100}%`,
+          installer_receives_cents: String(installerReceivesCents),
+          installer_stripe_id: installerStripeId,
+          scheduled_at: scheduledAt || "",
+          sales_tax_cents: String(taxCents),
+          billing_state: billingState || "",
+          balance_due_with_tax_cents: String(balanceWithTaxCents),
+        },
+      });
+
+      console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+    } else if (shouldSplitDeposit && installerStripeId) {
       // ── Pro + Stripe: Split deposit via destination charge ────────────────
       // Platform gets 5% of build, Installer gets 10% of build
       const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 5%

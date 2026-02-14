@@ -70,17 +70,25 @@ export async function processCheckout(
   let isPro = false;
 
   if (source === "partner_link" && installer_id) {
-    // Partner link: check installer's Pro status and Stripe connection
+    // Partner link: check installer's Pro status, Stripe connection, and fee override
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_account_id, is_pro")
+      .select("stripe_account_id, is_pro, platform_fee_override")
       .eq("id", installer_id)
       .single();
 
     isPro = profile?.is_pro === true;
     stripeAccountId = profile?.stripe_account_id || null;
+    const feeOverride = profile?.platform_fee_override;
+    const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
 
-    if (isPro && stripeAccountId) {
+    if (hasFeeOverride && isPro && stripeAccountId) {
+      // Founder / custom fee rate — platform takes override rate, rest to installer
+      const overrideRate = Number(feeOverride);
+      platformAmount = Math.round(grand_total * overrideRate * 100) / 100;
+      installerAmount = depositAmount - platformAmount;
+      payoutTo = "split";
+    } else if (isPro && stripeAccountId) {
       // Pro installer with Stripe connected: split deposit
       platformAmount = Math.round(grand_total * PRO_PLATFORM_RATE * 100) / 100;
       installerAmount = Math.round(grand_total * PRO_INSTALLER_RATE * 100) / 100;
