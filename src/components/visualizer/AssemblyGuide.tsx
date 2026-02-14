@@ -114,6 +114,33 @@ function AnimatedGroup({ targetPos, children, speed = 0.06 }: AnimatedGroupProps
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ANIMATED ROTATION — slerps quaternion via useFrame for smooth tipping
+// ═══════════════════════════════════════════════════════════════════════════
+
+function AnimatedRotation({
+  targetRot,
+  children,
+  speed = 0.06,
+}: {
+  targetRot: [number, number, number];
+  children: React.ReactNode;
+  speed?: number;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const targetQuat = useMemo(() => {
+    const euler = new THREE.Euler(...targetRot);
+    return new THREE.Quaternion().setFromEuler(euler);
+  }, [targetRot]);
+
+  useFrame(() => {
+    if (!ref.current) return;
+    ref.current.quaternion.slerp(targetQuat, speed);
+  });
+
+  return <group ref={ref}>{children}</group>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HOVERABLE PART WRAPPER — shows dimensions/material on hover
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -331,6 +358,23 @@ function ExplodedAssembly({
   const casterExpY = -10 * EX;
   // PlyTop explosion: float above
   const plyTopExpY = 12 * EX;
+
+  // ── Assembly rotation — tip unit on its front for plate/caster steps ──
+  const LAID_DOWN: [number, number, number] = [-Math.PI / 2, 0, 0];
+  const UPRIGHT: [number, number, number] = [0, 0, 0];
+
+  const assemblyRotation = useMemo((): [number, number, number] => {
+    if (mode !== "step") return UPRIGHT;
+    switch (step.id) {
+      case "attach-bottom-plates":
+      case "attach-top-plates":
+      case "attach-casters":
+      case "attach-top":
+        return LAID_DOWN;
+      default:
+        return UPRIGHT;
+    }
+  }, [mode, step.id]);
 
   // Step-specific positional offsets for dramatic reveals
   const stepAnim = useMemo(() => {
@@ -555,6 +599,7 @@ function ExplodedAssembly({
 
   return (
     <group scale={[S, S, S]}>
+      <AnimatedRotation targetRot={assemblyRotation}>
       <group position={[-cx, -cy, -cz]}>
         {/* ── WOOD FRAME ── */}
         <group position={[0, lift, 0]}>
@@ -819,6 +864,7 @@ function ExplodedAssembly({
           />
         ))}
       </group>
+      </AnimatedRotation>
     </group>
   );
 }
@@ -882,6 +928,18 @@ function GuideCameraRig({
         px = dist * 0.1;
         py = dist * 1.2;
         pz = dist * 0.3;
+        break;
+      case "laid-front":
+        // Elevated 3/4 view looking down at unit laid on its front
+        px = dist * 0.8;
+        py = dist * 1.2;
+        pz = dist * 0.6;
+        break;
+      case "laid-bottom":
+        // Angled view showing bottom plate area of laid-down unit
+        px = dist * 0.6;
+        py = dist * 1.0;
+        pz = dist * 0.9;
         break;
       default:
         px = dist * 0.9;
@@ -1215,11 +1273,11 @@ export default function AssemblyGuide({
         <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
 
         <ContactShadows
-          position={[0, -0.001, 0]}
-          opacity={0.2}
-          scale={10}
+          position={[0, -1.5, 0]}
+          opacity={0.15}
+          scale={12}
           blur={2.5}
-          far={4}
+          far={6}
           color="#444444"
         />
 

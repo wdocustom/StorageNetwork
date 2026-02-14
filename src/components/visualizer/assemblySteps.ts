@@ -51,7 +51,7 @@ export interface AssemblyStep {
   /** Tools required for this step */
   tools: ToolItem[];
   /** Camera focus hint */
-  cameraHint?: "front" | "side" | "bottom" | "overview" | "top-down" | "close-side";
+  cameraHint?: "front" | "side" | "bottom" | "overview" | "top-down" | "close-side" | "laid-front" | "laid-bottom";
   /** Whether this step is conditional on configuration */
   condition?: "hasWheels" | "hasTop";
   /** Sub-instruction for pro tips */
@@ -247,7 +247,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: '#9 × 3" Screws', qty: "BOTTOM_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
     ],
     proTip: "Lay the ladder frames on their sides with the rail faces pointing up. This makes it easy to align and connect them with the bottom plates. No helper needed.",
-    cameraHint: "front",
+    cameraHint: "laid-front",
   },
 
   // ── STEP 7: Attach top plates ───────────────────────────────────────────
@@ -282,7 +282,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: '#9 × 3" Screws', qty: "TOP_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
     ],
     proTip: "Measure corner-to-corner diagonals. If they match within 1/8\", you're square. If not, rack the frame by pushing the long-diagonal corner before driving the last screws.",
-    cameraHint: "overview",
+    cameraHint: "laid-front",
   },
 
   // ── STEP 8: Back supports + casters (conditional: hasWheels) ────────────
@@ -318,7 +318,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: '1/4" × 1-1/2" Lag Screws', qty: "16", detail: "4 per caster plate" },
     ],
     proTip: "Measure corner-to-corner diagonals before fastening the back supports. If they match within 1/8\", you're square. The diagonal braces lock the frame and prevent racking.",
-    cameraHint: "bottom",
+    cameraHint: "laid-bottom",
     condition: "hasWheels",
   },
 
@@ -354,7 +354,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: '#9 × 1-5/8" Screws', qty: "TOP_SCREWS_QTY", detail: "Every 12\" along plates" },
     ],
     proTip: "Sand the edges and corners of the plywood top to prevent splinters, especially if this is a work surface.",
-    cameraHint: "top-down",
+    cameraHint: "laid-front",
     condition: "hasTop",
   },
 
