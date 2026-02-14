@@ -73,3 +73,74 @@ export async function updateInstallerProfile(
 
   return { success: true, zips_covered: coveredZips.length };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Service Area Validation — checks if a customer ZIP is within an
+// installer's service coverage. Used by submit-lead (server gate) and
+// client-side real-time validation on booking forms.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ServiceAreaCheckResult {
+  inArea: boolean;
+  installerName?: string;
+  serviceZip?: string;
+  radiusMiles?: number;
+  error?: string;
+}
+
+/**
+ * Check if a customer ZIP code falls within an installer's service area.
+ * Returns { inArea: true } if the ZIP is covered, or { inArea: false }
+ * with the installer's base ZIP and radius for the error message.
+ */
+export async function validateServiceArea(
+  installerId: string,
+  customerZip: string
+): Promise<ServiceAreaCheckResult> {
+  if (!installerId || !customerZip) {
+    return { inArea: true }; // No installer or no ZIP = skip validation
+  }
+
+  const trimmedZip = customerZip.trim();
+  if (!/^\d{5}$/.test(trimmedZip)) {
+    return { inArea: false, error: "Please enter a valid 5-digit ZIP code." };
+  }
+
+  try {
+    const { data: installer, error } = await supabase
+      .from("profiles")
+      .select("business_name, service_zip, service_radius_miles, service_zips")
+      .eq("id", installerId)
+      .single();
+
+    if (error || !installer) {
+      // If we can't find the installer, don't block the booking
+      return { inArea: true };
+    }
+
+    const serviceZips = installer.service_zips as string[] | null;
+    const baseZip = installer.service_zip as string | null;
+    const radius = installer.service_radius_miles as number | null;
+    const name = installer.business_name as string | null;
+
+    // If the installer hasn't set up a service area, allow all ZIPs
+    if (!serviceZips || serviceZips.length === 0) {
+      return { inArea: true };
+    }
+
+    // Check if customer ZIP is in the service_zips array
+    if (serviceZips.includes(trimmedZip)) {
+      return { inArea: true };
+    }
+
+    return {
+      inArea: false,
+      installerName: name || undefined,
+      serviceZip: baseZip || undefined,
+      radiusMiles: radius || undefined,
+    };
+  } catch {
+    // On error, don't block the booking
+    return { inArea: true };
+  }
+}

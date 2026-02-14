@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { calculateWeight } from "@/utils/scheduling";
+import { validateServiceArea } from "@/app/actions/installer";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = createClient(
@@ -69,6 +70,19 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   }
   if (!input.quote_data || input.quote_data.length === 0) {
     return { success: false, error: "At least one unit is required in the quote." };
+  }
+
+  // 3. Service Area Validation — reject leads outside installer's coverage
+  if (input.installer_id && input.address_zip) {
+    const areaCheck = await validateServiceArea(input.installer_id, input.address_zip);
+    if (!areaCheck.inArea) {
+      const msg = areaCheck.error
+        ? areaCheck.error
+        : areaCheck.radiusMiles
+          ? `This address (ZIP ${input.address_zip.trim()}) is outside the installer's ${areaCheck.radiusMiles}-mile service area. Please verify the installation ZIP code or contact the installer directly.`
+          : `This address (ZIP ${input.address_zip.trim()}) is outside the installer's service area. Please verify the installation ZIP code.`;
+      return { success: false, error: msg };
+    }
   }
 
   try {

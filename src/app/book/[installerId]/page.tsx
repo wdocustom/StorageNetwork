@@ -10,7 +10,9 @@ import {
 import { useParams } from "next/navigation";
 import { calculateBuild } from "@/app/actions/calculator";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { validateServiceArea } from "@/app/actions/installer";
 import {
+  AlertTriangle,
   CheckCircle2,
   Loader2,
   Plus,
@@ -83,6 +85,9 @@ function BookingPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [addressZip, setAddressZip] = useState("");
+  const [zipOutOfArea, setZipOutOfArea] = useState(false);
+  const [zipCheckMsg, setZipCheckMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -119,6 +124,44 @@ function BookingPageInner() {
     fetchBuild(cols, rows, toteType, hasTotes, hasWheels, hasTop);
   }, [cols, rows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
 
+  // ── Real-time ZIP service-area check ────────────────────────────────
+  const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+
+    const zip = addressZip.trim();
+    if (!zip || zip.length < 5) {
+      setZipOutOfArea(false);
+      setZipCheckMsg("");
+      return;
+    }
+
+    zipCheckRef.current = setTimeout(async () => {
+      try {
+        const result = await validateServiceArea(installerId, zip);
+        if (!result.inArea) {
+          setZipOutOfArea(true);
+          setZipCheckMsg(
+            result.radiusMiles
+              ? `ZIP ${zip} is outside this installer's ${result.radiusMiles}-mile service area.`
+              : `ZIP ${zip} is outside this installer's service area.`
+          );
+        } else {
+          setZipOutOfArea(false);
+          setZipCheckMsg("");
+        }
+      } catch {
+        setZipOutOfArea(false);
+        setZipCheckMsg("");
+      }
+    }, 600);
+
+    return () => {
+      if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    };
+  }, [addressZip, installerId]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   function handleAddUnit() {
@@ -147,6 +190,10 @@ function BookingPageInner() {
       setSubmitError("Add at least one unit to your quote.");
       return;
     }
+    if (zipOutOfArea) {
+      setSubmitError("This installer does not service your ZIP code. Please verify your installation address.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -155,6 +202,7 @@ function BookingPageInner() {
         customer_email: email,
         customer_phone: phone,
         address,
+        address_zip: addressZip || undefined,
         quote_data: orderItems,
         grand_total: grandTotal,
         // ─── SELF-LEAD: inject installer_id + source ───────────────
@@ -358,22 +406,41 @@ function BookingPageInner() {
                       className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone"
-                      className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
-                    />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Address"
-                      className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                      placeholder="Installation address"
+                      className="col-span-2 w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      value={addressZip}
+                      onChange={(e) => setAddressZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                      placeholder="ZIP *"
+                      className={`w-full rounded-lg border px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none ${
+                        zipOutOfArea
+                          ? "border-red-500 bg-red-950/30 focus:border-red-400"
+                          : "border-stone-700 bg-slate-800 focus:border-yellow-400"
+                      }`}
                     />
                   </div>
+                  {zipOutOfArea && zipCheckMsg && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+                      <p className="text-xs leading-relaxed text-red-300">{zipCheckMsg}</p>
+                    </div>
+                  )}
                   <button
                     onClick={handleBookDeposit}
                     disabled={submitting}

@@ -8,6 +8,7 @@ import {
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { validateServiceArea } from "@/app/actions/installer";
 import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
@@ -209,6 +210,38 @@ export default function DesignConfigurator({
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [leadId, setLeadId] = useState<string | null>(null);
+
+  // ── Service area validation ─────────────────────────────────────────
+  const [zipOutOfArea, setZipOutOfArea] = useState(false);
+  const [zipCheckMsg, setZipCheckMsg] = useState("");
+  const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Real-time ZIP validation when user enters installation ZIP
+  // If "installation address is different" is checked, validate that ZIP instead
+  useEffect(() => {
+    if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    setZipOutOfArea(false);
+    setZipCheckMsg("");
+
+    const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
+    if (!installerId || !zipToCheck || zipToCheck.trim().length !== 5) return;
+
+    zipCheckRef.current = setTimeout(async () => {
+      const result = await validateServiceArea(installerId, zipToCheck.trim());
+      if (!result.inArea) {
+        setZipOutOfArea(true);
+        setZipCheckMsg(
+          result.radiusMiles
+            ? `ZIP ${zipToCheck.trim()} is outside the installer's ${result.radiusMiles}-mile service area.`
+            : "This ZIP code is outside the installer's service area."
+        );
+      }
+    }, 600);
+
+    return () => {
+      if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    };
+  }, [addrZip, deliveryZip, hasDifferentDelivery, installerId]);
 
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -439,6 +472,10 @@ export default function DesignConfigurator({
     }
     if (orderItems.length === 0) {
       setSubmitError("Add at least one unit to your quote first.");
+      return;
+    }
+    if (zipOutOfArea) {
+      setSubmitError(zipCheckMsg || "Installation ZIP is outside the service area.");
       return;
     }
 
@@ -1066,6 +1103,13 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
+                      {/* Service area warning */}
+                      {zipOutOfArea && (
+                        <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                          <p className="text-xs font-medium text-red-700">{zipCheckMsg}</p>
+                        </div>
+                      )}
                       {/* Installation address toggle */}
                       <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
                         <input
