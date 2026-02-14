@@ -429,37 +429,66 @@ function ExplodedAssembly({
     }[] = [];
 
     if (step.id === "build-ladders" || mode === "exploded") {
+      const screwOffsetY = 0.5; // ±0.5" from rail center — 2 screws per rail end
       for (let i = 0; i <= cols; i++) {
         const px = getPostX(i, bayW);
         for (let r = 0; r < rows; r++) {
           const railY = PLATE_H + firstRailY + r * TIER_SPACING;
-          // Right-face rail screws
+          // Right-face rail screws — 2 per end (top & bottom of rail strip)
           if (i < cols) {
             const sx = px + POST_W / 2 + RAIL_THICKNESS + 0.5;
+            // Front end — 2 screws
             screws.push({
-              pos: [sx, railY + lift, 2],
+              pos: [sx, railY + screwOffsetY + lift, 2],
               rot: [0, 0, -Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
             screws.push({
-              pos: [sx, railY + lift, RACK_DEPTH - 2],
+              pos: [sx, railY - screwOffsetY + lift, 2],
+              rot: [0, 0, -Math.PI / 2],
+              len: 1.625,
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
+            });
+            // Back end — 2 screws
+            screws.push({
+              pos: [sx, railY + screwOffsetY + lift, RACK_DEPTH - 2],
+              rot: [0, 0, -Math.PI / 2],
+              len: 1.625,
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
+            });
+            screws.push({
+              pos: [sx, railY - screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, -Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
           }
-          // Left-face rail screws
+          // Left-face rail screws — 2 per end (top & bottom of rail strip)
           if (i > 0) {
             const sx = px - POST_W / 2 - RAIL_THICKNESS - 0.5;
+            // Front end — 2 screws
             screws.push({
-              pos: [sx, railY + lift, 2],
+              pos: [sx, railY + screwOffsetY + lift, 2],
               rot: [0, 0, Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
             screws.push({
-              pos: [sx, railY + lift, RACK_DEPTH - 2],
+              pos: [sx, railY - screwOffsetY + lift, 2],
+              rot: [0, 0, Math.PI / 2],
+              len: 1.625,
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
+            });
+            // Back end — 2 screws
+            screws.push({
+              pos: [sx, railY + screwOffsetY + lift, RACK_DEPTH - 2],
+              rot: [0, 0, Math.PI / 2],
+              len: 1.625,
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
+            });
+            screws.push({
+              pos: [sx, railY - screwOffsetY + lift, RACK_DEPTH - 2],
               rot: [0, 0, Math.PI / 2],
               len: 1.625,
               label: '#9 × 1-5/8" Star Drive — through rail into post',

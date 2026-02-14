@@ -186,7 +186,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "build-ladders",
     title: "Build the Ladder Frames",
     instruction:
-      'Pair up front and back uprights. Attach plywood rail strips flush to the inside face of each post using #9 × 1-5/8" star drive screws. Drive 2 screws per rail end — one near the front edge and one near the back edge of the post. No pilot holes needed — plywood won\'t split.',
+      'Pair up front and back uprights. Attach plywood rail strips flush to the inside face of each post using #9 × 1-5/8" star drive screws. Drive 2 screws per rail end — one near the top edge and one near the bottom edge of the strip. No pilot holes needed — plywood won\'t split. Each completed pair of posts with rails forms a "ladder frame."',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -221,7 +221,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-bottom-plates",
     title: "Attach Bottom Plates",
     instruction:
-      'Lay the completed ladder frames on their backs so the front face is up. Position the 2 bottom plates across the bottom ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the end grain of each upright — 2 screws per connection. The unit stays flat on the ground for this step.',
+      'Lay the completed ladder frames on their sides so the rail faces point up. Space them at the correct bay width apart. Position the 2 bottom plates across the bottom ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the end grain of each upright — 2 screws per connection. The unit stays laid on its front for this step.',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -246,7 +246,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: "2×4 Bottom Plates", qty: "2", detail: "Front and back" },
       { name: '#9 × 3" Screws', qty: "BOTTOM_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
     ],
-    proTip: "Working with the unit flat on the ground makes it much easier to align ladders and drive screws. No helper needed.",
+    proTip: "Lay the ladder frames on their sides with the rail faces pointing up. This makes it easy to align and connect them with the bottom plates. No helper needed.",
     cameraHint: "front",
   },
 
@@ -255,7 +255,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-top-plates",
     title: "Attach Top Plates",
     instruction:
-      'With the unit still laying on its front, position the 2 top plates across the top ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the top end grain of each upright — 2 screws per connection.',
+      'With the ladder frames still on their sides, position the 2 top plates across the top ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the top end grain of each upright — 2 screws per connection. The unit stays laid on its front until the wheels are attached.',
     partStates: {
       posts: "visible",
       rails: "visible",
