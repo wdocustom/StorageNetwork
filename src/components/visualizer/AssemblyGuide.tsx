@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows } from "@react-three/drei";
+import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
 import * as THREE from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import ConstructionScrew from "./ConstructionScrew";
 import {
-  ASSEMBLY_STEPS,
+  getStepsForConfig,
   computeMaterials,
   type AssemblyStep,
   type PartGroup,
   type PartVisibility,
+  type BuildConfig,
 } from "./assemblySteps";
 import {
   ChevronRight,
@@ -21,6 +22,8 @@ import {
   Wrench,
   CheckCircle2,
   Package,
+  Lightbulb,
+  Hammer,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -42,12 +45,8 @@ const PLY_TOP_H = 0.75;
 
 const TOTE_FULL_W_HDX = 19.75;
 const TOTE_FULL_W_GM = 20.75;
-const TOTE_RIM_H = 1.0;
-const TOTE_BODY_H = 11.0;
-const TOTE_BODY_TAPER = 0.85;
-const TOTE_DEPTH = 28.6;
 
-const S = 1 / 48;
+const S = 1 / 48; // Inches-to-scene scale factor
 
 function getBayWidth(toteType: ToteType): number {
   const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
@@ -58,7 +57,7 @@ function getPostX(i: number, bayW: number): number {
   return i * (bayW + POST_W) + POST_W / 2;
 }
 
-const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
+const MIN_FIRST_RAIL_Y = 13; // First rail at 13" from bottom of upright
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MATERIALS
@@ -93,7 +92,7 @@ const PLYWOOD_GHOST = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ANIMATED GROUP — lerps position via useFrame
+// ANIMATED GROUP — lerps position via useFrame with opacity fade
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface AnimatedGroupProps {
@@ -102,7 +101,7 @@ interface AnimatedGroupProps {
   speed?: number;
 }
 
-function AnimatedGroup({ targetPos, children, speed = 0.04 }: AnimatedGroupProps) {
+function AnimatedGroup({ targetPos, children, speed = 0.06 }: AnimatedGroupProps) {
   const ref = useRef<THREE.Group>(null);
   const target = useMemo(() => new THREE.Vector3(...targetPos), [targetPos]);
 
@@ -115,115 +114,158 @@ function AnimatedGroup({ targetPos, children, speed = 0.04 }: AnimatedGroupProps
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PART PRIMITIVES — with visibility/ghost support
+// HOVERABLE PART WRAPPER — shows dimensions/material on hover
+// ═══════════════════════════════════════════════════════════════════════════
+
+function HoverablePart({
+  children,
+  label,
+  position,
+  visible = true,
+}: {
+  children: React.ReactNode;
+  label: string;
+  position?: [number, number, number];
+  visible?: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  if (!visible) return <>{children}</>;
+
+  return (
+    <group
+      position={position}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        document.body.style.cursor = "auto";
+      }}
+    >
+      {children}
+      {hovered && (
+        <Html center position={[0, 2, 0]} style={{ pointerEvents: "none" }}>
+          <div
+            style={{
+              background: "rgba(15, 23, 42, 0.95)",
+              color: "#fbbf24",
+              padding: "8px 14px",
+              borderRadius: "10px",
+              fontSize: "11px",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              border: "1px solid rgba(251, 191, 36, 0.3)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+              maxWidth: "240px",
+            }}
+          >
+            {label}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PART PRIMITIVES — with visibility/ghost support + hover labels
 // ═══════════════════════════════════════════════════════════════════════════
 
 function Lumber({
   position,
   size,
   vis,
+  label,
 }: {
   position: [number, number, number];
   size: [number, number, number];
   vis: PartVisibility;
+  label?: string;
 }) {
   if (vis === "hidden") return null;
   const mat = vis === "ghosted" ? PINE_GHOST : PINE_MAT;
-  return (
-    <mesh position={position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
+  const mesh = (
+    <mesh position={label ? undefined : position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
       <boxGeometry args={size} />
     </mesh>
   );
+
+  if (label && vis === "visible") {
+    return (
+      <HoverablePart label={label} position={position}>
+        {mesh}
+      </HoverablePart>
+    );
+  }
+
+  return mesh;
 }
 
 function PlywoodStrip({
   position,
   length,
   vis,
+  label,
 }: {
   position: [number, number, number];
   length: number;
   vis: PartVisibility;
+  label?: string;
 }) {
   if (vis === "hidden") return null;
   const mat = vis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
-  return (
-    <mesh position={position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
+  const mesh = (
+    <mesh position={label ? undefined : position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
       <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
     </mesh>
   );
-}
 
-function Tote({
-  position,
-  bayW,
-  toteType,
-  vis,
-}: {
-  position: [number, number, number];
-  bayW: number;
-  toteType: ToteType;
-  vis: PartVisibility;
-}) {
-  if (vis === "hidden") return null;
-  const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
-  const color = toteType === "HDX" ? "#fbbf24" : "#ef4444";
-  const bodyTopW = bayW - BIN_GAP * 2;
-  const bodyBotW = bodyTopW * TOTE_BODY_TAPER;
-  const bodyTopD = TOTE_DEPTH * 0.95;
-  const bodyBotD = TOTE_DEPTH * 0.82;
-  const alpha = vis === "ghosted" ? 0.12 : 1;
+  if (label && vis === "visible") {
+    return (
+      <HoverablePart label={label} position={position}>
+        {mesh}
+      </HoverablePart>
+    );
+  }
 
-  const bodyGeo = useMemo(() => {
-    const hw_t = bodyTopW / 2, hw_b = bodyBotW / 2;
-    const hd_t = bodyTopD / 2, hd_b = bodyBotD / 2;
-    const h = TOTE_BODY_H;
-    const v = new Float32Array([
-      -hw_b, 0, -hd_b, hw_b, 0, -hd_b, hw_b, 0, hd_b, -hw_b, 0, hd_b,
-      -hw_t, h, -hd_t, hw_t, h, -hd_t, hw_t, h, hd_t, -hw_t, h, hd_t,
-    ]);
-    const idx = [0,2,1,0,3,2,4,5,6,4,6,7,0,1,5,0,5,4,2,3,7,2,7,6,0,4,7,0,7,3,1,2,6,1,6,5];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(v, 3));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    return geo;
-  }, [bodyTopW, bodyBotW, bodyTopD, bodyBotD]);
-
-  return (
-    <group position={position}>
-      <mesh geometry={bodyGeo} castShadow={vis === "visible"}>
-        <meshStandardMaterial
-          color="#1a1a1a"
-          roughness={0.55}
-          metalness={0.02}
-          side={THREE.DoubleSide}
-          transparent={vis === "ghosted"}
-          opacity={alpha}
-          depthWrite={vis !== "ghosted"}
-        />
-      </mesh>
-      <mesh position={[0, TOTE_BODY_H + TOTE_RIM_H / 2, 0]} castShadow={vis === "visible"}>
-        <boxGeometry args={[toteW, TOTE_RIM_H, TOTE_DEPTH]} />
-        <meshStandardMaterial
-          color={color}
-          roughness={0.3}
-          metalness={0.05}
-          transparent={vis === "ghosted"}
-          opacity={alpha}
-          depthWrite={vis !== "ghosted"}
-        />
-      </mesh>
-    </group>
-  );
+  return mesh;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXPLODED VIEW ENGINE
+// FADE MANAGER — handles opacity transitions between steps
+// ═══════════════════════════════════════════════════════════════════════════
+
+function FadeGroup({
+  vis,
+  children,
+}: {
+  vis: PartVisibility;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const targetOpacity = vis === "visible" ? 1 : vis === "ghosted" ? 0.12 : 0;
+  const currentOpacity = useRef(targetOpacity);
+
+  useFrame(() => {
+    currentOpacity.current += (targetOpacity - currentOpacity.current) * 0.08;
+    if (!ref.current) return;
+    ref.current.visible = currentOpacity.current > 0.01;
+  });
+
+  if (vis === "hidden") return null;
+
+  return <group ref={ref}>{children}</group>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPLODED VIEW ENGINE v2
 //
 // Mode: "exploded" | "step"
 // In "exploded" mode, all parts get explosion offsets.
-// In "step" mode, parts animate to their final positions based on step.
+// In "step" mode, parts animate to positions based on step with fades.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ExplodedAssemblyProps {
@@ -231,18 +273,31 @@ interface ExplodedAssemblyProps {
   rows: number;
   toteType: ToteType;
   mode: "exploded" | "step";
-  stepIndex: number; // 0-3
+  stepIndex: number;
+  steps: AssemblyStep[];
+  hasWheels: boolean;
+  hasTop: boolean;
 }
 
-function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAssemblyProps) {
+function ExplodedAssembly({
+  cols,
+  rows,
+  toteType,
+  mode,
+  stepIndex,
+  steps,
+  hasWheels,
+  hasTop,
+}: ExplodedAssemblyProps) {
   const bayW = getBayWidth(toteType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
   const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
   const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
   const topGap = 3;
   const frameH = PLATE_H + lastRailY + topGap + PLATE_H;
-  const lift = CASTER_HEIGHT;
+  const lift = hasWheels ? CASTER_HEIGHT : 0;
   const overallH = frameH + lift;
+  const uprightH = rows * TIER_SPACING;
 
   const cx = totalW / 2;
   const cy = overallH / 2;
@@ -252,7 +307,7 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
   const postH = frameH - PLATE_H * 2;
 
   // Current step data
-  const step = ASSEMBLY_STEPS[stepIndex] ?? ASSEMBLY_STEPS[0];
+  const step = steps[stepIndex] ?? steps[0];
 
   function vis(group: PartGroup): PartVisibility {
     if (mode === "exploded") return "visible";
@@ -269,202 +324,343 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
   // Plate explosion: float up/down on Y
   const bottomPlateExpY = -8 * EX;
   const topPlateExpY = 8 * EX;
-  // Tote explosion: removed — totes not part of assembly guide
   // Caster explosion: drop below
   const casterExpY = -10 * EX;
+  // PlyTop explosion: float above
+  const plyTopExpY = 12 * EX;
 
-  // Step-specific animations
-  const stepAnimations = useMemo(() => {
-    if (mode !== "step") return { posts: [0,0,0], rails: [0,0,0], bp: [0,0,0], tp: [0,0,0] };
+  // Step-specific positional offsets for dramatic reveals
+  const stepAnim = useMemo(() => {
+    if (mode !== "step")
+      return { posts: [0, 0, 0], rails: [0, 0, 0], bp: [0, 0, 0], tp: [0, 0, 0] };
+
     switch (step.id) {
-      case "cut-mark":
-        // Lay everything flat on floor
-        return { posts: [0, -lift - PLATE_H, 0], rails: [8, -lift - PLATE_H, 0], bp: [0,0,0], tp: [0,0,0] };
-      case "ladders":
-        return { posts: [0, 0, 0], rails: [0, 0, 0], bp: [0,0,0], tp: [0,0,0] };
-      case "frame-assembly":
-        return { posts: [0, 0, 0], rails: [0, 0, 0], bp: [0, 0, 0], tp: [0, 0, 0] };
-      case "wheels-finish":
-        return { posts: [0, 0, 0], rails: [0, 0, 0], bp: [0, 0, 0], tp: [0, 0, 0] };
+      case "cut-uprights":
+        // Lay uprights flat and spread apart slightly
+        return {
+          posts: [0, -lift - PLATE_H, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "cut-plates":
+        // Show plates spread out
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, -6, 0],
+          tp: [0, 6, 0],
+        };
+      case "rip-rails":
+        // Rails offset to side
+        return {
+          posts: [0, 0, 0],
+          rails: [6, -lift - PLATE_H, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "mark-posts":
+        // Posts back in vertical position, rails ghosted in place
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "build-ladders":
+        // Everything snaps together
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "attach-bottom-plates":
+        // Bottom plates arrive from below
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "attach-top-plates":
+        // Top plates settle from above
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "attach-casters":
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
+      case "attach-top":
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
       default:
-        return { posts: [0,0,0], rails: [0,0,0], bp: [0,0,0], tp: [0,0,0] };
+        return {
+          posts: [0, 0, 0],
+          rails: [0, 0, 0],
+          bp: [0, 0, 0],
+          tp: [0, 0, 0],
+        };
     }
   }, [mode, step.id, lift]);
 
-  // Screw positions for rail-to-post connections
+  // ── Screw positions ──────────────────────────────────────────────────
   const railScrewPositions = useMemo(() => {
     if (vis("screws") !== "visible") return [];
-    const screws: { pos: [number, number, number]; rot: [number, number, number]; len: number; label: string }[] = [];
+    const screws: {
+      pos: [number, number, number];
+      rot: [number, number, number];
+      len: number;
+      label: string;
+    }[] = [];
 
-    if (step.id === "ladders" || mode === "exploded") {
-      // Rail screws: enter from outside face of plywood rail, through rail, into post.
-      // Screw default: head at Y=0, shaft goes -Y (tip points -Y).
-      // For right-face rail: head on +X side, tip points -X (toward post).
-      //   → rotate Z = +π/2 (head right, tip left)
-      // For left-face rail: head on -X side, tip points +X (toward post).
-      //   → rotate Z = -π/2 (head left, tip right)
+    if (step.id === "build-ladders" || mode === "exploded") {
       for (let i = 0; i <= cols; i++) {
         const px = getPostX(i, bayW);
         for (let r = 0; r < rows; r++) {
           const railY = PLATE_H + firstRailY + r * TIER_SPACING;
-          // Right-face rail screws (rail is right of post i, screw enters from +X)
+          // Right-face rail screws
           if (i < cols) {
             const sx = px + POST_W / 2 + RAIL_THICKNESS + 0.5;
             screws.push({
               pos: [sx, railY + lift, 2],
               rot: [0, 0, -Math.PI / 2],
               len: 1.625,
-              label: '#9 × 1-5/8" Star Drive Construction Screw',
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
             screws.push({
               pos: [sx, railY + lift, RACK_DEPTH - 2],
               rot: [0, 0, -Math.PI / 2],
               len: 1.625,
-              label: '#9 × 1-5/8" Star Drive Construction Screw',
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
           }
-          // Left-face rail screws (rail is left of post i, screw enters from -X)
+          // Left-face rail screws
           if (i > 0) {
             const sx = px - POST_W / 2 - RAIL_THICKNESS - 0.5;
             screws.push({
               pos: [sx, railY + lift, 2],
               rot: [0, 0, Math.PI / 2],
               len: 1.625,
-              label: '#9 × 1-5/8" Star Drive Construction Screw',
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
             screws.push({
               pos: [sx, railY + lift, RACK_DEPTH - 2],
               rot: [0, 0, Math.PI / 2],
               len: 1.625,
-              label: '#9 × 1-5/8" Star Drive Construction Screw',
+              label: '#9 × 1-5/8" Star Drive — through rail into post',
             });
           }
         }
       }
     }
 
-    if (step.id === "frame-assembly" || mode === "exploded") {
-      // Plate screws — enter vertically through plate into post end grain.
-      // Bottom plate: screw head below plate, tip points UP into post.
-      //   → rotate Z = π (flip upside down: head at -Y, tip at +Y)
-      // Top plate: screw head above plate, tip points DOWN into post.
-      //   → rotate Z = 0 (default: head at +Y, tip at -Y)
-      for (let i = 0; i <= cols; i++) {
-        const px = getPostX(i, bayW);
-        // Bottom plate screws (head below, tip up into post)
-        // Front bottom plate
+    return screws;
+  }, [cols, rows, bayW, firstRailY, lift, mode, step.id]);
+
+  // Plate screws (separate group for step-level control)
+  const plateScrewPositions = useMemo(() => {
+    if (vis("plateScrews") !== "visible") return [];
+    const screws: {
+      pos: [number, number, number];
+      rot: [number, number, number];
+      len: number;
+      label: string;
+    }[] = [];
+
+    const showBottom = step.id === "attach-bottom-plates" || step.id === "attach-top-plates" || mode === "exploded";
+    const showTop = step.id === "attach-top-plates" || mode === "exploded";
+
+    for (let i = 0; i <= cols; i++) {
+      const px = getPostX(i, bayW);
+
+      if (showBottom) {
+        // Bottom plate screws — head below, tip up
         screws.push({
           pos: [px, lift - 0.5, POST_D / 2],
           rot: [0, 0, Math.PI],
           len: 3.0,
-          label: '#9 × 3" Star Drive Construction Screw',
+          label: '#9 × 3" Star Drive — plate into post end grain',
         });
-        // Back bottom plate
         screws.push({
           pos: [px, lift - 0.5, RACK_DEPTH - POST_D / 2],
           rot: [0, 0, Math.PI],
           len: 3.0,
-          label: '#9 × 3" Star Drive Construction Screw',
+          label: '#9 × 3" Star Drive — plate into post end grain',
         });
-        // Top plate screws (head above, tip down into post)
-        // Front top plate
+      }
+
+      if (showTop) {
+        // Top plate screws — head above, tip down
         screws.push({
           pos: [px, frameH + lift + 0.5, POST_D / 2],
           rot: [0, 0, 0],
           len: 3.0,
-          label: '#9 × 3" Star Drive Construction Screw',
+          label: '#9 × 3" Star Drive — plate into post top end grain',
         });
-        // Back top plate
         screws.push({
           pos: [px, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
           rot: [0, 0, 0],
           len: 3.0,
-          label: '#9 × 3" Star Drive Construction Screw',
+          label: '#9 × 3" Star Drive — plate into post top end grain',
         });
       }
     }
 
     return screws;
-  }, [cols, rows, bayW, firstRailY, lift, frameH, mode, step.id]);
+  }, [cols, bayW, lift, frameH, mode, step.id]);
 
   return (
     <group scale={[S, S, S]}>
       <group position={[-cx, -cy, -cz]}>
-
         {/* ── WOOD FRAME ── */}
         <group position={[0, lift, 0]}>
-
           {/* Bottom plates */}
-          <AnimatedGroup targetPos={[0, bottomPlateExpY + (stepAnimations.bp[1] as number), 0]}>
-            <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} vis={vis("bottomPlates")} />
-            <Lumber position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} vis={vis("bottomPlates")} />
-          </AnimatedGroup>
+          <FadeGroup vis={vis("bottomPlates")}>
+            <AnimatedGroup
+              targetPos={[0, bottomPlateExpY + (stepAnim.bp[1] as number), 0]}
+            >
+              <Lumber
+                position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
+                size={[totalW, PLATE_H, POST_D]}
+                vis={vis("bottomPlates")}
+                label={`2×4 Bottom Plate (front) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+              />
+              <Lumber
+                position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]}
+                size={[totalW, PLATE_H, POST_D]}
+                vis={vis("bottomPlates")}
+                label={`2×4 Bottom Plate (back) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+              />
+            </AnimatedGroup>
+          </FadeGroup>
 
           {/* Top plates */}
-          <AnimatedGroup targetPos={[0, topPlateExpY + (stepAnimations.tp[1] as number), 0]}>
-            <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} vis={vis("topPlates")} />
-            <Lumber position={[totalW / 2, frameH - PLATE_H / 2, RACK_DEPTH - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} vis={vis("topPlates")} />
-          </AnimatedGroup>
+          <FadeGroup vis={vis("topPlates")}>
+            <AnimatedGroup
+              targetPos={[0, topPlateExpY + (stepAnim.tp[1] as number), 0]}
+            >
+              <Lumber
+                position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]}
+                size={[totalW, PLATE_H, POST_D]}
+                vis={vis("topPlates")}
+                label={`2×4 Top Plate (front) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+              />
+              <Lumber
+                position={[
+                  totalW / 2,
+                  frameH - PLATE_H / 2,
+                  RACK_DEPTH - POST_D / 2,
+                ]}
+                size={[totalW, PLATE_H, POST_D]}
+                vis={vis("topPlates")}
+                label={`2×4 Top Plate (back) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+              />
+            </AnimatedGroup>
+          </FadeGroup>
 
           {/* Plywood top */}
-          <AnimatedGroup targetPos={[0, topPlateExpY + 4 * EX, 0]}>
-            {vis("plyTop") !== "hidden" && (
-              <mesh
-                position={[totalW / 2, frameH + PLY_TOP_H / 2, RACK_DEPTH / 2]}
-                castShadow
-                receiveShadow
-              >
-                <boxGeometry args={[totalW + 2, PLY_TOP_H, RACK_DEPTH + 2]} />
-                <meshStandardMaterial
-                  color="#D4B896"
-                  roughness={0.6}
-                  metalness={0.0}
-                  transparent={vis("plyTop") === "ghosted"}
-                  opacity={vis("plyTop") === "ghosted" ? 0.12 : 1}
-                  depthWrite={vis("plyTop") !== "ghosted"}
-                />
-              </mesh>
-            )}
-          </AnimatedGroup>
+          <FadeGroup vis={vis("plyTop")}>
+            <AnimatedGroup targetPos={[0, plyTopExpY, 0]}>
+              {vis("plyTop") !== "hidden" && (
+                <HoverablePart
+                  label={`3/4" Plywood Top — ${Math.round(totalW + 2)}" × 32", overhangs 1" per side`}
+                  position={[
+                    totalW / 2,
+                    frameH + PLY_TOP_H / 2,
+                    RACK_DEPTH / 2,
+                  ]}
+                  visible={vis("plyTop") === "visible"}
+                >
+                  <mesh castShadow receiveShadow>
+                    <boxGeometry
+                      args={[totalW + 2, PLY_TOP_H, RACK_DEPTH + 2]}
+                    />
+                    <meshStandardMaterial
+                      color="#D4B896"
+                      roughness={0.6}
+                      metalness={0.0}
+                      transparent={vis("plyTop") === "ghosted"}
+                      opacity={vis("plyTop") === "ghosted" ? 0.12 : 1}
+                      depthWrite={vis("plyTop") !== "ghosted"}
+                    />
+                  </mesh>
+                </HoverablePart>
+              )}
+            </AnimatedGroup>
+          </FadeGroup>
 
           {/* Ladder frames: posts + rails */}
           {Array.from({ length: cols + 1 }).map((_, i) => {
             const px = getPostX(i, bayW);
             const isLeft = i === 0;
             const isRight = i === cols;
-            // Explosion: first post shifts left, last shifts right, middle stays
             const expDir = isLeft ? -1 : isRight ? 1 : 0;
 
             return (
               <group key={`ladder-${i}`}>
                 {/* Posts */}
-                <AnimatedGroup
-                  targetPos={[
-                    postExpX * expDir + (stepAnimations.posts[0] as number),
-                    stepAnimations.posts[1] as number,
-                    0,
-                  ]}
-                >
-                  <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} vis={vis("posts")} />
-                  <Lumber position={[px, PLATE_H + postH / 2, RACK_DEPTH - POST_D / 2]} size={[POST_W, postH, POST_D]} vis={vis("posts")} />
-                </AnimatedGroup>
+                <FadeGroup vis={vis("posts")}>
+                  <AnimatedGroup
+                    targetPos={[
+                      postExpX * expDir + (stepAnim.posts[0] as number),
+                      stepAnim.posts[1] as number,
+                      0,
+                    ]}
+                  >
+                    <Lumber
+                      position={[px, PLATE_H + postH / 2, POST_D / 2]}
+                      size={[POST_W, postH, POST_D]}
+                      vis={vis("posts")}
+                      label={`2×4 Upright (front) — ${Math.round(postH)}" tall, cut from 2×4×8' stud`}
+                    />
+                    <Lumber
+                      position={[
+                        px,
+                        PLATE_H + postH / 2,
+                        RACK_DEPTH - POST_D / 2,
+                      ]}
+                      size={[POST_W, postH, POST_D]}
+                      vis={vis("posts")}
+                      label={`2×4 Upright (back) — ${Math.round(postH)}" tall, cut from 2×4×8' stud`}
+                    />
+                  </AnimatedGroup>
+                </FadeGroup>
 
                 {/* Right-face rails */}
                 {i < cols &&
                   Array.from({ length: rows }).map((_, r) => {
                     const railY = PLATE_H + firstRailY + r * TIER_SPACING;
                     const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
+                    const railFromBottom = firstRailY + r * TIER_SPACING;
                     return (
-                      <AnimatedGroup
-                        key={`rr-${i}-${r}`}
-                        targetPos={[
-                          railExpX + (stepAnimations.rails[0] as number),
-                          stepAnimations.rails[1] as number,
-                          0,
-                        ]}
-                      >
-                        <PlywoodStrip position={[railX, railY, RACK_DEPTH / 2]} length={railLen} vis={vis("rails")} />
-                      </AnimatedGroup>
+                      <FadeGroup key={`rr-${i}-${r}`} vis={vis("rails")}>
+                        <AnimatedGroup
+                          targetPos={[
+                            railExpX + (stepAnim.rails[0] as number),
+                            stepAnim.rails[1] as number,
+                            0,
+                          ]}
+                        >
+                          <PlywoodStrip
+                            position={[railX, railY, RACK_DEPTH / 2]}
+                            length={railLen}
+                            vis={vis("rails")}
+                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${Math.round(railFromBottom)}" from bottom`}
+                          />
+                        </AnimatedGroup>
+                      </FadeGroup>
                     );
                   })}
 
@@ -473,24 +669,29 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
                   Array.from({ length: rows }).map((_, r) => {
                     const railY = PLATE_H + firstRailY + r * TIER_SPACING;
                     const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
+                    const railFromBottom = firstRailY + r * TIER_SPACING;
                     return (
-                      <AnimatedGroup
-                        key={`rl-${i}-${r}`}
-                        targetPos={[
-                          -railExpX + (stepAnimations.rails[0] as number),
-                          stepAnimations.rails[1] as number,
-                          0,
-                        ]}
-                      >
-                        <PlywoodStrip position={[railX, railY, RACK_DEPTH / 2]} length={railLen} vis={vis("rails")} />
-                      </AnimatedGroup>
+                      <FadeGroup key={`rl-${i}-${r}`} vis={vis("rails")}>
+                        <AnimatedGroup
+                          targetPos={[
+                            -railExpX + (stepAnim.rails[0] as number),
+                            stepAnim.rails[1] as number,
+                            0,
+                          ]}
+                        >
+                          <PlywoodStrip
+                            position={[railX, railY, RACK_DEPTH / 2]}
+                            length={railLen}
+                            vis={vis("rails")}
+                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${Math.round(railFromBottom)}" from bottom`}
+                          />
+                        </AnimatedGroup>
+                      </FadeGroup>
                     );
                   })}
               </group>
             );
           })}
-
-          {/* Totes omitted — not part of the build assembly */}
         </group>
 
         {/* ── CASTERS ── */}
@@ -499,40 +700,85 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
           if (casterVis === "hidden") return null;
           const firstPostX = getPostX(0, bayW);
           const lastPostX = getPostX(cols, bayW);
-          // In ghosted mode, we still show them but dim
           const opacity = casterVis === "ghosted" ? 0.15 : 1;
           return (
-            <AnimatedGroup targetPos={[0, casterExpY, 0]}>
-              <group>
-                {opacity < 1 ? (
-                  // Ghosted casters — simplified placeholder
-                  <>
-                    {[[firstPostX, POST_D / 2], [lastPostX, POST_D / 2],
-                      [firstPostX, RACK_DEPTH - POST_D / 2], [lastPostX, RACK_DEPTH - POST_D / 2],
-                    ].map(([x, z], i) => (
-                      <mesh key={`ghost-caster-${i}`} position={[x, CASTER_HEIGHT / 2, z]}>
-                        <boxGeometry args={[3, CASTER_HEIGHT, 3]} />
-                        <meshStandardMaterial color="#888" transparent opacity={opacity} depthWrite={false} />
-                      </mesh>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <IndustrialCaster position={[firstPostX, 0, POST_D / 2]} />
-                    <IndustrialCaster position={[lastPostX, 0, POST_D / 2]} />
-                    <IndustrialCaster position={[firstPostX, 0, RACK_DEPTH - POST_D / 2]} />
-                    <IndustrialCaster position={[lastPostX, 0, RACK_DEPTH - POST_D / 2]} />
-                  </>
-                )}
-              </group>
-            </AnimatedGroup>
+            <FadeGroup vis={casterVis}>
+              <AnimatedGroup targetPos={[0, casterExpY, 0]}>
+                <group>
+                  {opacity < 1 ? (
+                    <>
+                      {(
+                        [
+                          [firstPostX, POST_D / 2],
+                          [lastPostX, POST_D / 2],
+                          [firstPostX, RACK_DEPTH - POST_D / 2],
+                          [lastPostX, RACK_DEPTH - POST_D / 2],
+                        ] as [number, number][]
+                      ).map(([x, z], i) => (
+                        <mesh
+                          key={`ghost-caster-${i}`}
+                          position={[x, CASTER_HEIGHT / 2, z]}
+                        >
+                          <boxGeometry args={[3, CASTER_HEIGHT, 3]} />
+                          <meshStandardMaterial
+                            color="#888"
+                            transparent
+                            opacity={opacity}
+                            depthWrite={false}
+                          />
+                        </mesh>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <HoverablePart
+                        label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
+                        position={[firstPostX, 0, POST_D / 2]}
+                      >
+                        <IndustrialCaster position={[0, 0, 0]} />
+                      </HoverablePart>
+                      <HoverablePart
+                        label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
+                        position={[lastPostX, 0, POST_D / 2]}
+                      >
+                        <IndustrialCaster position={[0, 0, 0]} />
+                      </HoverablePart>
+                      <HoverablePart
+                        label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
+                        position={[firstPostX, 0, RACK_DEPTH - POST_D / 2]}
+                      >
+                        <IndustrialCaster position={[0, 0, 0]} />
+                      </HoverablePart>
+                      <HoverablePart
+                        label='5" Heavy-Duty Swivel Caster — 4 lag screws per mount plate'
+                        position={[lastPostX, 0, RACK_DEPTH - POST_D / 2]}
+                      >
+                        <IndustrialCaster position={[0, 0, 0]} />
+                      </HoverablePart>
+                    </>
+                  )}
+                </group>
+              </AnimatedGroup>
+            </FadeGroup>
           );
         })()}
 
-        {/* ── SCREWS ── */}
+        {/* ── RAIL SCREWS ── */}
         {railScrewPositions.map((s, i) => (
           <ConstructionScrew
-            key={`screw-${i}`}
+            key={`rail-screw-${i}`}
+            position={s.pos}
+            rotation={s.rot}
+            length={s.len}
+            label={s.label}
+            visible={true}
+          />
+        ))}
+
+        {/* ── PLATE SCREWS ── */}
+        {plateScrewPositions.map((s, i) => (
+          <ConstructionScrew
+            key={`plate-screw-${i}`}
             position={s.pos}
             rotation={s.rot}
             length={s.len}
@@ -546,7 +792,7 @@ function ExplodedAssembly({ cols, rows, toteType, mode, stepIndex }: ExplodedAss
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAMERA RIG — adapts to step camera hints
+// CAMERA RIG — adapts to step camera hints with smooth transitions
 // ═══════════════════════════════════════════════════════════════════════════
 
 function GuideCameraRig({
@@ -554,21 +800,25 @@ function GuideCameraRig({
   rows,
   toteType,
   cameraHint,
+  hasWheels,
 }: {
   cols: number;
   rows: number;
   toteType: ToteType;
   cameraHint?: string;
+  hasWheels: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
+  const targetPos = useRef(new THREE.Vector3());
+  const isFirstRender = useRef(true);
 
   const bayW = getBayWidth(toteType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
   const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
   const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
   const frameH = PLATE_H + lastRailY + 3 + PLATE_H;
-  const overallH = frameH + CASTER_HEIGHT;
+  const overallH = frameH + (hasWheels ? CASTER_HEIGHT : 0);
 
   const sw = totalW * S;
   const sh = overallH * S;
@@ -580,24 +830,53 @@ function GuideCameraRig({
     let px: number, py: number, pz: number;
     switch (cameraHint) {
       case "side":
-        px = dist * 1.4; py = dist * 0.5; pz = dist * 0.3;
+      case "close-side":
+        px = dist * 1.4;
+        py = dist * 0.5;
+        pz = dist * 0.3;
         break;
       case "front":
-        px = dist * 0.2; py = dist * 0.5; pz = dist * 1.4;
+        px = dist * 0.2;
+        py = dist * 0.5;
+        pz = dist * 1.4;
         break;
       case "bottom":
-        px = dist * 0.8; py = -dist * 0.3; pz = dist * 1.0;
+        px = dist * 0.8;
+        py = -dist * 0.3;
+        pz = dist * 1.0;
+        break;
+      case "top-down":
+        px = dist * 0.1;
+        py = dist * 1.2;
+        pz = dist * 0.3;
         break;
       default:
-        px = dist * 0.9; py = dist * 0.65; pz = dist * 1.1;
+        px = dist * 0.9;
+        py = dist * 0.65;
+        pz = dist * 1.1;
     }
-    camera.position.set(px, py, pz);
-    camera.lookAt(0, 0, 0);
+
+    targetPos.current.set(px, py, pz);
+
+    // Instant position on first render, smooth after
+    if (isFirstRender.current) {
+      camera.position.set(px, py, pz);
+      camera.lookAt(0, 0, 0);
+      isFirstRender.current = false;
+    }
+
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
     }
   }, [camera, dist, cameraHint]);
+
+  // Smooth camera transitions between steps
+  useFrame(() => {
+    if (isFirstRender.current) return;
+    camera.position.lerp(targetPos.current, 0.03);
+    camera.lookAt(0, 0, 0);
+  });
 
   return (
     <OrbitControls
@@ -620,7 +899,7 @@ function GuideCameraRig({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STEP CARD — floating UI panel
+// STEP CARD v2 — tools, pro tips, materials, fasteners
 // ═══════════════════════════════════════════════════════════════════════════
 
 function StepCard({
@@ -629,6 +908,7 @@ function StepCard({
   totalSteps,
   cols,
   rows,
+  config,
   onNext,
   onPrev,
   onReset,
@@ -638,11 +918,12 @@ function StepCard({
   totalSteps: number;
   cols: number;
   rows: number;
+  config: BuildConfig;
   onNext: () => void;
   onPrev: () => void;
   onReset: () => void;
 }) {
-  const materials = computeMaterials(step, cols, rows);
+  const materials = computeMaterials(step, cols, rows, config);
   const isLast = stepIndex === totalSteps - 1;
 
   return (
@@ -658,60 +939,115 @@ function StepCard({
           </span>
         </div>
         <h3 className="text-lg font-extrabold text-white">{step.title}</h3>
-      </div>
-
-      {/* Instruction */}
-      <div className="border-b border-slate-800 px-5 py-4">
-        <div className="flex items-start gap-2">
-          <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
-          <p className="text-sm leading-relaxed text-stone-300">
-            {step.instruction}
-          </p>
+        {/* Progress bar */}
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="h-full rounded-full bg-yellow-400 transition-all duration-500"
+            style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+          />
         </div>
       </div>
 
-      {/* Screw callout */}
-      {step.screwType && (
-        <div className="border-b border-slate-800 px-5 py-3">
-          <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-              Fastener
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-white">
-              {step.screwType.label}
-            </p>
-            <p className="text-[11px] text-stone-400">
-              {step.screwType.description}
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Instruction */}
+        <div className="border-b border-slate-800 px-5 py-4">
+          <div className="flex items-start gap-2">
+            <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+            <p className="text-sm leading-relaxed text-stone-300">
+              {step.instruction}
             </p>
           </div>
         </div>
-      )}
 
-      {/* Material checklist */}
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        <div className="mb-2 flex items-center gap-1.5">
-          <Package className="h-3.5 w-3.5 text-yellow-400" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
-            Materials for this step
-          </span>
-        </div>
-        <ul className="space-y-1.5">
-          {materials.map((m, i) => (
-            <li
-              key={i}
-              className="flex items-center gap-2.5 rounded-lg bg-slate-800/60 px-3 py-2"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">{m.name}</p>
-                <p className="text-[10px] text-stone-500">{m.detail}</p>
-              </div>
-              <span className="font-mono text-sm font-bold text-yellow-400">
-                ×{m.qty}
+        {/* Tools required */}
+        {step.tools.length > 0 && (
+          <div className="border-b border-slate-800 px-5 py-3">
+            <div className="mb-2 flex items-center gap-1.5">
+              <Hammer className="h-3.5 w-3.5 text-orange-400" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                Tools
               </span>
-            </li>
-          ))}
-        </ul>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {step.tools.map((tool, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-stone-300"
+                  title={tool.detail}
+                >
+                  {tool.name}
+                  {tool.detail && (
+                    <span className="text-stone-600">({tool.detail})</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Screw callout */}
+        {step.screwType && (
+          <div className="border-b border-slate-800 px-5 py-3">
+            <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+                Fastener
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-white">
+                {step.screwType.label}
+              </p>
+              <p className="text-[11px] text-stone-400">
+                {step.screwType.description}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Material checklist */}
+        <div className="px-5 py-4">
+          <div className="mb-2 flex items-center gap-1.5">
+            <Package className="h-3.5 w-3.5 text-yellow-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+              Materials for this step
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {materials.map((m, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-2.5 rounded-lg bg-slate-800/60 px-3 py-2"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">{m.name}</p>
+                  <p className="text-[10px] text-stone-500">{m.detail}</p>
+                </div>
+                <span className="font-mono text-sm font-bold text-yellow-400">
+                  ×{m.qty}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Pro tip */}
+        {step.proTip && (
+          <div className="px-5 pb-4">
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                    Pro Tip
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-stone-400">
+                    {step.proTip}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -757,13 +1093,15 @@ function StepCard({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN EXPORT — AssemblyGuide
+// MAIN EXPORT — AssemblyGuide v2
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface AssemblyGuideProps {
   cols: number;
   rows: number;
   toteType: ToteType;
+  hasWheels?: boolean;
+  hasTop?: boolean;
   onClose?: () => void;
 }
 
@@ -771,12 +1109,17 @@ export default function AssemblyGuide({
   cols,
   rows,
   toteType,
+  hasWheels = true,
+  hasTop = false,
   onClose,
 }: AssemblyGuideProps) {
+  const config: BuildConfig = { hasWheels, hasTop };
+  const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop]);
+
   const [mode, setMode] = useState<"exploded" | "step">("exploded");
   const [stepIndex, setStepIndex] = useState(0);
 
-  const currentStep = ASSEMBLY_STEPS[stepIndex];
+  const currentStep = steps[stepIndex];
 
   const handleStartBuild = useCallback(() => {
     setMode("step");
@@ -784,8 +1127,8 @@ export default function AssemblyGuide({
   }, []);
 
   const handleNext = useCallback(() => {
-    setStepIndex((i) => Math.min(i + 1, ASSEMBLY_STEPS.length - 1));
-  }, []);
+    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+  }, [steps.length]);
 
   const handlePrev = useCallback(() => {
     setStepIndex((i) => Math.max(i - 1, 0));
@@ -837,7 +1180,10 @@ export default function AssemblyGuide({
             cols={cols}
             rows={rows}
             toteType={toteType}
-            cameraHint={mode === "step" ? currentStep?.cameraHint : "overview"}
+            cameraHint={
+              mode === "step" ? currentStep?.cameraHint : "overview"
+            }
+            hasWheels={hasWheels}
           />
 
           <ExplodedAssembly
@@ -846,18 +1192,21 @@ export default function AssemblyGuide({
             toteType={toteType}
             mode={mode}
             stepIndex={stepIndex}
+            steps={steps}
+            hasWheels={hasWheels}
+            hasTop={hasTop}
           />
         </Canvas>
 
         {/* Overlay: Exploded mode "Start Build" button */}
         {mode === "exploded" && (
-          <div className="absolute inset-0 flex items-end justify-center pb-8 pointer-events-none">
+          <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-8">
             <button
               onClick={handleStartBuild}
-              className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-yellow-400 px-8 py-4 text-base font-extrabold uppercase tracking-wider text-gray-950 shadow-2xl shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-1 hover:shadow-yellow-400/50 animate-pulse"
+              className="pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-yellow-400 px-8 py-4 text-base font-extrabold uppercase tracking-wider text-gray-950 shadow-2xl shadow-yellow-400/30 transition-all hover:-translate-y-1 hover:bg-yellow-300 hover:shadow-yellow-400/50"
             >
               <Play className="h-5 w-5" />
-              Start Build
+              Start Build Guide
             </button>
           </div>
         )}
@@ -868,8 +1217,18 @@ export default function AssemblyGuide({
             onClick={onClose}
             className="absolute right-4 top-4 rounded-full bg-slate-900/80 p-2 text-white shadow-lg backdrop-blur transition-colors hover:bg-slate-800"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         )}
@@ -882,7 +1241,20 @@ export default function AssemblyGuide({
                 Exploded View
               </p>
               <p className="text-xs text-stone-400">
-                {cols}×{rows} Unit — Hover screws for details
+                {cols}×{rows} Unit — Hover any piece for dimensions
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step mode: unit config badge */}
+        {mode === "step" && (
+          <div className="absolute left-4 top-4">
+            <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 backdrop-blur">
+              <p className="text-[10px] font-bold text-stone-400">
+                {cols}×{rows} {toteType}
+                {hasWheels ? " + Wheels" : ""}
+                {hasTop ? " + Top" : ""}
               </p>
             </div>
           </div>
@@ -891,13 +1263,14 @@ export default function AssemblyGuide({
 
       {/* ── Step Card Panel (visible in step mode) ────────────────── */}
       {mode === "step" && currentStep && (
-        <aside className="w-full shrink-0 border-t border-slate-700 bg-slate-900 lg:w-[340px] lg:border-l lg:border-t-0">
+        <aside className="w-full shrink-0 border-t border-slate-700 bg-slate-900 lg:w-[380px] lg:border-l lg:border-t-0">
           <StepCard
             step={currentStep}
             stepIndex={stepIndex}
-            totalSteps={ASSEMBLY_STEPS.length}
+            totalSteps={steps.length}
             cols={cols}
             rows={rows}
+            config={config}
             onNext={handleNext}
             onPrev={handlePrev}
             onReset={handleReset}

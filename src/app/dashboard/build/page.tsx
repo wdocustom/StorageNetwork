@@ -1163,6 +1163,8 @@ export default function BuildConfiguratorPage() {
               cols={buildResult.cols}
               rows={buildResult.rows}
               toteType={toteType}
+              hasWheels={hasWheels}
+              hasTop={hasTop}
               onClose={() => setShowAssemblyGuide(false)}
             />
           </Suspense>
