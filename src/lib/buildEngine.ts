@@ -223,9 +223,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       }
 
       // Collect parts for global bin packing
-      // For mini units, we have front + back posts
-      const postMultiplier = unitType === "mini" ? 2 : 2; // Both have front + back
-      for (let i = 0; i < (cols + 1) * postMultiplier; i++) {
+      // Subsequent modules share left-most post with previous module
+      const postCount = modIndex === 0 ? (cols + 1) * 2 : cols * 2;
+      for (let i = 0; i < postCount; i++) {
         allParts.push({
           len: uprightHeight,
           name: unitType === "mini" ? "Mini Upright" : "Upright",
@@ -255,7 +255,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
       // ── Screws ────────────────────────────────────────────────────
       gScrew16 += numRails * 4;
-      gScrew3 += (cols + 1) * 20;
+      // Subsequent modules share left-most post with previous module
+      const screwPostCount = modIndex === 0 ? cols + 1 : cols;
+      gScrew3 += screwPostCount * 20;
 
       // ── Retail ────────────────────────────────────────────────────
       let modRetail = slots * pricePerSlot;

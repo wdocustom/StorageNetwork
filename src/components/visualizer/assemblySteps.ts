@@ -100,7 +100,7 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'Cut 4 plates (2 top, 2 bottom) from 2×4 stock to the full unit width. These tie the ladder frames together across the front and back.',
     partStates: {
-      posts: "ghosted",
+      posts: "hidden",
       rails: "hidden",
       bottomPlates: "visible",
       topPlates: "visible",
@@ -129,10 +129,10 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'Rip 3/4" plywood into 1-7/8" wide strips at 30" long. Set your table saw fence to 1-7/8" and rip full-length strips, then crosscut to 30". These support the totes between the uprights.',
     partStates: {
-      posts: "ghosted",
+      posts: "hidden",
       rails: "visible",
-      bottomPlates: "ghosted",
-      topPlates: "ghosted",
+      bottomPlates: "hidden",
+      topPlates: "hidden",
       casters: "hidden",
       plyTop: "hidden",
       screws: "hidden",
@@ -186,7 +186,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "build-ladders",
     title: "Build the Ladder Frames",
     instruction:
-      'Pair up front and back uprights. Attach plywood rail strips flush to the inside face of each post using #9 × 1-5/8" star drive screws. Drive 2 screws per rail end — one near the front edge and one near the back edge of the post.',
+      'Pair up front and back uprights. Attach plywood rail strips flush to the inside face of each post using #9 × 1-5/8" star drive screws. Drive 2 screws per rail end — one near the front edge and one near the back edge of the post. No pilot holes needed — plywood won\'t split.',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -201,19 +201,18 @@ const ALL_STEPS: AssemblyStep[] = [
     screwType: {
       label: '#9 × 1-5/8" Star Drive',
       length: 1.625,
-      description: "Construction screw — through rail into post face. Pre-drill with 3/32\" bit to prevent plywood splitting.",
+      description: "Construction screw — through plywood rail into post face. No pilot hole required.",
     },
     tools: [
       { name: "Drill/Driver" },
       { name: 'T-25 Star Bit', detail: "for #9 screws" },
-      { name: '3/32" Drill Bit', detail: "pilot holes" },
       { name: "Clamps", detail: "to hold rail flush while driving" },
     ],
     materials: [
       { name: "Plywood Rails", qty: "RAILS_QTY", detail: 'Attach with 2 screws per end' },
       { name: '#9 × 1-5/8" Screws', qty: "RAIL_SCREWS_QTY", detail: "2 per rail end" },
     ],
-    proTip: "Pre-drill every screw hole to prevent the plywood from splitting. Work on a flat surface to keep the ladder square.",
+    proTip: "Work on a flat surface to keep the ladder square. Clamp rails flush before driving screws.",
     cameraHint: "side",
   },
 
@@ -222,7 +221,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-bottom-plates",
     title: "Attach Bottom Plates",
     instruction:
-      'Lay the 2 bottom plates flat on the floor, spaced 30" apart (front to back). Stand the completed ladder frames in position on top of the plates. Drive #9 × 3" screws down through each plate into the end grain of each upright — 2 screws per connection.',
+      'Lay the completed ladder frames on their backs so the front face is up. Position the 2 bottom plates across the bottom ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the end grain of each upright — 2 screws per connection. The unit stays flat on the ground for this step.',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -237,18 +236,17 @@ const ALL_STEPS: AssemblyStep[] = [
     screwType: {
       label: '#9 × 3" Star Drive',
       length: 3.0,
-      description: "Construction screw — down through plate into upright end grain.",
+      description: "Construction screw — through plate into upright end grain. No pilot hole required.",
     },
     tools: [
       { name: "Drill/Driver" },
       { name: 'T-25 Star Bit', detail: "for #9 screws" },
-      { name: 'Speed Square', detail: "verify plumb" },
     ],
     materials: [
       { name: "2×4 Bottom Plates", qty: "2", detail: "Front and back" },
       { name: '#9 × 3" Screws', qty: "BOTTOM_PLATE_SCREWS_QTY", detail: "2 per post-plate joint" },
     ],
-    proTip: "Have a helper hold the first ladder plumb while you drive the bottom plate screws. After 2 ladders are secured, the structure becomes self-supporting.",
+    proTip: "Working with the unit flat on the ground makes it much easier to align ladders and drive screws. No helper needed.",
     cameraHint: "front",
   },
 
@@ -257,7 +255,7 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-top-plates",
     title: "Attach Top Plates",
     instruction:
-      'Place the 2 top plates across the top of all uprights, front and back. Drive #9 × 3" screws down through the plate into the top end grain of each upright — 2 screws per connection. Check for square by measuring diagonals.',
+      'With the unit still laying on its front, position the 2 top plates across the top ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the top end grain of each upright — 2 screws per connection.',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -272,13 +270,12 @@ const ALL_STEPS: AssemblyStep[] = [
     screwType: {
       label: '#9 × 3" Star Drive',
       length: 3.0,
-      description: "Construction screw — down through plate into upright top end grain.",
+      description: "Construction screw — through plate into upright top end grain. No pilot hole required.",
     },
     tools: [
       { name: "Drill/Driver" },
       { name: 'T-25 Star Bit' },
       { name: "Tape Measure", detail: "check diagonals for square" },
-      { name: "Step Ladder", detail: "for reaching top" },
     ],
     materials: [
       { name: "2×4 Top Plates", qty: "2", detail: "Front and back" },
@@ -288,12 +285,12 @@ const ALL_STEPS: AssemblyStep[] = [
     cameraHint: "overview",
   },
 
-  // ── STEP 8: Flip & attach casters (conditional: hasWheels) ──────────────
+  // ── STEP 8: Back supports + casters (conditional: hasWheels) ────────────
   {
     id: "attach-casters",
-    title: "Flip & Attach Casters",
+    title: "Back Supports & Casters",
     instruction:
-      'Carefully flip the assembled frame upside down. Position a heavy-duty swivel caster at each corner, centered on the bottom plate over each end post. Drive 4 lag screws per caster through the mounting plate into the 2×4 bottom plate.',
+      'With the unit still laying on its front, install plywood back supports diagonally at the top and bottom corners of the back face. These prevent racking and keep the unit square. Measure corner-to-corner diagonals — they should match within 1/8". Once square, screw the diagonal braces in place. While the unit is still on its front, attach a heavy-duty swivel caster at each corner of the bottom plate. Drive 4 lag screws per caster through the mounting plate into the 2×4 bottom plate. No pilot holes required for the entire build.',
     partStates: {
       posts: "visible",
       rails: "visible",
@@ -308,18 +305,19 @@ const ALL_STEPS: AssemblyStep[] = [
     screwType: {
       label: '1/4" × 1-1/2" Lag Screw',
       length: 1.5,
-      description: "Lag screw — through caster mounting plate into bottom 2×4 plate. Pre-drill with 3/16\" bit.",
+      description: "Lag screw — through caster mounting plate into bottom 2×4 plate. No pilot hole required.",
     },
     tools: [
       { name: "Drill/Driver" },
-      { name: '3/16" Drill Bit', detail: "pilot holes for lag screws" },
       { name: '7/16" Socket', detail: "or wrench for lag heads" },
+      { name: "Tape Measure", detail: "corner-to-corner diagonals" },
     ],
     materials: [
-      { name: "5\" Swivel Casters", qty: "4", detail: "Heavy-duty, industrial" },
+      { name: "Plywood Back Supports", qty: "BACK_SUPPORTS_QTY", detail: "Diagonal braces at top & bottom corners" },
+      { name: '5" Swivel Casters', qty: "4", detail: "Heavy-duty, industrial" },
       { name: '1/4" × 1-1/2" Lag Screws', qty: "16", detail: "4 per caster plate" },
     ],
-    proTip: "Pre-drill every lag screw hole. Driving lags without pilot holes will split the 2×4. Use a ratchet or socket driver for final tightening.",
+    proTip: "Measure corner-to-corner diagonals before fastening the back supports. If they match within 1/8\", you're square. The diagonal braces lock the frame and prevent racking.",
     cameraHint: "bottom",
     condition: "hasWheels",
   },
@@ -439,14 +437,35 @@ export function computeMaterials(
   const numPosts = (cols + 1) * 2; // front + back
   const numRails = cols * rows * 2; // left + right per bay per tier
   const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
-  const perPlateScrews = (cols + 1) * 2; // 2 per post, front + back
+  // 2 screws per connection × 2 plates (front+back) × (cols+1) posts
+  const perPlateScrews = (cols + 1) * 2 * 2;
+  const backSupports = cols <= 4 ? 4 : 6;
   const totes = cols * rows;
   const uprightH = rows * 16; // rows × TIER_SPACING
   const plateLen = cols * (cols > 0 ? 19.75 : 20.75) + (cols + 1) * 1.5; // approximate
 
-  // Board count: rough estimate based on uprights + plates
-  const uprightBoards = Math.ceil((numPosts * uprightH) / 96);
-  const plateBoards = Math.ceil((4 * plateLen) / 96);
+  // Board count: bin-packing for accuracy
+  const STOCK = 96;
+  const KERF = 0.125;
+  const parts: number[] = [];
+  // Uprights
+  for (let i = 0; i < numPosts; i++) parts.push(uprightH);
+  // Plates (4 total: 2 top, 2 bottom)
+  for (let k = 0; k < 4; k++) parts.push(plateLen);
+  parts.sort((a, b) => b - a);
+  const bins: number[] = [];
+  for (const len of parts) {
+    let placed = false;
+    for (let b = 0; b < bins.length; b++) {
+      if (bins[b] >= len + KERF) {
+        bins[b] -= len + KERF;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) bins.push(STOCK - len);
+  }
+  const totalBoards = bins.length;
 
   // Top sheet count
   const totalW = plateLen;
@@ -459,17 +478,18 @@ export function computeMaterials(
     POSTS_QTY: String(numPosts),
     RAILS_QTY: String(numRails),
     RAIL_SCREWS_QTY: String(railScrews),
-    PLATE_SCREWS_QTY: String(perPlateScrews * 2),
-    BOTTOM_PLATE_SCREWS_QTY: String(perPlateScrews),
-    TOP_PLATE_SCREWS_QTY: String(perPlateScrews),
+    PLATE_SCREWS_QTY: String(perPlateScrews),
+    BOTTOM_PLATE_SCREWS_QTY: String(perPlateScrews / 2),
+    TOP_PLATE_SCREWS_QTY: String(perPlateScrews / 2),
     TOTES_QTY: String(totes),
-    BOARDS_QTY: String(uprightBoards + plateBoards),
+    BOARDS_QTY: String(totalBoards),
     UPRIGHT_HEIGHT: `${uprightH}"`,
     PLATE_LENGTH: `${Math.round(plateLen)}"`,
     RAIL_LENGTH: '30"',
     UNIT_WIDTH: `${Math.round(plateLen)}"`,
     TOP_SHEETS_QTY: String(topSheets),
     TOP_SCREWS_QTY: String(topScrews),
+    BACK_SUPPORTS_QTY: String(backSupports),
   };
 
   return step.materials.map((m) => ({

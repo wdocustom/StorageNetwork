@@ -156,10 +156,13 @@ function HoverablePart({
               borderRadius: "10px",
               fontSize: "11px",
               fontWeight: 700,
-              whiteSpace: "nowrap",
+              whiteSpace: "normal",
               border: "1px solid rgba(251, 191, 36, 0.3)",
               boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-              maxWidth: "240px",
+              maxWidth: "280px",
+              width: "max-content",
+              textAlign: "center",
+              lineHeight: 1.4,
             }}
           >
             {label}
@@ -352,10 +355,10 @@ function ExplodedAssembly({
           tp: [0, 6, 0],
         };
       case "rip-rails":
-        // Rails offset to side
+        // Rails centered — only visible part
         return {
           posts: [0, 0, 0],
-          rails: [6, -lift - PLATE_H, 0],
+          rails: [0, 0, 0],
           bp: [0, 0, 0],
           tp: [0, 0, 0],
         };
@@ -812,6 +815,7 @@ function GuideCameraRig({
   const controlsRef = useRef<any>(null);
   const targetPos = useRef(new THREE.Vector3());
   const isFirstRender = useRef(true);
+  const isAnimating = useRef(false);
 
   const bayW = getBayWidth(toteType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
@@ -863,6 +867,9 @@ function GuideCameraRig({
       camera.position.set(px, py, pz);
       camera.lookAt(0, 0, 0);
       isFirstRender.current = false;
+    } else {
+      // Start animating toward new target on step change
+      isAnimating.current = true;
     }
 
     if (controlsRef.current) {
@@ -871,11 +878,19 @@ function GuideCameraRig({
     }
   }, [camera, dist, cameraHint]);
 
-  // Smooth camera transitions between steps
+  // Smooth camera transitions between steps — stops once close enough
+  // so OrbitControls has full authority for user zoom/pan/rotate
   useFrame(() => {
-    if (isFirstRender.current) return;
-    camera.position.lerp(targetPos.current, 0.03);
-    camera.lookAt(0, 0, 0);
+    if (!isAnimating.current) return;
+    camera.position.lerp(targetPos.current, 0.06);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+    // Stop animating once close enough to target
+    if (camera.position.distanceTo(targetPos.current) < 0.005) {
+      isAnimating.current = false;
+    }
   });
 
   return (
@@ -949,7 +964,7 @@ function StepCard({
       </div>
 
       {/* Scrollable content area */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="scrollbar-dark min-h-0 flex-1 overflow-y-auto">
         {/* Instruction */}
         <div className="border-b border-slate-800 px-5 py-4">
           <div className="flex items-start gap-2">

@@ -92,14 +92,17 @@ export function calculateMaterialCost(
 
     let unitTotalWidth = 0;
 
-    for (const cols of modules) {
+    for (let modIdx = 0; modIdx < modules.length; modIdx++) {
+      const cols = modules[modIdx];
       const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
       const modWidth = cols * opening + (cols + 1) * GAP;
       const slots = cols * rows;
       unitTotalWidth += modWidth;
 
       // Collect parts globally instead of per-module packing
-      for (let i = 0; i < (cols + 1) * 2; i++) {
+      // Subsequent modules share left-most post with previous module
+      const postCount = modIdx === 0 ? (cols + 1) * 2 : cols * 2;
+      for (let i = 0; i < postCount; i++) {
         allParts.push(rows * TIER_HEIGHT);
       }
       for (let k = 0; k < 4; k++) {
@@ -111,7 +114,9 @@ export function calculateMaterialCost(
       globalStripCount += numRails + backSupports;
 
       totalScrew16 += numRails * 4;
-      totalScrew3 += (cols + 1) * 20;
+      // Subsequent modules share left-most post with previous module
+      const screwPostCount = modIdx === 0 ? cols + 1 : cols;
+      totalScrew3 += screwPostCount * 20;
 
       if (hasTotes) totalTotes += slots;
     }
