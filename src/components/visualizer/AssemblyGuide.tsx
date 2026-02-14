@@ -114,27 +114,31 @@ function AnimatedGroup({ targetPos, children, speed = 0.06 }: AnimatedGroupProps
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ANIMATED ROTATION — slerps quaternion via useFrame for smooth tipping
+// ANIMATED ROTATION — lerps rotation via useFrame for smooth tipping
 // ═══════════════════════════════════════════════════════════════════════════
 
 function AnimatedRotation({
   targetRot,
   children,
-  speed = 0.06,
+  speed = 0.08,
 }: {
   targetRot: [number, number, number];
   children: React.ReactNode;
   speed?: number;
 }) {
   const ref = useRef<THREE.Group>(null);
-  const targetQuat = useMemo(() => {
-    const euler = new THREE.Euler(...targetRot);
-    return new THREE.Quaternion().setFromEuler(euler);
-  }, [targetRot]);
+  const target = useRef(new THREE.Vector3(...targetRot));
+
+  useEffect(() => {
+    target.current.set(...targetRot);
+  }, [targetRot[0], targetRot[1], targetRot[2]]);
 
   useFrame(() => {
     if (!ref.current) return;
-    ref.current.quaternion.slerp(targetQuat, speed);
+    const r = ref.current.rotation;
+    r.x += (target.current.x - r.x) * speed;
+    r.y += (target.current.y - r.y) * speed;
+    r.z += (target.current.z - r.z) * speed;
   });
 
   return <group ref={ref}>{children}</group>;
@@ -218,7 +222,7 @@ function Lumber({
   if (vis === "hidden") return null;
   const mat = vis === "ghosted" ? PINE_GHOST : PINE_MAT;
   const mesh = (
-    <mesh position={label ? undefined : position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
+    <mesh position={position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
       <boxGeometry args={size} />
     </mesh>
   );
@@ -226,7 +230,9 @@ function Lumber({
   if (label && vis === "visible") {
     return (
       <HoverablePart label={label} position={position}>
-        {mesh}
+        <mesh material={mat} castShadow receiveShadow>
+          <boxGeometry args={size} />
+        </mesh>
       </HoverablePart>
     );
   }
@@ -248,7 +254,7 @@ function PlywoodStrip({
   if (vis === "hidden") return null;
   const mat = vis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
   const mesh = (
-    <mesh position={label ? undefined : position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
+    <mesh position={position} material={mat} castShadow={vis === "visible"} receiveShadow={vis === "visible"}>
       <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
     </mesh>
   );
@@ -256,7 +262,9 @@ function PlywoodStrip({
   if (label && vis === "visible") {
     return (
       <HoverablePart label={label} position={position}>
-        {mesh}
+        <mesh material={mat} castShadow receiveShadow>
+          <boxGeometry args={[RAIL_THICKNESS, RAIL_HEIGHT, length]} />
+        </mesh>
       </HoverablePart>
     );
   }
@@ -557,20 +565,35 @@ function ExplodedAssembly({
 
     const showBottom = step.id === "attach-bottom-plates" || step.id === "attach-top-plates" || mode === "exploded";
     const showTop = step.id === "attach-top-plates" || mode === "exploded";
+    const screwSpreadX = 0.4; // ±0.4" from post center — 2 screws per joint
 
     for (let i = 0; i <= cols; i++) {
       const px = getPostX(i, bayW);
 
       if (showBottom) {
-        // Bottom plate screws — head below, tip up
+        // Bottom plate screws — 2 per joint, head below, tip up
+        // Front plate
         screws.push({
-          pos: [px, lift - 0.5, POST_D / 2],
+          pos: [px - screwSpreadX, lift - 0.5, POST_D / 2],
           rot: [0, 0, Math.PI],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
         });
         screws.push({
-          pos: [px, lift - 0.5, RACK_DEPTH - POST_D / 2],
+          pos: [px + screwSpreadX, lift - 0.5, POST_D / 2],
+          rot: [0, 0, Math.PI],
+          len: 3.0,
+          label: '#9 × 3" Star Drive — plate into post end grain',
+        });
+        // Back plate
+        screws.push({
+          pos: [px - screwSpreadX, lift - 0.5, RACK_DEPTH - POST_D / 2],
+          rot: [0, 0, Math.PI],
+          len: 3.0,
+          label: '#9 × 3" Star Drive — plate into post end grain',
+        });
+        screws.push({
+          pos: [px + screwSpreadX, lift - 0.5, RACK_DEPTH - POST_D / 2],
           rot: [0, 0, Math.PI],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
@@ -578,15 +601,29 @@ function ExplodedAssembly({
       }
 
       if (showTop) {
-        // Top plate screws — head above, tip down
+        // Top plate screws — 2 per joint, head above, tip down
+        // Front plate
         screws.push({
-          pos: [px, frameH + lift + 0.5, POST_D / 2],
+          pos: [px - screwSpreadX, frameH + lift + 0.5, POST_D / 2],
           rot: [0, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
         });
         screws.push({
-          pos: [px, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
+          pos: [px + screwSpreadX, frameH + lift + 0.5, POST_D / 2],
+          rot: [0, 0, 0],
+          len: 3.0,
+          label: '#9 × 3" Star Drive — plate into post top end grain',
+        });
+        // Back plate
+        screws.push({
+          pos: [px - screwSpreadX, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
+          rot: [0, 0, 0],
+          len: 3.0,
+          label: '#9 × 3" Star Drive — plate into post top end grain',
+        });
+        screws.push({
+          pos: [px + screwSpreadX, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
           rot: [0, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
