@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
+import { sendWaitlistAlert } from "@/lib/email";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -142,5 +143,57 @@ export async function validateServiceArea(
   } catch {
     // On error, don't block the booking
     return { inArea: true };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Waitlist — out-of-area customer requests notification to installer
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface WaitlistInput {
+  installer_id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  customer_zip: string;
+}
+
+export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  if (!input.customer_name?.trim() || !input.customer_email?.trim()) {
+    return { success: false, error: "Name and email are required." };
+  }
+  if (!input.customer_zip?.trim() || !/^\d{5}$/.test(input.customer_zip.trim())) {
+    return { success: false, error: "A valid 5-digit ZIP code is required." };
+  }
+
+  try {
+    // Fetch installer info for the email
+    const { data: installer } = await supabase
+      .from("profiles")
+      .select("email, business_name, service_radius_miles")
+      .eq("id", input.installer_id)
+      .single();
+
+    if (!installer?.email) {
+      return { success: false, error: "Installer not found." };
+    }
+
+    // Send the waitlist email to the installer
+    await sendWaitlistAlert(installer.email, {
+      installerName: installer.business_name || "Installer",
+      customerName: input.customer_name.trim(),
+      customerEmail: input.customer_email.trim(),
+      customerPhone: input.customer_phone?.trim() || undefined,
+      customerZip: input.customer_zip.trim(),
+      radiusMiles: installer.service_radius_miles || undefined,
+    });
+
+    return { success: true };
+  } catch (err) {
+    console.error("[Waitlist] Failed to submit:", err);
+    return { success: false, error: "Something went wrong. Please try again." };
   }
 }

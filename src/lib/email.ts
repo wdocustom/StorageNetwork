@@ -666,6 +666,79 @@ export async function sendProWelcomeEmail(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Out-of-Area Waitlist Alert (Installer)
+// Trigger: Customer outside service area requests to be waitlisted
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendWaitlistAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    customerZip: string;
+    radiusMiles?: number;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard/settings`;
+
+  const phoneLine = data.customerPhone
+    ? `<tr><td style="padding:8px 0;color:#64748b;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;">${data.customerPhone}</td></tr>`
+    : "";
+
+  const radiusLine = data.radiusMiles
+    ? `outside your current <strong>${data.radiusMiles}-mile</strong> service radius`
+    : `outside your current service area`;
+
+  const html = emailShell(
+    "Waitlist Request",
+    `
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 24px;color:#64748b;font-size:15px;">
+      A customer wants a tote rack build, but their ZIP code (<strong style="color:#1e293b;">${data.customerZip}</strong>) is ${radiusLine}.
+      They&rsquo;ve asked to be added to your waitlist in case you expand coverage.
+    </p>
+
+    <div style="background-color:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#92400e;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
+      <table style="width:100%;font-size:14px;color:#334155;">
+        <tr><td style="padding:8px 0;color:#64748b;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;">${data.customerName}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${data.customerEmail}" style="color:#2563eb;text-decoration:none;">${data.customerEmail}</a></td></tr>
+        ${phoneLine}
+        <tr><td style="padding:8px 0;color:#64748b;">ZIP Code</td><td style="padding:8px 0;font-weight:800;text-align:right;color:#dc2626;">${data.customerZip}</td></tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.7;">
+      If you&rsquo;d like to take this job, you can reach out to the customer directly
+      or expand your service radius in your dashboard settings.
+    </p>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="mailto:${data.customerEmail}?subject=Storage%20Network%20%E2%80%94%20Service%20Area%20Update" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+        Email Customer
+      </a>
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
+        Update Service Area
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      This customer was not charged. No action is required if you don&rsquo;t service this area.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: `Waitlist: ${data.customerName} in ZIP ${data.customerZip} — Outside Service Area`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Legacy Compat: Quote Email (used by existing quote flows)
 // ═══════════════════════════════════════════════════════════════════════════
 

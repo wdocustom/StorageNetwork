@@ -10,10 +10,11 @@ import {
 import { useParams } from "next/navigation";
 import { calculateBuild } from "@/app/actions/calculator";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { validateServiceArea } from "@/app/actions/installer";
+import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock,
   Loader2,
   Plus,
   Send,
@@ -88,6 +89,9 @@ function BookingPageInner() {
   const [addressZip, setAddressZip] = useState("");
   const [zipOutOfArea, setZipOutOfArea] = useState(false);
   const [zipCheckMsg, setZipCheckMsg] = useState("");
+  const [waitlistSending, setWaitlistSending] = useState(false);
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -213,6 +217,33 @@ function BookingPageInner() {
       setSubmitError(err instanceof Error ? err.message : "Submission failed.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleWaitlist() {
+    setWaitlistError("");
+    if (!name.trim() || !email.trim()) {
+      setWaitlistError("Name and email are required to join the waitlist.");
+      return;
+    }
+    setWaitlistSending(true);
+    try {
+      const res = await submitWaitlistRequest({
+        installer_id: installerId,
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone || undefined,
+        customer_zip: addressZip,
+      });
+      if (res.success) {
+        setWaitlistSent(true);
+      } else {
+        setWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setWaitlistSending(false);
     }
   }
 
@@ -435,24 +466,55 @@ function BookingPageInner() {
                       }`}
                     />
                   </div>
-                  {zipOutOfArea && zipCheckMsg && (
-                    <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-950/20 px-3 py-2">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
-                      <p className="text-xs leading-relaxed text-red-300">{zipCheckMsg}</p>
+                  {zipOutOfArea && zipCheckMsg && !waitlistSent && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3">
+                      <div className="mb-2 flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+                        <p className="text-xs leading-relaxed text-amber-300">{zipCheckMsg}</p>
+                      </div>
+                      <p className="mb-3 text-xs text-stone-400">
+                        Want this installer to know you&rsquo;re interested? Join the waitlist and they&rsquo;ll be notified.
+                      </p>
+                      <button
+                        onClick={handleWaitlist}
+                        disabled={waitlistSending}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-sm font-bold text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                      >
+                        {waitlistSending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                        {waitlistSending ? "Sending…" : "Join Waitlist"}
+                      </button>
+                      {waitlistError && (
+                        <p className="mt-2 text-xs font-medium text-red-400">{waitlistError}</p>
+                      )}
                     </div>
                   )}
-                  <button
-                    onClick={handleBookDeposit}
-                    disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 disabled:opacity-50"
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {submitting ? "Submitting…" : "Book & Pay Deposit"}
-                  </button>
+                  {waitlistSent && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4 text-center">
+                      <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                      <p className="text-sm font-semibold text-white">Waitlist Request Sent</p>
+                      <p className="mt-1 text-xs text-stone-400">
+                        The installer has been notified. They&rsquo;ll reach out if they can accommodate your area.
+                      </p>
+                    </div>
+                  )}
+                  {!zipOutOfArea && (
+                    <button
+                      onClick={handleBookDeposit}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {submitting ? "Submitting…" : "Book & Pay Deposit"}
+                    </button>
+                  )}
                   {submitError && (
                     <p className="text-xs font-medium text-red-400">{submitError}</p>
                   )}

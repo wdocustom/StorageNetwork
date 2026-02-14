@@ -8,7 +8,7 @@ import {
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { validateServiceArea } from "@/app/actions/installer";
+import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
@@ -17,6 +17,7 @@ import {
   MapPin,
   CheckCircle2,
   AlertTriangle,
+  Clock,
   Loader2,
   Send,
   Plus,
@@ -214,6 +215,9 @@ export default function DesignConfigurator({
   // ── Service area validation ─────────────────────────────────────────
   const [zipOutOfArea, setZipOutOfArea] = useState(false);
   const [zipCheckMsg, setZipCheckMsg] = useState("");
+  const [waitlistSending, setWaitlistSending] = useState(false);
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Real-time ZIP validation when user enters installation ZIP
@@ -462,6 +466,39 @@ export default function DesignConfigurator({
 
   function handleRemoveUnit(index: number) {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleWaitlist() {
+    setWaitlistError("");
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+    if (!fullName || !email.trim()) {
+      setWaitlistError("Name and email are required to join the waitlist.");
+      return;
+    }
+    const zip = hasDifferentDelivery ? deliveryZip.trim() : addrZip.trim();
+    if (!zip) {
+      setWaitlistError("ZIP code is required.");
+      return;
+    }
+    setWaitlistSending(true);
+    try {
+      const res = await submitWaitlistRequest({
+        installer_id: installerId,
+        customer_name: fullName,
+        customer_email: email.trim(),
+        customer_phone: phone.trim() || undefined,
+        customer_zip: zip,
+      });
+      if (res.success) {
+        setWaitlistSent(true);
+      } else {
+        setWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setWaitlistSending(false);
+    }
   }
 
   async function handleBookDeposit() {
@@ -1103,11 +1140,40 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
-                      {/* Service area warning */}
-                      {zipOutOfArea && (
-                        <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                          <p className="text-xs font-medium text-red-700">{zipCheckMsg}</p>
+                      {/* Service area warning + waitlist */}
+                      {zipOutOfArea && !waitlistSent && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                          <div className="mb-2 flex items-start gap-2">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                            <p className="text-xs font-medium text-amber-700">{zipCheckMsg}</p>
+                          </div>
+                          <p className="mb-3 text-xs text-stone-500">
+                            Want this installer to know you&apos;re interested? Join the waitlist and they&apos;ll be notified.
+                          </p>
+                          <button
+                            onClick={handleWaitlist}
+                            disabled={waitlistSending}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-100 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-200 disabled:opacity-50"
+                          >
+                            {waitlistSending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Clock className="h-4 w-4" />
+                            )}
+                            {waitlistSending ? "Sending…" : "Join Waitlist"}
+                          </button>
+                          {waitlistError && (
+                            <p className="mt-2 text-xs font-medium text-red-600">{waitlistError}</p>
+                          )}
+                        </div>
+                      )}
+                      {waitlistSent && (
+                        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center">
+                          <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
+                          <p className="text-sm font-semibold text-gray-900">Waitlist Request Sent</p>
+                          <p className="mt-1 text-xs text-stone-500">
+                            The installer has been notified. They&apos;ll reach out if they can accommodate your area.
+                          </p>
                         </div>
                       )}
                       {/* Installation address toggle */}
@@ -1160,36 +1226,40 @@ export default function DesignConfigurator({
                           </div>
                         </div>
                       )}
-                      <button
-                        onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
-                        disabled={submitting}
-                        className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
-                          isDemo
-                            ? "bg-stone-400 text-white shadow-stone-400/20 cursor-not-allowed"
-                            : "bg-yellow-400 text-gray-950 shadow-yellow-400/30 hover:bg-yellow-300 hover:-translate-y-0.5"
-                        }`}
-                      >
-                        {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : stripeAccountId ? (
-                          <CreditCard className="h-4 w-4" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        {isDemo
-                          ? "Demo Mode — No Payment"
-                          : submitting
-                          ? "Submitting…"
-                          : stripeAccountId
-                          ? "Pay Deposit & Book"
-                          : "Submit Quote Request"}
-                      </button>
-                      <p className="text-[11px] text-stone-500 text-center">
-                        By placing this order, you agree to our{" "}
-                        <a href="/terms" className="underline hover:text-yellow-600">
-                          Terms of Service
-                        </a>.
-                      </p>
+                      {!zipOutOfArea && (
+                        <>
+                          <button
+                            onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
+                            disabled={submitting}
+                            className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
+                              isDemo
+                                ? "bg-stone-400 text-white shadow-stone-400/20 cursor-not-allowed"
+                                : "bg-yellow-400 text-gray-950 shadow-yellow-400/30 hover:bg-yellow-300 hover:-translate-y-0.5"
+                            }`}
+                          >
+                            {submitting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : stripeAccountId ? (
+                              <CreditCard className="h-4 w-4" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                            {isDemo
+                              ? "Demo Mode — No Payment"
+                              : submitting
+                              ? "Submitting…"
+                              : stripeAccountId
+                              ? "Pay Deposit & Book"
+                              : "Submit Quote Request"}
+                          </button>
+                          <p className="text-[11px] text-stone-500 text-center">
+                            By placing this order, you agree to our{" "}
+                            <a href="/terms" className="underline hover:text-yellow-600">
+                              Terms of Service
+                            </a>.
+                          </p>
+                        </>
+                      )}
                       {submitError && (
                         <p className="text-xs font-medium text-red-600">
                           {submitError}
