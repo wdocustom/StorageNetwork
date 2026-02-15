@@ -6,6 +6,18 @@
 // It only renders what the server explicitly decided to show.
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Installer-configurable pricing overrides (all optional, NULL = platform default) */
+export interface InstallerPricing {
+  standard_slot?: number;
+  mini_slot?: number;
+  standard_tote?: number;
+  standard_tote_clear?: number;
+  mini_tote?: number;
+  standard_wheels?: number;
+  mini_wheels?: number;
+  plywood_top?: number;
+}
+
 export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
   routing: {
@@ -23,6 +35,9 @@ export interface DesignPageViewModel {
     logoUrl: string | null;
     isVerified: boolean;
   };
+
+  /** Installer custom pricing (Pro only). Undefined = use platform defaults. */
+  pricing?: InstallerPricing;
 
   /** Availability metadata */
   available: boolean;

@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+import type { InstallerPricing } from "@/types/viewModels";
+
 export interface AvailabilityResult {
   available: boolean;
   installer_id: string | null;
@@ -18,11 +20,12 @@ export interface AvailabilityResult {
   installer_working_days: string[];
   installer_is_pro: boolean;
   installer_logo_url: string | null;
+  installer_pricing: InstallerPricing | null;
   message: string;
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config";
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -40,6 +43,7 @@ function toResult(
       installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       installer_is_pro: false,
       installer_logo_url: null,
+      installer_pricing: null,
       message: fallbackMsg,
     };
   }
@@ -57,6 +61,7 @@ function toResult(
       (data.working_days as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
     installer_is_pro: !!(data.is_pro),
     installer_logo_url: (data.logo_url as string) ?? null,
+    installer_pricing: (data.pricing_config as InstallerPricing) ?? null,
     message: `${name} serves your area.`,
   };
 }

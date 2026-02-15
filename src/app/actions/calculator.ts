@@ -9,6 +9,8 @@ export type ToteColor = "black" | "clear";
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
+import type { InstallerPricing } from "@/types/viewModels";
+
 interface CalculateBuildInput {
   wallWidth?: number;
   wallHeight?: number;
@@ -24,6 +26,8 @@ interface CalculateBuildInput {
     top: boolean;
   };
   mode: "wallFit" | "manual";
+  /** Optional installer pricing overrides (Pro feature) */
+  installerPricing?: InstallerPricing;
 }
 
 interface BuildResult {
@@ -280,16 +284,30 @@ export async function calculateBuild(
   const totalH = addOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
 
   // ── Pricing ────────────────────────────────────────────────────────────
+  // Apply installer pricing overrides if provided (Pro feature)
+  const ip = input.installerPricing;
+  const effectiveSlotPrice = unitType === "mini"
+    ? (ip?.mini_slot ?? config.pricePerSlot)
+    : (ip?.standard_slot ?? config.pricePerSlot);
+  const effectiveWheelsPrice = unitType === "mini"
+    ? (ip?.mini_wheels ?? config.priceWheels)
+    : (ip?.standard_wheels ?? config.priceWheels);
+  const effectiveTopPrice = ip?.plywood_top ?? config.pricePlywoodSheet;
+
   const slots = cols * rows;
-  let price = slots * config.pricePerSlot;
+  let price = slots * effectiveSlotPrice;
   if (addOns.totes) {
-    // Use clear tote pricing for HDX clear totes, otherwise use config price
-    const totePrice = (toteModel === "HDX" && unitType === "standard" && toteColor === "clear")
-      ? STANDARD_TOTE_CLEAR_PRICE
-      : config.pricePerTote;
+    let totePrice: number;
+    if (toteModel === "HDX" && unitType === "standard" && toteColor === "clear") {
+      totePrice = ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE;
+    } else if (unitType === "mini") {
+      totePrice = ip?.mini_tote ?? config.pricePerTote;
+    } else {
+      totePrice = ip?.standard_tote ?? config.pricePerTote;
+    }
     price += slots * totePrice;
   }
-  if (addOns.wheels) price += config.priceWheels;
+  if (addOns.wheels) price += effectiveWheelsPrice;
 
   // Plywood top calculation
   let topSheets = 0;
@@ -311,7 +329,7 @@ export async function calculateBuild(
       else if (totalW > 96) topSheets = 2;
       else topSheets = 1;
     }
-    price += topSheets * config.pricePlywoodSheet;
+    price += topSheets * effectiveTopPrice;
   }
 
   return {

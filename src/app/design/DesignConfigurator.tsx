@@ -161,6 +161,7 @@ export default function DesignConfigurator({
         installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
         installer_is_pro: false,
         installer_logo_url: null,
+        installer_pricing: null,
         message: "Unable to check availability.",
       });
     } finally {
@@ -293,6 +294,7 @@ export default function DesignConfigurator({
             orientation: orient,
             addOns: { totes, wheels, top },
             mode: "manual",
+            installerPricing: data?.pricing,
           });
           if (res.success) {
             setBuild({
@@ -391,6 +393,7 @@ export default function DesignConfigurator({
         orientation: effectiveOrientation,
         addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
         mode: "wallFit",
+        installerPricing: data?.pricing,
       });
       if (res.success) {
         setCols(res.cols);

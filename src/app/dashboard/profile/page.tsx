@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
+import PricingSettings from "@/components/dashboard/PricingSettings";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -915,6 +916,13 @@ function ProfilePageInner() {
         {/* Pro QR Code Generator (Pro users with slug only) */}
         {isPro && profile?.slug && (
           <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION D: Custom Pricing (Pro users only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {isPro && profile && (
+          <PricingSettings userId={profile.id} />
         )}
 
         {/* ═══════════════════════════════════════════════════════════════

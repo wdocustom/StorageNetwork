@@ -48,6 +48,10 @@ export function mapToDesignViewModel(
         : PLATFORM_BRANDING.logoUrl,
       isVerified: hasBrandingRights,
     },
+    // Pro installers can set custom pricing; free installers always use platform defaults
+    pricing: hasBrandingRights && installer.installer_pricing
+      ? installer.installer_pricing
+      : undefined,
     available: true,
     message: installer.message,
   };
