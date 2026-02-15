@@ -193,12 +193,9 @@ function PlywoodStrip({ position, length, railHeight }: {
 // Rib/lid detail constants
 const RIB_DEPTH = 0.15;       // How far ribs protrude from body face
 const RIB_WIDTH = 0.3;        // Width of each vertical rib
-const LID_GRID_H = 0.12;      // Height of raised grid lines on lid
-const LID_GRID_W = 0.2;       // Width of grid lines
+const LID_GRID_H = 0.10;      // Height of raised grid lines on lid
+const LID_GRID_W = 0.18;      // Width of grid lines
 const LID_LIP = 0.4;          // How far lid overhangs body on each side
-const HANDLE_W = 4.0;          // Handle opening width
-const HANDLE_H = 1.6;          // Handle opening height
-const HANDLE_THICK = 0.5;      // Handle bar thickness
 
 function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unitDepth }: {
   position: [number, number, number];
@@ -299,40 +296,31 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
     return result;
   }, [isMini, toteBodyH, bodyTopW, bodyBotW, bodyTopD, bodyBotD]);
 
-  // Lid grid lines (diamond cross-hatch pattern)
+  // Lid grid lines — axis-aligned X and Z lines forming a simple grid
   const lidGrid = useMemo(() => {
     if (isMini) return [];
-    const lines: { pos: [number, number, number]; size: [number, number, number]; rotY: number }[] = [];
+    const lines: { pos: [number, number, number]; size: [number, number, number] }[] = [];
     const lidY = toteBodyH + toteRimH + LID_GRID_H / 2;
-    const innerW = rimW - LID_LIP * 2 - 1;
-    const innerD = rimD - LID_LIP * 2 - 1;
+    const innerW = rimW - 2.0;  // Inset from lid edge
+    const innerD = rimD - 2.0;
+    const spacing = 3.0;
 
-    // Diagonal grid lines at ±45° — length spans the lid, clipped by lid bounds
-    const spacing = 3.5;
-    const diagLen = Math.sqrt(innerW * innerW + innerD * innerD);
-    const numLines = Math.floor(diagLen / spacing);
-
-    for (let i = -numLines; i <= numLines; i++) {
-      const offset = i * spacing;
-      // +45° diagonal
-      lines.push({
-        pos: [offset * 0.5, lidY, offset * 0.5],
-        size: [LID_GRID_W, LID_GRID_H, diagLen],
-        rotY: Math.PI / 4,
-      });
-      // -45° diagonal
-      lines.push({
-        pos: [offset * 0.5, lidY, -offset * 0.5],
-        size: [LID_GRID_W, LID_GRID_H, diagLen],
-        rotY: -Math.PI / 4,
-      });
+    // Lines running along Z axis (width-wise spacing)
+    const numW = Math.floor(innerW / spacing);
+    for (let i = 0; i <= numW; i++) {
+      const x = -innerW / 2 + i * (innerW / numW);
+      lines.push({ pos: [x, lidY, 0], size: [LID_GRID_W, LID_GRID_H, innerD] });
     }
+
+    // Lines running along X axis (depth-wise spacing)
+    const numD = Math.floor(innerD / spacing);
+    for (let i = 0; i <= numD; i++) {
+      const z = -innerD / 2 + i * (innerD / numD);
+      lines.push({ pos: [0, lidY, z], size: [innerW, LID_GRID_H, LID_GRID_W] });
+    }
+
     return lines;
   }, [isMini, toteBodyH, toteRimH, rimW, rimD]);
-
-  // Lid clipping bounds for grid
-  const lidClipW = (rimW - LID_LIP * 2 - 2) / 2;
-  const lidClipD = (rimD - LID_LIP * 2 - 2) / 2;
 
   return (
     <group position={position}>
@@ -386,60 +374,13 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
         <meshStandardMaterial color={rimDarkColor} roughness={0.35} metalness={0.04} />
       </mesh>
 
-      {/* ── Lid grid pattern (diamond cross-hatch) ───────────────────── */}
-      {!isMini && (
-        <group>
-          {lidGrid.map((line, i) => {
-            // Clip grid lines to lid bounds
-            if (Math.abs(line.pos[0]) > lidClipW || Math.abs(line.pos[2]) > lidClipD) return null;
-            return (
-              <mesh key={`grid-${i}`} position={line.pos} rotation={[0, line.rotY, 0]}>
-                <boxGeometry args={line.size} />
-                <meshStandardMaterial color={rimColor} roughness={0.3} metalness={0.05} />
-              </mesh>
-            );
-          })}
-        </group>
-      )}
-
-      {/* ── Handles (integrated into lid, short ends) ────────────────── */}
-      {!isMini && (
-        <>
-          {/* Front handle (negative Z) */}
-          <group position={[0, toteBodyH + toteRimH + 0.3, -(rimD / 2 + (LID_LIP / 2))]}>
-            {/* Handle bar (bridge over the opening) */}
-            <mesh position={[0, HANDLE_H / 2, 0]}>
-              <boxGeometry args={[HANDLE_W, HANDLE_THICK, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-            {/* Left pillar */}
-            <mesh position={[-HANDLE_W / 2 + HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
-              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-            {/* Right pillar */}
-            <mesh position={[HANDLE_W / 2 - HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
-              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-          </group>
-          {/* Back handle (positive Z) */}
-          <group position={[0, toteBodyH + toteRimH + 0.3, rimD / 2 + (LID_LIP / 2)]}>
-            <mesh position={[0, HANDLE_H / 2, 0]}>
-              <boxGeometry args={[HANDLE_W, HANDLE_THICK, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-            <mesh position={[-HANDLE_W / 2 + HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
-              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-            <mesh position={[HANDLE_W / 2 - HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
-              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
-              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
-            </mesh>
-          </group>
-        </>
-      )}
+      {/* ── Lid grid pattern (rectangular cross-hatch) ─────────────── */}
+      {!isMini && lidGrid.map((line, i) => (
+        <mesh key={`grid-${i}`} position={line.pos}>
+          <boxGeometry args={line.size} />
+          <meshStandardMaterial color={rimDarkColor} roughness={0.3} metalness={0.05} />
+        </mesh>
+      ))}
     </group>
   );
 }
