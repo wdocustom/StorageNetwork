@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { Loader2, KeyRound, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 
@@ -165,9 +166,11 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <img
+          <Image
             src="/logo-storage-network.png"
             alt="Storage Network"
+            width={128}
+            height={128}
             className="mx-auto mb-4 h-32 w-auto object-contain"
           />
           <h1 className="text-lg font-bold uppercase tracking-wider text-white">

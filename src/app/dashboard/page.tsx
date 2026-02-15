@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { siteConfig } from "@/config/site";
 import {
@@ -66,7 +67,7 @@ export default function DashboardPage() {
     }
 
     const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
       // Only count leads with deposit paid (exclude unpaid quotes)
       supabase
         .from("leads")
@@ -136,9 +137,11 @@ export default function DashboardPage() {
       <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
+            <Image
               src={siteConfig.logoPath}
               alt={siteConfig.name}
+              width={56}
+              height={56}
               className="h-14 w-auto flex-shrink-0 object-contain"
             />
             <div>

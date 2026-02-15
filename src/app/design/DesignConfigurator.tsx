@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import {
   checkAvailability,
   type AvailabilityResult,
@@ -321,13 +322,13 @@ export default function DesignConfigurator({
   const numRows = typeof rows === "number" ? rows : parseInt(rows as string) || 0;
 
   // For mini units, plywood top is always included (mandatory)
-  const effectiveHasTop = unitType === "mini" ? true : hasTop;
+  const effectiveHasTop = useMemo(() => unitType === "mini" ? true : hasTop, [unitType, hasTop]);
 
   // Effective orientation: only applies to standard units
-  const effectiveOrientation: Orientation = unitType === "standard" ? orientation : "standard";
+  const effectiveOrientation: Orientation = useMemo(() => unitType === "standard" ? orientation : "standard", [unitType, orientation]);
 
   // Effective tote color: only applies to HDX standard units with totes included
-  const effectiveToteColor: ToteColor = (toteType === "HDX" && unitType === "standard" && hasTotes) ? toteColor : "black";
+  const effectiveToteColor: ToteColor = useMemo(() => (toteType === "HDX" && unitType === "standard" && hasTotes) ? toteColor : "black", [toteType, unitType, hasTotes, toteColor]);
 
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
@@ -579,13 +580,16 @@ export default function DesignConfigurator({
             title="Back to Home"
           >
             {data?.branding.logoUrl ? (
-              <img
+              <Image
                 src={data.branding.logoUrl}
                 alt={data.branding.title}
+                width={56}
+                height={56}
                 className="h-14 w-auto object-contain"
+                unoptimized
               />
             ) : (
-              <img src="/logo-storage-network.png" alt="Storage Network" className="h-14 w-auto object-contain" />
+              <Image src="/logo-storage-network.png" alt="Storage Network" width={56} height={56} className="h-14 w-auto object-contain" />
             )}
           </a>
           <div className="flex-1">

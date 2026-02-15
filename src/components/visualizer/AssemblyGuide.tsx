@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
-import * as THREE from "three";
+import { MeshStandardMaterial, Color, Group, Vector3 } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import ConstructionScrew from "./ConstructionScrew";
 import {
@@ -64,8 +64,8 @@ const MIN_FIRST_RAIL_Y = 13; // First rail at 13" from bottom of upright
 // ═══════════════════════════════════════════════════════════════════════════
 
 function makeMat(color: string, roughness: number, metalness: number) {
-  return new THREE.MeshStandardMaterial({
-    color: new THREE.Color(color),
+  return new MeshStandardMaterial({
+    color: new Color(color),
     roughness,
     metalness,
   });
@@ -102,8 +102,8 @@ interface AnimatedGroupProps {
 }
 
 function AnimatedGroup({ targetPos, children, speed = 0.06 }: AnimatedGroupProps) {
-  const ref = useRef<THREE.Group>(null);
-  const target = useMemo(() => new THREE.Vector3(...targetPos), [targetPos]);
+  const ref = useRef<Group>(null);
+  const target = useMemo(() => new Vector3(...targetPos), [targetPos]);
 
   useFrame(() => {
     if (!ref.current) return;
@@ -126,8 +126,8 @@ function AnimatedRotation({
   children: React.ReactNode;
   speed?: number;
 }) {
-  const ref = useRef<THREE.Group>(null);
-  const target = useRef(new THREE.Vector3(...targetRot));
+  const ref = useRef<Group>(null);
+  const target = useRef(new Vector3(...targetRot));
 
   useEffect(() => {
     target.current.set(...targetRot);
@@ -283,7 +283,7 @@ function FadeGroup({
   vis: PartVisibility;
   children: React.ReactNode;
 }) {
-  const ref = useRef<THREE.Group>(null);
+  const ref = useRef<Group>(null);
   const targetOpacity = vis === "visible" ? 1 : vis === "ghosted" ? 0.12 : 0;
   const currentOpacity = useRef(targetOpacity);
 
@@ -925,7 +925,7 @@ function GuideCameraRig({
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
-  const targetPos = useRef(new THREE.Vector3());
+  const targetPos = useRef(new Vector3());
   const isFirstRender = useRef(true);
   const isAnimating = useRef(false);
 

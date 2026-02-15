@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { X, Camera, Scan, ArrowRight, RotateCcw, Check, AlertCircle, Loader2 } from "lucide-react";
 import { getToteByUPC, getAllUniqueTotes, type ScanToteData } from "@/lib/scan-data";
 import type { MeasurementResult } from "@/app/api/vision/measure/route";
@@ -534,10 +535,12 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
               {/* Captured Image Preview */}
               {capturedImage && (
                 <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden mb-6">
-                  <img
+                  <Image
                     src={capturedImage}
                     alt="Captured wall"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    unoptimized
                   />
                 </div>
               )}

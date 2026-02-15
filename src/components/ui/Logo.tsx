@@ -4,6 +4,8 @@
 // Usage: <Logo size={48} /> or <Logo className="h-12" />
 // ═══════════════════════════════════════════════════════════════════════════
 
+import Image from "next/image";
+
 interface LogoProps {
   size?: number;
   className?: string;
@@ -12,7 +14,7 @@ interface LogoProps {
 
 export default function Logo({ size = 48, className, alt = "Storage Network" }: LogoProps) {
   return (
-    <img
+    <Image
       src="/logo-storage-network.png"
       alt={alt}
       width={size}

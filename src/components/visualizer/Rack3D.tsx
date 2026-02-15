@@ -3,7 +3,7 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
-import * as THREE from "three";
+import { MeshStandardMaterial, Color, BufferGeometry, BufferAttribute, DoubleSide } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -137,8 +137,8 @@ const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
 // Uniform pine color — no canvas texture to avoid UV split artifacts.
 
 const PINE_MAT = (() => {
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color("#C8A96E"),
+  const mat = new MeshStandardMaterial({
+    color: new Color("#C8A96E"),
     roughness: 0.82,
     metalness: 0.0,
   });
@@ -146,8 +146,8 @@ const PINE_MAT = (() => {
 })();
 
 const PLYWOOD_MAT = (() => {
-  return new THREE.MeshStandardMaterial({
-    color: new THREE.Color("#A8884E"),
+  return new MeshStandardMaterial({
+    color: new Color("#A8884E"),
     roughness: 0.6,
     metalness: 0.0,
   });
@@ -256,8 +256,8 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
       0,1,5, 0,5,4, 2,3,7, 2,7,6,
       0,4,7, 0,7,3, 1,2,6, 1,6,5,
     ];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(v, 3));
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(v, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
     return geo;
@@ -272,7 +272,7 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
           metalness={0.02}
           transparent={isMini || isClear}
           opacity={bodyOpacity}
-          side={THREE.DoubleSide}
+          side={DoubleSide}
         />
       </mesh>
       <mesh position={[0, toteBodyH + toteRimH / 2, 0]} castShadow>

@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
@@ -256,9 +257,11 @@ function BookingPageInner() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto max-w-lg text-center">
-          <img
+          <Image
             src="/logo-storage-network.png"
             alt="Storage Network"
+            width={56}
+            height={56}
             className="mx-auto mb-1 h-14 w-auto object-contain"
           />
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
@@ -535,7 +538,7 @@ function BookingPageInner() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 px-4 py-6 text-center">
-        <img src="/logo-storage-network.png" alt="Storage Network" className="mx-auto mb-2 h-10 w-auto object-contain" />
+        <Image src="/logo-storage-network.png" alt="Storage Network" width={40} height={40} className="mx-auto mb-2 h-10 w-auto object-contain" />
         <p className="text-[10px] text-stone-700">
           Powered by The Storage-Network Partner Program
         </p>

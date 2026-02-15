@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   updateProfile,
@@ -133,7 +134,7 @@ function ProfilePageInner() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, stripe_account_id, stripe_details_submitted")
       .eq("id", user.id)
       .single();
 
@@ -458,10 +459,13 @@ function ProfilePageInner() {
               {/* Avatar display - strictly circular */}
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-slate-700 bg-slate-800">
                 {avatarUrl ? (
-                  <img
+                  <Image
                     src={avatarUrl}
                     alt="Avatar"
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover aspect-square rounded-full"
+                    unoptimized
                   />
                 ) : (
                   <User className="h-8 w-8 text-stone-600" />

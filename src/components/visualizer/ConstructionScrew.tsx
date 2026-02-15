@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import * as THREE from "three";
+import { Color, Group, MeshStandardMaterial } from "three";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ConstructionScrew — Low-poly Torx construction screw
@@ -12,8 +12,8 @@ import * as THREE from "three";
 // Color: Zinc/silver metallic
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ZINC_COLOR = new THREE.Color("#C0C0C0");
-const ZINC_HEAD_COLOR = new THREE.Color("#A8A8A8");
+const ZINC_COLOR = new Color("#C0C0C0");
+const ZINC_HEAD_COLOR = new Color("#A8A8A8");
 
 interface ScrewProps {
   position: [number, number, number];
@@ -30,7 +30,7 @@ export default function ConstructionScrew({
   label = '#9 × 1-5/8" Star Drive Construction Screw',
   visible = true,
 }: ScrewProps) {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
 
   // Screw dimensions (inches)
@@ -43,11 +43,11 @@ export default function ConstructionScrew({
   // Hover glow
   const glowMat = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
+      new MeshStandardMaterial({
         color: ZINC_COLOR,
         roughness: 0.2,
         metalness: 0.92,
-        emissive: new THREE.Color("#ffdd44"),
+        emissive: new Color("#ffdd44"),
         emissiveIntensity: 0,
       }),
     []
@@ -55,7 +55,7 @@ export default function ConstructionScrew({
 
   const headMat = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
+      new MeshStandardMaterial({
         color: ZINC_HEAD_COLOR,
         roughness: 0.25,
         metalness: 0.9,

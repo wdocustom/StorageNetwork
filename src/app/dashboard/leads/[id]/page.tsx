@@ -80,7 +80,7 @@ export default function JobTicketPage() {
     // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
-      .select("*")
+      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, source")
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();

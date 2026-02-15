@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
 import { joinWaitlist } from "@/app/actions/gatekeeper";
 import {
@@ -138,9 +139,12 @@ export default function LandingPage() {
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="mb-8 inline-block">
-            <img
+            <Image
               src="/logo-storage-network.png"
               alt="Storage Network"
+              width={256}
+              height={256}
+              priority
               className="h-40 w-auto object-contain sm:h-52 md:h-64"
             />
           </div>
@@ -270,9 +274,11 @@ export default function LandingPage() {
       <footer className="border-t border-stone-800 bg-gray-950 px-4 py-8">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src="/logo-storage-network.png"
               alt="Storage Network"
+              width={40}
+              height={40}
               className="h-10 w-auto object-contain"
             />
           </div>
@@ -309,10 +315,13 @@ export default function LandingPage() {
               {/* Avatar */}
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-yellow-400 bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg shadow-yellow-400/30">
                 {foundInstaller.installer_avatar_url ? (
-                  <img
+                  <Image
                     src={foundInstaller.installer_avatar_url}
                     alt={foundInstaller.installer_name || "Installer"}
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <User className="h-10 w-10 text-gray-900" />
