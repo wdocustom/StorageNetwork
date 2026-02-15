@@ -7,6 +7,7 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
+import { generateHowToJsonLd } from "@/lib/schema/howto";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -161,6 +162,18 @@ export default async function DesignPage({ searchParams }: PageProps) {
   // to the client. Free installers get platform branding; Pro gets theirs.
   const viewModel = mapToDesignViewModel(rawInstaller);
 
+  // ── HowTo JSON-LD — standard 5×4 build for rich snippet eligibility ──
+  // This generates a generic HowTo for the default build configuration.
+  // For /p/[slug] partner pages, the description field can be enriched
+  // with a Gemini-generated project summary per-installer.
+  const howToSchema = generateHowToJsonLd({
+    cols: 5,
+    rows: 4,
+    hasWheels: true,
+    hasTop: false,
+    installerName: rawInstaller?.installer_name || undefined,
+  });
+
   return (
     <>
       {/* SEO Schema Markup */}
@@ -171,6 +184,10 @@ export default async function DesignPage({ searchParams }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
       />
 
       <Suspense>
