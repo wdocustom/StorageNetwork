@@ -59,15 +59,91 @@ export async function getPartnerDashboard(
       return { success: false, error: "Not authorized as a partner." };
     }
 
-    // 2. Get partner record
-    const { data: partner } = await supabase
+    // 2. Get partner record (linked by user_id)
+    let { data: partner } = await supabase
       .from("partners")
       .select("id, name, company, slug")
       .eq("user_id", userId)
       .single();
 
+    // Auto-link: if is_partner=true but no partner record is linked yet,
+    // try to find an unlinked partner by matching the profile's email
     if (!partner) {
-      return { success: false, error: "Partner record not found." };
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+
+      if (email) {
+        const { data: unlinked } = await supabase
+          .from("partners")
+          .select("id, name, company, slug")
+          .eq("email", email)
+          .is("user_id", null)
+          .single();
+
+        if (unlinked) {
+          // Auto-link this partner record to the logged-in user
+          await supabase
+            .from("partners")
+            .update({ user_id: userId })
+            .eq("id", unlinked.id);
+          partner = unlinked;
+          console.log(`✅ Auto-linked partner ${unlinked.id} to user ${userId}`);
+        }
+      }
+    }
+
+    // Still no partner? Try matching by name from profile
+    if (!partner) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, business_name")
+        .eq("id", userId)
+        .single();
+
+      if (prof) {
+        const fullName = [prof.first_name, prof.last_name].filter(Boolean).join(" ");
+
+        // Try exact name match on partner record, then company match
+        const candidates = [fullName, prof.business_name].filter(Boolean) as string[];
+        for (const matchName of candidates) {
+          // Match against partner name
+          const { data: byName } = await supabase
+            .from("partners")
+            .select("id, name, company, slug")
+            .is("user_id", null)
+            .ilike("name", matchName)
+            .maybeSingle();
+
+          if (byName) {
+            await supabase.from("partners").update({ user_id: userId }).eq("id", byName.id);
+            partner = byName;
+            console.log(`✅ Auto-linked partner ${byName.id} to user ${userId} (name: ${matchName})`);
+            break;
+          }
+
+          // Match against partner company
+          const { data: byCompany } = await supabase
+            .from("partners")
+            .select("id, name, company, slug")
+            .is("user_id", null)
+            .ilike("company", matchName)
+            .maybeSingle();
+
+          if (byCompany) {
+            await supabase.from("partners").update({ user_id: userId }).eq("id", byCompany.id);
+            partner = byCompany;
+            console.log(`✅ Auto-linked partner ${byCompany.id} to user ${userId} (company: ${matchName})`);
+            break;
+          }
+        }
+      }
+    }
+
+    if (!partner) {
+      return {
+        success: false,
+        error: "Your partner record hasn't been linked yet. Please contact support.",
+      };
     }
 
     // 3. Calculate commission via Postgres function
