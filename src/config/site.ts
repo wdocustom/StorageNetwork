@@ -27,6 +27,10 @@ export const siteConfig = {
       name: "partner_ref",
       maxAge: 60 * 60 * 24 * 30, // 30 days in seconds
     },
+    affiliateSlug: {
+      name: "sn_affiliate_slug",
+      maxAge: 60 * 60 * 24 * 30, // 30 days in seconds
+    },
   },
 
   // Feature Flags

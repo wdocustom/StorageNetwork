@@ -187,7 +187,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     const leadId: string = data.id;
     console.log("✅ Lead Created:", leadId);
 
-    // NOTE: New lead alert email is sent from the Stripe webhook AFTER deposit is paid.
+    // NOTE: New booking alert email is sent from the Stripe webhook AFTER deposit is paid.
     // This prevents double-emailing the installer (one at lead creation, one at payment).
 
     // 4. CRITICAL: Return only plain JSON — no Date objects, no DB rows

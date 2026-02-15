@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { sendBookingConfirmation, sendNewLeadAlert, sendProWelcomeEmail } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
       console.warn("[Webhook] No customer email — skipping booking confirmation");
     }
 
-    // NOTE: Installer new lead alert is sent from payment_intent.succeeded handler.
+    // NOTE: Installer new booking alert is sent from payment_intent.succeeded handler.
     // This prevents double-emailing since checkout sessions also trigger payment_intent.succeeded.
 
     console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
@@ -356,6 +356,26 @@ export async function POST(request: NextRequest) {
         } catch (emailErr) {
           console.error("[Webhook] Pro welcome email failed:", emailErr);
         }
+
+        // ── Activate affiliate referral if one exists ──────────────────
+        try {
+          const { data: pendingRef } = await supabase
+            .from("referrals")
+            .select("id")
+            .eq("installer_id", userId)
+            .in("status", ["pending", "inactive"])
+            .maybeSingle();
+
+          if (pendingRef) {
+            await supabase
+              .from("referrals")
+              .update({ status: "active" })
+              .eq("id", pendingRef.id);
+            console.log("[Webhook] Referral activated for installer:", userId);
+          }
+        } catch (refErr) {
+          console.error("[Webhook] Referral activation failed (non-fatal):", refErr);
+        }
       } else {
         console.error("[Webhook] Pro activation failed:", result.error);
       }
@@ -369,6 +389,18 @@ export async function POST(request: NextRequest) {
     if (userId) {
       console.log("[Webhook] Pro subscription cancelled for user:", userId);
       await deactivateProSubscription(userId);
+
+      // ── Deactivate affiliate referral ──────────────────────────────
+      try {
+        await supabase
+          .from("referrals")
+          .update({ status: "inactive" })
+          .eq("installer_id", userId)
+          .eq("status", "active");
+        console.log("[Webhook] Referral deactivated for installer:", userId);
+      } catch (refErr) {
+        console.error("[Webhook] Referral deactivation failed (non-fatal):", refErr);
+      }
     }
   }
 
@@ -489,7 +521,7 @@ export async function POST(request: NextRequest) {
             if (installerEmail) {
               const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
               const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
-              await sendNewLeadAlert(installerEmail, city, {
+              await sendNewBookingAlert(installerEmail, city, {
                 customerName: piName,
                 customerEmail: piEmail || undefined,
                 address: lead.address || undefined,

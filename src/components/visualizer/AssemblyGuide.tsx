@@ -567,64 +567,69 @@ function ExplodedAssembly({
     const showTop = step.id === "attach-top-plates" || mode === "exploded";
     const screwSpreadX = 0.4; // ±0.4" from post center — 2 screws per joint
 
+    // Plate screws drive through the plate face (Z direction) into the post
+    // end grain, parallel to the post's long axis (Y).
+    // Rotation: [-π/2, 0, 0] → tip toward +Z (front plates, driving inward)
+    //           [π/2, 0, 0]  → tip toward -Z (back plates, driving inward)
+
     for (let i = 0; i <= cols; i++) {
       const px = getPostX(i, bayW);
 
       if (showBottom) {
-        // Bottom plate screws — 2 per joint, head below, tip up
-        // Front plate
+        // Bottom plate screws — through plate face into post end grain
+        // Front plate: head outside (−Z), tip drives into assembly (+Z)
         screws.push({
-          pos: [px - screwSpreadX, lift - 0.5, POST_D / 2],
-          rot: [0, 0, Math.PI],
+          pos: [px - screwSpreadX, lift + PLATE_H / 2, -0.5],
+          rot: [-Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
         });
         screws.push({
-          pos: [px + screwSpreadX, lift - 0.5, POST_D / 2],
-          rot: [0, 0, Math.PI],
+          pos: [px + screwSpreadX, lift + PLATE_H / 2, -0.5],
+          rot: [-Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
         });
-        // Back plate
+        // Back plate: head outside (+Z), tip drives into assembly (−Z)
         screws.push({
-          pos: [px - screwSpreadX, lift - 0.5, RACK_DEPTH - POST_D / 2],
-          rot: [0, 0, Math.PI],
+          pos: [px - screwSpreadX, lift + PLATE_H / 2, RACK_DEPTH + 0.5],
+          rot: [Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
         });
         screws.push({
-          pos: [px + screwSpreadX, lift - 0.5, RACK_DEPTH - POST_D / 2],
-          rot: [0, 0, Math.PI],
+          pos: [px + screwSpreadX, lift + PLATE_H / 2, RACK_DEPTH + 0.5],
+          rot: [Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post end grain',
         });
       }
 
       if (showTop) {
-        // Top plate screws — 2 per joint, head above, tip down
-        // Front plate
+        // Top plate screws — through plate face into post top end grain
+        // Front plate: head outside (−Z), tip drives into assembly (+Z)
         screws.push({
-          pos: [px - screwSpreadX, frameH + lift + 0.5, POST_D / 2],
-          rot: [0, 0, 0],
+          pos: [px - screwSpreadX, frameH + lift - PLATE_H / 2, -0.5],
+          rot: [-Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
         });
         screws.push({
-          pos: [px + screwSpreadX, frameH + lift + 0.5, POST_D / 2],
-          rot: [0, 0, 0],
+          pos: [px + screwSpreadX, frameH + lift - PLATE_H / 2, -0.5],
+          rot: [-Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
         });
-        // Back plate
+        // Back plate: head outside (+Z), tip drives into assembly (−Z)
         screws.push({
-          pos: [px - screwSpreadX, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
-          rot: [0, 0, 0],
+          pos: [px - screwSpreadX, frameH + lift - PLATE_H / 2, RACK_DEPTH + 0.5],
+          rot: [Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
         });
         screws.push({
-          pos: [px + screwSpreadX, frameH + lift + 0.5, RACK_DEPTH - POST_D / 2],
-          rot: [0, 0, 0],
+          pos: [px + screwSpreadX, frameH + lift - PLATE_H / 2, RACK_DEPTH + 0.5],
+          rot: [Math.PI / 2, 0, 0],
           len: 3.0,
           label: '#9 × 3" Star Drive — plate into post top end grain',
         });

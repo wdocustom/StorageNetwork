@@ -240,11 +240,11 @@ export async function sendBookingConfirmation(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Template: New Lead Alert (Installer)
-// Trigger: New job created in installer's ZIP
+// Template: New Booking Alert (Installer)
+// Trigger: New job booked with paid deposit
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function sendNewLeadAlert(
+export async function sendNewBookingAlert(
   installerEmail: string,
   city: string,
   leadDetails: {
@@ -256,12 +256,12 @@ export async function sendNewLeadAlert(
     leadId: string;
   }
 ): Promise<SendEmailResult> {
-  console.log("[Email] sendNewLeadAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
+  console.log("[Email] sendNewBookingAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
   const jobUrl = `${getAppUrl()}/dashboard/leads/${leadDetails.leadId}`;
   const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
 
   const html = emailShell(
-    "New Lead Alert!",
+    "New Booking Alert!",
     `
     <!-- Action Required Banner -->
     <div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
@@ -294,7 +294,7 @@ export async function sendNewLeadAlert(
 
   return sendTransactionalEmail({
     to: installerEmail,
-    subject: `NEW LEAD: ${leadDetails.customerName} in ${city} — $${profitEstimate.toLocaleString()}`,
+    subject: `NEW BOOKING: ${leadDetails.customerName} in ${city} — $${profitEstimate.toLocaleString()}`,
     html,
   });
 }

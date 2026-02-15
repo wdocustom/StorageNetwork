@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
 
@@ -91,6 +92,32 @@ export async function onboardInstaller(
     });
 
     console.log("✅ Installer account created:", userId);
+
+    // 2b. Check for affiliate referral cookie → link to partner
+    try {
+      const cookieStore = await cookies();
+      const affiliateSlug = cookieStore.get("sn_affiliate_slug")?.value;
+
+      if (affiliateSlug) {
+        const { data: partner } = await supabase
+          .from("partners")
+          .select("id")
+          .eq("slug", affiliateSlug)
+          .single();
+
+        if (partner) {
+          await supabase.from("referrals").insert({
+            partner_id: partner.id,
+            installer_id: userId,
+            status: "pending", // Activates when they subscribe to Pro
+          });
+          console.log(`✅ Referral created: ${userId} → partner ${partner.id} (slug: ${affiliateSlug})`);
+        }
+      }
+    } catch (refErr) {
+      // Non-fatal — don't block onboarding if referral tracking fails
+      console.error("[Onboard] Referral tracking failed (non-fatal):", refErr);
+    }
 
     // 3. Send welcome email with fee structure
     const displayName = businessName.trim() || firstName || name.trim();

@@ -31,6 +31,7 @@ import {
   MapPin,
   Target,
   X,
+  Handshake,
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
@@ -64,6 +65,7 @@ interface Profile {
   slug: string | null;
   subscription_tier: string;
   is_pro: boolean;
+  is_partner: boolean;
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
 }
@@ -134,7 +136,7 @@ function ProfilePageInner() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, stripe_account_id, stripe_details_submitted")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted")
       .eq("id", user.id)
       .single();
 
@@ -913,6 +915,32 @@ function ProfilePageInner() {
         {/* Pro QR Code Generator (Pro users with slug only) */}
         {isPro && profile?.slug && (
           <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PARTNER PORTAL (Partners only — gated by is_partner flag)
+        ═══════════════════════════════════════════════════════════════ */}
+        {profile?.is_partner && (
+          <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+            <div className="p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Handshake className="h-4 w-4 text-yellow-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                  Affiliate Partner
+                </h2>
+              </div>
+              <p className="mb-4 text-sm text-stone-400">
+                View your referral dashboard, track commissions, and manage your installer network.
+              </p>
+              <a
+                href="/dashboard/partner"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+              >
+                <Handshake className="h-4 w-4" />
+                Open Partner Portal
+              </a>
+            </div>
+          </section>
         )}
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}

@@ -35,7 +35,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Only run middleware on design and checkout pages
+// Run middleware on design, checkout, and partner signup pages
 export const config = {
-  matcher: ["/design/:path*", "/checkout/:path*"],
+  matcher: ["/design/:path*", "/checkout/:path*", "/partner/join"],
 };
