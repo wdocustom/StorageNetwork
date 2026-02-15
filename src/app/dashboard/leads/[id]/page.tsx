@@ -13,9 +13,12 @@ import {
   Ruler,
   ShoppingCart,
   Wrench,
+  Navigation,
+  AlertCircle,
 } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { startTripNotify } from "@/app/actions/sms";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -44,6 +47,7 @@ interface LeadDetail {
   address_state: string | null;
   address_zip: string | null;
   source: string | null;
+  en_route_notified: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -67,6 +71,11 @@ export default function JobTicketPage() {
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [installerIsPro, setInstallerIsPro] = useState<boolean>(false);
 
+  // Start Trip SMS state
+  const [tripSending, setTripSending] = useState(false);
+  const [tripSent, setTripSent] = useState(false);
+  const [tripError, setTripError] = useState("");
+
   const fetchLead = useCallback(async () => {
     // Check if user is logged in
     const { data: { user } } = await supabase.auth.getUser();
@@ -80,7 +89,7 @@ export default function JobTicketPage() {
     // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
-      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, source")
+      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, source, en_route_notified")
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();
@@ -93,6 +102,7 @@ export default function JobTicketPage() {
 
     const leadData = data as LeadDetail;
     setLead(leadData);
+    setTripSent(!!leadData.en_route_notified);
 
     // Generate build manifest from quote data
     if (leadData.quote_data && leadData.quote_data.length > 0) {
@@ -124,6 +134,21 @@ export default function JobTicketPage() {
 
   function toggleCheck(key: string) {
     setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function handleStartTrip() {
+    if (!lead?.installer_id || tripSent || tripSending) return;
+    setTripSending(true);
+    setTripError("");
+
+    const result = await startTripNotify(lead.id, lead.installer_id);
+
+    if (result.success) {
+      setTripSent(true);
+    } else {
+      setTripError(result.error || "Failed to send notification.");
+    }
+    setTripSending(false);
   }
 
   // ── Loading / Error ───────────────────────────────────────────────────
@@ -219,6 +244,62 @@ export default function JobTicketPage() {
             Submitted {new Date(lead.created_at).toLocaleDateString()}
           </p>
         </section>
+
+        {/* ── Start Trip & Notify Customer (Pro only, active jobs) ───── */}
+        {lead.deposit_paid &&
+          lead.status === "open" &&
+          lead.customer_phone &&
+          installerIsPro && (
+          <section className="overflow-hidden rounded-xl border border-yellow-400/20 bg-gradient-to-r from-yellow-400/5 to-slate-900">
+            <div className="p-4">
+              {tripSent ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-emerald-400">
+                      Customer Notified
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      {lead.customer_name} received your en-route SMS.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleStartTrip}
+                    disabled={tripSending}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {tripSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Navigation className="h-4 w-4" />
+                    )}
+                    {tripSending
+                      ? "Sending Notification..."
+                      : "Start Trip & Notify Customer"}
+                  </button>
+                  <p className="mt-2 text-center text-[11px] text-stone-500">
+                    Sends an SMS to {lead.customer_name} with your ETA, prep
+                    instructions, and their remaining balance.
+                  </p>
+                </>
+              )}
+
+              {tripError && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                  <p className="text-xs font-medium text-red-400">
+                    {tripError}
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
         <JobTicket
