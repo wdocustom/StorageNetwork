@@ -11,12 +11,12 @@
 
 const PRICES = {
   lumber_2x4_8ft: 3.75,
-  plywood_sheet: 35.0,
+  plywood_sheet: 33.98,
   tote: 8.99,
-  screw_1in_95ct: 10.99,
-  screw_1_5_8in_725ct: 29.97,
-  screw_3in_350ct: 29.97,
-  wheels_4pk: 30.0,
+  screw_1in_90ct: 10.99,
+  screw_1_5_8in_145ct: 8.97,
+  screw_3in_70ct: 8.97,
+  wheels_4pk: 60.0,
 } as const;
 
 // ── Constants (match buildEngine.ts) ───────────────────────────────────────
@@ -148,9 +148,9 @@ export function calculateMaterialCost(
   }
   totalBoards = bins.length;
 
-  totalScrewBoxes16 = Math.ceil(totalScrew16 / 725);
-  totalScrewBoxes3 = Math.ceil(totalScrew3 / 350);
-  totalScrewBoxes1 = Math.ceil(totalScrew1 / 95);
+  totalScrewBoxes16 = Math.ceil(totalScrew16 / 145);
+  totalScrewBoxes3 = Math.ceil(totalScrew3 / 70);
+  totalScrewBoxes1 = Math.ceil(totalScrew1 / 90);
 
   // Final plywood: top sheet offcuts reduce structural sheet needs
   const stripCredit = globalTopSheets * 27;
@@ -172,9 +172,9 @@ export function calculateMaterialCost(
   addItem("Plywood Sheet", totalSheets, PRICES.plywood_sheet);
   addItem("Totes", totalTotes, PRICES.tote);
   addItem("Wheels (4pk)", totalWheelKits, PRICES.wheels_4pk);
-  addItem('1⅝" Screws (725ct)', totalScrewBoxes16, PRICES.screw_1_5_8in_725ct);
-  addItem('3" Screws (350ct)', totalScrewBoxes3, PRICES.screw_3in_350ct);
-  addItem('1" Screws (95ct)', totalScrewBoxes1, PRICES.screw_1in_95ct);
+  addItem('1⅝" Screws (145ct)', totalScrewBoxes16, PRICES.screw_1_5_8in_145ct);
+  addItem('3" Screws (70ct)', totalScrewBoxes3, PRICES.screw_3in_70ct);
+  addItem('1" Screws (90ct)', totalScrewBoxes1, PRICES.screw_1in_90ct);
 
   const totalCost = items.reduce((sum, i) => sum + i.subtotal, 0);
 

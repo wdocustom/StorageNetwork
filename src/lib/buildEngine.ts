@@ -353,9 +353,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
   const gSheets = structSheets + globalTopSheets;
 
   // ── Screw Box Math ────────────────────────────────────────────────────
-  const boxes16 = Math.ceil(gScrew16 / 725);
-  const boxes3 = Math.ceil(gScrew3 / 350);
-  const boxes1 = Math.ceil(gScrew1 / 95);
+  const boxes16 = Math.ceil(gScrew16 / 145);
+  const boxes3 = Math.ceil(gScrew3 / 70);
+  const boxes1 = Math.ceil(gScrew1 / 90);
 
   // ── Shopping List ─────────────────────────────────────────────────────
   const shopping_list: ShoppingItem[] = [
@@ -380,19 +380,19 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
   }
 
   shopping_list.push({
-    name: '1 5/8" Screws',
-    detail: "Rails (725ct box)",
+    name: '1 5/8" #8 Screws',
+    detail: "Rails (145ct box)",
     qty: `${boxes16} Box`,
   });
   shopping_list.push({
     name: '3" Screws',
-    detail: "Frame (350ct box)",
+    detail: "Frame (70ct box)",
     qty: `${boxes3} Box`,
   });
   if (boxes1 > 0) {
     shopping_list.push({
-      name: '1" Struct Screws',
-      detail: "Wheels (95ct box)",
+      name: '1" Screws',
+      detail: "Wheels (90ct box)",
       qty: `${boxes1} Box`,
     });
   }
