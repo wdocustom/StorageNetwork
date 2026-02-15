@@ -18,6 +18,18 @@ export interface InstallerPricing {
   plywood_top?: number;
 }
 
+/** Platform default pricing constants (shared across server actions and client UI) */
+export const PLATFORM_DEFAULTS: Required<InstallerPricing> = {
+  standard_slot: 30,
+  mini_slot: 15,
+  standard_tote: 12,
+  standard_tote_clear: 20,
+  mini_tote: 4,
+  standard_wheels: 65,
+  mini_wheels: 40,
+  plywood_top: 95,
+};
+
 export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
   routing: {

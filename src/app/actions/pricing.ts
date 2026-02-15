@@ -12,18 +12,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ── Platform defaults (must match calculator.ts constants) ──────────────
-export const PLATFORM_DEFAULTS: Required<InstallerPricing> = {
-  standard_slot: 30,
-  mini_slot: 15,
-  standard_tote: 12,
-  standard_tote_clear: 20,
-  mini_tote: 4,
-  standard_wheels: 65,
-  mini_wheels: 40,
-  plywood_top: 95,
-};
-
 interface PricingResult {
   success: boolean;
   pricing?: InstallerPricing;

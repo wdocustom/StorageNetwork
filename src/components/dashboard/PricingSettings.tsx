@@ -13,8 +13,8 @@ import {
   getInstallerPricing,
   updateInstallerPricing,
   resetInstallerPricing,
-  PLATFORM_DEFAULTS,
 } from "@/app/actions/pricing";
+import { PLATFORM_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
