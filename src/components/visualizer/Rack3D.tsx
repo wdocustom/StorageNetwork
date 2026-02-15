@@ -178,9 +178,10 @@ function PlywoodStrip({ position, length, railHeight }: {
 }
 
 // ── Tote ─────────────────────────────────────────────────────────────────
+// Photorealistic HDX-style tote with vertical ribbing, lid grid, and handles.
 // Group origin = BOTTOM of tote body.
-//   Body: y = 0 → TOTE_BODY_H (black/clear, tapered)
-//   Rim:  y = TOTE_BODY_H → TOTE_BODY_H + TOTE_RIM_H (colored)
+//   Body: y = 0 → TOTE_BODY_H (black/clear, tapered with vertical ribs)
+//   Rim:  y = TOTE_BODY_H → TOTE_BODY_H + TOTE_RIM_H (colored lid with grid)
 //
 // PLACEMENT RULE:
 //   Rim sits ON TOP of rail → rim bottom = rail top
@@ -188,6 +189,16 @@ function PlywoodStrip({ position, length, railHeight }: {
 //   Rim bottom = toteGroupY + TOTE_BODY_H
 //   So: toteGroupY = railCenterY + RAIL_HEIGHT/2 - TOTE_BODY_H
 //   Body hangs BELOW the rail. Rim is above the rail.
+
+// Rib/lid detail constants
+const RIB_DEPTH = 0.15;       // How far ribs protrude from body face
+const RIB_WIDTH = 0.3;        // Width of each vertical rib
+const LID_GRID_H = 0.12;      // Height of raised grid lines on lid
+const LID_GRID_W = 0.2;       // Width of grid lines
+const LID_LIP = 0.4;          // How far lid overhangs body on each side
+const HANDLE_W = 4.0;          // Handle opening width
+const HANDLE_H = 1.6;          // Handle opening height
+const HANDLE_THICK = 0.5;      // Handle bar thickness
 
 function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unitDepth }: {
   position: [number, number, number];
@@ -206,9 +217,6 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
   const toteRimH = isMini ? MINI_TOTE_RIM_H : TOTE_RIM_H;
 
-  // In sideways mode, the tote is rotated 90°:
-  // - Rim width spans the bay width (slot is 30.25" wide)
-  // - Tote depth fits within unit depth (20")
   let toteW: number;
   let toteDepth: number;
 
@@ -216,33 +224,28 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
     toteW = MINI_TOTE_W;
     toteDepth = MINI_TOTE_D;
   } else if (isSideways) {
-    // Sideways: tote rotated 90°, rim spans the wider slot
-    toteW = bayW - BIN_GAP * 2; // Rim fits in the bay
-    toteDepth = unitDepth - 2; // Tote depth fits within unit depth with small gap
+    toteW = bayW - BIN_GAP * 2;
+    toteDepth = unitDepth - 2;
   } else {
-    // Standard orientation
     toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
     toteDepth = TOTE_DEPTH;
   }
 
-  // Color logic:
-  // - Mini totes: clear body with yellow lid
-  // - Clear HDX: clear body with yellow lid (like mini but larger)
-  // - Standard HDX: dark body with yellow lid
-  // - Greenmade: dark body with red lid
+  // Color logic
   const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
-  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a"; // Clear gray for mini/clear HDX, dark for standard
+  const rimDarkColor = isMini ? "#d4a017" : (toteType === "HDX" ? "#d4a017" : "#c0392b");
+  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a";
+  const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
   const rimW = toteW;
-  // Body fits between the rails
   const bodyTopW = bayW - BIN_GAP * 2;
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
-  // Tote depth
   const bodyTopD = toteDepth * 0.95;
   const bodyBotD = toteDepth * 0.82;
   const rimD = toteDepth;
 
+  // Tapered body geometry
   const bodyGeo = useMemo(() => {
     const hw_t = bodyTopW / 2, hw_b = bodyBotW / 2;
     const hd_t = bodyTopD / 2, hd_b = bodyBotD / 2;
@@ -263,26 +266,180 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
     return geo;
   }, [bodyTopW, bodyBotW, bodyTopD, bodyBotD, toteBodyH]);
 
+  // Generate vertical rib positions for each face
+  const ribs = useMemo(() => {
+    if (isMini) return []; // Mini totes are smooth
+    const result: { pos: [number, number, number]; size: [number, number, number] }[] = [];
+    const midY = toteBodyH * 0.5;
+    const ribH = toteBodyH * 0.75; // Ribs cover 75% of body height
+    const avgW = (bodyTopW + bodyBotW) / 2;
+    const avgD = (bodyTopD + bodyBotD) / 2;
+
+    // Front and back faces: vertical ribs along width (Z faces)
+    const numWRibs = Math.max(3, Math.floor(avgW / 3.5));
+    for (let i = 0; i < numWRibs; i++) {
+      const t = (i + 1) / (numWRibs + 1);
+      const x = -avgW / 2 + avgW * t;
+      // Front face (negative Z)
+      result.push({ pos: [x, midY, -avgD / 2 - RIB_DEPTH / 2], size: [RIB_WIDTH, ribH, RIB_DEPTH] });
+      // Back face (positive Z)
+      result.push({ pos: [x, midY, avgD / 2 + RIB_DEPTH / 2], size: [RIB_WIDTH, ribH, RIB_DEPTH] });
+    }
+
+    // Left and right faces: vertical ribs along depth (X faces)
+    const numDRibs = Math.max(2, Math.floor(avgD / 4));
+    for (let i = 0; i < numDRibs; i++) {
+      const t = (i + 1) / (numDRibs + 1);
+      const z = -avgD / 2 + avgD * t;
+      // Left face (negative X)
+      result.push({ pos: [-avgW / 2 - RIB_DEPTH / 2, midY, z], size: [RIB_DEPTH, ribH, RIB_WIDTH] });
+      // Right face (positive X)
+      result.push({ pos: [avgW / 2 + RIB_DEPTH / 2, midY, z], size: [RIB_DEPTH, ribH, RIB_WIDTH] });
+    }
+    return result;
+  }, [isMini, toteBodyH, bodyTopW, bodyBotW, bodyTopD, bodyBotD]);
+
+  // Lid grid lines (diamond cross-hatch pattern)
+  const lidGrid = useMemo(() => {
+    if (isMini) return [];
+    const lines: { pos: [number, number, number]; size: [number, number, number]; rotY: number }[] = [];
+    const lidY = toteBodyH + toteRimH + LID_GRID_H / 2;
+    const innerW = rimW - LID_LIP * 2 - 1;
+    const innerD = rimD - LID_LIP * 2 - 1;
+
+    // Diagonal grid lines at ±45° — length spans the lid, clipped by lid bounds
+    const spacing = 3.5;
+    const diagLen = Math.sqrt(innerW * innerW + innerD * innerD);
+    const numLines = Math.floor(diagLen / spacing);
+
+    for (let i = -numLines; i <= numLines; i++) {
+      const offset = i * spacing;
+      // +45° diagonal
+      lines.push({
+        pos: [offset * 0.5, lidY, offset * 0.5],
+        size: [LID_GRID_W, LID_GRID_H, diagLen],
+        rotY: Math.PI / 4,
+      });
+      // -45° diagonal
+      lines.push({
+        pos: [offset * 0.5, lidY, -offset * 0.5],
+        size: [LID_GRID_W, LID_GRID_H, diagLen],
+        rotY: -Math.PI / 4,
+      });
+    }
+    return lines;
+  }, [isMini, toteBodyH, toteRimH, rimW, rimD]);
+
+  // Lid clipping bounds for grid
+  const lidClipW = (rimW - LID_LIP * 2 - 2) / 2;
+  const lidClipD = (rimD - LID_LIP * 2 - 2) / 2;
+
   return (
     <group position={position}>
+      {/* ── Body (tapered truncated pyramid) ─────────────────────────── */}
       <mesh geometry={bodyGeo} castShadow>
         <meshStandardMaterial
           color={bodyColor}
-          roughness={(isMini || isClear) ? 0.3 : 0.55}
-          metalness={0.02}
+          roughness={(isMini || isClear) ? 0.3 : 0.35}
+          metalness={(isMini || isClear) ? 0.02 : 0.05}
           transparent={isMini || isClear}
           opacity={bodyOpacity}
           side={DoubleSide}
         />
       </mesh>
+
+      {/* ── Vertical ribs on body faces ──────────────────────────────── */}
+      {ribs.map((rib, i) => (
+        <mesh key={`rib-${i}`} position={rib.pos}>
+          <boxGeometry args={rib.size} />
+          <meshStandardMaterial
+            color={bodyRibColor}
+            roughness={0.4}
+            metalness={0.03}
+            transparent={isMini || isClear}
+            opacity={bodyOpacity}
+          />
+        </mesh>
+      ))}
+
+      {/* ── Bottom rim (thick lip at body top) ───────────────────────── */}
+      <mesh position={[0, toteBodyH - 0.25, 0]}>
+        <boxGeometry args={[bodyTopW + 0.3, 0.5, bodyTopD + 0.3]} />
+        <meshStandardMaterial
+          color={bodyColor}
+          roughness={0.3}
+          metalness={0.04}
+          transparent={isMini || isClear}
+          opacity={bodyOpacity}
+        />
+      </mesh>
+
+      {/* ── Lid base (overhangs body with lip) ───────────────────────── */}
       <mesh position={[0, toteBodyH + toteRimH / 2, 0]} castShadow>
-        <boxGeometry args={[rimW, toteRimH, rimD]} />
-        <meshStandardMaterial color={rimColor} roughness={0.3} metalness={0.05} />
+        <boxGeometry args={[rimW + (isMini ? 0 : LID_LIP), toteRimH, rimD + (isMini ? 0 : LID_LIP)]} />
+        <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
       </mesh>
-      <mesh position={[0, toteBodyH + toteRimH + 0.12, 0]}>
-        <boxGeometry args={[rimW - 0.5, 0.25, rimD - 0.5]} />
-        <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.08} />
+
+      {/* ── Lid top surface (slightly inset, forms the tray) ─────────── */}
+      <mesh position={[0, toteBodyH + toteRimH + 0.06, 0]}>
+        <boxGeometry args={[rimW - 0.8, 0.12, rimD - 0.8]} />
+        <meshStandardMaterial color={rimDarkColor} roughness={0.35} metalness={0.04} />
       </mesh>
+
+      {/* ── Lid grid pattern (diamond cross-hatch) ───────────────────── */}
+      {!isMini && (
+        <group>
+          {lidGrid.map((line, i) => {
+            // Clip grid lines to lid bounds
+            if (Math.abs(line.pos[0]) > lidClipW || Math.abs(line.pos[2]) > lidClipD) return null;
+            return (
+              <mesh key={`grid-${i}`} position={line.pos} rotation={[0, line.rotY, 0]}>
+                <boxGeometry args={line.size} />
+                <meshStandardMaterial color={rimColor} roughness={0.3} metalness={0.05} />
+              </mesh>
+            );
+          })}
+        </group>
+      )}
+
+      {/* ── Handles (integrated into lid, short ends) ────────────────── */}
+      {!isMini && (
+        <>
+          {/* Front handle (negative Z) */}
+          <group position={[0, toteBodyH + toteRimH + 0.3, -(rimD / 2 + (LID_LIP / 2))]}>
+            {/* Handle bar (bridge over the opening) */}
+            <mesh position={[0, HANDLE_H / 2, 0]}>
+              <boxGeometry args={[HANDLE_W, HANDLE_THICK, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+            {/* Left pillar */}
+            <mesh position={[-HANDLE_W / 2 + HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
+              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+            {/* Right pillar */}
+            <mesh position={[HANDLE_W / 2 - HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
+              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+          </group>
+          {/* Back handle (positive Z) */}
+          <group position={[0, toteBodyH + toteRimH + 0.3, rimD / 2 + (LID_LIP / 2)]}>
+            <mesh position={[0, HANDLE_H / 2, 0]}>
+              <boxGeometry args={[HANDLE_W, HANDLE_THICK, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+            <mesh position={[-HANDLE_W / 2 + HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
+              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+            <mesh position={[HANDLE_W / 2 - HANDLE_THICK / 2, HANDLE_H / 4, 0]}>
+              <boxGeometry args={[HANDLE_THICK, HANDLE_H / 2, 0.8]} />
+              <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
+            </mesh>
+          </group>
+        </>
+      )}
     </group>
   );
 }
