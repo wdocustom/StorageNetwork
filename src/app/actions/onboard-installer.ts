@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
+import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -93,7 +94,8 @@ export async function onboardInstaller(
 
     console.log("✅ Installer account created:", userId);
 
-    // 2b. Check for affiliate referral cookie → link to partner
+    // 2b. Check for affiliate referral cookie → link to partner + activate 7-day Pro trial
+    let isTrialActivated = false;
     try {
       const cookieStore = await cookies();
       const affiliateSlug = cookieStore.get("sn_affiliate_slug")?.value;
@@ -101,17 +103,52 @@ export async function onboardInstaller(
       if (affiliateSlug) {
         const { data: partner } = await supabase
           .from("partners")
-          .select("id")
+          .select("id, name, company")
           .eq("slug", affiliateSlug)
           .single();
 
         if (partner) {
+          // Create referral record
           await supabase.from("referrals").insert({
             partner_id: partner.id,
             installer_id: userId,
             status: "pending", // Activates when they subscribe to Pro
           });
-          console.log(`✅ Referral created: ${userId} → partner ${partner.id} (slug: ${affiliateSlug})`);
+
+          // ── 7-Day Pro Trial — courtesy of the referring partner ───────
+          const trialEnd = new Date();
+          trialEnd.setDate(trialEnd.getDate() + 7);
+          const partnerDisplayName = partner.company || partner.name;
+
+          // Generate a slug for the trial (Pro feature)
+          const rawName = businessName.trim() || name.trim() || userId.slice(0, 8);
+          let trialSlug = slugify(rawName);
+          if (!trialSlug) trialSlug = userId.slice(0, 8);
+
+          // Check slug uniqueness
+          const { data: existingSlug } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("slug", trialSlug)
+            .neq("id", userId)
+            .maybeSingle();
+
+          if (existingSlug) {
+            trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
+          }
+
+          await supabase
+            .from("profiles")
+            .update({
+              is_pro: true,
+              slug: trialSlug,
+              pro_trial_ends_at: trialEnd.toISOString(),
+              pro_trial_partner: partnerDisplayName,
+            })
+            .eq("id", userId);
+
+          isTrialActivated = true;
+          console.log(`✅ Referral + 7-day Pro trial activated: ${userId} → partner ${partner.id} (slug: ${affiliateSlug}) | Trial ends: ${trialEnd.toISOString()}`);
         }
       }
     } catch (refErr) {
@@ -123,7 +160,7 @@ export async function onboardInstaller(
     const displayName = businessName.trim() || firstName || name.trim();
     await sendInstallerOnboardingEmail(email.trim().toLowerCase(), {
       name: displayName,
-      isPro: false,
+      isPro: isTrialActivated,
     }).catch((err) => {
       // Don't fail onboarding if email fails
       console.error("[Onboard] Welcome email failed:", err);

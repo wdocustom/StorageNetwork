@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { siteConfig } from "@/config/site";
+import { checkProTrial, type TrialStatus } from "@/app/actions/pro-trial";
 import {
   Briefcase,
   HardHat,
@@ -57,6 +58,7 @@ export default function DashboardPage() {
   const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
 
   const fetchData = useCallback(async () => {
     const {
@@ -66,6 +68,20 @@ export default function DashboardPage() {
       window.location.href = "/login";
       return;
     }
+
+    // Check and enforce Pro trial expiry (runs on every dashboard load)
+    checkProTrial(user.id).then((status) => {
+      setTrialStatus(status);
+      // If trial just expired, the server action already reverted is_pro.
+      // Reload profile to reflect the change.
+      if (!status.onTrial && profile?.is_pro) {
+        supabase.from("profiles").select("is_pro").eq("id", user.id).single().then(({ data }) => {
+          if (data && !data.is_pro && profile) {
+            setProfile({ ...profile, is_pro: false });
+          }
+        });
+      }
+    });
 
     const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
       supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
@@ -178,7 +194,11 @@ export default function DashboardPage() {
         <div className="mx-auto flex max-w-lg items-center justify-center gap-4">
           {/* Plan Status */}
           <div className="flex items-center gap-1.5">
-            {tier === "pro" ? (
+            {tier === "pro" && trialStatus?.onTrial ? (
+              <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-purple-400">
+                PRO TRIAL · {trialStatus.daysRemaining}D LEFT
+              </span>
+            ) : tier === "pro" ? (
               <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
                 PRO PLAN
               </span>
@@ -244,6 +264,26 @@ export default function DashboardPage() {
                 Update now
               </a>
               .
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pro Trial Banner ──────────────────────────────────────── */}
+      {trialStatus?.onTrial && (
+        <div className="shrink-0 border-b border-purple-400/20 bg-purple-400/5 px-4 py-3">
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-sm font-bold text-purple-300">
+              7-Day Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
+            </p>
+            <p className="text-xs text-purple-400/70 mt-0.5">
+              {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? "day" : "days"} remaining · All Pro features unlocked ·{" "}
+              <a
+                href="/dashboard/profile"
+                className="font-bold underline hover:text-purple-200"
+              >
+                Subscribe to keep Pro
+              </a>
             </p>
           </div>
         </div>

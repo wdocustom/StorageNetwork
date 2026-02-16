@@ -201,6 +201,9 @@ export async function getInstallerAnalytics(
 
 // ── First-Order Discount Check ──────────────────────────────────────────
 
+// Feature flag — set to true to enable the $25 first-order discount
+const FIRST_ORDER_DISCOUNT_ENABLED = false;
+
 export interface DiscountCheckResult {
   isFirstOrder: boolean;
   discountAmount: number;   // $25 for first order, $0 otherwise
@@ -209,10 +212,16 @@ export interface DiscountCheckResult {
 /**
  * Check if a customer email has any prior PAID orders on the platform.
  * Returns $25 discount if this is their first order.
+ * Currently DISABLED — returns $0 discount regardless.
  */
 export async function checkFirstOrderDiscount(
   customerEmail: string
 ): Promise<DiscountCheckResult> {
+  // Short-circuit when feature is disabled
+  if (!FIRST_ORDER_DISCOUNT_ENABLED) {
+    return { isFirstOrder: false, discountAmount: 0 };
+  }
+
   const FIRST_ORDER_DISCOUNT = 25;
 
   if (!customerEmail?.trim()) {

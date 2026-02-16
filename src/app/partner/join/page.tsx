@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   Mail,
@@ -11,6 +12,7 @@ import {
   Target,
   ClipboardList,
   Banknote,
+  Gift,
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -41,6 +43,17 @@ const VALUE_PROPS = [
 ];
 
 export default function PartnerJoinPage() {
+  return (
+    <Suspense>
+      <PartnerJoinPageInner />
+    </Suspense>
+  );
+}
+
+function PartnerJoinPageInner() {
+  const searchParams = useSearchParams();
+  const referringPartner = searchParams.get("ref");
+
   const [name, setName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
@@ -170,6 +183,23 @@ export default function PartnerJoinPage() {
               60 seconds. No credit card. No Stripe setup required yet.
             </p>
           </div>
+
+          {/* Pro Trial Banner (affiliate signups) */}
+          {referringPartner && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-500/20">
+                <Gift className="h-4 w-4 text-purple-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-purple-300">
+                  7-Day Free Pro Trial
+                </p>
+                <p className="text-[11px] text-purple-400/70">
+                  Courtesy of {referringPartner} — all Pro features unlocked
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             {/* Name */}

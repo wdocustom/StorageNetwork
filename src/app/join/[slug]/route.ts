@@ -26,13 +26,20 @@ export async function GET(
   // Validate partner slug
   const { data: partner } = await supabase
     .from("partners")
-    .select("id, slug")
+    .select("id, slug, name, company")
     .eq("slug", slug.toLowerCase())
     .single();
 
   // Always redirect to signup — even if slug is invalid, we still want
   // the person to land on the signup page (just without attribution)
   const redirectUrl = new URL("/partner/join", request.url);
+
+  if (partner) {
+    // Pass partner name so the signup page can show "7-day Pro trial courtesy of..."
+    const partnerDisplay = partner.company || partner.name;
+    redirectUrl.searchParams.set("ref", partnerDisplay);
+  }
+
   const response = NextResponse.redirect(redirectUrl);
 
   if (partner) {
