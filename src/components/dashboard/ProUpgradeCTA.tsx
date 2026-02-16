@@ -13,6 +13,8 @@ import {
   Calculator,
   Minus,
   Plus,
+  DollarSign,
+  QrCode,
 } from "lucide-react";
 import { createProCheckoutSession } from "@/app/actions/pro-subscription";
 
@@ -41,6 +43,16 @@ const BENEFITS = [
     icon: Palette,
     title: "White-Label Branding",
     description: "Your logo on the design tool. Your brand, your clients.",
+  },
+  {
+    icon: DollarSign,
+    title: "Custom Pricing",
+    description: "Set your own prices for slots, totes, and add-ons.",
+  },
+  {
+    icon: QrCode,
+    title: "Custom QR Code",
+    description: "A branded QR code that links directly to your design page.",
   },
 ];
 
