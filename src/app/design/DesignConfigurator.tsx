@@ -7,7 +7,7 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
-import type { DesignPageViewModel } from "@/types/viewModels";
+import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
@@ -316,7 +316,7 @@ export default function DesignConfigurator({
         }
       }, 500);
     },
-    []
+    [data?.pricing]
   );
 
   // Fire on every config change (only when cols/rows are valid numbers)
@@ -912,7 +912,7 @@ export default function DesignConfigurator({
                           </div>
                           <div>
                             <div className="text-xs font-semibold text-gray-900">Black / Yellow</div>
-                            <div className="text-[10px] text-stone-500">$12/tote</div>
+                            <div className="text-[10px] text-stone-500">${data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote}/tote</div>
                           </div>
                         </button>
                         <button
@@ -929,7 +929,7 @@ export default function DesignConfigurator({
                           </div>
                           <div>
                             <div className="text-xs font-semibold text-gray-900">Clear / Yellow</div>
-                            <div className="text-[10px] text-amber-600 font-medium">$20/tote (+$8)</div>
+                            <div className="text-[10px] text-amber-600 font-medium">${data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear}/tote (+${(data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) - (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)})</div>
                           </div>
                         </button>
                       </div>
@@ -960,7 +960,7 @@ export default function DesignConfigurator({
                 <Toggle
                   checked={hasWheels}
                   onChange={setHasWheels}
-                  label={unitType === "mini" ? "Wheels (+$40)" : "Wheels"}
+                  label={unitType === "mini" ? `Wheels (+$${data?.pricing?.mini_wheels ?? PLATFORM_DEFAULTS.mini_wheels})` : "Wheels"}
                 />
                 {unitType === "standard" ? (
                   <Toggle

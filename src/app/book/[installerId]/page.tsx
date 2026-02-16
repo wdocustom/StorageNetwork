@@ -10,8 +10,10 @@ import {
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
+import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
+import type { InstallerPricing } from "@/types/viewModels";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -97,6 +99,16 @@ function BookingPageInner() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // ── Installer pricing (Pro feature) ──────────────────────────────────
+  const [installerPricing, setInstallerPricing] = useState<InstallerPricing | undefined>();
+
+  useEffect(() => {
+    if (!installerId) return;
+    getInstallerPricing(installerId).then((res) => {
+      if (res.success && res.pricing) setInstallerPricing(res.pricing);
+    });
+  }, [installerId]);
+
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
 
   // ── Debounced server call ─────────────────────────────────────────────
@@ -111,6 +123,7 @@ function BookingPageInner() {
           const res = await calculateBuild({
             cols: c, rows: r, toteModel: model,
             addOns: { totes, wheels, top }, mode: "manual",
+            installerPricing,
           });
           if (res.success) {
             setBuild({
@@ -122,7 +135,7 @@ function BookingPageInner() {
         } catch { /* keep previous */ }
         finally { setBuildLoading(false); }
       }, 500);
-    }, []
+    }, [installerPricing]
   );
 
   useEffect(() => {

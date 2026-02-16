@@ -30,6 +30,7 @@ import {
 import BookingModal from "@/components/booking/BookingModal";
 import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
+import type { InstallerPricing } from "@/types/viewModels";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -118,6 +119,9 @@ export default function BuildConfiguratorPage() {
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [leadIdForBooking, setLeadIdForBooking] = useState<string | null>(null);
 
+  // Installer pricing from profile
+  const [installerPricing, setInstallerPricing] = useState<InstallerPricing | undefined>();
+
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
     const {
@@ -132,7 +136,7 @@ export default function BuildConfiguratorPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name, stripe_account_id")
+      .select("is_pro, subscription_tier, business_name, first_name, stripe_account_id, pricing_config")
       .eq("id", user.id)
       .single();
 
@@ -140,6 +144,9 @@ export default function BuildConfiguratorPage() {
       setIsPro(data.is_pro || data.subscription_tier === "pro");
       setBusinessName(data.business_name || data.first_name || "Your Business");
       if (data.stripe_account_id) setInstallerStripeId(data.stripe_account_id);
+      if ((data.is_pro || data.subscription_tier === "pro") && data.pricing_config) {
+        setInstallerPricing(data.pricing_config as InstallerPricing);
+      }
     }
     setLoading(false);
   }, [supabase]);
@@ -181,6 +188,7 @@ export default function BuildConfiguratorPage() {
         toteModel: toteType,
         addOns: { totes: hasTotes, wheels: hasWheels, top: hasTop },
         mode: inputMode === "wallFit" ? "wallFit" : "manual",
+        installerPricing,
       });
 
       if (!res.success) {
