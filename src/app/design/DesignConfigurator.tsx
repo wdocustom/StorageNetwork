@@ -14,6 +14,7 @@ import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/c
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
+import PageViewTracker from "@/components/tracking/PageViewTracker";
 import {
   MapPin,
   CheckCircle2,
@@ -574,6 +575,9 @@ export default function DesignConfigurator({
 
   return (
     <div className="flex h-screen flex-col bg-gray-950">
+      {/* ── Analytics: track page view for installer ────────────────────── */}
+      {installerId && <PageViewTracker installerId={installerId} page="/design" />}
+
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="shrink-0 border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto flex max-w-[1800px] items-center gap-3">

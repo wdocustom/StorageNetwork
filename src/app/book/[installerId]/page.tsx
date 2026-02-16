@@ -14,6 +14,7 @@ import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import type { InstallerPricing } from "@/types/viewModels";
+import PageViewTracker from "@/components/tracking/PageViewTracker";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -267,6 +268,9 @@ function BookingPageInner() {
 
   return (
     <div className="min-h-screen bg-gray-950">
+      {/* ── Analytics: track page view for installer ────────────────── */}
+      {installerId && <PageViewTracker installerId={installerId} page="/book" />}
+
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto max-w-lg text-center">

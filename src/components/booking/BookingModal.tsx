@@ -9,6 +9,7 @@ import {
   CreditCard,
   MapPin,
   ChevronRight,
+  Gift,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -21,6 +22,7 @@ import NativeScheduler from "./NativeScheduler";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
+import { checkFirstOrderDiscount } from "@/app/actions/analytics";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -97,8 +99,9 @@ export default function BookingModal({
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
+  const [firstOrderDiscount, setFirstOrderDiscount] = useState(0);
 
-  // Fetch blackout dates when modal opens
+  // Fetch blackout dates and check first-order discount when modal opens
   useEffect(() => {
     if (!isOpen || !installerId) return;
     getBlackoutDates(installerId).then((result) => {
@@ -106,7 +109,13 @@ export default function BookingModal({
         setBlackoutDates(result.dates.map(d => ({ start_date: d.start_date, end_date: d.end_date })));
       }
     });
-  }, [isOpen, installerId]);
+    // Check first-order discount eligibility
+    if (customerEmail) {
+      checkFirstOrderDiscount(customerEmail).then((result) => {
+        setFirstOrderDiscount(result.discountAmount);
+      });
+    }
+  }, [isOpen, installerId, customerEmail]);
 
   // Wheel Rule: 3 business day minimum for casters
   const effectiveLeadTime = hasWheels
@@ -155,6 +164,8 @@ export default function BookingModal({
       // Tax info for installer records (collected at installation)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
+      // First-order discount (deducted from platform fee, not installer)
+      firstOrderDiscount: firstOrderDiscount,
     });
 
     setInitLoading(false);
@@ -165,7 +176,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state]);
+  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state, firstOrderDiscount]);
 
   if (!isOpen) return null;
 
@@ -302,8 +313,23 @@ export default function BookingModal({
                   {/* Due Today = Deposit only */}
                   <div className="flex items-center justify-between text-sm pt-1">
                     <span className="font-bold text-stone-400">Due Today (Deposit)</span>
-                    <span className="font-black text-yellow-400">{formatCurrency(depositAmount)}</span>
+                    <span className="font-black text-yellow-400">
+                      {firstOrderDiscount > 0 ? (
+                        <>
+                          <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(depositAmount)}</span>
+                          {formatCurrency(depositAmount - firstOrderDiscount)}
+                        </>
+                      ) : (
+                        formatCurrency(depositAmount)
+                      )}
+                    </span>
                   </div>
+                  {firstOrderDiscount > 0 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-emerald-400 font-medium">First-order discount</span>
+                      <span className="text-emerald-400 font-bold">-{formatCurrency(firstOrderDiscount)}</span>
+                    </div>
+                  )}
                   {/* Balance at installation = remaining + tax */}
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-700/50 mt-2">
                     <span className="text-stone-500">Balance at Installation</span>
@@ -343,6 +369,23 @@ export default function BookingModal({
                 </p>
               )}
 
+              {/* First-order discount ribbon */}
+              {firstOrderDiscount > 0 && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                    <Gift className="h-4.5 w-4.5 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-emerald-400">
+                      First-Time Customer — Save ${firstOrderDiscount}!
+                    </p>
+                    <p className="text-[10px] text-emerald-400/70">
+                      Discount applied automatically at checkout
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Pay & Book button */}
               <button
                 onClick={handleInitPayment}
@@ -354,7 +397,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(depositAmount)} &amp; Book
+                    Pay {formatCurrency(depositAmount - firstOrderDiscount)} &amp; Book
                   </>
                 )}
               </button>
