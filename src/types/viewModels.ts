@@ -16,10 +16,12 @@ export interface InstallerPricing {
   standard_wheels?: number;
   mini_wheels?: number;
   plywood_top?: number;
+  /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
+  mini_disabled?: boolean;
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Required<InstallerPricing> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,

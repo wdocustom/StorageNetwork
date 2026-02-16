@@ -82,7 +82,7 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: (keyof InstallerPricing)[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
@@ -102,10 +102,15 @@ export async function updateInstallerPricing(
       // undefined/null fields are omitted — they'll use platform defaults
     }
 
+    // Carry over the mini_disabled boolean if set
+    if (pricing.mini_disabled === true) {
+      (validated as Record<string, unknown>).mini_disabled = true;
+    }
+
     // If all values match platform defaults, store null (use defaults)
     const hasCustomValues = fields.some(
       (f) => validated[f] !== undefined
-    );
+    ) || (validated as Record<string, unknown>).mini_disabled === true;
 
     const pricingConfig = hasCustomValues ? validated : null;
 

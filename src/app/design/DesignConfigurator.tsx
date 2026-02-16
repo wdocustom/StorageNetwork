@@ -768,7 +768,8 @@ export default function DesignConfigurator({
                 Manual Configuration
               </h2>
 
-              {/* Unit Size Selector */}
+              {/* Unit Size Selector — hidden when installer disabled mini */}
+              {!data?.pricing?.mini_disabled && (
               <div className="mb-4">
                 <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
                   Unit Size
@@ -793,6 +794,7 @@ export default function DesignConfigurator({
                   </p>
                 )}
               </div>
+              )}
 
               {/* Orientation Selector - Only for Standard units */}
               {unitType === "standard" && (

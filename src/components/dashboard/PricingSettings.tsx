@@ -8,6 +8,7 @@ import {
   Save,
   CheckCircle2,
   Info,
+  EyeOff,
 } from "lucide-react";
 import {
   getInstallerPricing,
@@ -25,8 +26,10 @@ interface PricingSettingsProps {
   userId: string;
 }
 
+type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled">;
+
 interface PriceField {
-  key: keyof InstallerPricing;
+  key: PricingNumericKey;
   label: string;
   description: string;
   defaultValue: number;
@@ -104,6 +107,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
 
   // Each field can be: a custom number string, or empty (use default)
   const [values, setValues] = useState<Record<string, string>>({});
+  const [miniDisabled, setMiniDisabled] = useState(false);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -115,6 +119,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         loaded[field.key] = val !== undefined && val !== null ? String(val) : "";
       }
       setValues(loaded);
+      setMiniDisabled(result.pricing.mini_disabled === true);
     }
     setLoading(false);
   }, [userId]);
@@ -142,6 +147,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         pricing[field.key] = Number(val);
       }
     }
+    if (miniDisabled) pricing.mini_disabled = true;
 
     const result = await updateInstallerPricing(userId, pricing);
     if (result.success) {
@@ -167,6 +173,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         cleared[field.key] = "";
       }
       setValues(cleared);
+      setMiniDisabled(false);
       setMessage("Pricing reset to platform defaults.");
       setMessageType("success");
       setTimeout(() => setMessage(""), 4000);
@@ -178,7 +185,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   }
 
   function hasCustomValues(): boolean {
-    return PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "");
+    return miniDisabled || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "");
   }
 
   if (loading) {
@@ -231,10 +238,40 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         </p>
       </div>
 
+      {/* Mini Tote Toggle */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setMiniDisabled(!miniDisabled)}
+          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+            miniDisabled
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${miniDisabled ? "bg-red-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${miniDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <EyeOff className={`h-3.5 w-3.5 ${miniDisabled ? "text-red-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${miniDisabled ? "text-red-400" : "text-white"}`}>
+                {miniDisabled ? "Mini Units Disabled" : "Disable Mini Units"}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {miniDisabled
+                ? "6.5 qt mini tote option is hidden from your design page"
+                : "Toggle to hide the mini (6.5 qt) tote option from customers"}
+            </p>
+          </div>
+        </button>
+      </div>
+
       {/* Pricing Categories */}
       <div className="space-y-5">
         {categories.map((cat) => (
-          <div key={cat.key}>
+          <div key={cat.key} className={cat.key === "mini" && miniDisabled ? "opacity-40 pointer-events-none" : ""}>
             <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               {cat.label}
             </h3>

@@ -135,7 +135,7 @@ export default function AvailabilityManager() {
           <div>
             <h3 className="text-sm font-bold text-white">Weekly Availability</h3>
             <p className="text-[11px] text-stone-500">
-              Uncheck days you don&apos;t work — the booking calendar will disable them
+              Click / Highlight the days you want to work — the booking calendar will disable the others
             </p>
           </div>
           {savingDays && <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />}
