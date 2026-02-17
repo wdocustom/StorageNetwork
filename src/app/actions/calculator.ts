@@ -372,6 +372,10 @@ export interface BestsellerPreset {
   toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
+  /** Fixed base price (frame + tops, no totes) */
+  basePrice: number;
+  /** Fixed price with totes included */
+  withTotesPrice: number;
 }
 
 export const BESTSELLER_PRESETS: BestsellerPreset[] = [
@@ -383,6 +387,8 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     toteColor: "black",
     unitType: "standard",
     orientation: "standard",
+    basePrice: 710,
+    withTotesPrice: 950,
     units: [
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
       { cols: 2, rows: 2, hasTop: true, hasWheels: false },
@@ -432,8 +438,11 @@ export async function calculateCompoundBuild(input: {
     return { success: false, error: "Unknown preset." };
   }
 
+  // Fixed preset pricing: base (no totes) vs with totes
+  const totalPrice = input.hasTotes ? preset.withTotesPrice : preset.basePrice;
+
+  // Still calculate each sub-unit for dimensions/slots (pricing is overridden)
   const subUnits: CompoundBuildResult["subUnits"] = [];
-  let totalPrice = 0;
   let combinedW = 0;
   let maxH = 0;
   let depth = 0;
@@ -470,7 +479,6 @@ export async function calculateCompoundBuild(input: {
       slots: result.config.slots,
     });
 
-    totalPrice += result.price;
     combinedW += result.dimensions.totalW;
     maxH = Math.max(maxH, result.dimensions.totalH);
     depth = Math.max(depth, result.dimensions.depth);
