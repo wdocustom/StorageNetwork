@@ -202,20 +202,24 @@ export default function DesignConfigurator({
   const [presetLoading, setPresetLoading] = useState(false);
   const presetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Active preset object (null when custom build)
+  const activePresetObj = useMemo(() =>
+    activePreset ? BESTSELLER_PRESETS.find((p) => p.id === activePreset) ?? null : null,
+    [activePreset]
+  );
+
   // Derived: VisualizerSubUnit[] for the visualizer from compoundBuild
   const presetVisUnits: VisualizerSubUnit[] | undefined = useMemo(() => {
-    if (!compoundBuild || !activePreset) return undefined;
-    const preset = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
-    if (!preset) return undefined;
+    if (!compoundBuild || !activePresetObj) return undefined;
     return compoundBuild.subUnits.map((su, i) => ({
       cols: su.cols,
       rows: su.rows,
       totalW: su.totalW,
       totalH: su.totalH,
-      hasTop: preset.units[i].hasTop,
-      hasWheels: preset.units[i].hasWheels,
+      hasTop: activePresetObj.units[i].hasTop,
+      hasWheels: activePresetObj.units[i].hasWheels,
     }));
-  }, [compoundBuild, activePreset]);
+  }, [compoundBuild, activePresetObj]);
 
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
@@ -527,9 +531,7 @@ export default function DesignConfigurator({
   }
 
   function handleAddPresetUnit() {
-    if (!compoundBuild || !activePreset) return;
-    const preset = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
-    if (!preset) return;
+    if (!compoundBuild || !activePresetObj) return;
 
     const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
     setOrderItems((prev) => [
@@ -537,18 +539,18 @@ export default function DesignConfigurator({
       {
         cols: compoundBuild.subUnits.reduce((s, u) => s + u.cols, 0),
         rows: Math.max(...compoundBuild.subUnits.map((u) => u.rows)),
-        toteType: preset.toteModel as ToteType,
-        toteColor: preset.toteColor as ToteColor,
-        unitType: preset.unitType,
-        orientation: preset.orientation,
+        toteType: activePresetObj.toteModel as ToteType,
+        toteColor: activePresetObj.toteColor as ToteColor,
+        unitType: activePresetObj.unitType,
+        orientation: activePresetObj.orientation,
         hasTotes: presetTotes,
-        hasWheels: false,
-        hasTop: true,
+        hasWheels: activePresetObj.units.some((u) => u.hasWheels),
+        hasTop: activePresetObj.units.some((u) => u.hasTop),
         price: compoundBuild.totalPrice,
         totalW: compoundBuild.combinedW,
         totalH: compoundBuild.maxH,
         depth: compoundBuild.depth,
-        desc: `${preset.name} (${subDesc})`,
+        desc: `${activePresetObj.name} (${subDesc})`,
       },
     ]);
   }
@@ -854,7 +856,7 @@ export default function DesignConfigurator({
             <section className="rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
                 <Star className="h-4 w-4 text-yellow-500" />
-                Bestseller
+                Bestsellers
               </h2>
               <select
                 value={activePreset || ""}
@@ -893,13 +895,22 @@ export default function DesignConfigurator({
                       ))}
                     </ul>
                     <div className="mt-2 border-t border-amber-100 pt-2 text-[10px] font-semibold text-stone-500">
-                      All units include plywood tops &mdash; no wheels
+                      {(() => {
+                        const tops = activePresetObj?.units.every((u) => u.hasTop);
+                        const wheels = activePresetObj?.units.every((u) => u.hasWheels);
+                        const parts: string[] = [];
+                        if (tops) parts.push("plywood tops");
+                        if (wheels) parts.push("wheels");
+                        const included = parts.length > 0 ? `Includes ${parts.join(" and ")}` : "";
+                        if (!wheels) return `${included} \u2014 no wheels`;
+                        return included;
+                      })()}
                     </div>
                   </div>
                   <Toggle
                     checked={presetTotes}
                     onChange={setPresetTotes}
-                    label="Include Totes"
+                    label={`Include ${activePresetObj?.toteColor === "black" ? "Black " : ""}Totes`}
                   />
                   <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
                     <div className="flex-1 text-center">
@@ -1465,23 +1476,23 @@ export default function DesignConfigurator({
         <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
           <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
             <RackVisualizer
-              cols={activePreset && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
-              rows={activePreset && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
-              toteType={toteType}
-              toteColor={effectiveToteColor}
-              unitType={unitType}
-              orientation={effectiveOrientation}
-              hasTotes={activePreset ? presetTotes : hasTotes}
-              hasWheels={activePreset ? false : hasWheels}
-              hasTop={activePreset ? true : effectiveHasTop}
-              totalW={activePreset && compoundBuild ? compoundBuild.combinedW : build.totalW}
-              totalH={activePreset && compoundBuild ? compoundBuild.maxH : build.totalH}
+              cols={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
+              rows={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
+              toteType={activePresetObj ? activePresetObj.toteModel as ToteType : toteType}
+              toteColor={activePresetObj ? activePresetObj.toteColor as ToteColor : effectiveToteColor}
+              unitType={activePresetObj ? activePresetObj.unitType : unitType}
+              orientation={activePresetObj ? activePresetObj.orientation : effectiveOrientation}
+              hasTotes={activePresetObj ? presetTotes : hasTotes}
+              hasWheels={activePresetObj ? activePresetObj.units.some((u) => u.hasWheels) : hasWheels}
+              hasTop={activePresetObj ? activePresetObj.units.some((u) => u.hasTop) : effectiveHasTop}
+              totalW={activePresetObj && compoundBuild ? compoundBuild.combinedW : build.totalW}
+              totalH={activePresetObj && compoundBuild ? compoundBuild.maxH : build.totalH}
               presetUnits={presetVisUnits}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {activePreset && compoundBuild ? (
+            {activePresetObj && compoundBuild ? (
               <>
                 {compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
                 {compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}

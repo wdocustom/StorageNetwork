@@ -23,8 +23,10 @@ export interface BestsellerPreset {
   orientation: "standard" | "sideways";
   /** Fixed base price (frame + tops, no totes) */
   basePrice: number;
-  /** Fixed price with totes included */
+  /** Fixed price with totes included (ignored when dynamicTotePricing is true) */
   withTotesPrice: number;
+  /** When true, tote add-on price is calculated dynamically from the normal pricing engine */
+  dynamicTotePricing?: boolean;
 }
 
 export const BESTSELLER_PRESETS: BestsellerPreset[] = [
@@ -42,6 +44,21 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
       { cols: 2, rows: 2, hasTop: true, hasWheels: false },
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
+    ],
+  },
+  {
+    id: "cornhusker",
+    name: "Cornhusker",
+    label: "Bestseller",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    basePrice: 450,
+    withTotesPrice: 0,
+    dynamicTotePricing: true,
+    units: [
+      { cols: 4, rows: 4, hasTop: true, hasWheels: true },
     ],
   },
 ];

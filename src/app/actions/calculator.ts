@@ -399,10 +399,7 @@ export async function calculateCompoundBuild(input: {
     return { success: false, error: "Unknown preset." };
   }
 
-  // Fixed preset pricing: base (no totes) vs with totes
-  const totalPrice = input.hasTotes ? preset.withTotesPrice : preset.basePrice;
-
-  // Still calculate each sub-unit for dimensions/slots (pricing is overridden)
+  // Still calculate each sub-unit for dimensions/slots (pricing may be overridden)
   const subUnits: CompoundBuildResult["subUnits"] = [];
   let combinedW = 0;
   let maxH = 0;
@@ -444,6 +441,26 @@ export async function calculateCompoundBuild(input: {
     maxH = Math.max(maxH, result.dimensions.totalH);
     depth = Math.max(depth, result.dimensions.depth);
     totalSlots += result.config.slots;
+  }
+
+  // Pricing: fixed presets use basePrice/withTotesPrice,
+  // dynamic presets calculate tote add-on from the normal pricing engine
+  let totalPrice: number;
+  if (!input.hasTotes) {
+    totalPrice = preset.basePrice;
+  } else if (preset.dynamicTotePricing) {
+    const ip = input.installerPricing;
+    let totePricePerUnit: number;
+    if (preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard") {
+      totePricePerUnit = ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE;
+    } else if (preset.unitType === "mini") {
+      totePricePerUnit = ip?.mini_tote ?? MINI_CONFIG.pricePerTote;
+    } else {
+      totePricePerUnit = ip?.standard_tote ?? STANDARD_CONFIG.pricePerTote;
+    }
+    totalPrice = preset.basePrice + totalSlots * totePricePerUnit;
+  } else {
+    totalPrice = preset.withTotesPrice;
   }
 
   return {
