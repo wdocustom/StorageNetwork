@@ -10,8 +10,9 @@ import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
-import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, BESTSELLER_PRESETS, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
+import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
@@ -29,6 +30,7 @@ import {
   User,
   CreditCard,
   Scan,
+  Star,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -192,6 +194,28 @@ export default function DesignConfigurator({
   });
   const [buildLoading, setBuildLoading] = useState(false);
 
+  // ── Bestseller preset state ────────────────────────────────────────────
+  const [activePreset, setActivePreset] = useState<string | null>(null); // null = custom, "indiana-joe" = preset
+  const [compoundBuild, setCompoundBuild] = useState<CompoundBuildResult | null>(null);
+  const [presetTotes, setPresetTotes] = useState(true);
+  const [presetLoading, setPresetLoading] = useState(false);
+  const presetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived: VisualizerSubUnit[] for the visualizer from compoundBuild
+  const presetVisUnits: VisualizerSubUnit[] | undefined = useMemo(() => {
+    if (!compoundBuild || !activePreset) return undefined;
+    const preset = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
+    if (!preset) return undefined;
+    return compoundBuild.subUnits.map((su, i) => ({
+      cols: su.cols,
+      rows: su.rows,
+      totalW: su.totalW,
+      totalH: su.totalH,
+      hasTop: preset.units[i].hasTop,
+      hasWheels: preset.units[i].hasWheels,
+    }));
+  }, [compoundBuild, activePreset]);
+
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
 
@@ -319,6 +343,38 @@ export default function DesignConfigurator({
     },
     [data?.pricing]
   );
+
+  // ── Fetch compound build for presets ──────────────────────────────────
+  const fetchPresetBuild = useCallback(
+    (presetId: string, totes: boolean) => {
+      if (presetDebounceRef.current) clearTimeout(presetDebounceRef.current);
+      presetDebounceRef.current = setTimeout(async () => {
+        setPresetLoading(true);
+        try {
+          const res = await calculateCompoundBuild({
+            presetId,
+            hasTotes: totes,
+            installerPricing: data?.pricing,
+          });
+          if (res.success) {
+            setCompoundBuild(res);
+          }
+        } catch {
+          // keep previous build on error
+        } finally {
+          setPresetLoading(false);
+        }
+      }, 300);
+    },
+    [data?.pricing]
+  );
+
+  // Re-fetch preset build when totes toggle changes
+  useEffect(() => {
+    if (activePreset) {
+      fetchPresetBuild(activePreset, presetTotes);
+    }
+  }, [activePreset, presetTotes, fetchPresetBuild]);
 
   // Fire on every config change (only when cols/rows are valid numbers)
   const numCols = typeof cols === "number" ? cols : parseInt(cols as string) || 0;
@@ -465,6 +521,33 @@ export default function DesignConfigurator({
         totalH: build.totalH,
         depth: build.depth,
         desc: `${unitLabel}: ${build.cols}W × ${build.rows}H${toteDesc}`,
+      },
+    ]);
+  }
+
+  function handleAddPresetUnit() {
+    if (!compoundBuild || !activePreset) return;
+    const preset = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
+    if (!preset) return;
+
+    const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: compoundBuild.subUnits.reduce((s, u) => s + u.cols, 0),
+        rows: Math.max(...compoundBuild.subUnits.map((u) => u.rows)),
+        toteType: preset.toteModel as ToteType,
+        toteColor: preset.toteColor as ToteColor,
+        unitType: preset.unitType,
+        orientation: preset.orientation,
+        hasTotes: presetTotes,
+        hasWheels: false,
+        hasTop: true,
+        price: compoundBuild.totalPrice,
+        totalW: compoundBuild.combinedW,
+        totalH: compoundBuild.maxH,
+        depth: compoundBuild.depth,
+        desc: `${preset.name} (${subDesc})`,
       },
     ]);
   }
@@ -766,7 +849,87 @@ export default function DesignConfigurator({
               )}
             </section>
 
+            {/* ── Bestseller Presets ─────────────────────────────────── */}
+            <section className="rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm">
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
+                <Star className="h-4 w-4 text-yellow-500" />
+                Bestseller
+              </h2>
+              <select
+                value={activePreset || ""}
+                onChange={(e) => {
+                  const val = e.target.value || null;
+                  setActivePreset(val);
+                  if (!val) {
+                    setCompoundBuild(null);
+                  }
+                }}
+                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+              >
+                <option value="">Custom Build</option>
+                {BESTSELLER_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
+                  </option>
+                ))}
+              </select>
+              {activePreset && compoundBuild && (
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-lg border border-amber-200 bg-white p-3">
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                      Preset Includes
+                    </div>
+                    <ul className="space-y-1">
+                      {compoundBuild.subUnits.map((su, i) => (
+                        <li key={i} className="flex items-center justify-between text-xs text-gray-700">
+                          <span className="font-medium">
+                            {su.cols}W &times; {su.rows}H ({su.slots} slots)
+                          </span>
+                          <span className="text-stone-500">
+                            {su.totalW.toFixed(1)}&quot; &times; {su.totalH.toFixed(1)}&quot;
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-2 border-t border-amber-100 pt-2 text-[10px] font-semibold text-stone-500">
+                      All units include plywood tops &mdash; no wheels
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={presetTotes}
+                    onChange={setPresetTotes}
+                    label="Include Totes"
+                  />
+                  <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
+                    <div className="flex-1 text-center">
+                      <div className="text-2xl font-black text-gray-900">
+                        {presetLoading ? "…" : `$${compoundBuild.totalPrice.toLocaleString()}`}
+                      </div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                        {compoundBuild.presetName}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAddPresetUnit}
+                      disabled={presetLoading || compoundBuild.totalPrice === 0}
+                      className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add to Quote
+                    </button>
+                  </div>
+                </div>
+              )}
+              {activePreset && !compoundBuild && presetLoading && (
+                <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs font-semibold text-stone-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Calculating preset…
+                </div>
+              )}
+            </section>
+
             {/* ── Manual Configuration ──────────────────────────────── */}
+            {!activePreset && (
             <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
               <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
                 Manual Configuration
@@ -1008,6 +1171,7 @@ export default function DesignConfigurator({
                 </button>
               </div>
             </section>
+            )}
 
             {/* ── Quote List ────────────────────────────────────────── */}
             {orderItems.length > 0 && (
@@ -1300,33 +1464,51 @@ export default function DesignConfigurator({
         <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
           <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
             <RackVisualizer
-              cols={build.cols || numCols || 1}
-              rows={build.rows || numRows || 1}
+              cols={activePreset && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
+              rows={activePreset && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
               toteType={toteType}
               toteColor={effectiveToteColor}
               unitType={unitType}
               orientation={effectiveOrientation}
-              hasTotes={hasTotes}
-              hasWheels={hasWheels}
-              hasTop={effectiveHasTop}
-              totalW={build.totalW}
-              totalH={build.totalH}
+              hasTotes={activePreset ? presetTotes : hasTotes}
+              hasWheels={activePreset ? false : hasWheels}
+              hasTop={activePreset ? true : effectiveHasTop}
+              totalW={activePreset && compoundBuild ? compoundBuild.combinedW : build.totalW}
+              totalH={activePreset && compoundBuild ? compoundBuild.maxH : build.totalH}
+              presetUnits={presetVisUnits}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
-            &times;{" "}
-            {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
-            &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : 30)}&quot; D &nbsp;&mdash;&nbsp;
-            <span className="font-bold text-gray-900">
-              {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
-              {build.slots || (numCols || 1) * (numRows || 1)} slots
-            </span>
-            {unitType === "mini" && (
-              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                MINI
-              </span>
+            {activePreset && compoundBuild ? (
+              <>
+                {compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
+                {compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
+                {compoundBuild.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {compoundBuild.subUnits.map((su) => `${su.cols}&times;${su.rows}`).join(" + ")} ={" "}
+                  {compoundBuild.totalSlots} slots
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  {compoundBuild.presetName}
+                </span>
+              </>
+            ) : (
+              <>
+                {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
+                &times;{" "}
+                {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
+                &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : 30)}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
+                  {build.slots || (numCols || 1) * (numRows || 1)} slots
+                </span>
+                {unitType === "mini" && (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                    MINI
+                  </span>
+                )}
+              </>
             )}
           </div>
         </main>

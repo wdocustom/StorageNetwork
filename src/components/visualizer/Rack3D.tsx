@@ -31,6 +31,16 @@ type ToteColor = "black" | "clear";
 type UnitType = "standard" | "mini";
 type Orientation = "standard" | "sideways";
 
+/** Sub-unit for compound presets */
+interface SubUnit3D {
+  cols: number;
+  rows: number;
+  totalW: number;
+  totalH: number;
+  hasTop: boolean;
+  hasWheels: boolean;
+}
+
 interface Rack3DProps {
   cols: number;
   rows: number;
@@ -41,6 +51,8 @@ interface Rack3DProps {
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
+  /** When set, renders compound preset (multiple sub-units side by side) */
+  presetUnits?: SubUnit3D[];
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -617,11 +629,130 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: P
   );
 }
 
+// ── Compound Preset Assembly ─────────────────────────────────────────────
+// Renders multiple RackAssembly groups side by side as one compound unit.
+
+function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes }: {
+  presetUnits: SubUnit3D[];
+  toteType: ToteType;
+  toteColor: ToteColor;
+  unitType: UnitType;
+  orientation: Orientation;
+  hasTotes: boolean;
+}) {
+  const bayW = getBayWidth(toteType, unitType, orientation);
+  const GAP_INCHES = 1; // 1" gap between sub-units
+
+  // Calculate total combined width and positions for each sub-unit
+  const positions: number[] = [];
+  let totalCombinedW = 0;
+  for (let i = 0; i < presetUnits.length; i++) {
+    const unit = presetUnits[i];
+    const unitW = unit.cols * bayW + (unit.cols + 1) * POST_W;
+    positions.push(totalCombinedW + unitW / 2);
+    totalCombinedW += unitW + (i < presetUnits.length - 1 ? GAP_INCHES : 0);
+  }
+
+  const centerOffset = totalCombinedW / 2;
+
+  return (
+    <group scale={[S, S, S]}>
+      {presetUnits.map((unit, i) => {
+        const unitW = unit.cols * bayW + (unit.cols + 1) * POST_W;
+        const xOffset = (positions[i] - centerOffset);
+        return (
+          <group key={`preset-unit-${i}`} position={[xOffset, 0, 0]}>
+            <group scale={[1 / S, 1 / S, 1 / S]}>
+              <RackAssembly
+                cols={unit.cols}
+                rows={unit.rows}
+                toteType={toteType}
+                toteColor={toteColor}
+                unitType={unitType}
+                orientation={orientation}
+                hasTotes={hasTotes}
+                hasWheels={unit.hasWheels}
+                hasTop={unit.hasTop}
+              />
+            </group>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ── Compound Camera Rig ─────────────────────────────────────────────────
+
+function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
+  presetUnits: SubUnit3D[];
+  toteType: ToteType;
+  unitType: UnitType;
+  orientation: Orientation;
+}) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+
+  const bayW = getBayWidth(toteType, unitType, orientation);
+  const unitDepth = getUnitDepth(unitType, orientation);
+  const GAP_INCHES = 1;
+
+  let totalW = 0;
+  let maxH = 0;
+  for (const unit of presetUnits) {
+    totalW += unit.cols * bayW + (unit.cols + 1) * POST_W + GAP_INCHES;
+    const tierSpacing = getTierSpacing(unitType);
+    const firstRailY = getFirstRailY(unitType);
+    const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
+    const fH = unitType === "mini"
+      ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+      : PLATE_H + lastRailY + 3 + PLATE_H;
+    if (fH > maxH) maxH = fH;
+  }
+
+  const sw = totalW * S;
+  const sh = maxH * S;
+  const sd = unitDepth * S;
+  const maxDim = Math.max(sw, sh, sd);
+  const dist = maxDim * 2.2;
+
+  useEffect(() => {
+    camera.position.set(dist * 0.6, dist * 0.6, dist * 0.6);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, dist]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      autoRotate
+      autoRotateSpeed={0.5}
+      enablePan
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.1}
+      maxPolarAngle={Math.PI / 1.5}
+      minDistance={0.2}
+      maxDistance={dist * 5}
+      target={[0, 0, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function Rack3D(props: Rack3DProps) {
+  const isCompound = props.presetUnits && props.presetUnits.length > 0;
+
   return (
     <div className="absolute inset-0" style={{ touchAction: "none" }}>
       <Canvas
@@ -656,18 +787,40 @@ export default function Rack3D(props: Rack3DProps) {
           color="#444444"
         />
 
-        <CameraRig
-          cols={props.cols}
-          rows={props.rows}
-          toteType={props.toteType}
-          unitType={props.unitType}
-          orientation={props.orientation}
-          hasWheels={props.hasWheels}
-        />
-
-        <Stage intensity={0.6} environment="city" adjustCamera={false}>
-          <RackAssembly {...props} />
-        </Stage>
+        {isCompound ? (
+          <>
+            <CompoundCameraRig
+              presetUnits={props.presetUnits!}
+              toteType={props.toteType}
+              unitType={props.unitType}
+              orientation={props.orientation}
+            />
+            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+              <CompoundRackAssembly
+                presetUnits={props.presetUnits!}
+                toteType={props.toteType}
+                toteColor={props.toteColor}
+                unitType={props.unitType}
+                orientation={props.orientation}
+                hasTotes={props.hasTotes}
+              />
+            </Stage>
+          </>
+        ) : (
+          <>
+            <CameraRig
+              cols={props.cols}
+              rows={props.rows}
+              toteType={props.toteType}
+              unitType={props.unitType}
+              orientation={props.orientation}
+              hasWheels={props.hasWheels}
+            />
+            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+              <RackAssembly {...props} />
+            </Stage>
+          </>
+        )}
       </Canvas>
     </div>
   );

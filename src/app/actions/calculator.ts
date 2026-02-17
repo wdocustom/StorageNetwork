@@ -351,3 +351,141 @@ export async function calculateBuild(
     },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bestseller Presets — Compound unit configurations
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PresetSubUnit {
+  cols: number;
+  rows: number;
+  hasTop: boolean;
+  hasWheels: boolean;
+}
+
+export interface BestsellerPreset {
+  id: string;
+  name: string;
+  label: string;               // Display label (e.g., "Bestseller")
+  units: PresetSubUnit[];
+  toteModel: ToteModel;
+  toteColor: ToteColor;
+  unitType: UnitType;
+  orientation: Orientation;
+}
+
+export const BESTSELLER_PRESETS: BestsellerPreset[] = [
+  {
+    id: "indiana-joe",
+    name: "Indiana Joe",
+    label: "Bestseller",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    units: [
+      { cols: 2, rows: 4, hasTop: true, hasWheels: false },
+      { cols: 2, rows: 2, hasTop: true, hasWheels: false },
+      { cols: 2, rows: 4, hasTop: true, hasWheels: false },
+    ],
+  },
+];
+
+export interface CompoundBuildResult {
+  success: true;
+  presetId: string;
+  presetName: string;
+  totalPrice: number;
+  subUnits: {
+    cols: number;
+    rows: number;
+    price: number;
+    totalW: number;
+    totalH: number;
+    depth: number;
+    slots: number;
+  }[];
+  /** Combined width of all sub-units placed side-by-side */
+  combinedW: number;
+  /** Height of the tallest sub-unit */
+  maxH: number;
+  depth: number;
+  totalSlots: number;
+}
+
+export interface CompoundBuildError {
+  success: false;
+  error: string;
+}
+
+/**
+ * Calculate pricing and dimensions for a compound bestseller preset.
+ * Runs calculateBuild for each sub-unit and aggregates.
+ */
+export async function calculateCompoundBuild(input: {
+  presetId: string;
+  hasTotes: boolean;
+  installerPricing?: InstallerPricing;
+}): Promise<CompoundBuildResult | CompoundBuildError> {
+  const preset = BESTSELLER_PRESETS.find((p) => p.id === input.presetId);
+  if (!preset) {
+    return { success: false, error: "Unknown preset." };
+  }
+
+  const subUnits: CompoundBuildResult["subUnits"] = [];
+  let totalPrice = 0;
+  let combinedW = 0;
+  let maxH = 0;
+  let depth = 0;
+  let totalSlots = 0;
+
+  for (const unit of preset.units) {
+    const result = await calculateBuild({
+      cols: unit.cols,
+      rows: unit.rows,
+      toteModel: preset.toteModel,
+      toteColor: preset.toteColor,
+      unitType: preset.unitType,
+      orientation: preset.orientation,
+      addOns: {
+        totes: input.hasTotes,
+        wheels: unit.hasWheels,
+        top: unit.hasTop,
+      },
+      mode: "manual",
+      installerPricing: input.installerPricing,
+    });
+
+    if (!result.success) {
+      return { success: false, error: "Calculation failed for sub-unit." };
+    }
+
+    subUnits.push({
+      cols: result.cols,
+      rows: result.rows,
+      price: result.price,
+      totalW: result.dimensions.totalW,
+      totalH: result.dimensions.totalH,
+      depth: result.dimensions.depth,
+      slots: result.config.slots,
+    });
+
+    totalPrice += result.price;
+    combinedW += result.dimensions.totalW;
+    maxH = Math.max(maxH, result.dimensions.totalH);
+    depth = Math.max(depth, result.dimensions.depth);
+    totalSlots += result.config.slots;
+  }
+
+  return {
+    success: true,
+    presetId: preset.id,
+    presetName: preset.name,
+    totalPrice,
+    subUnits,
+    combinedW,
+    maxH,
+    depth,
+    totalSlots,
+  };
+}

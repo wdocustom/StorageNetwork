@@ -10,12 +10,23 @@ const Rack3D = lazy(() => import("./Rack3D"));
 // ═══════════════════════════════════════════════════════════════════════════
 // RackVisualizer — 2D/3D Toggle Container
 // Default: Fast 2D Blueprint. Toggle to interactive 3D model.
+// Supports compound presets (multiple sub-units rendered as one).
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
 type ToteColor = "black" | "clear";
 type UnitType = "standard" | "mini";
 type Orientation = "standard" | "sideways";
+
+/** Sub-unit definition for compound presets */
+export interface VisualizerSubUnit {
+  cols: number;
+  rows: number;
+  totalW: number;
+  totalH: number;
+  hasTop: boolean;
+  hasWheels: boolean;
+}
 
 interface RackVisualizerProps {
   cols: number;
@@ -29,6 +40,8 @@ interface RackVisualizerProps {
   hasTop: boolean;
   totalW: number;
   totalH: number;
+  /** When set, renders a compound preset (multiple sub-units side by side) */
+  presetUnits?: VisualizerSubUnit[];
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
@@ -85,6 +98,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             hasTop={props.hasTop}
             totalW={props.totalW}
             totalH={props.totalH}
+            presetUnits={props.presetUnits}
           />
         </div>
       ) : (
@@ -114,6 +128,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               hasTotes={props.hasTotes}
               hasWheels={props.hasWheels}
               hasTop={props.hasTop}
+              presetUnits={props.presetUnits}
             />
           </Suspense>
         </div>
