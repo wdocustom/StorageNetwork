@@ -353,49 +353,10 @@ export async function calculateBuild(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Bestseller Presets — Compound unit configurations
+// Bestseller Presets — imported from shared lib (safe for client import)
 // ═══════════════════════════════════════════════════════════════════════════
-
-export interface PresetSubUnit {
-  cols: number;
-  rows: number;
-  hasTop: boolean;
-  hasWheels: boolean;
-}
-
-export interface BestsellerPreset {
-  id: string;
-  name: string;
-  label: string;               // Display label (e.g., "Bestseller")
-  units: PresetSubUnit[];
-  toteModel: ToteModel;
-  toteColor: ToteColor;
-  unitType: UnitType;
-  orientation: Orientation;
-  /** Fixed base price (frame + tops, no totes) */
-  basePrice: number;
-  /** Fixed price with totes included */
-  withTotesPrice: number;
-}
-
-export const BESTSELLER_PRESETS: BestsellerPreset[] = [
-  {
-    id: "indiana-joe",
-    name: "Indiana Joe",
-    label: "Bestseller",
-    toteModel: "HDX",
-    toteColor: "black",
-    unitType: "standard",
-    orientation: "standard",
-    basePrice: 710,
-    withTotesPrice: 950,
-    units: [
-      { cols: 2, rows: 4, hasTop: true, hasWheels: false },
-      { cols: 2, rows: 2, hasTop: true, hasWheels: false },
-      { cols: 2, rows: 4, hasTop: true, hasWheels: false },
-    ],
-  },
-];
+import { BESTSELLER_PRESETS } from "@/lib/presets";
+export type { PresetSubUnit, BestsellerPreset } from "@/lib/presets";
 
 export interface CompoundBuildResult {
   success: true;
