@@ -1487,7 +1487,7 @@ export default function DesignConfigurator({
                 {compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
                 {compoundBuild.depth}&quot; D &nbsp;&mdash;&nbsp;
                 <span className="font-bold text-gray-900">
-                  {compoundBuild.subUnits.map((su) => `${su.cols}&times;${su.rows}`).join(" + ")} ={" "}
+                  {compoundBuild.subUnits.map((su) => `${su.cols}×${su.rows}`).join(" + ")} ={" "}
                   {compoundBuild.totalSlots} slots
                 </span>
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">

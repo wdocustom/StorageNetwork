@@ -195,14 +195,13 @@ export default function BlueprintCanvas({
       }
     }
 
-    // Plywood top
+    // Plywood top (flush with unit sides — no overhang)
     if (unitHasTop) {
       const topThick = PLY_TOP_H * scale;
-      const overhang = 1 * scale;
       ctx.fillStyle = plywoodFill;
       ctx.strokeStyle = woodStroke;
-      ctx.fillRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
-      ctx.strokeRect(startX - overhang, startY - topThick, pTotalW + overhang * 2, topThick);
+      ctx.fillRect(startX, startY - topThick, pTotalW, topThick);
+      ctx.strokeRect(startX, startY - topThick, pTotalW, topThick);
     }
   }, [isMini, opening, hasTotes, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
