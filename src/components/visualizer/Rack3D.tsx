@@ -544,7 +544,7 @@ function RackAssembly({
               castShadow
               receiveShadow
             >
-              <boxGeometry args={[totalW + 2, PLY_TOP_H, unitDepth + 2]} />
+              <boxGeometry args={[totalW, PLY_TOP_H, unitDepth]} />
               <meshStandardMaterial color="#D4B896" roughness={0.6} metalness={0.0} />
             </mesh>
           )}
@@ -640,8 +640,22 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
   orientation: Orientation;
   hasTotes: boolean;
 }) {
+  const isMini = unitType === "mini";
   const bayW = getBayWidth(toteType, unitType, orientation);
+  const tierSpacing = getTierSpacing(unitType);
+  const firstRailY = getFirstRailY(unitType);
   const GAP_INCHES = 1; // 1" gap between sub-units
+
+  // Calculate overallH for each sub-unit and find the tallest
+  const unitHeights = presetUnits.map((unit) => {
+    const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
+    const frameH = isMini
+      ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+      : PLATE_H + lastRailY + 3 + PLATE_H;
+    const lift = unit.hasWheels ? CASTER_HEIGHT : 0;
+    return frameH + lift;
+  });
+  const maxH = Math.max(...unitHeights);
 
   // Calculate total combined width and positions for each sub-unit
   const positions: number[] = [];
@@ -658,10 +672,12 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
   return (
     <group scale={[S, S, S]}>
       {presetUnits.map((unit, i) => {
-        const unitW = unit.cols * bayW + (unit.cols + 1) * POST_W;
         const xOffset = (positions[i] - centerOffset);
+        // Bottom-align: RackAssembly centers each unit at y=0 using cy=overallH/2.
+        // Shift shorter units DOWN so all bottoms sit at -maxH/2.
+        const yOffset = (unitHeights[i] - maxH) / 2;
         return (
-          <group key={`preset-unit-${i}`} position={[xOffset, 0, 0]}>
+          <group key={`preset-unit-${i}`} position={[xOffset, yOffset, 0]}>
             <group scale={[1 / S, 1 / S, 1 / S]}>
               <RackAssembly
                 cols={unit.cols}
