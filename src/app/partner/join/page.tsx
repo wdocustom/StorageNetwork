@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import PlatformShowcase from "@/components/PlatformShowcase";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Onboarding — Professional Trade Style (No Stripe Step)
@@ -102,87 +103,89 @@ function PartnerJoinPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
-      {/* ── LEFT: Value Prop ──────────────────────────────────────── */}
-      <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
-        <div className="max-w-lg">
-          {/* Professional headline */}
-          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-            Installer Network
-          </p>
-          <h1 className="mb-3 text-4xl font-black leading-[1.1] tracking-tight text-white xl:text-5xl">
-            We Close the Sale.
-            <br />
-            <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              You Build the Project.
-            </span>
-          </h1>
-          <p className="mb-12 max-w-md text-lg leading-relaxed text-stone-400">
-            Stop fighting for leads. We handle the design, sales, and logistics. 
-            You get a confirmed job with a Cut List and a deposit. 
-            No bidding. No chasing checks.
-          </p>
-
-          {/* 3-Block Value Props */}
-          <div className="space-y-5">
-            {VALUE_PROPS.map((block) => (
-              <div key={block.label} className="flex gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
-                  <block.icon className="h-5 w-5 text-yellow-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
-                      {block.label}
-                    </span>
-                    <span className="text-sm font-bold text-white">
-                      {block.title}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-sm leading-relaxed text-stone-500">
-                    {block.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-12 border-t border-slate-800 pt-6">
-            <p className="text-xs text-stone-600">
-              Already have an account?{" "}
-              <a
-                href="/login"
-                className="font-semibold text-yellow-400 hover:text-yellow-300"
-              >
-                Sign In
-              </a>
+    <div className="min-h-screen bg-slate-950">
+      {/* ── TOP: Hero — two-col on desktop ───────────────────────── */}
+      <div className="flex min-h-screen flex-col lg:flex-row">
+        {/* ── LEFT: Value Prop ──────────────────────────────────────── */}
+        <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
+          <div className="max-w-lg">
+            {/* Professional headline */}
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+              Installer Network
             </p>
+            <h1 className="mb-3 text-4xl font-black leading-[1.1] tracking-tight text-white xl:text-5xl">
+              We Close the Sale.
+              <br />
+              <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                You Build the Project.
+              </span>
+            </h1>
+            <p className="mb-12 max-w-md text-lg leading-relaxed text-stone-400">
+              Stop fighting for leads. We handle the design, sales, and logistics.
+              You get a confirmed job with a Cut List and a deposit.
+              No bidding. No chasing checks.
+            </p>
+
+            {/* 3-Block Value Props */}
+            <div className="space-y-5">
+              {VALUE_PROPS.map((block) => (
+                <div key={block.label} className="flex gap-4">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                    <block.icon className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                        {block.label}
+                      </span>
+                      <span className="text-sm font-bold text-white">
+                        {block.title}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-sm leading-relaxed text-stone-500">
+                      {block.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-12 border-t border-slate-800 pt-6">
+              <p className="text-xs text-stone-600">
+                Already have an account?{" "}
+                <a
+                  href="/login"
+                  className="font-semibold text-yellow-400 hover:text-yellow-300"
+                >
+                  Sign In
+                </a>
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── RIGHT: Signup Form ───────────────────────────────────────── */}
-      <div className="flex w-full flex-col items-center justify-center px-6 lg:w-1/2 lg:bg-slate-900/50">
-        <div className="w-full max-w-sm">
-          {/* Mobile header */}
-          <div className="mb-8 text-center lg:hidden">
-            <Building2 className="mx-auto mb-3 h-8 w-8 text-yellow-400" />
-            <h1 className="text-2xl font-black text-white">
-              We Close.{" "}
-              <span className="text-yellow-400">You Build.</span>
-            </h1>
-            <p className="mt-1 text-sm text-stone-500">
-              Pre-sold jobs. Cut lists. Instant pay.
-            </p>
-          </div>
+        {/* ── RIGHT: Signup Form ───────────────────────────────────── */}
+        <div className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:bg-slate-900/50 lg:py-0">
+          <div className="w-full max-w-sm">
+            {/* Mobile header */}
+            <div className="mb-8 text-center lg:hidden">
+              <Building2 className="mx-auto mb-3 h-8 w-8 text-yellow-400" />
+              <h1 className="text-2xl font-black text-white">
+                We Close.{" "}
+                <span className="text-yellow-400">You Build.</span>
+              </h1>
+              <p className="mt-1 text-sm text-stone-500">
+                Pre-sold jobs. Cut lists. Instant pay.
+              </p>
+            </div>
 
-          {/* Desktop header */}
-          <div className="mb-8 hidden lg:block">
-            <h2 className="text-xl font-bold text-white">Create Account</h2>
-            <p className="mt-1 text-sm text-stone-500">
-              60 seconds. No credit card. No Stripe setup required yet.
-            </p>
-          </div>
+            {/* Desktop header */}
+            <div className="mb-8 hidden lg:block">
+              <h2 className="text-xl font-bold text-white">Create Account</h2>
+              <p className="mt-1 text-sm text-stone-500">
+                60 seconds. No credit card. No Stripe setup required yet.
+              </p>
+            </div>
 
           {/* Pro Trial Banner (affiliate signups) */}
           {referringPartner && (
@@ -344,6 +347,10 @@ function PartnerJoinPageInner() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* ── Platform Showcase — below hero ─────────────────────────── */}
+      <PlatformShowcase />
     </div>
   );
 }
