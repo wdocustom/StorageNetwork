@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -48,28 +48,6 @@ export default function LoginPage() {
         } else {
           setMessage(
             "Check your email for a password reset link."
-          );
-        }
-      } else if (mode === "signup") {
-        // Sign up with email + password
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters.");
-          setLoading(false);
-          return;
-        }
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-
-        if (signUpError) {
-          setError(signUpError.message);
-        } else {
-          setMessage(
-            "Check your email for a confirmation link, then come back and sign in."
           );
         }
       } else {
@@ -119,8 +97,6 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-stone-500">
             {mode === "login"
               ? "Sign in to your installer dashboard"
-              : mode === "signup"
-              ? "Create your installer account"
               : "Reset your password"}
           </p>
         </div>
@@ -166,9 +142,9 @@ export default function LoginPage() {
                     setError("");
                   }}
                   onKeyDown={handleKeyDown}
-                  placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
+                  placeholder="Your password"
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                 />
               </div>
             )}
@@ -192,8 +168,6 @@ export default function LoginPage() {
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : mode === "login" ? (
               "Sign In"
-            ) : mode === "signup" ? (
-              "Create Account"
             ) : (
               <>
                 <KeyRound className="h-4 w-4" />
@@ -220,33 +194,14 @@ export default function LoginPage() {
                 </p>
                 <p className="text-xs text-stone-500">
                   Don&apos;t have an account?{" "}
-                  <button
-                    onClick={() => {
-                      setMode("signup");
-                      setError("");
-                      setMessage("");
-                    }}
+                  <a
+                    href="/partner/join"
                     className="font-semibold text-yellow-400 hover:text-yellow-300"
                   >
-                    Sign Up
-                  </button>
+                    Join the Network
+                  </a>
                 </p>
               </>
-            )}
-            {mode === "signup" && (
-              <p className="text-xs text-stone-500">
-                Already have an account?{" "}
-                <button
-                  onClick={() => {
-                    setMode("login");
-                    setError("");
-                    setMessage("");
-                  }}
-                  className="font-semibold text-yellow-400 hover:text-yellow-300"
-                >
-                  Sign In
-                </button>
-              </p>
             )}
             {mode === "forgot" && (
               <p className="text-xs text-stone-500">
