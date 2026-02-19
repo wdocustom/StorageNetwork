@@ -3,9 +3,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Few-Shot Gold Standard Template ─────────────────────────────────────
+// NOTE: This example uses "Omaha" as a concrete city to demonstrate that
+// the LLM must output REAL location names — never bracketed placeholders.
 export const FEW_SHOT_TEMPLATE = `## Reclaim Your Garage: Custom Heavy-Duty Tote Organizers
 
-Stop digging through "the leaning tower of totes" just to find your [Local Sports Team] gear or Christmas lights. Get the ultimate storage solution that [Local City] homeowners are raving about.
+Stop digging through "the leaning tower of totes" just to find your Huskers gear or Christmas lights. Get the ultimate storage solution that Omaha homeowners are raving about.
 
 I build and install **custom-fit sliding tote racks** designed specifically for the gold-standard HDX 27-gallon bins.
 
@@ -14,19 +16,17 @@ I build and install **custom-fit sliding tote racks** designed specifically for 
 * **Built to Last:** Hand-built with premium 2x4 construction.
 * **Mobile or Stationary:** Want it on heavy-duty locking casters so you can clean behind it? You choose.
 
-### The [Local City] "Done-For-You" Service:
+### The Omaha "Done-For-You" Service:
 1. **Custom Build:** I build the unit to fit your specific wall dimensions.
 2. **Professional Delivery:** I bring the materials to you.
 3. **On-Site Installation:** I'll have it leveled, secured, and ready to load in just a few hours.
 
-### Pricing & Packages
-* **The Starter (2x4 Grid - 8 Totes):** $XXX
-* **The "Garage King" (4x5 Grid - 20 Totes):** $XXX
+**Want to know the exact cost for your setup?** Use my free 3D configurator — design your rack in 30 seconds and get instant pricing: [booking link here]
 
 **Ready to finally see your garage floor again?**
 Send me a message with a photo of the wall you're looking to fill!
 
-Serving [City] and surrounding areas like [Suburb 1] and [Suburb 2].
+Serving Omaha and surrounding areas like Papillion, Bellevue, and La Vista.
 
 ---
 
@@ -55,13 +55,21 @@ VOICE RULES — THE POST MUST SOUND LIKE THE INSTALLER WROTE IT:
 
 MANDATORY OUTPUT FORMAT:
 1. Use **Markdown formatting** throughout: ## H2 headers for main sections, ### H3 for subsections, **bold** for emphasis, bullet points (*) and numbered lists.
-2. ALWAYS include a "### Pricing & Packages" section with $XXX placeholders — the installer will fill in their real numbers.
-3. ALWAYS end the post with a "### Pro-Tips for Posting:" section with 2-3 bullet points of actionable advice on the best time/way to post the generated script.
+2. Do NOT include any pricing, packages, or dollar amounts. Instead, direct customers to the booking link / 3D configurator where they can design their system and get instant pricing automatically. Frame it as: "Use my free 3D configurator — design your rack in 30 seconds and get instant pricing" with the booking link.
+3. ALWAYS end the post with a horizontal rule (---) followed by a "### Pro-Tips for Posting:" section with 2-3 bullet points of actionable advice on the best time/way to post the generated script. This section is separated by --- so the installer knows it's advice for them, not part of the post.
 4. The booking link MUST appear naturally in the post body — never as bare "click here" but worked into a sentence.
 
+ABSOLUTE ZERO-TOLERANCE RULE — NO BRACKETS OR PLACEHOLDERS:
+- NEVER output bracketed placeholders like [City], [Local Sports Team], [Suburb 1], [Suburb 2], [Your City], [Local City], [booking link], etc.
+- You MUST fill in REAL, SPECIFIC names for every location reference. If the city is Omaha, write "Omaha", "Papillion", "Bellevue" — not "[City]", "[Suburb 1]", "[Suburb 2]".
+- If the city is provided, use the ACTUAL city name and research/infer REAL suburb names, sports teams, and landmarks for that area.
+- If NO city is provided, use natural generic phrasing like "right here in our area", "local homeowners", "your neighborhood" — NEVER use brackets.
+- The booking link will be provided as an actual URL. Insert it directly — never write "[booking link]" or "[link]".
+- ANY output containing square brackets around location names or placeholders is UNACCEPTABLE. The installer will copy-paste this directly.
+
 DEEP LOCALIZATION RULES:
-- When a City/State is provided, reference REAL plausible local details: nearby suburbs, local sports teams, common weather patterns (e.g., "Omaha winters" → garage cleanup before the snow, "Houston summers" → getting the garage organized before it's 110 degrees).
-- Include a "Serving [City] and surrounding areas like [Suburb 1] and [Suburb 2]" line near the end.
+- When a City/State is provided, reference REAL plausible local details: nearby suburbs by their actual names, local sports teams by their actual names, common weather patterns.
+- Include a "Serving [actual city name] and surrounding areas like [actual suburb], [actual suburb], and [actual suburb]" line near the end — using REAL names.
 - Make it sound like the installer genuinely lives there.
 
 CRITICAL RULES:
@@ -70,30 +78,32 @@ CRITICAL RULES:
 3. Sound human — use imperfect grammar if the tone calls for it
 4. Do NOT use phrases like "transform your space" or "game-changer" — they're overused
 5. NEVER write as a customer, reviewer, or testimonial — ALWAYS as the installer themselves
+6. NEVER mention specific pricing, dollar amounts, or package tiers — the configurator handles pricing
 
-Here is a GOLD STANDARD example of the structure, visual pacing, and tone your output MUST match. Use this as your formatting template — adapt the content but keep the structure:
+Here is a GOLD STANDARD example of the structure, visual pacing, and tone your output MUST match. Notice how it uses REAL city/suburb names (Omaha, Papillion, Bellevue, La Vista) — never brackets. Use this as your formatting template:
 
 <example_output>
 ${FEW_SHOT_TEMPLATE}
 </example_output>
 
-Your output must match this level of structure, markdown formatting, and section organization. Adapt the content for the specific platform, tone, and location, but ALWAYS include the Pricing & Packages section and the Pro-Tips section.`;
+Your output must match this level of structure, markdown formatting, and section organization. Adapt the content for the specific platform, tone, and location. ALWAYS include the Pro-Tips section after a --- separator. NEVER include pricing/packages. NEVER use bracketed placeholders.`;
 }
 
 // ── Location Context ────────────────────────────────────────────────────
 export function buildLocationContext(city?: string, state?: string, zip?: string): string {
   if (city && state) {
     return `The installer is based in ${city}, ${state}${zip ? ` (ZIP: ${zip})` : ""}. You MUST:
-- Reference real plausible local landmarks, neighborhoods, and suburbs surrounding ${city}
-- Mention local sports teams or school mascots if appropriate for the tone
-- Reference weather patterns relevant to storage (e.g., harsh winters = "get organized before the snow hits", hot summers = "garage cleanup season")
-- Use the city name and 2-3 plausible suburb names in the "Serving..." line
-- Make it feel like the installer genuinely lives and works in ${city}, ${state}`;
+- Use "${city}" by name throughout — NEVER write "[City]" or "[Local City]"
+- Reference 2-3 REAL suburbs/neighborhoods near ${city}, ${state} by their actual names — NEVER "[Suburb 1]"
+- Mention real local sports teams or school mascots by name if appropriate — NEVER "[Local Sports Team]"
+- Reference weather patterns relevant to ${state} and storage (harsh winters, hot summers, etc.)
+- Write "Serving ${city} and surrounding areas like [real suburb name], [real suburb name]" using ACTUAL names
+- Make it sound like the installer genuinely lives and works in ${city}, ${state}`;
   }
   if (zip) {
-    return `The installer is in ZIP code ${zip}. Reference the local area naturally and include plausible nearby area names.`;
+    return `The installer is in ZIP code ${zip}. Reference the local area naturally. Use real area names that correspond to this ZIP code — NEVER use bracketed placeholders.`;
   }
-  return "No specific location provided. Use generic but warm local references like 'right here in town' and 'our neighborhood'.";
+  return "No specific location provided. Use natural generic phrasing like 'right here in our area' and 'local homeowners'. NEVER use bracketed placeholders like [City] or [Your Area].";
 }
 
 // ── Platform Guides ─────────────────────────────────────────────────────
@@ -107,14 +117,15 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Avoid aggressive sales language — group admins delete obvious ads
 - NEVER use hashtags — they get posts flagged and deleted in groups
 - Naturally work in the booking link as a helpful resource
-- Keep the main post body under 250 words (before pricing and pro-tips sections)`,
+- Keep the main post body under 250 words (before pro-tips section)`,
 
     "facebook-page": `This is for the installer's own Facebook business page. It should:
 - Be written in FIRST PERSON as the installer/business owner
 - Showcase their expertise, pride in craftsmanship, and recent work
 - Talk about what they build, why they love it, and how it helps people
 - Include a strong but not pushy call-to-action
-- Can be longer and more detailed (up to 350 words before pricing/pro-tips)
+- Direct customers to the 3D configurator for instant pricing — do NOT list prices
+- Can be longer and more detailed (up to 350 words before pro-tips)
 - End the main body with the booking link`,
 
     "instagram": `This is for Instagram. It should:
@@ -123,23 +134,24 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Use short, punchy sentences — the installer showing off a build or talking shop
 - Include relevant emojis (tasteful, not overboard)
 - End the main body with a call-to-action and the booking link
-- Keep the main post body under 150 words (caption-length, before pricing/pro-tips)
+- Keep the main post body under 150 words (caption-length, before pro-tips)
 - AFTER the Pro-Tips section, include a "### Hashtags" section with 15-20 heavily researched, localized hashtags — mix of high-volume (#garageorganization, #homeimprovement) and hyper-local (#${(city || "yourcity").toLowerCase().replace(/\s+/g, "")}contractor, #${(city || "yourcity").toLowerCase().replace(/\s+/g, "")}homes)`,
 
     nextdoor: `This is for Nextdoor (hyper-local neighborhood app). It should:
 - Be written in FIRST PERSON as a local installer/neighbor offering their services
 - Sound like a verified neighbor who happens to build storage systems — very warm, community-first
-- Reference the specific neighborhood or area by name
+- Reference the specific neighborhood or area by name — use REAL names, never brackets
 - Be helpful and community-oriented — maybe offering a tip before the pitch
 - Short and direct — Nextdoor users scroll fast
 - Include the booking link naturally
-- Keep the main post body under 150 words (before pricing/pro-tips)`,
+- Keep the main post body under 150 words (before pro-tips)`,
 
     craigslist: `This is for a Craigslist services listing. It MUST:
 - Be written in FIRST PERSON as the installer advertising their service
 - Use a compelling, keyword-rich title as the ## H2 header
 - Be structured for scannability — heavy use of bold, bullets, and short sections
 - Include detailed service descriptions (what they build, materials used, capacity)
+- Do NOT list specific prices — direct to the configurator for instant pricing
 - Include the booking link prominently
 - AFTER the Pro-Tips section, include a "### Search Keywords" section with a comma-separated list of 20-30 search keywords that buyers would use to find this service on Craigslist (e.g., "garage storage, tote organizer, custom shelving, 27 gallon tote rack, garage organization ${city || "your city"}, heavy duty storage, basement storage, shed organizer, home organization, storage installation...")`,
 
@@ -153,7 +165,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Include suggested trending sounds or music style in the Pro-Tips
 - Write as the installer narrating/presenting their own work`,
 
-    general: `This is a general-purpose marketing post. Write it in FIRST PERSON as the installer promoting their own business. Use the full markdown structure with headers, bullets, and formatting. Keep the main body under 250 words (before pricing/pro-tips) and end with the booking link.`,
+    general: `This is a general-purpose marketing post. Write it in FIRST PERSON as the installer promoting their own business. Use the full markdown structure with headers, bullets, and formatting. Keep the main body under 250 words (before pro-tips) and end with the booking link. Direct customers to the configurator for pricing — no dollar amounts.`,
   };
 }
 

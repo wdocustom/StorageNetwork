@@ -110,15 +110,33 @@ export default function AIScriptGenerator({
     }
   }
 
+  // Strip Pro-Tips section from copy text (everything after the --- separator
+  // that precedes "Pro-Tips"). Hashtags and Search Keywords live BEFORE the
+  // separator so they are always preserved.
+  function getPostText(): string {
+    // Split on the horizontal rule that precedes Pro-Tips
+    const parts = script.split(/\n---\s*\n/);
+    if (parts.length <= 1) return script;
+    // Keep everything before the ---, plus any sections after that are NOT Pro-Tips
+    // (e.g. if the LLM somehow adds extra sections)
+    const postParts = [parts[0]];
+    for (let i = 1; i < parts.length; i++) {
+      if (/^#{1,3}\s*Pro[- ]?Tips/im.test(parts[i])) continue;
+      postParts.push(parts[i]);
+    }
+    return postParts.join("\n---\n").trim();
+  }
+
   function handleCopy() {
-    navigator.clipboard.writeText(script);
+    navigator.clipboard.writeText(getPostText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   function handleShare() {
+    const text = getPostText();
     if (navigator.share) {
-      navigator.share({ text: script }).catch(() => {});
+      navigator.share({ text }).catch(() => {});
     } else {
       handleCopy();
     }

@@ -73,8 +73,9 @@ ${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
 REMEMBER:
 - Write as the installer in first person. They are posting this themselves to get leads.
 - Use MARKDOWN formatting: ## H2 headers, ### H3 sub-headers, **bold**, bullet points, numbered lists.
-- MUST include a "### Pricing & Packages" section with $XXX placeholders.
-- MUST end with a "### Pro-Tips for Posting:" section with 2-3 actionable bullets.
+- Do NOT include any pricing, dollar amounts, or package tiers. Direct customers to the 3D configurator (the booking link) for instant pricing.
+- MUST end with --- followed by a "### Pro-Tips for Posting:" section with 2-3 actionable bullets.
+- ABSOLUTELY NO bracketed placeholders like [City], [Suburb 1], [Local Sports Team]. Use REAL names or natural generic phrasing. The installer will copy-paste this verbatim.
 - No customer testimonials, no third-person descriptions. Just the installer talking about what they do.
 
 Write the full structured post now.`;
