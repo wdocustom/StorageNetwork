@@ -9,6 +9,8 @@
 // (hasWheels, hasTop).
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { toFraction } from "@/lib/utils";
+
 export type PartGroup =
   | "posts"
   | "rails"
@@ -18,7 +20,8 @@ export type PartGroup =
   | "plyTop"
   | "screws"
   | "plateScrews"
-  | "casterScrews";
+  | "casterScrews"
+  | "backSupports";
 
 /** Visibility state for each part group during a step */
 export type PartVisibility = "visible" | "ghosted" | "hidden";
@@ -58,6 +61,27 @@ export interface AssemblyStep {
   proTip?: string;
 }
 
+/** Configuration for the assembly guide */
+export interface BuildConfig {
+  hasWheels: boolean;
+  hasTop: boolean;
+  toteType?: "HDX" | "GM";
+}
+
+// Default hidden state for all groups
+const ALL_HIDDEN: Record<PartGroup, PartVisibility> = {
+  posts: "hidden",
+  rails: "hidden",
+  bottomPlates: "hidden",
+  topPlates: "hidden",
+  casters: "hidden",
+  plyTop: "hidden",
+  screws: "hidden",
+  plateScrews: "hidden",
+  casterScrews: "hidden",
+  backSupports: "hidden",
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // All Possible Steps (filtered at runtime by configuration)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,15 +94,8 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'Cut all 2×4×8\' studs to upright height. Use a speed square to mark a clean line around the board, then make your cut. Stack finished pieces to verify equal length.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
-      rails: "hidden",
-      bottomPlates: "hidden",
-      topPlates: "hidden",
-      casters: "hidden",
-      plyTop: "hidden",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     tools: [
       { name: "Miter Saw", detail: "or Circular Saw" },
@@ -98,17 +115,11 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "cut-plates",
     title: "Cut the Plates",
     instruction:
-      'Cut 4 plates (2 top, 2 bottom) from 2×4 stock to the full unit width. These tie the ladder frames together across the front and back.',
+      'Cut 4 plates (2 top, 2 bottom) from 2×4 stock to the full unit width (PLATE_LENGTH). These tie the ladder frames together across the front and back.',
     partStates: {
-      posts: "hidden",
-      rails: "hidden",
+      ...ALL_HIDDEN,
       bottomPlates: "visible",
       topPlates: "visible",
-      casters: "hidden",
-      plyTop: "hidden",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     tools: [
       { name: "Miter Saw", detail: "or Circular Saw" },
@@ -127,28 +138,21 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "rip-rails",
     title: "Rip the Plywood Rails",
     instruction:
-      'Rip 3/4" plywood into 1-7/8" wide strips at 30" long. Set your table saw fence to 1-7/8" and rip full-length strips, then crosscut to 30". These support the totes between the uprights.',
+      'From a 4\'×8\' sheet of 3/4" plywood, rip a 30" wide offcut along the 96" side (set fence to 30"). Then crosscut that 30"×96" offcut into (3) 30"×30" squares. Finally, rip each square into 1-7/8" wide strips on the table saw — each square yields (16) strips at 1-7/8"×30". These strips support the totes between the uprights.',
     partStates: {
-      posts: "hidden",
+      ...ALL_HIDDEN,
       rails: "visible",
-      bottomPlates: "hidden",
-      topPlates: "hidden",
-      casters: "hidden",
-      plyTop: "hidden",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     tools: [
-      { name: "Table Saw", detail: "with fence at 1-7/8\"" },
-      { name: "Miter Saw", detail: "for crosscuts to 30\"" },
+      { name: "Table Saw", detail: 'fence at 30" then 1-7/8"' },
+      { name: "Miter Saw", detail: 'crosscut to 30" squares' },
       { name: "Safety Glasses" },
       { name: "Push Stick" },
     ],
     materials: [
       { name: '3/4" Plywood Strips', qty: "RAILS_QTY", detail: 'Rip to 1-7/8" × RAIL_LENGTH' },
     ],
-    proTip: "Use a zero-clearance insert on your table saw for cleaner rips on thin strips.",
+    proTip: 'Rip the 30" offcut first, then crosscut into squares, then rip strips. This sequence minimizes waste and keeps cuts manageable on the table saw.',
     cameraHint: "close-side",
   },
 
@@ -157,17 +161,11 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "mark-posts",
     title: "Mark Rail Positions",
     instruction:
-      'On each upright, mark the center of the first rail at 13" from the bottom. Then mark every 16" on center going up. Use a combination square to carry the line across the face.',
+      'On each upright, mark the TOP of the first rail at 13" from the bottom. Then mark every 16" up for the top of each subsequent rail. Use a combination square to carry the line across the face. The 16" measurement is to the top of the rail, not center-to-center.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "ghosted",
-      bottomPlates: "hidden",
-      topPlates: "hidden",
-      casters: "hidden",
-      plyTop: "hidden",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     tools: [
       { name: "Tape Measure" },
@@ -175,7 +173,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: "Pencil" },
     ],
     materials: [
-      { name: "Cut Uprights", qty: "POSTS_QTY", detail: "Mark rail centers on face" },
+      { name: "Cut Uprights", qty: "POSTS_QTY", detail: "Mark rail top positions on face" },
     ],
     proTip: "Clamp two uprights together and mark both at once to guarantee matching rail heights.",
     cameraHint: "side",
@@ -188,15 +186,10 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'Pair up front and back uprights. Attach plywood rail strips flush to the inside face of each post using #9 × 1-5/8" star drive screws. Drive 2 screws per rail end — one near the top edge and one near the bottom edge of the strip. No pilot holes needed — plywood won\'t split. Each completed pair of posts with rails forms a "ladder frame."',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
-      bottomPlates: "hidden",
-      topPlates: "hidden",
-      casters: "hidden",
-      plyTop: "hidden",
       screws: "visible",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     screwType: {
       label: '#9 × 1-5/8" Star Drive',
@@ -221,17 +214,14 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-bottom-plates",
     title: "Attach Bottom Plates",
     instruction:
-      'Lay the completed ladder frames on their sides so the rail faces point up. Space them at the correct bay width apart. Position the 2 bottom plates across the bottom ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the end grain of each upright — 2 screws per connection. The unit stays laid on its front for this step.',
+      'Lay the completed ladder frames on their sides so the rail faces point up. Space them at OPENING_SPAN apart (inside face to inside face — do not measure on center). Position the 2 bottom plates across the bottom ends of all uprights (front and back). Drive #9 × 3" screws down through the bottom plate into the end grain of each upright — 2 screws per connection. The unit stays laid on its front for this step.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
-      topPlates: "hidden",
-      casters: "hidden",
-      plyTop: "hidden",
       screws: "visible",
       plateScrews: "visible",
-      casterScrews: "hidden",
     },
     screwType: {
       label: '#9 × 3" Star Drive',
@@ -241,6 +231,7 @@ const ALL_STEPS: AssemblyStep[] = [
     tools: [
       { name: "Drill/Driver" },
       { name: 'T-25 Star Bit', detail: "for #9 screws" },
+      { name: "Tape Measure", detail: "verify OPENING_SPAN between posts" },
     ],
     materials: [
       { name: "2×4 Bottom Plates", qty: "2", detail: "Front and back" },
@@ -255,17 +246,15 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-top-plates",
     title: "Attach Top Plates",
     instruction:
-      'With the ladder frames still on their sides, position the 2 top plates across the top ends of all uprights (front and back). Drive #9 × 3" screws through each plate into the top end grain of each upright — 2 screws per connection. The unit stays laid on its front until the wheels are attached.',
+      'With the ladder frames still on their sides, position the 2 top plates across the top ends of all uprights (front and back). Verify the same OPENING_SPAN spacing between posts as the bottom. Drive #9 × 3" screws down through the top plate into the top end grain of each upright — 2 screws per connection. The unit stays laid on its front until the wheels are attached.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
       topPlates: "visible",
-      casters: "hidden",
-      plyTop: "hidden",
       screws: "visible",
       plateScrews: "visible",
-      casterScrews: "hidden",
     },
     screwType: {
       label: '#9 × 3" Star Drive',
@@ -292,15 +281,13 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'With the unit still laying on its front, install plywood back supports diagonally at the top and bottom corners of the back face. These prevent racking and keep the unit square. Measure corner-to-corner diagonals — they should match within 1/8". Once square, screw the diagonal braces in place. While the unit is still on its front, attach a heavy-duty swivel caster at each corner of the bottom plate. Drive 4 lag screws per caster through the mounting plate into the 2×4 bottom plate. No pilot holes required for the entire build.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
       topPlates: "visible",
       casters: "visible",
-      plyTop: "hidden",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "visible",
+      backSupports: "visible",
     },
     screwType: {
       label: '1/4" × 1-1/2" Lag Screw',
@@ -327,22 +314,20 @@ const ALL_STEPS: AssemblyStep[] = [
     id: "attach-top",
     title: "Attach Plywood Top",
     instruction:
-      'Cut a 3/4" plywood sheet to the unit footprint (full width × 30" depth, overhanging 1" per side). Set it centered on the top plates and secure with #9 × 1-5/8" screws driven down through the plywood into the top plates every 12".',
+      'Cut a 3/4" plywood sheet to the unit footprint (PLATE_LENGTH × 30"). Set it flush on the top plates and secure with #9 × 1-5/8" screws — one at each post location driven down through the plywood into the top plate. That\'s TOP_SCREWS_QTY screws total.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
       topPlates: "visible",
       casters: "visible",
       plyTop: "visible",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     screwType: {
       label: '#9 × 1-5/8" Star Drive',
       length: 1.625,
-      description: "Through plywood top into 2×4 top plate.",
+      description: "Through plywood top into 2×4 top plate at each post location.",
     },
     tools: [
       { name: "Circular Saw", detail: "or Table Saw for rip" },
@@ -350,8 +335,8 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: 'T-25 Star Bit' },
     ],
     materials: [
-      { name: '3/4" Plywood Sheet', qty: "TOP_SHEETS_QTY", detail: "Cut to UNIT_WIDTH + 2\" × 32\"" },
-      { name: '#9 × 1-5/8" Screws', qty: "TOP_SCREWS_QTY", detail: "Every 12\" along plates" },
+      { name: '3/4" Plywood Sheet', qty: "TOP_SHEETS_QTY", detail: 'Cut to PLATE_LENGTH × 30"' },
+      { name: '#9 × 1-5/8" Screws', qty: "TOP_SCREWS_QTY", detail: "1 per post location × 2 plates" },
     ],
     proTip: "Sand the edges and corners of the plywood top to prevent splinters, especially if this is a work surface.",
     cameraHint: "laid-front",
@@ -365,15 +350,13 @@ const ALL_STEPS: AssemblyStep[] = [
     instruction:
       'Flip the unit upright (get a helper for large units). Roll it into position and verify it sits level. Test that totes slide in and out of each bay smoothly. Rock the unit gently to confirm structural rigidity.',
     partStates: {
+      ...ALL_HIDDEN,
       posts: "visible",
       rails: "visible",
       bottomPlates: "visible",
       topPlates: "visible",
       casters: "visible",
       plyTop: "visible",
-      screws: "hidden",
-      plateScrews: "hidden",
-      casterScrews: "hidden",
     },
     tools: [
       { name: "Level", detail: "check side-to-side" },
@@ -389,11 +372,6 @@ const ALL_STEPS: AssemblyStep[] = [
 // ═══════════════════════════════════════════════════════════════════════════
 // Runtime: filter steps by build configuration
 // ═══════════════════════════════════════════════════════════════════════════
-
-export interface BuildConfig {
-  hasWheels: boolean;
-  hasTop: boolean;
-}
 
 export function getStepsForConfig(config: BuildConfig): AssemblyStep[] {
   return ALL_STEPS.filter((step) => {
@@ -434,6 +412,9 @@ export function computeMaterials(
   rows: number,
   config: BuildConfig
 ): MaterialItem[] {
+  const opening = config.toteType === "GM" ? 20.75 : 19.75;
+  const openingStr = config.toteType === "GM" ? '20-3/4"' : '19-3/4"';
+
   const numPosts = (cols + 1) * 2; // front + back
   const numRails = cols * rows * 2; // left + right per bay per tier
   const railScrews = numRails * 4; // 2 screws per rail end × 2 ends
@@ -442,7 +423,8 @@ export function computeMaterials(
   const backSupports = cols <= 4 ? 4 : 6;
   const totes = cols * rows;
   const uprightH = rows * 16; // rows × TIER_SPACING
-  const plateLen = cols * (cols > 0 ? 19.75 : 20.75) + (cols + 1) * 1.5; // approximate
+  const plateLen = cols * opening + (cols + 1) * 1.5;
+  const plateLenStr = toFraction(plateLen) + '"';
 
   // Board count: bin-packing for accuracy
   const STOCK = 96;
@@ -471,8 +453,8 @@ export function computeMaterials(
   const totalW = plateLen;
   const topSheets = totalW > 192 ? 3 : totalW > 96 ? 2 : 1;
 
-  // Top screws: 2 plates × width / 12" spacing × 2 screws
-  const topScrews = Math.ceil(totalW / 12) * 2 * 2;
+  // Top screws: 1 per post location × 2 plates (front + back)
+  const topScrews = (cols + 1) * 2;
 
   const qtyMap: Record<string, string> = {
     POSTS_QTY: String(numPosts),
@@ -484,22 +466,49 @@ export function computeMaterials(
     TOTES_QTY: String(totes),
     BOARDS_QTY: String(totalBoards),
     UPRIGHT_HEIGHT: `${uprightH}"`,
-    PLATE_LENGTH: `${Math.round(plateLen)}"`,
+    PLATE_LENGTH: plateLenStr,
     RAIL_LENGTH: '30"',
-    UNIT_WIDTH: `${Math.round(plateLen)}"`,
+    UNIT_WIDTH: plateLenStr,
     TOP_SHEETS_QTY: String(topSheets),
     TOP_SCREWS_QTY: String(topScrews),
     BACK_SUPPORTS_QTY: String(backSupports),
+    OPENING_SPAN: openingStr,
   };
 
   return step.materials.map((m) => ({
     ...m,
     qty: qtyMap[m.qty] ?? m.qty,
     detail: m.detail.replace(/UPRIGHT_HEIGHT/g, `${uprightH}"`)
-                     .replace(/PLATE_LENGTH/g, `${Math.round(plateLen)}"`)
+                     .replace(/PLATE_LENGTH/g, plateLenStr)
                      .replace(/RAIL_LENGTH/g, '30"')
-                     .replace(/UNIT_WIDTH/g, `${Math.round(plateLen)}"`),
+                     .replace(/UNIT_WIDTH/g, plateLenStr)
+                     .replace(/OPENING_SPAN/g, openingStr)
+                     .replace(/TOP_SCREWS_QTY/g, String(topScrews)),
   }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Token resolver — replaces PLATE_LENGTH, OPENING_SPAN, etc. in any string
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function resolveTokens(
+  text: string,
+  cols: number,
+  rows: number,
+  config: BuildConfig
+): string {
+  const opening = config.toteType === "GM" ? 20.75 : 19.75;
+  const openingStr = config.toteType === "GM" ? '20-3/4"' : '19-3/4"';
+  const plateLen = cols * opening + (cols + 1) * 1.5;
+  const plateLenStr = toFraction(plateLen) + '"';
+  const uprightH = rows * 16;
+  const topScrews = (cols + 1) * 2;
+
+  return text
+    .replace(/PLATE_LENGTH/g, plateLenStr)
+    .replace(/OPENING_SPAN/g, openingStr)
+    .replace(/UPRIGHT_HEIGHT/g, `${uprightH}"`)
+    .replace(/TOP_SCREWS_QTY/g, String(topScrews));
 }
 
 // Re-export for backward compat

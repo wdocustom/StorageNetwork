@@ -7,6 +7,7 @@ import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import { calculateMaterialCost, type MaterialBreakdown } from "@/utils/calculateMaterials";
+import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
   HardHat,
@@ -634,7 +635,7 @@ export default function BuildConfiguratorPage() {
                 </div>
               </div>
               <div className="mt-3 text-center text-xs text-stone-500">
-                {buildResult.totalW.toFixed(0)}&quot; W × {buildResult.totalH.toFixed(0)}
+                {toFraction(buildResult.totalW)}&quot; W × {toFraction(buildResult.totalH)}
                 &quot; H × 30&quot; D — {buildResult.slots} slots
               </div>
 
@@ -659,7 +660,7 @@ export default function BuildConfiguratorPage() {
                   className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-400 bg-emerald-400/10 py-3 text-xs font-bold uppercase tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/20"
                 >
                   <Box className="h-4 w-4" />
-                  Explode
+                  How-To Guide
                 </button>
               </div>
 
@@ -936,7 +937,7 @@ export default function BuildConfiguratorPage() {
                                 <span className="ml-1.5 text-stone-600">96&quot; stock</span>
                               </span>
                               <span className="font-mono font-bold text-red-400/70">
-                                {board.rem.toFixed(1)}&quot; waste
+                                {toFraction(board.rem)}&quot; waste
                               </span>
                             </div>
                             <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
@@ -954,9 +955,9 @@ export default function BuildConfiguratorPage() {
                                       minWidth: "24px",
                                       textShadow: "0 1px 2px rgba(0,0,0,0.4)",
                                     }}
-                                    title={`${cut.name} — ${cut.len.toFixed(1)}"`}
+                                    title={`${cut.name} — ${toFraction(cut.len)}"`}
                                   >
-                                    {cut.len.toFixed(0)}&quot;
+                                    {toFraction(cut.len)}&quot;
                                   </div>
                                 );
                               })}
@@ -985,7 +986,7 @@ export default function BuildConfiguratorPage() {
                           Post Spacing
                         </p>
                         <p className="text-xs text-stone-400">
-                          Vertical posts are spaced at <span className="font-bold text-blue-400">{(mod.moduleWidth / (mod.cols + 1)).toFixed(1)}&quot;</span> on center ({mod.cols + 1} posts across {mod.moduleWidth.toFixed(1)}&quot; module width)
+                          {mod.cols + 1} posts across {toFraction(mod.moduleWidth)}&quot; width — <span className="font-bold text-blue-400">{toFraction((mod.moduleWidth - (mod.cols + 1) * 1.5) / mod.cols)}&quot;</span> opening between posts (inside face to inside face)
                         </p>
                       </div>
                     </div>

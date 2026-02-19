@@ -9,11 +9,13 @@ import ConstructionScrew from "./ConstructionScrew";
 import {
   getStepsForConfig,
   computeMaterials,
+  resolveTokens,
   type AssemblyStep,
   type PartGroup,
   type PartVisibility,
   type BuildConfig,
 } from "./assemblySteps";
+import { toFraction } from "@/lib/utils";
 import {
   ChevronRight,
   ChevronLeft,
@@ -567,72 +569,48 @@ function ExplodedAssembly({
     const showTop = step.id === "attach-top-plates" || mode === "exploded";
     const screwSpreadX = 0.4; // ±0.4" from post center — 2 screws per joint
 
-    // Plate screws drive through the plate face (Z direction) into the post
-    // end grain, parallel to the post's long axis (Y).
-    // Rotation: [-π/2, 0, 0] → tip toward +Z (front plates, driving inward)
-    //           [π/2, 0, 0]  → tip toward -Z (back plates, driving inward)
+    // Plate screws drive VERTICALLY through the plate into the post end grain.
+    // Bottom plate: screw head below plate, tip drives up into post end grain.
+    // Top plate: screw head above plate, tip drives down into post top end grain.
+    // Default screw orientation is along Y axis (vertical).
 
     for (let i = 0; i <= cols; i++) {
       const px = getPostX(i, bayW);
 
       if (showBottom) {
-        // Bottom plate screws — through plate face into post end grain
-        // Front plate: head outside (−Z), tip drives into assembly (+Z)
-        screws.push({
-          pos: [px - screwSpreadX, lift + PLATE_H / 2, -0.5],
-          rot: [-Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post end grain',
-        });
-        screws.push({
-          pos: [px + screwSpreadX, lift + PLATE_H / 2, -0.5],
-          rot: [-Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post end grain',
-        });
-        // Back plate: head outside (+Z), tip drives into assembly (−Z)
-        screws.push({
-          pos: [px - screwSpreadX, lift + PLATE_H / 2, RACK_DEPTH + 0.5],
-          rot: [Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post end grain',
-        });
-        screws.push({
-          pos: [px + screwSpreadX, lift + PLATE_H / 2, RACK_DEPTH + 0.5],
-          rot: [Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post end grain',
-        });
+        // Bottom plate screws — vertical through plate into post end grain above
+        for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+          screws.push({
+            pos: [px - screwSpreadX, lift - 0.5, z],
+            rot: [0, 0, 0],
+            len: 3.0,
+            label: '#9 × 3" Star Drive — through bottom plate into post end grain',
+          });
+          screws.push({
+            pos: [px + screwSpreadX, lift - 0.5, z],
+            rot: [0, 0, 0],
+            len: 3.0,
+            label: '#9 × 3" Star Drive — through bottom plate into post end grain',
+          });
+        }
       }
 
       if (showTop) {
-        // Top plate screws — through plate face into post top end grain
-        // Front plate: head outside (−Z), tip drives into assembly (+Z)
-        screws.push({
-          pos: [px - screwSpreadX, frameH + lift - PLATE_H / 2, -0.5],
-          rot: [-Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post top end grain',
-        });
-        screws.push({
-          pos: [px + screwSpreadX, frameH + lift - PLATE_H / 2, -0.5],
-          rot: [-Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post top end grain',
-        });
-        // Back plate: head outside (+Z), tip drives into assembly (−Z)
-        screws.push({
-          pos: [px - screwSpreadX, frameH + lift - PLATE_H / 2, RACK_DEPTH + 0.5],
-          rot: [Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post top end grain',
-        });
-        screws.push({
-          pos: [px + screwSpreadX, frameH + lift - PLATE_H / 2, RACK_DEPTH + 0.5],
-          rot: [Math.PI / 2, 0, 0],
-          len: 3.0,
-          label: '#9 × 3" Star Drive — plate into post top end grain',
-        });
+        // Top plate screws — vertical through plate into post top end grain below
+        for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+          screws.push({
+            pos: [px - screwSpreadX, frameH + lift + 0.5, z],
+            rot: [Math.PI, 0, 0],
+            len: 3.0,
+            label: '#9 × 3" Star Drive — through top plate into post end grain',
+          });
+          screws.push({
+            pos: [px + screwSpreadX, frameH + lift + 0.5, z],
+            rot: [Math.PI, 0, 0],
+            len: 3.0,
+            label: '#9 × 3" Star Drive — through top plate into post end grain',
+          });
+        }
       }
     }
 
@@ -654,13 +632,13 @@ function ExplodedAssembly({
                 position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (front) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Bottom Plate (front) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
               />
               <Lumber
                 position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (back) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Bottom Plate (back) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -674,7 +652,7 @@ function ExplodedAssembly({
                 position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (front) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Top Plate (front) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
               />
               <Lumber
                 position={[
@@ -684,7 +662,7 @@ function ExplodedAssembly({
                 ]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (back) — ${Math.round(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Top Plate (back) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -694,7 +672,7 @@ function ExplodedAssembly({
             <AnimatedGroup targetPos={[0, plyTopExpY, 0]}>
               {vis("plyTop") !== "hidden" && (
                 <HoverablePart
-                  label={`3/4" Plywood Top — ${Math.round(totalW + 2)}" × 32", overhangs 1" per side`}
+                  label={`3/4" Plywood Top — ${toFraction(totalW)}" × 30", flush on top plates`}
                   position={[
                     totalW / 2,
                     frameH + PLY_TOP_H / 2,
@@ -704,7 +682,7 @@ function ExplodedAssembly({
                 >
                   <mesh castShadow receiveShadow>
                     <boxGeometry
-                      args={[totalW + 2, PLY_TOP_H, RACK_DEPTH + 2]}
+                      args={[totalW, PLY_TOP_H, RACK_DEPTH]}
                     />
                     <meshStandardMaterial
                       color="#D4B896"
@@ -742,7 +720,7 @@ function ExplodedAssembly({
                       position={[px, PLATE_H + postH / 2, POST_D / 2]}
                       size={[POST_W, postH, POST_D]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (front) — ${Math.round(postH)}" tall, cut from 2×4×8' stud`}
+                      label={`2×4 Upright (front) — ${toFraction(postH)}" tall, cut from 2×4×8' stud`}
                     />
                     <Lumber
                       position={[
@@ -752,7 +730,7 @@ function ExplodedAssembly({
                       ]}
                       size={[POST_W, postH, POST_D]}
                       vis={vis("posts")}
-                      label={`2×4 Upright (back) — ${Math.round(postH)}" tall, cut from 2×4×8' stud`}
+                      label={`2×4 Upright (back) — ${toFraction(postH)}" tall, cut from 2×4×8' stud`}
                     />
                   </AnimatedGroup>
                 </FadeGroup>
@@ -776,7 +754,7 @@ function ExplodedAssembly({
                             position={[railX, railY, RACK_DEPTH / 2]}
                             length={railLen}
                             vis={vis("rails")}
-                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${Math.round(railFromBottom)}" from bottom`}
+                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
                           />
                         </AnimatedGroup>
                       </FadeGroup>
@@ -802,7 +780,7 @@ function ExplodedAssembly({
                             position={[railX, railY, RACK_DEPTH / 2]}
                             length={railLen}
                             vis={vis("rails")}
-                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${Math.round(railFromBottom)}" from bottom`}
+                            label={`3/4" Plywood Rail — 1-7/8" × ${railLen}" long, ${toFraction(railFromBottom)}" from bottom`}
                           />
                         </AnimatedGroup>
                       </FadeGroup>
@@ -878,6 +856,44 @@ function ExplodedAssembly({
                   )}
                 </group>
               </AnimatedGroup>
+            </FadeGroup>
+          );
+        })()}
+
+        {/* ── BACK SUPPORTS — diagonal braces at back face corners ── */}
+        {(() => {
+          const bsVis = vis("backSupports");
+          if (bsVis === "hidden") return null;
+          const firstPostX = getPostX(0, bayW);
+          const lastPostX = getPostX(cols, bayW);
+          const bottomY = lift + PLATE_H;
+          const topY = lift + frameH - PLATE_H;
+          const braceLen = 20; // ~20" diagonal brace
+          const bsMat = bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
+          const braceAngle = Math.PI / 4; // 45°
+          const backZ = RACK_DEPTH - POST_D / 2;
+
+          // 4 diagonal braces at the corners of the back face
+          const braces: { pos: [number, number, number]; rot: number }[] = [
+            // Bottom-left: rises from bottom plate toward center
+            { pos: [firstPostX, bottomY + braceLen / (2 * Math.SQRT2), backZ], rot: braceAngle },
+            // Bottom-right: rises from bottom plate toward center
+            { pos: [lastPostX, bottomY + braceLen / (2 * Math.SQRT2), backZ], rot: -braceAngle },
+            // Top-left: descends from top plate toward center
+            { pos: [firstPostX, topY - braceLen / (2 * Math.SQRT2), backZ], rot: -braceAngle },
+            // Top-right: descends from top plate toward center
+            { pos: [lastPostX, topY - braceLen / (2 * Math.SQRT2), backZ], rot: braceAngle },
+          ];
+
+          return (
+            <FadeGroup vis={bsVis}>
+              {braces.map((b, i) => (
+                <group key={`bs-${i}`} position={b.pos} rotation={[0, 0, b.rot]}>
+                  <mesh material={bsMat} castShadow={bsVis === "visible"} receiveShadow={bsVis === "visible"}>
+                    <boxGeometry args={[RAIL_THICKNESS, braceLen, RAIL_HEIGHT]} />
+                  </mesh>
+                </group>
+              ))}
             </FadeGroup>
           );
         })()}
@@ -1070,6 +1086,9 @@ function StepCard({
   const materials = computeMaterials(step, cols, rows, config);
   const isLast = stepIndex === totalSteps - 1;
 
+  // Resolve token placeholders in instruction text
+  const resolvedInstruction = resolveTokens(step.instruction, cols, rows, config);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Step header */}
@@ -1099,7 +1118,7 @@ function StepCard({
           <div className="flex items-start gap-2">
             <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
             <p className="text-sm leading-relaxed text-stone-300">
-              {step.instruction}
+              {resolvedInstruction}
             </p>
           </div>
         </div>
@@ -1118,11 +1137,11 @@ function StepCard({
                 <span
                   key={i}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-stone-300"
-                  title={tool.detail}
+                  title={tool.detail ? resolveTokens(tool.detail, cols, rows, config) : undefined}
                 >
                   {tool.name}
                   {tool.detail && (
-                    <span className="text-stone-600">({tool.detail})</span>
+                    <span className="text-stone-600">({resolveTokens(tool.detail, cols, rows, config)})</span>
                   )}
                 </span>
               ))}
@@ -1261,7 +1280,7 @@ export default function AssemblyGuide({
   hasTop = false,
   onClose,
 }: AssemblyGuideProps) {
-  const config: BuildConfig = { hasWheels, hasTop };
+  const config: BuildConfig = { hasWheels, hasTop, toteType };
   const steps = useMemo(() => getStepsForConfig(config), [hasWheels, hasTop]);
 
   const [mode, setMode] = useState<"exploded" | "step">("exploded");

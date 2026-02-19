@@ -23,6 +23,29 @@ export function getInstallerLink(user: {
 }
 
 /**
+ * Convert a decimal inch measurement to a woodworking fraction string.
+ * Rounds to nearest 1/8".
+ *
+ *   86.5   → "86-1/2"
+ *   19.75  → "19-3/4"
+ *   96     → "96"
+ *   30.125 → "30-1/8"
+ */
+export function toFraction(value: number): string {
+  const whole = Math.floor(value);
+  const remainder = value - whole;
+  const eighths = Math.round(remainder * 8);
+  if (eighths === 0) return String(whole);
+  if (eighths === 8) return String(whole + 1);
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const d = gcd(eighths, 8);
+  const num = eighths / d;
+  const den = 8 / d;
+  if (whole === 0) return `${num}/${den}`;
+  return `${whole}-${num}/${den}`;
+}
+
+/**
  * Convert a business name into a URL-safe slug.
  * "Joe's Garage & Storage" → "joes-garage-storage"
  */
