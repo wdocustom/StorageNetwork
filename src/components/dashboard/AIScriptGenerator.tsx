@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import {
   Copy,
   Check,
@@ -12,20 +13,38 @@ import {
   Instagram,
   MapPin,
   Globe,
+  Video,
+  List,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI Script Generator — Gemini-powered social media marketing copy
 // ═══════════════════════════════════════════════════════════════════════════
 
-type Platform = "facebook-group" | "facebook-page" | "instagram" | "nextdoor" | "general";
-type Tone = "professional" | "casual" | "urgent" | "storytelling";
+type Platform =
+  | "facebook-group"
+  | "facebook-page"
+  | "instagram"
+  | "nextdoor"
+  | "craigslist"
+  | "tiktok-reels"
+  | "general";
+
+type Tone =
+  | "professional"
+  | "casual"
+  | "urgent"
+  | "storytelling"
+  | "humorous"
+  | "direct";
 
 const PLATFORMS: { value: Platform; label: string; icon: typeof Facebook; desc: string }[] = [
   { value: "facebook-group", label: "FB Group", icon: Facebook, desc: "Local community groups" },
   { value: "facebook-page", label: "FB Page", icon: Facebook, desc: "Your business page" },
   { value: "instagram", label: "Instagram", icon: Instagram, desc: "Reels & feed posts" },
   { value: "nextdoor", label: "Nextdoor", icon: MapPin, desc: "Neighborhood app" },
+  { value: "craigslist", label: "Craigslist", icon: List, desc: "Keyword-rich listing" },
+  { value: "tiktok-reels", label: "TikTok", icon: Video, desc: "A/V script format" },
   { value: "general", label: "General", icon: Globe, desc: "Any platform" },
 ];
 
@@ -34,6 +53,8 @@ const TONES: { value: Tone; label: string; desc: string }[] = [
   { value: "casual", label: "Casual", desc: "Friendly neighbor vibe" },
   { value: "urgent", label: "Urgent", desc: "Limited spots / seasonal" },
   { value: "storytelling", label: "Story", desc: "Before/after narrative" },
+  { value: "humorous", label: "Funny", desc: "Witty & memorable" },
+  { value: "direct", label: "Hard Sell", desc: "Straight to the point" },
 ];
 
 interface AIScriptGeneratorProps {
@@ -110,7 +131,7 @@ export default function AIScriptGenerator({
         <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Platform
         </label>
-        <div className="grid grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
           {PLATFORMS.map((p) => {
             const Icon = p.icon;
             const active = platform === p.value;
@@ -137,7 +158,7 @@ export default function AIScriptGenerator({
         <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Tone
         </label>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
           {TONES.map((t) => {
             const active = tone === t.value;
             return (
@@ -203,13 +224,11 @@ export default function AIScriptGenerator({
         </div>
       )}
 
-      {/* Output */}
+      {/* Output — rendered as markdown */}
       {script && (
         <div className="space-y-3">
-          <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-200">
-              {script}
-            </p>
+          <div className="prose prose-invert prose-sm prose-yellow max-w-none rounded-xl border border-slate-700 bg-slate-800 p-4 prose-headings:text-yellow-400 prose-headings:font-black prose-h2:text-base prose-h3:text-sm prose-strong:text-white prose-li:text-stone-300 prose-p:text-stone-300 prose-p:leading-relaxed">
+            <ReactMarkdown>{script}</ReactMarkdown>
           </div>
 
           {/* Actions */}
