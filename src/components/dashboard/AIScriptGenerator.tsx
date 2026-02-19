@@ -64,19 +64,20 @@ export default function AIScriptGenerator({
     setError("");
     setScript("");
     try {
+      const payload = {
+        platform,
+        tone,
+        city,
+        state,
+        zip,
+        bookingLink,
+        businessName,
+        customTopic: customTopic.trim() || undefined,
+      };
       const res = await fetch("/api/marketing/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          tone,
-          city,
-          state,
-          zip,
-          bookingLink,
-          businessName,
-          customTopic: customTopic.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");

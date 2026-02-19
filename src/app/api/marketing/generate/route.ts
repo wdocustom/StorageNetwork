@@ -127,13 +127,31 @@ ${toneGuide[tone] || toneGuide.professional}
 ${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
 Write only the post text. No titles, quotes, or extra formatting.`;
 
-    const result = await generateText({
-      model: google("gemini-2.0-flash"),
-      system: systemMessage,
-      prompt: userMessage,
-    });
-
-    return NextResponse.json({ script: result.text });
+    // Retry with exponential backoff for transient rate limits
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await generateText({
+          model: google("gemini-2.0-flash"),
+          system: systemMessage,
+          prompt: userMessage,
+        });
+        return NextResponse.json({ script: result.text });
+      } catch (err: unknown) {
+        lastError = err;
+        const errMsg =
+          err instanceof Error ? err.message : JSON.stringify(err);
+        const isRateLimit =
+          errMsg.includes("429") ||
+          errMsg.includes("quota") ||
+          errMsg.includes("rate") ||
+          errMsg.includes("RESOURCE_EXHAUSTED");
+        if (!isRateLimit || attempt === 2) throw err;
+        // Wait 2s, then 4s before retrying
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+      }
+    }
+    throw lastError;
   } catch (error: unknown) {
     console.error("Marketing generate error:", error);
 
