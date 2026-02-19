@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       storytelling: "Tell a mini-story. A before/after scenario, a satisfied customer moment, or the installer's personal motivation. Make readers feel something.",
     };
 
-    const systemPrompt = `You are an elite social media marketing strategist with 15+ years specializing in local service businesses. You've helped hundreds of small businesses generate leads through organic social media, particularly in local Facebook groups and neighborhood platforms.
+    const systemMessage = `You are an elite social media marketing strategist with 15+ years specializing in local service businesses. You've helped hundreds of small businesses generate leads through organic social media, particularly in local Facebook groups and neighborhood platforms.
 
 YOUR EXPERTISE:
 - You understand that local Facebook groups are the #1 lead source for home service businesses
@@ -97,9 +97,21 @@ YOUR EXPERTISE:
 - You've mastered the art of the "soft sell" — providing value while naturally driving leads
 - You understand seasonal marketing triggers for home organization services
 
-THE BUSINESS:
-${businessName ? `Business: ${businessName}` : "A professional tote storage system installer"}
-Service: Custom-built heavy-duty tote storage racks made from 2×4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. They're built to last, hold 1000+ lbs per unit, and transform cluttered garages, basements, and sheds.
+CRITICAL RULES:
+1. The booking link MUST appear naturally in the post — never as "click here" but worked into a sentence
+2. NEVER use hashtags on Facebook group posts (they look spammy)
+3. NEVER start with "Hey [City]!" — that's the most cliché local marketing opener
+4. Do NOT mention pricing or discounts
+5. Sound human — use imperfect grammar if the tone calls for it
+6. Do NOT use phrases like "transform your space" or "game-changer" — they're overused
+7. Write ONLY the post text — no titles, labels, or meta-commentary
+8. Do NOT wrap the output in quotes or markdown formatting`;
+
+    const userMessage = `Write a social media post for the following business and context:
+
+BUSINESS:
+${businessName ? `Business Name: ${businessName}` : "A professional tote storage system installer"}
+Service: Custom-built heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. They're built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
 Booking Link: ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
 
@@ -112,31 +124,47 @@ ${platformGuide[platform] || platformGuide.general}
 TONE:
 ${toneGuide[tone] || toneGuide.professional}
 
-${customTopic ? `SPECIFIC TOPIC/ANGLE THE INSTALLER WANTS TO HIGHLIGHT:\n${customTopic}\n` : ""}
-
-CRITICAL RULES:
-1. The booking link (${bookingLink}) MUST appear naturally in the post — never as "click here" but worked into a sentence
-2. NEVER use hashtags on Facebook group posts (they look spammy)
-3. NEVER start with "Hey [City]!" — that's the most cliché local marketing opener
-4. Do NOT mention pricing or discounts
-5. Sound human — use imperfect grammar if the tone calls for it
-6. Do NOT use phrases like "transform your space" or "game-changer" — they're overused
-7. Write ONLY the post text — no titles, labels, or meta-commentary
-8. Do NOT wrap the output in quotes or markdown formatting`;
+${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
+Write only the post text. No titles, quotes, or extra formatting.`;
 
     const result = await generateText({
       model: google("gemini-1.5-flash"),
-      prompt: systemPrompt,
+      system: systemMessage,
+      prompt: userMessage,
     });
 
     return NextResponse.json({ script: result.text });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Marketing generate error:", error);
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("API key") || message.includes("apiKey")) {
+
+    // Extract message from any error shape (AI SDK may throw non-Error objects)
+    let message: string;
+    if (error instanceof Error) {
+      message = error.message;
+      // AI SDK errors often nest the real cause
+      if ((error as any).cause instanceof Error) {
+        message = (error as any).cause.message;
+      }
+    } else if (typeof error === "object" && error !== null) {
+      message =
+        (error as any).message ||
+        (error as any).error ||
+        (error as any).statusText ||
+        JSON.stringify(error);
+    } else {
+      message = String(error);
+    }
+
+    if (message.includes("API key") || message.includes("apiKey") || message.includes("API_KEY_INVALID")) {
       return NextResponse.json(
-        { error: "Google AI API key not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment." },
+        { error: "Google AI API key is invalid or not configured. Please check GOOGLE_GENERATIVE_AI_API_KEY in your environment." },
         { status: 500 }
+      );
+    }
+    if (message.includes("quota") || message.includes("rate limit") || message.includes("429")) {
+      return NextResponse.json(
+        { error: "AI rate limit reached. Please wait a moment and try again." },
+        { status: 429 }
       );
     }
     return NextResponse.json(
