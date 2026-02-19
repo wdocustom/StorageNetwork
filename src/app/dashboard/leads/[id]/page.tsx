@@ -245,7 +245,7 @@ export default function JobTicketPage() {
           </p>
         </section>
 
-        {/* ── Start Trip & Notify Customer (Pro only, active jobs) ───── */}
+        {/* ── Start Trip & Notify Customer — temporarily disabled ──────
         {lead.deposit_paid &&
           lead.status === "open" &&
           lead.customer_phone &&
@@ -300,6 +300,7 @@ export default function JobTicketPage() {
             </div>
           </section>
         )}
+        ── End disabled SMS section ── */}
 
         {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
         <JobTicket

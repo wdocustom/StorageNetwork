@@ -274,12 +274,44 @@ const ALL_STEPS: AssemblyStep[] = [
     cameraHint: "laid-front",
   },
 
-  // ── STEP 8: Back supports + casters (conditional: hasWheels) ────────────
+  // ── STEP 8: Install back supports (always) ─────────────────────────────
+  {
+    id: "install-back-supports",
+    title: "Install Back Supports",
+    instruction:
+      'With the unit still laying on its front, install plywood back supports diagonally at the top and bottom corners of the back face (the face pointing up). These prevent racking and keep the unit square. Measure corner-to-corner diagonals — they should match within 1/8". Once square, fasten each brace with #9 × 1-5/8" screws — 2 screws per end, driven through the face of the support into the plate or post beneath.',
+    partStates: {
+      ...ALL_HIDDEN,
+      posts: "visible",
+      rails: "visible",
+      bottomPlates: "visible",
+      topPlates: "visible",
+      backSupports: "visible",
+    },
+    screwType: {
+      label: '#9 × 1-5/8" Star Drive',
+      length: 1.625,
+      description: "Through plywood back support into plate/post beneath. No pilot hole required.",
+    },
+    tools: [
+      { name: "Drill/Driver" },
+      { name: 'T-25 Star Bit', detail: "for #9 screws" },
+      { name: "Tape Measure", detail: "corner-to-corner diagonals" },
+    ],
+    materials: [
+      { name: "Plywood Back Supports", qty: "BACK_SUPPORTS_QTY", detail: "Diagonal braces at top & bottom corners" },
+      { name: '#9 × 1-5/8" Screws', qty: "BACK_SUPPORT_SCREWS_QTY", detail: "2 per end of each brace" },
+    ],
+    proTip: "Measure corner-to-corner diagonals before fastening. If they match within 1/8\", you're square. The diagonal braces lock the frame and prevent racking.",
+    cameraHint: "laid-bottom",
+  },
+
+  // ── STEP 9: Attach casters (conditional: hasWheels) ───────────────────
   {
     id: "attach-casters",
-    title: "Back Supports & Casters",
+    title: "Attach Casters",
     instruction:
-      'With the unit still laying on its front, install plywood back supports diagonally at the top and bottom corners of the back face. These prevent racking and keep the unit square. Measure corner-to-corner diagonals — they should match within 1/8". Once square, screw the diagonal braces in place. While the unit is still on its front, attach a heavy-duty swivel caster at each corner of the bottom plate. Drive 4 lag screws per caster through the mounting plate into the 2×4 bottom plate. No pilot holes required for the entire build.',
+      'With the unit still on its front, attach a heavy-duty swivel caster at each corner of the bottom plate. Drive 4 lag screws per caster through the mounting plate into the 2×4 bottom plate. No pilot holes required.',
     partStates: {
       ...ALL_HIDDEN,
       posts: "visible",
@@ -297,19 +329,17 @@ const ALL_STEPS: AssemblyStep[] = [
     tools: [
       { name: "Drill/Driver" },
       { name: '7/16" Socket', detail: "or wrench for lag heads" },
-      { name: "Tape Measure", detail: "corner-to-corner diagonals" },
     ],
     materials: [
-      { name: "Plywood Back Supports", qty: "BACK_SUPPORTS_QTY", detail: "Diagonal braces at top & bottom corners" },
       { name: '5" Swivel Casters', qty: "4", detail: "Heavy-duty, industrial" },
       { name: '1/4" × 1-1/2" Lag Screws', qty: "16", detail: "4 per caster plate" },
     ],
-    proTip: "Measure corner-to-corner diagonals before fastening the back supports. If they match within 1/8\", you're square. The diagonal braces lock the frame and prevent racking.",
+    proTip: "Position each caster so the swivel pivot sits directly over a post for maximum strength.",
     cameraHint: "laid-bottom",
     condition: "hasWheels",
   },
 
-  // ── STEP 9: Plywood top (conditional: hasTop) ───────────────────────────
+  // ── STEP 10: Plywood top (conditional: hasTop) ──────────────────────────
   {
     id: "attach-top",
     title: "Attach Plywood Top",
@@ -323,6 +353,7 @@ const ALL_STEPS: AssemblyStep[] = [
       topPlates: "visible",
       casters: "visible",
       plyTop: "visible",
+      backSupports: "visible",
     },
     screwType: {
       label: '#9 × 1-5/8" Star Drive',
@@ -343,7 +374,7 @@ const ALL_STEPS: AssemblyStep[] = [
     condition: "hasTop",
   },
 
-  // ── STEP 10: Final – Stand Up & Load ────────────────────────────────────
+  // ── STEP 11: Final – Stand Up & Load ────────────────────────────────────
   {
     id: "final",
     title: "Stand Up & Verify",
@@ -357,6 +388,7 @@ const ALL_STEPS: AssemblyStep[] = [
       topPlates: "visible",
       casters: "visible",
       plyTop: "visible",
+      backSupports: "visible",
     },
     tools: [
       { name: "Level", detail: "check side-to-side" },
@@ -472,6 +504,7 @@ export function computeMaterials(
     TOP_SHEETS_QTY: String(topSheets),
     TOP_SCREWS_QTY: String(topScrews),
     BACK_SUPPORTS_QTY: String(backSupports),
+    BACK_SUPPORT_SCREWS_QTY: String(backSupports * 4),
     OPENING_SPAN: openingStr,
   };
 

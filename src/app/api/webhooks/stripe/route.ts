@@ -531,17 +531,17 @@ export async function POST(request: NextRequest) {
               });
               console.log("[Webhook] Installer alert sent (PI flow)");
 
-              // ── SMS alert to installer (Pro only, non-fatal) ──────────
-              try {
-                const { sendInstallerBookingSms } = await import("@/app/actions/sms");
-                const customerZip = lead.address
-                  ? lead.address.split(",").pop()?.trim() || "your area"
-                  : "your area";
-                const profit = Math.round((lead.estimated_price ?? amountPaidPI) * 0.85);
-                await sendInstallerBookingSms(lead.installer_id, leadId, customerZip, profit);
-              } catch (smsErr) {
-                console.error("[Webhook] Installer SMS failed (non-fatal):", smsErr);
-              }
+              // ── SMS alert to installer (temporarily disabled) ──────────
+              // try {
+              //   const { sendInstallerBookingSms } = await import("@/app/actions/sms");
+              //   const customerZip = lead.address
+              //     ? lead.address.split(",").pop()?.trim() || "your area"
+              //     : "your area";
+              //   const profit = Math.round((lead.estimated_price ?? amountPaidPI) * 0.85);
+              //   await sendInstallerBookingSms(lead.installer_id, leadId, customerZip, profit);
+              // } catch (smsErr) {
+              //   console.error("[Webhook] Installer SMS failed (non-fatal):", smsErr);
+              // }
             }
           }
         } catch (emailErr: any) {

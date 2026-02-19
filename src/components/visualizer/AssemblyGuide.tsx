@@ -331,6 +331,9 @@ function ExplodedAssembly({
 }: ExplodedAssemblyProps) {
   const bayW = getBayWidth(toteType);
   const totalW = cols * bayW + (cols + 1) * POST_W;
+  // Correct structural plate length (uses actual tote opening, not visual bay width)
+  const opening = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
+  const plateLen = cols * opening + (cols + 1) * POST_W;
   const firstRailY = Math.max(MIN_FIRST_RAIL_Y, PLATE_H + 2);
   const lastRailY = firstRailY + (rows - 1) * TIER_SPACING;
   const topGap = 3;
@@ -378,6 +381,7 @@ function ExplodedAssembly({
     switch (step.id) {
       case "attach-bottom-plates":
       case "attach-top-plates":
+      case "install-back-supports":
       case "attach-casters":
       case "attach-top":
         return LAID_DOWN;
@@ -570,25 +574,25 @@ function ExplodedAssembly({
     const screwSpreadX = 0.4; // ±0.4" from post center — 2 screws per joint
 
     // Plate screws drive VERTICALLY through the plate into the post end grain.
-    // Bottom plate: screw head below plate, tip drives up into post end grain.
-    // Top plate: screw head above plate, tip drives down into post top end grain.
-    // Default screw orientation is along Y axis (vertical).
+    // ConstructionScrew default: head at origin, tip extends in -Y direction.
+    // Bottom plate: tip drives UP into post above → rotate [Math.PI, 0, 0] to flip tip to +Y
+    // Top plate: tip drives DOWN into post below → default [0, 0, 0] (tip already -Y)
 
     for (let i = 0; i <= cols; i++) {
       const px = getPostX(i, bayW);
 
       if (showBottom) {
-        // Bottom plate screws — vertical through plate into post end grain above
+        // Bottom plate screws — head at plate bottom, tip drives UP into post end grain
         for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
           screws.push({
-            pos: [px - screwSpreadX, lift - 0.5, z],
-            rot: [0, 0, 0],
+            pos: [px - screwSpreadX, lift, z],
+            rot: [Math.PI, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through bottom plate into post end grain',
           });
           screws.push({
-            pos: [px + screwSpreadX, lift - 0.5, z],
-            rot: [0, 0, 0],
+            pos: [px + screwSpreadX, lift, z],
+            rot: [Math.PI, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through bottom plate into post end grain',
           });
@@ -596,17 +600,17 @@ function ExplodedAssembly({
       }
 
       if (showTop) {
-        // Top plate screws — vertical through plate into post top end grain below
+        // Top plate screws — head at plate top, tip drives DOWN into post end grain
         for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
           screws.push({
-            pos: [px - screwSpreadX, frameH + lift + 0.5, z],
-            rot: [Math.PI, 0, 0],
+            pos: [px - screwSpreadX, frameH + lift, z],
+            rot: [0, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through top plate into post end grain',
           });
           screws.push({
-            pos: [px + screwSpreadX, frameH + lift + 0.5, z],
-            rot: [Math.PI, 0, 0],
+            pos: [px + screwSpreadX, frameH + lift, z],
+            rot: [0, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through top plate into post end grain',
           });
@@ -632,13 +636,13 @@ function ExplodedAssembly({
                 position={[totalW / 2, PLATE_H / 2, POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (front) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Bottom Plate (front) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
               />
               <Lumber
                 position={[totalW / 2, PLATE_H / 2, RACK_DEPTH - POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("bottomPlates")}
-                label={`2×4 Bottom Plate (back) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Bottom Plate (back) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -652,7 +656,7 @@ function ExplodedAssembly({
                 position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (front) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Top Plate (front) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
               />
               <Lumber
                 position={[
@@ -662,7 +666,7 @@ function ExplodedAssembly({
                 ]}
                 size={[totalW, PLATE_H, POST_D]}
                 vis={vis("topPlates")}
-                label={`2×4 Top Plate (back) — ${toFraction(totalW)}" long, cut from 2×4×8' stock`}
+                label={`2×4 Top Plate (back) — ${toFraction(plateLen)}" long, cut from 2×4×8' stock`}
               />
             </AnimatedGroup>
           </FadeGroup>
@@ -672,7 +676,7 @@ function ExplodedAssembly({
             <AnimatedGroup targetPos={[0, plyTopExpY, 0]}>
               {vis("plyTop") !== "hidden" && (
                 <HoverablePart
-                  label={`3/4" Plywood Top — ${toFraction(totalW)}" × 30", flush on top plates`}
+                  label={`3/4" Plywood Top — ${toFraction(plateLen)}" × 30", flush on top plates`}
                   position={[
                     totalW / 2,
                     frameH + PLY_TOP_H / 2,
@@ -860,7 +864,7 @@ function ExplodedAssembly({
           );
         })()}
 
-        {/* ── BACK SUPPORTS — diagonal braces at back face corners ── */}
+        {/* ── BACK SUPPORTS — diagonal braces on outside of back face ── */}
         {(() => {
           const bsVis = vis("backSupports");
           if (bsVis === "hidden") return null;
@@ -871,7 +875,8 @@ function ExplodedAssembly({
           const braceLen = 20; // ~20" diagonal brace
           const bsMat = bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
           const braceAngle = Math.PI / 4; // 45°
-          const backZ = RACK_DEPTH - POST_D / 2;
+          // Position on the OUTSIDE of the back face (the face pointing UP when laid down)
+          const backZ = RACK_DEPTH + RAIL_THICKNESS / 2;
 
           // 4 diagonal braces at the corners of the back face
           const braces: { pos: [number, number, number]; rot: number }[] = [
@@ -889,9 +894,43 @@ function ExplodedAssembly({
             <FadeGroup vis={bsVis}>
               {braces.map((b, i) => (
                 <group key={`bs-${i}`} position={b.pos} rotation={[0, 0, b.rot]}>
+                  {/* Plywood brace strip */}
                   <mesh material={bsMat} castShadow={bsVis === "visible"} receiveShadow={bsVis === "visible"}>
                     <boxGeometry args={[RAIL_THICKNESS, braceLen, RAIL_HEIGHT]} />
                   </mesh>
+                  {/* Screws at each end — 2 per end, through brace face into plate/post */}
+                  {bsVis === "visible" && (
+                    <>
+                      <ConstructionScrew
+                        position={[0, braceLen / 2 - 1.5, 0]}
+                        rotation={[0, 0, 0]}
+                        length={1.625}
+                        label='#9 × 1-5/8" — through brace into plate/post'
+                        visible
+                      />
+                      <ConstructionScrew
+                        position={[0, braceLen / 2 - 3, 0]}
+                        rotation={[0, 0, 0]}
+                        length={1.625}
+                        label='#9 × 1-5/8" — through brace into plate/post'
+                        visible
+                      />
+                      <ConstructionScrew
+                        position={[0, -braceLen / 2 + 1.5, 0]}
+                        rotation={[0, 0, 0]}
+                        length={1.625}
+                        label='#9 × 1-5/8" — through brace into plate/post'
+                        visible
+                      />
+                      <ConstructionScrew
+                        position={[0, -braceLen / 2 + 3, 0]}
+                        rotation={[0, 0, 0]}
+                        length={1.625}
+                        label='#9 × 1-5/8" — through brace into plate/post'
+                        visible
+                      />
+                    </>
+                  )}
                 </group>
               ))}
             </FadeGroup>

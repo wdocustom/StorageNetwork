@@ -14,8 +14,7 @@ import {
   Loader2,
   Zap,
 } from "lucide-react";
-import SocialGenerator from "@/components/dashboard/SocialGenerator";
-import LocalScriptGenerator from "@/components/dashboard/LocalScriptGenerator";
+import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import ProUpgradeModal from "@/components/dashboard/ProUpgradeModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -28,6 +27,8 @@ interface UserProfile {
   is_pro: boolean;
   city: string | null;
   state: string | null;
+  service_zip: string | null;
+  business_name: string | null;
 }
 
 export default function MarketingPage() {
@@ -49,14 +50,14 @@ export default function MarketingPage() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, slug, is_pro, city, state")
+        .select("id, slug, is_pro, city, state, service_zip, business_name")
         .eq("id", user.id)
         .single();
 
       setProfile(
         data
-          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro, city: data.city ?? null, state: data.state ?? null }
-          : { id: user.id, slug: null, is_pro: false, city: null, state: null }
+          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro, city: data.city ?? null, state: data.state ?? null, service_zip: data.service_zip ?? null, business_name: data.business_name ?? null }
+          : { id: user.id, slug: null, is_pro: false, city: null, state: null, service_zip: null, business_name: null }
       );
       setLoading(false);
     }
@@ -185,27 +186,34 @@ export default function MarketingPage() {
           )}
         </section>
 
-        {/* ── Section 2: Social Post Generator ─────────────────────── */}
+        {/* ── Section 2: AI Script Generator ──────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-amber-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Social Media Post Generator
+              AI Script Generator
             </h2>
+            <span className="rounded-full bg-gradient-to-r from-yellow-400/10 to-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+              Powered by AI
+            </span>
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            Generate a professional post to share on Instagram, Facebook, or
-            SMS.
+            Generate platform-specific, localized marketing scripts tailored to your area.
+            {profile.city && profile.state && (
+              <span className="ml-1 font-semibold text-emerald-400">
+                Localized to {profile.city}, {profile.state}.
+              </span>
+            )}
           </p>
 
-          <SocialGenerator bookingLink={bookingLink} />
+          <AIScriptGenerator
+            bookingLink={bookingLink}
+            city={profile.city}
+            state={profile.state}
+            zip={profile.service_zip}
+            businessName={profile.business_name}
+          />
         </section>
-        {/* ── Section 3: Localized Sales Scripts ────────────────────── */}
-        <LocalScriptGenerator
-          city={profile.city}
-          state={profile.state}
-          bookingLink={bookingLink}
-        />
       </main>
 
       <ProUpgradeModal
