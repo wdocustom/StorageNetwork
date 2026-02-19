@@ -140,7 +140,7 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="mb-8 inline-block">
             <Image
-              src="/logo-storage-network.png"
+              src="/landing_page_logo.png"
               alt="Storage Network"
               width={256}
               height={256}
@@ -275,7 +275,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
-              src="/logo-storage-network.png"
+              src="/Header_avatar_logo.png"
               alt="Storage Network"
               width={40}
               height={40}
@@ -324,7 +324,13 @@ export default function LandingPage() {
                     unoptimized
                   />
                 ) : (
-                  <User className="h-10 w-10 text-gray-900" />
+                  <Image
+                    src="/Header_avatar_logo.png"
+                    alt="Storage Network"
+                    width={80}
+                    height={80}
+                    className="h-full w-full object-cover"
+                  />
                 )}
               </div>
 

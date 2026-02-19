@@ -85,7 +85,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <Image
-            src="/logo-storage-network.png"
+            src="/landing_page_logo.png"
             alt="Storage Network"
             width={128}
             height={128}

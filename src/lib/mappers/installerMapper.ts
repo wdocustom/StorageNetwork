@@ -12,7 +12,7 @@ import type { DesignPageViewModel } from "@/types/viewModels";
 const PLATFORM_BRANDING = {
   title: "Professional Grade Storage",
   subtitle: "Heavy-duty tote shelving designed, built & installed by certified local pros.",
-  logoUrl: null as string | null,
+  logoUrl: "/Header_avatar_logo.png" as string | null,
 };
 
 /**

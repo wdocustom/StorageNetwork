@@ -682,7 +682,7 @@ export default function DesignConfigurator({
                 unoptimized
               />
             ) : (
-              <Image src="/logo-storage-network.png" alt="Storage Network" width={56} height={56} className="h-14 w-auto object-contain" />
+              <Image src="/Header_avatar_logo.png" alt="Storage Network" width={56} height={56} className="h-14 w-auto object-contain" />
             )}
           </a>
           <div className="flex-1">

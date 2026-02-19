@@ -87,7 +87,7 @@ export async function sendTransactionalEmail(
 // ═══════════════════════════════════════════════════════════════════════════
 
 function emailShell(title: string, body: string): string {
-  const logoUrl = `${getAppUrl()}/logo-storage-network.png`;
+  const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
 
   return `
 <!DOCTYPE html>

@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     "storage network installer",
   ],
   icons: {
-    icon: "/logo-storage-network.png",
-    apple: "/logo-storage-network.png",
+    icon: "/Header_avatar_logo.png",
+    apple: "/Header_avatar_logo.png",
   },
   openGraph: {
     title: "Storage Network | Custom Tote Storage Systems",
@@ -60,7 +60,7 @@ const jsonLdGraph = {
       url: "https://storage-network.app",
       logo: {
         "@type": "ImageObject",
-        url: "https://storage-network.app/logo-storage-network.png",
+        url: "https://storage-network.app/landing_page_logo.png",
       },
       description:
         "The operating system for professional tote-rack builders. Storage Network connects homeowners with verified installers and provides an industry-standard 3D configurator, automated cut plans, and built-in scheduling for custom 2×4 and 27-gallon tote storage systems.",

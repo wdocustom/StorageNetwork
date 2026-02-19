@@ -15,7 +15,7 @@ interface LogoProps {
 export default function Logo({ size = 48, className, alt = "Storage Network" }: LogoProps) {
   return (
     <Image
-      src="/logo-storage-network.png"
+      src="/Header_avatar_logo.png"
       alt={alt}
       width={size}
       height={size}
