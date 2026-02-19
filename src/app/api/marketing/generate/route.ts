@@ -128,7 +128,7 @@ ${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
 Write only the post text. No titles, quotes, or extra formatting.`;
 
     const result = await generateText({
-      model: google("gemini-1.5-flash"),
+      model: google("gemini-2.0-flash"),
       system: systemMessage,
       prompt: userMessage,
     });
