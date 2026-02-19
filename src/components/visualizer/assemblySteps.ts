@@ -104,7 +104,7 @@ const ALL_STEPS: AssemblyStep[] = [
       { name: "Pencil" },
     ],
     materials: [
-      { name: "2×4 × 8' Studs", qty: "BOARDS_QTY", detail: "Cut to UPRIGHT_HEIGHT" },
+      { name: "2×4 × 8' Studs", qty: "POSTS_QTY", detail: "Cut to UPRIGHT_HEIGHT" },
     ],
     proTip: "Cut one upright first and use it as a template to mark the rest. This ensures all uprights are identical.",
     cameraHint: "overview",

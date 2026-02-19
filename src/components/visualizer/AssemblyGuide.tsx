@@ -571,7 +571,8 @@ function ExplodedAssembly({
 
     const showBottom = step.id === "attach-bottom-plates" || step.id === "attach-top-plates" || mode === "exploded";
     const showTop = step.id === "attach-top-plates" || mode === "exploded";
-    const screwSpreadX = 0.4; // ±0.4" from post center — 2 screws per joint
+    // Spread screws along Z axis (parallel with the 3.5" face of the post)
+    const screwSpreadZ = 0.6;
 
     // Plate screws drive VERTICALLY through the plate into the post end grain.
     // ConstructionScrew default: head at origin, tip extends in -Y direction.
@@ -582,16 +583,16 @@ function ExplodedAssembly({
       const px = getPostX(i, bayW);
 
       if (showBottom) {
-        // Bottom plate screws — head at plate bottom, tip drives UP into post end grain
-        for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+        // Bottom plate screws — 2 screws per post, spread along Z (parallel with post)
+        for (const zCenter of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
           screws.push({
-            pos: [px - screwSpreadX, lift, z],
+            pos: [px, lift, zCenter - screwSpreadZ],
             rot: [Math.PI, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through bottom plate into post end grain',
           });
           screws.push({
-            pos: [px + screwSpreadX, lift, z],
+            pos: [px, lift, zCenter + screwSpreadZ],
             rot: [Math.PI, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through bottom plate into post end grain',
@@ -600,16 +601,16 @@ function ExplodedAssembly({
       }
 
       if (showTop) {
-        // Top plate screws — head at plate top, tip drives DOWN into post end grain
-        for (const z of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
+        // Top plate screws — 2 screws per post, spread along Z (parallel with post)
+        for (const zCenter of [POST_D / 2, RACK_DEPTH - POST_D / 2]) {
           screws.push({
-            pos: [px - screwSpreadX, frameH + lift, z],
+            pos: [px, frameH + lift, zCenter - screwSpreadZ],
             rot: [0, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through top plate into post end grain',
           });
           screws.push({
-            pos: [px + screwSpreadX, frameH + lift, z],
+            pos: [px, frameH + lift, zCenter + screwSpreadZ],
             rot: [0, 0, 0],
             len: 3.0,
             label: '#9 × 3" Star Drive — through top plate into post end grain',
@@ -864,7 +865,7 @@ function ExplodedAssembly({
           );
         })()}
 
-        {/* ── BACK SUPPORTS — diagonal braces on outside of back face ── */}
+        {/* ── BACK SUPPORTS — 30" plywood strips laid flat diagonally on back face ── */}
         {(() => {
           const bsVis = vis("backSupports");
           if (bsVis === "hidden") return null;
@@ -872,59 +873,61 @@ function ExplodedAssembly({
           const lastPostX = getPostX(cols, bayW);
           const bottomY = lift + PLATE_H;
           const topY = lift + frameH - PLATE_H;
-          const braceLen = 20; // ~20" diagonal brace
+          const braceLen = RACK_DEPTH; // 30" — same strips as tote rails
           const bsMat = bsVis === "ghosted" ? PLYWOOD_GHOST : PLYWOOD_MAT;
           const braceAngle = Math.PI / 4; // 45°
-          // Position on the OUTSIDE of the back face (the face pointing UP when laid down)
+          // Sits ON the back face: 1-7/8" wide face flat against unit, 3/4" thick sticking out
           const backZ = RACK_DEPTH + RAIL_THICKNESS / 2;
+          // Half-span of a 30" brace at 45°
+          const halfSpan = braceLen / (2 * Math.SQRT2);
 
           // 4 diagonal braces at the corners of the back face
           const braces: { pos: [number, number, number]; rot: number }[] = [
-            // Bottom-left: rises from bottom plate toward center
-            { pos: [firstPostX, bottomY + braceLen / (2 * Math.SQRT2), backZ], rot: braceAngle },
-            // Bottom-right: rises from bottom plate toward center
-            { pos: [lastPostX, bottomY + braceLen / (2 * Math.SQRT2), backZ], rot: -braceAngle },
-            // Top-left: descends from top plate toward center
-            { pos: [firstPostX, topY - braceLen / (2 * Math.SQRT2), backZ], rot: -braceAngle },
-            // Top-right: descends from top plate toward center
-            { pos: [lastPostX, topY - braceLen / (2 * Math.SQRT2), backZ], rot: braceAngle },
+            // Bottom-left: from bottom plate corner, angled up-right
+            { pos: [firstPostX + halfSpan, bottomY + halfSpan, backZ], rot: braceAngle },
+            // Bottom-right: from bottom plate corner, angled up-left
+            { pos: [lastPostX - halfSpan, bottomY + halfSpan, backZ], rot: -braceAngle },
+            // Top-left: from top plate corner, angled down-right
+            { pos: [firstPostX + halfSpan, topY - halfSpan, backZ], rot: -braceAngle },
+            // Top-right: from top plate corner, angled down-left
+            { pos: [lastPostX - halfSpan, topY - halfSpan, backZ], rot: braceAngle },
           ];
 
           return (
             <FadeGroup vis={bsVis}>
               {braces.map((b, i) => (
                 <group key={`bs-${i}`} position={b.pos} rotation={[0, 0, b.rot]}>
-                  {/* Plywood brace strip */}
+                  {/* Plywood strip: 1-7/8" wide (X) × 30" long (Y) × 3/4" thick (Z) */}
                   <mesh material={bsMat} castShadow={bsVis === "visible"} receiveShadow={bsVis === "visible"}>
-                    <boxGeometry args={[RAIL_THICKNESS, braceLen, RAIL_HEIGHT]} />
+                    <boxGeometry args={[RAIL_HEIGHT, braceLen, RAIL_THICKNESS]} />
                   </mesh>
-                  {/* Screws at each end — 2 per end, through brace face into plate/post */}
+                  {/* Screws at each end — 2 per end, through brace face into plate/post beneath */}
                   {bsVis === "visible" && (
                     <>
                       <ConstructionScrew
                         position={[0, braceLen / 2 - 1.5, 0]}
-                        rotation={[0, 0, 0]}
+                        rotation={[-Math.PI / 2, 0, 0]}
                         length={1.625}
                         label='#9 × 1-5/8" — through brace into plate/post'
                         visible
                       />
                       <ConstructionScrew
-                        position={[0, braceLen / 2 - 3, 0]}
-                        rotation={[0, 0, 0]}
+                        position={[0, braceLen / 2 - 3.5, 0]}
+                        rotation={[-Math.PI / 2, 0, 0]}
                         length={1.625}
                         label='#9 × 1-5/8" — through brace into plate/post'
                         visible
                       />
                       <ConstructionScrew
                         position={[0, -braceLen / 2 + 1.5, 0]}
-                        rotation={[0, 0, 0]}
+                        rotation={[-Math.PI / 2, 0, 0]}
                         length={1.625}
                         label='#9 × 1-5/8" — through brace into plate/post'
                         visible
                       />
                       <ConstructionScrew
-                        position={[0, -braceLen / 2 + 3, 0]}
-                        rotation={[0, 0, 0]}
+                        position={[0, -braceLen / 2 + 3.5, 0]}
+                        rotation={[-Math.PI / 2, 0, 0]}
                         length={1.625}
                         label='#9 × 1-5/8" — through brace into plate/post'
                         visible

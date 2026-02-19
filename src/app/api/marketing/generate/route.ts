@@ -125,15 +125,22 @@ CRITICAL RULES:
 8. Do NOT wrap the output in quotes or markdown formatting`;
 
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-1.5-flash"),
       prompt: systemPrompt,
     });
 
     return NextResponse.json({ script: result.text });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Marketing generate error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("API key") || message.includes("apiKey")) {
+      return NextResponse.json(
+        { error: "Google AI API key not configured. Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { error: "Failed to generate script. Please try again." },
+      { error: `Failed to generate script: ${message}` },
       { status: 500 }
     );
   }
