@@ -13,7 +13,15 @@ import {
   ClipboardList,
   Banknote,
   Gift,
+  ChevronDown,
+  Sparkles,
+  DollarSign,
+  BarChart3,
+  Megaphone,
+  Share2,
+  Box,
 } from "lucide-react";
+import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
@@ -349,8 +357,243 @@ function PartnerJoinPageInner() {
       </div>
       </div>
 
+      {/* ── Animated Scroll Arrow ──────────────────────────────────── */}
+      <div className="relative bg-slate-950 py-8">
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
+            See What You Get
+          </span>
+          <div className="flex flex-col items-center animate-bounce">
+            <ChevronDown className="h-5 w-5 text-yellow-400/80" />
+            <ChevronDown className="-mt-3 h-5 w-5 text-yellow-400/50" />
+            <ChevronDown className="-mt-3 h-5 w-5 text-yellow-400/20" />
+          </div>
+        </div>
+      </div>
+
       {/* ── Platform Showcase — below hero ─────────────────────────── */}
       <PlatformShowcase />
+
+      {/* ══════════════════════════════════════════════════════════════════
+          3D VISUALIZER SHOWCASE
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-slate-950 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute right-0 top-0">
+          <div className="h-[400px] w-[400px] rounded-full bg-yellow-400/[0.03] blur-[100px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-20">
+            {/* Left: Screenshot */}
+            <div className="lg:w-1/2">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-yellow-400/5">
+                <Image
+                  src="/images/3d-visualizer-preview.png"
+                  alt="3D Storage Visualizer showing a fully configured tote shelving system in a garage environment"
+                  width={800}
+                  height={500}
+                  className="block h-auto w-full"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/80 to-transparent p-6">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-yellow-400/15 px-3 py-1.5 text-[11px] font-bold text-yellow-400">
+                    <Box className="h-3 w-3" />
+                    Interactive 3D
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Copy */}
+            <div className="lg:w-1/2">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                3D Visualizer
+              </p>
+              <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+                Your Customers{" "}
+                <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                  See It Before They Buy It.
+                </span>
+              </h2>
+              <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
+                No more &ldquo;can you describe what it looks like?&rdquo; Our interactive
+                3D configurator lets homeowners design their exact system &mdash; size, layout,
+                tote count &mdash; in real time. When they hit &ldquo;Order,&rdquo; you get a
+                confirmed job with zero scope creep.
+              </p>
+
+              <div className="space-y-4">
+                {[
+                  { title: "Eliminates Miscommunication", desc: "Customers see exactly what they're getting. No callbacks. No change orders." },
+                  { title: "Closes Sales Faster", desc: "Visual confidence turns browsers into buyers. Average design-to-order time: under 3 minutes." },
+                  { title: "Pre-Calculated Everything", desc: "Every 3D design auto-generates a Cut List and Material List so you show up ready to build." },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{item.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-stone-500">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          AI SCRIPT GENERATOR
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-gray-900 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute left-0 bottom-0">
+          <div className="h-[500px] w-[600px] rounded-full bg-purple-500/[0.04] blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-center gap-12 lg:flex-row-reverse lg:gap-20">
+            {/* Right: Screenshot */}
+            <div className="lg:w-1/2">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl shadow-purple-400/5">
+                <Image
+                  src="/images/ai-script-generator-preview.png"
+                  alt="AI Script Generator dashboard producing ready-to-post social media marketing content"
+                  width={800}
+                  height={500}
+                  className="block h-auto w-full"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-800/80 to-transparent p-6">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-purple-400/15 px-3 py-1.5 text-[11px] font-bold text-purple-400">
+                    <Sparkles className="h-3 w-3" />
+                    AI-Powered
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Left: Copy */}
+            <div className="lg:w-1/2">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-purple-400">
+                AI Script Generator
+              </p>
+              <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+                Marketing Scripts{" "}
+                <span className="bg-gradient-to-r from-purple-300 to-purple-500 bg-clip-text text-transparent">
+                  Written For You In Seconds.
+                </span>
+              </h2>
+              <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
+                Stop staring at a blank screen trying to write your next ad, social post,
+                or email. Our built-in AI Script Generator creates platform-ready marketing
+                copy tailored to your business &mdash; so you can spend your time building, not writing.
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { icon: Megaphone, title: "Multi-Platform", desc: "Facebook, Instagram, TikTok, YouTube, Nextdoor, email — one click." },
+                  { icon: BarChart3, title: "Conversion-Tuned", desc: "Scripts built around proven frameworks that drive calls and bookings." },
+                  { icon: Share2, title: "Copy & Post", desc: "One-tap copy. Paste directly into any platform. No reformatting." },
+                  { icon: Sparkles, title: "Unlimited Scripts", desc: "Generate as many as you want. Different tones, hooks, and angles every time." },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                    <item.icon className="mb-2 h-5 w-5 text-purple-400" />
+                    <p className="text-sm font-bold text-white">{item.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          CUSTOM PRICING ENGINE
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-slate-950 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute right-1/4 top-0">
+          <div className="h-[400px] w-[500px] rounded-full bg-emerald-400/[0.03] blur-[100px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-20">
+            {/* Left: Screenshot */}
+            <div className="lg:w-1/2">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-emerald-400/5">
+                <Image
+                  src="/images/custom-pricing-preview.png"
+                  alt="Custom Pricing configurator showing adjustable labor rates, markups, and real-time profit calculations"
+                  width={800}
+                  height={500}
+                  className="block h-auto w-full"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900/80 to-transparent p-6">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-1.5 text-[11px] font-bold text-emerald-400">
+                    <DollarSign className="h-3 w-3" />
+                    Your Margins, Your Rules
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Copy */}
+            <div className="lg:w-1/2">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">
+                Custom Pricing
+              </p>
+              <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+                Set Your Own Rates.{" "}
+                <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">
+                  Keep Every Dollar You Earn.
+                </span>
+              </h2>
+              <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
+                You&apos;re not locked into our pricing. Adjust your labor rate, material markup,
+                and margin per job. The platform calculates everything in real time so you
+                always know your take-home before accepting a job.
+              </p>
+
+              <div className="space-y-4">
+                {[
+                  { title: "Adjustable Labor Rate", desc: "Charge what your market supports. Set your hourly rate or flat-fee per unit — the platform adapts." },
+                  { title: "Material Markup Control", desc: "Apply your own markup on materials. The customer sees one clean price; you see your margin." },
+                  { title: "Real-Time Profit Preview", desc: "Every quote shows your exact profit before the customer even places the order. No guessing." },
+                  { title: "No Platform Fees on Labor", desc: "We don't take a cut of your install labor. Your hands, your rate, your money." },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{item.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-stone-500">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Bottom CTA ───────────────────────────────────────────────── */}
+      <section className="border-t border-slate-800 bg-gray-900 px-6 py-16">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="mb-3 text-2xl font-black uppercase text-white sm:text-3xl">
+            Ready to Stop Chasing Leads?
+          </h2>
+          <p className="mb-6 text-sm text-stone-400">
+            Create your free account in 60 seconds. No credit card. No commitment.
+          </p>
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+          >
+            Create Account Now
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
