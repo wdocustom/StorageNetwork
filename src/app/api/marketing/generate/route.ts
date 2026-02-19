@@ -53,49 +53,61 @@ export async function POST(request: NextRequest) {
 
     const platformGuide: Record<string, string> = {
       "facebook-group": `This is for a LOCAL Facebook community group (e.g., "${city || "Your City"} Buy/Sell/Trade", "${city || "Local"} Homeowners", neighborhood groups). The post must:
-- Sound like a real neighbor posting, NOT a corporate ad
-- Be conversational and relatable — like you'd talk to a neighbor over the fence
+- Be written in FIRST PERSON as the installer talking about their own work/business
+- Sound like a real local tradesperson posting in the group — NOT a corporate ad, NOT a customer testimonial
+- The installer is casually mentioning what they do, maybe sharing a recent job, offering to help neighbors
 - Mention a real local pain point (cluttered garage, basement flooding prep, seasonal cleanup)
 - Avoid aggressive sales language — group admins delete obvious ads
-- Naturally work in the booking link as a helpful resource, not a sales pitch
+- Naturally work in the booking link as a helpful resource
 - Keep it under 200 words — Facebook groups favor shorter posts`,
       "facebook-page": `This is for the installer's own Facebook business page. It should:
-- Be professional but personable
-- Showcase expertise and craftsmanship
+- Be written in FIRST PERSON as the installer/business owner
+- Showcase their expertise, pride in craftsmanship, and recent work
+- Talk about what they build, why they love it, and how it helps people
 - Include a strong but not pushy call-to-action
 - Can be slightly longer (up to 250 words)
 - End with the booking link`,
       "instagram": `This is for Instagram. It should:
+- Be written in FIRST PERSON as the installer sharing their work
 - Start with a hook that stops the scroll
-- Use short, punchy sentences
+- Use short, punchy sentences — the installer showing off a build or talking shop
 - Include relevant emojis (tasteful, not overboard)
 - End with a call-to-action and the booking link
 - Keep it under 150 words (caption-length)
 - Include 3-5 suggested hashtags at the end`,
       nextdoor: `This is for Nextdoor (hyper-local neighborhood app). It should:
-- Sound like a verified neighbor offering services
+- Be written in FIRST PERSON as a local installer/neighbor offering their services
+- Sound like a verified neighbor who happens to build storage systems
 - Reference the specific neighborhood or area
 - Be helpful and community-oriented
 - Short and direct — Nextdoor users scroll fast
 - Include the booking link naturally
 - Keep it under 150 words`,
-      general: `This is a general-purpose marketing post. Make it adaptable for any platform. Keep it under 200 words and end with the booking link.`,
+      general: `This is a general-purpose marketing post. Write it in FIRST PERSON as the installer promoting their own business. Keep it under 200 words and end with the booking link.`,
     };
 
     const toneGuide: Record<string, string> = {
-      professional: "Professional and authoritative. Position the installer as a skilled craftsperson who takes pride in their work. Confident but not arrogant.",
-      casual: "Casual and relatable. Like texting a friend about a cool service. Use contractions, be warm and approachable.",
-      urgent: "Create genuine urgency. Limited availability, seasonal relevance, or time-sensitive offers. Not fake scarcity — real reasons to act now.",
-      storytelling: "Tell a mini-story. A before/after scenario, a satisfied customer moment, or the installer's personal motivation. Make readers feel something.",
+      professional: "Professional and authoritative. The installer speaks as a skilled craftsperson who takes pride in their work. Confident but not arrogant. They know their stuff and it shows.",
+      casual: "Casual and relatable. The installer talks like they're chatting with a buddy about what they do for a living. Contractions, warmth, approachable.",
+      urgent: "The installer communicates genuine urgency — their schedule is filling up, season is changing, limited availability. Not fake scarcity — real reasons to book now.",
+      storytelling: "The installer tells a mini-story from THEIR perspective — a recent job they're proud of, a before/after they just finished, why they got into this trade, a problem they solved for a client. First-person narrative from the builder, never from the customer.",
     };
 
-    const systemMessage = `You are an elite social media marketing strategist with 15+ years specializing in local service businesses. You've helped hundreds of small businesses generate leads through organic social media, particularly in local Facebook groups and neighborhood platforms.
+    const systemMessage = `You are a ghostwriter for a local tote storage system installer. Every post you write is in the FIRST PERSON voice of the installer — "I", "my", "we" — as if the installer typed it themselves.
 
-YOUR EXPERTISE:
-- You understand that local Facebook groups are the #1 lead source for home service businesses
-- You know that posts sounding like "real people" outperform polished ads 10x
-- You've mastered the art of the "soft sell" — providing value while naturally driving leads
-- You understand seasonal marketing triggers for home organization services
+THE INSTALLER'S IDENTITY:
+- They are a hands-on builder/craftsperson who custom-builds heavy-duty storage rack systems
+- They take pride in their work — they build things that last and solve real problems
+- They're a local small business owner trying to grow through word of mouth and social media
+- They talk like a real tradesperson, not a marketing agency — no corporate-speak
+- They want to generate leads and get bookings, but they're not pushy about it
+
+VOICE RULES — THE POST MUST SOUND LIKE THE INSTALLER WROTE IT:
+- ALWAYS first person: "I build...", "Just finished a job...", "I've got a few spots open..."
+- NEVER write from a customer's perspective or as a testimonial — no "My husband..." or "We hired..." or fictional customer stories
+- NEVER write as a third party describing the installer — no "This local business..." or "They offer..."
+- The installer is proud of what they build and talks about it naturally
+- They might reference a recent job, a common problem they solve, or why they love what they do
 
 CRITICAL RULES:
 1. The booking link MUST appear naturally in the post — never as "click here" but worked into a sentence
@@ -105,14 +117,15 @@ CRITICAL RULES:
 5. Sound human — use imperfect grammar if the tone calls for it
 6. Do NOT use phrases like "transform your space" or "game-changer" — they're overused
 7. Write ONLY the post text — no titles, labels, or meta-commentary
-8. Do NOT wrap the output in quotes or markdown formatting`;
+8. Do NOT wrap the output in quotes or markdown formatting
+9. NEVER write as a customer, reviewer, or testimonial — ALWAYS as the installer themselves`;
 
-    const userMessage = `Write a social media post for the following business and context:
+    const userMessage = `Write a social media post AS THE INSTALLER (first person — "I", "my") for the following business:
 
-BUSINESS:
-${businessName ? `Business Name: ${businessName}` : "A professional tote storage system installer"}
-Service: Custom-built heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. They're built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
-Booking Link: ${bookingLink}
+THE INSTALLER'S BUSINESS:
+${businessName ? `Business Name: ${businessName}` : "They are a professional tote storage system installer"}
+What they build: Custom heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. Built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
+Their Booking Link: ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
 
 LOCATION CONTEXT:
@@ -125,6 +138,8 @@ TONE:
 ${toneGuide[tone] || toneGuide.professional}
 
 ${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
+REMEMBER: Write as the installer in first person. They are posting this themselves to get leads. No customer testimonials, no third-person descriptions. Just the installer talking about what they do.
+
 Write only the post text. No titles, quotes, or extra formatting.`;
 
     // Retry with exponential backoff for transient rate limits
