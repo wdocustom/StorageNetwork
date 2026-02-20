@@ -10,6 +10,7 @@ import {
   MapPin,
   ChevronRight,
   Gift,
+  Tag,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -23,6 +24,7 @@ import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
 import { checkFirstOrderDiscount } from "@/app/actions/analytics";
+import { validateDiscountCode, type ValidatedDiscount } from "@/app/actions/discount-codes";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -101,6 +103,11 @@ export default function BookingModal({
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
   const [firstOrderDiscount, setFirstOrderDiscount] = useState(0);
 
+  // Discount code state
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoResult, setPromoResult] = useState<ValidatedDiscount | null>(null);
+
   // Fetch blackout dates and check first-order discount when modal opens
   useEffect(() => {
     if (!isOpen || !installerId) return;
@@ -129,8 +136,45 @@ export default function BookingModal({
     return calculateSalesTax(totalPrice, address.state);
   }, [totalPrice, address.state]);
 
+  // ── Discount code calculations ──────────────────────────────────────────
+  // The discount reduces the total price. Deposit and balance recalculate.
+  const promoDiscountAmount = useMemo(() => {
+    if (!promoResult?.valid) return 0;
+    if (promoResult.discount_type === "percent") {
+      return Math.round(totalPrice * (promoResult.discount_value! / 100) * 100) / 100;
+    }
+    // Fixed: cap at total price
+    return Math.min(promoResult.discount_value!, totalPrice);
+  }, [promoResult, totalPrice]);
+
+  const effectiveTotalPrice = totalPrice - promoDiscountAmount;
+  const effectiveDeposit = Math.round(effectiveTotalPrice * 0.15 * 100) / 100;
+
+  // Recalculate tax on discounted total
+  const effectiveTaxInfo = useMemo(() => {
+    if (!address.state || address.state.length !== 2) return null;
+    return calculateSalesTax(effectiveTotalPrice, address.state);
+  }, [effectiveTotalPrice, address.state]);
+
   // Balance at installation = remaining build cost + sales tax
-  const balanceAtInstall = (totalPrice - depositAmount) + (taxInfo?.taxAmount || 0);
+  const balanceAtInstall = (effectiveTotalPrice - effectiveDeposit) + (effectiveTaxInfo?.taxAmount || 0);
+
+  // Total combined discount for display (promo + first-order)
+  const totalDiscount = promoDiscountAmount + firstOrderDiscount;
+
+  async function handleApplyPromo() {
+    if (!promoCode.trim()) return;
+    setPromoValidating(true);
+    setPromoResult(null);
+    const result = await validateDiscountCode(promoCode.trim(), installerId);
+    setPromoResult(result);
+    setPromoValidating(false);
+  }
+
+  function handleRemovePromo() {
+    setPromoCode("");
+    setPromoResult(null);
+  }
 
   // Address validation
   function handleAddressNext() {
@@ -154,18 +198,22 @@ export default function BookingModal({
 
     const result = await createDepositIntent({
       leadId,
-      amount: depositAmount, // Deposit only — tax collected at installation
-      totalPrice,
+      amount: effectiveDeposit, // Deposit based on discounted total
+      totalPrice: effectiveTotalPrice,
       installerId,
       source,
       customerEmail,
       customerName,
       scheduledAt: selectedDate,
       // Tax info for installer records (collected at installation)
-      salesTaxAmount: taxInfo?.taxAmount || 0,
+      salesTaxAmount: effectiveTaxInfo?.taxAmount || 0,
       billingState: address.state,
       // First-order discount (deducted from platform fee, not installer)
       firstOrderDiscount: firstOrderDiscount,
+      // Installer discount code
+      discountCode: promoResult?.valid ? promoResult.code : undefined,
+      discountAmount: promoDiscountAmount || undefined,
+      discountId: promoResult?.valid ? promoResult.discount_id : undefined,
     });
 
     setInitLoading(false);
@@ -176,7 +224,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state, firstOrderDiscount]);
+  }, [selectedDate, leadId, effectiveDeposit, effectiveTotalPrice, installerId, source, customerEmail, customerName, effectiveTaxInfo, address.state, firstOrderDiscount, promoResult, promoDiscountAmount]);
 
   if (!isOpen) return null;
 
@@ -306,8 +354,22 @@ export default function BookingModal({
                     Total Price
                   </p>
                   <p className="text-2xl font-black text-white">
-                    {formatCurrency(totalPrice)}
+                    {promoDiscountAmount > 0 ? (
+                      <>
+                        <span className="line-through text-stone-500 text-lg mr-1.5">{formatCurrency(totalPrice)}</span>
+                        {formatCurrency(effectiveTotalPrice)}
+                      </>
+                    ) : (
+                      formatCurrency(totalPrice)
+                    )}
                   </p>
+                  {promoDiscountAmount > 0 && (
+                    <p className="text-[11px] font-semibold text-emerald-400 mt-0.5">
+                      {promoResult?.discount_type === "percent"
+                        ? `${promoResult.discount_value}% off applied`
+                        : `$${promoResult?.discount_value} off applied`}
+                    </p>
+                  )}
                 </div>
                 <div className="border-t border-slate-700 pt-3 space-y-1">
                   {/* Due Today = Deposit only */}
@@ -316,11 +378,11 @@ export default function BookingModal({
                     <span className="font-black text-yellow-400">
                       {firstOrderDiscount > 0 ? (
                         <>
-                          <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(depositAmount)}</span>
-                          {formatCurrency(depositAmount - firstOrderDiscount)}
+                          <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(effectiveDeposit)}</span>
+                          {formatCurrency(effectiveDeposit - firstOrderDiscount)}
                         </>
                       ) : (
-                        formatCurrency(depositAmount)
+                        formatCurrency(effectiveDeposit)
                       )}
                     </span>
                   </div>
@@ -333,12 +395,12 @@ export default function BookingModal({
                   {/* Balance at installation = remaining + tax */}
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-700/50 mt-2">
                     <span className="text-stone-500">Balance at Installation</span>
-                    <span className="text-stone-400">{formatCurrency(totalPrice - depositAmount)}</span>
+                    <span className="text-stone-400">{formatCurrency(effectiveTotalPrice - effectiveDeposit)}</span>
                   </div>
-                  {taxInfo && taxInfo.taxAmount > 0 && (
+                  {effectiveTaxInfo && effectiveTaxInfo.taxAmount > 0 && (
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
-                      <span className="text-stone-400">{formatCurrency(taxInfo.taxAmount)}</span>
+                      <span className="text-stone-500">Sales Tax ({formatTaxRate(effectiveTaxInfo.taxRate)})</span>
+                      <span className="text-stone-400">{formatCurrency(effectiveTaxInfo.taxAmount)}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/50">
@@ -347,6 +409,60 @@ export default function BookingModal({
                   </div>
                 </div>
               </div>
+
+              {/* Discount code input */}
+              {promoResult?.valid ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                    <Tag className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-emerald-400">
+                      {promoResult.code} — Save {formatCurrency(promoDiscountAmount)}
+                    </p>
+                    <p className="text-[10px] text-emerald-400/70">
+                      {promoResult.discount_type === "percent"
+                        ? `${promoResult.discount_value}% off your order`
+                        : `$${promoResult.discount_value} off your order`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRemovePromo}
+                    className="rounded-lg p-1 text-emerald-400/50 hover:text-emerald-400 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase());
+                      if (promoResult) setPromoResult(null);
+                    }}
+                    placeholder="Discount code"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || promoValidating}
+                    className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-4 py-2 text-xs font-semibold text-stone-300 transition-colors hover:bg-slate-600 disabled:opacity-50"
+                  >
+                    {promoValidating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "Apply"
+                    )}
+                  </button>
+                </div>
+              )}
+              {promoResult && !promoResult.valid && (
+                <p className="text-center text-xs font-medium text-red-400 -mt-2">
+                  {promoResult.error}
+                </p>
+              )}
 
               {hasWheels && (
                 <div className="rounded-lg bg-yellow-400/10 px-3 py-2 text-center text-[11px] font-semibold text-yellow-400">
@@ -397,7 +513,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(depositAmount - firstOrderDiscount)} &amp; Book
+                    Pay {formatCurrency(effectiveDeposit - firstOrderDiscount)} &amp; Book
                   </>
                 )}
               </button>

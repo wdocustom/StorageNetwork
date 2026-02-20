@@ -385,6 +385,10 @@ export interface DepositIntentInput {
   billingState?: string;             // 2-letter state code
   // First-order discount (deducted from platform fee only, not installer)
   firstOrderDiscount?: number;       // $25 for first-time customers
+  // Installer discount code
+  discountCode?: string;             // e.g. "SAVE10"
+  discountAmount?: number;           // Dollar amount off the total price
+  discountId?: string;               // discount_codes.id for usage tracking
 }
 
 export interface DepositIntentResult {
@@ -396,7 +400,7 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, firstOrderDiscount } = input;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, firstOrderDiscount, discountCode, discountAmount, discountId } = input;
   const discountCents = firstOrderDiscount ? Math.round(firstOrderDiscount * 100) : 0;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
@@ -562,15 +566,28 @@ export async function createDepositIntent(
       billing_state: billingState || null,
       updated_at: new Date().toISOString(),
     };
-    // If discount applied, update deposit amount to reflect what customer actually pays
-    if (discountCents > 0) {
+    // Update deposit/balance to reflect what customer actually pays
+    if (discountCents > 0 || discountAmount) {
       leadUpdate.deposit_amount = effectiveDepositCents / 100;
       leadUpdate.balance_due = totalPrice - (effectiveDepositCents / 100);
+    }
+    // Store installer discount code info
+    if (discountCode) {
+      leadUpdate.discount_code = discountCode;
+      leadUpdate.discount_amount = discountAmount || 0;
+      leadUpdate.estimated_price = totalPrice; // already the discounted total
     }
     await supabase
       .from("leads")
       .update(leadUpdate)
       .eq("id", leadId);
+
+    // Increment discount code usage count
+    if (discountId) {
+      import("@/app/actions/discount-codes").then(({ incrementDiscountUsage }) => {
+        incrementDiscountUsage(discountId).catch(console.error);
+      });
+    }
 
     return {
       success: true,

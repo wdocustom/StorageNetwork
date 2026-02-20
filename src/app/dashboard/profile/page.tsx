@@ -36,6 +36,7 @@ import {
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
+import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -950,6 +951,13 @@ function ProfilePageInner() {
         ═══════════════════════════════════════════════════════════════ */}
         {isPro && profile && (
           <PricingSettings userId={profile.id} />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION E: Discount Codes (Pro users only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {isPro && profile && (
+          <DiscountCodesCard userId={profile.id} />
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
