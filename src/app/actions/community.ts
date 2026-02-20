@@ -421,14 +421,15 @@ export async function vote(input: {
       // Decrement the denormalized count directly
       const { data: currentRow } = await supabase
         .from(table)
-        .select(column)
+        .select("upvotes, downvotes")
         .eq("id", targetId)
         .single();
 
       if (currentRow) {
+        const row = currentRow as Record<string, number>;
         await supabase
           .from(table)
-          .update({ [column]: Math.max(0, (currentRow[column] as number) - 1) })
+          .update({ [column]: Math.max(0, row[column] - 1) })
           .eq("id", targetId);
       }
 
@@ -450,19 +451,20 @@ export async function vote(input: {
       const oldColumn = existing.vote_value === 1 ? "upvotes" : "downvotes";
       const newColumn = value === 1 ? "upvotes" : "downvotes";
 
-      // Use raw SQL-safe increment/decrement via separate updates
+      // Swap counts: decrement old column, increment new column
       const { data: current } = await supabase
         .from(table)
-        .select(`${oldColumn}, ${newColumn}`)
+        .select("upvotes, downvotes")
         .eq("id", targetId)
         .single();
 
       if (current) {
+        const row = current as Record<string, number>;
         await supabase
           .from(table)
           .update({
-            [oldColumn]: Math.max(0, (current[oldColumn] as number) - 1),
-            [newColumn]: (current[newColumn] as number) + 1,
+            [oldColumn]: Math.max(0, row[oldColumn] - 1),
+            [newColumn]: row[newColumn] + 1,
           })
           .eq("id", targetId);
       }
@@ -490,14 +492,15 @@ export async function vote(input: {
 
   const { data: current } = await supabase
     .from(table)
-    .select(column)
+    .select("upvotes, downvotes")
     .eq("id", targetId)
     .single();
 
   if (current) {
+    const row = current as Record<string, number>;
     await supabase
       .from(table)
-      .update({ [column]: (current[column] as number) + 1 })
+      .update({ [column]: row[column] + 1 })
       .eq("id", targetId);
   }
 
