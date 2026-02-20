@@ -40,25 +40,30 @@ export default function NewPostPage() {
   const [isSubmitting, startTransition] = useTransition();
 
   const fetchData = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      window.location.href = "/login";
-      return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+      setUserId(user.id);
+
+      const communitiesData = await getCommunities();
+      setCommunities(communitiesData);
+
+      // Default to first community
+      if (communitiesData.length > 0) {
+        setCommunityId(communitiesData[0].id);
+        setCommunitySlug(communitiesData[0].slug);
+      }
+    } catch (err) {
+      console.error("Failed to load page data:", err);
+      setError("Failed to load data. Please refresh the page.");
+    } finally {
+      setLoading(false);
     }
-    setUserId(user.id);
-
-    const communitiesData = await getCommunities();
-    setCommunities(communitiesData);
-
-    // Default to first community
-    if (communitiesData.length > 0) {
-      setCommunityId(communitiesData[0].id);
-      setCommunitySlug(communitiesData[0].slug);
-    }
-
-    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -298,29 +303,42 @@ export default function NewPostPage() {
         )}
 
         {/* Submit */}
-        <div className="flex items-center justify-between pt-2">
-          <a
-            href="/community"
-            className="text-xs text-stone-500 hover:text-stone-300"
-          >
-            Cancel
-          </a>
-          <button
-            onClick={handleSubmit}
-            disabled={
-              isSubmitting || !title.trim() || !content.trim() || !communityId
-            }
-            className="flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Posting...
-              </>
-            ) : (
-              "Publish Post"
-            )}
-          </button>
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <a
+              href="/community"
+              className="text-xs text-stone-500 hover:text-stone-300"
+            >
+              Cancel
+            </a>
+            <button
+              onClick={handleSubmit}
+              disabled={
+                isSubmitting || !title.trim() || !content.trim() || !communityId || !userId
+              }
+              className="flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                "Publish Post"
+              )}
+            </button>
+          </div>
+          {!isSubmitting && (!title.trim() || !content.trim() || !communityId || !userId) && (
+            <p className="text-right text-[11px] text-stone-500">
+              {!userId
+                ? "Please sign in to post."
+                : !communityId
+                  ? "No spaces available. Please try again later."
+                  : !title.trim()
+                    ? "A title is required."
+                    : "Content is required."}
+            </p>
+          )}
         </div>
       </div>
     </div>
