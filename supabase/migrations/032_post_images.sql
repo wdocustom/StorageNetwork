@@ -20,7 +20,7 @@ do $$ begin
   alter table public.post_images
     add constraint post_images_post_id_fkey
     foreign key (post_id) references public.posts(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 create index if not exists idx_post_images_post on public.post_images (post_id, sort_order);

@@ -33,12 +33,12 @@ create table if not exists public.communities (
 -- Add unique constraints only if they don't exist
 do $$ begin
   alter table public.communities add constraint communities_name_key unique (name);
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.communities add constraint communities_slug_key unique (slug);
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 -- Add FK to profiles only if it doesn't exist
@@ -46,7 +46,7 @@ do $$ begin
   alter table public.communities
     add constraint communities_created_by_fkey
     foreign key (created_by) references public.profiles(id) on delete set null;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 alter table public.communities enable row level security;
@@ -95,14 +95,14 @@ do $$ begin
   alter table public.posts
     add constraint posts_community_id_fkey
     foreign key (community_id) references public.communities(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.posts
     add constraint posts_author_id_fkey
     foreign key (author_id) references public.profiles(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 create index if not exists idx_posts_community_created on public.posts (community_id, created_at desc);
@@ -164,21 +164,21 @@ do $$ begin
   alter table public.comments
     add constraint comments_post_id_fkey
     foreign key (post_id) references public.posts(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.comments
     add constraint comments_author_id_fkey
     foreign key (author_id) references public.profiles(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.comments
     add constraint comments_parent_id_fkey
     foreign key (parent_id) references public.comments(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 create index if not exists idx_comments_post on public.comments (post_id, created_at asc);
@@ -235,36 +235,36 @@ do $$ begin
   alter table public.votes
     add constraint votes_user_id_fkey
     foreign key (user_id) references public.profiles(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.votes
     add constraint votes_post_id_fkey
     foreign key (post_id) references public.posts(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.votes
     add constraint votes_comment_id_fkey
     foreign key (comment_id) references public.comments(id) on delete cascade;
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.votes add constraint votes_vote_value_check check (vote_value in (-1, 1));
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.votes add constraint votes_unique_post unique (user_id, post_id);
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
   alter table public.votes add constraint votes_unique_comment unique (user_id, comment_id);
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 do $$ begin
@@ -272,7 +272,7 @@ do $$ begin
     (post_id is not null and comment_id is null) or
     (post_id is null and comment_id is not null)
   );
-exception when duplicate_object then null;
+exception when duplicate_table or duplicate_object then null;
 end $$;
 
 create index if not exists idx_votes_post on public.votes (post_id) where post_id is not null;
