@@ -1,27 +1,56 @@
 -- ============================================================
 -- Pro Community Feature — Full Schema + Seed
--- Safe to re-run: uses IF NOT EXISTS / OR REPLACE / ON CONFLICT
+-- Fully idempotent: safe to run multiple times
 -- ============================================================
 
+-- Ensure the update_updated_at helper exists (may already from base schema)
+create or replace function public.update_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 -- ═══════════════════════════════════════════════════════════════
--- 1. COMMUNITIES / SPACES
+-- 1. COMMUNITIES
 -- ═══════════════════════════════════════════════════════════════
 create table if not exists public.communities (
   id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  slug text not null unique,
+  name text not null,
+  slug text not null,
   description text,
   icon_url text,
-  created_by uuid references public.profiles(id) on delete set null,
+  created_by uuid,
   post_count integer not null default 0,
   member_count integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+-- Add unique constraints only if they don't exist
+do $$ begin
+  alter table public.communities add constraint communities_name_key unique (name);
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.communities add constraint communities_slug_key unique (slug);
+exception when duplicate_object then null;
+end $$;
+
+-- Add FK to profiles only if it doesn't exist
+do $$ begin
+  alter table public.communities
+    add constraint communities_created_by_fkey
+    foreign key (created_by) references public.profiles(id) on delete set null;
+exception when duplicate_object then null;
+end $$;
+
 alter table public.communities enable row level security;
 
--- RLS policies (drop first to avoid "already exists" errors)
 drop policy if exists "Pro users can read communities" on public.communities;
 create policy "Pro users can read communities"
   on public.communities for select
@@ -48,8 +77,8 @@ create policy "Admins can update own communities"
 -- ═══════════════════════════════════════════════════════════════
 create table if not exists public.posts (
   id uuid primary key default gen_random_uuid(),
-  community_id uuid not null references public.communities(id) on delete cascade,
-  author_id uuid not null references public.profiles(id) on delete cascade,
+  community_id uuid not null,
+  author_id uuid not null,
   title text not null,
   content text not null,
   tags text[] not null default '{}',
@@ -61,6 +90,20 @@ create table if not exists public.posts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+do $$ begin
+  alter table public.posts
+    add constraint posts_community_id_fkey
+    foreign key (community_id) references public.communities(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.posts
+    add constraint posts_author_id_fkey
+    foreign key (author_id) references public.profiles(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
 
 create index if not exists idx_posts_community_created on public.posts (community_id, created_at desc);
 create index if not exists idx_posts_community_upvotes on public.posts (community_id, upvotes desc);
@@ -106,9 +149,9 @@ create policy "Authors can delete own posts"
 -- ═══════════════════════════════════════════════════════════════
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.posts(id) on delete cascade,
-  author_id uuid not null references public.profiles(id) on delete cascade,
-  parent_id uuid references public.comments(id) on delete cascade,
+  post_id uuid not null,
+  author_id uuid not null,
+  parent_id uuid,
   content text not null,
   upvotes integer not null default 0,
   downvotes integer not null default 0,
@@ -116,6 +159,27 @@ create table if not exists public.comments (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+do $$ begin
+  alter table public.comments
+    add constraint comments_post_id_fkey
+    foreign key (post_id) references public.posts(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.comments
+    add constraint comments_author_id_fkey
+    foreign key (author_id) references public.profiles(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.comments
+    add constraint comments_parent_id_fkey
+    foreign key (parent_id) references public.comments(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
 
 create index if not exists idx_comments_post on public.comments (post_id, created_at asc);
 create index if not exists idx_comments_parent on public.comments (parent_id);
@@ -160,19 +224,56 @@ create policy "Authors can delete own comments"
 -- ═══════════════════════════════════════════════════════════════
 create table if not exists public.votes (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  post_id uuid references public.posts(id) on delete cascade,
-  comment_id uuid references public.comments(id) on delete cascade,
-  vote_value smallint not null check (vote_value in (-1, 1)),
-  created_at timestamptz not null default now(),
+  user_id uuid not null,
+  post_id uuid,
+  comment_id uuid,
+  vote_value smallint not null,
+  created_at timestamptz not null default now()
+);
 
-  constraint votes_unique_post unique (user_id, post_id),
-  constraint votes_unique_comment unique (user_id, comment_id),
-  constraint votes_target_check check (
+do $$ begin
+  alter table public.votes
+    add constraint votes_user_id_fkey
+    foreign key (user_id) references public.profiles(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes
+    add constraint votes_post_id_fkey
+    foreign key (post_id) references public.posts(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes
+    add constraint votes_comment_id_fkey
+    foreign key (comment_id) references public.comments(id) on delete cascade;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes add constraint votes_vote_value_check check (vote_value in (-1, 1));
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes add constraint votes_unique_post unique (user_id, post_id);
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes add constraint votes_unique_comment unique (user_id, comment_id);
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  alter table public.votes add constraint votes_target_check check (
     (post_id is not null and comment_id is null) or
     (post_id is null and comment_id is not null)
-  )
-);
+  );
+exception when duplicate_object then null;
+end $$;
 
 create index if not exists idx_votes_post on public.votes (post_id) where post_id is not null;
 create index if not exists idx_votes_comment on public.votes (comment_id) where comment_id is not null;
@@ -213,7 +314,7 @@ create policy "Users can delete own votes"
   using (auth.uid() = user_id);
 
 -- ═══════════════════════════════════════════════════════════════
--- 5. AUTO-UPDATE updated_at TRIGGERS
+-- 5. TRIGGERS — updated_at
 -- ═══════════════════════════════════════════════════════════════
 drop trigger if exists communities_updated_at on public.communities;
 create trigger communities_updated_at
@@ -231,7 +332,7 @@ create trigger comments_updated_at
   for each row execute function public.update_updated_at();
 
 -- ═══════════════════════════════════════════════════════════════
--- 6. HELPER FUNCTIONS — denormalized counters
+-- 6. TRIGGERS — denormalized counters
 -- ═══════════════════════════════════════════════════════════════
 create or replace function public.increment_community_post_count()
 returns trigger language plpgsql security definer as $$
