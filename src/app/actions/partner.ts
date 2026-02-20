@@ -26,6 +26,7 @@ export interface PlatformUser {
   completed_jobs: number;
   job_score: number;
   created_at: string;
+  last_login_at: string | null;
   booking_link: string;
 }
 
@@ -257,7 +258,7 @@ export async function getAdminPlatformUsers(
     const { data: allProfiles, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at"
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at"
       )
       .order("created_at", { ascending: false });
 
@@ -289,6 +290,7 @@ export async function getAdminPlatformUsers(
         completed_jobs: p.completed_jobs ?? 0,
         job_score: p.job_score ?? 0,
         created_at: p.created_at,
+        last_login_at: p.last_login_at ?? null,
         booking_link: `${baseUrl}/design?${bookingParam}`,
       };
     });

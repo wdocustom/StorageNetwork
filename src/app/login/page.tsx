@@ -57,7 +57,7 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
@@ -65,6 +65,14 @@ export default function LoginPage() {
         if (signInError) {
           setError(signInError.message);
         } else {
+          // Stamp last login time
+          if (signInData.user) {
+            supabase
+              .from("profiles")
+              .update({ last_login_at: new Date().toISOString() })
+              .eq("id", signInData.user.id)
+              .then(() => {});
+          }
           window.location.href = redirectTo;
         }
       }

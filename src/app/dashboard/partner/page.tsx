@@ -554,11 +554,12 @@ export default function PartnerDashboardPage() {
                                 {u.completed_jobs} jobs
                               </p>
                               <p className="text-[10px] text-stone-500">
-                                {new Date(u.created_at).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "2-digit",
-                                })}
+                                {u.last_login_at
+                                  ? `Active ${new Date(u.last_login_at).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                    })}`
+                                  : "Never logged in"}
                               </p>
                             </div>
                             {isExpanded ? (
@@ -598,6 +599,30 @@ export default function PartnerDashboardPage() {
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Job Score</p>
                                 <p className="text-stone-300">{u.job_score}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Last Login</p>
+                                <p className="text-stone-300">
+                                  {u.last_login_at
+                                    ? new Date(u.last_login_at).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                      })
+                                    : "Never"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Joined</p>
+                                <p className="text-stone-300">
+                                  {new Date(u.created_at).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })}
+                                </p>
                               </div>
                             </div>
 
