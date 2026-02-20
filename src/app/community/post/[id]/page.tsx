@@ -18,6 +18,7 @@ import {
 import VoteButton from "@/components/community/VoteButton";
 import CommentThread from "@/components/community/CommentThread";
 import ThreadSummarizer from "@/components/community/ThreadSummarizer";
+import PostImageGallery from "@/components/community/PostImageGallery";
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor(
@@ -188,6 +189,11 @@ export default function PostDetailPage({
             <div className="mt-4 text-sm text-stone-300 leading-relaxed whitespace-pre-wrap">
               {post.content}
             </div>
+
+            {/* Post images */}
+            {post.images && post.images.length > 0 && (
+              <PostImageGallery images={post.images} />
+            )}
           </div>
         </div>
       </article>

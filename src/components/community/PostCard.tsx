@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Clock, Tag } from "lucide-react";
+import { MessageSquare, Clock, Tag, ImageIcon } from "lucide-react";
 import VoteButton from "./VoteButton";
 import type { Post } from "@/app/actions/community";
 
@@ -68,6 +68,31 @@ export default function PostCard({ post, userId }: PostCardProps) {
           {post.content.replace(/[#*_~`]/g, "").slice(0, 200)}
         </p>
 
+        {/* Image thumbnails */}
+        {post.images && post.images.length > 0 && (
+          <div className="mt-2 flex items-center gap-1.5">
+            {post.images.slice(0, 3).map((img) => (
+              <div
+                key={img.id}
+                className="h-14 w-14 overflow-hidden rounded border border-slate-700"
+              >
+                <img
+                  src={img.image_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
+            {post.images.length > 3 && (
+              <div className="flex h-14 w-14 items-center justify-center rounded border border-slate-700 bg-slate-800">
+                <span className="text-[10px] font-medium text-stone-400">
+                  +{post.images.length - 3}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -121,6 +146,13 @@ export default function PostCard({ post, userId }: PostCardProps) {
             <MessageSquare className="h-3 w-3" />
             {post.comment_count} {post.comment_count === 1 ? "reply" : "replies"}
           </div>
+
+          {post.images && post.images.length > 0 && (
+            <div className="flex items-center gap-1">
+              <ImageIcon className="h-3 w-3" />
+              {post.images.length} {post.images.length === 1 ? "photo" : "photos"}
+            </div>
+          )}
         </div>
       </div>
     </a>

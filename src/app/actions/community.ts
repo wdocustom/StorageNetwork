@@ -31,6 +31,16 @@ export interface PostAuthor {
   avatar_url: string | null;
 }
 
+export interface PostImage {
+  id: string;
+  post_id: string;
+  image_url: string;
+  storage_path: string;
+  sort_order: number;
+  caption: string | null;
+  created_at: string;
+}
+
 export interface Post {
   id: string;
   community_id: string;
@@ -46,6 +56,7 @@ export interface Post {
   created_at: string;
   author: PostAuthor;
   community: { name: string; slug: string };
+  images?: PostImage[];
   user_vote?: number | null;
 }
 
@@ -141,7 +152,8 @@ export async function getPosts(options: {
       `
       *,
       author:profiles!posts_author_id_fkey(id, first_name, business_name, avatar_url),
-      community:communities!posts_community_id_fkey(name, slug)
+      community:communities!posts_community_id_fkey(name, slug),
+      images:post_images(id, post_id, image_url, storage_path, sort_order, caption, created_at)
     `
     )
     .range(offset, offset + limit - 1);
@@ -210,7 +222,8 @@ export async function getPostById(
       `
       *,
       author:profiles!posts_author_id_fkey(id, first_name, business_name, avatar_url),
-      community:communities!posts_community_id_fkey(name, slug)
+      community:communities!posts_community_id_fkey(name, slug),
+      images:post_images(id, post_id, image_url, storage_path, sort_order, caption, created_at)
     `
     )
     .eq("id", postId)
@@ -549,4 +562,164 @@ export async function saveAiSummary(
     .eq("id", postId);
 
   return { success: !error };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Post Image Actions
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COMMUNITY_BUCKET = "community-images";
+
+async function ensureCommunityBucket() {
+  const { data } = await supabase.storage.getBucket(COMMUNITY_BUCKET);
+  if (!data) {
+    await supabase.storage.createBucket(COMMUNITY_BUCKET, {
+      public: true,
+      fileSizeLimit: 5 * 1024 * 1024, // 5MB
+    });
+  }
+}
+
+export async function uploadPostImage(
+  postId: string,
+  authorId: string,
+  formData: FormData
+): Promise<{ success: boolean; image?: PostImage; error?: string }> {
+  try {
+    const file = formData.get("image") as File | null;
+    if (!file) {
+      return { success: false, error: "No file provided." };
+    }
+
+    // Validate file type
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      return { success: false, error: "Only JPEG, PNG, WebP, and GIF images are allowed." };
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: "Image must be under 5MB." };
+    }
+
+    // Verify user is pro and owns the post
+    const { data: post } = await supabase
+      .from("posts")
+      .select("author_id")
+      .eq("id", postId)
+      .single();
+
+    if (!post || post.author_id !== authorId) {
+      return { success: false, error: "You can only add images to your own posts." };
+    }
+
+    await ensureCommunityBucket();
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const storagePath = `${postId}/${Date.now()}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error: uploadError } = await supabase.storage
+      .from(COMMUNITY_BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[PostImage] Upload error:", uploadError);
+      return { success: false, error: uploadError.message };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(COMMUNITY_BUCKET)
+      .getPublicUrl(storagePath);
+
+    // Get current image count for sort_order
+    const { count } = await supabase
+      .from("post_images")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", postId);
+
+    const { data: imageRow, error: insertError } = await supabase
+      .from("post_images")
+      .insert({
+        post_id: postId,
+        image_url: urlData.publicUrl,
+        storage_path: storagePath,
+        sort_order: count || 0,
+      })
+      .select("*")
+      .single();
+
+    if (insertError) {
+      console.error("[PostImage] Insert error:", insertError);
+      // Clean up uploaded file
+      await supabase.storage.from(COMMUNITY_BUCKET).remove([storagePath]);
+      return { success: false, error: insertError.message };
+    }
+
+    return { success: true, image: imageRow as PostImage };
+  } catch (err) {
+    console.error("[PostImage] Error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Upload failed.",
+    };
+  }
+}
+
+export async function deletePostImage(
+  imageId: string,
+  authorId: string
+): Promise<{ success: boolean; error?: string }> {
+  // Get the image to verify ownership and get the storage path
+  const { data: image } = await supabase
+    .from("post_images")
+    .select("*, post:posts!post_images_post_id_fkey(author_id)")
+    .eq("id", imageId)
+    .single();
+
+  if (!image) {
+    return { success: false, error: "Image not found." };
+  }
+
+  const postAuthorId = (image as any).post?.author_id;
+  if (postAuthorId !== authorId) {
+    return { success: false, error: "You can only delete images from your own posts." };
+  }
+
+  // Delete from storage
+  await supabase.storage
+    .from(COMMUNITY_BUCKET)
+    .remove([image.storage_path]);
+
+  // Delete from database
+  const { error } = await supabase
+    .from("post_images")
+    .delete()
+    .eq("id", imageId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function getPostImages(postId: string): Promise<PostImage[]> {
+  const { data, error } = await supabase
+    .from("post_images")
+    .select("*")
+    .eq("post_id", postId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    console.error("Failed to fetch post images:", error);
+    return [];
+  }
+
+  return (data || []) as PostImage[];
 }

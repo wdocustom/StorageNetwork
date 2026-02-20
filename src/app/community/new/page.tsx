@@ -12,8 +12,12 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getCommunities,
   createPost,
+  uploadPostImage,
   type Community,
 } from "@/app/actions/community";
+import PostImageUpload, {
+  type StagedImage,
+} from "@/components/community/PostImageUpload";
 
 export default function NewPostPage() {
   const supabase = getSupabaseBrowserClient();
@@ -28,6 +32,7 @@ export default function NewPostPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
   const [aiSuggestion, setAiSuggestion] = useState<{
     tags: string[];
     belongsInCommunity: boolean;
@@ -119,6 +124,7 @@ export default function NewPostPage() {
     setError("");
 
     startTransition(async () => {
+      // 1. Create the post
       const result = await createPost({
         communityId,
         authorId: userId,
@@ -127,11 +133,22 @@ export default function NewPostPage() {
         tags,
       });
 
-      if (result.success && result.postId) {
-        window.location.href = `/community/post/${result.postId}`;
-      } else {
+      if (!result.success || !result.postId) {
         setError(result.error || "Failed to create post.");
+        return;
       }
+
+      // 2. Upload staged images (if any)
+      if (stagedImages.length > 0) {
+        for (const staged of stagedImages) {
+          const formData = new FormData();
+          formData.set("image", staged.file);
+          await uploadPostImage(result.postId, userId, formData);
+        }
+      }
+
+      // 3. Redirect to the new post
+      window.location.href = `/community/post/${result.postId}`;
     });
   }
 
@@ -207,6 +224,12 @@ export default function NewPostPage() {
             Supports plain text. Keep it clear and constructive.
           </p>
         </div>
+
+        {/* Photo Upload */}
+        <PostImageUpload
+          stagedImages={stagedImages}
+          onStagedImagesChange={setStagedImages}
+        />
 
         {/* AI Auto-Tag */}
         <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
@@ -321,7 +344,7 @@ export default function NewPostPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Posting...
+                  {stagedImages.length > 0 ? "Uploading..." : "Posting..."}
                 </>
               ) : (
                 "Publish Post"
