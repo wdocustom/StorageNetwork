@@ -670,15 +670,16 @@ export async function uploadPostImage(
       return { success: false, error: "No file provided." };
     }
 
-    // Validate file type
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowed.includes(file.type)) {
+    // Validate file type — allow empty type for mobile browsers that
+    // don't always report MIME types correctly
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+    if (file.type && !allowed.includes(file.type)) {
       return { success: false, error: "Only JPEG, PNG, WebP, and GIF images are allowed." };
     }
 
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return { success: false, error: "Image must be under 5MB." };
+    // Validate file size (10MB — phone camera photos can be large)
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false, error: "Image must be under 10MB." };
     }
 
     // Verify user is pro and owns the post

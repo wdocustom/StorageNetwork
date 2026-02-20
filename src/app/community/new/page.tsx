@@ -124,31 +124,47 @@ export default function NewPostPage() {
     setError("");
 
     startTransition(async () => {
-      // 1. Create the post
-      const result = await createPost({
-        communityId,
-        authorId: userId,
-        title: title.trim(),
-        content: content.trim(),
-        tags,
-      });
+      try {
+        // 1. Create the post
+        const result = await createPost({
+          communityId,
+          authorId: userId,
+          title: title.trim(),
+          content: content.trim(),
+          tags,
+        });
 
-      if (!result.success || !result.postId) {
-        setError(result.error || "Failed to create post.");
-        return;
-      }
-
-      // 2. Upload staged images (if any)
-      if (stagedImages.length > 0) {
-        for (const staged of stagedImages) {
-          const formData = new FormData();
-          formData.set("image", staged.file);
-          await uploadPostImage(result.postId, userId, formData);
+        if (!result.success || !result.postId) {
+          setError(result.error || "Failed to create post.");
+          return;
         }
-      }
 
-      // 3. Redirect to the new post
-      window.location.href = `/community/post/${result.postId}`;
+        // 2. Upload staged images (if any)
+        if (stagedImages.length > 0) {
+          const uploadErrors: string[] = [];
+          for (const staged of stagedImages) {
+            try {
+              const formData = new FormData();
+              formData.set("image", staged.file);
+              const uploadResult = await uploadPostImage(result.postId, userId, formData);
+              if (!uploadResult.success) {
+                uploadErrors.push(uploadResult.error || "Upload failed");
+              }
+            } catch {
+              uploadErrors.push(`Failed to upload ${staged.file.name}`);
+            }
+          }
+          if (uploadErrors.length > 0) {
+            console.error("[NewPost] Image upload errors:", uploadErrors);
+          }
+        }
+
+        // 3. Redirect to the new post
+        window.location.href = `/community/post/${result.postId}`;
+      } catch (err) {
+        console.error("[NewPost] Submit error:", err);
+        setError("Something went wrong. Please try again.");
+      }
     });
   }
 

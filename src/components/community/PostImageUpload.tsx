@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ImagePlus, X, AlertCircle } from "lucide-react";
 
 export interface StagedImage {
@@ -21,6 +21,7 @@ export default function PostImageUpload({
 }: PostImageUploadProps) {
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function validateAndStage(files: FileList | File[]) {
     const fileArray = Array.from(files);
@@ -31,17 +32,27 @@ export default function PostImageUpload({
       return;
     }
 
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    const maxSize = 5 * 1024 * 1024;
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/heic",
+      "image/heif",
+    ];
+    const maxSize = 10 * 1024 * 1024; // 10MB to accommodate phone camera photos
     const newStaged: StagedImage[] = [];
 
     for (const file of fileArray.slice(0, remaining)) {
-      if (!allowed.includes(file.type)) {
+      // On mobile, file.type can be empty — allow it through and let the
+      // server decide. Most mobile browsers report correct types, but some
+      // Android gallery pickers return an empty string.
+      if (file.type && !allowed.includes(file.type)) {
         setError("Only JPEG, PNG, WebP, and GIF images are allowed.");
         continue;
       }
       if (file.size > maxSize) {
-        setError("Each image must be under 5MB.");
+        setError("Each image must be under 10MB.");
         continue;
       }
       newStaged.push({ file, preview: URL.createObjectURL(file) });
@@ -97,9 +108,9 @@ export default function PostImageUpload({
               <button
                 type="button"
                 onClick={() => handleRemove(i)}
-                className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-500"
+                className="absolute right-1 top-1 rounded-full bg-black/70 p-1.5 text-white opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 hover:bg-red-500"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
@@ -108,7 +119,8 @@ export default function PostImageUpload({
 
       {/* Upload zone */}
       {stagedImages.length < maxImages && (
-        <div
+        <label
+          htmlFor="post-image-input"
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -120,26 +132,29 @@ export default function PostImageUpload({
               ? "border-yellow-400 bg-yellow-400/5"
               : "border-slate-700 hover:border-slate-600"
           }`}
-          onClick={() =>
-            document.getElementById("post-image-input")?.click()
-          }
         >
           <ImagePlus className="mb-1.5 h-6 w-6 text-stone-500" />
           <p className="text-xs text-stone-400">
-            Drop images here or click to browse
+            Tap to add photos
           </p>
           <p className="mt-0.5 text-[10px] text-stone-600">
-            JPEG, PNG, WebP, GIF up to 5MB each
+            JPEG, PNG, WebP, GIF up to 10MB each
           </p>
-        </div>
+        </label>
       )}
 
+      {/*
+        Hidden file input — uses sr-only instead of display:none for
+        better mobile browser compatibility. Some Android Chrome versions
+        won't fire onChange on a display:none input.
+      */}
       <input
+        ref={inputRef}
         id="post-image-input"
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/*"
         multiple
-        className="hidden"
+        className="sr-only"
         onChange={handleInputChange}
       />
 
