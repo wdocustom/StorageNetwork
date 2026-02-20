@@ -358,21 +358,29 @@ function PartnerJoinPageInner() {
       </div>
 
       {/* ── Animated Scroll Arrow ──────────────────────────────────── */}
-      <div className="relative bg-slate-950 py-8">
-        <div className="flex flex-col items-center gap-3">
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
+      <div className="relative -mt-12 z-10 bg-gradient-to-b from-slate-950/0 via-slate-950 to-slate-950 pb-4 pt-16">
+        <button
+          onClick={() => {
+            const showcase = document.getElementById("platform-showcase");
+            if (showcase) showcase.scrollIntoView({ behavior: "smooth" });
+          }}
+          className="mx-auto flex flex-col items-center gap-2 group cursor-pointer"
+        >
+          <span className="text-xs font-bold uppercase tracking-[0.25em] text-yellow-400/90 group-hover:text-yellow-300 transition-colors">
             See What You Get
           </span>
           <div className="flex flex-col items-center animate-bounce">
-            <ChevronDown className="h-5 w-5 text-yellow-400/80" />
-            <ChevronDown className="-mt-3 h-5 w-5 text-yellow-400/50" />
-            <ChevronDown className="-mt-3 h-5 w-5 text-yellow-400/20" />
+            <ChevronDown className="h-8 w-8 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
+            <ChevronDown className="-mt-5 h-8 w-8 text-yellow-400/60" />
+            <ChevronDown className="-mt-5 h-8 w-8 text-yellow-400/25" />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* ── Platform Showcase — below hero ─────────────────────────── */}
-      <PlatformShowcase />
+      <div id="platform-showcase">
+        <PlatformShowcase />
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
           3D VISUALIZER SHOWCASE

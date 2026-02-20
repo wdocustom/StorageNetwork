@@ -1052,23 +1052,87 @@ export default function DesignConfigurator({
               {unitType === "standard" ? (
                 <div className="mt-3 space-y-3">
                   <div>
-                    <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase text-stone-500">
                       Tote Size
                     </label>
-                    <select
-                      value={toteType}
-                      onChange={(e) => {
-                        setToteType(e.target.value as ToteType);
-                        // Reset color to black when switching tote types
-                        if (e.target.value !== "HDX") setToteColor("black");
-                      }}
-                      className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                    >
-                      <option value="HDX">HDX 27 Gallon (19.75&quot; Wide)</option>
-                      <option value="GM">Greenmade 27 Gallon (20.75&quot; Wide)</option>
-                    </select>
-                    <p className="mt-1 text-[10px] italic text-stone-400">
-                      Select tote size based on what you have or plan to use.
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 19-3/4" Opening — HDX / Performax */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setToteType("HDX");
+                        }}
+                        className={`relative rounded-xl border-2 p-3 text-left transition-all ${
+                          toteType === "HDX"
+                            ? "border-yellow-500 bg-yellow-50 shadow-sm ring-1 ring-yellow-200"
+                            : "border-stone-200 bg-white hover:border-stone-300"
+                        }`}
+                      >
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
+                          19-3/4&quot; Opening
+                        </div>
+                        <div className="text-sm font-bold text-gray-900">Standard</div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <span className="inline-block rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-semibold text-orange-700">
+                            HDX
+                          </span>
+                          <span className="inline-block rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-semibold text-orange-700">
+                            Performax
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-x-2 text-[9px] text-stone-400">
+                          <span>Home Depot</span>
+                          <span>Menards</span>
+                        </div>
+                        {toteType === "HDX" && (
+                          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-white">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </button>
+
+                      {/* 20-3/4" Opening — GreenMade / Project Source / Hyper Tough */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setToteType("GM");
+                          setToteColor("black");
+                        }}
+                        className={`relative rounded-xl border-2 p-3 text-left transition-all ${
+                          toteType === "GM"
+                            ? "border-yellow-500 bg-yellow-50 shadow-sm ring-1 ring-yellow-200"
+                            : "border-stone-200 bg-white hover:border-stone-300"
+                        }`}
+                      >
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
+                          20-3/4&quot; Opening
+                        </div>
+                        <div className="text-sm font-bold text-gray-900">Wide</div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <span className="inline-block rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                            GreenMade
+                          </span>
+                          <span className="inline-block rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
+                            Project Source
+                          </span>
+                          <span className="inline-block rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700">
+                            Hyper Tough
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-x-2 text-[9px] text-stone-400">
+                          <span>Costco</span>
+                          <span>Lowe&apos;s</span>
+                          <span>Walmart</span>
+                        </div>
+                        {toteType === "GM" && (
+                          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-white">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[10px] italic text-stone-400">
+                      Choose based on which totes you have or plan to buy.
                     </p>
                   </div>
 

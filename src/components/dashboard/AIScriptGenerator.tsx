@@ -110,21 +110,39 @@ export default function AIScriptGenerator({
     }
   }
 
+  // Strip markdown syntax so the copied text pastes cleanly on FB/social media
+  function stripMarkdown(text: string): string {
+    return text
+      .replace(/^#{1,6}\s+/gm, "")        // ## headers → plain text
+      .replace(/\*\*([^*]+)\*\*/g, "$1")   // **bold** → bold text only
+      .replace(/\*([^*]+)\*/g, "$1")       // *italic* → italic text only
+      .replace(/^---+\s*$/gm, "")          // horizontal rules
+      .replace(/^\*\s+/gm, "• ")           // * bullets → • bullets
+      .replace(/^-\s+/gm, "• ")            // - bullets → • bullets
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2")  // [text](url) → text: url
+      .replace(/\n{3,}/g, "\n\n")          // collapse excess blank lines
+      .trim();
+  }
+
   // Strip Pro-Tips section from copy text (everything after the --- separator
   // that precedes "Pro-Tips"). Hashtags and Search Keywords live BEFORE the
-  // separator so they are always preserved.
+  // separator so they are always preserved. Then strip markdown for clean paste.
   function getPostText(): string {
     // Split on the horizontal rule that precedes Pro-Tips
     const parts = script.split(/\n---\s*\n/);
-    if (parts.length <= 1) return script;
-    // Keep everything before the ---, plus any sections after that are NOT Pro-Tips
-    // (e.g. if the LLM somehow adds extra sections)
-    const postParts = [parts[0]];
-    for (let i = 1; i < parts.length; i++) {
-      if (/^#{1,3}\s*Pro[- ]?Tips/im.test(parts[i])) continue;
-      postParts.push(parts[i]);
+    let cleaned: string;
+    if (parts.length <= 1) {
+      cleaned = script;
+    } else {
+      // Keep everything before the ---, plus any sections after that are NOT Pro-Tips
+      const postParts = [parts[0]];
+      for (let i = 1; i < parts.length; i++) {
+        if (/^#{1,3}\s*Pro[- ]?Tips/im.test(parts[i])) continue;
+        postParts.push(parts[i]);
+      }
+      cleaned = postParts.join("\n\n").trim();
     }
-    return postParts.join("\n---\n").trim();
+    return stripMarkdown(cleaned);
   }
 
   function handleCopy() {
