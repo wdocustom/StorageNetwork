@@ -289,6 +289,85 @@ export async function createPost(input: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Edit / Delete Post
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function editPost(input: {
+  postId: string;
+  authorId: string;
+  title: string;
+  content: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { postId, authorId, title, content } = input;
+
+  // Verify ownership
+  const { data: post } = await supabase
+    .from("posts")
+    .select("author_id")
+    .eq("id", postId)
+    .single();
+
+  if (!post || post.author_id !== authorId) {
+    return { success: false, error: "You can only edit your own posts." };
+  }
+
+  const { error } = await supabase
+    .from("posts")
+    .update({ title, content, updated_at: new Date().toISOString() })
+    .eq("id", postId);
+
+  if (error) {
+    console.error("Failed to edit post:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function deletePost(input: {
+  postId: string;
+  authorId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { postId, authorId } = input;
+
+  // Verify ownership
+  const { data: post } = await supabase
+    .from("posts")
+    .select("author_id, community_id")
+    .eq("id", postId)
+    .single();
+
+  if (!post || post.author_id !== authorId) {
+    return { success: false, error: "You can only delete your own posts." };
+  }
+
+  // Delete post images from storage
+  const { data: images } = await supabase
+    .from("post_images")
+    .select("storage_path")
+    .eq("post_id", postId);
+
+  if (images && images.length > 0) {
+    await supabase.storage
+      .from(COMMUNITY_BUCKET)
+      .remove(images.map((i) => i.storage_path));
+  }
+
+  // Delete post (cascades to comments, votes, post_images via FK)
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("id", postId);
+
+  if (error) {
+    console.error("Failed to delete post:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Comment Actions
 // ═══════════════════════════════════════════════════════════════════════════
 
