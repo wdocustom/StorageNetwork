@@ -126,6 +126,20 @@ function ProfilePageInner() {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+  const applyProfile = useCallback((p: Profile) => {
+    setProfile(p);
+    setFirstName(p.first_name || "");
+    setLastName(p.last_name || "");
+    setBusinessName(p.business_name || "");
+    setTradeName(p.trade_name || "");
+    setPhone(p.phone || "");
+    setServiceZip(p.service_zip || "");
+    setServiceRadius(p.service_radius_miles ?? 25);
+    setCity(p.city || "");
+    setState(p.state || "");
+    setAvatarUrl(p.avatar_url);
+  }, []);
+
   const fetchData = useCallback(async () => {
     const {
       data: { user },
@@ -135,32 +149,45 @@ function ProfilePageInner() {
       return;
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted")
       .eq("id", user.id)
       .single();
 
+    if (error) {
+      console.error("[Profile] Query failed:", error.message, error.code, error.details);
+      // Retry once after refreshing the session
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (!refreshErr) {
+        const retry = await supabase
+          .from("profiles")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted")
+          .eq("id", user.id)
+          .single();
+        if (retry.data) {
+          console.log("[Profile] Retry succeeded after session refresh");
+          applyProfile(retry.data as Profile);
+          const status = await getStripeStatus(user.id);
+          setStripeStatus(status);
+          setLoading(false);
+          return;
+        }
+        if (retry.error) {
+          console.error("[Profile] Retry also failed:", retry.error.message);
+        }
+      }
+    }
+
     if (data) {
-      const p = data as Profile;
-      setProfile(p);
-      setFirstName(p.first_name || "");
-      setLastName(p.last_name || "");
-      setBusinessName(p.business_name || "");
-      setTradeName(p.trade_name || "");
-      setPhone(p.phone || "");
-      setServiceZip(p.service_zip || "");
-      setServiceRadius(p.service_radius_miles ?? 25);
-      setCity(p.city || "");
-      setState(p.state || "");
-      setAvatarUrl(p.avatar_url);
+      applyProfile(data as Profile);
       // Fetch Stripe status
       const status = await getStripeStatus(user.id);
       setStripeStatus(status);
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, applyProfile]);
 
   useEffect(() => {
     fetchData();

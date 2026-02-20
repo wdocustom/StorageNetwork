@@ -101,6 +101,21 @@ export default function DashboardPage() {
         .in("payout_status", ["paid"]),
     ]);
 
+    if (profileRes.error) {
+      console.error("[Dashboard] Profile query failed:", profileRes.error.message, profileRes.error.code);
+      // Retry once after refreshing session
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (!refreshErr) {
+        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
+        if (retry.data) {
+          console.log("[Dashboard] Retry succeeded after session refresh");
+          setProfile(retry.data as Profile);
+        } else if (retry.error) {
+          console.error("[Dashboard] Retry also failed:", retry.error.message);
+        }
+      }
+    }
+
     if (profileRes.data) setProfile(profileRes.data as Profile);
     if (leadsRes.count !== null) setNewLeadCount(leadsRes.count);
 
