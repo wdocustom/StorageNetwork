@@ -11,6 +11,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+export interface PlatformUser {
+  id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  business_name: string | null;
+  slug: string | null;
+  is_pro: boolean;
+  is_partner: boolean;
+  city: string | null;
+  state: string | null;
+  phone: string | null;
+  completed_jobs: number;
+  job_score: number;
+  created_at: string;
+  booking_link: string;
+}
+
 export interface PartnerCommission {
   active_count: number;
   tier_rate: number;
@@ -37,6 +55,7 @@ export interface PartnerDashboardData {
   commission?: PartnerCommission;
   referrals?: ReferralRow[];
   totalReferrals?: number;
+  isAdmin?: boolean;
   error?: string;
 }
 
@@ -48,16 +67,18 @@ export async function getPartnerDashboard(
   userId: string
 ): Promise<PartnerDashboardData> {
   try {
-    // 1. Verify is_partner flag
+    // 1. Verify is_partner flag + check admin
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_partner")
+      .select("is_partner, is_admin")
       .eq("id", userId)
       .single();
 
     if (!profile?.is_partner) {
       return { success: false, error: "Not authorized as a partner." };
     }
+
+    const isAdmin = profile.is_admin === true;
 
     // 2. Get partner record (linked by user_id)
     let { data: partner } = await supabase
@@ -201,12 +222,83 @@ export async function getPartnerDashboard(
       commission,
       referrals,
       totalReferrals: referrals.length,
+      isAdmin,
     };
   } catch (err) {
     console.error("[Partner] Dashboard fetch failed:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to load partner data.",
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Admin: Get All Platform Users
+// Only accessible by users with is_admin=true
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function getAdminPlatformUsers(
+  userId: string
+): Promise<{ success: boolean; users?: PlatformUser[]; error?: string }> {
+  try {
+    // Verify admin
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.is_admin) {
+      return { success: false, error: "Not authorized." };
+    }
+
+    // Fetch all profiles
+    const { data: allProfiles, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at"
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "https://storage-network.app";
+
+    const users: PlatformUser[] = (allProfiles ?? []).map((p) => {
+      const bookingParam =
+        p.is_pro && p.slug
+          ? `installer=${encodeURIComponent(p.slug)}`
+          : `installer_id=${p.id}`;
+
+      return {
+        id: p.id,
+        email: p.email,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        business_name: p.business_name,
+        slug: p.slug,
+        is_pro: p.is_pro ?? false,
+        is_partner: p.is_partner ?? false,
+        city: p.city,
+        state: p.state,
+        phone: p.phone,
+        completed_jobs: p.completed_jobs ?? 0,
+        job_score: p.job_score ?? 0,
+        created_at: p.created_at,
+        booking_link: `${baseUrl}/design?${bookingParam}`,
+      };
+    });
+
+    return { success: true, users };
+  } catch (err) {
+    console.error("[Admin] Platform users fetch failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load users.",
     };
   }
 }

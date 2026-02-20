@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Link2,
   Copy,
@@ -43,10 +43,22 @@ const STEPS = [
   },
 ] as const;
 
+const STORAGE_KEY = "quickstart_dismissed";
+
 export default function MissionBriefing({ userId, slug, isPro }: MissionBriefingProps) {
   const [activeStep, setActiveStep] = useState(1);
   const [copied, setCopied] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(true); // default hidden to avoid flash
+
+  // Hydrate from localStorage — show only if never dismissed
+  useEffect(() => {
+    setDismissed(localStorage.getItem(STORAGE_KEY) === "true");
+  }, []);
+
+  function handleDismiss() {
+    localStorage.setItem(STORAGE_KEY, "true");
+    setDismissed(true);
+  }
 
   if (dismissed) return null;
 
@@ -72,7 +84,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
           </p>
         </div>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={handleDismiss}
           className="rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-slate-800 hover:text-stone-400"
           title="Dismiss"
         >

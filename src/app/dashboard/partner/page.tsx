@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getPartnerDashboard,
+  getAdminPlatformUsers,
   type PartnerCommission,
   type ReferralRow,
+  type PlatformUser,
 } from "@/app/actions/partner";
 import {
   ArrowLeft,
@@ -18,6 +20,11 @@ import {
   CheckCircle2,
   Link2,
   AlertCircle,
+  Shield,
+  ExternalLink,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 
@@ -45,6 +52,14 @@ export default function PartnerDashboardPage() {
   const [totalReferrals, setTotalReferrals] = useState(0);
   const [copied, setCopied] = useState(false);
 
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [platformUsers, setPlatformUsers] = useState<PlatformUser[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminSearch, setAdminSearch] = useState("");
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     const {
       data: { user },
@@ -62,6 +77,17 @@ export default function PartnerDashboardPage() {
       setCommission(result.commission ?? null);
       setReferrals(result.referrals ?? []);
       setTotalReferrals(result.totalReferrals ?? 0);
+
+      // If admin, load all platform users
+      if (result.isAdmin) {
+        setIsAdmin(true);
+        setAdminLoading(true);
+        const adminResult = await getAdminPlatformUsers(user.id);
+        if (adminResult.success) {
+          setPlatformUsers(adminResult.users ?? []);
+        }
+        setAdminLoading(false);
+      }
     } else {
       setError(result.error || "Failed to load partner data.");
     }
@@ -79,6 +105,12 @@ export default function PartnerDashboardPage() {
     navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  }
+
+  function handleCopyBookingLink(link: string, userId: string) {
+    navigator.clipboard.writeText(link);
+    setCopiedLink(userId);
+    setTimeout(() => setCopiedLink(null), 2500);
   }
 
   // ── Loading State ──────────────────────────────────────────────────────
@@ -134,10 +166,19 @@ export default function PartnerDashboardPage() {
               {partner.company}
             </p>
           </div>
-          <div className="rounded-full bg-yellow-400/10 px-3 py-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
-              Affiliate Partner
-            </span>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <div className="rounded-full bg-red-500/10 px-3 py-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">
+                  Admin
+                </span>
+              </div>
+            )}
+            <div className="rounded-full bg-yellow-400/10 px-3 py-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+                Affiliate Partner
+              </span>
+            </div>
           </div>
         </div>
       </header>
@@ -417,6 +458,189 @@ export default function PartnerDashboardPage() {
             </div>
           )}
         </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            ADMIN: All Platform Users (admin only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {isAdmin && (
+          <section className="rounded-2xl border border-red-500/20 bg-gradient-to-b from-red-500/5 to-slate-900 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-red-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  All Platform Users
+                </h2>
+                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-stone-400">
+                  {platformUsers.length}
+                </span>
+              </div>
+              <div className="flex gap-2 text-[10px] font-bold">
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                  {platformUsers.filter((u) => u.is_pro).length} Pro
+                </span>
+                <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
+                  {platformUsers.filter((u) => !u.is_pro).length} Free
+                </span>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+              <input
+                type="text"
+                placeholder="Search by name, business, email, or slug..."
+                value={adminSearch}
+                onChange={(e) => setAdminSearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-yellow-400/50 focus:outline-none"
+              />
+            </div>
+
+            {adminLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {platformUsers
+                  .filter((u) => {
+                    if (!adminSearch) return true;
+                    const q = adminSearch.toLowerCase();
+                    return (
+                      (u.first_name?.toLowerCase().includes(q)) ||
+                      (u.last_name?.toLowerCase().includes(q)) ||
+                      (u.business_name?.toLowerCase().includes(q)) ||
+                      (u.email?.toLowerCase().includes(q)) ||
+                      (u.slug?.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((u) => {
+                    const fullName = [u.first_name, u.last_name].filter(Boolean).join(" ") || "No Name";
+                    const isExpanded = expandedUser === u.id;
+
+                    return (
+                      <div
+                        key={u.id}
+                        className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50"
+                      >
+                        {/* Row Header — always visible */}
+                        <button
+                          onClick={() => setExpandedUser(isExpanded ? null : u.id)}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium text-white">
+                                {fullName}
+                              </p>
+                              {u.is_pro && (
+                                <span className="flex-shrink-0 rounded bg-yellow-400/10 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
+                                  PRO
+                                </span>
+                              )}
+                              {u.is_partner && (
+                                <span className="flex-shrink-0 rounded bg-blue-400/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">
+                                  PARTNER
+                                </span>
+                              )}
+                            </div>
+                            <p className="truncate text-[11px] text-stone-500">
+                              {u.business_name || u.email || "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 text-right">
+                            <div>
+                              <p className="text-xs font-bold text-stone-300">
+                                {u.completed_jobs} jobs
+                              </p>
+                              <p className="text-[10px] text-stone-500">
+                                {new Date(u.created_at).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-stone-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-stone-500" />
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Expanded Detail Panel */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-700 bg-slate-900/50 px-4 py-4">
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Email</p>
+                                <p className="text-stone-300">{u.email || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Phone</p>
+                                <p className="text-stone-300">{u.phone || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Location</p>
+                                <p className="text-stone-300">
+                                  {[u.city, u.state].filter(Boolean).join(", ") || "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Slug</p>
+                                <p className="font-mono text-stone-300">{u.slug || "—"}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Completed Jobs</p>
+                                <p className="text-stone-300">{u.completed_jobs}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Job Score</p>
+                                <p className="text-stone-300">{u.job_score}</p>
+                              </div>
+                            </div>
+
+                            {/* Booking Link */}
+                            <div className="mt-3">
+                              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                                Booking Link
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                                  <p className="truncate font-mono text-[11px] text-blue-400">
+                                    {u.booking_link}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleCopyBookingLink(u.booking_link, u.id)}
+                                  className="flex-shrink-0 rounded-lg bg-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-600 hover:text-white"
+                                >
+                                  {copiedLink === u.id ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <a
+                                  href={u.booking_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-shrink-0 rounded-lg bg-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-600 hover:text-white"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Fine Print ──────────────────────────────────────────────── */}
         <div className="pb-8 text-center">
