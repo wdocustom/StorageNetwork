@@ -64,6 +64,14 @@ export interface Comment {
   children?: Comment[];
 }
 
+const DEFAULT_COMMUNITIES = [
+  { name: "General Discussion", slug: "general", description: "Open discussion about anything storage-related. Tips, tricks, and stories from the field." },
+  { name: "Build Showcase", slug: "builds", description: "Show off your latest tote rack builds. Photos, dimensions, and proud moments." },
+  { name: "Business Tips", slug: "business", description: "Grow your installer business. Marketing, pricing, customer management strategies." },
+  { name: "Technical Help", slug: "tech-help", description: "Got a tricky build? Ask the community for advice on materials, techniques, and troubleshooting." },
+  { name: "Feature Requests", slug: "features", description: "Suggest and vote on new features for the Storage Network platform." },
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Community Actions
 // ═══════════════════════════════════════════════════════════════════════════
@@ -78,7 +86,27 @@ export async function getCommunities(): Promise<Community[]> {
     console.error("Failed to fetch communities:", error);
     return [];
   }
-  return data || [];
+
+  // Auto-seed default spaces if the table is empty
+  if (!data || data.length === 0) {
+    const { error: seedError } = await supabase
+      .from("communities")
+      .upsert(DEFAULT_COMMUNITIES, { onConflict: "slug" });
+
+    if (seedError) {
+      console.error("Failed to seed communities:", seedError);
+      return [];
+    }
+
+    const { data: seeded } = await supabase
+      .from("communities")
+      .select("*")
+      .order("post_count", { ascending: false });
+
+    return seeded || [];
+  }
+
+  return data;
 }
 
 export async function getCommunityBySlug(
