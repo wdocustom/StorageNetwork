@@ -16,9 +16,9 @@ export interface InstallerPricing {
   standard_wheels?: number;
   mini_wheels?: number;
   plywood_top?: number;
-  /** Per-bestseller base-price overrides (frame + tops, BEFORE totes).
-   *  Key pattern: bestseller_<preset_id_with_underscores>
-   *  e.g. bestseller_indiana_joe, bestseller_cornhusker */
+  /** Per-bestseller total-price overrides (frame + tops + totes).
+   *  When customer toggles totes off, the tote cost is subtracted.
+   *  Key pattern: bestseller_<preset_id_with_underscores> */
   bestseller_indiana_joe?: number;
   bestseller_cornhusker?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */

@@ -41,11 +41,11 @@ interface PriceField {
 }
 
 /**
- * Compute the platform-default base price for a bestseller preset.
- * Base = (total_slots × per_slot_price) + (top_sheets × plywood_price).
+ * Compute the platform-default total price for a bestseller preset (with totes).
+ * Total = (slots × slot_price) + (slots × tote_price) + (top_sheets × plywood) + wheels.
  * Uses platform defaults for the calculation.
  */
-function computePresetDefaultBase(presetId: string): number {
+function computePresetDefaultTotal(presetId: string): number {
   const preset = BESTSELLER_PRESETS.find((p) => p.id === presetId);
   if (!preset) return 0;
 
@@ -55,6 +55,11 @@ function computePresetDefaultBase(presetId: string): number {
   const slotPrice = preset.unitType === "mini"
     ? PLATFORM_DEFAULTS.mini_slot
     : PLATFORM_DEFAULTS.standard_slot;
+  const totePrice = preset.unitType === "mini"
+    ? PLATFORM_DEFAULTS.mini_tote
+    : preset.toteColor === "clear"
+      ? PLATFORM_DEFAULTS.standard_tote_clear
+      : PLATFORM_DEFAULTS.standard_tote;
   const wheelsPrice = preset.unitType === "mini"
     ? PLATFORM_DEFAULTS.mini_wheels
     : PLATFORM_DEFAULTS.standard_wheels;
@@ -64,8 +69,6 @@ function computePresetDefaultBase(presetId: string): number {
     totalSlots += slots;
 
     if (unit.hasTop) {
-      // Mirror the calculator logic for standard top sheets
-      // Approximate: each sub-unit with ≤96" width = 1 sheet
       totalTopSheets += 1;
     }
     if (unit.hasWheels) {
@@ -74,6 +77,7 @@ function computePresetDefaultBase(presetId: string): number {
   }
 
   return totalSlots * slotPrice
+    + totalSlots * totePrice
     + totalTopSheets * PLATFORM_DEFAULTS.plywood_top
     + totalWheelsCost;
 }
@@ -138,12 +142,12 @@ const PRICE_FIELDS: PriceField[] = [
     defaultValue: PLATFORM_DEFAULTS.plywood_top,
     category: "addons",
   },
-  // Bestseller base-price overrides (before totes)
+  // Bestseller total-price overrides (with totes included)
   ...BESTSELLER_PRESETS.map((preset) => ({
     key: `bestseller_${preset.id.replace(/-/g, "_")}` as PricingNumericKey,
     label: preset.name,
-    description: `Base price before totes (${preset.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)`,
-    defaultValue: computePresetDefaultBase(preset.id),
+    description: `Total price with ${preset.units.reduce((s, u) => s + u.cols * u.rows, 0)} totes included`,
+    defaultValue: computePresetDefaultTotal(preset.id),
     dynamicDefault: true,
     category: "bestsellers" as const,
   })),
@@ -268,7 +272,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     {
       key: "bestsellers",
       label: "Bestseller Presets",
-      hint: "Set a flat base price for each bestseller (before totes). Leave empty to auto-calculate from your slot & plywood rates.",
+      hint: "Set a total price for each bestseller (totes included). Customers can still remove totes — your tote rate is subtracted. Leave empty to auto-calculate from your slot, tote & plywood rates.",
       fields: PRICE_FIELDS.filter((f) => f.category === "bestsellers"),
     },
   ];

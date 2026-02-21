@@ -450,12 +450,14 @@ export async function calculateCompoundBuild(input: {
   // customer-facing pricing — every installer gets their own price.
   //
   // Priority:
-  //   1. Per-bestseller base-price override (installer set a flat base for
-  //      this specific preset, BEFORE totes).
-  //   2. Dynamic sum of sub-unit prices (slot × rate + plywood + wheels).
+  //   1. Per-bestseller total-price override (installer set a flat price for
+  //      this specific preset, WITH totes included).  If customer toggles
+  //      totes off, we subtract the tote cost at the installer's tote rate.
+  //   2. Dynamic sum of sub-unit prices (slot × rate + plywood + wheels +
+  //      totes if selected).
   //
-  // Totes are ALWAYS calculated separately using the installer's tote rate
-  // (or platform default), regardless of which base-price path is used.
+  // Totes are always priced using the installer's tote rate (or platform
+  // default) so the customer sees a consistent per-tote cost.
 
   const ip = input.installerPricing;
   const bestsellerKey = `bestseller_${preset.id.replace(/-/g, "_")}` as keyof InstallerPricing;
@@ -472,11 +474,12 @@ export async function calculateCompoundBuild(input: {
   let totalPrice: number;
 
   if (bestsellerOverride !== undefined && bestsellerOverride !== null) {
-    // Path 1: Installer set a custom base price for this specific bestseller.
-    // Start from their override (frame + tops, no totes) and add totes on top.
+    // Path 1: Installer set a total price for this bestseller (totes included).
+    // When customer has totes ON → use the override as-is.
+    // When customer toggles totes OFF → subtract tote cost at installer's rate.
     totalPrice = bestsellerOverride;
-    if (input.hasTotes) {
-      totalPrice += totalSlots * effectiveTotePrice;
+    if (!input.hasTotes) {
+      totalPrice -= totalSlots * effectiveTotePrice;
     }
   } else {
     // Path 2: No bestseller override — dynamically calculate from sub-units.
