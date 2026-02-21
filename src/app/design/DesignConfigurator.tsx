@@ -1030,7 +1030,7 @@ export default function DesignConfigurator({
                   <Toggle
                     checked={presetTotes}
                     onChange={setPresetTotes}
-                    label={`Include ${activePresetObj?.toteColor === "black" ? "Black " : ""}Totes`}
+                    label={`Include ${activePresetObj?.toteColor === "black" ? "Black " : ""}Totes (+$${activePresetObj?.toteColor === "clear" ? (data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) : (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)}/each)`}
                   />
                   <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
                     <div className="flex-1 text-center">
@@ -1320,18 +1320,22 @@ export default function DesignConfigurator({
                 <Toggle
                   checked={hasTotes}
                   onChange={setHasTotes}
-                  label={unitType === "mini" ? "Include Clear Totes (Yellow Lids)" : "Totes"}
+                  label={unitType === "mini"
+                    ? `Include Clear Totes (+$${data?.pricing?.mini_tote ?? PLATFORM_DEFAULTS.mini_tote}/each)`
+                    : `Totes (+$${(toteType === "HDX" && toteColor === "clear") ? (data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) : (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)}/each)`}
                 />
                 <Toggle
                   checked={hasWheels}
                   onChange={setHasWheels}
-                  label={unitType === "mini" ? `Wheels (+$${data?.pricing?.mini_wheels ?? PLATFORM_DEFAULTS.mini_wheels})` : "Wheels"}
+                  label={unitType === "mini"
+                    ? `Wheels (+$${data?.pricing?.mini_wheels ?? PLATFORM_DEFAULTS.mini_wheels})`
+                    : `Wheels (+$${data?.pricing?.standard_wheels ?? PLATFORM_DEFAULTS.standard_wheels})`}
                 />
                 {unitType === "standard" ? (
                   <Toggle
                     checked={hasTop}
                     onChange={setHasTop}
-                    label="Plywood Top"
+                    label={`Plywood Top (+$${data?.pricing?.plywood_top ?? PLATFORM_DEFAULTS.plywood_top})`}
                   />
                 ) : (
                   <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
