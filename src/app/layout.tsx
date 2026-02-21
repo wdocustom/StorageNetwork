@@ -21,7 +21,10 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: "/Header_avatar_logo.png",
-    apple: "/Header_avatar_logo.png",
+    apple: "/icon-192x192.png",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
   },
   openGraph: {
     title: "Storage Network | Custom Tote Storage Systems",
@@ -274,6 +277,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Storage" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
