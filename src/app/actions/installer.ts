@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert } from "@/lib/email";
+import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,6 +72,13 @@ export async function updateInstallerProfile(
       error: "Failed to save profile. Please try again.",
     };
   }
+
+  // Activate demand signals: email waitlisted customers in the new coverage area
+  // Fire-and-forget — don't block the profile update response
+  const installerName = input.business_name || "A local installer";
+  activateDemandSignals(installer_id, coveredZips, installerName).catch((err) => {
+    console.error("[Installer] Demand signal activation failed (non-fatal):", err);
+  });
 
   return { success: true, zips_covered: coveredZips.length };
 }
@@ -181,7 +189,16 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
       return { success: false, error: "Installer not found." };
     }
 
-    // Send the waitlist email to the installer
+    // Persist waitlist demand signal in DB (so we can activate later)
+    await recordWaitlistDemand({
+      zip: input.customer_zip.trim(),
+      customerName: input.customer_name.trim(),
+      customerEmail: input.customer_email.trim(),
+      customerPhone: input.customer_phone?.trim(),
+      sourceInstallerId: input.installer_id,
+    });
+
+    // Send the waitlist email to the installer (existing behavior)
     await sendWaitlistAlert(installer.email, {
       installerName: installer.business_name || "Installer",
       customerName: input.customer_name.trim(),

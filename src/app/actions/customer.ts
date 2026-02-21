@@ -8,6 +8,7 @@ const supabase = createClient(
 );
 
 import type { InstallerPricing } from "@/types/viewModels";
+import { recordAnonymousDemand } from "@/app/actions/demand-signals";
 
 export interface AvailabilityResult {
   available: boolean;
@@ -138,6 +139,9 @@ export async function checkAvailability(
       }
       return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
     }
+
+    // Record anonymous demand signal — no installer covers this ZIP
+    recordAnonymousDemand(trimmed).catch(() => {});
 
     return toResult(
       null,
