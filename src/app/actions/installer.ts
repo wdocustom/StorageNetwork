@@ -164,6 +164,7 @@ export interface WaitlistInput {
   customer_email: string;
   customer_phone?: string;
   customer_zip: string;
+  quote_data?: unknown[];
 }
 
 export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
@@ -196,6 +197,7 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
       customerEmail: input.customer_email.trim(),
       customerPhone: input.customer_phone?.trim(),
       sourceInstallerId: input.installer_id,
+      quoteData: input.quote_data,
     });
 
     // Send the waitlist email to the installer (existing behavior)

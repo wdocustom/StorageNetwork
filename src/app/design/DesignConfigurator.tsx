@@ -75,12 +75,21 @@ interface ServerBuild {
 // Props — accepts a DesignPageViewModel from the server.
 // The client NEVER sees is_pro, business_name, or raw logo_url.
 // ═══════════════════════════════════════════════════════════════════════════
+interface SavedSignalData {
+  quoteData: unknown[] | null;
+  sourceInstallerId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+}
+
 interface DesignConfiguratorProps {
   initialData: DesignPageViewModel | null;
   initialZip: string;
   mode: string;
   isDemo?: boolean;
   leadSource?: "platform" | "partner_link";
+  savedSignal?: SavedSignalData;
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -106,6 +115,7 @@ export default function DesignConfigurator({
   mode,
   isDemo = false,
   leadSource = "platform",
+  savedSignal,
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
@@ -276,6 +286,60 @@ export default function DesignConfigurator({
   // Whether a hand-off happened (shows info banner instead of blocking)
   const [handedOff, setHandedOff] = useState(false);
   const [handoffInstallerName, setHandoffInstallerName] = useState("");
+
+  // ── Waitlist re-engagement: hydrate saved build + contact info ────────
+  // When a waitlisted customer clicks the activation email, savedSignal
+  // contains their previous configurator build and referrer attribution.
+  const savedSignalHydrated = useRef(false);
+  useEffect(() => {
+    if (!savedSignal || savedSignalHydrated.current) return;
+    savedSignalHydrated.current = true;
+
+    // Restore referrer attribution so the bounty chain is preserved
+    if (savedSignal.sourceInstallerId) {
+      setReferringInstallerId(savedSignal.sourceInstallerId);
+    }
+
+    // Restore contact info
+    if (savedSignal.customerName) {
+      const parts = savedSignal.customerName.split(" ");
+      setFirstName(parts[0] || "");
+      setLastName(parts.slice(1).join(" ") || "");
+    }
+    if (savedSignal.customerEmail) setEmail(savedSignal.customerEmail);
+    if (savedSignal.customerPhone) setPhone(savedSignal.customerPhone);
+
+    // Restore saved quote items
+    if (Array.isArray(savedSignal.quoteData) && savedSignal.quoteData.length > 0) {
+      const restored = savedSignal.quoteData
+        .map((raw) => {
+          const u = raw as Record<string, unknown>;
+          if (typeof u.cols !== "number" || typeof u.rows !== "number") return null;
+          return {
+            cols: u.cols,
+            rows: u.rows,
+            toteType: (u.toteType as ToteType) || "HDX",
+            toteColor: (u.toteColor as ToteColor) || "black",
+            unitType: (u.unitType as UnitType) || "standard",
+            orientation: (u.orientation as Orientation) || "landscape",
+            hasTotes: u.hasTotes === true,
+            hasWheels: u.hasWheels === true,
+            hasTop: u.hasTop === true,
+            price: typeof u.price === "number" ? u.price : 0,
+            totalW: typeof u.totalW === "number" ? u.totalW : 0,
+            totalH: typeof u.totalH === "number" ? u.totalH : 0,
+            depth: typeof u.depth === "number" ? u.depth : 0,
+            desc: typeof u.desc === "string" ? u.desc : `${u.cols}×${u.rows}`,
+          } as UnitConfig;
+        })
+        .filter((u): u is UnitConfig => u !== null);
+
+      if (restored.length > 0) {
+        setOrderItems(restored);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Real-time ZIP validation when user enters installation ZIP
   // If "installation address is different" is checked, validate that ZIP instead
@@ -633,6 +697,7 @@ export default function DesignConfigurator({
         customer_email: email.trim(),
         customer_phone: phone.trim() || undefined,
         customer_zip: zip,
+        quote_data: orderItems.length > 0 ? orderItems : undefined,
       });
       if (res.success) {
         setWaitlistSent(true);
@@ -1491,7 +1556,9 @@ export default function DesignConfigurator({
                           <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
                           <p className="text-sm font-semibold text-gray-900">You&apos;re on the List</p>
                           <p className="mt-1 text-xs text-stone-500">
-                            We&apos;ll email you as soon as an installer is available in your area.
+                            {orderItems.length > 0
+                              ? "Your build has been saved. We'll email you as soon as an installer is available — you'll be able to pick up right where you left off."
+                              : "We'll email you as soon as an installer is available in your area."}
                           </p>
                         </div>
                       )}

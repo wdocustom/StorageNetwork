@@ -67,7 +67,8 @@ export async function recordWaitlistDemand(input: {
   customerEmail: string;
   customerPhone?: string;
   sourceInstallerId?: string;
-}): Promise<{ success: boolean; error?: string }> {
+  quoteData?: unknown[];
+}): Promise<{ success: boolean; id?: string; error?: string }> {
   const trimmed = input.zip.trim();
   if (!/^\d{5}$/.test(trimmed)) {
     return { success: false, error: "Invalid ZIP code." };
@@ -76,7 +77,7 @@ export async function recordWaitlistDemand(input: {
     return { success: false, error: "Name and email are required." };
   }
 
-  const { error } = await supabase.from("demand_signals").insert({
+  const { data, error } = await supabase.from("demand_signals").insert({
     zip: trimmed,
     signal_type: "waitlist",
     status: "unresolved",
@@ -84,14 +85,49 @@ export async function recordWaitlistDemand(input: {
     customer_email: input.customerEmail.trim(),
     customer_phone: input.customerPhone?.trim() || null,
     source_installer_id: input.sourceInstallerId || null,
-  });
+    quote_data: input.quoteData && input.quoteData.length > 0 ? input.quoteData : null,
+  }).select("id").single();
 
   if (error) {
     console.error("[DemandSignal] Insert failed:", error);
     return { success: false, error: "Failed to save waitlist request." };
   }
 
-  return { success: true };
+  return { success: true, id: data?.id };
+}
+
+/**
+ * Fetch a demand signal's saved quote data by ID.
+ * Used when a waitlisted customer returns via the activation email link.
+ * Returns the saved configurator build + referrer attribution so
+ * the configurator can pre-populate their previous selections.
+ */
+export async function getSavedQuoteFromSignal(
+  signalId: string
+): Promise<{
+  quoteData: unknown[] | null;
+  sourceInstallerId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+} | null> {
+  if (!signalId) return null;
+
+  const { data, error } = await supabase
+    .from("demand_signals")
+    .select("quote_data, source_installer_id, customer_name, customer_email, customer_phone")
+    .eq("id", signalId)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    quoteData: Array.isArray(data.quote_data) ? data.quote_data : null,
+    sourceInstallerId: data.source_installer_id || null,
+    customerName: data.customer_name || null,
+    customerEmail: data.customer_email || null,
+    customerPhone: data.customer_phone || null,
+  };
 }
 
 /**
@@ -142,7 +178,7 @@ export async function activateDemandSignals(
   // Fetch all unresolved waitlist signals in the new coverage area
   const { data: waitlistSignals, error } = await supabase
     .from("demand_signals")
-    .select("id, customer_email, customer_name, zip")
+    .select("id, customer_email, customer_name, zip, source_installer_id, quote_data")
     .in("zip", coveredZips)
     .eq("status", "unresolved")
     .eq("signal_type", "waitlist");
@@ -173,6 +209,36 @@ export async function activateDemandSignals(
       if (!signal.customer_email) continue;
 
       try {
+        // Build the re-engagement link with referrer attribution + saved quote
+        const linkParams = new URLSearchParams({
+          zip: signal.zip,
+          from: "network",
+          signal_id: signal.id,
+        });
+        if (signal.source_installer_id) {
+          linkParams.set("ref_installer", signal.source_installer_id);
+        }
+        const designUrl = `https://www.storage-network.app/design?${linkParams.toString()}`;
+
+        // Summarize their saved build for the email (if they had one)
+        const quoteItems = Array.isArray(signal.quote_data) ? signal.quote_data : [];
+        const buildSummaryHtml = quoteItems.length > 0
+          ? `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+              <p style="margin: 0 0 8px; color: #1a1a1a; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Saved Build</p>
+              ${quoteItems.map((u: Record<string, unknown>, i: number) => `
+                <p style="margin: 0; color: #666; font-size: 13px; line-height: 1.8;">
+                  Unit ${i + 1}: ${u.desc || `${u.cols}×${u.rows}`}${u.price ? ` — $${Number(u.price).toLocaleString()}` : ""}
+                </p>
+              `).join("")}
+            </div>
+          `
+          : "";
+
+        const ctaText = quoteItems.length > 0
+          ? "Continue With Your Build →"
+          : "Design Your Storage System →";
+
         const emailHtml = `
           <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
             <h2 style="color: #1a1a1a; margin-bottom: 8px;">Great News!</h2>
@@ -182,9 +248,10 @@ export async function activateDemandSignals(
             <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
               <strong>${installerName}</strong> is ready to build your custom tote storage system.
             </p>
-            <a href="https://www.storage-network.app/design?zip=${signal.zip}&from=network"
+            ${buildSummaryHtml}
+            <a href="${designUrl}"
                style="display: block; background: #facc15; color: #1a1a1a; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 15px;">
-              Design Your Storage System →
+              ${ctaText}
             </a>
             <p style="color: #aaa; font-size: 11px; text-align: center; margin-top: 16px;">
               You're receiving this because you joined the waitlist at storage-network.app.

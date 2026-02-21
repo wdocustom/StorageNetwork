@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/customer";
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
 import { generateHowToJsonLd } from "@/lib/schema/howto";
+import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,6 +130,8 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
   const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
+  const signalId = typeof params.signal_id === "string" ? params.signal_id : "";
+  const refInstaller = typeof params.ref_installer === "string" ? params.ref_installer : "";
 
   // UUID detection — route ?installer=UUID to getInstallerById, not slug lookup
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -150,6 +153,12 @@ export default async function DesignPage({ searchParams }: PageProps) {
     const res = await getInstallerBySlug(installerParam);
     if (res.available) rawInstaller = res;
   }
+
+  // ── Waitlist re-engagement: fetch saved quote from demand signal ──────
+  // When a waitlisted customer clicks the activation email, the link includes
+  // signal_id (their demand signal) and ref_installer (original referrer).
+  // We fetch their saved build so the configurator can pre-populate it.
+  const savedSignal = signalId ? await getSavedQuoteFromSignal(signalId) : null;
 
   // Determine lead source:
   // - Direct lead (partner_link): customer used installer's custom link (ref param or slug)
@@ -196,6 +205,19 @@ export default async function DesignPage({ searchParams }: PageProps) {
           initialZip={zip}
           mode={mode}
           leadSource={isDirectLead ? "partner_link" : "platform"}
+          savedSignal={savedSignal ? {
+            quoteData: savedSignal.quoteData,
+            sourceInstallerId: savedSignal.sourceInstallerId || refInstaller || null,
+            customerName: savedSignal.customerName,
+            customerEmail: savedSignal.customerEmail,
+            customerPhone: savedSignal.customerPhone,
+          } : refInstaller ? {
+            quoteData: null,
+            sourceInstallerId: refInstaller,
+            customerName: null,
+            customerEmail: null,
+            customerPhone: null,
+          } : undefined}
         />
       </Suspense>
     </>
