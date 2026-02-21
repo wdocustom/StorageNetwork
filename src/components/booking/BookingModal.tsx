@@ -10,6 +10,7 @@ import {
   MapPin,
   ChevronRight,
   Gift,
+  Tag,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -23,6 +24,7 @@ import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
 import { checkFirstOrderDiscount } from "@/app/actions/analytics";
+import { validateDiscountCode } from "@/app/actions/discount-codes";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -100,6 +102,10 @@ export default function BookingModal({
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
   const [firstOrderDiscount, setFirstOrderDiscount] = useState(0);
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
 
   // Fetch blackout dates and check first-order discount when modal opens
   useEffect(() => {
@@ -131,6 +137,31 @@ export default function BookingModal({
 
   // Balance at installation = remaining build cost + sales tax
   const balanceAtInstall = (totalPrice - depositAmount) + (taxInfo?.taxAmount || 0);
+
+  // Effective deposit after all discounts
+  const effectiveDeposit = depositAmount - firstOrderDiscount - (discountApplied?.amount || 0);
+
+  // Apply discount code
+  async function handleApplyDiscount() {
+    if (!discountInput.trim() || !installerId) return;
+    setDiscountLoading(true);
+    setDiscountError("");
+    const result = await validateDiscountCode(discountInput.trim(), installerId, totalPrice);
+    setDiscountLoading(false);
+    if (result.valid) {
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountError("");
+    } else {
+      setDiscountApplied(null);
+      setDiscountError(result.error || "Invalid code.");
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(null);
+    setDiscountInput("");
+    setDiscountError("");
+  }
 
   // Address validation
   function handleAddressNext() {
@@ -166,6 +197,9 @@ export default function BookingModal({
       billingState: address.state,
       // First-order discount (deducted from platform fee, not installer)
       firstOrderDiscount: firstOrderDiscount,
+      // Discount code
+      discountCode: discountApplied?.code,
+      discountCodeAmount: discountApplied?.amount,
     });
 
     setInitLoading(false);
@@ -176,7 +210,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state, firstOrderDiscount]);
+  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state, firstOrderDiscount, discountApplied]);
 
   if (!isOpen) return null;
 
@@ -291,7 +325,7 @@ export default function BookingModal({
               }}
             >
               <InlinePaymentForm
-                totalAmount={depositAmount}
+                totalAmount={effectiveDeposit}
                 leadId={leadId}
                 onError={(msg) => setError(msg)}
               />
@@ -314,10 +348,10 @@ export default function BookingModal({
                   <div className="flex items-center justify-between text-sm pt-1">
                     <span className="font-bold text-stone-400">Due Today (Deposit)</span>
                     <span className="font-black text-yellow-400">
-                      {firstOrderDiscount > 0 ? (
+                      {(firstOrderDiscount > 0 || discountApplied) ? (
                         <>
                           <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(depositAmount)}</span>
-                          {formatCurrency(depositAmount - firstOrderDiscount)}
+                          {formatCurrency(effectiveDeposit)}
                         </>
                       ) : (
                         formatCurrency(depositAmount)
@@ -328,6 +362,15 @@ export default function BookingModal({
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-emerald-400 font-medium">First-order discount</span>
                       <span className="text-emerald-400 font-bold">-{formatCurrency(firstOrderDiscount)}</span>
+                    </div>
+                  )}
+                  {discountApplied && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                        <Tag className="h-3 w-3" />
+                        Code: {discountApplied.code}
+                      </span>
+                      <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
                     </div>
                   )}
                   {/* Balance at installation = remaining + tax */}
@@ -386,6 +429,45 @@ export default function BookingModal({
                 </div>
               )}
 
+              {/* Discount Code Input */}
+              {!discountApplied ? (
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                    Discount Code
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={discountInput}
+                      onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(""); }}
+                      placeholder="Enter code"
+                      className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleApplyDiscount(); }}
+                    />
+                    <button
+                      onClick={handleApplyDiscount}
+                      disabled={!discountInput.trim() || discountLoading}
+                      className="rounded-lg bg-slate-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-600 disabled:opacity-40"
+                    >
+                      {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                    </button>
+                  </div>
+                  {discountError && (
+                    <p className="mt-1 text-xs text-red-400">{discountError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                  <Tag className="h-4 w-4 text-emerald-400" />
+                  <span className="flex-1 text-sm font-semibold text-emerald-400">
+                    {discountApplied.code} — {formatCurrency(discountApplied.amount)} off
+                  </span>
+                  <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Pay & Book button */}
               <button
                 onClick={handleInitPayment}
@@ -397,7 +479,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(depositAmount - firstOrderDiscount)} &amp; Book
+                    Pay {formatCurrency(effectiveDeposit)} &amp; Book
                   </>
                 )}
               </button>

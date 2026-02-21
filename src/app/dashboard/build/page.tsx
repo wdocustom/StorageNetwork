@@ -26,6 +26,7 @@ import {
   Grid3X3,
   Plus,
   Trash2,
+  Tag,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -111,6 +112,7 @@ export default function BuildConfiguratorPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [quoteDiscountCode, setQuoteDiscountCode] = useState("");
   const [quoteSending, setQuoteSending] = useState(false);
   const [quoteSent, setQuoteSent] = useState(false);
   const [quoteError, setQuoteError] = useState("");
@@ -375,6 +377,7 @@ export default function BuildConfiguratorPage() {
         customer_phone: customerPhone || undefined,
         quote_data: quoteUnits,
         grand_total: totalPrice,
+        discount_code: quoteDiscountCode.trim() || undefined,
       });
 
       if (!result.success) {
@@ -399,6 +402,7 @@ export default function BuildConfiguratorPage() {
     setCustomerName("");
     setCustomerEmail("");
     setCustomerPhone("");
+    setQuoteDiscountCode("");
     setQuoteSent(false);
     setQuoteError("");
   }
@@ -1127,6 +1131,22 @@ export default function BuildConfiguratorPage() {
                       placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                     />
+                  </div>
+                  <div>
+                    <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500">
+                      <Tag className="h-3 w-3" />
+                      Discount Code (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={quoteDiscountCode}
+                      onChange={(e) => setQuoteDiscountCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SPRING25"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <p className="mt-1 text-[10px] text-stone-600">
+                      Attach a promo code — customer can apply it at checkout.
+                    </p>
                   </div>
                 </div>
 

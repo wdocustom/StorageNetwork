@@ -13,6 +13,8 @@ import {
   MapPin,
   ChevronRight,
   Receipt,
+  Tag,
+  X,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -23,6 +25,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
+import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,6 +62,12 @@ export default function ResumePaymentPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [initializingPayment, setInitializingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  // Discount code state
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
 
   // Address state
   const [step, setStep] = useState<Step>("address");
@@ -104,6 +113,22 @@ export default function ResumePaymentPage() {
         }
       }
 
+      // Auto-fill discount code if installer attached one to the quote
+      if (result.lead.discount_code) {
+        setDiscountInput(result.lead.discount_code);
+        // Auto-validate it
+        if (result.lead.installer_id) {
+          const discountResult = await validateDiscountCode(
+            result.lead.discount_code,
+            result.lead.installer_id,
+            result.lead.estimated_price
+          );
+          if (discountResult.valid) {
+            setDiscountApplied({ code: discountResult.code!, amount: discountResult.discountAmount });
+          }
+        }
+      }
+
       setLoading(false);
     }
 
@@ -136,6 +161,33 @@ export default function ResumePaymentPage() {
     setStep("review");
   }
 
+  // Apply discount code
+  async function handleApplyDiscount() {
+    if (!discountInput.trim() || !lead?.installer_id) return;
+    setDiscountLoading(true);
+    setDiscountError("");
+    const result = await validateDiscountCode(discountInput.trim(), lead.installer_id, lead.estimated_price);
+    setDiscountLoading(false);
+    if (result.valid) {
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountError("");
+    } else {
+      setDiscountApplied(null);
+      setDiscountError(result.error || "Invalid code.");
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(null);
+    setDiscountInput("");
+    setDiscountError("");
+  }
+
+  // Effective deposit after discount
+  const effectiveDeposit = lead
+    ? lead.deposit_amount - (discountApplied?.amount || 0)
+    : 0;
+
   // Initialize Stripe payment
   const initializePayment = useCallback(async () => {
     if (!lead) return;
@@ -155,6 +207,9 @@ export default function ResumePaymentPage() {
         // Tax info for records (collected at installation)
         salesTaxAmount: taxInfo?.taxAmount || 0,
         billingState: address.state,
+        // Discount code
+        discountCode: discountApplied?.code,
+        discountCodeAmount: discountApplied?.amount,
       });
 
       if (!result.success || !result.clientSecret) {
@@ -171,7 +226,7 @@ export default function ResumePaymentPage() {
     } finally {
       setInitializingPayment(false);
     }
-  }, [lead, taxInfo, address.state]);
+  }, [lead, taxInfo, address.state, discountApplied]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — Loading State
@@ -345,9 +400,25 @@ export default function ResumePaymentPage() {
             <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
               <span className="font-bold text-stone-300">Due Today (Deposit)</span>
               <span className="text-xl font-black text-yellow-400">
-                {formatCurrency(lead.deposit_amount)}
+                {discountApplied ? (
+                  <>
+                    <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(lead.deposit_amount)}</span>
+                    {formatCurrency(effectiveDeposit)}
+                  </>
+                ) : (
+                  formatCurrency(lead.deposit_amount)
+                )}
               </span>
             </div>
+            {discountApplied && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                  <Tag className="h-3 w-3" />
+                  Code: {discountApplied.code}
+                </span>
+                <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+              </div>
+            )}
 
             {/* Balance at installation */}
             <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
@@ -527,9 +598,28 @@ export default function ResumePaymentPage() {
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
                 <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">
-                  {formatCurrency(lead.deposit_amount)}
+                  {discountApplied ? (
+                    <>
+                      <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(lead.deposit_amount)}</span>
+                      {formatCurrency(effectiveDeposit)}
+                    </>
+                  ) : (
+                    formatCurrency(lead.deposit_amount)
+                  )}
                 </span>
               </div>
+              {discountApplied && (
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                    <Tag className="h-3 w-3" />
+                    Code: {discountApplied.code}
+                    <button onClick={handleRemoveDiscount} className="ml-1 text-stone-500 hover:text-red-400">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                  <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                </div>
+              )}
               {/* Balance at installation */}
               <div className="mt-3 pt-2 border-t border-yellow-400/10 space-y-1">
                 <div className="flex items-center justify-between text-xs">
@@ -553,6 +643,45 @@ export default function ResumePaymentPage() {
               Sales tax will be collected by your installer at installation.
             </p>
 
+            {/* Discount Code Input */}
+            {!discountApplied ? (
+              <div className="mb-4">
+                <label className="mb-1.5 block text-[10px] font-bold uppercase text-stone-500">
+                  Discount Code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={discountInput}
+                    onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(""); }}
+                    placeholder="Enter code"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleApplyDiscount(); }}
+                  />
+                  <button
+                    onClick={handleApplyDiscount}
+                    disabled={!discountInput.trim() || discountLoading}
+                    className="rounded-lg bg-slate-700 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-600 disabled:opacity-40"
+                  >
+                    {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+                {discountError && (
+                  <p className="mt-1.5 text-xs text-red-400">{discountError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+                <Tag className="h-4 w-4 text-emerald-400" />
+                <span className="flex-1 text-sm font-semibold text-emerald-400">
+                  {discountApplied.code} — {formatCurrency(discountApplied.amount)} off
+                </span>
+                <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             <button
               onClick={initializePayment}
               disabled={initializingPayment}
@@ -563,7 +692,7 @@ export default function ResumePaymentPage() {
               ) : (
                 <CreditCard className="h-4 w-4" />
               )}
-              {initializingPayment ? "Initializing..." : `Pay ${formatCurrency(lead.deposit_amount)}`}
+              {initializingPayment ? "Initializing..." : `Pay ${formatCurrency(effectiveDeposit)}`}
             </button>
 
             {/* Trust Badges */}
@@ -608,7 +737,7 @@ export default function ResumePaymentPage() {
               }}
             >
               <PaymentForm
-                totalAmount={lead.deposit_amount}
+                totalAmount={effectiveDeposit}
                 onSuccess={() => setPaymentSuccess(true)}
                 onError={setError}
               />

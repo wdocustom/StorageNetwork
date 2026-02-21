@@ -42,6 +42,7 @@ export interface CreateQuoteInput {
   quote_data: QuoteUnit[];
   grand_total: number;
   project_title?: string;
+  discount_code?: string;
 }
 
 export interface CreateQuoteResult {
@@ -69,6 +70,7 @@ export async function createQuote(
     quote_data,
     grand_total,
     project_title,
+    discount_code,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -156,6 +158,7 @@ export async function createQuote(
         source: "installer_manual",
         status: "pending_payment",
         deposit_paid: false,
+        discount_code: discount_code?.toUpperCase() || null,
       })
       .select("id")
       .single();

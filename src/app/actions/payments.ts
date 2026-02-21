@@ -3,6 +3,7 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
+import { incrementDiscountCodeUsage } from "./discount-codes";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Server Action — Black Box
@@ -382,6 +383,9 @@ export interface DepositIntentInput {
   billingState?: string;             // 2-letter state code
   // First-order discount (deducted from platform fee only, not installer)
   firstOrderDiscount?: number;       // $25 for first-time customers
+  // Discount code (installer-specific promo codes)
+  discountCode?: string;             // The code string (for tracking)
+  discountCodeAmount?: number;       // Resolved dollar amount to deduct
 }
 
 export interface DepositIntentResult {
@@ -393,8 +397,10 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, firstOrderDiscount } = input;
-  const discountCents = firstOrderDiscount ? Math.round(firstOrderDiscount * 100) : 0;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, firstOrderDiscount, discountCode, discountCodeAmount } = input;
+  const firstOrderCents = firstOrderDiscount ? Math.round(firstOrderDiscount * 100) : 0;
+  const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
+  const discountCents = firstOrderCents + promoCodeCents;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
@@ -468,7 +474,9 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(discountCents),
+          first_order_discount_cents: String(firstOrderCents),
+          discount_code: discountCode || "",
+          discount_code_cents: String(promoCodeCents),
         },
       });
 
@@ -509,7 +517,9 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(discountCents),
+          first_order_discount_cents: String(firstOrderCents),
+          discount_code: discountCode || "",
+          discount_code_cents: String(promoCodeCents),
         },
       });
 
@@ -543,7 +553,9 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(discountCents),
+          first_order_discount_cents: String(firstOrderCents),
+          discount_code: discountCode || "",
+          discount_code_cents: String(promoCodeCents),
         },
       });
 
@@ -564,10 +576,20 @@ export async function createDepositIntent(
       leadUpdate.deposit_amount = effectiveDepositCents / 100;
       leadUpdate.balance_due = totalPrice - (effectiveDepositCents / 100);
     }
+    // Store discount code info on the lead for tracking
+    if (discountCode) {
+      leadUpdate.discount_code = discountCode;
+      leadUpdate.discount_amount = (promoCodeCents / 100);
+    }
     await supabase
       .from("leads")
       .update(leadUpdate)
       .eq("id", leadId);
+
+    // Increment discount code usage counter (fire-and-forget)
+    if (discountCode && installerId) {
+      incrementDiscountCodeUsage(discountCode, installerId).catch(() => {});
+    }
 
     return {
       success: true,
