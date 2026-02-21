@@ -347,7 +347,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Network Passive Income ─────────────────────────────── */}
-          {profile && <NetworkPassiveIncome userId={profile.id} />}
+          {profile && <NetworkPassiveIncome userId={profile.id} isPro={tier === "pro"} />}
 
           {/* JOBS / LEADS Tile */}
           <a
