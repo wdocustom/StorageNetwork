@@ -267,9 +267,15 @@ export default function DesignConfigurator({
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Network Referral Bounty ─────────────────────────────────────────
-  // When the customer's ZIP is outside the original installer's area,
-  // we re-route to a local installer and track the original as referrer.
+  // When the customer's installation ZIP is outside the original installer's
+  // area, we re-route to a local installer and track the original as referrer.
   const [referringInstallerId, setReferringInstallerId] = useState<string | null>(null);
+  // Track the original installer ID from the URL so we don't re-validate
+  // against the swapped-in local installer (which would loop).
+  const originalInstallerId = useRef(initialData?.routing.installerId || "");
+  // Whether a hand-off happened (shows info banner instead of blocking)
+  const [handedOff, setHandedOff] = useState(false);
+  const [handoffInstallerName, setHandoffInstallerName] = useState("");
 
   // Real-time ZIP validation when user enters installation ZIP
   // If "installation address is different" is checked, validate that ZIP instead
@@ -279,45 +285,51 @@ export default function DesignConfigurator({
     setZipCheckMsg("");
 
     const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
-    if (!installerId || !zipToCheck || zipToCheck.trim().length !== 5) return;
+    // Validate against the ORIGINAL installer (from URL), not a swapped-in one
+    const validationTargetId = originalInstallerId.current;
+    if (!validationTargetId || !zipToCheck || zipToCheck.trim().length !== 5) return;
 
     zipCheckRef.current = setTimeout(async () => {
-      const result = await validateServiceArea(installerId, zipToCheck.trim());
+      const result = await validateServiceArea(validationTargetId, zipToCheck.trim());
       if (!result.inArea) {
         // ── Network Referral Bounty: re-route to local installer ──────
         // Instead of blocking, find a local Pro and hand off the lead.
-        // The original installer becomes the referrer and earns a bounty.
-        const localResult = await rerouteToLocalInstaller(zipToCheck.trim(), installerId);
+        // The original installer becomes the referrer and earns a $15 bounty.
+        const localResult = await rerouteToLocalInstaller(zipToCheck.trim(), validationTargetId);
         if (localResult.available && localResult.installer_id) {
           // Hand off: swap to local installer, track original as referrer
-          setReferringInstallerId(installerId);
+          setReferringInstallerId(validationTargetId);
+          setHandedOff(true);
+          setHandoffInstallerName(localResult.installer_name || "a local installer");
           const vm = mapAvailabilityToViewModel(localResult);
           if (vm) {
             setData(vm);
             setInstallerId(vm.routing.installerId);
           }
-          setZipCheckMsg(
-            `We found ${localResult.installer_name || "a local installer"} in your area.`
-          );
         } else {
-          // No local installer found — fall back to waitlist
+          // No local installer found — show waitlist UI
           setZipOutOfArea(true);
+          setHandedOff(false);
+          setReferringInstallerId(null);
           setZipCheckMsg(
-            result.radiusMiles
-              ? `ZIP ${zipToCheck.trim()} is outside the installer's ${result.radiusMiles}-mile service area.`
-              : "This ZIP code is outside the installer's service area."
+            "We don't have an installer in your area yet, but we'll notify you as soon as one is available."
           );
         }
       } else {
-        // ZIP is in-area — clear any previous referral
+        // ZIP is in-area — clear any previous referral/handoff
         setReferringInstallerId(null);
+        setHandedOff(false);
+        setHandoffInstallerName("");
       }
     }, 600);
 
     return () => {
       if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
     };
-  }, [addrZip, deliveryZip, hasDifferentDelivery, installerId]);
+  // Validate against the original installer — installerId is NOT a dep here
+  // because it changes during handoff and would cause a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addrZip, deliveryZip, hasDifferentDelivery]);
 
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -1434,16 +1446,27 @@ export default function DesignConfigurator({
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
-                      {/* Service area warning + waitlist */}
+                      {/* Network hand-off: customer's ZIP routed to a local installer */}
+                      {handedOff && !zipOutOfArea && (
+                        <div className="rounded-lg border border-blue-300 bg-blue-50 p-3">
+                          <div className="mb-1 flex items-start gap-2">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                            <p className="text-xs font-medium text-blue-700">
+                              The original installer doesn&apos;t service your area, but we have a partner installer nearby.
+                            </p>
+                          </div>
+                          <p className="text-xs text-stone-500">
+                            <strong>{handoffInstallerName}</strong> will handle your build. You can continue booking below.
+                          </p>
+                        </div>
+                      )}
+                      {/* No installer in area — waitlist */}
                       {zipOutOfArea && !waitlistSent && (
                         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
                           <div className="mb-2 flex items-start gap-2">
                             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                             <p className="text-xs font-medium text-amber-700">{zipCheckMsg}</p>
                           </div>
-                          <p className="mb-3 text-xs text-stone-500">
-                            Want this installer to know you&apos;re interested? Join the waitlist and they&apos;ll be notified.
-                          </p>
                           <button
                             onClick={handleWaitlist}
                             disabled={waitlistSending}
@@ -1454,7 +1477,7 @@ export default function DesignConfigurator({
                             ) : (
                               <Clock className="h-4 w-4" />
                             )}
-                            {waitlistSending ? "Sending…" : "Join Waitlist"}
+                            {waitlistSending ? "Sending…" : "Notify Me When Available"}
                           </button>
                           {waitlistError && (
                             <p className="mt-2 text-xs font-medium text-red-600">{waitlistError}</p>
@@ -1464,9 +1487,9 @@ export default function DesignConfigurator({
                       {waitlistSent && (
                         <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center">
                           <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
-                          <p className="text-sm font-semibold text-gray-900">Waitlist Request Sent</p>
+                          <p className="text-sm font-semibold text-gray-900">You&apos;re on the List</p>
                           <p className="mt-1 text-xs text-stone-500">
-                            The installer has been notified. They&apos;ll reach out if they can accommodate your area.
+                            We&apos;ll email you as soon as an installer is available in your area.
                           </p>
                         </div>
                       )}
@@ -1659,8 +1682,10 @@ export default function DesignConfigurator({
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => {
+            // Customer closed the modal without paying — reset so they can
+            // modify their order or try again. Do NOT mark as submitted.
             setShowBookingModal(false);
-            setSubmitted(true);
+            setLeadId(null);
           }}
           leadId={leadId}
           depositAmount={depositAmount}
