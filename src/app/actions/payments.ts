@@ -21,24 +21,32 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 //
 // SALES TAX HANDLING:
 // ─────────────────────────────────────────────────────────────────────────
-// - Tax is calculated on FULL BUILD PRICE (not deposit)
+// - Tax is calculated on FULL BUILD PRICE (not deposit, before any discounts)
 // - Tax is ALWAYS collected by the installer at installation (with balance)
 // - Deposit payment is deposit only — NO tax collected upfront
 // - This keeps tax handling simple and uniform for all scenarios
 //
-// Example: $1000 build, 6% tax ($60), 15% deposit ($150)
+// DISCOUNT CODE HANDLING:
+// ─────────────────────────────────────────────────────────────────────────
+// - Discount codes only affect the REMAINING BALANCE (not deposit)
+// - Deposit always stays at full 15% of original price
+// - Installer absorbs the discount (reduced balance collection)
+// - Tax is always on the full subtotal BEFORE any discounts
+// - Platform first-order discounts are permanently deactivated
+//
+// Example: $1000 build, 6% tax ($60), 15% deposit ($150), $50 discount
 // ─────────────────────────────────────────────────────────────────────────
 //
 // Non-Pro (or Pro without Stripe):
-//   Customer pays today: $150 (deposit)
+//   Customer pays today: $150 (deposit — unchanged)
 //   Platform keeps: $150 (15% fee)
-//   Balance at install: $910 ($850 + $60 tax → installer collects)
+//   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
 //
 // Pro with Stripe connected:
-//   Customer pays today: $150 (deposit)
+//   Customer pays today: $150 (deposit — unchanged)
 //   Platform keeps: $50 (5% fee)
 //   Installer receives via Stripe: $100 (10%)
-//   Balance at install: $910 ($850 + $60 tax → installer collects)
+//   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -381,11 +389,9 @@ export interface DepositIntentInput {
   // Tax info for installer records
   salesTaxAmount?: number;           // Tax amount in dollars
   billingState?: string;             // 2-letter state code
-  // First-order discount (deducted from platform fee only, not installer)
-  firstOrderDiscount?: number;       // $25 for first-time customers
-  // Discount code (installer-specific promo codes)
+  // Discount code (installer-specific promo codes — reduces balance, not deposit)
   discountCode?: string;             // The code string (for tracking)
-  discountCodeAmount?: number;       // Resolved dollar amount to deduct
+  discountCodeAmount?: number;       // Resolved dollar amount to deduct from balance
 }
 
 export interface DepositIntentResult {
@@ -397,21 +403,20 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, firstOrderDiscount, discountCode, discountCodeAmount } = input;
-  const firstOrderCents = firstOrderDiscount ? Math.round(firstOrderDiscount * 100) : 0;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount } = input;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
-  const discountCents = firstOrderCents + promoCodeCents;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
   }
 
   // Deposit is always charged WITHOUT tax. Tax is collected by installer at installation.
-  // The `amount` param may include tax from client calculation, so we use depositAmount directly.
+  // Deposit is ALWAYS the full 15% — discount codes only affect the remaining balance.
   const depositAmountCents = Math.round(amount * 100);
   const totalPriceCents = Math.round(totalPrice * 100);
   const taxCents = salesTaxAmount ? Math.round(salesTaxAmount * 100) : 0;
-  const balanceWithTaxCents = (totalPriceCents - depositAmountCents) + taxCents;
+  // Balance = (totalPrice - deposit - discount) + tax. Installer absorbs discount from their balance.
+  const balanceWithTaxCents = (totalPriceCents - depositAmountCents - promoCodeCents) + taxCents;
 
   try {
     // ── Determine fee routing based on Pro status and Stripe connection ───────
@@ -433,20 +438,19 @@ export async function createDepositIntent(
 
     let paymentIntent;
 
-    // ── First-order discount: reduce customer payment & platform fee ──────
-    // The discount comes from the platform's share. Installer receives the same.
-    const effectiveDepositCents = Math.max(0, depositAmountCents - discountCents);
+    // ── Discount codes do NOT affect the deposit or platform fees. ──────────
+    // Deposit is always full 15%. Discount reduces the balance the installer
+    // collects at installation (installer absorbs their own discount codes).
 
     if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
       // ── Fee Override (Founder / special rate) + Stripe ───────────────────
       // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
       const overrideRate = Number(feeOverride);
-      const basePlatformFeeCents = Math.round(totalPriceCents * overrideRate);
-      const platformFeeCents = Math.max(0, basePlatformFeeCents - discountCents);
-      const installerReceivesCents = effectiveDepositCents - platformFeeCents;
+      const platformFeeCents = Math.round(totalPriceCents * overrideRate);
+      const installerReceivesCents = depositAmountCents - platformFeeCents;
 
       paymentIntent = await stripe.paymentIntents.create({
-        amount: effectiveDepositCents,
+        amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
@@ -474,22 +478,20 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(firstOrderCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
         },
       });
 
-      console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${effectiveDepositCents / 100}${discountCents ? ` (-$${discountCents / 100} first-order)` : ""} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+      console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
     } else if (shouldSplitDeposit && installerStripeId) {
       // ── Pro + Stripe: Split deposit via destination charge ────────────────
       // Platform gets 5% of build, Installer gets 10% of build
-      const basePlatformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 5%
-      const platformFeeCents = Math.max(0, basePlatformFeeCents - discountCents);
-      const installerReceivesCents = effectiveDepositCents - platformFeeCents;
+      const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 5%
+      const installerReceivesCents = depositAmountCents - platformFeeCents;
 
       paymentIntent = await stripe.paymentIntents.create({
-        amount: effectiveDepositCents,
+        amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
@@ -517,20 +519,18 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(firstOrderCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
         },
       });
 
-      console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${effectiveDepositCents / 100}${discountCents ? ` (-$${discountCents / 100} first-order)` : ""} → Platform $${platformFeeCents / 100} (5%), Installer $${installerReceivesCents / 100} (10%) | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
+      console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (5%), Installer $${installerReceivesCents / 100} (10%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     } else {
       // ── Non-Pro OR no Stripe: Full deposit to Platform ────────────────────
       // Platform keeps entire deposit (15% of build)
-      // Installer collects balance + tax at installation
-      // First-order discount: reduce the customer charge (platform absorbs)
+      // Installer collects balance + tax at installation (minus any discount)
       paymentIntent = await stripe.paymentIntents.create({
-        amount: effectiveDepositCents,
+        amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
           enabled: true,
@@ -545,7 +545,7 @@ export async function createDepositIntent(
           is_pro: isPro ? "true" : "false",
           customer_name: customerName || "",
           customer_email: customerEmail || "",
-          platform_fee_cents: String(effectiveDepositCents),
+          platform_fee_cents: String(depositAmountCents),
           platform_fee_rate: "15%",
           installer_receives_cents: "0",
           scheduled_at: scheduledAt || "",
@@ -553,17 +553,17 @@ export async function createDepositIntent(
           sales_tax_cents: String(taxCents),
           billing_state: billingState || "",
           balance_due_with_tax_cents: String(balanceWithTaxCents),
-          first_order_discount_cents: String(firstOrderCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
         },
       });
 
       const planLabel = isPro ? "Pro (no Stripe)" : "Non-Pro";
-      console.log(`[Deposit] ${planLabel}: $${totalPrice} build | Deposit $${effectiveDepositCents / 100}${discountCents ? ` (-$${discountCents / 100} first-order)` : ""} → Platform (15%) | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
+      console.log(`[Deposit] ${planLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     }
 
     // Update lead with scheduling info, tax info, and discount (for reference)
+    // Deposit stays at full 15% — discount only reduces balance_due (installer absorbs)
     const leadUpdate: Record<string, unknown> = {
       source,
       scheduled_at: scheduledAt || null,
@@ -571,10 +571,10 @@ export async function createDepositIntent(
       billing_state: billingState || null,
       updated_at: new Date().toISOString(),
     };
-    // If discount applied, update deposit amount to reflect what customer actually pays
-    if (discountCents > 0) {
-      leadUpdate.deposit_amount = effectiveDepositCents / 100;
-      leadUpdate.balance_due = totalPrice - (effectiveDepositCents / 100);
+    // If discount applied, reduce balance_due (installer absorbs the discount)
+    // Deposit amount stays unchanged at the full 15%
+    if (promoCodeCents > 0) {
+      leadUpdate.balance_due = totalPrice - (depositAmountCents / 100) - (promoCodeCents / 100);
     }
     // Store discount code info on the lead for tracking
     if (discountCode) {

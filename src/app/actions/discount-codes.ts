@@ -78,9 +78,9 @@ export async function validateDiscountCode(
     discountAmount = Number(data.discount_value);
   }
 
-  // Never discount more than the deposit (15% of order)
-  const depositAmount = Math.round(orderTotal * 0.15 * 100) / 100;
-  discountAmount = Math.min(discountAmount, depositAmount);
+  // Never discount more than the remaining balance (85% of order — deposit is untouched)
+  const remainingBalance = Math.round(orderTotal * 0.85 * 100) / 100;
+  discountAmount = Math.min(discountAmount, remainingBalance);
 
   return {
     valid: true,

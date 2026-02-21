@@ -94,16 +94,15 @@ export function formatCurrency(n: number): string {
 // apply the state rate to the total (materials + labor combined).
 // The tax is passed to the installer for their tax compliance.
 //
-// IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT, not just the deposit.
-// When collecting a deposit, call calculateSalesTax(totalBuildPrice, state)
-// and the customer pays: deposit + taxAmount upfront.
-// The remaining balance (totalBuildPrice - deposit) has no additional tax.
+// IMPORTANT: Tax is assessed on the FULL BUILD AMOUNT before any discounts.
+// Deposit is always 15% of the original price — discount codes do NOT change it.
+// Discount codes only reduce the remaining balance (installer absorbs the discount).
 //
-// Example: $1000 build, 6% tax, 15% deposit
-//   - Tax: $1000 × 6% = $60 (on full build)
-//   - Deposit: $1000 × 15% = $150
-//   - Due today: $150 + $60 = $210
-//   - Balance due: $850 (no additional tax)
+// Example: $1000 build, 6% tax, 15% deposit, $50 discount
+//   - Tax: $1000 × 6% = $60 (on full build, before discounts)
+//   - Deposit: $1000 × 15% = $150 (unchanged by discount)
+//   - Due today: $150 (deposit only, tax collected at installation)
+//   - Balance due: $800 + $60 tax = $860 (remaining $850 - $50 discount + $60 tax)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STATE_TAX_RATES: Record<string, number> = {

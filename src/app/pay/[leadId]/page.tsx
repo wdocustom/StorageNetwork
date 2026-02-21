@@ -142,9 +142,12 @@ export default function ResumePaymentPage() {
     return calculateSalesTax(lead.estimated_price, address.state);
   }, [lead, address.state]);
 
-  // Balance at installation = remaining build cost + sales tax
+  // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
+  const discountAmount = discountApplied?.amount || 0;
+
+  // Balance at installation = remaining build cost - discount + sales tax
   const balanceAtInstall = lead
-    ? (lead.estimated_price - lead.deposit_amount) + (taxInfo?.taxAmount || 0)
+    ? (lead.estimated_price - lead.deposit_amount - discountAmount) + (taxInfo?.taxAmount || 0)
     : 0;
 
   // Address validation
@@ -183,10 +186,8 @@ export default function ResumePaymentPage() {
     setDiscountError("");
   }
 
-  // Effective deposit after discount
-  const effectiveDeposit = lead
-    ? lead.deposit_amount - (discountApplied?.amount || 0)
-    : 0;
+  // Deposit always stays at full 15% — discounts only affect the balance
+  const effectiveDeposit = lead ? lead.deposit_amount : 0;
 
   // Initialize Stripe payment
   const initializePayment = useCallback(async () => {
@@ -396,36 +397,29 @@ export default function ResumePaymentPage() {
               <span className="font-bold text-white">{formatCurrency(lead.estimated_price)}</span>
             </div>
 
-            {/* Due Today = Deposit only */}
+            {/* Due Today = Deposit only (never changes with discounts) */}
             <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
               <span className="font-bold text-stone-300">Due Today (Deposit)</span>
               <span className="text-xl font-black text-yellow-400">
-                {discountApplied ? (
-                  <>
-                    <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(lead.deposit_amount)}</span>
-                    {formatCurrency(effectiveDeposit)}
-                  </>
-                ) : (
-                  formatCurrency(lead.deposit_amount)
-                )}
+                {formatCurrency(lead.deposit_amount)}
               </span>
             </div>
-            {discountApplied && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                  <Tag className="h-3 w-3" />
-                  Code: {discountApplied.code}
-                </span>
-                <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
-              </div>
-            )}
 
             {/* Balance at installation */}
             <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-stone-500">Balance at Installation</span>
+                <span className="text-stone-500">Remaining Balance</span>
                 <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
               </div>
+              {discountApplied && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                    <Tag className="h-3 w-3" />
+                    Code: {discountApplied.code}
+                  </span>
+                  <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                </div>
+              )}
               {/* Tax line - show calculated or notice */}
               {step === "address" ? (
                 <div className="flex items-center justify-between text-xs">
@@ -598,34 +592,27 @@ export default function ResumePaymentPage() {
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
                 <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">
-                  {discountApplied ? (
-                    <>
-                      <span className="line-through text-stone-500 text-xs mr-1">{formatCurrency(lead.deposit_amount)}</span>
-                      {formatCurrency(effectiveDeposit)}
-                    </>
-                  ) : (
-                    formatCurrency(lead.deposit_amount)
-                  )}
+                  {formatCurrency(lead.deposit_amount)}
                 </span>
               </div>
-              {discountApplied && (
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                    <Tag className="h-3 w-3" />
-                    Code: {discountApplied.code}
-                    <button onClick={handleRemoveDiscount} className="ml-1 text-stone-500 hover:text-red-400">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                  <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
-                </div>
-              )}
-              {/* Balance at installation */}
+              {/* Balance at installation — discount applied here */}
               <div className="mt-3 pt-2 border-t border-yellow-400/10 space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-stone-500">Balance at Installation</span>
+                  <span className="text-stone-500">Remaining Balance</span>
                   <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
                 </div>
+                {discountApplied && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                      <Tag className="h-3 w-3" />
+                      Code: {discountApplied.code}
+                      <button onClick={handleRemoveDiscount} className="ml-1 text-stone-500 hover:text-red-400">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                    <span className="text-emerald-400 font-bold">-{formatCurrency(discountApplied.amount)}</span>
+                  </div>
+                )}
                 {taxInfo && taxInfo.taxAmount > 0 && (
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-500">Sales Tax ({formatTaxRate(taxInfo.taxRate)})</span>
