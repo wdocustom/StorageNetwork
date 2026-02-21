@@ -87,6 +87,7 @@ export async function updateInstallerPricing(
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
       "plywood_top",
+      "bestseller_indiana_joe", "bestseller_cornhusker",
     ];
 
     for (const field of fields) {

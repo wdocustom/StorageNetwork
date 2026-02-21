@@ -16,12 +16,17 @@ export interface InstallerPricing {
   standard_wheels?: number;
   mini_wheels?: number;
   plywood_top?: number;
+  /** Per-bestseller base-price overrides (frame + tops, BEFORE totes).
+   *  Key pattern: bestseller_<preset_id_with_underscores>
+   *  e.g. bestseller_indiana_joe, bestseller_cornhusker */
+  bestseller_indiana_joe?: number;
+  bestseller_cornhusker?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "bestseller_indiana_joe" | "bestseller_cornhusker"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,

@@ -443,25 +443,47 @@ export async function calculateCompoundBuild(input: {
     totalSlots += result.config.slots;
   }
 
-  // Pricing: when installer has custom pricing, always use the dynamically
-  // calculated sub-unit prices so presets reflect the installer's rates.
-  // Otherwise fall back to the preset's fixed marketing prices.
+  // ── Pricing ──────────────────────────────────────────────────────────
+  // Always dynamically calculated from the installer's rates (or platform
+  // defaults when no custom pricing is set).  Fixed marketing prices on the
+  // preset definition (basePrice / withTotesPrice) are no longer used for
+  // customer-facing pricing — every installer gets their own price.
+  //
+  // Priority:
+  //   1. Per-bestseller base-price override (installer set a flat base for
+  //      this specific preset, BEFORE totes).
+  //   2. Dynamic sum of sub-unit prices (slot × rate + plywood + wheels).
+  //
+  // Totes are ALWAYS calculated separately using the installer's tote rate
+  // (or platform default), regardless of which base-price path is used.
+
+  const ip = input.installerPricing;
+  const bestsellerKey = `bestseller_${preset.id.replace(/-/g, "_")}` as keyof InstallerPricing;
+  const bestsellerOverride = ip?.[bestsellerKey] as number | undefined;
+
+  // Calculate what the tote add-on costs (used by both paths)
+  const effectiveTotePrice =
+    preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard"
+      ? (ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE)
+      : preset.unitType === "mini"
+        ? (ip?.mini_tote ?? MINI_CONFIG.pricePerTote)
+        : (ip?.standard_tote ?? STANDARD_CONFIG.pricePerTote);
+
   let totalPrice: number;
-  if (input.installerPricing) {
-    // Custom pricing: sum of sub-unit prices (already calculated with overrides)
-    totalPrice = subUnits.reduce((sum, su) => sum + su.price, 0);
-  } else if (!input.hasTotes) {
-    totalPrice = preset.basePrice;
-  } else if (preset.dynamicTotePricing) {
-    totalPrice = preset.basePrice + totalSlots * (
-      preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard"
-        ? STANDARD_TOTE_CLEAR_PRICE
-        : preset.unitType === "mini"
-          ? MINI_CONFIG.pricePerTote
-          : STANDARD_CONFIG.pricePerTote
-    );
+
+  if (bestsellerOverride !== undefined && bestsellerOverride !== null) {
+    // Path 1: Installer set a custom base price for this specific bestseller.
+    // Start from their override (frame + tops, no totes) and add totes on top.
+    totalPrice = bestsellerOverride;
+    if (input.hasTotes) {
+      totalPrice += totalSlots * effectiveTotePrice;
+    }
   } else {
-    totalPrice = preset.withTotesPrice;
+    // Path 2: No bestseller override — dynamically calculate from sub-units.
+    // Sub-units were already calculated with the installer's pricing overrides
+    // (or platform defaults when installerPricing is undefined), so we just
+    // sum them.  The sub-unit prices include totes when hasTotes is true.
+    totalPrice = subUnits.reduce((sum, su) => sum + su.price, 0);
   }
 
   return {

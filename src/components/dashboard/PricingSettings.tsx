@@ -17,6 +17,7 @@ import {
 } from "@/app/actions/pricing";
 import { PLATFORM_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing } from "@/types/viewModels";
+import { BESTSELLER_PRESETS } from "@/lib/presets";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -33,7 +34,48 @@ interface PriceField {
   label: string;
   description: string;
   defaultValue: number;
-  category: "standard" | "mini" | "addons";
+  /** When true, the default is computed dynamically from the installer's
+   *  slot/plywood pricing and shown as "Auto" when empty. */
+  dynamicDefault?: boolean;
+  category: "standard" | "mini" | "addons" | "bestsellers";
+}
+
+/**
+ * Compute the platform-default base price for a bestseller preset.
+ * Base = (total_slots × per_slot_price) + (top_sheets × plywood_price).
+ * Uses platform defaults for the calculation.
+ */
+function computePresetDefaultBase(presetId: string): number {
+  const preset = BESTSELLER_PRESETS.find((p) => p.id === presetId);
+  if (!preset) return 0;
+
+  let totalSlots = 0;
+  let totalTopSheets = 0;
+  let totalWheelsCost = 0;
+  const slotPrice = preset.unitType === "mini"
+    ? PLATFORM_DEFAULTS.mini_slot
+    : PLATFORM_DEFAULTS.standard_slot;
+  const wheelsPrice = preset.unitType === "mini"
+    ? PLATFORM_DEFAULTS.mini_wheels
+    : PLATFORM_DEFAULTS.standard_wheels;
+
+  for (const unit of preset.units) {
+    const slots = unit.cols * unit.rows;
+    totalSlots += slots;
+
+    if (unit.hasTop) {
+      // Mirror the calculator logic for standard top sheets
+      // Approximate: each sub-unit with ≤96" width = 1 sheet
+      totalTopSheets += 1;
+    }
+    if (unit.hasWheels) {
+      totalWheelsCost += wheelsPrice;
+    }
+  }
+
+  return totalSlots * slotPrice
+    + totalTopSheets * PLATFORM_DEFAULTS.plywood_top
+    + totalWheelsCost;
 }
 
 const PRICE_FIELDS: PriceField[] = [
@@ -96,6 +138,15 @@ const PRICE_FIELDS: PriceField[] = [
     defaultValue: PLATFORM_DEFAULTS.plywood_top,
     category: "addons",
   },
+  // Bestseller base-price overrides (before totes)
+  ...BESTSELLER_PRESETS.map((preset) => ({
+    key: `bestseller_${preset.id.replace(/-/g, "_")}` as PricingNumericKey,
+    label: preset.name,
+    description: `Base price before totes (${preset.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)`,
+    defaultValue: computePresetDefaultBase(preset.id),
+    dynamicDefault: true,
+    category: "bestsellers" as const,
+  })),
 ];
 
 export default function PricingSettings({ userId }: PricingSettingsProps) {
@@ -198,7 +249,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     );
   }
 
-  const categories: { key: string; label: string; fields: PriceField[] }[] = [
+  const categories: { key: string; label: string; hint?: string; fields: PriceField[] }[] = [
     {
       key: "standard",
       label: "Standard Unit (27 Gal)",
@@ -213,6 +264,12 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       key: "addons",
       label: "Add-Ons",
       fields: PRICE_FIELDS.filter((f) => f.category === "addons"),
+    },
+    {
+      key: "bestsellers",
+      label: "Bestseller Presets",
+      hint: "Set a flat base price for each bestseller (before totes). Leave empty to auto-calculate from your slot & plywood rates.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "bestsellers"),
     },
   ];
 
@@ -272,9 +329,14 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       <div className="space-y-5">
         {categories.map((cat) => (
           <div key={cat.key} className={cat.key === "mini" && miniDisabled ? "opacity-40 pointer-events-none" : ""}>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+            <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               {cat.label}
             </h3>
+            {cat.hint && (
+              <p className="mb-3 text-[11px] leading-relaxed text-stone-600">
+                {cat.hint}
+              </p>
+            )}
             <div className="space-y-2">
               {cat.fields.map((field) => (
                 <div
@@ -299,7 +361,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                         inputMode="decimal"
                         value={values[field.key] ?? ""}
                         onChange={(e) => handleChange(field.key, e.target.value)}
-                        placeholder={String(field.defaultValue)}
+                        placeholder={field.dynamicDefault ? "Auto" : String(field.defaultValue)}
                         className="w-24 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                       />
                     </div>
