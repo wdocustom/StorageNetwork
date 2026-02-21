@@ -155,18 +155,54 @@ export default function ReferralsPage() {
         </div>
       </div>
 
+      {/* ── How It Works ───────────────────────────────────────────── */}
+      <div className="border-b border-slate-800 px-4 py-5">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-400">
+            How Network Bounties Work
+          </h2>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-400/10 text-[10px] font-bold text-yellow-400">
+                1
+              </div>
+              <p className="text-xs leading-relaxed text-stone-400">
+                <span className="text-stone-200">You share your link</span> — on social media, your website, TikTok, anywhere. Your link works nationwide, not just in your service area.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-400/10 text-[10px] font-bold text-yellow-400">
+                2
+              </div>
+              <p className="text-xs leading-relaxed text-stone-400">
+                <span className="text-stone-200">A customer outside your area configures a unit</span> — when they enter an installation address that&apos;s outside your service radius, we automatically connect them with the nearest local installer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yellow-400/10 text-[10px] font-bold text-yellow-400">
+                3
+              </div>
+              <p className="text-xs leading-relaxed text-stone-400">
+                <span className="text-stone-200">They book and pay a deposit</span> — the local installer handles the job. You automatically receive a <span className="font-semibold text-yellow-400">${BOUNTY_PER_JOB} bounty</span> deposited directly to your Stripe account.
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-[11px] text-stone-600">
+            No extra work required. Every customer you drive to the network — even outside your area — earns you money.
+          </p>
+        </div>
+      </div>
+
       {/* ── Referral List ──────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-4 py-4">
         {referrals.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="py-12 text-center">
             <DollarSign className="mx-auto mb-3 h-10 w-10 text-stone-700" />
             <p className="text-sm font-semibold text-stone-400">
               No referrals yet
             </p>
             <p className="mt-1 text-xs text-stone-600">
-              When a customer uses your link but is outside your service area,
-              they&apos;ll be connected with a local installer and you&apos;ll
-              earn ${BOUNTY_PER_JOB} per booked job.
+              Share your link — when a customer books outside your area, it&apos;ll show up here.
             </p>
           </div>
         ) : (

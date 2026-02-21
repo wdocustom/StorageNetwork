@@ -40,10 +40,8 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
     fetchBounties();
   }, [supabase, userId]);
 
-  // Don't render if no referrals at all
-  if (!loading && paidCount === 0 && pendingCount === 0) return null;
-
   const totalEarnings = paidCount * BOUNTY_PER_JOB;
+  const hasActivity = paidCount > 0 || pendingCount > 0;
 
   return (
     <a
@@ -68,7 +66,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
           {showTooltip && (
             <div className="absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-800 p-2.5 text-left shadow-xl">
               <p className="text-[11px] leading-relaxed text-stone-300">
-                Earnings from out-of-area customers who used your link. You earn ${BOUNTY_PER_JOB} for each booked job.
+                Share your link anywhere. When someone outside your area books with a local installer, you earn ${BOUNTY_PER_JOB}.
               </p>
               <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-700" />
             </div>
@@ -77,7 +75,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
       </div>
       {loading ? (
         <div className="h-8 w-20 mx-auto animate-pulse rounded bg-slate-800" />
-      ) : (
+      ) : hasActivity ? (
         <>
           <p className="text-2xl font-black text-yellow-400">
             ${totalEarnings.toLocaleString()}
@@ -86,9 +84,13 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
             {paidCount} paid{pendingCount > 0 ? ` · ${pendingCount} pending` : ""} · ${BOUNTY_PER_JOB} each
           </p>
         </>
+      ) : (
+        <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+          Earn ${BOUNTY_PER_JOB} every time someone outside your area uses your link and books with a local installer.
+        </p>
       )}
       <div className="mt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-stone-600 transition-colors group-hover:text-yellow-400">
-        View Referrals
+        {hasActivity ? "View Referrals" : "Learn How It Works"}
         <ChevronRight className="h-3 w-3" />
       </div>
     </a>
