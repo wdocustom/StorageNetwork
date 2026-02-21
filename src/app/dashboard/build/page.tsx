@@ -147,7 +147,7 @@ export default function BuildConfiguratorPage() {
       setIsPro(data.is_pro || data.subscription_tier === "pro");
       setBusinessName(data.business_name || data.first_name || "Your Business");
       if (data.stripe_account_id) setInstallerStripeId(data.stripe_account_id);
-      if ((data.is_pro || data.subscription_tier === "pro") && data.pricing_config) {
+      if (data.pricing_config) {
         setInstallerPricing(data.pricing_config as InstallerPricing);
       }
     }
