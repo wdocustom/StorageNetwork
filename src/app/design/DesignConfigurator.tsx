@@ -360,7 +360,7 @@ export default function DesignConfigurator({
       if (!result.inArea) {
         // ── Network Referral Bounty: re-route to local installer ──────
         // Instead of blocking, find a local Pro and hand off the lead.
-        // The original installer becomes the referrer and earns a $15 bounty.
+        // The original installer becomes the referrer and earns 30% of the deposit.
         const localResult = await rerouteToLocalInstaller(zipToCheck.trim(), validationTargetId);
         if (localResult.available && localResult.installer_id) {
           // Hand off: swap to local installer, track original as referrer

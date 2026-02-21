@@ -15,11 +15,11 @@ import {
 // Types
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BOUNTY_PER_JOB = 15;
-
 interface ReferralItem {
   id: string;
   bounty_status: string;
+  bounty_amount: number | null;
+  deposit_amount: number | null;
   address_city: string | null;
   address_state: string | null;
   address_zip: string | null;
@@ -33,6 +33,15 @@ interface ReferralItem {
     city: string | null;
     state: string | null;
   } | null;
+}
+
+/** Estimate the bounty for a pending referral: 30% of deposit, min $15 */
+function estimateBounty(ref: ReferralItem): number {
+  if (ref.bounty_status === "paid" && typeof ref.bounty_amount === "number") {
+    return ref.bounty_amount;
+  }
+  const deposit = ref.deposit_amount ?? (ref.estimated_price ? ref.estimated_price * 0.15 : 0);
+  return Math.max(Math.round(deposit * 0.30 * 100) / 100, 15);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -56,7 +65,7 @@ export default function ReferralsPage() {
     const { data } = await supabase
       .from("leads")
       .select(
-        "id, bounty_status, address_city, address_state, address_zip, estimated_price, created_at, deposit_paid, installer_id"
+        "id, bounty_status, bounty_amount, deposit_amount, address_city, address_state, address_zip, estimated_price, created_at, deposit_paid, installer_id"
       )
       .eq("referring_installer_id", user.id)
       .order("created_at", { ascending: false });
@@ -92,9 +101,12 @@ export default function ReferralsPage() {
     fetchReferrals();
   }, [fetchReferrals]);
 
-  const paidCount = referrals.filter((r) => r.bounty_status === "paid").length;
+  const paidReferrals = referrals.filter((r) => r.bounty_status === "paid");
   const pendingCount = referrals.filter((r) => r.bounty_status === "pending").length;
-  const totalEarnings = paidCount * BOUNTY_PER_JOB;
+  const totalEarnings = paidReferrals.reduce(
+    (sum, r) => sum + (typeof r.bounty_amount === "number" ? r.bounty_amount : 15),
+    0
+  );
 
   if (loading) {
     return (
@@ -132,7 +144,7 @@ export default function ReferralsPage() {
           <div className="rounded-xl border border-yellow-400/20 bg-slate-900 p-3 text-center">
             <DollarSign className="mx-auto mb-1 h-4 w-4 text-yellow-400" />
             <p className="text-lg font-black text-yellow-400">
-              ${totalEarnings.toLocaleString()}
+              ${Math.round(totalEarnings * 100 / 100).toLocaleString()}
             </p>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
               Earned
@@ -140,7 +152,7 @@ export default function ReferralsPage() {
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
             <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-emerald-400" />
-            <p className="text-lg font-black text-white">{paidCount}</p>
+            <p className="text-lg font-black text-white">{paidReferrals.length}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
               Paid
             </p>
@@ -183,7 +195,7 @@ export default function ReferralsPage() {
                 3
               </div>
               <p className="text-xs leading-relaxed text-stone-400">
-                <span className="text-stone-200">They book and pay a deposit</span> — the local installer handles the job. You automatically receive a <span className="font-semibold text-yellow-400">${BOUNTY_PER_JOB} bounty</span> deposited directly to your Stripe account.
+                <span className="text-stone-200">They book and pay a deposit</span> — the local installer handles the job. You automatically receive <span className="font-semibold text-yellow-400">30% of the deposit</span> (min $15) deposited directly to your Stripe account.
               </p>
             </div>
           </div>
@@ -207,70 +219,73 @@ export default function ReferralsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {referrals.map((ref) => (
-              <div
-                key={ref.id}
-                className="rounded-xl border border-slate-800 bg-slate-900 p-4"
-              >
-                <div className="flex items-start justify-between">
-                  {/* Location & installer info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5 shrink-0 text-stone-500" />
-                      <p className="text-sm font-semibold text-white">
-                        {[ref.address_city, ref.address_state]
-                          .filter(Boolean)
-                          .join(", ") ||
-                          (ref.address_zip
-                            ? `ZIP ${ref.address_zip}`
-                            : "Location pending")}
+            {referrals.map((ref) => {
+              const bountyAmt = estimateBounty(ref);
+              return (
+                <div
+                  key={ref.id}
+                  className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+                >
+                  <div className="flex items-start justify-between">
+                    {/* Location & installer info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                        <p className="text-sm font-semibold text-white">
+                          {[ref.address_city, ref.address_state]
+                            .filter(Boolean)
+                            .join(", ") ||
+                            (ref.address_zip
+                              ? `ZIP ${ref.address_zip}`
+                              : "Location pending")}
+                        </p>
+                      </div>
+                      {ref.installer_profile && (
+                        <p className="mt-1 ml-5.5 text-xs text-stone-500">
+                          Handled by{" "}
+                          <span className="text-stone-400">
+                            {ref.installer_profile.business_name ||
+                              [ref.installer_profile.city, ref.installer_profile.state]
+                                .filter(Boolean)
+                                .join(", ") ||
+                              "Local installer"}
+                          </span>
+                        </p>
+                      )}
+                      <p className="mt-1 ml-5.5 text-[10px] text-stone-600">
+                        {new Date(ref.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                        {ref.estimated_price
+                          ? ` · $${ref.estimated_price.toLocaleString()} job`
+                          : ""}
                       </p>
                     </div>
-                    {ref.installer_profile && (
-                      <p className="mt-1 ml-5.5 text-xs text-stone-500">
-                        Handled by{" "}
-                        <span className="text-stone-400">
-                          {ref.installer_profile.business_name ||
-                            [ref.installer_profile.city, ref.installer_profile.state]
-                              .filter(Boolean)
-                              .join(", ") ||
-                            "Local installer"}
-                        </span>
-                      </p>
-                    )}
-                    <p className="mt-1 ml-5.5 text-[10px] text-stone-600">
-                      {new Date(ref.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      {ref.estimated_price
-                        ? ` · $${ref.estimated_price.toLocaleString()} job`
-                        : ""}
-                    </p>
-                  </div>
 
-                  {/* Bounty status badge */}
-                  <div className="shrink-0 ml-3">
-                    {ref.bounty_status === "paid" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        +${BOUNTY_PER_JOB}
-                      </span>
-                    ) : ref.bounty_status === "pending" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                        <Clock className="h-3 w-3" />
-                        Pending
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                        No bounty
-                      </span>
-                    )}
+                    {/* Bounty status badge */}
+                    <div className="shrink-0 ml-3">
+                      {ref.bounty_status === "paid" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" />
+                          +${bountyAmt}
+                        </span>
+                      ) : ref.bounty_status === "pending" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          ~${bountyAmt}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                          No bounty
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

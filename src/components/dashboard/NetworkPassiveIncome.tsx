@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { DollarSign, Info, ChevronRight } from "lucide-react";
 
-const BOUNTY_PER_JOB = 15;
-
 interface NetworkPassiveIncomeProps {
   userId: string;
 }
@@ -14,6 +12,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
   const supabase = getSupabaseBrowserClient();
   const [paidCount, setPaidCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -22,7 +21,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
       const [paidRes, pendingRes] = await Promise.all([
         supabase
           .from("leads")
-          .select("id", { count: "exact", head: true })
+          .select("bounty_amount")
           .eq("referring_installer_id", userId)
           .eq("bounty_status", "paid"),
         supabase
@@ -32,7 +31,14 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
           .eq("bounty_status", "pending"),
       ]);
 
-      if (!paidRes.error && paidRes.count !== null) setPaidCount(paidRes.count);
+      if (!paidRes.error && paidRes.data) {
+        setPaidCount(paidRes.data.length);
+        const sum = paidRes.data.reduce(
+          (acc, row) => acc + (typeof row.bounty_amount === "number" ? row.bounty_amount : 15),
+          0
+        );
+        setTotalEarnings(Math.round(sum * 100) / 100);
+      }
       if (!pendingRes.error && pendingRes.count !== null) setPendingCount(pendingRes.count);
       setLoading(false);
     }
@@ -40,7 +46,6 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
     fetchBounties();
   }, [supabase, userId]);
 
-  const totalEarnings = paidCount * BOUNTY_PER_JOB;
   const hasActivity = paidCount > 0 || pendingCount > 0;
 
   return (
@@ -66,7 +71,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
           {showTooltip && (
             <div className="absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-800 p-2.5 text-left shadow-xl">
               <p className="text-[11px] leading-relaxed text-stone-300">
-                Share your link anywhere. When someone outside your area books with a local installer, you earn ${BOUNTY_PER_JOB}.
+                Share your link anywhere. When someone outside your area books with a local installer, you earn 30% of their deposit (min $15).
               </p>
               <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-700" />
             </div>
@@ -81,12 +86,12 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
             ${totalEarnings.toLocaleString()}
           </p>
           <p className="mt-0.5 text-[10px] text-stone-600">
-            {paidCount} paid{pendingCount > 0 ? ` · ${pendingCount} pending` : ""} · ${BOUNTY_PER_JOB} each
+            {paidCount} paid{pendingCount > 0 ? ` · ${pendingCount} pending` : ""} · 30% of deposit
           </p>
         </>
       ) : (
         <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
-          Earn ${BOUNTY_PER_JOB} every time someone outside your area uses your link and books with a local installer.
+          Earn 30% of the deposit every time someone outside your area uses your link and books with a local installer.
         </p>
       )}
       <div className="mt-2 flex items-center justify-center gap-1 text-[10px] font-semibold text-stone-600 transition-colors group-hover:text-yellow-400">

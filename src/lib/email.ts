@@ -86,7 +86,7 @@ export async function sendTransactionalEmail(
 // Master Email Template — Brand-consistent shell with logo
 // ═══════════════════════════════════════════════════════════════════════════
 
-function emailShell(title: string, body: string): string {
+export function emailShell(title: string, body: string): string {
   const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
 
   return `
@@ -905,10 +905,15 @@ export async function sendReferralHandoffEmail(
     customerState?: string | null;
     customerZip?: string | null;
     localInstallerName?: string | null;
+    estimatedBounty?: number | null;
   }
 ): Promise<SendEmailResult> {
   const location = [data.customerCity, data.customerState].filter(Boolean).join(", ")
     || (data.customerZip ? `ZIP ${data.customerZip}` : "another area");
+
+  const bountyDisplay = data.estimatedBounty
+    ? `$${data.estimatedBounty.toFixed(2)}`
+    : "30% of deposit";
 
   const html = emailShell(
     "New Network Referral",
@@ -932,9 +937,9 @@ export async function sendReferralHandoffEmail(
     ` : ""}
 
     <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Network Bounty</p>
-      <p style="margin:0;color:#f59e0b;font-size:28px;font-weight:900;">$15.00</p>
-      <p style="margin:6px 0 0;color:#94a3b8;font-size:12px;">You'll earn this when the customer books and pays their deposit.</p>
+      <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Estimated Network Bounty</p>
+      <p style="margin:0;color:#f59e0b;font-size:28px;font-weight:900;">${bountyDisplay}</p>
+      <p style="margin:6px 0 0;color:#94a3b8;font-size:12px;">You earn 30% of the deposit when the customer books (min $15).</p>
     </div>
 
     <div style="text-align:center;margin-bottom:28px;">
@@ -944,7 +949,7 @@ export async function sendReferralHandoffEmail(
     </div>
 
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Keep sharing your link &mdash; every out-of-area booking earns you $15.
+      Keep sharing your link &mdash; you earn 30% of the deposit on every out-of-area booking.
     </p>
     `
   );
@@ -959,8 +964,9 @@ export async function sendReferralHandoffEmail(
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Template: Bounty Paid Notification
-// Trigger: The $15 bounty was transferred to the referring installer's
-// Stripe account after the customer's deposit was captured.
+// Trigger: The bounty (30% of deposit, min $15) was transferred to the
+// referring installer's Stripe account after the customer's deposit was
+// captured.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function sendBountyPaidEmail(
@@ -1001,7 +1007,7 @@ export async function sendBountyPaidEmail(
     </div>
 
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Keep sharing your link &mdash; every out-of-area booking earns you $15.
+      Keep sharing your link &mdash; you earn 30% of the deposit on every out-of-area booking.
     </p>
     `
   );

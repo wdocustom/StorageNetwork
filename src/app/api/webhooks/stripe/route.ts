@@ -31,21 +31,23 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Network Referral Bounty — $15 payout to referring installer
+// Network Referral Bounty — 30% of deposit (min $15) to referring installer
 //
 // When a deposit is captured on a lead that has a referring_installer_id
-// and bounty_status === 'pending', we transfer $15 to the referrer's
-// Stripe Connect account and mark the bounty as paid.
+// and bounty_status === 'pending', we calculate 30% of the deposit amount
+// (with a $15 floor), transfer it to the referrer's Stripe Connect
+// account, and mark the bounty as paid.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BOUNTY_AMOUNT_CENTS = 1500; // $15.00 USD
+const BOUNTY_RATE = 0.30;        // 30% of deposit
+const BOUNTY_FLOOR_CENTS = 1500; // $15.00 minimum
 
 async function processReferralBounty(leadId: string, paymentIntentId: string) {
   try {
     // 1. Check if this lead has a pending referral bounty
     const { data: lead, error: leadErr } = await supabase
       .from("leads")
-      .select("referring_installer_id, bounty_status, address_city, address_state")
+      .select("referring_installer_id, bounty_status, address_city, address_state, deposit_amount")
       .eq("id", leadId)
       .single();
 
@@ -53,7 +55,14 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
       return; // No bounty to process
     }
 
-    // 2. Fetch the referring installer's Stripe account + email for notification
+    // 2. Calculate bounty: 30% of deposit, minimum $15
+    const depositCents = Math.round((lead.deposit_amount || 0) * 100);
+    const calculatedBountyCents = Math.round(depositCents * BOUNTY_RATE);
+    const bountyAmountCents = Math.max(calculatedBountyCents, BOUNTY_FLOOR_CENTS);
+
+    console.log(`[Bounty] Deposit: $${(depositCents / 100).toFixed(2)} → 30% = $${(calculatedBountyCents / 100).toFixed(2)} → Final: $${(bountyAmountCents / 100).toFixed(2)}`);
+
+    // 3. Fetch the referring installer's Stripe account + email for notification
     const { data: referrer, error: refErr } = await supabase
       .from("profiles")
       .select("stripe_account_id, email, business_name, first_name")
@@ -65,27 +74,31 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
       return;
     }
 
-    // 3. Execute the Stripe Transfer
+    // 4. Execute the Stripe Transfer
     if (!stripe) return;
     const transfer = await stripe.transfers.create({
-      amount: BOUNTY_AMOUNT_CENTS,
+      amount: bountyAmountCents,
       currency: "usd",
       destination: referrer.stripe_account_id,
       transfer_group: paymentIntentId,
-      description: `Network Referral Bounty — Lead ${leadId.slice(0, 8)}`,
+      description: `Network Referral Bounty (30% of deposit) — Lead ${leadId.slice(0, 8)}`,
     });
 
-    console.log("[Bounty] Transfer created:", transfer.id, "→", referrer.stripe_account_id);
+    console.log("[Bounty] Transfer created:", transfer.id, "→", referrer.stripe_account_id, `| $${(bountyAmountCents / 100).toFixed(2)}`);
 
-    // 4. Mark bounty as paid
+    // 5. Mark bounty as paid + record actual amount
     await supabase
       .from("leads")
-      .update({ bounty_status: "paid", updated_at: new Date().toISOString() })
+      .update({
+        bounty_status: "paid",
+        bounty_amount: bountyAmountCents / 100,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", leadId);
 
-    console.log("[Bounty] Bounty paid for lead:", leadId);
+    console.log("[Bounty] Bounty paid for lead:", leadId, `| $${(bountyAmountCents / 100).toFixed(2)}`);
 
-    // 5. Send bounty-paid email to the referring installer (non-blocking)
+    // 6. Send bounty-paid email to the referring installer (non-blocking)
     if (referrer.email) {
       try {
         const { sendBountyPaidEmail } = await import("@/lib/email");
@@ -93,7 +106,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
           referrerName: referrer.business_name || referrer.first_name || "Installer",
           customerCity: lead.address_city || null,
           customerState: lead.address_state || null,
-          amount: BOUNTY_AMOUNT_CENTS / 100,
+          amount: bountyAmountCents / 100,
         });
       } catch (emailErr) {
         console.error("[Bounty] Paid email failed (non-fatal):", emailErr);

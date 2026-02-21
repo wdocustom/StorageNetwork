@@ -216,6 +216,10 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               localInstallerName = localInstaller?.business_name || null;
             }
 
+            // Estimate the bounty: 30% of 15% deposit, min $15
+            const depositAmt = Math.round(input.grand_total * 0.15 * 100) / 100;
+            const estimatedBounty = Math.max(Math.round(depositAmt * 0.30 * 100) / 100, 15);
+
             const { sendReferralHandoffEmail } = await import("@/lib/email");
             await sendReferralHandoffEmail(referrer.email, {
               referrerName: referrer.business_name || referrer.first_name || "Installer",
@@ -223,6 +227,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               customerState: input.address_state || null,
               customerZip: input.address_zip || null,
               localInstallerName,
+              estimatedBounty,
             });
           }
         } catch (emailErr) {

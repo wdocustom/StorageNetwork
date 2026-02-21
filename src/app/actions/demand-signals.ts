@@ -203,7 +203,8 @@ export async function activateDemandSignals(
   // Send activation emails to waitlisted customers
   let notifiedCount = 0;
   try {
-    const { sendTransactionalEmail } = await import("@/lib/email");
+    const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
+    const { getAppUrl } = await import("@/lib/url-helper");
 
     for (const signal of waitlistSignals) {
       if (!signal.customer_email) continue;
@@ -218,51 +219,101 @@ export async function activateDemandSignals(
         if (signal.source_installer_id) {
           linkParams.set("ref_installer", signal.source_installer_id);
         }
-        const designUrl = `https://www.storage-network.app/design?${linkParams.toString()}`;
+        const designUrl = `${getAppUrl()}/design?${linkParams.toString()}`;
 
         // Summarize their saved build for the email (if they had one)
         const quoteItems = Array.isArray(signal.quote_data) ? signal.quote_data : [];
-        const buildSummaryHtml = quoteItems.length > 0
+        const hasSavedBuild = quoteItems.length > 0;
+        const totalPrice = quoteItems.reduce((sum: number, u: Record<string, unknown>) =>
+          sum + (typeof u.price === "number" ? u.price : 0), 0);
+        const depositAmount = Math.round(totalPrice * 0.15 * 100) / 100;
+        const firstName = (signal.customer_name || "").split(" ")[0] || "there";
+
+        const buildSummaryHtml = hasSavedBuild
           ? `
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-              <p style="margin: 0 0 8px; color: #1a1a1a; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Your Saved Build</p>
-              ${quoteItems.map((u: Record<string, unknown>, i: number) => `
-                <p style="margin: 0; color: #666; font-size: 13px; line-height: 1.8;">
-                  Unit ${i + 1}: ${u.desc || `${u.cols}×${u.rows}`}${u.price ? ` — $${Number(u.price).toLocaleString()}` : ""}
-                </p>
-              `).join("")}
+            <div style="background:#fffbeb;border:2px solid #fde68a;border-radius:12px;padding:20px;margin-bottom:24px;">
+              <p style="margin:0 0 12px;color:#92400e;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#9989; Your Saved Build — Ready to Go</p>
+              <table style="width:100%;border-collapse:collapse;">
+                ${quoteItems.map((u: Record<string, unknown>, i: number) => `
+                  <tr>
+                    <td style="padding:6px 0;color:#334155;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
+                    <td style="padding:6px 0;color:#1e293b;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+                  </tr>
+                `).join("")}
+                ${totalPrice > 0 ? `
+                  <tr style="border-top:2px solid #fde68a;">
+                    <td style="padding:10px 0 4px;color:#64748b;font-size:13px;">Total Estimate</td>
+                    <td style="padding:10px 0 4px;color:#1e293b;font-size:18px;font-weight:800;text-align:right;">$${totalPrice.toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:2px 0;color:#64748b;font-size:12px;">Deposit to Reserve (15%)</td>
+                    <td style="padding:2px 0;color:#f59e0b;font-size:14px;font-weight:700;text-align:right;">$${depositAmount.toLocaleString()}</td>
+                  </tr>
+                ` : ""}
+              </table>
             </div>
           `
           : "";
 
-        const ctaText = quoteItems.length > 0
-          ? "Continue With Your Build →"
-          : "Design Your Storage System →";
+        const ctaText = hasSavedBuild
+          ? "Complete My Order &rarr;"
+          : "Design My Storage System &rarr;";
 
-        const emailHtml = `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #1a1a1a; margin-bottom: 8px;">Great News!</h2>
-            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-              Hi ${signal.customer_name || "there"}, a Storage Network installer is now available in your area (ZIP ${signal.zip}).
-            </p>
-            <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
-              <strong>${installerName}</strong> is ready to build your custom tote storage system.
-            </p>
-            ${buildSummaryHtml}
-            <a href="${designUrl}"
-               style="display: block; background: #facc15; color: #1a1a1a; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 15px;">
+        const subjectLine = hasSavedBuild
+          ? `${firstName}, your storage build is ready — an installer just joined your area!`
+          : `Great news, ${firstName}! An installer is now available in your area`;
+
+        const emailHtml = emailShell(
+          "Your Wait Is Over!",
+          `
+          <!-- Celebration Icon -->
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="display:inline-block;background:#d1fae5;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
+              &#127881;
+            </div>
+          </div>
+
+          <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hi ${firstName},</p>
+
+          <p style="margin:0 0 16px;color:#334155;font-size:16px;line-height:1.7;">
+            <strong>Great news!</strong> A professional installer has just become available in your area (ZIP ${signal.zip}).
+          </p>
+
+          <p style="margin:0 0 24px;color:#64748b;font-size:15px;line-height:1.7;">
+            <strong style="color:#1e293b;">${installerName}</strong> is a verified Storage Network partner installer and is ready to build your custom tote storage system.
+            ${hasSavedBuild ? " Your original configuration is saved and ready to go — just pick up right where you left off." : ""}
+          </p>
+
+          ${buildSummaryHtml}
+
+          <!-- CTA Button -->
+          <div style="text-align:center;margin-bottom:24px;">
+            <a href="${designUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(250,204,21,0.3);">
               ${ctaText}
             </a>
-            <p style="color: #aaa; font-size: 11px; text-align: center; margin-top: 16px;">
-              You're receiving this because you joined the waitlist at storage-network.app.
-            </p>
           </div>
-        `;
+
+          <!-- Trust Signals -->
+          <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:12px;padding:16px;margin-bottom:24px;">
+            <table style="width:100%;font-size:12px;color:#64748b;">
+              <tr>
+                <td style="padding:6px 4px;text-align:center;width:33%;">&#128274; Secure Checkout</td>
+                <td style="padding:6px 4px;text-align:center;width:33%;">&#128176; Only 15% Deposit</td>
+                <td style="padding:6px 4px;text-align:center;width:33%;">&#9989; Pro-Installed</td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+            You're receiving this because you joined the waitlist at storage-network.app.
+          </p>
+          `
+        );
 
         await sendTransactionalEmail({
           to: signal.customer_email,
           toName: signal.customer_name || undefined,
-          subject: `An installer is now available in your area (ZIP ${signal.zip})`,
+          subject: subjectLine,
           html: emailHtml,
         });
 
