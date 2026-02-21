@@ -294,8 +294,11 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   const { error } = await supabase
     .from("leads")
     .update({
+      status: "paid",           // triggers fn_increment_job_score
       deposit_paid: true,
       payout_status: "paid",
+      paid_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", leadId);

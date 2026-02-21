@@ -11,6 +11,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface DiscountCode {
+  id: string;
+  installer_id: string;
+  code: string;
+  discount_type: "percent" | "fixed" | "percentage";
+  discount_value: number;
+  max_uses: number | null;
+  used_count: number;
+  current_uses: number;
+  active: boolean;
+  expires_at: string | null;
+  min_order: number | null;
+  max_discount: number | null;
+  created_at: string;
+}
+
 export interface DiscountValidationResult {
   valid: boolean;
   discountAmount: number;       // Resolved dollar amount to deduct
@@ -53,7 +73,7 @@ export async function validateDiscountCode(
   }
 
   // Check usage limit
-  if (data.max_uses !== null && data.used_count >= data.max_uses) {
+  if (data.max_uses !== null && (data.used_count || data.current_uses || 0) >= data.max_uses) {
     return { valid: false, discountAmount: 0, error: "This code has reached its usage limit." };
   }
 
@@ -68,7 +88,7 @@ export async function validateDiscountCode(
 
   // Calculate discount amount
   let discountAmount: number;
-  if (data.discount_type === "percentage") {
+  if (data.discount_type === "percentage" || data.discount_type === "percent") {
     discountAmount = Math.round(orderTotal * (Number(data.discount_value) / 100) * 100) / 100;
     // Apply cap if set
     if (data.max_discount && discountAmount > Number(data.max_discount)) {
@@ -103,7 +123,7 @@ export async function incrementDiscountCodeUsage(
   // Fetch current count, then increment
   const { data } = await supabase
     .from("discount_codes")
-    .select("id, used_count")
+    .select("id, used_count, current_uses")
     .eq("installer_id", installerId)
     .ilike("code", normalizedCode)
     .single();
@@ -112,9 +132,110 @@ export async function incrementDiscountCodeUsage(
     await supabase
       .from("discount_codes")
       .update({
-        used_count: (data.used_count || 0) + 1,
+        used_count: ((data.used_count || data.current_uses || 0) as number) + 1,
+        current_uses: ((data.current_uses || data.used_count || 0) as number) + 1,
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.id);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Installer Management — CRUD for discount codes
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function getInstallerDiscountCodes(
+  installerId: string
+): Promise<{ success: boolean; codes?: DiscountCode[]; error?: string }> {
+  const { data, error } = await supabase
+    .from("discount_codes")
+    .select("*")
+    .eq("installer_id", installerId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, codes: (data || []) as DiscountCode[] };
+}
+
+export async function createDiscountCode(input: {
+  installerId: string;
+  code: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  maxUses?: number | null;
+  expiresAt?: string | null;
+}): Promise<{ success: boolean; code?: DiscountCode; error?: string }> {
+  const { installerId, code, discountType, discountValue, maxUses, expiresAt } = input;
+
+  if (!code?.trim()) {
+    return { success: false, error: "Code is required." };
+  }
+
+  if (discountValue <= 0) {
+    return { success: false, error: "Discount value must be greater than 0." };
+  }
+
+  if (discountType === "percent" && discountValue > 100) {
+    return { success: false, error: "Percentage discount cannot exceed 100%." };
+  }
+
+  const { data, error } = await supabase
+    .from("discount_codes")
+    .insert({
+      installer_id: installerId,
+      code: code.trim().toUpperCase(),
+      discount_type: discountType,
+      discount_value: discountValue,
+      max_uses: maxUses || null,
+      expires_at: expiresAt || null,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { success: false, error: "This code already exists." };
+    }
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, code: data as DiscountCode };
+}
+
+export async function toggleDiscountCode(
+  codeId: string,
+  installerId: string,
+  active: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("discount_codes")
+    .update({ active })
+    .eq("id", codeId)
+    .eq("installer_id", installerId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function deleteDiscountCode(
+  codeId: string,
+  installerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("discount_codes")
+    .delete()
+    .eq("id", codeId)
+    .eq("installer_id", installerId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

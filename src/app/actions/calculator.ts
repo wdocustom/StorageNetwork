@@ -443,22 +443,23 @@ export async function calculateCompoundBuild(input: {
     totalSlots += result.config.slots;
   }
 
-  // Pricing: fixed presets use basePrice/withTotesPrice,
-  // dynamic presets calculate tote add-on from the normal pricing engine
+  // Pricing: when installer has custom pricing, always use the dynamically
+  // calculated sub-unit prices so presets reflect the installer's rates.
+  // Otherwise fall back to the preset's fixed marketing prices.
   let totalPrice: number;
-  if (!input.hasTotes) {
+  if (input.installerPricing) {
+    // Custom pricing: sum of sub-unit prices (already calculated with overrides)
+    totalPrice = subUnits.reduce((sum, su) => sum + su.price, 0);
+  } else if (!input.hasTotes) {
     totalPrice = preset.basePrice;
   } else if (preset.dynamicTotePricing) {
-    const ip = input.installerPricing;
-    let totePricePerUnit: number;
-    if (preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard") {
-      totePricePerUnit = ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE;
-    } else if (preset.unitType === "mini") {
-      totePricePerUnit = ip?.mini_tote ?? MINI_CONFIG.pricePerTote;
-    } else {
-      totePricePerUnit = ip?.standard_tote ?? STANDARD_CONFIG.pricePerTote;
-    }
-    totalPrice = preset.basePrice + totalSlots * totePricePerUnit;
+    totalPrice = preset.basePrice + totalSlots * (
+      preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard"
+        ? STANDARD_TOTE_CLEAR_PRICE
+        : preset.unitType === "mini"
+          ? MINI_CONFIG.pricePerTote
+          : STANDARD_CONFIG.pricePerTote
+    );
   } else {
     totalPrice = preset.withTotesPrice;
   }

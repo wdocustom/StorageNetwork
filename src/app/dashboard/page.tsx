@@ -24,6 +24,8 @@ import {
   Megaphone,
   CalendarOff,
   BarChart3,
+  Users,
+  Zap,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
 import { getInstallerLink } from "@/lib/utils";
@@ -98,6 +100,21 @@ export default function DashboardPage() {
         .eq("installer_id", user.id)
         .in("payout_status", ["paid"]),
     ]);
+
+    if (profileRes.error) {
+      console.error("[Dashboard] Profile query failed:", profileRes.error.message, profileRes.error.code);
+      // Retry once after refreshing session
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (!refreshErr) {
+        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
+        if (retry.data) {
+          console.log("[Dashboard] Retry succeeded after session refresh");
+          setProfile(retry.data as Profile);
+        } else if (retry.error) {
+          console.error("[Dashboard] Retry also failed:", retry.error.message);
+        }
+      }
+    }
 
     if (profileRes.data) setProfile(profileRes.data as Profile);
     if (leadsRes.count !== null) setNewLeadCount(leadsRes.count);
@@ -380,6 +397,38 @@ export default function DashboardPage() {
               <p className="text-sm text-stone-500">Your link & social tools</p>
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
+          </a>
+
+          {/* PRO COMMUNITY Tile */}
+          <a
+            href={tier === "pro" ? "/community" : "/community/upgrade"}
+            className={`group relative flex items-center gap-5 rounded-2xl border p-6 transition-all active:scale-[0.98] ${
+              tier === "pro"
+                ? "border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 hover:border-yellow-400/50 hover:from-yellow-500/10"
+                : "border-slate-800 bg-slate-900 hover:border-yellow-400/30 hover:bg-slate-800"
+            }`}
+          >
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
+              <Users className="h-8 w-8" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white">Community</h2>
+                <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-yellow-400">
+                  PRO
+                </span>
+              </div>
+              <p className="text-sm text-stone-500">
+                {tier === "pro"
+                  ? "Discuss, share builds & get advice"
+                  : "Upgrade to join the Pro community"}
+              </p>
+            </div>
+            {tier === "pro" ? (
+              <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
+            ) : (
+              <Zap className="h-5 w-5 text-yellow-400/50" />
+            )}
           </a>
 
           {/* ANALYTICS Tile */}

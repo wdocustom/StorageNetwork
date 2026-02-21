@@ -657,7 +657,7 @@ export default function BuildConfiguratorPage() {
                   className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
                 >
                   <FileText className="h-4 w-4" />
-                  Quote
+                  Send Quote
                 </button>
                 <button
                   onClick={() => setShowAssemblyGuide(true)}

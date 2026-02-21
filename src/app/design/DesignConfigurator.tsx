@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   checkAvailability,
+  getInstallerById,
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
@@ -121,7 +122,19 @@ export default function DesignConfigurator({
     } else {
       // No installer from server — check cookie fallback
       const cookieId = getInstallerCookie();
-      if (cookieId) setInstallerId(cookieId);
+      if (cookieId) {
+        setInstallerId(cookieId);
+        // Also fetch installer data so pricing overrides are loaded
+        getInstallerById(cookieId).then((res) => {
+          if (res.available) {
+            const vm = mapAvailabilityToViewModel(res);
+            if (vm) {
+              setData(vm);
+              setInstallerId(vm.routing.installerId);
+            }
+          }
+        }).catch(() => {});
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
