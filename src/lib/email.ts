@@ -889,3 +889,127 @@ export async function sendAbandonedCartEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Referral Handoff Notification
+// Trigger: A customer used Installer A's link but was out-of-area, and
+// the system handed the lead off to a local installer. Installer A gets
+// this email so they know a referral was created.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendReferralHandoffEmail(
+  email: string,
+  data: {
+    referrerName: string;
+    customerCity?: string | null;
+    customerState?: string | null;
+    customerZip?: string | null;
+    localInstallerName?: string | null;
+  }
+): Promise<SendEmailResult> {
+  const location = [data.customerCity, data.customerState].filter(Boolean).join(", ")
+    || (data.customerZip ? `ZIP ${data.customerZip}` : "another area");
+
+  const html = emailShell(
+    "New Network Referral",
+    `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:#fef3c7;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#128279;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.referrerName},</p>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      Your link just generated a referral! A customer in <strong>${location}</strong> used your configurator link, but the installation address is outside your service area.
+    </p>
+
+    ${data.localInstallerName ? `
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      We've connected them with <strong>${data.localInstallerName}</strong>, a partner installer in their area.
+    </p>
+    ` : ""}
+
+    <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Network Bounty</p>
+      <p style="margin:0;color:#f59e0b;font-size:28px;font-weight:900;">$15.00</p>
+      <p style="margin:6px 0 0;color:#94a3b8;font-size:12px;">You'll earn this when the customer books and pays their deposit.</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="${getAppUrl()}/dashboard/referrals" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View My Referrals
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Keep sharing your link &mdash; every out-of-area booking earns you $15.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.referrerName,
+    subject: `Your link generated a referral in ${location}`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Bounty Paid Notification
+// Trigger: The $15 bounty was transferred to the referring installer's
+// Stripe account after the customer's deposit was captured.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendBountyPaidEmail(
+  email: string,
+  data: {
+    referrerName: string;
+    customerCity?: string | null;
+    customerState?: string | null;
+    amount: number;
+  }
+): Promise<SendEmailResult> {
+  const location = [data.customerCity, data.customerState].filter(Boolean).join(", ") || "a referred customer";
+
+  const html = emailShell(
+    "Bounty Paid!",
+    `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;background:#d1fae5;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#128176;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#334155;font-size:16px;">Hey ${data.referrerName},</p>
+
+    <p style="margin:0 0 20px;color:#64748b;font-size:15px;line-height:1.7;">
+      Great news! A customer from <strong>${location}</strong> just booked through your referral. Your network bounty has been deposited.
+    </p>
+
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#16a34a;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Deposited to Your Stripe Account</p>
+      <p style="margin:0;color:#15803d;font-size:36px;font-weight:900;">$${data.amount.toFixed(2)}</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:28px;">
+      <a href="${getAppUrl()}/dashboard/referrals" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View My Referrals
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Keep sharing your link &mdash; every out-of-area booking earns you $15.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.referrerName,
+    subject: `$${data.amount.toFixed(2)} bounty deposited — referral from ${location}`,
+    html,
+  });
+}

@@ -194,6 +194,43 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     // NOTE: New booking alert email is sent from the Stripe webhook AFTER deposit is paid.
     // This prevents double-emailing the installer (one at lead creation, one at payment).
 
+    // Network Referral Bounty: notify the referring installer about the handoff
+    if (input.referring_installer_id) {
+      (async () => {
+        try {
+          const { data: referrer } = await supabase
+            .from("profiles")
+            .select("email, business_name, first_name")
+            .eq("id", input.referring_installer_id!)
+            .single();
+
+          if (referrer?.email) {
+            // Fetch the local installer name for the email
+            let localInstallerName: string | null = null;
+            if (input.installer_id) {
+              const { data: localInstaller } = await supabase
+                .from("profiles")
+                .select("business_name")
+                .eq("id", input.installer_id)
+                .single();
+              localInstallerName = localInstaller?.business_name || null;
+            }
+
+            const { sendReferralHandoffEmail } = await import("@/lib/email");
+            await sendReferralHandoffEmail(referrer.email, {
+              referrerName: referrer.business_name || referrer.first_name || "Installer",
+              customerCity: input.address_city || null,
+              customerState: input.address_state || null,
+              customerZip: input.address_zip || null,
+              localInstallerName,
+            });
+          }
+        } catch (emailErr) {
+          console.error("[Referral] Handoff email failed (non-fatal):", emailErr);
+        }
+      })();
+    }
+
     // 4. CRITICAL: Return only plain JSON — no Date objects, no DB rows
     return { success: true, id: leadId };
 

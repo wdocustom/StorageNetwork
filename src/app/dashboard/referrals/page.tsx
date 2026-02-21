@@ -1,0 +1,243 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import {
+  ArrowLeft,
+  DollarSign,
+  Loader2,
+  CheckCircle2,
+  Clock,
+  MapPin,
+} from "lucide-react";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BOUNTY_PER_JOB = 15;
+
+interface ReferralItem {
+  id: string;
+  bounty_status: string;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
+  estimated_price: number | null;
+  created_at: string;
+  deposit_paid: boolean;
+  // The installer who received the job
+  installer_id: string | null;
+  installer_profile?: {
+    business_name: string | null;
+    city: string | null;
+    state: string | null;
+  } | null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Referrals Page — Shows all leads this installer referred
+// ═══════════════════════════════════════════════════════════════════════════
+
+export default function ReferralsPage() {
+  const supabase = getSupabaseBrowserClient();
+  const [referrals, setReferrals] = useState<ReferralItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchReferrals = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const { data } = await supabase
+      .from("leads")
+      .select(
+        "id, bounty_status, address_city, address_state, address_zip, estimated_price, created_at, deposit_paid, installer_id"
+      )
+      .eq("referring_installer_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (data && data.length > 0) {
+      // Fetch installer profiles for each referral
+      const installerIds = Array.from(new Set(data.map((r) => r.installer_id).filter(Boolean))) as string[];
+      let profileMap: Record<string, { business_name: string | null; city: string | null; state: string | null }> = {};
+
+      if (installerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, business_name, city, state")
+          .in("id", installerIds);
+
+        if (profiles) {
+          profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
+        }
+      }
+
+      const enriched = data.map((r) => ({
+        ...r,
+        installer_profile: r.installer_id ? profileMap[r.installer_id] || null : null,
+      }));
+
+      setReferrals(enriched as ReferralItem[]);
+    }
+
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchReferrals();
+  }, [fetchReferrals]);
+
+  const paidCount = referrals.filter((r) => r.bounty_status === "paid").length;
+  const pendingCount = referrals.filter((r) => r.bounty_status === "pending").length;
+  const totalEarnings = paidCount * BOUNTY_PER_JOB;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          <a
+            href="/dashboard"
+            className="flex items-center gap-1 text-sm text-stone-400 hover:text-yellow-400"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </a>
+          <div className="flex-1">
+            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
+              Network Referrals
+            </h1>
+            <p className="text-[10px] text-stone-500">
+              {referrals.length} total referral{referrals.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Summary Stats ──────────────────────────────────────────── */}
+      <div className="border-b border-slate-800 bg-slate-900/50 px-4 py-4">
+        <div className="mx-auto grid max-w-2xl grid-cols-3 gap-3">
+          <div className="rounded-xl border border-yellow-400/20 bg-slate-900 p-3 text-center">
+            <DollarSign className="mx-auto mb-1 h-4 w-4 text-yellow-400" />
+            <p className="text-lg font-black text-yellow-400">
+              ${totalEarnings.toLocaleString()}
+            </p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
+              Earned
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+            <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-emerald-400" />
+            <p className="text-lg font-black text-white">{paidCount}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
+              Paid
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+            <Clock className="mx-auto mb-1 h-4 w-4 text-amber-400" />
+            <p className="text-lg font-black text-white">{pendingCount}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
+              Pending
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Referral List ──────────────────────────────────────────── */}
+      <main className="mx-auto max-w-2xl px-4 py-4">
+        {referrals.length === 0 ? (
+          <div className="py-16 text-center">
+            <DollarSign className="mx-auto mb-3 h-10 w-10 text-stone-700" />
+            <p className="text-sm font-semibold text-stone-400">
+              No referrals yet
+            </p>
+            <p className="mt-1 text-xs text-stone-600">
+              When a customer uses your link but is outside your service area,
+              they&apos;ll be connected with a local installer and you&apos;ll
+              earn ${BOUNTY_PER_JOB} per booked job.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {referrals.map((ref) => (
+              <div
+                key={ref.id}
+                className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+              >
+                <div className="flex items-start justify-between">
+                  {/* Location & installer info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 text-stone-500" />
+                      <p className="text-sm font-semibold text-white">
+                        {[ref.address_city, ref.address_state]
+                          .filter(Boolean)
+                          .join(", ") ||
+                          (ref.address_zip
+                            ? `ZIP ${ref.address_zip}`
+                            : "Location pending")}
+                      </p>
+                    </div>
+                    {ref.installer_profile && (
+                      <p className="mt-1 ml-5.5 text-xs text-stone-500">
+                        Handled by{" "}
+                        <span className="text-stone-400">
+                          {ref.installer_profile.business_name ||
+                            [ref.installer_profile.city, ref.installer_profile.state]
+                              .filter(Boolean)
+                              .join(", ") ||
+                            "Local installer"}
+                        </span>
+                      </p>
+                    )}
+                    <p className="mt-1 ml-5.5 text-[10px] text-stone-600">
+                      {new Date(ref.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                      {ref.estimated_price
+                        ? ` · $${ref.estimated_price.toLocaleString()} job`
+                        : ""}
+                    </p>
+                  </div>
+
+                  {/* Bounty status badge */}
+                  <div className="shrink-0 ml-3">
+                    {ref.bounty_status === "paid" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        +${BOUNTY_PER_JOB}
+                      </span>
+                    ) : ref.bounty_status === "pending" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                        <Clock className="h-3 w-3" />
+                        Pending
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                        No bounty
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

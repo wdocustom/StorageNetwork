@@ -45,7 +45,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     // 1. Check if this lead has a pending referral bounty
     const { data: lead, error: leadErr } = await supabase
       .from("leads")
-      .select("referring_installer_id, bounty_status")
+      .select("referring_installer_id, bounty_status, address_city, address_state")
       .eq("id", leadId)
       .single();
 
@@ -53,10 +53,10 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
       return; // No bounty to process
     }
 
-    // 2. Fetch the referring installer's Stripe account
+    // 2. Fetch the referring installer's Stripe account + email for notification
     const { data: referrer, error: refErr } = await supabase
       .from("profiles")
-      .select("stripe_account_id")
+      .select("stripe_account_id, email, business_name, first_name")
       .eq("id", lead.referring_installer_id)
       .single();
 
@@ -84,6 +84,21 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
       .eq("id", leadId);
 
     console.log("[Bounty] Bounty paid for lead:", leadId);
+
+    // 5. Send bounty-paid email to the referring installer (non-blocking)
+    if (referrer.email) {
+      try {
+        const { sendBountyPaidEmail } = await import("@/lib/email");
+        await sendBountyPaidEmail(referrer.email, {
+          referrerName: referrer.business_name || referrer.first_name || "Installer",
+          customerCity: lead.address_city || null,
+          customerState: lead.address_state || null,
+          amount: BOUNTY_AMOUNT_CENTS / 100,
+        });
+      } catch (emailErr) {
+        console.error("[Bounty] Paid email failed (non-fatal):", emailErr);
+      }
+    }
   } catch (bountyErr) {
     // Non-fatal: don't let bounty failure break the main webhook flow
     console.error("[Bounty] Transfer failed (non-fatal):", bountyErr);
