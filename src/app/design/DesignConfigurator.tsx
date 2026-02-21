@@ -283,6 +283,8 @@ export default function DesignConfigurator({
     if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
     setZipOutOfArea(false);
     setZipCheckMsg("");
+    setWaitlistSent(false);
+    setWaitlistError("");
 
     const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
     // Validate against the ORIGINAL installer (from URL), not a swapped-in one
