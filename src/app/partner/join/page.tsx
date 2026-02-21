@@ -20,6 +20,10 @@ import {
   Megaphone,
   Share2,
   Box,
+  TrendingUp,
+  Link2,
+  Wallet,
+  Globe,
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
@@ -113,7 +117,7 @@ function PartnerJoinPageInner() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── TOP: Hero — two-col on desktop ───────────────────────── */}
-      <div className="flex min-h-screen flex-col lg:flex-row">
+      <div className="relative flex min-h-screen flex-col lg:flex-row">
         {/* ── LEFT: Value Prop ──────────────────────────────────────── */}
         <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
           <div className="max-w-lg">
@@ -355,25 +359,19 @@ function PartnerJoinPageInner() {
           </div>
         </div>
       </div>
-      </div>
 
-      {/* ── Animated Scroll Arrow ──────────────────────────────────── */}
-      <div className="relative -mt-12 z-10 bg-gradient-to-b from-slate-950/0 via-slate-950 to-slate-950 pb-4 pt-16">
+        {/* ── Scroll Prompt — above the fold ─────────────────────── */}
         <button
           onClick={() => {
             const showcase = document.getElementById("platform-showcase");
             if (showcase) showcase.scrollIntoView({ behavior: "smooth" });
           }}
-          className="mx-auto flex flex-col items-center gap-2 group cursor-pointer"
+          className="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 flex items-center gap-2 group cursor-pointer rounded-full border border-yellow-400/20 bg-slate-950/80 backdrop-blur-sm px-5 py-2.5 transition-all hover:border-yellow-400/40 hover:bg-slate-900/80"
         >
-          <span className="text-xs font-bold uppercase tracking-[0.25em] text-yellow-400/90 group-hover:text-yellow-300 transition-colors">
-            See What You Get
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-yellow-400 group-hover:text-yellow-300 transition-colors">
+            Scroll for more info
           </span>
-          <div className="flex flex-col items-center animate-bounce">
-            <ChevronDown className="h-8 w-8 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" />
-            <ChevronDown className="-mt-5 h-8 w-8 text-yellow-400/60" />
-            <ChevronDown className="-mt-5 h-8 w-8 text-yellow-400/25" />
-          </div>
+          <ChevronDown className="h-4 w-4 text-yellow-400 animate-bounce" />
         </button>
       </div>
 
@@ -585,8 +583,146 @@ function PartnerJoinPageInner() {
         </div>
       </section>
 
+      {/* ══════════════════════════════════════════════════════════════════
+          PASSIVE INCOME — REFERRAL PROGRAM
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-gray-900 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute left-1/3 bottom-0">
+          <div className="h-[500px] w-[600px] rounded-full bg-yellow-400/[0.03] blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-center gap-12 lg:flex-row-reverse lg:gap-20">
+            {/* Right: Visual */}
+            <div className="lg:w-1/2">
+              <div className="relative rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-8 shadow-2xl shadow-yellow-400/5">
+                {/* Earnings preview card */}
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/15 ring-1 ring-yellow-400/30">
+                    <TrendingUp className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400/60">
+                      Passive Earnings
+                    </p>
+                    <p className="text-2xl font-black text-white">
+                      Unlimited Potential
+                    </p>
+                  </div>
+                </div>
+
+                {/* Example referral flow */}
+                <div className="space-y-3">
+                  {[
+                    {
+                      step: "1",
+                      text: "You share your unique link on social media, your website, or with friends",
+                    },
+                    {
+                      step: "2",
+                      text: "A customer in another state designs & books their project",
+                    },
+                    {
+                      step: "3",
+                      text: "A local installer builds it — you earn 30% of the deposit",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.step}
+                      className="flex items-start gap-3 rounded-lg border border-slate-700/50 bg-slate-800/50 p-3"
+                    >
+                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-gray-950">
+                        {item.step}
+                      </div>
+                      <p className="text-sm leading-relaxed text-stone-300">
+                        {item.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-3 text-center">
+                  <p className="text-xs font-bold text-emerald-400">
+                    Minimum $15 per referral — no cap on earnings
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Left: Copy */}
+            <div className="lg:w-1/2">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                Passive Income
+              </p>
+              <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+                Earn Money{" "}
+                <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                  While You Sleep.
+                </span>
+              </h2>
+              <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
+                Every installer on Storage Network gets a unique referral link.
+                Share it anywhere — nationwide, no territory limits. When a
+                customer books a project through your link, even if they&apos;re
+                across the country, you pocket 30% of the deposit automatically.
+                You don&apos;t lift a finger.
+              </p>
+
+              <div className="space-y-4">
+                {[
+                  {
+                    icon: Globe,
+                    title: "No Territory Limits",
+                    desc: "Your link works nationwide. Share it on Facebook, Instagram, your website, Nextdoor — anywhere people need storage solutions.",
+                  },
+                  {
+                    icon: Link2,
+                    title: "One Link, Endless Earnings",
+                    desc: "Every customer who books through your link earns you money. There's no cap. Refer 5 jobs or 500 — you get paid on every single one.",
+                  },
+                  {
+                    icon: Wallet,
+                    title: "Paid Directly to Your Stripe",
+                    desc: "Connect your Stripe account from your dashboard and referral payouts hit your bank automatically. No invoicing, no chasing payments.",
+                  },
+                  {
+                    icon: DollarSign,
+                    title: "30% of Every Deposit",
+                    desc: "That's real money for a link share. A $500 deposit puts $150 in your pocket. A $1,000 deposit? $300. Minimum $15 per referral, guaranteed.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3">
+                    <div className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                      <item.icon className="h-4 w-4 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-stone-500">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+                <p className="text-xs font-bold text-yellow-400">
+                  Connect Stripe after signup to start receiving payouts.
+                </p>
+                <p className="mt-1 text-[11px] text-stone-500">
+                  It takes 2 minutes from your dashboard. No Stripe account yet?
+                  We&apos;ll walk you through creating one.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Bottom CTA ───────────────────────────────────────────────── */}
-      <section className="border-t border-slate-800 bg-gray-900 px-6 py-16">
+      <section className="border-t border-slate-800 bg-slate-950 px-6 py-16">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="mb-3 text-2xl font-black uppercase text-white sm:text-3xl">
             Ready to Stop Chasing Leads?
