@@ -40,6 +40,7 @@ export interface SubmitQuoteInput {
   quote_data: QuoteUnit[];
   grand_total: number;
   installer_id?: string;
+  referring_installer_id?: string; // Network Bounty: original installer who drove the traffic
   source?: "platform" | "partner_link";
   scheduled_at?: string;
 }
@@ -173,6 +174,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
         status: "pending_payment",
         scheduled_at: input.scheduled_at || null,
+        // Network Referral Bounty: track the original installer who drove traffic
+        referring_installer_id: input.referring_installer_id || null,
+        bounty_status: input.referring_installer_id ? "pending" : "none",
         notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📍 Installation Address: ${input.delivery_address}` : ""}`,
       })
       .select("id")

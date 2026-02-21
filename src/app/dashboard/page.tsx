@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
+import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import { getInstallerLink } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -344,6 +345,9 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
+
+          {/* ── Network Passive Income ─────────────────────────────── */}
+          {profile && <NetworkPassiveIncome userId={profile.id} />}
 
           {/* JOBS / LEADS Tile */}
           <a

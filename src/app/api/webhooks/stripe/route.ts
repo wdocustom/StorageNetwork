@@ -30,6 +30,66 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Network Referral Bounty — $15 payout to referring installer
+//
+// When a deposit is captured on a lead that has a referring_installer_id
+// and bounty_status === 'pending', we transfer $15 to the referrer's
+// Stripe Connect account and mark the bounty as paid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BOUNTY_AMOUNT_CENTS = 1500; // $15.00 USD
+
+async function processReferralBounty(leadId: string, paymentIntentId: string) {
+  try {
+    // 1. Check if this lead has a pending referral bounty
+    const { data: lead, error: leadErr } = await supabase
+      .from("leads")
+      .select("referring_installer_id, bounty_status")
+      .eq("id", leadId)
+      .single();
+
+    if (leadErr || !lead?.referring_installer_id || lead.bounty_status !== "pending") {
+      return; // No bounty to process
+    }
+
+    // 2. Fetch the referring installer's Stripe account
+    const { data: referrer, error: refErr } = await supabase
+      .from("profiles")
+      .select("stripe_account_id")
+      .eq("id", lead.referring_installer_id)
+      .single();
+
+    if (refErr || !referrer?.stripe_account_id) {
+      console.warn("[Bounty] Referring installer has no Stripe account:", lead.referring_installer_id);
+      return;
+    }
+
+    // 3. Execute the Stripe Transfer
+    if (!stripe) return;
+    const transfer = await stripe.transfers.create({
+      amount: BOUNTY_AMOUNT_CENTS,
+      currency: "usd",
+      destination: referrer.stripe_account_id,
+      transfer_group: paymentIntentId,
+      description: `Network Referral Bounty — Lead ${leadId.slice(0, 8)}`,
+    });
+
+    console.log("[Bounty] Transfer created:", transfer.id, "→", referrer.stripe_account_id);
+
+    // 4. Mark bounty as paid
+    await supabase
+      .from("leads")
+      .update({ bounty_status: "paid", updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+
+    console.log("[Bounty] Bounty paid for lead:", leadId);
+  } catch (bountyErr) {
+    // Non-fatal: don't let bounty failure break the main webhook flow
+    console.error("[Bounty] Transfer failed (non-fatal):", bountyErr);
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
@@ -226,6 +286,10 @@ export async function POST(request: NextRequest) {
       }
 
       console.log("SUCCESS: Job DB Updated for lead:", leadId);
+
+      // ── Network Referral Bounty (non-blocking) ───────────────────────
+      const piId = session.payment_intent as string;
+      if (piId) processReferralBounty(leadId, piId);
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
       return NextResponse.json({ error: "DB update exception" }, { status: 500 });
@@ -457,6 +521,9 @@ export async function POST(request: NextRequest) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
           } else {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
+
+            // ── Network Referral Bounty (non-blocking) ─────────────────
+            processReferralBounty(leadId, paymentIntent.id);
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);

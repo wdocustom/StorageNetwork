@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   checkAvailability,
   getInstallerById,
+  rerouteToLocalInstaller,
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
@@ -265,6 +266,11 @@ export default function DesignConfigurator({
   const [waitlistError, setWaitlistError] = useState("");
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Network Referral Bounty ─────────────────────────────────────────
+  // When the customer's ZIP is outside the original installer's area,
+  // we re-route to a local installer and track the original as referrer.
+  const [referringInstallerId, setReferringInstallerId] = useState<string | null>(null);
+
   // Real-time ZIP validation when user enters installation ZIP
   // If "installation address is different" is checked, validate that ZIP instead
   useEffect(() => {
@@ -278,12 +284,33 @@ export default function DesignConfigurator({
     zipCheckRef.current = setTimeout(async () => {
       const result = await validateServiceArea(installerId, zipToCheck.trim());
       if (!result.inArea) {
-        setZipOutOfArea(true);
-        setZipCheckMsg(
-          result.radiusMiles
-            ? `ZIP ${zipToCheck.trim()} is outside the installer's ${result.radiusMiles}-mile service area.`
-            : "This ZIP code is outside the installer's service area."
-        );
+        // ── Network Referral Bounty: re-route to local installer ──────
+        // Instead of blocking, find a local Pro and hand off the lead.
+        // The original installer becomes the referrer and earns a bounty.
+        const localResult = await rerouteToLocalInstaller(zipToCheck.trim(), installerId);
+        if (localResult.available && localResult.installer_id) {
+          // Hand off: swap to local installer, track original as referrer
+          setReferringInstallerId(installerId);
+          const vm = mapAvailabilityToViewModel(localResult);
+          if (vm) {
+            setData(vm);
+            setInstallerId(vm.routing.installerId);
+          }
+          setZipCheckMsg(
+            `We found ${localResult.installer_name || "a local installer"} in your area.`
+          );
+        } else {
+          // No local installer found — fall back to waitlist
+          setZipOutOfArea(true);
+          setZipCheckMsg(
+            result.radiusMiles
+              ? `ZIP ${zipToCheck.trim()} is outside the installer's ${result.radiusMiles}-mile service area.`
+              : "This ZIP code is outside the installer's service area."
+          );
+        }
+      } else {
+        // ZIP is in-area — clear any previous referral
+        setReferringInstallerId(null);
       }
     }, 600);
 
@@ -640,6 +667,7 @@ export default function DesignConfigurator({
         quote_data: orderItems,
         grand_total: grandTotal,
         installer_id: installerId || undefined,
+        referring_installer_id: referringInstallerId || undefined,
         source: leadSource,
       });
 

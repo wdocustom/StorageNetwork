@@ -149,6 +149,81 @@ export async function checkAvailability(
 }
 
 /**
+ * Re-route an out-of-area lead to the nearest local installer.
+ * Used by the Network Referral Bounty system: when a customer uses
+ * Installer A's link but enters a ZIP outside their radius, find the
+ * best local Pro and return them so the lead can be handed off.
+ *
+ * Returns the local installer result (or unavailable if none found).
+ */
+export async function rerouteToLocalInstaller(
+  customerZip: string,
+  originalInstallerId: string
+): Promise<AvailabilityResult> {
+  const trimmed = customerZip.trim();
+  if (!/^\d{5}$/.test(trimmed)) {
+    return toResult(null, "Please enter a valid 5-digit ZIP code.");
+  }
+
+  try {
+    // Find installers covering this ZIP, excluding the original installer
+    const { data: matches, error } = await supabase
+      .from("profiles")
+      .select(INSTALLER_SELECT)
+      .contains("service_zips", [trimmed])
+      .neq("id", originalInstallerId)
+      .neq("active", false)
+      .order("is_pro", { ascending: false })
+      .order("current_month_leads", { ascending: true, nullsFirst: true });
+
+    if (!error && matches && matches.length > 0) {
+      for (const installer of matches) {
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
+          await supabase
+            .from("profiles")
+            .update({ current_month_leads: 0, leads_reset_at: monthStart })
+            .eq("id", installer.id);
+          (installer as Record<string, unknown>).current_month_leads = 0;
+        }
+
+        const currentLeads = (installer.current_month_leads as number) ?? 0;
+        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+
+        if (currentLeads < maxLeads) {
+          return toResult(installer, "");
+        }
+      }
+      return toResult(null, "All installers in this area are currently at capacity.");
+    }
+
+    // Fallback: exact match on service_zip
+    const { data: fallbackMatches, error: fbErr } = await supabase
+      .from("profiles")
+      .select(INSTALLER_SELECT)
+      .eq("service_zip", trimmed)
+      .neq("id", originalInstallerId)
+      .order("is_pro", { ascending: false })
+      .order("current_month_leads", { ascending: true, nullsFirst: true });
+
+    if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
+      for (const installer of fallbackMatches) {
+        const currentLeads = (installer.current_month_leads as number) ?? 0;
+        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+        if (currentLeads < maxLeads) {
+          return toResult(installer, "");
+        }
+      }
+      return toResult(null, "All installers in this area are currently at capacity.");
+    }
+
+    return toResult(null, "No installer available in this area yet.");
+  } catch {
+    return toResult(null, "Unable to find a local installer.");
+  }
+}
+
+/**
  * Fetch installer profile by ID (for URL param ?installer=xyz).
  */
 export async function getInstallerById(
