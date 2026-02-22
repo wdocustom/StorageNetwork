@@ -11,7 +11,6 @@ import {
   Loader2,
   MapPin,
   Ruler,
-  ShoppingCart,
   Wrench,
   Navigation,
   AlertCircle,
@@ -68,9 +67,6 @@ export default function JobTicketPage() {
   const [manifest, setManifest] = useState<BuildManifest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // Checklist state for material pick list
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -136,10 +132,6 @@ export default function JobTicketPage() {
   useEffect(() => {
     fetchLead();
   }, [fetchLead]);
-
-  function toggleCheck(key: string) {
-    setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
 
   async function handleStartTrip() {
     if (!lead?.installer_id || tripSent || tripSending) return;
@@ -387,53 +379,6 @@ export default function JobTicketPage() {
                 );
               })}
             </div>
-          </section>
-        )}
-
-        {/* ── Material Pick List (Checklist) ─────────────────────────── */}
-        {manifest && (
-          <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-              <ShoppingCart className="h-4 w-4 text-yellow-400" />
-              Material Pick List
-            </h2>
-            <ul className="space-y-1">
-              {manifest.shopping_list.map((item, i) => {
-                const key = `shop-${i}`;
-                return (
-                  <li
-                    key={key}
-                    onClick={() => toggleCheck(key)}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-colors ${
-                      checked[key]
-                        ? "bg-emerald-500/10 line-through opacity-60"
-                        : "bg-slate-800 hover:bg-slate-700"
-                    }`}
-                  >
-                    <div
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-xs ${
-                        checked[key]
-                          ? "border-emerald-400 bg-emerald-400 text-slate-900"
-                          : "border-stone-600"
-                      }`}
-                    >
-                      {checked[key] && "✓"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-white">
-                        {item.name}
-                      </p>
-                      <p className="text-[11px] text-stone-500">
-                        {item.detail}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-sm font-bold text-yellow-400">
-                      {item.qty}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
           </section>
         )}
 
