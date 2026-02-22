@@ -385,13 +385,15 @@ export async function getComments(
   postId: string,
   userId?: string
 ): Promise<Comment[]> {
+  // Fetch comments WITHOUT the comment_images join.
+  // The images join was breaking the entire query when PostgREST
+  // couldn't detect the FK (schema cache stale after migration 040).
   const { data, error } = await supabase
     .from("comments")
     .select(
       `
       *,
-      author:profiles!comments_author_id_fkey(id, first_name, business_name, avatar_url),
-      images:comment_images(id, comment_id, image_url, storage_path, sort_order, created_at)
+      author:profiles!comments_author_id_fkey(id, first_name, business_name, avatar_url)
     `
     )
     .eq("post_id", postId)
@@ -402,7 +404,37 @@ export async function getComments(
     return [];
   }
 
-  let flatComments = (data || []) as Comment[];
+  let flatComments = (data || []).map((c: Record<string, unknown>) => ({
+    ...c,
+    images: [] as CommentImage[],
+  })) as Comment[];
+
+  // Fetch comment images separately (non-blocking — if this fails, comments still show)
+  if (flatComments.length > 0) {
+    try {
+      const commentIds = flatComments.map((c) => c.id);
+      const { data: images } = await supabase
+        .from("comment_images")
+        .select("id, comment_id, image_url, storage_path, sort_order, created_at")
+        .in("comment_id", commentIds)
+        .order("sort_order", { ascending: true });
+
+      if (images && images.length > 0) {
+        const imageMap = new Map<string, CommentImage[]>();
+        for (const img of images as CommentImage[]) {
+          const existing = imageMap.get(img.comment_id) || [];
+          existing.push(img);
+          imageMap.set(img.comment_id, existing);
+        }
+        flatComments = flatComments.map((c) => ({
+          ...c,
+          images: imageMap.get(c.id) || [],
+        }));
+      }
+    } catch (imgErr) {
+      console.error("Failed to fetch comment images (non-fatal):", imgErr);
+    }
+  }
 
   // Attach current user's vote state
   if (userId && flatComments.length > 0) {
