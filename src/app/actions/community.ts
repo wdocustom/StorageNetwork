@@ -60,6 +60,15 @@ export interface Post {
   user_vote?: number | null;
 }
 
+export interface CommentImage {
+  id: string;
+  comment_id: string;
+  image_url: string;
+  storage_path: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Comment {
   id: string;
   post_id: string;
@@ -71,6 +80,7 @@ export interface Comment {
   depth: number;
   created_at: string;
   author: PostAuthor;
+  images?: CommentImage[];
   user_vote?: number | null;
   children?: Comment[];
 }
@@ -380,7 +390,8 @@ export async function getComments(
     .select(
       `
       *,
-      author:profiles!comments_author_id_fkey(id, first_name, business_name, avatar_url)
+      author:profiles!comments_author_id_fkey(id, first_name, business_name, avatar_url),
+      images:comment_images(id, comment_id, image_url, storage_path, sort_order, created_at)
     `
     )
     .eq("post_id", postId)
@@ -802,4 +813,95 @@ export async function getPostImages(postId: string): Promise<PostImage[]> {
   }
 
   return (data || []) as PostImage[];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Comment Image Actions
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function uploadCommentImage(
+  commentId: string,
+  authorId: string,
+  formData: FormData
+): Promise<{ success: boolean; image?: CommentImage; error?: string }> {
+  try {
+    const file = formData.get("image") as File | null;
+    if (!file) {
+      return { success: false, error: "No file provided." };
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+    if (file.type && !allowed.includes(file.type)) {
+      return { success: false, error: "Only JPEG, PNG, WebP, and GIF images are allowed." };
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false, error: "Image must be under 10MB." };
+    }
+
+    // Verify user owns the comment
+    const { data: comment } = await supabase
+      .from("comments")
+      .select("author_id")
+      .eq("id", commentId)
+      .single();
+
+    if (!comment || comment.author_id !== authorId) {
+      return { success: false, error: "You can only add images to your own comments." };
+    }
+
+    await ensureCommunityBucket();
+
+    const ext = file.name.split(".").pop() || "jpg";
+    const storagePath = `comments/${commentId}/${Date.now()}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error: uploadError } = await supabase.storage
+      .from(COMMUNITY_BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[CommentImage] Upload error:", uploadError);
+      return { success: false, error: uploadError.message };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(COMMUNITY_BUCKET)
+      .getPublicUrl(storagePath);
+
+    const { count } = await supabase
+      .from("comment_images")
+      .select("id", { count: "exact", head: true })
+      .eq("comment_id", commentId);
+
+    const { data: imageRow, error: insertError } = await supabase
+      .from("comment_images")
+      .insert({
+        comment_id: commentId,
+        image_url: urlData.publicUrl,
+        storage_path: storagePath,
+        sort_order: count || 0,
+      })
+      .select("*")
+      .single();
+
+    if (insertError) {
+      console.error("[CommentImage] Insert error:", insertError);
+      await supabase.storage.from(COMMUNITY_BUCKET).remove([storagePath]);
+      return { success: false, error: insertError.message };
+    }
+
+    return { success: true, image: imageRow as CommentImage };
+  } catch (err) {
+    console.error("[CommentImage] Error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Upload failed.",
+    };
+  }
 }

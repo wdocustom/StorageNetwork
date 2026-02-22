@@ -5,9 +5,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getPartnerDashboard,
   getAdminPlatformUsers,
+  getAdminReferralBounties,
   type PartnerCommission,
   type ReferralRow,
   type PlatformUser,
+  type ReferrerSummary,
 } from "@/app/actions/partner";
 import {
   ArrowLeft,
@@ -25,6 +27,9 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  Banknote,
+  Clock,
+  MapPin,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 
@@ -60,6 +65,13 @@ export default function PartnerDashboardPage() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
+  // Bounty admin state
+  const [bountyReferrers, setBountyReferrers] = useState<ReferrerSummary[]>([]);
+  const [bountyTotals, setBountyTotals] = useState<{ totalPaid: number; totalPending: number; totalReferrals: number } | null>(null);
+  const [bountyLoading, setBountyLoading] = useState(false);
+  const [bountySearch, setBountySearch] = useState("");
+  const [expandedReferrer, setExpandedReferrer] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     const {
       data: { user },
@@ -78,15 +90,27 @@ export default function PartnerDashboardPage() {
       setReferrals(result.referrals ?? []);
       setTotalReferrals(result.totalReferrals ?? 0);
 
-      // If admin, load all platform users
+      // If admin, load all platform users + bounty data
       if (result.isAdmin) {
         setIsAdmin(true);
         setAdminLoading(true);
-        const adminResult = await getAdminPlatformUsers(user.id);
+        setBountyLoading(true);
+
+        const [adminResult, bountyResult] = await Promise.all([
+          getAdminPlatformUsers(user.id),
+          getAdminReferralBounties(user.id),
+        ]);
+
         if (adminResult.success) {
           setPlatformUsers(adminResult.users ?? []);
         }
+        if (bountyResult.success) {
+          setBountyReferrers(bountyResult.referrers ?? []);
+          setBountyTotals(bountyResult.totals ?? null);
+        }
+
         setAdminLoading(false);
+        setBountyLoading(false);
       }
     } else {
       setError(result.error || "Failed to load partner data.");
@@ -657,6 +681,253 @@ export default function PartnerDashboardPage() {
                                 </a>
                               </div>
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            ADMIN: Network Referral Bounties (admin only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {isAdmin && (
+          <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-slate-900 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Banknote className="h-4 w-4 text-amber-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Network Referral Bounties
+                </h2>
+              </div>
+              {bountyTotals && (
+                <div className="flex gap-2 text-[10px] font-bold">
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                    ${bountyTotals.totalPaid.toFixed(2)} Paid
+                  </span>
+                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-400">
+                    ~${bountyTotals.totalPending.toFixed(2)} Pending
+                  </span>
+                  <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
+                    {bountyTotals.totalReferrals} Total
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* KPI row */}
+            {bountyTotals && (
+              <div className="mb-4 grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
+                  <p className="text-lg font-black text-emerald-400">${bountyTotals.totalPaid.toFixed(2)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Paid</p>
+                </div>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+                  <p className="text-lg font-black text-amber-400">~${bountyTotals.totalPending.toFixed(2)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Est. Pending</p>
+                </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3 text-center">
+                  <p className="text-lg font-black text-white">{bountyTotals.totalReferrals}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Referrals</p>
+                </div>
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+              <input
+                type="text"
+                placeholder="Search referrer by name or business..."
+                value={bountySearch}
+                onChange={(e) => setBountySearch(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-amber-400/50 focus:outline-none"
+              />
+            </div>
+
+            {bountyLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+              </div>
+            ) : bountyReferrers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 py-12 text-center">
+                <Banknote className="mx-auto mb-3 h-8 w-8 text-stone-600" />
+                <p className="text-sm font-medium text-stone-400">No referral bounties yet</p>
+                <p className="mt-1 text-xs text-stone-600">Bounties appear when installers refer out-of-area customers.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {bountyReferrers
+                  .filter((r) => {
+                    if (!bountySearch) return true;
+                    const q = bountySearch.toLowerCase();
+                    return (
+                      r.name.toLowerCase().includes(q) ||
+                      (r.business?.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((referrer) => {
+                    const isExpanded = expandedReferrer === referrer.installer_id;
+
+                    return (
+                      <div
+                        key={referrer.installer_id}
+                        className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50"
+                      >
+                        {/* Row header */}
+                        <button
+                          onClick={() => setExpandedReferrer(isExpanded ? null : referrer.installer_id)}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium text-white">
+                                {referrer.name}
+                              </p>
+                              {referrer.is_pro ? (
+                                <span className="flex-shrink-0 rounded bg-yellow-400/10 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
+                                  PRO
+                                </span>
+                              ) : (
+                                <span className="flex-shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-stone-400">
+                                  FREE
+                                </span>
+                              )}
+                            </div>
+                            {referrer.business && (
+                              <p className="truncate text-[11px] text-stone-500">{referrer.business}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-4 text-right">
+                            <div>
+                              <p className="text-xs font-bold text-emerald-400">
+                                ${referrer.total_earned.toFixed(2)}
+                              </p>
+                              <p className="text-[10px] text-stone-500">earned</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-amber-400">
+                                {referrer.pending_count}
+                              </p>
+                              <p className="text-[10px] text-stone-500">pending</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-stone-300">
+                                {referrer.total_referrals}
+                              </p>
+                              <p className="text-[10px] text-stone-500">total</p>
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-stone-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-stone-500" />
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Expanded: individual leads */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-700 bg-slate-900/50">
+                            {/* Summary stats */}
+                            <div className="grid grid-cols-4 gap-2 border-b border-slate-700/50 px-4 py-3">
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Paid</p>
+                                <p className="text-sm font-bold text-emerald-400">{referrer.paid_count}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Pending</p>
+                                <p className="text-sm font-bold text-amber-400">{referrer.pending_count}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Earned</p>
+                                <p className="text-sm font-bold text-emerald-400">${referrer.total_earned.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Est. Pending</p>
+                                <p className="text-sm font-bold text-amber-400">~${referrer.total_pending_value.toFixed(2)}</p>
+                              </div>
+                            </div>
+
+                            {/* Lead table header */}
+                            <div className="grid grid-cols-12 gap-1 border-b border-slate-700/50 bg-slate-800/30 px-4 py-2">
+                              <span className="col-span-3 text-[9px] font-bold uppercase tracking-widest text-stone-500">Assigned To</span>
+                              <span className="col-span-2 text-[9px] font-bold uppercase tracking-widest text-stone-500">Location</span>
+                              <span className="col-span-2 text-[9px] font-bold uppercase tracking-widest text-stone-500">Deposit</span>
+                              <span className="col-span-2 text-[9px] font-bold uppercase tracking-widest text-stone-500">Bounty</span>
+                              <span className="col-span-1 text-[9px] font-bold uppercase tracking-widest text-stone-500">Status</span>
+                              <span className="col-span-2 text-right text-[9px] font-bold uppercase tracking-widest text-stone-500">Date</span>
+                            </div>
+
+                            {/* Lead rows */}
+                            {referrer.leads.map((lead) => (
+                              <div
+                                key={lead.id}
+                                className="grid grid-cols-12 items-center gap-1 border-b border-slate-800/50 px-4 py-2.5 last:border-0"
+                              >
+                                <div className="col-span-3 min-w-0">
+                                  <p className="truncate text-xs font-medium text-stone-300">
+                                    {lead.installer_name}
+                                  </p>
+                                  {lead.installer_business && (
+                                    <p className="truncate text-[10px] text-stone-500">{lead.installer_business}</p>
+                                  )}
+                                </div>
+                                <div className="col-span-2">
+                                  <p className="flex items-center gap-1 text-[11px] text-stone-400">
+                                    <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                                    {[lead.customer_city, lead.customer_state].filter(Boolean).join(", ") || "—"}
+                                  </p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className={`text-xs font-mono ${lead.deposit_paid ? "text-emerald-400" : "text-stone-400"}`}>
+                                    ${lead.deposit_amount.toFixed(2)}
+                                  </p>
+                                  <p className="text-[10px] text-stone-500">
+                                    {lead.deposit_paid ? "Paid" : "Unpaid"}
+                                  </p>
+                                </div>
+                                <div className="col-span-2">
+                                  <p className={`text-xs font-mono font-bold ${
+                                    lead.bounty_status === "paid"
+                                      ? "text-emerald-400"
+                                      : lead.bounty_status === "pending"
+                                      ? "text-amber-400"
+                                      : "text-stone-500"
+                                  }`}>
+                                    {lead.bounty_status === "paid" && lead.bounty_amount != null
+                                      ? `$${lead.bounty_amount.toFixed(2)}`
+                                      : lead.bounty_status === "pending"
+                                      ? `~$${Math.max(15, lead.deposit_amount * 0.3).toFixed(2)}`
+                                      : "—"}
+                                  </p>
+                                </div>
+                                <div className="col-span-1">
+                                  <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                                    lead.bounty_status === "paid"
+                                      ? "bg-emerald-500/10 text-emerald-400"
+                                      : lead.bounty_status === "pending"
+                                      ? "bg-amber-500/10 text-amber-400"
+                                      : "bg-slate-700 text-stone-400"
+                                  }`}>
+                                    {lead.bounty_status}
+                                  </span>
+                                </div>
+                                <div className="col-span-2 text-right">
+                                  <p className="flex items-center justify-end gap-1 text-[11px] text-stone-500">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {new Date(lead.created_at).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>

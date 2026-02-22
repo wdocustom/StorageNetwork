@@ -239,6 +239,174 @@ export async function getPartnerDashboard(
 // Only accessible by users with is_admin=true
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Admin: Network Referral Bounties
+// Shows all referral leads across the platform with bounty details
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BountyLead {
+  id: string;
+  referring_installer_id: string;
+  referring_name: string;
+  referring_business: string | null;
+  installer_id: string;
+  installer_name: string;
+  installer_business: string | null;
+  customer_city: string | null;
+  customer_state: string | null;
+  bounty_status: string;
+  bounty_amount: number | null;
+  deposit_amount: number;
+  deposit_paid: boolean;
+  estimated_price: number | null;
+  created_at: string;
+}
+
+export interface ReferrerSummary {
+  installer_id: string;
+  name: string;
+  business: string | null;
+  is_pro: boolean;
+  total_referrals: number;
+  paid_count: number;
+  pending_count: number;
+  total_earned: number;
+  total_pending_value: number;
+  leads: BountyLead[];
+}
+
+export async function getAdminReferralBounties(
+  userId: string
+): Promise<{ success: boolean; referrers?: ReferrerSummary[]; totals?: { totalPaid: number; totalPending: number; totalReferrals: number }; error?: string }> {
+  try {
+    // Verify admin
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.is_admin) {
+      return { success: false, error: "Not authorized." };
+    }
+
+    // Fetch all leads that have a referring installer
+    const { data: leads, error } = await supabase
+      .from("leads")
+      .select(
+        "id, referring_installer_id, installer_id, bounty_status, bounty_amount, deposit_amount, deposit_paid, estimated_price, address_city, address_state, created_at"
+      )
+      .not("referring_installer_id", "is", null)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (!leads || leads.length === 0) {
+      return { success: true, referrers: [], totals: { totalPaid: 0, totalPending: 0, totalReferrals: 0 } };
+    }
+
+    // Gather all unique installer IDs (referrers + assigned)
+    const allInstallerIds = new Set<string>();
+    for (const lead of leads) {
+      if (lead.referring_installer_id) allInstallerIds.add(lead.referring_installer_id);
+      if (lead.installer_id) allInstallerIds.add(lead.installer_id);
+    }
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, business_name, is_pro")
+      .in("id", Array.from(allInstallerIds));
+
+    const profileMap = new Map(
+      (profiles ?? []).map((p) => [
+        p.id,
+        {
+          name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown",
+          business: p.business_name as string | null,
+          is_pro: p.is_pro ?? false,
+        },
+      ])
+    );
+
+    // Group leads by referring installer
+    const referrerMap = new Map<string, ReferrerSummary>();
+
+    for (const lead of leads) {
+      const refId = lead.referring_installer_id!;
+      const refProfile = profileMap.get(refId);
+      const instProfile = profileMap.get(lead.installer_id);
+
+      if (!referrerMap.has(refId)) {
+        referrerMap.set(refId, {
+          installer_id: refId,
+          name: refProfile?.name || "Unknown",
+          business: refProfile?.business || null,
+          is_pro: refProfile?.is_pro ?? false,
+          total_referrals: 0,
+          paid_count: 0,
+          pending_count: 0,
+          total_earned: 0,
+          total_pending_value: 0,
+          leads: [],
+        });
+      }
+
+      const summary = referrerMap.get(refId)!;
+      summary.total_referrals++;
+
+      if (lead.bounty_status === "paid") {
+        summary.paid_count++;
+        summary.total_earned += lead.bounty_amount || 0;
+      } else if (lead.bounty_status === "pending") {
+        summary.pending_count++;
+        // Estimate pending bounty: 30% of deposit, min $15
+        const est = Math.max(15, (lead.deposit_amount || 0) * 0.3);
+        summary.total_pending_value += est;
+      }
+
+      summary.leads.push({
+        id: lead.id,
+        referring_installer_id: refId,
+        referring_name: refProfile?.name || "Unknown",
+        referring_business: refProfile?.business || null,
+        installer_id: lead.installer_id,
+        installer_name: instProfile?.name || "Unknown",
+        installer_business: instProfile?.business || null,
+        customer_city: lead.address_city,
+        customer_state: lead.address_state,
+        bounty_status: lead.bounty_status,
+        bounty_amount: lead.bounty_amount,
+        deposit_amount: lead.deposit_amount || 0,
+        deposit_paid: lead.deposit_paid || false,
+        estimated_price: lead.estimated_price,
+        created_at: lead.created_at,
+      });
+    }
+
+    const referrers = Array.from(referrerMap.values()).sort(
+      (a, b) => b.total_referrals - a.total_referrals
+    );
+
+    const totalPaid = referrers.reduce((s, r) => s + r.total_earned, 0);
+    const totalPending = referrers.reduce((s, r) => s + r.total_pending_value, 0);
+    const totalReferrals = referrers.reduce((s, r) => s + r.total_referrals, 0);
+
+    return {
+      success: true,
+      referrers,
+      totals: { totalPaid, totalPending, totalReferrals },
+    };
+  } catch (err) {
+    console.error("[Admin] Referral bounties fetch failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load bounties.",
+    };
+  }
+}
+
 export async function getAdminPlatformUsers(
   userId: string
 ): Promise<{ success: boolean; users?: PlatformUser[]; error?: string }> {

@@ -389,9 +389,9 @@ function PartnerJoinPageInner() {
         </div>
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-20">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-start lg:gap-16">
             {/* Left: Screenshot */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-yellow-400/5">
                 <Image
                   src="/images/3d-visualizer-preview.png"
@@ -410,7 +410,7 @@ function PartnerJoinPageInner() {
             </div>
 
             {/* Right: Copy */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[62%]">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
                 3D Visualizer
               </p>
@@ -458,9 +458,9 @@ function PartnerJoinPageInner() {
         </div>
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-col items-center gap-12 lg:flex-row-reverse lg:gap-20">
+          <div className="flex flex-col items-center gap-12 lg:flex-row-reverse lg:items-start lg:gap-16">
             {/* Right: Screenshot */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl shadow-purple-400/5">
                 <Image
                   src="/images/ai-script-generator-preview.png"
@@ -479,7 +479,7 @@ function PartnerJoinPageInner() {
             </div>
 
             {/* Left: Copy */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[62%]">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-purple-400">
                 AI Script Generator
               </p>
@@ -523,9 +523,9 @@ function PartnerJoinPageInner() {
         </div>
 
         <div className="relative mx-auto max-w-6xl">
-          <div className="flex flex-col items-center gap-12 lg:flex-row lg:gap-20">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-start lg:gap-16">
             {/* Left: Screenshot */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-emerald-400/5">
                 <Image
                   src="/images/custom-pricing-preview.png"
@@ -544,7 +544,7 @@ function PartnerJoinPageInner() {
             </div>
 
             {/* Right: Copy */}
-            <div className="lg:w-1/2">
+            <div className="lg:w-[62%]">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">
                 Custom Pricing
               </p>
