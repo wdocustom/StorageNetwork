@@ -1060,11 +1060,11 @@ export default function BuildConfiguratorPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       {showQuoteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
             {/* Close button */}
             <button
               onClick={resetQuoteModal}
-              className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
+              className="sticky right-0 top-0 z-10 float-right text-stone-500 transition-colors hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
