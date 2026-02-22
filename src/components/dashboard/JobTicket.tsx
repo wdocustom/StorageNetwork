@@ -359,14 +359,14 @@ export default function JobTicket({
   return (
     <section className="space-y-4">
       {/* ── Source + Fee Badge ────────────────────────────────────── */}
-      {source === "partner_link" && isPro ? (
+      {(source === "partner_link" || source === "installer_manual") && isPro ? (
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
             DIRECT LEAD — 5% PRO FEE
           </span>
         </div>
-      ) : source === "partner_link" ? (
+      ) : (source === "partner_link" || source === "installer_manual") ? (
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-400/15 px-3 py-1 text-[11px] font-bold text-purple-400">
             Direct Lead — 15% Fee

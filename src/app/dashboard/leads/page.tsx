@@ -307,7 +307,7 @@ function JobCard({ lead }: { lead: LeadItem }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function SourceBadge({ source }: { source: string }) {
-  if (source === "partner_link") {
+  if (source === "partner_link" || source === "installer_manual") {
     return (
       <span className="ml-2 shrink-0 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-400">
         Direct Lead

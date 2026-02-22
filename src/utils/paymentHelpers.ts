@@ -32,11 +32,11 @@ export interface NetProfitResult {
 
 /**
  * Fee decision tree:
- *   Network lead (source: network/search)  → Always 15%
- *   Direct lead  (source: partner_link)     → Free plan: 15%, Pro plan: 5%
+ *   Network lead (source: network/search)           → Always 15%
+ *   Direct lead  (source: partner_link/installer_manual) → Free plan: 15%, Pro plan: 5%
  */
 function resolveFeeRate(source?: string, isPro?: boolean): { rate: number; label: string } {
-  const isDirectLead = source === "partner_link";
+  const isDirectLead = source === "partner_link" || source === "installer_manual";
 
   if (!isDirectLead) {
     // Network / search / unknown → always 15%
@@ -73,7 +73,7 @@ export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
     amountToCollect,
     estMaterials: materialCost,
     netProfit,
-    feeWaived: isPro && source === "partner_link",
+    feeWaived: isPro && (source === "partner_link" || source === "installer_manual"),
     feeRate,
     feeLabel,
   };

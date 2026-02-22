@@ -1226,7 +1226,7 @@ export default function BuildConfiguratorPage() {
           depositAmount={Math.round(buildResult.price * 0.15)}
           totalPrice={buildResult.price}
           installerId={userId}
-          source="partner_link"
+          source="installer_manual"
           customerEmail={customerEmail || undefined}
           customerName={customerName || undefined}
           hasWheels={hasWheels}
