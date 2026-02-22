@@ -625,7 +625,7 @@ export default function JobTicket({
       {materialBreakdown && materialBreakdown.items.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
-            Cut List &amp; Materials
+            Materials
             {Object.values(checkedItems).filter(Boolean).length > 0 && (
               <span className="ml-2 text-emerald-400">
                 ({Object.values(checkedItems).filter(Boolean).length}/{materialBreakdown.items.length})
