@@ -663,7 +663,7 @@ export default function JobTicket({
                   </div>
 
                   {/* Qty */}
-                  <span className={`text-xs font-mono ${isChecked ? "text-stone-600 line-through opacity-40" : "text-stone-400"}`}>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-mono font-bold ${isChecked ? "bg-transparent text-stone-600 line-through opacity-40" : "bg-yellow-400/15 text-yellow-400"}`}>
                     x{item.qty}
                   </span>
 

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { generateBuildManifest } from "@/lib/buildEngine";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
+import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -398,7 +399,7 @@ export default function JobTicketPage() {
                     x{mod.rows})
                   </h3>
                   <p className="mb-3 text-[11px] text-stone-500">
-                    {mod.stripCount} plywood sliders @ 1.875&quot; (Rails: {mod.railStrips}, Back
+                    {mod.stripCount} plywood sliders @ {toFraction(1.875)}&quot; (Rails: {mod.railStrips}, Back
                     Supports: {mod.backSupports})
                   </p>
 
@@ -414,7 +415,7 @@ export default function JobTicketPage() {
                             <span className="ml-1.5 text-stone-600">96&quot; stock</span>
                           </span>
                           <span className="font-mono font-bold text-red-400/70">
-                            {board.rem.toFixed(1)}&quot; waste
+                            {toFraction(board.rem)}&quot; waste
                           </span>
                         </div>
                         <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
@@ -432,9 +433,9 @@ export default function JobTicketPage() {
                                   minWidth: "24px",
                                   textShadow: "0 1px 2px rgba(0,0,0,0.4)",
                                 }}
-                                title={`${cut.name} — ${cut.len.toFixed(1)}"`}
+                                title={`${cut.name} — ${toFraction(cut.len)}"`}
                               >
-                                {cut.len.toFixed(0)}&quot;
+                                {toFraction(cut.len)}&quot;
                               </div>
                             );
                           })}
