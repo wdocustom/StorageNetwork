@@ -427,14 +427,12 @@ export default function JobTicket({
           Total:{" "}
           <span className="font-bold text-white">{fmt(profit.totalPrice)}</span>
         </span>
-        {!profit.feeWaived && (
-          <span>
-            {profit.feeLabel}:{" "}
-            <span className="font-bold text-emerald-400">
-              -{fmt(profit.depositAmount)}
-            </span>
+        <span>
+          {profit.feeLabel}:{" "}
+          <span className="font-bold text-emerald-400">
+            -{fmt(profit.depositAmount)}
           </span>
-        )}
+        </span>
       </div>
 
       {/* ── Action Button Area ────────────────────────────────────────── */}
