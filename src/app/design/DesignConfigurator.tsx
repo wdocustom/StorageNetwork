@@ -235,13 +235,15 @@ export default function DesignConfigurator({
   // Derived: VisualizerSubUnit[] for the visualizer from compoundBuild
   const presetVisUnits: VisualizerSubUnit[] | undefined = useMemo(() => {
     if (!compoundBuild || !activePresetObj) return undefined;
+    // Guard against stale compoundBuild from a different preset
+    if (compoundBuild.presetId !== activePresetObj.id) return undefined;
     return compoundBuild.subUnits.map((su, i) => ({
       cols: su.cols,
       rows: su.rows,
       totalW: su.totalW,
       totalH: su.totalH,
-      hasTop: activePresetObj.units[i].hasTop,
-      hasWheels: activePresetObj.units[i].hasWheels,
+      hasTop: activePresetObj.units[i]?.hasTop ?? false,
+      hasWheels: activePresetObj.units[i]?.hasWheels ?? false,
     }));
   }, [compoundBuild, activePresetObj]);
 
@@ -983,9 +985,7 @@ export default function DesignConfigurator({
                 onChange={(e) => {
                   const val = e.target.value || null;
                   setActivePreset(val);
-                  if (!val) {
-                    setCompoundBuild(null);
-                  }
+                  setCompoundBuild(null);
                 }}
                 className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               >
