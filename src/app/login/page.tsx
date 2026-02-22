@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { stampLastLogin } from "@/app/actions/profile";
 import { Loader2, Mail, ArrowLeft, KeyRound } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -65,13 +66,9 @@ export default function LoginPage() {
         if (signInError) {
           setError(signInError.message);
         } else {
-          // Stamp last login time
+          // Stamp last login time via server action (service role bypasses RLS)
           if (signInData.user) {
-            supabase
-              .from("profiles")
-              .update({ last_login_at: new Date().toISOString() })
-              .eq("id", signInData.user.id)
-              .then(() => {});
+            await stampLastLogin(signInData.user.id);
           }
           window.location.href = redirectTo;
         }
