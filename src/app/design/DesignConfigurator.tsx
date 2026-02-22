@@ -235,15 +235,13 @@ export default function DesignConfigurator({
   // Derived: VisualizerSubUnit[] for the visualizer from compoundBuild
   const presetVisUnits: VisualizerSubUnit[] | undefined = useMemo(() => {
     if (!compoundBuild || !activePresetObj) return undefined;
-    // Guard against stale compoundBuild from a different preset
-    if (compoundBuild.presetId !== activePresetObj.id) return undefined;
     return compoundBuild.subUnits.map((su, i) => ({
       cols: su.cols,
       rows: su.rows,
       totalW: su.totalW,
       totalH: su.totalH,
-      hasTop: activePresetObj.units[i]?.hasTop ?? false,
-      hasWheels: activePresetObj.units[i]?.hasWheels ?? false,
+      hasTop: activePresetObj.units[i].hasTop,
+      hasWheels: activePresetObj.units[i].hasWheels,
     }));
   }, [compoundBuild, activePresetObj]);
 
