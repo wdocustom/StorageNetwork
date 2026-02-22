@@ -10,6 +10,7 @@ export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
 import type { InstallerPricing } from "@/types/viewModels";
+import { PLATFORM_BESTSELLER_DEFAULTS } from "@/types/viewModels";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -461,7 +462,13 @@ export async function calculateCompoundBuild(input: {
 
   const ip = input.installerPricing;
   const bestsellerKey = `bestseller_${preset.id.replace(/-/g, "_")}` as keyof InstallerPricing;
-  const bestsellerOverride = ip?.[bestsellerKey] as number | undefined;
+  const installerOverride = ip?.[bestsellerKey] as number | undefined;
+  // Fallback: platform default bestseller price (e.g., $950 for Indiana Joe)
+  const platformDefault = PLATFORM_BESTSELLER_DEFAULTS[bestsellerKey];
+  // Installer override takes priority, then platform default, then dynamic calc
+  const bestsellerOverride = (installerOverride !== undefined && installerOverride !== null)
+    ? installerOverride
+    : platformDefault;
 
   // Calculate what the tote add-on costs (used by both paths)
   const effectiveTotePrice =
@@ -474,18 +481,17 @@ export async function calculateCompoundBuild(input: {
   let totalPrice: number;
 
   if (bestsellerOverride !== undefined && bestsellerOverride !== null) {
-    // Path 1: Installer set a total price for this bestseller (totes included).
-    // When customer has totes ON → use the override as-is.
-    // When customer toggles totes OFF → subtract tote cost at installer's rate.
+    // Path 1: Bestseller total price (totes included) — installer override
+    // or platform default.  When customer toggles totes OFF → subtract tote
+    // cost at the installer's rate.
     totalPrice = bestsellerOverride;
     if (!input.hasTotes) {
       totalPrice -= totalSlots * effectiveTotePrice;
     }
   } else {
-    // Path 2: No bestseller override — dynamically calculate from sub-units.
-    // Sub-units were already calculated with the installer's pricing overrides
-    // (or platform defaults when installerPricing is undefined), so we just
-    // sum them.  The sub-unit prices include totes when hasTotes is true.
+    // Path 2: No bestseller override and no platform default — dynamically
+    // calculate from sub-units.  Sub-unit prices include totes when hasTotes
+    // is true.
     totalPrice = subUnits.reduce((sum, su) => sum + su.price, 0);
   }
 

@@ -1032,6 +1032,9 @@ export default function DesignConfigurator({
                     onChange={setPresetTotes}
                     label={`Include ${activePresetObj?.toteColor === "black" ? "Black " : ""}Totes (+$${activePresetObj?.toteColor === "clear" ? (data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) : (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)}/each)`}
                   />
+                  <p className="text-[10px] text-amber-700/70 -mt-1 ml-9">
+                    Built for standard 27-gal totes (HDX / Performax)
+                  </p>
                   <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
                     <div className="flex-1 text-center">
                       <div className="text-2xl font-black text-gray-900">

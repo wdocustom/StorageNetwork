@@ -15,7 +15,7 @@ import {
   updateInstallerPricing,
   resetInstallerPricing,
 } from "@/app/actions/pricing";
-import { PLATFORM_DEFAULTS } from "@/types/viewModels";
+import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 
@@ -143,14 +143,17 @@ const PRICE_FIELDS: PriceField[] = [
     category: "addons",
   },
   // Bestseller total-price overrides (with totes included)
-  ...BESTSELLER_PRESETS.map((preset) => ({
-    key: `bestseller_${preset.id.replace(/-/g, "_")}` as PricingNumericKey,
-    label: preset.name,
-    description: `Total price with ${preset.units.reduce((s, u) => s + u.cols * u.rows, 0)} totes included`,
-    defaultValue: computePresetDefaultTotal(preset.id),
-    dynamicDefault: true,
-    category: "bestsellers" as const,
-  })),
+  ...BESTSELLER_PRESETS.map((preset) => {
+    const key = `bestseller_${preset.id.replace(/-/g, "_")}` as PricingNumericKey;
+    const totalSlots = preset.units.reduce((s, u) => s + u.cols * u.rows, 0);
+    return {
+      key,
+      label: preset.name,
+      description: `Total price with ${totalSlots} totes (platform default: $${PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id)})`,
+      defaultValue: PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id),
+      category: "bestsellers" as const,
+    };
+  }),
 ];
 
 export default function PricingSettings({ userId }: PricingSettingsProps) {
@@ -272,7 +275,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     {
       key: "bestsellers",
       label: "Bestseller Presets",
-      hint: "Set a total price for each bestseller (totes included). Customers can still remove totes — your tote rate is subtracted. Leave empty to auto-calculate from your slot, tote & plywood rates.",
+      hint: "Set a total price for each bestseller (totes included). Customers can remove totes — your tote rate is subtracted. Leave empty to use the platform default price.",
       fields: PRICE_FIELDS.filter((f) => f.category === "bestsellers"),
     },
   ];

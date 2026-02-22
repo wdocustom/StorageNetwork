@@ -651,9 +651,14 @@ function PartnerJoinPageInner() {
 
             {/* Left: Copy */}
             <div className="lg:w-1/2">
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-                Passive Income
-              </p>
+              <div className="mb-3 flex items-center gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                  Passive Income
+                </p>
+                <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-400 ring-1 ring-yellow-400/30">
+                  Pro Plan
+                </span>
+              </div>
               <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
                 Earn Money{" "}
                 <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
@@ -661,7 +666,7 @@ function PartnerJoinPageInner() {
                 </span>
               </h2>
               <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
-                Every installer on Storage Network gets a unique referral link.
+                Pro Plan subscribers unlock a personal referral link.
                 Share it anywhere — nationwide, no territory limits. When a
                 customer books a project through your link, even if they&apos;re
                 across the country, you pocket 30% of the deposit automatically.
@@ -709,11 +714,12 @@ function PartnerJoinPageInner() {
 
               <div className="mt-8 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
                 <p className="text-xs font-bold text-yellow-400">
-                  Connect Stripe after signup to start receiving payouts.
+                  Upgrade to Pro + Connect Stripe to start earning.
                 </p>
                 <p className="mt-1 text-[11px] text-stone-500">
-                  It takes 2 minutes from your dashboard. No Stripe account yet?
-                  We&apos;ll walk you through creating one.
+                  Network bounties are a Pro Plan feature. Upgrade from your
+                  dashboard, connect Stripe in 2 minutes, and referral
+                  payouts hit your bank automatically.
                 </p>
               </div>
             </div>

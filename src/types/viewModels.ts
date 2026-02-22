@@ -37,6 +37,13 @@ export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled"
   plywood_top: 95,
 };
 
+/** Platform default bestseller prices (total with totes included).
+ *  Installer overrides in pricing_config take priority over these. */
+export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
+  bestseller_indiana_joe: 950,
+  bestseller_cornhusker: 660,
+};
+
 export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
   routing: {
