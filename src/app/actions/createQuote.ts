@@ -32,6 +32,14 @@ export interface QuoteUnit {
   desc: string;
 }
 
+export interface DeliveryAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 export interface CreateQuoteInput {
   installer_id: string;
   installer_business_name: string;
@@ -43,6 +51,7 @@ export interface CreateQuoteInput {
   grand_total: number;
   project_title?: string;
   discount_code?: string;
+  delivery_address?: DeliveryAddress;
 }
 
 export interface CreateQuoteResult {
@@ -71,6 +80,7 @@ export async function createQuote(
     grand_total,
     project_title,
     discount_code,
+    delivery_address,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -159,6 +169,12 @@ export async function createQuote(
         status: "pending_payment",
         deposit_paid: false,
         discount_code: discount_code?.toUpperCase() || null,
+        // Delivery / installation address (entered by installer at quote time)
+        delivery_address_line1: delivery_address?.line1 || null,
+        delivery_address_line2: delivery_address?.line2 || null,
+        delivery_address_city: delivery_address?.city || null,
+        delivery_address_state: delivery_address?.state || null,
+        delivery_address_zip: delivery_address?.zip || null,
       })
       .select("id")
       .single();

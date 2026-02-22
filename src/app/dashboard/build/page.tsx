@@ -27,6 +27,7 @@ import {
   Plus,
   Trash2,
   Tag,
+  MapPin,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -116,6 +117,13 @@ export default function BuildConfiguratorPage() {
   const [quoteSending, setQuoteSending] = useState(false);
   const [quoteSent, setQuoteSent] = useState(false);
   const [quoteError, setQuoteError] = useState("");
+
+  // Delivery address state
+  const [deliveryLine1, setDeliveryLine1] = useState("");
+  const [deliveryLine2, setDeliveryLine2] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
 
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -378,6 +386,13 @@ export default function BuildConfiguratorPage() {
         quote_data: quoteUnits,
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
+        delivery_address: deliveryLine1.trim() ? {
+          line1: deliveryLine1.trim(),
+          line2: deliveryLine2.trim() || undefined,
+          city: deliveryCity.trim(),
+          state: deliveryState.trim().toUpperCase(),
+          zip: deliveryZip.trim(),
+        } : undefined,
       });
 
       if (!result.success) {
@@ -403,6 +418,11 @@ export default function BuildConfiguratorPage() {
     setCustomerEmail("");
     setCustomerPhone("");
     setQuoteDiscountCode("");
+    setDeliveryLine1("");
+    setDeliveryLine2("");
+    setDeliveryCity("");
+    setDeliveryState("");
+    setDeliveryZip("");
     setQuoteSent(false);
     setQuoteError("");
   }
@@ -1132,6 +1152,56 @@ export default function BuildConfiguratorPage() {
                       className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                     />
                   </div>
+                  {/* Delivery / Installation Address */}
+                  <div className="rounded-lg border border-slate-700 bg-slate-800/30 p-3 space-y-2.5">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500">
+                      <MapPin className="h-3 w-3" />
+                      Delivery / Installation Address (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryLine1}
+                      onChange={(e) => setDeliveryLine1(e.target.value)}
+                      placeholder="Street address"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={deliveryLine2}
+                      onChange={(e) => setDeliveryLine2(e.target.value)}
+                      placeholder="Apt / Suite (optional)"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <div className="grid grid-cols-6 gap-2">
+                      <input
+                        type="text"
+                        value={deliveryCity}
+                        onChange={(e) => setDeliveryCity(e.target.value)}
+                        placeholder="City"
+                        className="col-span-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={deliveryState}
+                        onChange={(e) => setDeliveryState(e.target.value.toUpperCase().slice(0, 2))}
+                        placeholder="ST"
+                        maxLength={2}
+                        className="col-span-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-center text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={deliveryZip}
+                        onChange={(e) => setDeliveryZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        placeholder="ZIP"
+                        maxLength={5}
+                        className="col-span-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                      />
+                    </div>
+                    <p className="text-[10px] text-stone-600">
+                      Where the unit will be installed. Shows on the job ticket.
+                    </p>
+                  </div>
+
                   <div>
                     <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500">
                       <Tag className="h-3 w-3" />
