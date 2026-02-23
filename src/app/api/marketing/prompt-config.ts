@@ -177,4 +177,15 @@ export const TONE_GUIDES: Record<string, string> = {
   storytelling: "The installer tells a mini-story from THEIR perspective — a recent job they're proud of, a before/after they just finished, why they got into this trade, a problem they solved for a client. First-person narrative from the builder, never from the customer. Draw the reader in.",
   humorous: "Witty and memorable. The installer has personality — they crack jokes about messy garages, use clever wordplay, maybe poke fun at the 'tote avalanche' problem. Funny but still credible. The humor sells without being cheesy. Think dad jokes meet skilled tradesperson.",
   direct: "Straight to the point. No fluff, no stories. The installer lists exactly what they do, what you get, and how to book. Bold claims backed by specifics. Strong calls-to-action. This is the 'I'm good at what I do and here's the proof' approach. Assertive but not obnoxious.",
+  "reverse-psychology": `Reverse psychology / satirical warning tone. This is a proven viral marketing framework. The installer writes a post that WARNS people NOT to buy their product — but the "warnings" are actually selling points in disguise. Follow this exact structure:
+
+1. **THE HOOK:** Start with a strong, attention-grabbing warning. Examples: "Whatever you do, DON'T buy this...", "Let me save you from a huge mistake: DO NOT get organized.", "I'm begging you — please don't look at this storage rack." The opening line should make people stop scrolling.
+
+2. **THE "PROBLEM":** Explain sarcastically that the rack works TOO well — it ruins the "beautiful chaos" of a messy garage. The installer warns that getting organized will make them look too responsible, too put-together, and their neighbors will start asking them for help. Play up the "downsides" of being organized as if they're genuinely bad things.
+
+3. **THE FEATURES (disguised as warnings):** Subtly reveal that the rack fits standard 27-gallon totes and that totes slide out like drawers. Frame these as "problems" — e.g., "The worst part? Every single tote slides out independently, like a drawer. You'll never have an excuse to avoid finding your Christmas decorations again." Mention the heavy-duty 2x4 construction, the capacity, and the custom-built nature — all framed as "too good" problems.
+
+4. **THE CALL TO ACTION:** End by saying something like: "If you're ready to ruin your messy life and become a functioning adult, use my free 3D configurator to design your rack and see instant pricing:" followed by the booking link. Keep the sarcastic tone through the CTA.
+
+The overall vibe should be funny, self-aware, and scroll-stopping. Think infomercial parody meets genuine craftsmanship pride. The sarcasm should be obvious enough that readers get the joke but compelling enough that they actually want the product.`,
 };

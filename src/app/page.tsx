@@ -18,6 +18,8 @@ import {
   Mail,
   User,
   Star,
+  Wrench,
+  ArrowRight,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -247,6 +249,41 @@ export default function LandingPage() {
               title="Pro Installation"
               desc="Certified local installers handle everything. You don't lift a finger."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          INSTALLER RECRUITMENT BANNER
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-yellow-400/20 bg-gradient-to-b from-gray-950 via-yellow-400/[0.03] to-gray-950 px-4 py-16">
+        <div className="mx-auto max-w-2xl">
+          <div className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gray-900 p-8 shadow-2xl shadow-yellow-400/5 sm:p-10">
+            {/* Accent glow */}
+            <div
+              className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full opacity-20"
+              style={{ background: "radial-gradient(circle, rgba(250,204,21,0.4), transparent 70%)" }}
+            />
+            <div className="relative z-10 flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10">
+                <Wrench className="h-8 w-8 text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="mb-2 text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
+                  You Build It. We Sell It.
+                </h2>
+                <p className="text-sm leading-relaxed text-stone-400">
+                  Join the network of certified installers. We handle customers, deposits &amp; scheduling&mdash;you show up and build. Get pre-sold jobs with zero sales calls.
+                </p>
+              </div>
+              <a
+                href="/partner/join"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-yellow-400 px-6 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+              >
+                Apply Now
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
           </div>
         </div>
       </section>

@@ -139,7 +139,7 @@ export default function DashboardPage() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/login";
   }
 
   function copyToClipboard(link: string, linkType: string) {

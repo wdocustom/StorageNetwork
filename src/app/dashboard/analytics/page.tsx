@@ -16,6 +16,14 @@ import {
   Calendar,
   ArrowUpRight,
   Activity,
+  ChevronDown,
+  Facebook,
+  Instagram,
+  Search,
+  Video,
+  MapPin,
+  ExternalLink,
+  Share2,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerAnalytics, type AnalyticsSummary } from "@/app/actions/analytics";
@@ -36,6 +44,7 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [error, setError] = useState("");
   const [range, setRange] = useState<TimeRange>(30);
+  const [expandedSource, setExpandedSource] = useState<string | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
     const {
@@ -273,9 +282,9 @@ export default function AnalyticsPage() {
             )}
 
             {/* ══════════════════════════════════════════════════════════
-                Traffic Sources
+                Traffic Sources — Grouped by Platform
             ══════════════════════════════════════════════════════════ */}
-            {data.topReferrers.length > 0 && (
+            {data.trafficSourceGroups && data.trafficSourceGroups.length > 0 && (
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <Globe className="h-4 w-4 text-amber-400" />
@@ -283,20 +292,62 @@ export default function AnalyticsPage() {
                     Traffic Sources
                   </h2>
                 </div>
-                <div className="space-y-2">
-                  {data.topReferrers.map((r) => (
-                    <div
-                      key={r.referrer}
-                      className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2"
-                    >
-                      <span className="text-sm text-white truncate max-w-[200px]">
-                        {r.referrer}
-                      </span>
-                      <span className="text-xs font-bold text-amber-400 shrink-0 ml-2">
-                        {r.count} {r.count === 1 ? "visit" : "visits"}
-                      </span>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {data.trafficSourceGroups.map((group) => {
+                    const isExpanded = expandedSource === group.source;
+                    const SourceIcon = getSourceIcon(group.source);
+                    const color = getSourceColor(group.source);
+                    return (
+                      <div
+                        key={group.source}
+                        className={`col-span-2 sm:col-span-3 ${isExpanded ? "" : "col-span-1 sm:col-span-1"}`}
+                      >
+                        <button
+                          onClick={() => setExpandedSource(isExpanded ? null : group.source)}
+                          className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                            isExpanded
+                              ? `border-${color}/30 bg-${color}/5`
+                              : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                          }`}
+                        >
+                          <SourceIcon className={`h-5 w-5 shrink-0 ${getSourceTextColor(group.source)}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-white">{group.source}</p>
+                            <p className="text-[10px] text-stone-500">
+                              {group.referrers.length} {group.referrers.length === 1 ? "link" : "links"}
+                            </p>
+                          </div>
+                          <span className="text-sm font-black text-amber-400">
+                            {group.totalCount}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-stone-500 transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="mt-1 space-y-1 rounded-b-xl border border-t-0 border-slate-700 bg-slate-800/30 p-3">
+                            {group.referrers.map((r, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2"
+                              >
+                                <span className="text-xs text-stone-300 truncate max-w-[220px]">
+                                  {r.url}
+                                </span>
+                                <span className="text-[10px] font-bold text-stone-500 shrink-0 ml-2">
+                                  {r.count} {r.count === 1 ? "visit" : "visits"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -398,5 +449,46 @@ function cleanReferrerDisplay(referrer: string | null): string {
     return url.hostname.replace("www.", "");
   } catch {
     return referrer.slice(0, 30);
+  }
+}
+
+function getSourceIcon(source: string) {
+  switch (source) {
+    case "Facebook": return Facebook;
+    case "Instagram": return Instagram;
+    case "Google": return Search;
+    case "TikTok": return Video;
+    case "Nextdoor": return MapPin;
+    case "YouTube": return Video;
+    case "Craigslist": return ExternalLink;
+    case "X / Twitter": return Share2;
+    case "Direct": return Globe;
+    default: return ExternalLink;
+  }
+}
+
+function getSourceColor(source: string): string {
+  switch (source) {
+    case "Facebook": return "blue-500";
+    case "Instagram": return "pink-500";
+    case "Google": return "red-400";
+    case "TikTok": return "cyan-400";
+    case "Nextdoor": return "green-500";
+    case "YouTube": return "red-500";
+    case "Direct": return "stone-400";
+    default: return "amber-400";
+  }
+}
+
+function getSourceTextColor(source: string): string {
+  switch (source) {
+    case "Facebook": return "text-blue-400";
+    case "Instagram": return "text-pink-400";
+    case "Google": return "text-red-400";
+    case "TikTok": return "text-cyan-400";
+    case "Nextdoor": return "text-green-400";
+    case "YouTube": return "text-red-400";
+    case "Direct": return "text-stone-400";
+    default: return "text-amber-400";
   }
 }

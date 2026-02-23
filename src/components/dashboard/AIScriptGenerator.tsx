@@ -36,7 +36,8 @@ type Tone =
   | "urgent"
   | "storytelling"
   | "humorous"
-  | "direct";
+  | "direct"
+  | "reverse-psychology";
 
 const PLATFORMS: { value: Platform; label: string; icon: typeof Facebook; desc: string }[] = [
   { value: "facebook-group", label: "FB Group", icon: Facebook, desc: "Local community groups" },
@@ -55,6 +56,7 @@ const TONES: { value: Tone; label: string; desc: string }[] = [
   { value: "storytelling", label: "Story", desc: "Before/after narrative" },
   { value: "humorous", label: "Funny", desc: "Witty & memorable" },
   { value: "direct", label: "Hard Sell", desc: "Straight to the point" },
+  { value: "reverse-psychology", label: "Reverse Psych", desc: "\"Don't buy this\"" },
 ];
 
 interface AIScriptGeneratorProps {
@@ -194,7 +196,7 @@ export default function AIScriptGenerator({
         <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Tone
         </label>
-        <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
           {TONES.map((t) => {
             const active = tone === t.value;
             return (

@@ -43,6 +43,17 @@ export async function trackPageView(input: PageViewInput): Promise<{ success: bo
 
 // ── Installer Analytics Dashboard Data ──────────────────────────────────
 
+export interface ReferrerDetail {
+  url: string;       // full referrer URL or path
+  count: number;
+}
+
+export interface TrafficSourceGroup {
+  source: string;           // display name: "Facebook", "Direct", "Google", etc.
+  totalCount: number;
+  referrers: ReferrerDetail[];
+}
+
 export interface AnalyticsSummary {
   totalViews: number;
   totalOrders: number;
@@ -52,6 +63,7 @@ export interface AnalyticsSummary {
   viewsByDay: { date: string; views: number }[];
   ordersByDay: { date: string; orders: number; revenue: number }[];
   topReferrers: { referrer: string; count: number }[];
+  trafficSourceGroups: TrafficSourceGroup[];
   deviceBreakdown: { device: string; count: number }[];
   recentViews: { page: string; referrer: string | null; created_at: string; device: string }[];
 }
@@ -71,6 +83,30 @@ function cleanReferrer(referrer: string | null): string {
     return url.hostname.replace("www.", "");
   } catch {
     return referrer.slice(0, 50);
+  }
+}
+
+function classifyTrafficSource(referrer: string | null): string {
+  if (!referrer || referrer.trim() === "") return "Direct";
+  const lower = referrer.toLowerCase();
+  if (lower.includes("facebook.com") || lower.includes("fb.com") || lower.includes("fbclid") || lower.includes("l.facebook") || lower.includes("m.facebook") || lower.includes("lm.facebook")) return "Facebook";
+  if (lower.includes("instagram.com") || lower.includes("l.instagram")) return "Instagram";
+  if (lower.includes("google.com") || lower.includes("google.co") || lower.includes("gclid")) return "Google";
+  if (lower.includes("tiktok.com")) return "TikTok";
+  if (lower.includes("nextdoor.com")) return "Nextdoor";
+  if (lower.includes("craigslist.org")) return "Craigslist";
+  if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "YouTube";
+  if (lower.includes("twitter.com") || lower.includes("x.com") || lower.includes("t.co")) return "X / Twitter";
+  if (lower.includes("pinterest.com")) return "Pinterest";
+  if (lower.includes("reddit.com")) return "Reddit";
+  if (lower.includes("bing.com")) return "Bing";
+  if (lower.includes("yahoo.com")) return "Yahoo";
+  // Fall back to cleaned hostname
+  try {
+    const url = new URL(referrer);
+    return url.hostname.replace("www.", "");
+  } catch {
+    return "Other";
   }
 }
 
@@ -161,6 +197,24 @@ export async function getInstallerAnalytics(
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
+    // ── Traffic Source Groups (grouped by platform) ─────────
+    const groupMap: Record<string, Record<string, number>> = {};
+    for (const v of views) {
+      const groupName = classifyTrafficSource(v.referrer);
+      const detailUrl = v.referrer?.trim() || "Direct visit";
+      if (!groupMap[groupName]) groupMap[groupName] = {};
+      groupMap[groupName][detailUrl] = (groupMap[groupName][detailUrl] || 0) + 1;
+    }
+    const trafficSourceGroups: TrafficSourceGroup[] = Object.entries(groupMap)
+      .map(([source, details]) => ({
+        source,
+        totalCount: Object.values(details).reduce((s, c) => s + c, 0),
+        referrers: Object.entries(details)
+          .map(([url, count]) => ({ url, count }))
+          .sort((a, b) => b.count - a.count),
+      }))
+      .sort((a, b) => b.totalCount - a.totalCount);
+
     // ── Device Breakdown ──────────────────────────────────────
     const deviceMap: Record<string, number> = {};
     for (const v of views) {
@@ -190,6 +244,7 @@ export async function getInstallerAnalytics(
         viewsByDay,
         ordersByDay,
         topReferrers,
+        trafficSourceGroups,
         deviceBreakdown,
         recentViews,
       },
