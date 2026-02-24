@@ -420,8 +420,12 @@ export default function JobTicketPage() {
               {manifest.cut_plan_visuals.map((mod, mi) => (
                 <div key={mi}>
                   <h3 className="mb-1 text-sm font-bold text-yellow-400">
-                    Unit #{mod.unitIndex} — Module {mod.moduleIndex} ({mod.cols}
+                    Unit #{mod.unitIndex} — Module {mod.moduleIndex}
+                    {mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}
                     x{mod.rows})
+                    {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
+                    {mod.heightTier && mod.heightTier > 1 && mod.heightTier === mod.heightTierTotal && <span className="ml-2 text-[10px] font-semibold text-purple-400">(Top)</span>}
+                    {mod.heightTier && mod.heightTier > 1 && mod.heightTier < (mod.heightTierTotal || 0) && <span className="ml-2 text-[10px] font-semibold text-cyan-400">(Middle)</span>}
                   </h3>
                   <p className="mb-3 text-[11px] text-stone-500">
                     {mod.stripCount} plywood sliders @ 1.875&quot; (Rails: {mod.railStrips}, Back

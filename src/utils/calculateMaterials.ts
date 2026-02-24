@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Material Cost Calculator — Client-safe estimation
 // Takes a job config (from the 3D configurator) and returns estimated
-// material cost using V1 hardcoded unit prices.
+// material cost using V1 hardcoded unit prices or custom installer prices.
 //
 // This runs on the CLIENT so installers see the breakdown immediately.
 // It does NOT replace the server-side build engine — it's a cost overlay.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── V1 Unit Costs ──────────────────────────────────────────────────────────
+// ── V1 Default Costs ────────────────────────────────────────────────────
 
-const PRICES = {
+export const DEFAULT_MATERIAL_PRICES = {
   lumber_2x4_8ft: 3.75,
   plywood_sheet: 33.98,
   tote: 8.99,
@@ -19,6 +19,11 @@ const PRICES = {
   wheels_4pk: 60.0,
 } as const;
 
+/** Custom material pricing — all fields optional, falls back to defaults */
+export type MaterialPrices = {
+  [K in keyof typeof DEFAULT_MATERIAL_PRICES]?: number;
+};
+
 // ── Constants (match buildEngine.ts) ───────────────────────────────────────
 
 const STOCK_LENGTH = 96; // 8ft board
@@ -27,6 +32,22 @@ const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 const GAP = 1.5; // post width (2x4)
 const TIER_HEIGHT = 16;
+
+// ── Height Tier Splitting ──────────────────────────────────────────────────
+// Max rows per height tier so uprights fit in 8ft stock.
+const MAX_ROWS_PER_TIER = Math.floor(STOCK_LENGTH / TIER_HEIGHT); // 6
+
+function splitHeightTiers(totalRows: number): number[] {
+  if (totalRows <= MAX_ROWS_PER_TIER) return [totalRows];
+  const tiers: number[] = [];
+  let remaining = totalRows;
+  while (remaining > MAX_ROWS_PER_TIER) {
+    tiers.push(MAX_ROWS_PER_TIER);
+    remaining -= MAX_ROWS_PER_TIER;
+  }
+  if (remaining > 0) tiers.push(remaining);
+  return tiers;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,9 +73,11 @@ export interface MaterialBreakdown {
 // ── Calculator ─────────────────────────────────────────────────────────────
 
 export function calculateMaterialCost(
-  configs: MaterialConfig | MaterialConfig[]
+  configs: MaterialConfig | MaterialConfig[],
+  customPrices?: MaterialPrices
 ): MaterialBreakdown {
   const units = Array.isArray(configs) ? configs : [configs];
+  const prices = { ...DEFAULT_MATERIAL_PRICES, ...customPrices };
 
   let totalBoards = 0;
   let totalSheets = 0;
@@ -74,16 +97,20 @@ export function calculateMaterialCost(
   let totalScrew1 = 0;
 
   for (const unit of units) {
-    const { cols: totalCols, rows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
-    if (totalCols < 1 || rows < 1) continue;
+    const { cols: totalCols, rows: totalRows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
+    if (totalCols < 1 || totalRows < 1) continue;
 
-    const modules: number[] = [];
-    let remaining = totalCols;
-    while (remaining > 4) {
-      modules.push(4);
-      remaining -= 4;
+    // Width split (max 4 cols per module)
+    const widthModules: number[] = [];
+    let remainingCols = totalCols;
+    while (remainingCols > 4) {
+      widthModules.push(4);
+      remainingCols -= 4;
     }
-    if (remaining > 0) modules.push(remaining);
+    if (remainingCols > 0) widthModules.push(remainingCols);
+
+    // Height split (max rows per tier to fit 8ft stock)
+    const heightTiers = splitHeightTiers(totalRows);
 
     if (hasWheels) {
       totalWheelKits++;
@@ -92,33 +119,39 @@ export function calculateMaterialCost(
 
     let unitTotalWidth = 0;
 
-    for (let modIdx = 0; modIdx < modules.length; modIdx++) {
-      const cols = modules[modIdx];
+    for (let modIdx = 0; modIdx < widthModules.length; modIdx++) {
+      const cols = widthModules[modIdx];
       const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
       const modWidth = cols * opening + (cols + 1) * GAP;
-      const slots = cols * rows;
       unitTotalWidth += modWidth;
 
-      // Collect parts globally instead of per-module packing
-      // Subsequent modules share left-most post with previous module
-      const postCount = modIdx === 0 ? (cols + 1) * 2 : cols * 2;
-      for (let i = 0; i < postCount; i++) {
-        allParts.push(rows * TIER_HEIGHT);
+      // Process each height tier for this width module
+      for (let tierIdx = 0; tierIdx < heightTiers.length; tierIdx++) {
+        const tierRows = heightTiers[tierIdx];
+        const slots = cols * tierRows;
+        const uprightHeight = tierRows * TIER_HEIGHT;
+
+        // Collect parts globally
+        const postCount = modIdx === 0 ? (cols + 1) * 2 : cols * 2;
+        for (let i = 0; i < postCount; i++) {
+          allParts.push(uprightHeight);
+        }
+
+        // Each height tier needs its own set of rails (top/bottom plates)
+        for (let k = 0; k < 4; k++) {
+          allParts.push(modWidth);
+        }
+
+        const numRails = slots * 2;
+        const backSupports = cols <= 4 ? 4 : 6;
+        globalStripCount += numRails + backSupports;
+
+        totalScrew16 += numRails * 4;
+        const screwPostCount = modIdx === 0 ? cols + 1 : cols;
+        totalScrew3 += screwPostCount * 20;
+
+        if (hasTotes) totalTotes += slots;
       }
-      for (let k = 0; k < 4; k++) {
-        allParts.push(modWidth);
-      }
-
-      const numRails = slots * 2;
-      const backSupports = cols <= 4 ? 4 : 6;
-      globalStripCount += numRails + backSupports;
-
-      totalScrew16 += numRails * 4;
-      // Subsequent modules share left-most post with previous module
-      const screwPostCount = modIdx === 0 ? cols + 1 : cols;
-      totalScrew3 += screwPostCount * 20;
-
-      if (hasTotes) totalTotes += slots;
     }
 
     if (hasTop) {
@@ -168,13 +201,13 @@ export function calculateMaterialCost(
     }
   }
 
-  addItem("2×4 Lumber (8ft)", totalBoards, PRICES.lumber_2x4_8ft);
-  addItem("Plywood Sheet", totalSheets, PRICES.plywood_sheet);
-  addItem("Totes", totalTotes, PRICES.tote);
-  addItem("Wheels (4pk)", totalWheelKits, PRICES.wheels_4pk);
-  addItem('1⅝" Screws (145ct)', totalScrewBoxes16, PRICES.screw_1_5_8in_145ct);
-  addItem('3" Screws (70ct)', totalScrewBoxes3, PRICES.screw_3in_70ct);
-  addItem('1" Screws (90ct)', totalScrewBoxes1, PRICES.screw_1in_90ct);
+  addItem("2×4 Lumber (8ft)", totalBoards, prices.lumber_2x4_8ft);
+  addItem("Plywood Sheet", totalSheets, prices.plywood_sheet);
+  addItem("Totes", totalTotes, prices.tote);
+  addItem("Wheels (4pk)", totalWheelKits, prices.wheels_4pk);
+  addItem('1⅝" Screws (145ct)', totalScrewBoxes16, prices.screw_1_5_8in_145ct);
+  addItem('3" Screws (70ct)', totalScrewBoxes3, prices.screw_3in_70ct);
+  addItem('1" Screws (90ct)', totalScrewBoxes1, prices.screw_1in_90ct);
 
   const totalCost = items.reduce((sum, i) => sum + i.subtotal, 0);
 

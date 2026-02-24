@@ -48,6 +48,8 @@ export interface CutPlanModule {
   railStrips: number;
   backSupports: number;
   moduleWidth: number;
+  heightTier?: number; // 1-based tier index when unit is vertically split (omitted for single-tier)
+  heightTierTotal?: number; // total number of height tiers for this width module
 }
 
 export interface ShoppingItem {
@@ -133,6 +135,43 @@ function getDepth(unitType: UnitType, orientation: Orientation): number {
   return STANDARD_DEPTH;
 }
 
+// ── Height tier splitting ───────────────────────────────────────────────
+// Determines max rows per vertical tier so uprights fit in STOCK_LENGTH.
+function getMaxRowsPerTier(unitType: UnitType): number {
+  if (unitType === "mini") {
+    // Mini: uprightH = MINI_FIRST_RAIL_HEIGHT + (rows-1)*MINI_TIER_HEIGHT + 2
+    // Solve: 5.25 + (rows-1)*7 + 2 <= 96  =>  rows <= 13.67  =>  13
+    // But mini is capped at 4 rows already, so this never triggers.
+    return 13;
+  }
+  // Standard: uprightH = rows * STANDARD_TIER_HEIGHT
+  // Solve: rows * 16 <= 96  =>  rows <= 6
+  return Math.floor(STOCK_LENGTH / STANDARD_TIER_HEIGHT);
+}
+
+// Splits total rows into height tiers that fit within 8ft stock.
+function splitHeightTiers(totalRows: number, unitType: UnitType): number[] {
+  const maxRows = getMaxRowsPerTier(unitType);
+  if (totalRows <= maxRows) return [totalRows];
+
+  const tiers: number[] = [];
+  let remaining = totalRows;
+  while (remaining > maxRows) {
+    tiers.push(maxRows);
+    remaining -= maxRows;
+  }
+  if (remaining > 0) tiers.push(remaining);
+  return tiers;
+}
+
+// Calculate upright height for a given number of rows
+function calcUprightHeight(rows: number, unitType: UnitType): number {
+  if (unitType === "mini") {
+    return MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+  }
+  return rows * getTierHeight(unitType);
+}
+
 // ── Main Export ──────────────────────────────────────────────────────────
 
 export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
@@ -149,11 +188,15 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
   const cutPlans: CutPlanModule[] = [];
 
-  // ── PHASE 1: Collect ALL parts globally across all modules ──────────────
-  const allParts: (CutPart & { unitIdx: number; modIndex: number })[] = [];
+  // modKey encodes: unitIdx, widthModIndex, heightTierIndex
+  // This allows the bin packer to attribute boards correctly.
+  const allParts: (CutPart & { unitIdx: number; modKey: string })[] = [];
   const moduleMetadata: {
     unitIdx: number;
-    modIndex: number;
+    modKey: string;
+    widthModIndex: number;
+    heightTierIndex: number;
+    heightTierTotal: number;
     cols: number;
     rows: number;
     stripCount: number;
@@ -167,7 +210,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
   quoteData.forEach((unit, unitIdx) => {
     const {
       cols: totalCols,
-      rows,
+      rows: totalRows,
       toteType,
       toteColor = "black",
       unitType = "standard",
@@ -177,27 +220,28 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       hasTop
     } = unit;
 
-    if (totalCols < 1 || rows < 1) return;
+    if (totalCols < 1 || totalRows < 1) return;
 
     // Get config based on unit type and orientation
     const opening = getOpening(toteType, unitType, orientation);
     const gap = getGap(unitType);
-    const tierHeight = getTierHeight(unitType);
     const pricePerSlot = unitType === "mini" ? MINI_PRICE_PER_SLOT : STANDARD_PRICE_PER_SLOT;
-    // Use clear tote pricing for HDX clear totes
     const totePrice = unitType === "mini"
       ? MINI_TOTE_PRICE
       : (toteType === "HDX" && toteColor === "clear" ? STANDARD_TOTE_CLEAR_PRICE : STANDARD_TOTE_PRICE);
     const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
 
-    // ── Auto-Split Logic (max 4 cols per module) ─────────────────────
-    const modules: number[] = [];
-    let remaining = totalCols;
-    while (remaining > 4) {
-      modules.push(4);
-      remaining -= 4;
+    // ── Auto-Split Logic: WIDTH (max 4 cols per module) ─────────────
+    const widthModules: number[] = [];
+    let remainingCols = totalCols;
+    while (remainingCols > 4) {
+      widthModules.push(4);
+      remainingCols -= 4;
     }
-    if (remaining > 0) modules.push(remaining);
+    if (remainingCols > 0) widthModules.push(remainingCols);
+
+    // ── Auto-Split Logic: HEIGHT (max rows per tier to fit 8ft stock) ─
+    const heightTiers = splitHeightTiers(totalRows, unitType);
 
     // ── Unit-level add-ons ───────────────────────────────────────────
     if (hasWheels) {
@@ -208,80 +252,84 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
     let unitTotalWidth = 0;
 
-    modules.forEach((cols, modIndex) => {
+    widthModules.forEach((cols, widthModIndex) => {
       const modWidth = cols * opening + (cols + 1) * gap;
-      const slots = cols * rows;
       unitTotalWidth += modWidth;
 
-      // Calculate upright height based on unit type
-      let uprightHeight: number;
-      if (unitType === "mini") {
-        // Mini: first rail + (rows-1) * tier height + clearance
-        uprightHeight = MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
-      } else {
-        uprightHeight = rows * tierHeight;
-      }
+      // Process each height tier for this width module
+      heightTiers.forEach((tierRows, heightTierIndex) => {
+        const modKey = `${unitIdx}-${widthModIndex}-${heightTierIndex}`;
+        const slots = cols * tierRows;
+        const uprightHeight = calcUprightHeight(tierRows, unitType);
 
-      // Collect parts for global bin packing
-      // Subsequent modules share left-most post with previous module
-      const postCount = modIndex === 0 ? (cols + 1) * 2 : cols * 2;
-      for (let i = 0; i < postCount; i++) {
-        allParts.push({
-          len: uprightHeight,
-          name: unitType === "mini" ? "Mini Upright" : "Upright",
-          type: "upright",
+        // Collect upright parts for global bin packing
+        // First width module gets (cols+1)*2 posts (both ends); subsequent share left post
+        const postCount = widthModIndex === 0 ? (cols + 1) * 2 : cols * 2;
+        for (let i = 0; i < postCount; i++) {
+          allParts.push({
+            len: uprightHeight,
+            name: unitType === "mini"
+              ? `Mini Upright${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`
+              : `Upright${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`,
+            type: "upright",
+            unitIdx,
+            modKey,
+          });
+        }
+
+        // Rails (top and bottom plates for each tier)
+        // Each height tier is a self-contained structural frame
+        const numRailSets = unitType === "mini" ? 2 : 4;
+        for (let k = 0; k < numRailSets; k++) {
+          allParts.push({
+            len: modWidth,
+            name: unitType === "mini"
+              ? `Mini Rail${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`
+              : `Rail${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`,
+            type: "rail",
+            unitIdx,
+            modKey,
+          });
+        }
+
+        // ── Plywood Strips ────────────────────────────────────────────
+        const numRails = slots * 2;
+        const backSupports = cols <= 4 ? 4 : 6;
+        const modStrips = numRails + backSupports;
+        globalStripCount += modStrips;
+
+        // ── Screws ────────────────────────────────────────────────────
+        gScrew16 += numRails * 4;
+        const screwPostCount = widthModIndex === 0 ? cols + 1 : cols;
+        gScrew3 += screwPostCount * 20;
+
+        // ── Retail (only count once for the full row set across height tiers) ──
+        // We'll add retail at tier level to properly track total slots
+        let modRetail = slots * pricePerSlot;
+        if (hasTotes) modRetail += slots * totePrice;
+        gRetail += modRetail;
+
+        if (hasTotes) gTotes += slots;
+
+        moduleMetadata.push({
           unitIdx,
-          modIndex,
+          modKey,
+          widthModIndex,
+          heightTierIndex,
+          heightTierTotal: heightTiers.length,
+          cols,
+          rows: tierRows,
+          stripCount: modStrips,
+          railStrips: numRails,
+          backSupports,
+          moduleWidth: modWidth,
+          unitType,
+          orientation,
         });
-      }
-
-      // Rails (top and bottom plates for standard, bottom only for mini)
-      const numRailSets = unitType === "mini" ? 2 : 4; // Mini has fewer 2x4 rails
-      for (let k = 0; k < numRailSets; k++) {
-        allParts.push({
-          len: modWidth,
-          name: unitType === "mini" ? "Mini Rail" : "Rail",
-          type: "rail",
-          unitIdx,
-          modIndex,
-        });
-      }
-
-      // ── Plywood Strips ────────────────────────────────────────────
-      const numRails = slots * 2;
-      const backSupports = cols <= 4 ? 4 : 6;
-      const modStrips = numRails + backSupports;
-      globalStripCount += modStrips;
-
-      // ── Screws ────────────────────────────────────────────────────
-      gScrew16 += numRails * 4;
-      // Subsequent modules share left-most post with previous module
-      const screwPostCount = modIndex === 0 ? cols + 1 : cols;
-      gScrew3 += screwPostCount * 20;
-
-      // ── Retail ────────────────────────────────────────────────────
-      let modRetail = slots * pricePerSlot;
-      if (hasTotes) modRetail += slots * totePrice;
-      gRetail += modRetail;
-
-      if (hasTotes) gTotes += slots;
-
-      moduleMetadata.push({
-        unitIdx,
-        modIndex,
-        cols,
-        rows,
-        stripCount: modStrips,
-        railStrips: numRails,
-        backSupports,
-        moduleWidth: modWidth,
-        unitType,
-        orientation,
       });
     });
 
     // ── Top Sheets (per unit width) ─────────────────────────────────
-    // Mini units always have a top; standard units it's optional
     const effectiveHasTop = unitType === "mini" || hasTop;
     if (effectiveHasTop) {
       let sheetsForUnit = 0;
@@ -316,14 +364,13 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
   gBoards = globalBoards.length;
 
   // ── PHASE 3: Build per-module cut plans from global boards ────────────
-  // Attribute boards to modules based on which parts they contain
   for (const meta of moduleMetadata) {
     const moduleBoards: Board[] = [];
     for (const b of globalBoards) {
       const moduleCuts = b.cuts.filter(
         (c) =>
           (c as typeof allParts[number]).unitIdx === meta.unitIdx &&
-          (c as typeof allParts[number]).modIndex === meta.modIndex
+          (c as typeof allParts[number]).modKey === meta.modKey
       );
       if (moduleCuts.length > 0) {
         const usedLen = moduleCuts.reduce((s, c) => s + c.len + KERF, 0);
@@ -332,7 +379,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     }
     cutPlans.push({
       unitIndex: meta.unitIdx + 1,
-      moduleIndex: meta.modIndex + 1,
+      moduleIndex: meta.widthModIndex + 1,
       cols: meta.cols,
       rows: meta.rows,
       boards: moduleBoards,
@@ -340,11 +387,13 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
       railStrips: meta.railStrips,
       backSupports: meta.backSupports,
       moduleWidth: meta.moduleWidth,
+      ...(meta.heightTierTotal > 1
+        ? { heightTier: meta.heightTierIndex + 1, heightTierTotal: meta.heightTierTotal }
+        : {}),
     });
   }
 
   // ── Final Plywood Calculation ──────────────────────────────────────────
-  // Top sheets generate offcut strips (27 usable strips per top sheet)
   const stripCredit = globalTopSheets * 27;
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
