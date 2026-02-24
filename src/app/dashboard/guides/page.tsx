@@ -1,19 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   CheckSquare,
   Square,
   ClipboardList,
   Instagram,
+  MessageSquare,
   Play,
   PlayCircle,
   Camera,
   Hash,
   Heart,
+  Sparkles,
+  TrendingUp,
+  Users,
+  Zap,
 } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -75,6 +82,23 @@ const INSTALLATION_CHECKLIST = [
 
 export default function GuidesPage() {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [isPro, setIsPro] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) {
+        setIsPro(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_pro")
+        .eq("id", user.id)
+        .single();
+      setIsPro(data?.is_pro === true);
+    });
+  }, []);
 
   function toggleItem(id: string) {
     setCheckedItems((prev) => {
@@ -302,6 +326,104 @@ export default function GuidesPage() {
                 </p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION: Community CTA
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="relative overflow-hidden rounded-2xl border border-yellow-500/20 bg-slate-900">
+          {/* Yellow accent bar */}
+          <div className="h-1 bg-gradient-to-r from-yellow-400 to-amber-500" />
+
+          {/* Decorative glow */}
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-yellow-400/8 blur-3xl" />
+          <div className="pointer-events-none absolute -left-12 bottom-0 h-36 w-36 rounded-full bg-amber-500/8 blur-3xl" />
+
+          <div className="relative p-5">
+            {/* Header */}
+            <div className="mb-3 flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400/10">
+                <Users className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Pro Community</p>
+                  <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-yellow-400">
+                    PRO
+                  </span>
+                </div>
+                <p className="text-[10px] font-medium text-yellow-400/60">
+                  Connect. Learn. Grow.
+                </p>
+              </div>
+            </div>
+
+            <p className="mb-4 text-[13px] leading-relaxed text-stone-400">
+              Get real advice from other pros who are building these units and
+              growing their businesses. Ask questions, share wins, and learn
+              what&apos;s working in your market.
+            </p>
+
+            {/* Features */}
+            <div className="mb-4 space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-yellow-500/10">
+                  <MessageSquare className="h-3 w-3 text-yellow-400" />
+                </div>
+                <p className="text-xs text-stone-400">
+                  <span className="font-semibold text-stone-300">Builder discussions</span>{" "}
+                  — pricing strategies, install tips, and business growth from experienced pros
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/10">
+                  <TrendingUp className="h-3 w-3 text-amber-400" />
+                </div>
+                <p className="text-xs text-stone-400">
+                  <span className="font-semibold text-stone-300">Trending topics</span>{" "}
+                  — see what other installers are talking about and what&apos;s working right now
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-500/10">
+                  <Sparkles className="h-3 w-3 text-emerald-400" />
+                </div>
+                <p className="text-xs text-stone-400">
+                  <span className="font-semibold text-stone-300">AI-powered summaries</span>{" "}
+                  — never miss key insights from long threads
+                </p>
+              </div>
+            </div>
+
+            {/* CTA Button — adapts based on Pro status */}
+            {isPro ? (
+              <a
+                href="/community"
+                className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-gray-950 transition-all hover:bg-yellow-300"
+              >
+                <Users className="h-4 w-4" />
+                Browse the Community
+                <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <a
+                href="/community"
+                className="flex items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3 text-sm font-bold text-yellow-400 transition-all hover:border-yellow-500/50 hover:bg-yellow-400/20"
+              >
+                <Zap className="h-4 w-4" />
+                {isPro === false ? "Upgrade to Pro to Join" : "Join the Community"}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            )}
+
+            {isPro === false && (
+              <p className="mt-2 text-center text-[11px] text-stone-600">
+                Community access is included with the Pro plan — $99/mo
+              </p>
+            )}
           </div>
         </section>
 
