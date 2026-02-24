@@ -26,7 +26,7 @@ interface BookDemoResult {
   calendarLink?: string;
 }
 
-// Available time slots (Eastern Time business hours)
+// Available time slots (Central Time business hours)
 export const DEMO_TIME_SLOTS = [
   "09:00",
   "09:30",
@@ -56,11 +56,17 @@ export async function getAvailableSlots(
   }
 
   // Check which slots are already booked
-  const { data: booked } = await supabase
+  const { data: booked, error } = await supabase
     .from("demo_bookings")
     .select("time")
     .eq("date", date)
     .eq("status", "confirmed");
+
+  // If table doesn't exist yet, just return all slots as available
+  if (error) {
+    console.error("[DemoBooking] getAvailableSlots error:", error);
+    return { slots: DEMO_TIME_SLOTS };
+  }
 
   const bookedTimes = new Set((booked || []).map((b) => b.time));
   const available = DEMO_TIME_SLOTS.filter((t) => !bookedTimes.has(t));

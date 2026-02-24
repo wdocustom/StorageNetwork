@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS public.demo_bookings (
   email      text        NOT NULL,
   phone      text,
   date       text        NOT NULL,   -- YYYY-MM-DD
-  time       text        NOT NULL,   -- HH:MM (24h, Eastern)
-  timezone   text        DEFAULT 'America/New_York',
+  time       text        NOT NULL,   -- HH:MM (24h, Central)
+  timezone   text        DEFAULT 'America/Chicago',
   status     text        DEFAULT 'confirmed',
   created_at timestamptz DEFAULT now()
 );

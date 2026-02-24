@@ -129,7 +129,7 @@ export default function TermsPage() {
           <h2 className="mt-8 text-lg font-bold text-white">8. Intellectual Property</h2>
           <p>
             All content on the Platform, including the build configurator, 3D visualizer,
-            cut plan algorithms, and brand assets, is the property of WDO Custom LLC and
+            cut plan algorithms, and brand assets, is the property of Storage-Network.app and
             is protected by applicable intellectual property laws. You may not reproduce,
             distribute, or create derivative works without written permission.
           </p>
@@ -158,7 +158,7 @@ export default function TermsPage() {
 
           <div className="mt-12 rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <p className="text-xs text-stone-500">
-              &copy; {new Date().getFullYear()} WDO Custom LLC. All rights reserved.
+              &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
             </p>
           </div>
         </div>

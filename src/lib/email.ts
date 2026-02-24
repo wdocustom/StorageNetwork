@@ -1048,7 +1048,7 @@ export async function sendDemoConfirmationEmail(data: {
   const hour = Number(h);
   const ampm = hour >= 12 ? "PM" : "AM";
   const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-  const formattedTime = `${hour12}:${m} ${ampm} ET`;
+  const formattedTime = `${hour12}:${m} ${ampm} CT`;
 
   const body = `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.name.split(" ")[0]},</p>

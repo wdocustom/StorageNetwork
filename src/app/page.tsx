@@ -344,7 +344,7 @@ export default function LandingPage() {
             />
           </div>
           <p className="text-xs text-stone-700">
-            &copy; {new Date().getFullYear()} WDO Custom. All rights reserved.
+            &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
             <a

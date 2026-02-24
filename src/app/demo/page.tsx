@@ -121,10 +121,16 @@ export default function DemoPage() {
     if (!selectedDate) return;
     setSlotsLoading(true);
     setSelectedTime("");
-    getAvailableSlots(selectedDate).then(({ slots }) => {
-      setAvailableSlots(slots);
-      setSlotsLoading(false);
-    });
+    getAvailableSlots(selectedDate)
+      .then(({ slots }) => {
+        setAvailableSlots(slots);
+        setSlotsLoading(false);
+      })
+      .catch(() => {
+        // If server action fails (e.g. table missing), show all slots
+        setAvailableSlots(DEMO_TIME_SLOTS);
+        setSlotsLoading(false);
+      });
   }, [selectedDate]);
 
   async function handleBook() {
@@ -313,7 +319,7 @@ export default function DemoPage() {
               <p className="mb-1 text-sm text-stone-400">
                 <strong className="text-white">{formatDate(selectedDate)}</strong>{" "}
                 at{" "}
-                <strong className="text-yellow-400">{formatTime(selectedTime)} ET</strong>
+                <strong className="text-yellow-400">{formatTime(selectedTime)} CT</strong>
               </p>
               <p className="mb-6 text-sm text-stone-500">
                 Check your email for confirmation details.
@@ -407,7 +413,7 @@ export default function DemoPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-white">
                       Pick a Time
                     </span>
-                    <span className="text-[10px] text-stone-500">(Eastern Time)</span>
+                    <span className="text-[10px] text-stone-500">(Central Time)</span>
                   </div>
 
                   {slotsLoading ? (
@@ -502,7 +508,7 @@ export default function DemoPage() {
                     <>
                       <Check className="h-4 w-4" />
                       Confirm Demo — {formatDate(selectedDate)} at{" "}
-                      {formatTime(selectedTime)} ET
+                      {formatTime(selectedTime)} CT
                     </>
                   )}
                 </button>
@@ -560,7 +566,7 @@ export default function DemoPage() {
             />
           </a>
           <p className="text-[10px] text-stone-700">
-            &copy; {new Date().getFullYear()} WDO Custom
+            &copy; {new Date().getFullYear()} Storage-Network.app
           </p>
           <a
             href="/login"
