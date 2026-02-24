@@ -444,7 +444,7 @@ export default function JobTicketPage() {
                             <span className="ml-1.5 text-stone-600">96&quot; stock</span>
                           </span>
                           <span className="font-mono font-bold text-red-400/70">
-                            {board.rem.toFixed(1)}&quot; waste
+                            {toFraction(board.rem)}&quot; waste
                           </span>
                         </div>
                         <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
@@ -462,9 +462,9 @@ export default function JobTicketPage() {
                                   minWidth: "24px",
                                   textShadow: "0 1px 2px rgba(0,0,0,0.4)",
                                 }}
-                                title={`${cut.name} — ${cut.len.toFixed(1)}"`}
+                                title={`${cut.name} — ${toFraction(cut.len)}"`}
                               >
-                                {cut.len.toFixed(0)}&quot;
+                                {toFraction(cut.len)}&quot;
                               </div>
                             );
                           })}
