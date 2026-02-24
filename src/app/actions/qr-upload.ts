@@ -10,32 +10,22 @@ const supabase = createClient(
 
 const COMMUNITY_BUCKET = "community-images";
 
-// In-memory session store (cleared on server restart — fine for ephemeral upload sessions)
-// Key: sessionToken, Value: session data
-const sessions = new Map<
-  string,
-  {
-    userId: string;
-    createdAt: number;
-    images: { url: string; storagePath: string; name: string }[];
-  }
->();
-
-// Clean expired sessions (older than 30 minutes)
-function cleanExpired() {
-  const cutoff = Date.now() - 30 * 60 * 1000;
-  sessions.forEach((session, token) => {
-    if (session.createdAt < cutoff) sessions.delete(token);
-  });
-}
-
 // ── Create a new upload session ──────────────────────────────────────────
 export async function createUploadSession(
   userId: string
 ): Promise<{ token: string }> {
-  cleanExpired();
   const token = randomUUID();
-  sessions.set(token, { userId, createdAt: Date.now(), images: [] });
+
+  const { error } = await supabase.from("qr_upload_sessions").insert({
+    token,
+    user_id: userId,
+  });
+
+  if (error) {
+    console.error("[QR Upload] Failed to create session:", error);
+    throw new Error("Failed to create upload session.");
+  }
+
   return { token };
 }
 
@@ -44,19 +34,33 @@ export async function uploadToSession(
   token: string,
   formData: FormData
 ): Promise<{ success: boolean; error?: string; url?: string }> {
-  const session = sessions.get(token);
-  if (!session) return { success: false, error: "Session expired or invalid." };
+  // Verify session exists and is not expired
+  const { data: session } = await supabase
+    .from("qr_upload_sessions")
+    .select("token, user_id, expires_at")
+    .eq("token", token)
+    .single();
 
-  // Check expiry (30 min)
-  if (Date.now() - session.createdAt > 30 * 60 * 1000) {
-    sessions.delete(token);
+  if (!session) {
+    return { success: false, error: "Session expired or invalid." };
+  }
+
+  if (new Date(session.expires_at) < new Date()) {
     return { success: false, error: "Upload session has expired." };
   }
 
   const file = formData.get("image") as File | null;
-  if (!file || file.size === 0) return { success: false, error: "No image provided." };
+  if (!file || file.size === 0)
+    return { success: false, error: "No image provided." };
 
-  const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+  const allowed = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "image/heic",
+    "image/heif",
+  ];
   if (file.type && !allowed.includes(file.type)) {
     return { success: false, error: "Invalid image type." };
   }
@@ -65,7 +69,9 @@ export async function uploadToSession(
   }
 
   // Ensure bucket
-  const { data: bucketData } = await supabase.storage.getBucket(COMMUNITY_BUCKET);
+  const { data: bucketData } = await supabase.storage.getBucket(
+    COMMUNITY_BUCKET
+  );
   if (!bucketData) {
     await supabase.storage.createBucket(COMMUNITY_BUCKET, {
       public: true,
@@ -80,7 +86,10 @@ export async function uploadToSession(
 
   const { error: uploadError } = await supabase.storage
     .from(COMMUNITY_BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type || "image/jpeg", upsert: true });
+    .upload(storagePath, buffer, {
+      contentType: file.type || "image/jpeg",
+      upsert: true,
+    });
 
   if (uploadError) {
     return { success: false, error: "Upload failed: " + uploadError.message };
@@ -91,7 +100,20 @@ export async function uploadToSession(
     .getPublicUrl(storagePath);
 
   const url = urlData.publicUrl;
-  session.images.push({ url, storagePath, name: file.name });
+
+  // Store image record in DB
+  const { error: imgError } = await supabase
+    .from("qr_upload_images")
+    .insert({
+      session_token: token,
+      url,
+      storage_path: storagePath,
+      name: file.name,
+    });
+
+  if (imgError) {
+    console.error("[QR Upload] Failed to store image record:", imgError);
+  }
 
   return { success: true, url };
 }
@@ -99,13 +121,35 @@ export async function uploadToSession(
 // ── Get images uploaded to session (polled by desktop) ───────────────────
 export async function getSessionImages(
   token: string
-): Promise<{ images: { url: string; storagePath: string; name: string }[] }> {
-  const session = sessions.get(token);
+): Promise<{
+  images: { url: string; storagePath: string; name: string }[];
+}> {
+  // Verify session exists
+  const { data: session } = await supabase
+    .from("qr_upload_sessions")
+    .select("token")
+    .eq("token", token)
+    .single();
+
   if (!session) return { images: [] };
-  return { images: session.images };
+
+  const { data: images } = await supabase
+    .from("qr_upload_images")
+    .select("url, storage_path, name")
+    .eq("session_token", token)
+    .order("created_at", { ascending: true });
+
+  return {
+    images: (images || []).map((i) => ({
+      url: i.url,
+      storagePath: i.storage_path,
+      name: i.name,
+    })),
+  };
 }
 
 // ── Close/destroy session ────────────────────────────────────────────────
 export async function closeUploadSession(token: string): Promise<void> {
-  sessions.delete(token);
+  // Cascade delete removes images too
+  await supabase.from("qr_upload_sessions").delete().eq("token", token);
 }
