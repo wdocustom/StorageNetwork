@@ -55,14 +55,17 @@ RESPOND IN THIS EXACT JSON FORMAT (no markdown, no code fences, just raw JSON):
     {
       "name": "Real group name that exists or would exist in this area",
       "type": "buy-sell-trade | mom-group | neighborhood | home-improvement | community | odd-jobs | marketplace",
+      "search_terms": "Short keyword search query to find this type of group on Facebook (e.g. 'Springfield IL buy sell trade')",
       "why": "One sentence why this group is a goldmine for tote rack posts",
       "tip": "One sentence posting tip specific to this type of group"
     }
   ],
   "craigslist": [
     {
-      "name": "Section name (e.g., services > household, for sale > furniture)",
+      "name": "Section name (e.g., Household Services, Furniture By Owner)",
       "type": "services | for-sale | community | gigs",
+      "subdomain": "The exact Craigslist city subdomain for this metro area (e.g. 'chicago', 'sfbay', 'losangeles', 'springfieldil', 'fortwayne')",
+      "section_code": "The exact Craigslist search section abbreviation code (e.g. 'hss' for household services, 'fuo' for furniture by owner, 'sss' for all for sale, 'lbg' for labor gigs, 'sks' for skilled trade services, 'ccc' for community)",
       "why": "Why this section works",
       "tip": "Posting tip"
     }
@@ -84,7 +87,10 @@ RULES:
 - Suggest 3-4 other platforms (Instagram, Nextdoor, TikTok, Reddit, etc.)
 - Use REAL, PLAUSIBLE group names that would exist in ${location} — include the actual city/area name in the group names
 - For Facebook: focus on local buy/sell/trade groups, mom groups, homeowner groups, neighborhood groups, handyman/odd-job groups, garage sale groups
+- CRITICAL for Facebook "search_terms": provide short, generic keyword phrases that will find REAL groups on Facebook search. Use the city/state + group category keywords (e.g. "Austin TX garage sale", "Austin TX moms group", "Austin TX home improvement"). Do NOT use the exact group name — use broad search terms that match real groups.
 - Be specific: "${city || "Local City"} Garage Sale" not "Local Garage Sale Group"
+- CRITICAL for Craigslist "subdomain": use the EXACT Craigslist subdomain for this metro area. Common examples: newyork, chicago, losangeles, sfbay, seattle, portland, denver, austin, dallas, houston, atlanta, miami, boston, philadelphia, phoenix, sandiego, minneapolis, stlouis, detroit, nashville, raleigh, charlotte, orlando, tampa, jacksonville, richmond, norfolk, sacramento, sanjose, fortworth, columbus, cleveland, cincinnati, pittsburgh, indianapolis, kansascity, saltlakecity, lasvegas. For smaller cities, it's often the city name (lowercase, no spaces) sometimes with state abbreviation appended (e.g. "springfieldil", "springfieldmo").
+- CRITICAL for Craigslist "section_code": use EXACT Craigslist section codes. Valid codes: "hss" (household services), "fuo" (furniture by owner), "fod" (furniture by dealer), "sss" (all for sale by owner), "lbg" (labor gigs), "sks" (skilled trade services), "ccc" (community all), "dmg" (domestic gigs), "hsg" (household gigs)
 - Every suggestion must be actionable — the installer should be able to search for this group and find it (or something very similar)
 - Output ONLY valid JSON — no markdown fences, no explanation text before/after`;
 

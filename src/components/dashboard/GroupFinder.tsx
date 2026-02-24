@@ -23,6 +23,7 @@ import {
 interface FacebookGroup {
   name: string;
   type: string;
+  search_terms?: string;
   why: string;
   tip: string;
 }
@@ -30,6 +31,8 @@ interface FacebookGroup {
 interface CraigslistSection {
   name: string;
   type: string;
+  subdomain?: string;
+  section_code?: string;
   why: string;
   tip: string;
 }
@@ -217,7 +220,7 @@ export default function GroupFinder({
                           </p>
                         </div>
                         <a
-                          href={`https://www.facebook.com/search/groups/?q=${encodeURIComponent(g.name)}`}
+                          href={`https://www.facebook.com/search/groups/?q=${encodeURIComponent(g.search_terms || g.name)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 rounded-lg border border-slate-700 p-1.5 text-stone-500 transition-colors hover:border-blue-400 hover:text-blue-400"
@@ -257,21 +260,41 @@ export default function GroupFinder({
               </button>
               {expandedSection === "craigslist" && (
                 <div className="border-t border-slate-800 p-3 space-y-2">
-                  {suggestions.craigslist.map((s, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg bg-slate-800/50 p-3"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-white">{s.name}</p>
-                        <TypeBadge type={s.type} />
+                  {suggestions.craigslist.map((s, i) => {
+                    const clUrl = s.subdomain && s.section_code
+                      ? `https://${s.subdomain}.craigslist.org/search/${s.section_code}`
+                      : null;
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-lg bg-slate-800/50 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-bold text-white">{s.name}</p>
+                              <TypeBadge type={s.type} />
+                            </div>
+                            <p className="mt-1 text-xs text-stone-400">{s.why}</p>
+                            <p className="mt-1.5 text-[11px] text-yellow-400/80">
+                              <span className="font-bold">Tip:</span> {s.tip}
+                            </p>
+                          </div>
+                          {clUrl && (
+                            <a
+                              href={clUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-lg border border-slate-700 p-1.5 text-stone-500 transition-colors hover:border-purple-400 hover:text-purple-400"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-stone-400">{s.why}</p>
-                      <p className="mt-1.5 text-[11px] text-yellow-400/80">
-                        <span className="font-bold">Tip:</span> {s.tip}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
