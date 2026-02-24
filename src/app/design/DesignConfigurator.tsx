@@ -13,6 +13,7 @@ import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels"
 import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
+import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
@@ -34,6 +35,7 @@ import {
   CreditCard,
   Scan,
   Star,
+  Truck,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -276,6 +278,9 @@ export default function DesignConfigurator({
   const [waitlistError, setWaitlistError] = useState("");
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Delivery fee (distance-based) ──────────────────────────────────
+  const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
+
   // ── Network Referral Bounty ─────────────────────────────────────────
   // When the customer's installation ZIP is outside the original installer's
   // area, we re-route to a local installer and track the original as referrer.
@@ -349,6 +354,7 @@ export default function DesignConfigurator({
     setZipCheckMsg("");
     setWaitlistSent(false);
     setWaitlistError("");
+    setDeliveryFeeResult(null);
 
     const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
     // Validate against the ORIGINAL installer (from URL), not a swapped-in one
@@ -356,12 +362,13 @@ export default function DesignConfigurator({
     if (!validationTargetId || !zipToCheck || zipToCheck.trim().length !== 5) return;
 
     zipCheckRef.current = setTimeout(async () => {
-      const result = await validateServiceArea(validationTargetId, zipToCheck.trim());
+      const trimmedZip = zipToCheck.trim();
+      const result = await validateServiceArea(validationTargetId, trimmedZip);
       if (!result.inArea) {
         // ── Network Referral Bounty: re-route to local installer ──────
         // Instead of blocking, find a local Pro and hand off the lead.
         // The original installer becomes the referrer and earns 30% of the deposit.
-        const localResult = await rerouteToLocalInstaller(zipToCheck.trim(), validationTargetId);
+        const localResult = await rerouteToLocalInstaller(trimmedZip, validationTargetId);
         if (localResult.available && localResult.installer_id) {
           // Hand off: swap to local installer, track original as referrer
           setReferringInstallerId(validationTargetId);
@@ -371,6 +378,10 @@ export default function DesignConfigurator({
           if (vm) {
             setData(vm);
             setInstallerId(vm.routing.installerId);
+            // Calculate delivery fee against the LOCAL installer
+            calculateDeliveryFee(vm.routing.installerId, trimmedZip)
+              .then(setDeliveryFeeResult)
+              .catch(() => {});
           }
         } else {
           // No local installer found — show waitlist UI
@@ -386,6 +397,10 @@ export default function DesignConfigurator({
         setReferringInstallerId(null);
         setHandedOff(false);
         setHandoffInstallerName("");
+        // Calculate delivery fee for this ZIP
+        calculateDeliveryFee(validationTargetId, trimmedZip)
+          .then(setDeliveryFeeResult)
+          .catch(() => {});
       }
     }, 600);
 
@@ -403,7 +418,9 @@ export default function DesignConfigurator({
   // ── Scan Wizard modal ───────────────────────────────────────────────────
   const [showScanWizard, setShowScanWizard] = useState(false);
 
-  const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+  const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+  const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
+  const grandTotal = buildTotal + deliveryFeeAmount;
   const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
 
   // Does any unit have wheels?
@@ -1436,6 +1453,19 @@ export default function DesignConfigurator({
                   <div className="mt-1 text-4xl font-black text-gray-900">
                     ${grandTotal.toLocaleString()}
                   </div>
+                  {deliveryFeeAmount > 0 && (
+                    <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-stone-500">
+                      <Truck className="h-3.5 w-3.5 text-amber-600" />
+                      <span>
+                        Includes{" "}
+                        <span className="font-bold text-amber-600">
+                          ${deliveryFeeAmount.toLocaleString()}
+                        </span>{" "}
+                        delivery fee
+                        {deliveryFeeResult?.distance ? ` (${deliveryFeeResult.distance} mi)` : ""}
+                      </span>
+                    </div>
+                  )}
                   {stripeAccountId && (
                     <div className="mt-1 text-xs text-stone-500">
                       Deposit (15%):{" "}
