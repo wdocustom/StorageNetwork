@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import type { QuoteUnit } from "@/lib/buildEngine";
 import {
   ArrowLeft,
   CheckCircle2,
