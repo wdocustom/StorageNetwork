@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { DEMO_TIME_SLOTS, OWNER_EMAIL } from "@/lib/demo-constants";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,24 +26,6 @@ interface BookDemoResult {
   error?: string;
   calendarLink?: string;
 }
-
-// Available time slots (Central Time business hours)
-export const DEMO_TIME_SLOTS = [
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "13:00",
-  "13:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-];
 
 // Working days (Mon-Fri)
 const WORKING_DAYS = [1, 2, 3, 4, 5];
@@ -105,7 +88,7 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
     return { success: false, error: "Failed to book demo. Please try again." };
   }
 
-  // Build Google Calendar link for the prospect
+  // Build Google Calendar link — includes owner as invited guest
   const startDateTime = `${date}T${time}:00`;
   const endDate = new Date(`${startDateTime}`);
   endDate.setMinutes(endDate.getMinutes() + 30);
@@ -120,14 +103,29 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
     "Storage Network Platform Demo"
   )}&dates=${gcalStart}/${gcalEnd}&details=${encodeURIComponent(
     `Platform demo call with Storage Network.\n\nWe'll walk you through:\n- How pre-sold leads work\n- The 3D configurator customers use\n- Cut lists & material planning\n- Payment processing & payouts\n- Marketing tools included\n\nQuestions? Reply to this event or email us.`
-  )}&location=${encodeURIComponent("Google Meet / Phone Call")}`;
+  )}&location=${encodeURIComponent(
+    "Google Meet / Phone Call"
+  )}&add=${encodeURIComponent(OWNER_EMAIL)}`;
 
-  // Send confirmation email via Resend
+  // Send emails via Resend
   try {
-    const { sendDemoConfirmationEmail } = await import("@/lib/email");
+    const { sendDemoConfirmationEmail, sendDemoOwnerNotification } =
+      await import("@/lib/email");
+
+    // Confirmation to the prospect
     await sendDemoConfirmationEmail({
       name: name.trim(),
       email: email.trim().toLowerCase(),
+      date,
+      time,
+      calendarLink,
+    });
+
+    // Notification to the owner
+    await sendDemoOwnerNotification({
+      prospectName: name.trim(),
+      prospectEmail: email.trim().toLowerCase(),
+      prospectPhone: phone?.trim() || null,
       date,
       time,
       calendarLink,

@@ -19,7 +19,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { bookDemo, getAvailableSlots, DEMO_TIME_SLOTS } from "@/app/actions/demo-booking";
+import { bookDemo, getAvailableSlots } from "@/app/actions/demo-booking";
+import { DEMO_TIME_SLOTS } from "@/lib/demo-constants";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Demo Booking Page — Installer acquisition funnel

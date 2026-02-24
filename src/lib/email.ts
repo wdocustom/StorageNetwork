@@ -1107,3 +1107,83 @@ export async function sendDemoConfirmationEmail(data: {
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Demo Booking — Owner Notification (sent to info@wdocustom.com)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendDemoOwnerNotification(data: {
+  prospectName: string;
+  prospectEmail: string;
+  prospectPhone: string | null;
+  date: string;
+  time: string;
+  calendarLink: string;
+}) {
+  const [year, month, day] = data.date.split("-");
+  const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+  const formattedDate = dateObj.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const [h, m] = data.time.split(":");
+  const hour = Number(h);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  const formattedTime = `${hour12}:${m} ${ampm} CT`;
+
+  const body = `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">New demo booking!</p>
+
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Name</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.prospectName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Email</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">
+            <a href="mailto:${data.prospectEmail}" style="color:#facc15;text-decoration:none;">${data.prospectEmail}</a>
+          </td>
+        </tr>
+        ${data.prospectPhone ? `<tr>
+          <td style="padding:8px 0;color:#94a3b8;">Phone</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">
+            <a href="tel:${data.prospectPhone}" style="color:#facc15;text-decoration:none;">${data.prospectPhone}</a>
+          </td>
+        </tr>` : ""}
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Date</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Time</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedTime}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${data.calendarLink}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        Add to Google Calendar
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:13px;">
+      The prospect has been sent a confirmation email. Reach out before the call if possible.
+    </p>
+  `;
+
+  const html = emailShell("New Demo Booking", body);
+
+  await sendTransactionalEmail({
+    to: "info@wdocustom.com",
+    toName: "Storage Network",
+    subject: `New demo booking — ${data.prospectName} on ${formattedDate} at ${formattedTime}`,
+    html,
+  });
+}
