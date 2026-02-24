@@ -96,39 +96,7 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
 
   if (insertError) {
     console.error("[DemoBooking] Insert error:", insertError);
-    // If table doesn't exist, create it
-    if (insertError.message?.includes("does not exist")) {
-      await supabase.rpc("exec_sql", {
-        sql: `CREATE TABLE IF NOT EXISTS demo_bookings (
-          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-          name text NOT NULL,
-          email text NOT NULL,
-          phone text,
-          date text NOT NULL,
-          time text NOT NULL,
-          timezone text DEFAULT 'America/New_York',
-          status text DEFAULT 'confirmed',
-          created_at timestamptz DEFAULT now()
-        );`,
-      });
-      // Retry insert
-      const { error: retryError } = await supabase
-        .from("demo_bookings")
-        .insert({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone?.trim() || null,
-          date,
-          time,
-          timezone,
-          status: "confirmed",
-        });
-      if (retryError) {
-        return { success: false, error: "Failed to book demo. Please try again." };
-      }
-    } else {
-      return { success: false, error: "Failed to book demo. Please try again." };
-    }
+    return { success: false, error: "Failed to book demo. Please try again." };
   }
 
   // Build Google Calendar link for the prospect
