@@ -21,6 +21,7 @@ export interface ProfileUpdateInput {
   service_zip?: string;
   city?: string;
   state?: string;
+  address_line1?: string;
   avatar_url?: string;
 }
 

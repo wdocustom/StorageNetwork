@@ -32,6 +32,9 @@ import {
   Target,
   X,
   Handshake,
+  Truck,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
@@ -51,6 +54,20 @@ export default function ProfilePage() {
   );
 }
 
+/** A single distance-based delivery fee tier */
+export interface DeliveryFeeTier {
+  max_miles: number;
+  fee: number;
+  enabled: boolean;
+  label: string;
+}
+
+/** Delivery fee configuration stored in profiles.delivery_fee_config */
+export interface DeliveryFeeConfig {
+  enabled: boolean;
+  tiers: DeliveryFeeTier[];
+}
+
 interface Profile {
   id: string;
   email: string;
@@ -63,6 +80,7 @@ interface Profile {
   service_radius_miles: number | null;
   city: string | null;
   state: string | null;
+  address_line1: string | null;
   avatar_url: string | null;
   slug: string | null;
   subscription_tier: string;
@@ -70,6 +88,7 @@ interface Profile {
   is_partner: boolean;
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
+  delivery_fee_config: DeliveryFeeConfig | null;
 }
 
 function ProfilePageInner() {
@@ -94,7 +113,14 @@ function ProfilePageInner() {
   const [serviceZip, setServiceZip] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Delivery fee state
+  const [deliveryFeeEnabled, setDeliveryFeeEnabled] = useState(false);
+  const [deliveryTiers, setDeliveryTiers] = useState<DeliveryFeeTier[]>([]);
+  const [deliveryFeeSaving, setDeliveryFeeSaving] = useState(false);
+  const [deliveryFeeMessage, setDeliveryFeeMessage] = useState("");
 
   // Service radius state
   const [serviceRadius, setServiceRadius] = useState(25);
@@ -138,7 +164,13 @@ function ProfilePageInner() {
     setServiceRadius(p.service_radius_miles ?? 25);
     setCity(p.city || "");
     setState(p.state || "");
+    setAddressLine1(p.address_line1 || "");
     setAvatarUrl(p.avatar_url);
+    // Delivery fee config
+    if (p.delivery_fee_config) {
+      setDeliveryFeeEnabled(p.delivery_fee_config.enabled);
+      setDeliveryTiers(p.delivery_fee_config.tiers || []);
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -152,7 +184,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config")
       .eq("id", user.id)
       .single();
 
@@ -163,7 +195,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -321,6 +353,7 @@ function ProfilePageInner() {
       service_zip: serviceZip || undefined,
       city: city.trim(),
       state: state.trim(),
+      address_line1: addressLine1.trim() || undefined,
     });
 
     if (result.success) {
@@ -383,6 +416,54 @@ function ProfilePageInner() {
       setRadiusMessage(result.error || "Failed to update service area.");
     }
     setRadiusSaving(false);
+  }
+
+  async function handleSaveDeliveryFees() {
+    if (!profile) return;
+    setDeliveryFeeSaving(true);
+    setDeliveryFeeMessage("");
+
+    const config: DeliveryFeeConfig = {
+      enabled: deliveryFeeEnabled,
+      tiers: deliveryTiers,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ delivery_fee_config: config })
+      .eq("id", profile.id);
+
+    if (error) {
+      setDeliveryFeeMessage("Failed to save delivery fees.");
+    } else {
+      setDeliveryFeeMessage("Delivery fees saved!");
+      setTimeout(() => setDeliveryFeeMessage(""), 3000);
+    }
+    setDeliveryFeeSaving(false);
+  }
+
+  function addDeliveryTier() {
+    const lastMax = deliveryTiers.length > 0 ? deliveryTiers[deliveryTiers.length - 1].max_miles : 0;
+    const newMax = Math.min(lastMax + 25, serviceRadius || 100);
+    setDeliveryTiers([
+      ...deliveryTiers,
+      { max_miles: newMax, fee: 0, enabled: true, label: `${lastMax}-${newMax} mi` },
+    ]);
+  }
+
+  function removeDeliveryTier(idx: number) {
+    setDeliveryTiers(deliveryTiers.filter((_, i) => i !== idx));
+  }
+
+  function updateDeliveryTier(idx: number, updates: Partial<DeliveryFeeTier>) {
+    setDeliveryTiers(deliveryTiers.map((t, i) => {
+      if (i !== idx) return t;
+      const updated = { ...t, ...updates };
+      // Auto-update label based on distance
+      const prevMax = idx > 0 ? deliveryTiers[idx - 1].max_miles : 0;
+      updated.label = `${prevMax}-${updated.max_miles} mi`;
+      return updated;
+    }));
   }
 
   async function handleChangePassword() {
@@ -617,6 +698,20 @@ function ProfilePageInner() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Street Address
+              </label>
+              <input
+                type="text"
+                value={addressLine1}
+                onChange={(e) => setAddressLine1(e.target.value)}
+                placeholder="1234 Main St"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+              />
+              <p className="mt-0.5 text-[10px] text-stone-600">Used for delivery distance calculations</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -813,6 +908,155 @@ function ProfilePageInner() {
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION A.6: Delivery Fee Tiers
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-yellow-400" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                Delivery Fees
+              </h2>
+            </div>
+            {/* Master Toggle */}
+            <button
+              onClick={() => setDeliveryFeeEnabled(!deliveryFeeEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                deliveryFeeEnabled ? "bg-yellow-400" : "bg-slate-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  deliveryFeeEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <p className="mb-4 text-xs text-stone-500">
+            Charge delivery fees based on distance from your home base ZIP. Fees are added to the customer&apos;s total and are <span className="font-semibold text-stone-400">not subject to sales tax</span>.
+          </p>
+
+          {deliveryFeeEnabled && (
+            <>
+              {/* Tier List */}
+              <div className="space-y-2">
+                {deliveryTiers.map((tier, idx) => {
+                  const prevMax = idx > 0 ? deliveryTiers[idx - 1].max_miles : 0;
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        tier.enabled
+                          ? "border-slate-700 bg-slate-800"
+                          : "border-slate-800 bg-slate-800/30 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Tier toggle */}
+                        <button
+                          onClick={() => updateDeliveryTier(idx, { enabled: !tier.enabled })}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                            tier.enabled ? "bg-yellow-400" : "bg-slate-600"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                              tier.enabled ? "translate-x-5" : "translate-x-1"
+                            }`}
+                          />
+                        </button>
+
+                        {/* Distance label */}
+                        <span className="text-xs font-semibold text-stone-400 whitespace-nowrap">
+                          {prevMax}–
+                        </span>
+
+                        {/* Max miles input */}
+                        <input
+                          type="number"
+                          min={prevMax + 1}
+                          max={serviceRadius || 200}
+                          value={tier.max_miles}
+                          onChange={(e) => updateDeliveryTier(idx, { max_miles: Number(e.target.value) || prevMax + 1 })}
+                          className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                        />
+                        <span className="text-xs text-stone-500">mi</span>
+
+                        <span className="text-xs text-stone-600 mx-1">=</span>
+
+                        {/* Fee input */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-stone-400">$</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={5}
+                            value={tier.fee}
+                            onChange={(e) => updateDeliveryTier(idx, { fee: Number(e.target.value) || 0 })}
+                            className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                          />
+                        </div>
+
+                        {/* Delete tier */}
+                        <button
+                          onClick={() => removeDeliveryTier(idx)}
+                          className="ml-auto rounded p-1 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {tier.fee === 0 && tier.enabled && (
+                        <p className="mt-1 ml-12 text-[10px] text-emerald-500">Free delivery</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Tier button */}
+              <button
+                onClick={addDeliveryTier}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 py-2 text-xs font-semibold text-stone-500 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Distance Tier
+              </button>
+
+              {deliveryTiers.length === 0 && (
+                <p className="mt-2 text-center text-xs text-stone-600">
+                  No tiers yet. Add a distance tier to start charging delivery fees.
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Save */}
+          <button
+            onClick={handleSaveDeliveryFees}
+            disabled={deliveryFeeSaving}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+          >
+            {deliveryFeeSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Truck className="h-4 w-4" />
+            )}
+            {deliveryFeeSaving ? "Saving..." : "Save Delivery Fees"}
+          </button>
+
+          {deliveryFeeMessage && (
+            <p
+              className={`mt-2 text-center text-xs font-medium ${
+                deliveryFeeMessage.includes("saved") ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {deliveryFeeMessage}
+            </p>
+          )}
         </section>
 
         {/* ═══════════════════════════════════════════════════════════════

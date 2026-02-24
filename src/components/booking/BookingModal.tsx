@@ -10,6 +10,7 @@ import {
   MapPin,
   ChevronRight,
   Tag,
+  Truck,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -23,6 +24,7 @@ import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
+import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BookingModal — Multi-Step: Address → Schedule → Pay
@@ -104,6 +106,10 @@ export default function BookingModal({
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
+  // Delivery fee state
+  const [deliveryFee, setDeliveryFee] = useState<DeliveryFeeResult | null>(null);
+  const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+
   // Fetch blackout dates when modal opens
   useEffect(() => {
     if (!isOpen || !installerId) return;
@@ -119,8 +125,17 @@ export default function BookingModal({
     ? Math.max(installerLeadTime, 3)
     : installerLeadTime;
 
+  // Delivery fee (not taxed, but included in total for platform fee)
+  const deliveryFeeAmount = (deliveryFee?.applicable && deliveryFee.fee > 0) ? deliveryFee.fee : 0;
+
+  // Grand total = build price + delivery fee
+  const grandTotalWithDelivery = totalPrice + deliveryFeeAmount;
+
+  // Deposit is 15% of grand total (including delivery fee)
+  const effectiveDeposit = Math.round(grandTotalWithDelivery * 0.15 * 100) / 100;
+
   // Calculate sales tax based on state (for display purposes)
-  // Tax is assessed on the FULL BUILD AMOUNT and collected at installation
+  // Tax is assessed on the BUILD AMOUNT ONLY — delivery fee is tax-exempt
   const taxInfo = useMemo(() => {
     if (!address.state || address.state.length !== 2) return null;
     return calculateSalesTax(totalPrice, address.state);
@@ -129,8 +144,8 @@ export default function BookingModal({
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;
 
-  // Balance at installation = remaining build cost - discount + sales tax
-  const balanceAtInstall = (totalPrice - depositAmount - discountAmount) + (taxInfo?.taxAmount || 0);
+  // Balance at installation = grand total - deposit - discount + sales tax (tax only on build price)
+  const balanceAtInstall = (grandTotalWithDelivery - effectiveDeposit - discountAmount) + (taxInfo?.taxAmount || 0);
 
   // Apply discount code
   async function handleApplyDiscount() {
@@ -154,13 +169,26 @@ export default function BookingModal({
     setDiscountError("");
   }
 
-  // Address validation
-  function handleAddressNext() {
+  // Address validation — also calculates delivery fee
+  async function handleAddressNext() {
     if (!address.line1.trim() || !address.city.trim() || !address.state.trim() || !address.zip.trim()) {
       setError("Please fill in all required address fields.");
       return;
     }
     setError("");
+
+    // Calculate delivery fee based on distance
+    if (installerId && address.zip) {
+      setDeliveryFeeLoading(true);
+      try {
+        const result = await calculateDeliveryFee(installerId, address.zip);
+        setDeliveryFee(result);
+      } catch {
+        setDeliveryFee(null);
+      }
+      setDeliveryFeeLoading(false);
+    }
+
     setStep("schedule");
   }
 
@@ -176,19 +204,21 @@ export default function BookingModal({
 
     const result = await createDepositIntent({
       leadId,
-      amount: depositAmount, // Deposit only — always full 15%, tax collected at installation
-      totalPrice,
+      amount: effectiveDeposit, // Deposit = 15% of grand total (build + delivery)
+      totalPrice: grandTotalWithDelivery, // Grand total includes delivery fee
       installerId,
       source,
       customerEmail,
       customerName,
       scheduledAt: selectedDate,
-      // Tax info for installer records (collected at installation)
+      // Tax info for installer records (collected at installation — on build price only)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
       // Discount code (reduces balance at installation, not deposit)
       discountCode: discountApplied?.code,
       discountCodeAmount: discountApplied?.amount,
+      // Delivery fee (tax-exempt, but included in fee basis)
+      deliveryFeeAmount: deliveryFeeAmount || undefined,
     });
 
     setInitLoading(false);
@@ -199,7 +229,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, depositAmount, totalPrice, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied]);
+  }, [selectedDate, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
 
   if (!isOpen) return null;
 
@@ -266,7 +296,7 @@ export default function BookingModal({
                 You&apos;re Booked!
               </h4>
               <p className="mb-1 text-sm text-stone-400">
-                Deposit of {formatCurrency(depositAmount)} received.{discountAmount > 0 && ` Discount of ${formatCurrency(discountAmount)} applied to balance.`}
+                Deposit of {formatCurrency(effectiveDeposit)} received.{discountAmount > 0 && ` Discount of ${formatCurrency(discountAmount)} applied to balance.`}{deliveryFeeAmount > 0 && ` Delivery fee of ${formatCurrency(deliveryFeeAmount)} included.`}
               </p>
               {selectedDate && (
                 <p className="text-sm font-semibold text-yellow-400">
@@ -314,7 +344,7 @@ export default function BookingModal({
               }}
             >
               <InlinePaymentForm
-                totalAmount={depositAmount}
+                totalAmount={effectiveDeposit}
                 leadId={leadId}
                 onError={(msg) => setError(msg)}
               />
@@ -326,24 +356,40 @@ export default function BookingModal({
               <div className="rounded-xl bg-slate-800 p-4">
                 <div className="text-center mb-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
-                    Total Price
+                    {deliveryFeeAmount > 0 ? "Build Price" : "Total Price"}
                   </p>
                   <p className="text-2xl font-black text-white">
                     {formatCurrency(totalPrice)}
                   </p>
                 </div>
+                {/* Delivery fee line item (tax-exempt) */}
+                {deliveryFeeAmount > 0 && deliveryFee && (
+                  <div className="mb-3 flex items-center justify-between rounded-lg bg-yellow-400/5 border border-yellow-400/10 px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-yellow-400">
+                      <Truck className="h-3 w-3" />
+                      Delivery Fee ({deliveryFee.distance} mi)
+                    </span>
+                    <span className="text-xs font-bold text-yellow-400">{formatCurrency(deliveryFeeAmount)}</span>
+                  </div>
+                )}
+                {deliveryFeeAmount > 0 && (
+                  <div className="mb-3 text-center border-t border-slate-700 pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Grand Total</p>
+                    <p className="text-lg font-black text-white">{formatCurrency(grandTotalWithDelivery)}</p>
+                  </div>
+                )}
                 <div className="border-t border-slate-700 pt-3 space-y-1">
-                  {/* Due Today = Deposit only (never changes with discounts) */}
+                  {/* Due Today = Deposit (15% of grand total incl. delivery) */}
                   <div className="flex items-center justify-between text-sm pt-1">
                     <span className="font-bold text-stone-400">Due Today (Deposit)</span>
                     <span className="font-black text-yellow-400">
-                      {formatCurrency(depositAmount)}
+                      {formatCurrency(effectiveDeposit)}
                     </span>
                   </div>
                   {/* Balance at installation = remaining - discount + tax */}
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-700/50 mt-2">
                     <span className="text-stone-500">Remaining Balance</span>
-                    <span className="text-stone-400">{formatCurrency(totalPrice - depositAmount)}</span>
+                    <span className="text-stone-400">{formatCurrency(grandTotalWithDelivery - effectiveDeposit)}</span>
                   </div>
                   {discountApplied && (
                     <div className="flex items-center justify-between text-xs">
@@ -438,7 +484,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <CreditCard className="h-5 w-5" />
-                    Pay {formatCurrency(depositAmount)} &amp; Book
+                    Pay {formatCurrency(effectiveDeposit)} &amp; Book
                   </>
                 )}
               </button>
@@ -525,11 +571,18 @@ export default function BookingModal({
 
               <button
                 onClick={handleAddressNext}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-4 text-base font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
+                disabled={deliveryFeeLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-4 text-base font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 disabled:opacity-50"
               >
-                <MapPin className="h-5 w-5" />
-                Continue to Scheduling
-                <ChevronRight className="h-5 w-5" />
+                {deliveryFeeLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <MapPin className="h-5 w-5" />
+                    Continue to Scheduling
+                    <ChevronRight className="h-5 w-5" />
+                  </>
+                )}
               </button>
             </div>
           )}

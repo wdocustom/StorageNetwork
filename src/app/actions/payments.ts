@@ -383,18 +383,20 @@ export type LeadSource = "platform" | "partner_link" | "installer_manual";
 export interface DepositIntentInput {
   leadId: string;
   amount: number;                    // Deposit amount in dollars (includes tax if applicable)
-  totalPrice: number;                // Total job price in dollars (for fee calculation)
+  totalPrice: number;                // Total job price in dollars (for fee calculation) — includes delivery fee
   installerId?: string;              // Supabase user ID of installer (optional for platform leads)
   source: LeadSource;                // Where the lead came from
   customerEmail?: string;
   customerName?: string;
   scheduledAt?: string;
   // Tax info for installer records
-  salesTaxAmount?: number;           // Tax amount in dollars
+  salesTaxAmount?: number;           // Tax amount in dollars (on build price only, NOT delivery fee)
   billingState?: string;             // 2-letter state code
   // Discount code (installer-specific promo codes — reduces balance, not deposit)
   discountCode?: string;             // The code string (for tracking)
   discountCodeAmount?: number;       // Resolved dollar amount to deduct from balance
+  // Delivery fee (tax-exempt, but included in totalPrice for fee calculation)
+  deliveryFeeAmount?: number;        // Delivery fee in dollars (0 or undefined = no delivery fee)
 }
 
 export interface DepositIntentResult {
@@ -406,8 +408,9 @@ export interface DepositIntentResult {
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount } = input;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = input;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
+  const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
     return { success: false, error: "Missing required parameters." };
@@ -483,6 +486,7 @@ export async function createDepositIntent(
           balance_due_with_tax_cents: String(balanceWithTaxCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
+          delivery_fee_cents: String(deliveryFeeCents),
         },
       });
 
@@ -524,6 +528,7 @@ export async function createDepositIntent(
           balance_due_with_tax_cents: String(balanceWithTaxCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
+          delivery_fee_cents: String(deliveryFeeCents),
         },
       });
 
@@ -558,6 +563,7 @@ export async function createDepositIntent(
           balance_due_with_tax_cents: String(balanceWithTaxCents),
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
+          delivery_fee_cents: String(deliveryFeeCents),
         },
       });
 
@@ -583,6 +589,11 @@ export async function createDepositIntent(
     if (discountCode) {
       leadUpdate.discount_code = discountCode;
       leadUpdate.discount_amount = (promoCodeCents / 100);
+    }
+    // Store delivery fee on the lead and update estimated_price to include it
+    if (deliveryFeeCents > 0) {
+      leadUpdate.delivery_fee = (deliveryFeeCents / 100);
+      leadUpdate.estimated_price = totalPrice; // totalPrice already includes delivery fee from BookingModal
     }
     await supabase
       .from("leads")
