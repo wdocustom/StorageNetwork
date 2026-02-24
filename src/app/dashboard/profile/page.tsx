@@ -981,7 +981,12 @@ function ProfilePageInner() {
                           min={prevMax + 1}
                           max={serviceRadius || 200}
                           value={tier.max_miles}
-                          onChange={(e) => updateDeliveryTier(idx, { max_miles: Number(e.target.value) || prevMax + 1 })}
+                          onChange={(e) => updateDeliveryTier(idx, { max_miles: e.target.value === "" ? 0 : Number(e.target.value) })}
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (!v || v <= prevMax) updateDeliveryTier(idx, { max_miles: prevMax + 1 });
+                          }}
+                          onFocus={(e) => e.target.select()}
                           className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
                         />
                         <span className="text-xs text-stone-500">mi</span>
@@ -996,7 +1001,8 @@ function ProfilePageInner() {
                             min={0}
                             step={5}
                             value={tier.fee}
-                            onChange={(e) => updateDeliveryTier(idx, { fee: Number(e.target.value) || 0 })}
+                            onChange={(e) => updateDeliveryTier(idx, { fee: e.target.value === "" ? 0 : Number(e.target.value) })}
+                            onFocus={(e) => e.target.select()}
                             className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
                           />
                         </div>

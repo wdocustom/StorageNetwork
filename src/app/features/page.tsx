@@ -16,16 +16,10 @@ import {
   ClipboardList,
   CreditCard,
   DollarSign,
-  ExternalLink,
   Globe,
   Layout,
   Megaphone,
-  MessageSquare,
   Minus,
-  Package,
-  Palette,
-  Shield,
-  Smartphone,
   Star,
   Target,
   TrendingUp,
@@ -436,12 +430,14 @@ export default function FeaturesPage() {
               </ul>
             </div>
             {/* Screenshot placeholder */}
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-leads-dashboard.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: Lead card on /dashboard/leads</p>
-              </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
+              <Image
+                src="/feature-leads-dashboard.png"
+                alt="Leads dashboard"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
           </div>
         </div>
@@ -451,12 +447,14 @@ export default function FeaturesPage() {
       <section id="configurator" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
-            <div className="order-2 flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 md:order-1">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-configurator.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: 3D configurator on /design</p>
-              </div>
+            <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
+              <Image
+                src="/feature-configurator.png"
+                alt="3D configurator"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
             <div className="order-1 md:order-2">
               <div className="mb-3 flex items-center gap-2">
@@ -536,12 +534,14 @@ export default function FeaturesPage() {
                 </ul>
               </div>
             </div>
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-cutplan.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: Cut plan with board visuals on /leads/[id]</p>
-              </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
+              <Image
+                src="/feature-cutplan.png"
+                alt="Cut plan and material list"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
           </div>
         </div>
@@ -551,12 +551,14 @@ export default function FeaturesPage() {
       <section id="payments" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
-            <div className="order-2 flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 md:order-1">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-payment.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: GET PAID button on job ticket</p>
-              </div>
+            <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
+              <Image
+                src="/feature-payment.png"
+                alt="Payment and payout flow"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
             <div className="order-1 md:order-2">
               <div className="mb-3 flex items-center gap-2">
@@ -628,12 +630,14 @@ export default function FeaturesPage() {
                 ))}
               </ul>
             </div>
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-booking.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: Scheduling page with availability</p>
-              </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
+              <Image
+                src="/feature-booking.png"
+                alt="Booking and scheduling"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
           </div>
         </div>
@@ -643,12 +647,14 @@ export default function FeaturesPage() {
       <section id="marketing" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
-            <div className="order-2 flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 md:order-1">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-marketing.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: AI Script Generator on /marketing</p>
-              </div>
+            <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
+              <Image
+                src="/feature-marketing.png"
+                alt="AI marketing script generator"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
             <div className="order-1 md:order-2">
               <div className="mb-3 flex items-center gap-2">
@@ -720,12 +726,14 @@ export default function FeaturesPage() {
                 ))}
               </ul>
             </div>
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8">
-              <div className="text-center">
-                <Smartphone className="mx-auto mb-3 h-12 w-12 text-stone-700" />
-                <p className="text-xs font-bold text-stone-600">feature-community.png</p>
-                <p className="text-[10px] text-stone-700">Screenshot: Community feed on /community</p>
-              </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
+              <Image
+                src="/feature-community.png"
+                alt="Installer community"
+                width={400}
+                height={700}
+                className="w-full object-cover"
+              />
             </div>
           </div>
         </div>
