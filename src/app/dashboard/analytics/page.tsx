@@ -16,9 +16,10 @@ import {
   Calendar,
   ArrowUpRight,
   Activity,
+  ChevronDown,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { getInstallerAnalytics, type AnalyticsSummary } from "@/app/actions/analytics";
+import { getInstallerAnalytics, type AnalyticsSummary, type GroupedReferrer } from "@/app/actions/analytics";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Analytics Dashboard
@@ -273,9 +274,9 @@ export default function AnalyticsPage() {
             )}
 
             {/* ══════════════════════════════════════════════════════════
-                Traffic Sources
+                Traffic Sources — Grouped Tiles
             ══════════════════════════════════════════════════════════ */}
-            {data.topReferrers.length > 0 && (
+            {data.groupedReferrers && data.groupedReferrers.length > 0 && (
               <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <Globe className="h-4 w-4 text-amber-400" />
@@ -283,19 +284,13 @@ export default function AnalyticsPage() {
                     Traffic Sources
                   </h2>
                 </div>
-                <div className="space-y-2">
-                  {data.topReferrers.map((r) => (
-                    <div
-                      key={r.referrer}
-                      className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2"
-                    >
-                      <span className="text-sm text-white truncate max-w-[200px]">
-                        {r.referrer}
-                      </span>
-                      <span className="text-xs font-bold text-amber-400 shrink-0 ml-2">
-                        {r.count} {r.count === 1 ? "visit" : "visits"}
-                      </span>
-                    </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {data.groupedReferrers.map((group) => (
+                    <TrafficSourceTile
+                      key={group.group}
+                      group={group}
+                      totalViews={data.totalViews}
+                    />
                   ))}
                 </div>
               </section>
@@ -399,4 +394,80 @@ function cleanReferrerDisplay(referrer: string | null): string {
   } catch {
     return referrer.slice(0, 30);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Traffic Source Tile — Expandable grouped referrer
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SOURCE_COLORS: Record<string, string> = {
+  Facebook: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  Instagram: "bg-pink-500/15 text-pink-400 border-pink-500/20",
+  Google: "bg-red-500/15 text-red-400 border-red-500/20",
+  YouTube: "bg-red-500/15 text-red-400 border-red-500/20",
+  TikTok: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
+  "X / Twitter": "bg-sky-500/15 text-sky-400 border-sky-500/20",
+  LinkedIn: "bg-blue-600/15 text-blue-300 border-blue-600/20",
+  Nextdoor: "bg-green-500/15 text-green-400 border-green-500/20",
+  Pinterest: "bg-red-400/15 text-red-300 border-red-400/20",
+  Reddit: "bg-orange-500/15 text-orange-400 border-orange-500/20",
+  Direct: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  Bing: "bg-teal-500/15 text-teal-400 border-teal-500/20",
+  Yahoo: "bg-purple-500/15 text-purple-400 border-purple-500/20",
+};
+
+const DEFAULT_COLOR = "bg-slate-700/30 text-stone-300 border-slate-600/30";
+
+function TrafficSourceTile({
+  group,
+  totalViews,
+}: {
+  group: GroupedReferrer;
+  totalViews: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const colorClass = SOURCE_COLORS[group.group] || DEFAULT_COLOR;
+  const pct = totalViews > 0 ? Math.round((group.totalCount / totalViews) * 100) : 0;
+  const hasDetails = group.details.length > 1 || (group.details.length === 1 && group.group !== group.details[0].url);
+
+  return (
+    <div
+      className={`col-span-1 rounded-xl border p-3 transition-all ${colorClass} ${
+        hasDetails ? "cursor-pointer hover:brightness-110" : ""
+      } ${expanded ? "col-span-2" : ""}`}
+      onClick={() => hasDetails && setExpanded(!expanded)}
+    >
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold truncate">{group.group}</p>
+          <p className="text-[10px] opacity-70">
+            {group.totalCount} {group.totalCount === 1 ? "visit" : "visits"} · {pct}%
+          </p>
+        </div>
+        {hasDetails && (
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 opacity-50 transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+        )}
+      </div>
+
+      {/* Expanded details */}
+      {expanded && hasDetails && (
+        <div className="mt-2 space-y-1 border-t border-current/10 pt-2">
+          {group.details.map((d) => (
+            <div
+              key={d.url}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="truncate text-[11px] opacity-80">{d.url}</span>
+              <span className="shrink-0 text-[10px] font-bold">{d.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

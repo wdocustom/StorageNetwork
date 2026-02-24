@@ -18,6 +18,8 @@ import {
   Mail,
   User,
   Star,
+  Wrench,
+  ArrowRight,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -247,6 +249,58 @@ export default function LandingPage() {
               title="Pro Installation"
               desc="Certified local installers handle everything. You don't lift a finger."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          INSTALLER CTA BANNER — Join the Network
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-stone-800 bg-gradient-to-br from-gray-900 via-gray-950 to-gray-900 px-4 py-20">
+        {/* Subtle accent glow */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 30% 50%, rgba(250,204,21,0.06) 0%, transparent 60%)",
+          }}
+        />
+
+        <div className="relative z-10 mx-auto max-w-3xl">
+          <div className="flex flex-col items-center gap-8 md:flex-row md:gap-12">
+            {/* Icon */}
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+              <Wrench className="h-10 w-10 text-yellow-400" />
+            </div>
+
+            {/* Copy */}
+            <div className="flex-1 text-center md:text-left">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-yellow-400">
+                Installer Network
+              </p>
+              <h2 className="mb-3 text-2xl font-black uppercase leading-tight text-white sm:text-3xl">
+                Build Storage.{" "}
+                <span className="text-yellow-400">Get Paid.</span>
+              </h2>
+              <p className="max-w-md text-sm leading-relaxed text-stone-400">
+                Pre-sold jobs, cut lists, and instant payouts. No selling. No
+                bidding. Just build.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <div className="shrink-0">
+              <a
+                href="/join"
+                className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+              >
+                Join the Network
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
+              <p className="mt-2 text-center text-[10px] text-stone-600">
+                Free 7-day Pro trial included
+              </p>
+            </div>
           </div>
         </div>
       </section>

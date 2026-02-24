@@ -25,6 +25,7 @@ export interface OnboardInput {
   email: string;
   password: string;
   zipCode: string;
+  withStandardTrial?: boolean; // Standard 7-day Pro trial (non-partner)
 }
 
 export interface OnboardResult {
@@ -154,6 +155,44 @@ export async function onboardInstaller(
     } catch (refErr) {
       // Non-fatal — don't block onboarding if referral tracking fails
       console.error("[Onboard] Referral tracking failed (non-fatal):", refErr);
+    }
+
+    // 2c. Standard system trial (CTA join — no partner) if no affiliate trial was activated
+    if (!isTrialActivated && input.withStandardTrial) {
+      try {
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+
+        const rawName = businessName.trim() || name.trim() || userId.slice(0, 8);
+        let trialSlug = slugify(rawName);
+        if (!trialSlug) trialSlug = userId.slice(0, 8);
+
+        const { data: existingSlug } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("slug", trialSlug)
+          .neq("id", userId)
+          .maybeSingle();
+
+        if (existingSlug) {
+          trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
+        }
+
+        await supabase
+          .from("profiles")
+          .update({
+            is_pro: true,
+            slug: trialSlug,
+            pro_trial_ends_at: trialEnd.toISOString(),
+            pro_trial_partner: null,
+          })
+          .eq("id", userId);
+
+        isTrialActivated = true;
+        console.log(`✅ Standard 7-day Pro trial activated: ${userId} | Trial ends: ${trialEnd.toISOString()}`);
+      } catch (trialErr) {
+        console.error("[Onboard] Standard trial activation failed (non-fatal):", trialErr);
+      }
     }
 
     // 3. Send welcome email with fee structure
