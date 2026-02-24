@@ -794,20 +794,6 @@ export default function JobTicket({
               </div>
             ))}
 
-            {/* Vertical Post Spacing Reference */}
-            {quoteData && quoteData.length > 0 && (
-              <div className="rounded-md border border-yellow-500/20 bg-yellow-400/5 px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-yellow-400 mb-1">
-                  Vertical Post Height Reference
-                </p>
-                {Array.from(new Set((quoteData as import("@/lib/buildEngine").QuoteUnit[]).map(u => u.toteType))).map(type => (
-                  <p key={type} className="text-xs text-stone-400">
-                    {type === "HDX" ? "HDX" : "Greenmade"} totes → <span className="font-bold text-white">{type === "HDX" ? '19-3/4"' : '20-3/4"'}</span> vertical post spacing
-                  </p>
-                ))}
-              </div>
-            )}
-
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
               <div className="flex items-center gap-1.5">

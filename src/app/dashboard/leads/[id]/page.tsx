@@ -3,23 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { generateBuildManifest } from "@/lib/buildEngine";
-import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import {
   ArrowLeft,
   CheckCircle2,
   Loader2,
   MapPin,
   Ruler,
-  ShoppingCart,
-  Wrench,
   Navigation,
   AlertCircle,
 } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { startTripNotify } from "@/app/actions/sms";
-import { toFraction } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -61,12 +56,8 @@ export default function JobTicketPage() {
   const supabase = getSupabaseBrowserClient();
 
   const [lead, setLead] = useState<LeadDetail | null>(null);
-  const [manifest, setManifest] = useState<BuildManifest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // Checklist state for material pick list
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -105,12 +96,6 @@ export default function JobTicketPage() {
     setLead(leadData);
     setTripSent(!!leadData.en_route_notified);
 
-    // Generate build manifest from quote data
-    if (leadData.quote_data && leadData.quote_data.length > 0) {
-      const m = generateBuildManifest(leadData.quote_data);
-      setManifest(m);
-    }
-
     // Fetch installer's Stripe account ID and Pro status
     if (leadData.installer_id) {
       const { data: profile } = await supabase
@@ -132,10 +117,6 @@ export default function JobTicketPage() {
   useEffect(() => {
     fetchLead();
   }, [fetchLead]);
-
-  function toggleCheck(key: string) {
-    setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
 
   async function handleStartTrip() {
     if (!lead?.installer_id || tripSent || tripSending) return;
@@ -176,12 +157,8 @@ export default function JobTicketPage() {
   }
 
   const totalPrice = lead.estimated_price || 0;
-  const depositAmt = manifest
-    ? manifest.financials.depositAmount
-    : totalPrice * 0.15;
-  const balance = manifest
-    ? manifest.financials.balanceDue
-    : totalPrice - depositAmt;
+  const depositAmt = totalPrice * 0.15;
+  const balance = totalPrice - depositAmt;
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
@@ -357,170 +334,6 @@ export default function JobTicketPage() {
                   </div>
                 );
               })}
-            </div>
-          </section>
-        )}
-
-        {/* ── Material Pick List (Checklist) ─────────────────────────── */}
-        {manifest && (
-          <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-              <ShoppingCart className="h-4 w-4 text-yellow-400" />
-              Material Pick List
-            </h2>
-            <ul className="space-y-1">
-              {manifest.shopping_list.map((item, i) => {
-                const key = `shop-${i}`;
-                return (
-                  <li
-                    key={key}
-                    onClick={() => toggleCheck(key)}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 transition-colors ${
-                      checked[key]
-                        ? "bg-emerald-500/10 line-through opacity-60"
-                        : "bg-slate-800 hover:bg-slate-700"
-                    }`}
-                  >
-                    <div
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-xs ${
-                        checked[key]
-                          ? "border-emerald-400 bg-emerald-400 text-slate-900"
-                          : "border-stone-600"
-                      }`}
-                    >
-                      {checked[key] && "✓"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-white">
-                        {item.name}
-                      </p>
-                      <p className="text-[11px] text-stone-500">
-                        {item.detail}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-sm font-bold text-yellow-400">
-                      {item.qty}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-
-        {/* ── Cut Plan Visuals ───────────────────────────────────────── */}
-        {manifest && manifest.cut_plan_visuals.length > 0 && (
-          <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-              <Wrench className="h-4 w-4 text-yellow-400" />
-              Cut Plans
-            </h2>
-
-            <div className="space-y-6">
-              {manifest.cut_plan_visuals.map((mod, mi) => (
-                <div key={mi}>
-                  <h3 className="mb-1 text-sm font-bold text-yellow-400">
-                    Unit #{mod.unitIndex} — Module {mod.moduleIndex}
-                    {mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}
-                    x{mod.rows})
-                    {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
-                    {mod.heightTier && mod.heightTier > 1 && mod.heightTier === mod.heightTierTotal && <span className="ml-2 text-[10px] font-semibold text-purple-400">(Top)</span>}
-                    {mod.heightTier && mod.heightTier > 1 && mod.heightTier < (mod.heightTierTotal || 0) && <span className="ml-2 text-[10px] font-semibold text-cyan-400">(Middle)</span>}
-                  </h3>
-                  <p className="mb-3 text-[11px] text-stone-500">
-                    {mod.stripCount} plywood sliders @ 1.875&quot; (Rails: {mod.railStrips}, Back
-                    Supports: {mod.backSupports})
-                  </p>
-
-                  <div className="space-y-2.5">
-                    {mod.boards.map((board, bi) => (
-                      <div
-                        key={bi}
-                        className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
-                      >
-                        <div className="mb-1 flex justify-between text-[10px]">
-                          <span className="font-semibold text-stone-400">
-                            Board {bi + 1}
-                            <span className="ml-1.5 text-stone-600">96&quot; stock</span>
-                          </span>
-                          <span className="font-mono font-bold text-red-400/70">
-                            {toFraction(board.rem)}&quot; waste
-                          </span>
-                        </div>
-                        <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
-                          {board.cuts.map((cut, ci) => {
-                            const pct = (cut.len / 96) * 100;
-                            const color =
-                              cut.type === "rail" ? "#f59e0b" : "#3b82f6";
-                            return (
-                              <div
-                                key={ci}
-                                className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[10px] font-extrabold text-white"
-                                style={{
-                                  width: `${pct}%`,
-                                  backgroundColor: color,
-                                  minWidth: "24px",
-                                  textShadow: "0 1px 2px rgba(0,0,0,0.4)",
-                                }}
-                                title={`${cut.name} — ${toFraction(cut.len)}"`}
-                              >
-                                {toFraction(cut.len)}&quot;
-                              </div>
-                            );
-                          })}
-                          {board.rem > 0 && (
-                            <div
-                              className="flex-1"
-                              style={{
-                                background:
-                                  "repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 4px, rgba(220,38,38,0.08) 4px, rgba(220,38,38,0.08) 8px)",
-                              }}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Plywood rails & post spacing for this module */}
-                  <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-                      Plywood Rails
-                    </p>
-                    <p className="text-xs text-stone-400">
-                      {mod.railStrips} tote rail strips + {mod.backSupports} back supports = <span className="font-bold text-yellow-400">{mod.stripCount} total strips</span> from 3/4&quot; plywood
-                    </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 pt-1">
-                      Post Spacing
-                    </p>
-                    <p className="text-xs text-stone-400">
-                      {mod.cols + 1} posts across {toFraction(mod.moduleWidth)}&quot; width — <span className="font-bold text-blue-400">{toFraction((mod.moduleWidth - (mod.cols + 1) * 1.5) / mod.cols)}&quot;</span> opening between posts (inside face to inside face)
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded-sm bg-blue-500" />
-                Vertical Posts
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-3 w-3 rounded-sm bg-amber-500" />
-                Plates / Framing
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="h-3 w-3 rounded-sm"
-                  style={{
-                    background:
-                      "repeating-linear-gradient(45deg, rgba(239,68,68,0.3), rgba(239,68,68,0.3) 2px, rgba(220,38,38,0.1) 2px, rgba(220,38,38,0.1) 4px)",
-                  }}
-                />
-                Scrap
-              </div>
             </div>
           </section>
         )}

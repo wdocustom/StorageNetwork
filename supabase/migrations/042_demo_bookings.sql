@@ -29,8 +29,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_demo_bookings_date_time
 ALTER TABLE public.demo_bookings ENABLE ROW LEVEL SECURITY;
 
 -- Service-role (server actions) can do everything
-CREATE POLICY "service_role_full_access"
-  ON public.demo_bookings
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'demo_bookings' AND policyname = 'demo_bookings_service_full'
+  ) THEN
+    CREATE POLICY "demo_bookings_service_full"
+      ON public.demo_bookings
+      FOR ALL
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
