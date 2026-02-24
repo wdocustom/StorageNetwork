@@ -1119,6 +1119,8 @@ export async function sendDemoOwnerNotification(data: {
   date: string;
   time: string;
   calendarLink: string;
+  toolExperience?: string | null;
+  buildsCurrently?: string | null;
 }) {
   const [year, month, day] = data.date.split("-");
   const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
@@ -1164,6 +1166,14 @@ export async function sendDemoOwnerNotification(data: {
           <td style="padding:8px 0;color:#94a3b8;">Time</td>
           <td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedTime}</td>
         </tr>
+        ${data.toolExperience ? `<tr>
+          <td style="padding:8px 0;color:#94a3b8;">Tool Experience</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.toolExperience}</td>
+        </tr>` : ""}
+        ${data.buildsCurrently ? `<tr>
+          <td style="padding:8px 0;color:#94a3b8;">Builds Currently?</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.buildsCurrently}</td>
+        </tr>` : ""}
       </table>
     </div>
 

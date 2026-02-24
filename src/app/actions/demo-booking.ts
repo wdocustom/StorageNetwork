@@ -19,6 +19,8 @@ interface BookDemoInput {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM (24h)
   timezone: string;
+  toolExperience?: string;
+  buildsCurrently?: string;
 }
 
 interface BookDemoResult {
@@ -58,7 +60,7 @@ export async function getAvailableSlots(
 }
 
 export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
-  const { name, email, phone, date, time, timezone } = input;
+  const { name, email, phone, date, time, timezone, toolExperience, buildsCurrently } = input;
 
   if (!name?.trim() || !email?.trim() || !date || !time) {
     return { success: false, error: "All fields are required." };
@@ -80,6 +82,8 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
       date,
       time,
       timezone,
+      tool_experience: toolExperience || null,
+      builds_currently: buildsCurrently || null,
       status: "confirmed",
     });
 
@@ -129,6 +133,8 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
       date,
       time,
       calendarLink,
+      toolExperience: toolExperience || null,
+      buildsCurrently: buildsCurrently || null,
     });
   } catch (err) {
     console.error("[DemoBooking] Email error:", err);

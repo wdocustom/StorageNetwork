@@ -106,6 +106,10 @@ export default function DemoPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [dateOffset, setDateOffset] = useState(0);
 
+  // Qualifying questions
+  const [toolExp, setToolExp] = useState("");
+  const [buildsCurrent, setBuildsCurrent] = useState("");
+
   // Form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -135,6 +139,10 @@ export default function DemoPage() {
   }, [selectedDate]);
 
   async function handleBook() {
+    if (!toolExp || !buildsCurrent) {
+      setError("Please answer both qualifying questions above.");
+      return;
+    }
     if (!name.trim() || !email.trim() || !selectedDate || !selectedTime) {
       setError("Please fill in all required fields and select a date & time.");
       return;
@@ -149,6 +157,8 @@ export default function DemoPage() {
       date: selectedDate,
       time: selectedTime,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      toolExperience: toolExp,
+      buildsCurrently: buildsCurrent,
     });
 
     if (result.success) {
@@ -448,12 +458,77 @@ export default function DemoPage() {
                 </div>
               )}
 
-              {/* Step 3: Your Info */}
+              {/* Step 3: Qualifying Questions */}
               {selectedDate && selectedTime && (
                 <div className="mb-6">
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-gray-950">
                       3
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">
+                      Quick Questions
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Question 1: Power tools */}
+                    <div>
+                      <p className="mb-1.5 text-sm font-medium text-stone-300">
+                        How familiar are you with power tools?{" "}
+                        <span className="text-[10px] text-stone-500">i.e. table saw, circular saw, drill, etc.</span>
+                      </p>
+                      <p className="mb-2 text-[10px] text-stone-600">Select one *</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {["Never used", "I've built a couple things", "Professional"].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setToolExp(opt)}
+                            className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                              toolExp === opt
+                                ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                                : "border-slate-700 bg-slate-800 text-stone-600 hover:border-slate-600 hover:text-stone-400"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Question 2: Currently builds? */}
+                    <div>
+                      <p className="mb-1.5 text-sm font-medium text-stone-300">
+                        Do you build tote storage organizers for people currently?
+                      </p>
+                      <p className="mb-2 text-[10px] text-stone-600">Select one *</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {["Yes", "No"].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setBuildsCurrent(opt)}
+                            className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                              buildsCurrent === opt
+                                ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
+                                : "border-slate-700 bg-slate-800 text-stone-600 hover:border-slate-600 hover:text-stone-400"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 4: Your Info */}
+              {selectedDate && selectedTime && (
+                <div className="mb-6">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-xs font-bold text-gray-950">
+                      4
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wider text-white">
                       Your Info
@@ -497,7 +572,7 @@ export default function DemoPage() {
               {selectedDate && selectedTime && (
                 <button
                   onClick={handleBook}
-                  disabled={submitting || !name.trim() || !email.trim()}
+                  disabled={submitting || !name.trim() || !email.trim() || !toolExp || !buildsCurrent}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
                 >
                   {submitting ? (

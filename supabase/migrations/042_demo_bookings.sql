@@ -13,9 +13,11 @@ CREATE TABLE IF NOT EXISTS public.demo_bookings (
   phone      text,
   date       text        NOT NULL,   -- YYYY-MM-DD
   time       text        NOT NULL,   -- HH:MM (24h, Central)
-  timezone   text        DEFAULT 'America/Chicago',
-  status     text        DEFAULT 'confirmed',
-  created_at timestamptz DEFAULT now()
+  timezone          text DEFAULT 'America/Chicago',
+  tool_experience   text,          -- "Never used" | "I've built a couple things" | "Professional"
+  builds_currently  text,          -- "Yes" | "No"
+  status            text DEFAULT 'confirmed',
+  created_at        timestamptz DEFAULT now()
 );
 
 -- Prevent double-booking the same date+time
