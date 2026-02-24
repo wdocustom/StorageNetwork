@@ -300,6 +300,13 @@ export default function LandingPage() {
               <p className="mt-2 text-center text-[10px] text-stone-600">
                 Free 7-day Pro trial included
               </p>
+              <a
+                href="/demo"
+                className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-yellow-400/70 transition-colors hover:text-yellow-400"
+              >
+                or book a free demo call first
+                <ArrowRight className="h-3 w-3" />
+              </a>
             </div>
           </div>
         </div>
@@ -339,12 +346,20 @@ export default function LandingPage() {
           <p className="text-xs text-stone-700">
             &copy; {new Date().getFullYear()} WDO Custom. All rights reserved.
           </p>
-          <a
-            href="/login"
-            className="mt-2 inline-block text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
-          >
-            Partner Login
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/demo"
+              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
+            >
+              Book a Demo
+            </a>
+            <a
+              href="/login"
+              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
+            >
+              Partner Login
+            </a>
+          </div>
         </div>
       </footer>
 

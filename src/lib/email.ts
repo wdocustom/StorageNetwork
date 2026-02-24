@@ -1022,3 +1022,88 @@ export async function sendBountyPaidEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Demo Booking Confirmation
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendDemoConfirmationEmail(data: {
+  name: string;
+  email: string;
+  date: string;
+  time: string;
+  calendarLink: string;
+}) {
+  const [year, month, day] = data.date.split("-");
+  const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+  const formattedDate = dateObj.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // Convert 24h to 12h
+  const [h, m] = data.time.split(":");
+  const hour = Number(h);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  const formattedTime = `${hour12}:${m} ${ampm} ET`;
+
+  const body = `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.name.split(" ")[0]},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
+      Your demo call is confirmed! We&rsquo;ll walk you through how the platform works
+      and how it puts money in your pocket.
+    </p>
+
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Date</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Time</td>
+          <td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedTime}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Duration</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">~30 minutes</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Format</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">Video / Phone Call</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${data.calendarLink}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        Add to Google Calendar
+      </a>
+    </div>
+
+    <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">What We&rsquo;ll Cover</p>
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; How pre-sold leads flow directly to you</p>
+      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; The 3D configurator that closes sales for you</p>
+      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; Auto-generated cut lists &amp; material planning</p>
+      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; Payment processing &amp; instant payouts</p>
+      <p style="margin:0;color:#e2e8f0;font-size:13px;">&#10003; Marketing tools &amp; community access</p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:13px;">
+      We&rsquo;ll reach out at the scheduled time. If you need to reschedule, just reply to this email.
+    </p>
+  `;
+
+  const html = emailShell("Demo Call Confirmed", body);
+
+  await sendTransactionalEmail({
+    to: data.email,
+    toName: data.name,
+    subject: `Demo confirmed — ${formattedDate} at ${formattedTime}`,
+    html,
+  });
+}

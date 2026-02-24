@@ -343,6 +343,15 @@ export default function JoinPage() {
               No credit card required. Connect Stripe later from your dashboard.
             </p>
 
+            <div className="mt-4 text-center">
+              <a
+                href="/demo"
+                className="text-[11px] font-semibold text-yellow-400/70 transition-colors hover:text-yellow-400"
+              >
+                Want to see how it works first? Book a free demo call &rarr;
+              </a>
+            </div>
+
             {/* Mobile sign-in link */}
             <div className="mt-6 text-center lg:hidden">
               <p className="text-xs text-stone-600">
