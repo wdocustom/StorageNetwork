@@ -905,3 +905,54 @@ export async function uploadCommentImage(
     };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Link pre-uploaded QR images to a post
+// Used when images were uploaded via QR code (already in storage)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function linkQrImagesToPost(
+  postId: string,
+  authorId: string,
+  images: { url: string; storagePath: string }[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Verify ownership
+    const { data: post } = await supabase
+      .from("posts")
+      .select("id, author_id")
+      .eq("id", postId)
+      .single();
+
+    if (!post || post.author_id !== authorId) {
+      return { success: false, error: "Unauthorized." };
+    }
+
+    // Get current image count for sort_order
+    const { count } = await supabase
+      .from("post_images")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", postId);
+
+    const rows = images.map((img, i) => ({
+      post_id: postId,
+      image_url: img.url,
+      storage_path: img.storagePath,
+      sort_order: (count || 0) + i,
+    }));
+
+    const { error: insertError } = await supabase
+      .from("post_images")
+      .insert(rows);
+
+    if (insertError) {
+      console.error("[QrImage] Insert error:", insertError);
+      return { success: false, error: insertError.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[QrImage] Error:", err);
+    return { success: false, error: "Failed to link images." };
+  }
+}

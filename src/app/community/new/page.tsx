@@ -7,17 +7,20 @@ import {
   Sparkles,
   Tag,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getCommunities,
   createPost,
   uploadPostImage,
+  linkQrImagesToPost,
   type Community,
 } from "@/app/actions/community";
 import PostImageUpload, {
   type StagedImage,
 } from "@/components/community/PostImageUpload";
+import QRPhotoUpload from "@/components/community/QRPhotoUpload";
 
 export default function NewPostPage() {
   const supabase = getSupabaseBrowserClient();
@@ -33,6 +36,7 @@ export default function NewPostPage() {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [stagedImages, setStagedImages] = useState<StagedImage[]>([]);
+  const [qrImages, setQrImages] = useState<{ url: string; name: string; storagePath?: string }[]>([]);
   const [aiSuggestion, setAiSuggestion] = useState<{
     tags: string[];
     belongsInCommunity: boolean;
@@ -159,6 +163,19 @@ export default function NewPostPage() {
           }
         }
 
+        // 2b. Link QR-uploaded images (already in storage)
+        if (qrImages.length > 0) {
+          const qrPayload = qrImages
+            .filter((img) => img.storagePath)
+            .map((img) => ({ url: img.url, storagePath: img.storagePath! }));
+          if (qrPayload.length > 0) {
+            const qrResult = await linkQrImagesToPost(result.postId, userId, qrPayload);
+            if (!qrResult.success) {
+              console.error("[NewPost] QR image link error:", qrResult.error);
+            }
+          }
+        }
+
         // 3. Redirect to the new post
         window.location.href = `/community/post/${result.postId}`;
       } catch (err) {
@@ -246,6 +263,44 @@ export default function NewPostPage() {
           stagedImages={stagedImages}
           onStagedImagesChange={setStagedImages}
         />
+
+        {/* QR Upload from Phone (desktop only) */}
+        {userId && (
+          <QRPhotoUpload
+            userId={userId}
+            onImagesReceived={(imgs) => setQrImages((prev) => [...prev, ...imgs])}
+          />
+        )}
+
+        {/* QR-uploaded photo previews */}
+        {qrImages.length > 0 && (
+          <div>
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-stone-400">
+              Photos from Phone ({qrImages.length})
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {qrImages.map((img, i) => (
+                <div
+                  key={i}
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-slate-700"
+                >
+                  <img
+                    src={img.url}
+                    alt={img.name}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQrImages((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute right-1 top-1 rounded-full bg-black/70 p-1.5 text-white opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100 hover:bg-red-500"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* AI Auto-Tag */}
         <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
