@@ -410,7 +410,7 @@ export default function GuidesPage() {
               </a>
             ) : (
               <a
-                href="/community"
+                href="/community/upgrade"
                 className="flex items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3 text-sm font-bold text-yellow-400 transition-all hover:border-yellow-500/50 hover:bg-yellow-400/20"
               >
                 <Zap className="h-4 w-4" />
