@@ -19,6 +19,7 @@ import {
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { startTripNotify } from "@/app/actions/sms";
+import { toFraction } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -475,6 +476,22 @@ export default function JobTicketPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Plywood rails & post spacing for this module */}
+                  <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                      Plywood Rails
+                    </p>
+                    <p className="text-xs text-stone-400">
+                      {mod.railStrips} tote rail strips + {mod.backSupports} back supports = <span className="font-bold text-yellow-400">{mod.stripCount} total strips</span> from 3/4&quot; plywood
+                    </p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 pt-1">
+                      Post Spacing
+                    </p>
+                    <p className="text-xs text-stone-400">
+                      {mod.cols + 1} posts across {toFraction(mod.moduleWidth)}&quot; width — <span className="font-bold text-blue-400">{toFraction((mod.moduleWidth - (mod.cols + 1) * 1.5) / mod.cols)}&quot;</span> opening between posts (inside face to inside face)
+                    </p>
                   </div>
                 </div>
               ))}

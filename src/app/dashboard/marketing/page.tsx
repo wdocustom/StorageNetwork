@@ -13,8 +13,10 @@ import {
   ArrowLeft,
   Loader2,
   Zap,
+  Search,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
+import GroupFinder from "@/components/dashboard/GroupFinder";
 import ProUpgradeModal from "@/components/dashboard/ProUpgradeModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -208,6 +210,34 @@ export default function MarketingPage() {
 
           <AIScriptGenerator
             bookingLink={bookingLink}
+            city={profile.city}
+            state={profile.state}
+            zip={profile.service_zip}
+            businessName={profile.business_name}
+          />
+        </section>
+
+        {/* ── Section 3: AI Group Finder ──────────────────────────── */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Search className="h-4 w-4 text-blue-400" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+              Where to Post
+            </h2>
+            <span className="rounded-full bg-gradient-to-r from-blue-400/10 to-indigo-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+              AI Powered
+            </span>
+          </div>
+          <p className="mb-4 text-sm text-stone-500">
+            Find Facebook groups, Craigslist sections, and other platforms where your posts will reach buyers.
+            {profile.city && profile.state && (
+              <span className="ml-1 font-semibold text-emerald-400">
+                Tailored for {profile.city}, {profile.state}.
+              </span>
+            )}
+          </p>
+
+          <GroupFinder
             city={profile.city}
             state={profile.state}
             zip={profile.service_zip}

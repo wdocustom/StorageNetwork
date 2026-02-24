@@ -177,4 +177,18 @@ export const TONE_GUIDES: Record<string, string> = {
   storytelling: "The installer tells a mini-story from THEIR perspective — a recent job they're proud of, a before/after they just finished, why they got into this trade, a problem they solved for a client. First-person narrative from the builder, never from the customer. Draw the reader in.",
   humorous: "Witty and memorable. The installer has personality — they crack jokes about messy garages, use clever wordplay, maybe poke fun at the 'tote avalanche' problem. Funny but still credible. The humor sells without being cheesy. Think dad jokes meet skilled tradesperson.",
   direct: "Straight to the point. No fluff, no stories. The installer lists exactly what they do, what you get, and how to book. Bold claims backed by specifics. Strong calls-to-action. This is the 'I'm good at what I do and here's the proof' approach. Assertive but not obnoxious.",
+  "reverse-psychology": `Reverse psychology — playful, ironic, and wildly engaging. The entire post is a sarcastic WARNING telling people NOT to buy the product because it works too well. Follow this exact framework:
+
+1. **THE HOOK:** Start with a strong, attention-grabbing warning. Examples: "Whatever you do, DON'T buy this..." or "Let me save you from a huge mistake: DO NOT get organized." or "I'm begging you — do NOT click that link." The hook should stop the scroll.
+
+2. **THE 'PROBLEM':** Explain that the rack works too well — it completely ruins the 'beautiful chaos' of a messy garage. Your neighbors will judge you for being too organized. Your spouse will expect you to organize OTHER rooms. You'll lose the thrill of the tote avalanche. Make it sound like getting organized is a terrible inconvenience because everything just works too perfectly.
+
+3. **THE FEATURES (disguised as warnings):** Subtly brag about the product by framing features as downsides:
+   - "These things fit standard 27-gallon totes so perfectly that every single bin slides out like a drawer. It's honestly annoying how smooth it is."
+   - "Built from solid 2x4s — it'll probably outlast your house. Good luck ever needing a replacement."
+   - "You can actually SEE your garage floor again. Disgusting."
+
+4. **THE CALL TO ACTION:** End with something like: "If you're ready to ruin your messy life and become a disturbingly organized adult, use my 3D configurator to design your own rack. Don't say I didn't warn you." Include the booking link naturally.
+
+The tone is satirical, funny, and self-aware. Think infomercial parody meets genuine craftsmanship pride. The installer is genuinely proud of what they build — the reverse psychology is just the delivery vehicle. NEVER break character — maintain the "warning" tone throughout.`,
 };
