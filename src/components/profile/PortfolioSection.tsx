@@ -25,6 +25,45 @@ import {
 // Renders inside the dashboard profile page
 // ═══════════════════════════════════════════════════════════════════════════
 
+const MAX_DIMENSION = 1600;
+const JPEG_QUALITY = 0.82;
+
+/** Resize + compress an image file client-side before uploading. */
+function compressImage(file: File): Promise<{ base64: string; ext: string }> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+
+      // Scale down if either dimension exceeds the cap
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas not supported"));
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Always output as JPEG for consistent compression
+      const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+      const base64 = dataUrl.split(",")[1];
+      resolve({ base64, ext: "jpg" });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = url;
+  });
+}
+
 interface PortfolioSectionProps {
   userId: string;
   slug: string | null;
@@ -78,7 +117,7 @@ export default function PortfolioSection({
     setSaving(false);
   }, [userId, bio, instagramUrl, facebookUrl]);
 
-  // Upload photo
+  // Upload photo (compresses client-side before sending to server action)
   const handlePhotoUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -99,19 +138,10 @@ export default function PortfolioSection({
       setSaveMessage("");
 
       try {
-        const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        // Compress image client-side (resize to 1600px max, JPEG @ 82%)
+        const { base64, ext } = await compressImage(file);
 
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(",")[1]);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const result = await uploadPortfolioPhoto(userId, base64, fileExt);
+        const result = await uploadPortfolioPhoto(userId, base64, ext);
 
         if (result.success && result.photo) {
           setPhotos((prev) => [...prev, result.photo!]);
@@ -120,8 +150,10 @@ export default function PortfolioSection({
         } else {
           setSaveMessage(result.error || "Failed to upload photo.");
         }
-      } catch {
-        setSaveMessage("Failed to upload photo. Please try again.");
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to upload photo.";
+        setSaveMessage(`Upload error: ${msg}`);
       } finally {
         setUploading(false);
         // Reset file input

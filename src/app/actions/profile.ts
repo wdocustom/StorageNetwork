@@ -304,7 +304,8 @@ export async function uploadPortfolioPhoto(
     return { success: true, photo: newPhoto };
   } catch (err) {
     console.error("[Portfolio Upload] Unexpected error:", err);
-    return { success: false, error: "Unexpected error during upload." };
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Upload error: ${msg}` };
   }
 }
 
