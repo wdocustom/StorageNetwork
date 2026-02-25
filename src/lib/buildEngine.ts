@@ -37,6 +37,8 @@ export interface Board {
   cuts: CutPart[];
   rem: number;
   priorUsed?: number; // inches used by prior modules' cuts (offcut carry-forward)
+  laterUsed?: number; // inches that later modules will claim from this board's offcut
+  laterLabel?: string; // e.g., "→ Mod 2" showing which module uses the offcut
 }
 
 export interface CutPlanModule {
@@ -264,29 +266,27 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
         const uprightHeight = calcUprightHeight(tierRows, unitType);
 
         // Collect upright parts for global bin packing
-        // First width module gets (cols+1)*2 posts (both ends); subsequent share left post
-        const postCount = widthModIndex === 0 ? (cols + 1) * 2 : cols * 2;
+        // Every module is a self-contained frame with its own posts on both ends.
+        // Where modules join, the abutting posts double up for structural strength.
+        const postCount = (cols + 1) * 2;
+        const tierSuffix = heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : "";
         for (let i = 0; i < postCount; i++) {
           allParts.push({
             len: uprightHeight,
-            name: unitType === "mini"
-              ? `Mini Upright${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`
-              : `Upright${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`,
+            name: `Post${tierSuffix}`,
             type: "upright",
             unitIdx,
             modKey,
           });
         }
 
-        // Rails (top and bottom plates for each tier)
+        // Top & bottom plates for each tier
         // Each height tier is a self-contained structural frame
         const numRailSets = unitType === "mini" ? 2 : 4;
         for (let k = 0; k < numRailSets; k++) {
           allParts.push({
             len: modWidth,
-            name: unitType === "mini"
-              ? `Mini Rail${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`
-              : `Rail${heightTiers.length > 1 ? ` T${heightTierIndex + 1}` : ""}`,
+            name: `Plate${tierSuffix}`,
             type: "rail",
             unitIdx,
             modKey,
@@ -301,8 +301,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
         // ── Screws ────────────────────────────────────────────────────
         gScrew16 += numRails * 4;
-        const screwPostCount = widthModIndex === 0 ? cols + 1 : cols;
-        gScrew3 += screwPostCount * 20;
+        gScrew3 += (cols + 1) * 20;
 
         // ── Retail (only count once for the full row set across height tiers) ──
         // We'll add retail at tier level to properly track total slots
@@ -405,23 +404,51 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     }
   }
 
+  // Build-order index map so we can distinguish prior vs later modules
+  const buildOrderMap = new Map<string, number>();
+  buildOrderMeta.forEach((meta, idx) => {
+    buildOrderMap.set(meta.modKey, idx);
+  });
+
+  // Helper: human-readable module label
+  function modLabel(mk: string): string {
+    const m = moduleMetadata.find((mm) => mm.modKey === mk);
+    if (!m) return "?";
+    return `Mod ${m.widthModIndex + 1}`;
+  }
+
   // Extract per-module boards (in engine order for cutPlans array)
   for (const meta of moduleMetadata) {
-    const modKey = `${meta.unitIdx}-${meta.widthModIndex}-${meta.heightTierIndex}`;
+    const modKey = meta.modKey;
+    const myOrder = buildOrderMap.get(modKey)!;
     const moduleBoards: Board[] = [];
 
     for (const vb of visualBoards) {
       const myCuts = vb.cuts.filter((c) => c.modKey === modKey);
       if (myCuts.length === 0) continue;
 
+      // Space used by modules built BEFORE this one
       const priorLen = vb.cuts
-        .filter((c) => c.modKey !== modKey)
+        .filter((c) => c.modKey !== modKey && (buildOrderMap.get(c.modKey) ?? 0) < myOrder)
         .reduce((sum, c) => sum + c.len + KERF, 0);
+
+      // Space used by modules built AFTER this one (offcut destination)
+      const laterCuts = vb.cuts.filter(
+        (c) => c.modKey !== modKey && (buildOrderMap.get(c.modKey) ?? 0) > myOrder,
+      );
+      const laterLen = laterCuts.reduce((sum, c) => sum + c.len + KERF, 0);
+
+      let laterLbl: string | undefined;
+      if (laterCuts.length > 0) {
+        const names = Array.from(new Set(laterCuts.map((c) => modLabel(c.modKey))));
+        laterLbl = `→ ${names.join(", ")}`;
+      }
 
       moduleBoards.push({
         cuts: myCuts.map((c) => ({ len: c.len, name: c.name, type: c.type })),
         rem: vb.rem,
         ...(priorLen > 0 ? { priorUsed: priorLen } : {}),
+        ...(laterLen > 0 ? { laterUsed: laterLen, laterLabel: laterLbl } : {}),
       });
     }
 

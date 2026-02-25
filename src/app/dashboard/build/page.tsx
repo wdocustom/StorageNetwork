@@ -1107,7 +1107,7 @@ export default function BuildConfiguratorPage() {
                                 return (
                                   <div
                                     key={ci}
-                                    className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[10px] font-extrabold text-white"
+                                    className="flex items-center justify-center border-r border-slate-900/60 text-[10px] font-extrabold text-white"
                                     style={{
                                       width: `${pct}%`,
                                       backgroundColor: color,
@@ -1116,10 +1116,24 @@ export default function BuildConfiguratorPage() {
                                     }}
                                     title={`${cut.name} — ${toFraction(cut.len)}"`}
                                   >
-                                    {toFraction(cut.len)}&quot;
+                                    <span className="font-semibold opacity-80 mr-1">{cut.name}</span>
+                                    <span className="font-mono">{toFraction(cut.len)}&quot;</span>
                                   </div>
                                 );
                               })}
+                              {board.laterUsed != null && board.laterUsed > 0 && (
+                                <div
+                                  className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-emerald-400/80"
+                                  style={{
+                                    width: `${(board.laterUsed / 96) * 100}%`,
+                                    background: "repeating-linear-gradient(45deg, rgba(16,185,129,0.15), rgba(16,185,129,0.15) 3px, rgba(5,150,105,0.08) 3px, rgba(5,150,105,0.08) 6px)",
+                                    minWidth: "40px",
+                                  }}
+                                  title={`Offcut ${board.laterLabel || ""} — ${toFraction(board.laterUsed)}"`}
+                                >
+                                  {board.laterLabel} {toFraction(board.laterUsed)}&quot;
+                                </div>
+                              )}
                               {board.rem > 0 && (
                                 <div
                                   className="flex-1"
