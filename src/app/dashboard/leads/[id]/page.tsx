@@ -16,6 +16,7 @@ import {
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { startTripNotify } from "@/app/actions/sms";
+import type { MaterialInventory } from "@/utils/inventoryManager";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -63,7 +64,7 @@ export default function JobTicketPage() {
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [installerIsPro, setInstallerIsPro] = useState<boolean>(false);
-  const [installerInventory, setInstallerInventory] = useState<Record<string, number> | null>(null);
+  const [installerInventory, setInstallerInventory] = useState<MaterialInventory | null>(null);
 
   // Start Trip SMS state
   const [tripSending, setTripSending] = useState(false);
@@ -112,7 +113,7 @@ export default function JobTicketPage() {
         setInstallerIsPro(profile.is_pro);
       }
       if (profile?.material_inventory) {
-        setInstallerInventory(profile.material_inventory as Record<string, number>);
+        setInstallerInventory(profile.material_inventory as MaterialInventory);
       }
     }
 
