@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
-import { calculateMaterialCost } from "@/utils/calculateMaterials";
+import { calculateMaterialCost, type MaterialConfig } from "@/utils/calculateMaterials";
 import { updateInventoryAfterJob } from "@/app/actions/inventory";
 
 const supabase = createClient(
@@ -25,7 +25,7 @@ async function syncInventoryForLead(leadId: string) {
 
     if (!lead?.installer_id || !lead?.quote_data) return;
 
-    const quoteData = lead.quote_data as { cols: number; rows: number; toteType?: string; hasTotes?: boolean; hasWheels?: boolean; hasTop?: boolean }[];
+    const quoteData = lead.quote_data as MaterialConfig[];
     if (!Array.isArray(quoteData) || quoteData.length === 0) return;
 
     const breakdown = calculateMaterialCost(quoteData);
