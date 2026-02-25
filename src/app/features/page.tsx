@@ -20,6 +20,7 @@ import {
   Layout,
   Megaphone,
   Minus,
+  Package,
   Star,
   Target,
   TrendingUp,
@@ -51,6 +52,7 @@ const FEATURES: FeatureRow[] = [
   { name: "3D Configurator & Quoting", free: true, pro: true, id: "configurator", icon: Layout },
   { name: "Auto-Generated Material Lists", free: false, pro: true, id: "materials", icon: ClipboardList, highlight: true },
   { name: "Auto-Generated Cut Plans", free: false, pro: true, id: "cutplans", icon: Wrench, highlight: true },
+  { name: "Smart Inventory Manager", free: true, pro: true, id: "inventory", icon: Package },
   { name: "Direct Lead Fee", free: "15%", pro: "5%", id: "fees", icon: DollarSign, highlight: true },
   { name: "Network Lead Fee", free: "15%", pro: "15%", id: "fees", icon: DollarSign },
   { name: "Stripe Instant Payouts", free: true, pro: true, id: "payments", icon: CreditCard },
@@ -543,6 +545,125 @@ export default function FeaturesPage() {
                 className="w-full object-cover"
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Smart Inventory Manager ─────────────────────────────────────── */}
+      <section id="inventory" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="order-2 md:order-1">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Package className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  Both Plans
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Smart Inventory Manager</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                This is the feature that turns a side hustle into a real business. The
+                inventory manager tracks every screw, every plywood strip, every leftover
+                from every job — so your purchase list only shows what you actually need to
+                buy. No spreadsheets. No guessing at the lumber yard. No buying a full box
+                of 3&quot; screws when you already have 40 sitting in your garage from the
+                last build.
+              </p>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Most installers waste money on materials they already have because there&apos;s
+                no easy way to track what&apos;s left over between jobs. The platform solves
+                that automatically. When you complete a job, your inventory updates. When
+                you open the next job ticket, the purchase list already accounts for
+                what&apos;s in your stock. You just grab what&apos;s on the list and go build.
+              </p>
+            </div>
+            <div className="order-1 md:order-2">
+              {/* Inventory feature visual — card-style breakdown */}
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                  How It Works
+                </p>
+                <div className="space-y-3">
+                  {[
+                    { step: "1", title: "You complete a job", desc: "Leftover screws and plywood strips are logged automatically" },
+                    { step: "2", title: "Next job comes in", desc: "The platform checks your stock before building the purchase list" },
+                    { step: "3", title: "You only buy what\u2019s needed", desc: "Items covered by inventory are hidden \u2014 you see a clean shopping list" },
+                    { step: "4", title: "Repeat", desc: "Every job makes the next one cheaper. Your inventory grows smarter over time" },
+                  ].map((s) => (
+                    <div key={s.step} className="flex gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-xs font-black text-yellow-400 ring-1 ring-yellow-400/20">
+                        {s.step}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{s.title}</p>
+                        <p className="text-xs leading-relaxed text-stone-500">{s.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed breakdown cards */}
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-yellow-400/80">
+                Screw Tracking
+              </p>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Tracks individual counts for 1&quot; screws, 1-5/8&quot; screws, and 3&quot; screws.
+                Knows exactly how many are left over from your last job, calculates how
+                many the next job needs, and only tells you to buy a new box when you
+                actually need one. No more half-used boxes piling up.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-yellow-400/80">
+                Plywood Offcut Recycling
+              </p>
+              <p className="text-sm leading-relaxed text-stone-400">
+                When you cut tops from a plywood sheet, the leftover strips are usable as
+                rail material for future builds. The platform tracks these offcuts and
+                applies them to your next job before recommending new sheet purchases.
+                One job&apos;s waste becomes the next job&apos;s free materials.
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-yellow-400/80">
+                Smart Purchase Lists
+              </p>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Your job ticket purchase list only shows what you genuinely need to buy.
+                Items fully covered by your existing inventory are hidden from the main
+                list so you get a clean, no-noise shopping experience. Walk into the store,
+                grab exactly what&apos;s listed, and walk out. Done.
+              </p>
+            </div>
+          </div>
+
+          {/* Why it matters callout */}
+          <div className="mt-8 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.03] p-6">
+            <h4 className="mb-3 text-lg font-bold text-white">Why This Is a Gamechanger</h4>
+            <p className="mb-4 text-sm leading-relaxed text-stone-400">
+              Whether you&apos;re doing this part-time on weekends or running it as a full-time
+              operation, material waste kills your margins. Every unnecessary box of screws
+              or extra plywood sheet is money out of your pocket. The inventory manager
+              eliminates that problem entirely — it runs in the background, updates itself
+              after every job, and gives you the one thing every builder wants:
+            </p>
+            <p className="text-center text-lg font-black text-yellow-400">
+              Just show up. Just build. The platform handles the rest.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-stone-400">
+              No separate inventory app. No notebook in your truck. No mental math at
+              Home Depot trying to remember if you have screws left from Tuesday&apos;s
+              job. It&apos;s all tracked, all automatic, and it gets smarter the more
+              you build. Your fifth job is cheaper than your first — not because prices
+              dropped, but because you&apos;re spending less on materials you already have.
+            </p>
           </div>
         </div>
       </section>
