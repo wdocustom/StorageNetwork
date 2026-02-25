@@ -42,7 +42,7 @@ ALTER TABLE public.leads
     'contacted', 'quoted', 'accepted',
     'pending_payment', 'payment_pending',
     'deposit_paid', 'completed', 'paid',
-    'cancelled', 'archived'
+    'cancelled', 'archived', 'expired'
   ));
 
 ALTER TABLE public.leads
