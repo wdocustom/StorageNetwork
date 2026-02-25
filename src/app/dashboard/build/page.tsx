@@ -332,14 +332,52 @@ export default function BuildConfiguratorPage() {
   const displayMaterials = units.length > 0 ? aggregateMaterials : materialBreakdown;
   const displayManifest = units.length > 0 ? aggregateManifest : manifest;
 
+  /** Build the quote units array from current state. */
+  function buildQuoteUnits(): QuoteUnit[] | null {
+    const quoteUnits: QuoteUnit[] = units.map((u) => ({
+      cols: u.cols,
+      rows: u.rows,
+      toteType: u.toteType,
+      unitType: "standard" as const,
+      orientation: "standard" as const,
+      hasTotes: u.hasTotes,
+      hasWheels: u.hasWheels,
+      hasTop: u.hasTop,
+      price: u.price || 0,
+      totalW: u.totalW || 0,
+      totalH: u.totalH || 0,
+      depth: u.depth || 30,
+      desc: `${u.cols} Wide × ${u.rows} High`,
+    }));
+
+    if (buildResult && units.length === 0) {
+      quoteUnits.push({
+        cols: buildResult.cols,
+        rows: buildResult.rows,
+        toteType,
+        unitType: buildResult.unitType,
+        orientation: buildResult.orientation,
+        hasTotes,
+        hasWheels,
+        hasTop,
+        price: buildResult.price,
+        totalW: buildResult.totalW,
+        totalH: buildResult.totalH,
+        depth: buildResult.depth,
+        desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
+      });
+    }
+
+    return quoteUnits.length > 0 ? quoteUnits : null;
+  }
+
   async function handleSendQuote() {
     if (!customerName.trim() || !customerEmail.trim()) {
       setQuoteError("Name and email are required.");
       return;
     }
-    // Need either a current build result or units in the list
-    const hasUnits = units.length > 0 || buildResult;
-    if (!hasUnits || !userId) {
+    const quoteUnits = buildQuoteUnits();
+    if (!quoteUnits || !userId) {
       setQuoteError("No build calculated or not logged in.");
       return;
     }
@@ -348,42 +386,6 @@ export default function BuildConfiguratorPage() {
     setQuoteSending(true);
 
     try {
-      // Build quote units from saved units list
-      const quoteUnits: QuoteUnit[] = units.map((u) => ({
-        cols: u.cols,
-        rows: u.rows,
-        toteType: u.toteType,
-        unitType: "standard" as const,
-        orientation: "standard" as const,
-        hasTotes: u.hasTotes,
-        hasWheels: u.hasWheels,
-        hasTop: u.hasTop,
-        price: u.price || 0,
-        totalW: u.totalW || 0,
-        totalH: u.totalH || 0,
-        depth: u.depth || 30,
-        desc: `${u.cols} Wide × ${u.rows} High`,
-      }));
-
-      // Add current build if not already in list
-      if (buildResult && units.length === 0) {
-        quoteUnits.push({
-          cols: buildResult.cols,
-          rows: buildResult.rows,
-          toteType,
-          unitType: buildResult.unitType,
-          orientation: buildResult.orientation,
-          hasTotes,
-          hasWheels,
-          hasTop,
-          price: buildResult.price,
-          totalW: buildResult.totalW,
-          totalH: buildResult.totalH,
-          depth: buildResult.depth,
-          desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
-        });
-      }
-
       const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
 
       const result = await createQuote({
@@ -402,14 +404,62 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
-      // Quote sent successfully - customer will receive email with payment link
-      // Job only appears in dashboard after customer pays deposit
       setQuoteSent(true);
       if (result.lead_id) setQuoteLeadId(result.lead_id);
-      // Clear units after successful quote
       setUnits([]);
     } catch {
       setQuoteError("Failed to send quote. Please try again.");
+    } finally {
+      setQuoteSending(false);
+    }
+  }
+
+  async function handleGetLink() {
+    if (!customerName.trim() || !customerEmail.trim()) {
+      setQuoteError("Name and email are required.");
+      return;
+    }
+    const quoteUnits = buildQuoteUnits();
+    if (!quoteUnits || !userId) {
+      setQuoteError("No build calculated or not logged in.");
+      return;
+    }
+
+    setQuoteError("");
+    setQuoteSending(true);
+
+    try {
+      const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+
+      const result = await createQuote({
+        installer_id: userId,
+        installer_business_name: businessName,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone || undefined,
+        quote_data: quoteUnits,
+        grand_total: totalPrice,
+        discount_code: quoteDiscountCode.trim() || undefined,
+        skip_email: true,
+      });
+
+      if (!result.success) {
+        setQuoteError(result.error || "Failed to create quote.");
+        return;
+      }
+
+      if (result.lead_id) {
+        setQuoteLeadId(result.lead_id);
+        // Copy link to clipboard immediately
+        const url = `${window.location.origin}/pay/${result.lead_id}`;
+        await navigator.clipboard.writeText(url);
+        setQuoteLinkCopied(true);
+        setTimeout(() => setQuoteLinkCopied(false), 3000);
+      }
+      setQuoteSent(true);
+      setUnits([]);
+    } catch {
+      setQuoteError("Failed to create quote. Please try again.");
     } finally {
       setQuoteSending(false);
     }
@@ -1215,18 +1265,33 @@ export default function BuildConfiguratorPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleSendQuote}
-                  disabled={quoteSending}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  {quoteSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {quoteSending ? "Sending…" : "Send Quote"}
-                </button>
+                {/* Action Buttons */}
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={handleGetLink}
+                    disabled={quoteSending}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20 disabled:opacity-50"
+                  >
+                    {quoteSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Link2 className="h-4 w-4" />
+                    )}
+                    Get Link
+                  </button>
+                  <button
+                    onClick={handleSendQuote}
+                    disabled={quoteSending}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {quoteSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Email Quote
+                  </button>
+                </div>
 
                 {quoteError && (
                   <p className="mt-3 text-center text-xs font-medium text-red-400">
@@ -1238,11 +1303,12 @@ export default function BuildConfiguratorPage() {
               <div className="py-4 text-center">
                 <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
                 <h3 className="mb-1 text-lg font-bold text-white">
-                  Quote Sent!
+                  {quoteLinkCopied ? "Link Copied!" : "Quote Sent!"}
                 </h3>
                 <p className="mb-5 text-sm text-stone-400">
-                  Your customer will receive an email with their quote and a
-                  link to confirm.
+                  {quoteLinkCopied
+                    ? "The quote link has been copied to your clipboard. Send it to your customer via text, message, or any channel."
+                    : "Your customer will receive an email with their quote and a link to confirm."}
                 </p>
 
                 {/* ── Shareable Quote Link ── */}
@@ -1251,12 +1317,9 @@ export default function BuildConfiguratorPage() {
                     <div className="mb-2 flex items-center gap-1.5">
                       <Link2 className="h-3.5 w-3.5 text-yellow-400" />
                       <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                        Share Quote Link
+                        Quote Link
                       </span>
                     </div>
-                    <p className="mb-3 text-[11px] text-stone-500">
-                      Copy this link to text, message, or share directly with your customer.
-                    </p>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
                         <p className="truncate text-xs text-stone-300">

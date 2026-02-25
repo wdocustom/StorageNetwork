@@ -43,6 +43,7 @@ export interface CreateQuoteInput {
   grand_total: number;
   project_title?: string;
   discount_code?: string;
+  skip_email?: boolean;
 }
 
 export interface CreateQuoteResult {
@@ -71,6 +72,7 @@ export async function createQuote(
     grand_total,
     project_title,
     discount_code,
+    skip_email,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -168,7 +170,16 @@ export async function createQuote(
       return { success: false, error: "Failed to create quote record." };
     }
 
-    // ── 4. Send Email via Brevo ───────────────────────────────────────────
+    // ── 4. Send Email via Brevo (unless skip_email) ────────────────────────
+    if (skip_email) {
+      return {
+        success: true,
+        lead_id: lead.id,
+        customer_id: customerId,
+        email_sent: false,
+      };
+    }
+
     const baseUrl = siteConfig.baseUrl;
     const checkoutUrl = `${baseUrl}/pay/${lead.id}`;
 
