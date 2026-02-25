@@ -12,19 +12,10 @@ import {
 // Saves lead, calculates price server-side, sends email via Resend
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lazy Supabase client — avoids module-level crash if env vars are missing
-let _supabase: ReturnType<typeof createClient> | null = null;
-function getSupabase() {
-  if (!_supabase) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      throw new Error("Missing SUPABASE_URL or SERVICE_ROLE_KEY");
-    }
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const DEPOSIT_RATE = 0.15; // 15%
 
@@ -97,8 +88,6 @@ export async function createQuote(
     if (!installer_id) {
       return { success: false, error: "Installer ID is required." };
     }
-
-    const supabase = getSupabase();
 
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
