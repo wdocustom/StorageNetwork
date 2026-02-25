@@ -68,6 +68,17 @@ export interface MaterialBreakdown {
     unitCost: number;
     subtotal: number;
   }[];
+  /** Individual raw counts (pre-box-ceiling) for inventory tracking. */
+  rawCounts: {
+    screws_1_5_8: number;
+    screws_3: number;
+    screws_1: number;
+    plywood_strips: number;
+    plywood_top_sheets: number;
+    lumber_boards: number;
+    totes: number;
+    wheel_kits: number;
+  };
 }
 
 // ── Calculator ─────────────────────────────────────────────────────────────
@@ -214,5 +225,15 @@ export function calculateMaterialCost(
   return {
     totalCost: Math.round(totalCost * 100) / 100,
     items,
+    rawCounts: {
+      screws_1_5_8: totalScrew16,
+      screws_3: totalScrew3,
+      screws_1: totalScrew1,
+      plywood_strips: globalStripCount,
+      plywood_top_sheets: globalTopSheets,
+      lumber_boards: totalBoards,
+      totes: totalTotes,
+      wheel_kits: totalWheelKits,
+    },
   };
 }

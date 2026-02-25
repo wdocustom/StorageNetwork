@@ -2,11 +2,39 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
+import { calculateMaterialCost } from "@/utils/calculateMaterials";
+import { updateInventoryAfterJob } from "@/app/actions/inventory";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+/**
+ * Update material inventory after a job is completed.
+ * Fetches the lead's quote_data, calculates raw material usage,
+ * and adjusts the installer's running inventory.
+ */
+async function syncInventoryForLead(leadId: string) {
+  try {
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("installer_id, quote_data")
+      .eq("id", leadId)
+      .single();
+
+    if (!lead?.installer_id || !lead?.quote_data) return;
+
+    const quoteData = lead.quote_data as { cols: number; rows: number; toteType?: string; hasTotes?: boolean; hasWheels?: boolean; hasTop?: boolean }[];
+    if (!Array.isArray(quoteData) || quoteData.length === 0) return;
+
+    const breakdown = calculateMaterialCost(quoteData);
+    await updateInventoryAfterJob(lead.installer_id, breakdown.rawCounts);
+  } catch (err) {
+    // Non-blocking: inventory sync failure should never block job completion
+    console.error("[Inventory] Sync failed for lead:", leadId, err);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // completeJobWithProof — Upload proof sets status to payment_pending
@@ -61,6 +89,9 @@ export async function completeJobWithProof(
     }
   }
 
+  // Update material inventory (non-blocking)
+  syncInventoryForLead(leadId);
+
   return { success: true };
 }
 
@@ -82,6 +113,9 @@ export async function completeJob(leadId: string) {
     console.error("[CompleteJob] DB error:", error);
     return { success: false, error: "Failed to complete job." };
   }
+
+  // Update material inventory (non-blocking)
+  syncInventoryForLead(leadId);
 
   console.log(`[CompleteJob] Lead ${leadId} marked as payment_pending (no photo required)`);
   return { success: true };

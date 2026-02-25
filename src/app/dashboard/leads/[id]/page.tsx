@@ -63,6 +63,7 @@ export default function JobTicketPage() {
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [installerIsPro, setInstallerIsPro] = useState<boolean>(false);
+  const [installerInventory, setInstallerInventory] = useState<Record<string, number> | null>(null);
 
   // Start Trip SMS state
   const [tripSending, setTripSending] = useState(false);
@@ -101,7 +102,7 @@ export default function JobTicketPage() {
     if (leadData.installer_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("stripe_account_id, is_pro")
+        .select("stripe_account_id, is_pro, material_inventory")
         .eq("id", leadData.installer_id)
         .single();
       if (profile?.stripe_account_id) {
@@ -109,6 +110,9 @@ export default function JobTicketPage() {
       }
       if (profile?.is_pro) {
         setInstallerIsPro(profile.is_pro);
+      }
+      if (profile?.material_inventory) {
+        setInstallerInventory(profile.material_inventory as Record<string, number>);
       }
     }
 
@@ -299,6 +303,7 @@ export default function JobTicketPage() {
           installerStripeId={installerStripeId}
           source={lead.source}
           isPro={installerIsPro}
+          inventory={installerInventory}
           onRefresh={fetchLead}
         />
 

@@ -26,6 +26,12 @@ import {
   generateBuildManifest,
   type BuildManifest,
 } from "@/lib/buildEngine";
+import {
+  calculateNetPurchaseList,
+  normalizeInventory,
+  type MaterialInventory,
+  type NetPurchaseResult,
+} from "@/utils/inventoryManager";
 import { toFraction } from "@/lib/utils";
 import {
   calculateNetProfit,
@@ -61,6 +67,7 @@ interface JobTicketProps {
   installerStripeId: string | null;
   source?: string | null;
   isPro?: boolean;
+  inventory?: MaterialInventory | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -82,6 +89,7 @@ export default function JobTicket({
   installerStripeId,
   source,
   isPro,
+  inventory,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -132,6 +140,13 @@ export default function JobTicket({
       return null;
     }
   }, [quoteData]);
+
+  // ── Net purchase list (inventory-aware) ──────────────────────────────
+  const netPurchase: NetPurchaseResult | null = useMemo(() => {
+    if (!materialBreakdown?.rawCounts) return null;
+    const inv = normalizeInventory(inventory);
+    return calculateNetPurchaseList(materialBreakdown.rawCounts, inv);
+  }, [materialBreakdown, inventory]);
 
   const estMaterials = materialBreakdown?.totalCost ?? 0;
 
@@ -636,60 +651,89 @@ export default function JobTicket({
         </div>
       )}
 
-      {/* ── Material List (expandable dropdown) ────────────────────────── */}
-      {buildManifest && buildManifest.shopping_list.length > 0 && (
+      {/* ── Purchase List (inventory-aware material list) ────────────── */}
+      {netPurchase && netPurchase.items.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
-            Material List
+            Purchase List
             {Object.values(checkedItems).filter(Boolean).length > 0 && (
               <span className="ml-2 text-emerald-400">
-                ({Object.values(checkedItems).filter(Boolean).length}/{buildManifest.shopping_list.length})
+                ({Object.values(checkedItems).filter(Boolean).length}/{netPurchase.items.filter((i) => !i.covered).length})
+              </span>
+            )}
+            {netPurchase.coveredCount > 0 && (
+              <span className="ml-2 text-[10px] font-semibold normal-case text-emerald-400/70">
+                {netPurchase.coveredCount} in stock
               </span>
             )}
           </summary>
           <div className="border-t border-slate-800">
-            {buildManifest.shopping_list.map((item, i) => {
-              const key = `shop-${item.name}`;
-              const isChecked = !!checkedItems[key];
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => toggleItem(key)}
-                  className={`flex w-full items-center gap-3 border-b border-slate-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
-                    isChecked ? "bg-slate-800/30" : "hover:bg-slate-800/50"
-                  }`}
-                >
-                  {/* Checkbox */}
-                  <div
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
-                      isChecked
-                        ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
-                        : "border-slate-600 text-transparent"
+            {netPurchase.items
+              .filter((item) => !item.covered)
+              .map((item, i) => {
+                const key = `shop-${item.name}`;
+                const isChecked = !!checkedItems[key];
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleItem(key)}
+                    className={`flex w-full items-center gap-3 border-b border-slate-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                      isChecked ? "bg-slate-800/30" : "hover:bg-slate-800/50"
                     }`}
                   >
-                    {isChecked && <CheckCircle2 className="h-3.5 w-3.5" />}
-                  </div>
+                    {/* Checkbox */}
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                        isChecked
+                          ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
+                          : "border-slate-600 text-transparent"
+                      }`}
+                    >
+                      {isChecked && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    </div>
 
-                  {/* Item details */}
-                  <div className={`min-w-0 flex-1 ${isChecked ? "opacity-40" : ""}`}>
-                    <p className={`text-xs font-semibold ${isChecked ? "text-stone-500 line-through" : "text-stone-300"}`}>
-                      {item.name}
-                    </p>
-                    {item.detail && (
-                      <p className={`text-[10px] ${isChecked ? "text-stone-600 line-through" : "text-stone-500"}`}>
-                        {item.detail}
+                    {/* Item details */}
+                    <div className={`min-w-0 flex-1 ${isChecked ? "opacity-40" : ""}`}>
+                      <p className={`text-xs font-semibold ${isChecked ? "text-stone-500 line-through" : "text-stone-300"}`}>
+                        {item.name}
                       </p>
-                    )}
-                  </div>
+                      {item.detail && (
+                        <p className={`text-[10px] ${isChecked ? "text-stone-600 line-through" : "text-stone-500"}`}>
+                          {item.detail}
+                        </p>
+                      )}
+                    </div>
 
-                  {/* Qty */}
-                  <span className={`shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-xs font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-yellow-400"}`}>
-                    {item.qty}
-                  </span>
-                </button>
-              );
-            })}
+                    {/* Qty */}
+                    <span className={`shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-xs font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-yellow-400"}`}>
+                      {item.qty}
+                    </span>
+                  </button>
+                );
+              })}
+
+            {/* In-stock summary (collapsed, shows what's covered by inventory) */}
+            {netPurchase.coveredCount > 0 && (
+              <details className="border-t border-slate-800/50">
+                <summary className="cursor-pointer px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-emerald-400/60 hover:text-emerald-400">
+                  {netPurchase.coveredCount} item{netPurchase.coveredCount > 1 ? "s" : ""} covered by inventory
+                </summary>
+                <div className="px-4 pb-2">
+                  {netPurchase.items
+                    .filter((item) => item.covered)
+                    .map((item, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between py-1.5 text-[11px] text-stone-500"
+                      >
+                        <span>{item.name}</span>
+                        <span className="text-emerald-400/60">{item.detail}</span>
+                      </div>
+                    ))}
+                </div>
+              </details>
+            )}
 
             {/* Total cost row */}
             {materialBreakdown && (
