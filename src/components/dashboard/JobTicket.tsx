@@ -585,15 +585,6 @@ export default function JobTicket({
         </button>
       ) : null}
 
-      {/* ── Module Diagram (visual overview) ──────────────────────────── */}
-      {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
-        <ModuleDiagram
-          units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
-          cutPlanModules={buildManifest.cut_plan_visuals}
-          scrollIdPrefix="jt-cut-module"
-        />
-      )}
-
       {/* ── Completion Photo (if exists) ─────────────────────────────── */}
       {uploadedPhotoUrl && (
         <div className="overflow-hidden rounded-xl border border-slate-800">
@@ -756,6 +747,15 @@ export default function JobTicket({
             )}
           </div>
         </details>
+      )}
+
+      {/* ── Module Diagram (visual overview) ──────────────────────────── */}
+      {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
+        <ModuleDiagram
+          units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
+          cutPlanModules={buildManifest.cut_plan_visuals}
+          scrollIdPrefix="jt-cut-module"
+        />
       )}
 
       {/* ── Cut Plan (expandable — fractions, plywood, posts) ──────────── */}
