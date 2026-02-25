@@ -363,20 +363,36 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
   gBoards = globalBoards.length;
 
-  // ── PHASE 3: Build per-module cut plans from global boards ────────────
+  // ── PHASE 3: Build per-module cut plans with local bin packing ────────
+  // Previously this phase just filtered global boards, which broke the
+  // optimization: cuts that shared a global board with another module
+  // would each appear as a solo cut on its own board.  Now we collect
+  // each module's parts and re-pack them locally so the visual cut plan
+  // accurately shows optimal board usage within each module.
   for (const meta of moduleMetadata) {
+    // Gather this module's cuts from the global parts list
+    const moduleParts = allParts
+      .filter((p) => p.unitIdx === meta.unitIdx && p.modKey === meta.modKey)
+      .map((p): CutPart => ({ len: p.len, name: p.name, type: p.type }));
+
+    // Sort longest-first and bin-pack (same algorithm as Phase 2)
+    moduleParts.sort((a, b) => b.len - a.len);
     const moduleBoards: Board[] = [];
-    for (const b of globalBoards) {
-      const moduleCuts = b.cuts.filter(
-        (c) =>
-          (c as typeof allParts[number]).unitIdx === meta.unitIdx &&
-          (c as typeof allParts[number]).modKey === meta.modKey
-      );
-      if (moduleCuts.length > 0) {
-        const usedLen = moduleCuts.reduce((s, c) => s + c.len + KERF, 0);
-        moduleBoards.push({ cuts: moduleCuts, rem: STOCK_LENGTH - usedLen });
+    for (const p of moduleParts) {
+      let placed = false;
+      for (const b of moduleBoards) {
+        if (b.rem >= p.len + KERF) {
+          b.cuts.push(p);
+          b.rem -= p.len + KERF;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        moduleBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
       }
     }
+
     cutPlans.push({
       unitIndex: meta.unitIdx + 1,
       moduleIndex: meta.widthModIndex + 1,
