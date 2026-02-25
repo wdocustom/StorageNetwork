@@ -9,13 +9,22 @@ import {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
-// Saves lead, calculates price server-side, sends email via Brevo
+// Saves lead, calculates price server-side, sends email via Resend
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy Supabase client — avoids module-level crash if env vars are missing
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      throw new Error("Missing SUPABASE_URL or SERVICE_ROLE_KEY");
+    }
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 const DEPOSIT_RATE = 0.15; // 15%
 
@@ -56,39 +65,41 @@ export interface CreateQuoteResult {
 
 /**
  * Create a quote and send it via email.
- * Black Box: All pricing validated server-side, email sent via Brevo.
+ * All pricing validated server-side, email sent via Resend.
  */
 export async function createQuote(
   input: CreateQuoteInput
 ): Promise<CreateQuoteResult> {
-  const {
-    installer_id,
-    installer_business_name,
-    customer_name,
-    customer_email,
-    customer_phone,
-    customer_address,
-    quote_data,
-    grand_total,
-    project_title,
-    discount_code,
-    skip_email,
-  } = input;
-
-  // ── Validation ──────────────────────────────────────────────────────────
-  if (!customer_name?.trim() || !customer_email?.trim()) {
-    return { success: false, error: "Customer name and email are required." };
-  }
-
-  if (!quote_data?.length) {
-    return { success: false, error: "Quote must contain at least one item." };
-  }
-
-  if (!installer_id) {
-    return { success: false, error: "Installer ID is required." };
-  }
-
   try {
+    const {
+      installer_id,
+      installer_business_name,
+      customer_name,
+      customer_email,
+      customer_phone,
+      customer_address,
+      quote_data,
+      grand_total,
+      project_title,
+      discount_code,
+      skip_email,
+    } = input;
+
+    // ── Validation ──────────────────────────────────────────────────────────
+    if (!customer_name?.trim() || !customer_email?.trim()) {
+      return { success: false, error: "Customer name and email are required." };
+    }
+
+    if (!quote_data?.length) {
+      return { success: false, error: "Quote must contain at least one item." };
+    }
+
+    if (!installer_id) {
+      return { success: false, error: "Installer ID is required." };
+    }
+
+    const supabase = getSupabase();
+
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
     const { data: existingCustomer } = await supabase
@@ -132,7 +143,7 @@ export async function createQuote(
       customerId = newCustomer.id;
     }
 
-    // ── 2. Black Box: Calculate Totals Server-Side ────────────────────────
+    // ── 2. Calculate Totals Server-Side ─────────────────────────────────
     // Re-validate the grand total on server (don't trust client-provided total)
     const serverTotal = quote_data.reduce((sum, unit) => sum + unit.price, 0);
     const finalTotal = serverTotal > 0 ? serverTotal : grand_total;
@@ -166,11 +177,13 @@ export async function createQuote(
       .single();
 
     if (leadError || !lead) {
-      console.error("[Quote] Lead create error:", leadError);
-      return { success: false, error: "Failed to create quote record." };
+      console.error("[Quote] Lead create error:", JSON.stringify(leadError));
+      // Surface the actual DB error so we can debug
+      const detail = leadError?.message || leadError?.code || "Unknown DB error";
+      return { success: false, error: `Failed to create quote: ${detail}` };
     }
 
-    // ── 4. Send Email via Brevo (unless skip_email) ────────────────────────
+    // ── 4. Send Email (unless skip_email) ────────────────────────────────
     if (skip_email) {
       return {
         success: true,

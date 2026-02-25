@@ -407,7 +407,8 @@ export default function BuildConfiguratorPage() {
       setQuoteSent(true);
       if (result.lead_id) setQuoteLeadId(result.lead_id);
       setUnits([]);
-    } catch {
+    } catch (err) {
+      console.error("[SendQuote] Quote creation failed:", err);
       setQuoteError("Failed to send quote. Please try again.");
     } finally {
       setQuoteSending(false);
@@ -450,15 +451,21 @@ export default function BuildConfiguratorPage() {
 
       if (result.lead_id) {
         setQuoteLeadId(result.lead_id);
-        // Copy link to clipboard immediately
-        const url = `${window.location.origin}/pay/${result.lead_id}`;
-        await navigator.clipboard.writeText(url);
-        setQuoteLinkCopied(true);
-        setTimeout(() => setQuoteLinkCopied(false), 3000);
+        // Copy link to clipboard (isolated try/catch so clipboard errors
+        // don't mask a successful quote creation)
+        try {
+          const url = `${window.location.origin}/pay/${result.lead_id}`;
+          await navigator.clipboard.writeText(url);
+          setQuoteLinkCopied(true);
+          setTimeout(() => setQuoteLinkCopied(false), 3000);
+        } catch {
+          // Clipboard failed but quote was created — user can still copy manually
+        }
       }
       setQuoteSent(true);
       setUnits([]);
-    } catch {
+    } catch (err) {
+      console.error("[GetLink] Quote creation failed:", err);
       setQuoteError("Failed to create quote. Please try again.");
     } finally {
       setQuoteSending(false);
