@@ -30,6 +30,9 @@ import {
   Settings,
   DollarSign,
   ChevronDown,
+  Link2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -119,6 +122,8 @@ export default function BuildConfiguratorPage() {
   const [quoteSending, setQuoteSending] = useState(false);
   const [quoteSent, setQuoteSent] = useState(false);
   const [quoteError, setQuoteError] = useState("");
+  const [quoteLeadId, setQuoteLeadId] = useState<string | null>(null);
+  const [quoteLinkCopied, setQuoteLinkCopied] = useState(false);
 
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -400,6 +405,7 @@ export default function BuildConfiguratorPage() {
       // Quote sent successfully - customer will receive email with payment link
       // Job only appears in dashboard after customer pays deposit
       setQuoteSent(true);
+      if (result.lead_id) setQuoteLeadId(result.lead_id);
       // Clear units after successful quote
       setUnits([]);
     } catch {
@@ -417,6 +423,8 @@ export default function BuildConfiguratorPage() {
     setQuoteDiscountCode("");
     setQuoteSent(false);
     setQuoteError("");
+    setQuoteLeadId(null);
+    setQuoteLinkCopied(false);
   }
 
   if (loading) {
@@ -1227,8 +1235,8 @@ export default function BuildConfiguratorPage() {
                 )}
               </>
             ) : (
-              <div className="py-6 text-center">
-                <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-emerald-400" />
+              <div className="py-4 text-center">
+                <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
                 <h3 className="mb-1 text-lg font-bold text-white">
                   Quote Sent!
                 </h3>
@@ -1236,6 +1244,56 @@ export default function BuildConfiguratorPage() {
                   Your customer will receive an email with their quote and a
                   link to confirm.
                 </p>
+
+                {/* ── Shareable Quote Link ── */}
+                {quoteLeadId && (
+                  <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left">
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <Link2 className="h-3.5 w-3.5 text-yellow-400" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                        Share Quote Link
+                      </span>
+                    </div>
+                    <p className="mb-3 text-[11px] text-stone-500">
+                      Copy this link to text, message, or share directly with your customer.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
+                        <p className="truncate text-xs text-stone-300">
+                          {typeof window !== "undefined"
+                            ? `${window.location.origin}/pay/${quoteLeadId}`
+                            : `/pay/${quoteLeadId}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const url = `${window.location.origin}/pay/${quoteLeadId}`;
+                          await navigator.clipboard.writeText(url);
+                          setQuoteLinkCopied(true);
+                          setTimeout(() => setQuoteLinkCopied(false), 2500);
+                        }}
+                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
+                          quoteLinkCopied
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                        }`}
+                      >
+                        {quoteLinkCopied ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={resetQuoteModal}
                   className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"

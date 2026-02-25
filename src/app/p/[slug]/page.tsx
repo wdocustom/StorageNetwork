@@ -56,9 +56,9 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
             <Image
               src="/landing_page_logo.png"
               alt="Storage Network"
-              width={24}
+              width={80}
               height={24}
-              className="h-6 w-6"
+              className="h-6 w-auto"
             />
             <span className="text-xs font-semibold tracking-wide text-stone-400">
               Storage Network
@@ -283,9 +283,9 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
               <Image
                 src="/landing_page_logo.png"
                 alt="Storage Network"
-                width={20}
+                width={68}
                 height={20}
-                className="h-5 w-5"
+                className="h-5 w-auto"
               />
               <span className="text-xs text-stone-500">
                 Powered by Storage-Network.app
