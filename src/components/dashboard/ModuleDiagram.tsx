@@ -5,19 +5,49 @@ import type { CutPlanModule } from "@/lib/buildEngine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ModuleDiagram — 2D front-facing SVG diagram of the built storage unit
-// Renders color-coded modules that match the cut plan sections below.
+// Each module is drawn as its own colored structural frame (posts, plates,
+// slot grid). Build-order numbering: bottom tiers first L→R, then upper.
 // Click a module to scroll to its cut plan.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Module color palette (matches industrial theme) ─────────────────────
+// ── Module color palette ─────────────────────────────────────────────────
 const MODULE_COLORS = [
-  { fill: "rgba(59,130,246,0.18)", stroke: "#3b82f6", label: "#3b82f6" },   // blue
-  { fill: "rgba(245,158,11,0.18)", stroke: "#f59e0b", label: "#f59e0b" },   // amber
-  { fill: "rgba(168,85,247,0.18)", stroke: "#a855f7", label: "#a855f7" },   // purple
-  { fill: "rgba(34,197,94,0.18)", stroke: "#22c55e", label: "#22c55e" },    // green
-  { fill: "rgba(236,72,153,0.18)", stroke: "#ec4899", label: "#ec4899" },   // pink
-  { fill: "rgba(6,182,212,0.18)", stroke: "#06b6d4", label: "#06b6d4" },    // cyan
+  { fill: "rgba(59,130,246,0.12)",  stroke: "#3b82f6", label: "#3b82f6" },  // blue
+  { fill: "rgba(245,158,11,0.12)",  stroke: "#f59e0b", label: "#f59e0b" },  // amber
+  { fill: "rgba(168,85,247,0.12)",  stroke: "#a855f7", label: "#a855f7" },  // purple
+  { fill: "rgba(34,197,94,0.12)",   stroke: "#22c55e", label: "#22c55e" },  // green
+  { fill: "rgba(236,72,153,0.12)",  stroke: "#ec4899", label: "#ec4899" },  // pink
+  { fill: "rgba(6,182,212,0.12)",   stroke: "#06b6d4", label: "#06b6d4" },  // cyan
 ];
+
+/** Returns the build-order color and label number for each cut-plan index.
+ *  Build order: bottom tiers first (L→R), then upper tiers (L→R).
+ *  Shared by the diagram and the cut plan border colors. */
+export function getBuildOrderColors(
+  modules: CutPlanModule[],
+): { color: string; buildOrder: number }[] {
+  if (modules.length === 0) return [];
+  // Build an array of { cpIdx, heightTier, moduleIndex } and sort by build order
+  const indexed = modules.map((m, i) => ({
+    cpIdx: i,
+    tier: m.heightTier ?? 1,        // 1-based; bottom = 1
+    widthMod: m.moduleIndex,         // 1-based; left = 1
+  }));
+  // Sort: bottom first (ascending tier), then left first (ascending widthMod)
+  const sorted = [...indexed].sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return a.widthMod - b.widthMod;
+  });
+  // Map build order back to cpIdx positions
+  const result: { color: string; buildOrder: number }[] = new Array(modules.length);
+  sorted.forEach((s, buildIdx) => {
+    result[s.cpIdx] = {
+      color: MODULE_COLORS[buildIdx % MODULE_COLORS.length].stroke,
+      buildOrder: buildIdx + 1,
+    };
+  });
+  return result;
+}
 
 // ── Structural constants (match buildEngine.ts) ─────────────────────────
 const GAP = 1.5;           // 2x4 post width
@@ -32,23 +62,23 @@ const MAX_ROWS_PER_TIER = 6;
 interface ModuleDiagramProps {
   units: { cols: number; rows: number; toteType?: "HDX" | "GM" }[];
   cutPlanModules: CutPlanModule[];
-  /** ID prefix for scroll targets — must match the id on each cut plan module div */
   scrollIdPrefix?: string;
 }
 
-// ── Types ────────────────────────────────────────────────────────────────
 interface ModuleRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  moduleIndex: number;
-  heightTier?: number;
-  heightTierTotal?: number;
+  // Position & size within the full unit (SVG coords, before PAD)
+  x: number;       // left edge of this module's frame
+  y: number;       // top edge (including its own top plate)
+  w: number;       // full width including outer posts
+  h: number;       // full height including plates
   cols: number;
   rows: number;
+  widthModIdx: number;
+  heightTierIdx: number;
+  heightTierTotal: number;
+  cpIdx: number;   // index into cutPlanModules (engine order)
+  buildOrder: number; // display label (bottom-first L→R)
   colorIdx: number;
-  cutPlanIdx: number; // index into cutPlanModules
 }
 
 export default function ModuleDiagram({
@@ -56,21 +86,22 @@ export default function ModuleDiagram({
   cutPlanModules,
   scrollIdPrefix = "cut-module",
 }: ModuleDiagramProps) {
-  // ── Derive module rects from the unit configs ─────────────────────────
   const { rects, totalW, totalH } = useMemo(() => {
-    const allRects: ModuleRect[] = [];
-    let cpIdx = 0;             // walk through cut plan modules in order
-    let unitOffsetX = 0;       // horizontal offset for multi-unit
+    // First pass: create rects in engine order (width-first, then height)
+    // so cpIdx lines up with cutPlanModules array index.
+    const raw: Omit<ModuleRect, "buildOrder" | "colorIdx">[] = [];
+    let cpIdx = 0;
+    let unitOffsetX = 0;
     let maxUnitH = 0;
 
     for (const unit of units) {
       const opening = (unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
 
-      // Width split (same logic as buildEngine)
-      const widthModules: number[] = [];
+      // Width split
+      const widthMods: number[] = [];
       let rem = unit.cols;
-      while (rem > MAX_COLS_PER_MOD) { widthModules.push(MAX_COLS_PER_MOD); rem -= MAX_COLS_PER_MOD; }
-      if (rem > 0) widthModules.push(rem);
+      while (rem > MAX_COLS_PER_MOD) { widthMods.push(MAX_COLS_PER_MOD); rem -= MAX_COLS_PER_MOD; }
+      if (rem > 0) widthMods.push(rem);
 
       // Height split
       const heightTiers: number[] = [];
@@ -78,54 +109,68 @@ export default function ModuleDiagram({
       while (remR > MAX_ROWS_PER_TIER) { heightTiers.push(MAX_ROWS_PER_TIER); remR -= MAX_ROWS_PER_TIER; }
       if (remR > 0) heightTiers.push(remR);
 
-      // Calculate full unit dimensions
-      const unitW = unit.cols * opening + (unit.cols + 1) * GAP;
       const unitH = unit.rows * TIER_HEIGHT + PLATE_H * 2 + TOP_GAP;
       if (unitH > maxUnitH) maxUnitH = unitH;
 
-      // Accumulate column offset per width module
       let modColOffset = 0;
 
-      for (let wmi = 0; wmi < widthModules.length; wmi++) {
-        const cols = widthModules[wmi];
+      for (let wmi = 0; wmi < widthMods.length; wmi++) {
+        const cols = widthMods[wmi];
         const modW = cols * opening + (cols + 1) * GAP;
-        // Height tiers stack vertically from bottom
-        let tierRowOffset = 0;
 
         for (let hti = 0; hti < heightTiers.length; hti++) {
           const tierRows = heightTiers[hti];
           const tierH = tierRows * TIER_HEIGHT;
 
-          // y from top: plates + gap + rows above this tier
+          // y: rows above this tier determine vertical position
           const rowsAbove = heightTiers.slice(0, hti).reduce((s, r) => s + r, 0);
-          const y = PLATE_H + TOP_GAP + rowsAbove * TIER_HEIGHT;
+          // Module frame: top plate + content area + bottom plate
+          const y = PLATE_H + TOP_GAP + rowsAbove * TIER_HEIGHT - PLATE_H;
+          const h = tierH + PLATE_H * 2;
 
-          allRects.push({
+          raw.push({
             x: unitOffsetX + modColOffset,
             y,
             w: modW,
-            h: tierH,
-            moduleIndex: wmi + 1,
-            heightTier: heightTiers.length > 1 ? hti + 1 : undefined,
-            heightTierTotal: heightTiers.length > 1 ? heightTiers.length : undefined,
+            h,
             cols,
             rows: tierRows,
-            colorIdx: cpIdx % MODULE_COLORS.length,
-            cutPlanIdx: cpIdx,
+            widthModIdx: wmi,
+            heightTierIdx: hti,
+            heightTierTotal: heightTiers.length,
+            cpIdx,
           });
           cpIdx++;
-          tierRowOffset += tierRows;
         }
         modColOffset += modW;
       }
-      unitOffsetX += unitW + 4; // 4" gap between units
+      unitOffsetX += (unit.cols * opening + (unit.cols + 1) * GAP) + 4;
     }
 
-    return {
-      rects: allRects,
-      totalW: unitOffsetX - (units.length > 1 ? 4 : 0),
-      totalH: maxUnitH,
-    };
+    // Second pass: assign build order — bottom tiers first (descending tier
+    // index = larger rows = bottom), then left-to-right within each tier.
+    const sorted = [...raw].sort((a, b) => {
+      // Bottom first: higher tierIdx = higher up visually, so we want
+      // lower tierIdx (bottom/tier-1) first. But tiers are 0-indexed
+      // where 0=bottom, 1=top. So sort ascending by tierIdx to get bottom first.
+      // Wait — tier 0 has the most rows (bottom), tier 1 is above it. So:
+      // Sort by tierIdx ascending (bottom first), then by widthModIdx ascending (left first).
+      if (a.heightTierIdx !== b.heightTierIdx) return a.heightTierIdx - b.heightTierIdx;
+      return a.widthModIdx - b.widthModIdx;
+    });
+
+    // Map build order back, assign colors by build order
+    const allRects: ModuleRect[] = raw.map((r) => {
+      const buildIdx = sorted.findIndex((s) => s.cpIdx === r.cpIdx);
+      return {
+        ...r,
+        buildOrder: buildIdx + 1,
+        colorIdx: buildIdx % MODULE_COLORS.length,
+      };
+    });
+
+    const tw = unitOffsetX - (units.length > 1 ? 4 : 0);
+    return { rects: allRects, totalW: tw, totalH: maxUnitH };
   }, [units, cutPlanModules.length]);
 
   // ── Scroll handler ────────────────────────────────────────────────────
@@ -134,71 +179,22 @@ export default function ModuleDiagram({
       const el = document.getElementById(`${scrollIdPrefix}-${cpIdx}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Brief highlight pulse
         el.classList.add("ring-2", "ring-yellow-400/60");
         setTimeout(() => el.classList.remove("ring-2", "ring-yellow-400/60"), 1500);
       }
     },
-    [scrollIdPrefix]
+    [scrollIdPrefix],
   );
 
-  // ── SVG Dimensions ────────────────────────────────────────────────────
-  const PAD = 6; // SVG padding in unit-inches
+  // ── SVG layout ────────────────────────────────────────────────────────
+  const PAD = 4;
   const svgW = totalW + PAD * 2;
   const svgH = totalH + PAD * 2;
 
-  // Render structural frame for each unit
-  const unitFrames = useMemo(() => {
-    const frames: JSX.Element[] = [];
-    let offsetX = 0;
-
-    for (let ui = 0; ui < units.length; ui++) {
-      const unit = units[ui];
-      const opening = (unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
-      const unitW = unit.cols * opening + (unit.cols + 1) * GAP;
-      const unitH = unit.rows * TIER_HEIGHT + PLATE_H * 2 + TOP_GAP;
-      const ox = PAD + offsetX;
-      const oy = PAD;
-
-      // Bottom plate
-      frames.push(
-        <rect key={`bp-${ui}`} x={ox} y={oy + unitH - PLATE_H} width={unitW} height={PLATE_H}
-          fill="#a58458" stroke="#7a5c34" strokeWidth={0.3} />
-      );
-      // Top plate
-      frames.push(
-        <rect key={`tp-${ui}`} x={ox} y={oy} width={unitW} height={PLATE_H}
-          fill="#a58458" stroke="#7a5c34" strokeWidth={0.3} />
-      );
-
-      // Vertical posts
-      for (let c = 0; c <= unit.cols; c++) {
-        // Determine which width module boundary this is (for visual separation)
-        const px = ox + c * (opening + GAP);
-        frames.push(
-          <rect key={`post-${ui}-${c}`} x={px} y={oy + PLATE_H} width={GAP}
-            height={unitH - PLATE_H * 2} fill="#a58458" stroke="#7a5c34" strokeWidth={0.2} />
-        );
-      }
-
-      // Tote slot outlines (subtle grid)
-      for (let c = 0; c < unit.cols; c++) {
-        const slotX = ox + GAP + c * (opening + GAP);
-        for (let r = 0; r < unit.rows; r++) {
-          const slotY = oy + PLATE_H + TOP_GAP + r * TIER_HEIGHT;
-          frames.push(
-            <rect key={`slot-${ui}-${c}-${r}`} x={slotX} y={slotY} width={opening} height={TIER_HEIGHT}
-              fill="rgba(30,41,59,0.5)" stroke="rgba(71,85,105,0.3)" strokeWidth={0.15} rx={0.3} />
-          );
-        }
-      }
-
-      offsetX += unitW + 4;
-    }
-    return frames;
-  }, [units]);
-
   if (rects.length === 0) return null;
+
+  // Sort rects for rendering: draw by build order so later modules overlay
+  const sortedForRender = [...rects].sort((a, b) => a.buildOrder - b.buildOrder);
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -209,107 +205,160 @@ export default function ModuleDiagram({
         Module Layout
       </h2>
 
-      {/* SVG diagram */}
       <div className="relative overflow-hidden rounded-lg border border-slate-700 bg-slate-950 p-2">
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
           className="mx-auto block w-full"
-          style={{ maxHeight: "280px" }}
+          style={{ maxHeight: "300px" }}
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Grid pattern background */}
+          {/* Subtle grid background */}
           <defs>
             <pattern id="mod-grid" width="4" height="4" patternUnits="userSpaceOnUse">
-              <path d="M 4 0 L 0 0 0 4" fill="none" stroke="rgba(71,85,105,0.15)" strokeWidth="0.1" />
+              <path d="M 4 0 L 0 0 0 4" fill="none" stroke="rgba(71,85,105,0.12)" strokeWidth="0.08" />
             </pattern>
           </defs>
           <rect x="0" y="0" width={svgW} height={svgH} fill="url(#mod-grid)" />
 
-          {/* Structural frame (posts, plates, tote slots) */}
-          {unitFrames}
-
-          {/* Color-coded module overlays */}
-          {rects.map((r, i) => {
+          {/* ── Render each module as its own colored frame ─────────── */}
+          {sortedForRender.map((r) => {
             const color = MODULE_COLORS[r.colorIdx];
+            const opening = (units[0]?.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
+            const ox = PAD + r.x;
+            const oy = PAD + r.y;
+            const postH = r.h - PLATE_H * 2;
+            const contentTop = oy + PLATE_H;
+
             return (
               <g
-                key={i}
-                className="cursor-pointer transition-opacity hover:opacity-80"
-                onClick={() => scrollToModule(r.cutPlanIdx)}
+                key={r.cpIdx}
+                className="cursor-pointer"
+                onClick={() => scrollToModule(r.cpIdx)}
               >
-                {/* Module highlight rect */}
+                {/* Module background fill */}
                 <rect
-                  x={PAD + r.x + GAP}
-                  y={PAD + r.y}
-                  width={r.w - GAP * 2}
-                  height={r.h}
-                  fill={color.fill}
-                  stroke={color.stroke}
-                  strokeWidth={0.6}
-                  strokeDasharray="2 1"
-                  rx={0.6}
+                  x={ox} y={oy} width={r.w} height={r.h}
+                  fill={color.fill} rx={0.5}
                 />
-                {/* Module label */}
+
+                {/* Top plate */}
+                <rect
+                  x={ox} y={oy} width={r.w} height={PLATE_H}
+                  fill={color.stroke} opacity={0.5} rx={0.3}
+                />
+                <rect
+                  x={ox} y={oy} width={r.w} height={PLATE_H}
+                  fill="none" stroke={color.stroke} strokeWidth={0.35} rx={0.3}
+                />
+
+                {/* Bottom plate */}
+                <rect
+                  x={ox} y={oy + r.h - PLATE_H} width={r.w} height={PLATE_H}
+                  fill={color.stroke} opacity={0.5} rx={0.3}
+                />
+                <rect
+                  x={ox} y={oy + r.h - PLATE_H} width={r.w} height={PLATE_H}
+                  fill="none" stroke={color.stroke} strokeWidth={0.35} rx={0.3}
+                />
+
+                {/* Vertical posts */}
+                {Array.from({ length: r.cols + 1 }, (_, c) => {
+                  const px = ox + c * (opening + GAP);
+                  return (
+                    <rect
+                      key={`p-${c}`}
+                      x={px} y={contentTop} width={GAP} height={postH}
+                      fill={color.stroke} opacity={0.35}
+                      stroke={color.stroke} strokeWidth={0.25}
+                    />
+                  );
+                })}
+
+                {/* Tote slot grid */}
+                {Array.from({ length: r.cols }, (_, c) =>
+                  Array.from({ length: r.rows }, (_, row) => {
+                    const slotX = ox + GAP + c * (opening + GAP);
+                    const slotY = contentTop + row * TIER_HEIGHT;
+                    return (
+                      <rect
+                        key={`s-${c}-${row}`}
+                        x={slotX + 0.5} y={slotY + 0.5}
+                        width={opening - 1} height={TIER_HEIGHT - 1}
+                        fill="none" stroke={color.stroke} strokeWidth={0.2}
+                        opacity={0.3} rx={0.3}
+                      />
+                    );
+                  }),
+                )}
+
+                {/* Outer border */}
+                <rect
+                  x={ox} y={oy} width={r.w} height={r.h}
+                  fill="none" stroke={color.stroke} strokeWidth={0.6} rx={0.5}
+                />
+
+                {/* Build order number (large, centered) */}
                 <text
-                  x={PAD + r.x + r.w / 2}
-                  y={PAD + r.y + r.h / 2}
+                  x={ox + r.w / 2}
+                  y={oy + r.h / 2 - 1}
                   textAnchor="middle"
                   dominantBaseline="central"
                   fill={color.label}
-                  fontSize={Math.min(r.h * 0.3, r.w * 0.12, 5)}
+                  fontSize={Math.min(r.h * 0.35, r.w * 0.14, 7)}
                   fontWeight="bold"
                   fontFamily="ui-monospace, monospace"
-                  style={{ textShadow: "0 0 3px rgba(0,0,0,0.8)" }}
+                  style={{ textShadow: "0 0 4px rgba(0,0,0,0.9)" }}
                 >
-                  M{r.moduleIndex}{r.heightTier ? `-T${r.heightTier}` : ""}
+                  Module {r.buildOrder}
                 </text>
+                {/* Dimensions sub-label */}
                 <text
-                  x={PAD + r.x + r.w / 2}
-                  y={PAD + r.y + r.h / 2 + Math.min(r.h * 0.3, r.w * 0.12, 5) * 0.9}
+                  x={ox + r.w / 2}
+                  y={oy + r.h / 2 + Math.min(r.h * 0.35, r.w * 0.14, 7) * 0.75}
                   textAnchor="middle"
                   dominantBaseline="central"
                   fill={color.label}
-                  fontSize={Math.min(r.h * 0.18, r.w * 0.08, 3)}
+                  fontSize={Math.min(r.h * 0.18, r.w * 0.08, 3.5)}
                   fontFamily="ui-monospace, monospace"
-                  opacity={0.7}
+                  opacity={0.65}
                 >
                   {r.cols}×{r.rows}
+                  {r.heightTierTotal > 1 && ` (T${r.heightTierIdx + 1})`}
                 </text>
               </g>
             );
           })}
         </svg>
 
-        {/* Click hint */}
         <p className="mt-2 text-center text-[10px] text-stone-600">
           Click a module to jump to its cut plan
         </p>
       </div>
 
-      {/* Legend chips */}
+      {/* Legend chips — sorted by build order */}
       <div className="mt-3 flex flex-wrap gap-2">
-        {rects.map((r, i) => {
-          const color = MODULE_COLORS[r.colorIdx];
-          const mod = cutPlanModules[r.cutPlanIdx];
-          const label = mod
-            ? `Module ${mod.moduleIndex}${mod.heightTier ? ` T${mod.heightTier}/${mod.heightTierTotal}` : ""}`
-            : `M${r.moduleIndex}${r.heightTier ? `-T${r.heightTier}` : ""}`;
-          return (
-            <button
-              key={i}
-              onClick={() => scrollToModule(r.cutPlanIdx)}
-              className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-slate-800"
-              style={{ borderColor: color.stroke, color: color.label }}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-sm"
-                style={{ backgroundColor: color.stroke }}
-              />
-              {label}
-              <span className="text-stone-500">({r.cols}×{r.rows})</span>
-            </button>
-          );
-        })}
+        {[...rects]
+          .sort((a, b) => a.buildOrder - b.buildOrder)
+          .map((r) => {
+            const color = MODULE_COLORS[r.colorIdx];
+            return (
+              <button
+                key={r.cpIdx}
+                onClick={() => scrollToModule(r.cpIdx)}
+                className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-slate-800"
+                style={{ borderColor: color.stroke, color: color.label }}
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: color.stroke }}
+                />
+                Module {r.buildOrder}
+                <span className="text-stone-500">
+                  ({r.cols}×{r.rows}{r.heightTierTotal > 1 ? ` T${r.heightTierIdx + 1}` : ""})
+                </span>
+              </button>
+            );
+          })}
       </div>
     </div>
   );

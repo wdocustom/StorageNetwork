@@ -39,7 +39,7 @@ import BookingModal from "@/components/booking/BookingModal";
 import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
-import ModuleDiagram from "@/components/dashboard/ModuleDiagram";
+import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -1060,13 +1060,13 @@ export default function BuildConfiguratorPage() {
 
               {displayManifest && (
                 <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                  {displayManifest.cut_plan_visuals.map((mod, mi) => {
-                    const _modColors = ["#3b82f6","#f59e0b","#a855f7","#22c55e","#ec4899","#06b6d4"];
-                    const _mc = _modColors[mi % _modColors.length];
+                  {(() => { const _bo = getBuildOrderColors(displayManifest.cut_plan_visuals); return displayManifest.cut_plan_visuals.map((mod, mi) => {
+                    const _mc = _bo[mi]?.color ?? "#f59e0b";
+                    const _bn = _bo[mi]?.buildOrder ?? mi + 1;
                     return (
                     <div key={mi} id={`build-cut-module-${mi}`} className="mb-4 rounded-lg border-l-[3px] pl-3 transition-all" style={{ borderLeftColor: _mc }}>
                       <h3 className="mb-2 text-sm font-bold" style={{ color: _mc }}>
-                        Module {mod.moduleIndex}{mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}x{mod.rows})
+                        Module {_bn}{mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}x{mod.rows})
                         {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
                         {mod.heightTier && mod.heightTier > 1 && mod.heightTier === mod.heightTierTotal && <span className="ml-2 text-[10px] font-semibold text-purple-400">(Top)</span>}
                         {mod.heightTier && mod.heightTier > 1 && mod.heightTier < (mod.heightTierTotal || 0) && <span className="ml-2 text-[10px] font-semibold text-cyan-400">(Middle)</span>}
@@ -1137,7 +1137,7 @@ export default function BuildConfiguratorPage() {
                       </div>
                     </div>
                     );
-                  })}
+                  }); })()}
                 </div>
               )}
 
