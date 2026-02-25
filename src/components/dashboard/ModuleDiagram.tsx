@@ -122,8 +122,9 @@ export default function ModuleDiagram({
           const tierRows = heightTiers[hti];
           const tierH = tierRows * TIER_HEIGHT;
 
-          // y: rows above this tier determine vertical position
-          const rowsAbove = heightTiers.slice(0, hti).reduce((s, r) => s + r, 0);
+          // y: tiers ABOVE this one (higher index = physically higher = top of SVG)
+          // sit above it in the SVG, so sum rows from tiers after this one.
+          const rowsAbove = heightTiers.slice(hti + 1).reduce((s, r) => s + r, 0);
           // Module frame: top plate + content area + bottom plate
           const y = PLATE_H + TOP_GAP + rowsAbove * TIER_HEIGHT - PLATE_H;
           const h = tierH + PLATE_H * 2;
