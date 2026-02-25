@@ -41,6 +41,8 @@ import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
+import PortfolioSection from "@/components/profile/PortfolioSection";
+import type { PortfolioPhoto } from "@/app/actions/profile";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -89,6 +91,10 @@ interface Profile {
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
   delivery_fee_config: DeliveryFeeConfig | null;
+  bio: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  portfolio_photos: PortfolioPhoto[] | null;
 }
 
 function ProfilePageInner() {
@@ -184,7 +190,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, bio, instagram_url, facebook_url, portfolio_photos")
       .eq("id", user.id)
       .single();
 
@@ -195,7 +201,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, bio, instagram_url, facebook_url, portfolio_photos")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -1194,6 +1200,20 @@ function ProfilePageInner() {
         {/* Pro QR Code Generator (Pro users with slug only) */}
         {isPro && profile?.slug && (
           <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C.5: Portfolio & Social (Pro users with slug only)
+        ═══════════════════════════════════════════════════════════════ */}
+        {isPro && profile?.slug && (
+          <PortfolioSection
+            userId={profile.id}
+            slug={profile.slug}
+            initialBio={profile.bio || ""}
+            initialInstagram={profile.instagram_url || ""}
+            initialFacebook={profile.facebook_url || ""}
+            initialPhotos={(profile.portfolio_photos as PortfolioPhoto[]) || []}
+          />
         )}
 
         {/* ═══════════════════════════════════════════════════════════════

@@ -188,6 +188,170 @@ export async function getProfileBySlug(slug: string) {
 }
 
 /**
+ * Get full profile by slug (for the public portfolio page).
+ */
+export async function getFullProfileBySlug(slug: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos"
+    )
+    .eq("slug", slug.toLowerCase())
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Portfolio Management — Bio, social links, and portfolio photos
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PortfolioPhoto {
+  url: string;
+  caption?: string;
+}
+
+/**
+ * Update portfolio settings (bio, social links).
+ */
+export async function updatePortfolioSettings(input: {
+  user_id: string;
+  bio?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { user_id, ...updates } = input;
+
+  const cleanUpdates: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      cleanUpdates[key] = value?.trim() || null;
+    }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(cleanUpdates)
+    .eq("id", user_id);
+
+  if (error) {
+    console.error("[Portfolio Settings] Update error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Upload a portfolio photo to storage and add to the JSONB array.
+ */
+export async function uploadPortfolioPhoto(
+  userId: string,
+  base64Data: string,
+  fileExt: string,
+  caption?: string
+): Promise<{ success: boolean; photo?: PortfolioPhoto; error?: string }> {
+  const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
+  if (!allowedExts.includes(fileExt)) {
+    return { success: false, error: "Invalid file type. Use JPG, PNG, GIF, or WebP." };
+  }
+
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+  const path = `${userId}/${filename}`;
+
+  try {
+    const buffer = Buffer.from(base64Data, "base64");
+    const mimeType = fileExt === "jpg" ? "image/jpeg" : `image/${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("portfolio")
+      .upload(path, buffer, { contentType: mimeType, upsert: false });
+
+    if (uploadError) {
+      console.error("[Portfolio Upload] Storage error:", uploadError);
+      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    const { data: urlData } = supabase.storage.from("portfolio").getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
+
+    const newPhoto: PortfolioPhoto = { url: publicUrl, caption: caption || "" };
+
+    // Fetch current photos, append, save
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("portfolio_photos")
+      .eq("id", userId)
+      .single();
+
+    const currentPhotos: PortfolioPhoto[] = (profile?.portfolio_photos as PortfolioPhoto[]) || [];
+    currentPhotos.push(newPhoto);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ portfolio_photos: currentPhotos })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("[Portfolio Upload] Profile update error:", updateError);
+      return { success: false, error: "Photo uploaded but failed to save to profile." };
+    }
+
+    return { success: true, photo: newPhoto };
+  } catch (err) {
+    console.error("[Portfolio Upload] Unexpected error:", err);
+    return { success: false, error: "Unexpected error during upload." };
+  }
+}
+
+/**
+ * Delete a portfolio photo from storage and remove from the JSONB array.
+ */
+export async function deletePortfolioPhoto(
+  userId: string,
+  photoUrl: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Extract storage path from URL
+    const bucketUrl = supabase.storage.from("portfolio").getPublicUrl("").data.publicUrl;
+    const storagePath = photoUrl.replace(bucketUrl, "").replace(/^\//, "");
+
+    if (storagePath) {
+      await supabase.storage.from("portfolio").remove([storagePath]);
+    }
+
+    // Remove from JSONB array
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("portfolio_photos")
+      .eq("id", userId)
+      .single();
+
+    const currentPhotos: PortfolioPhoto[] = (profile?.portfolio_photos as PortfolioPhoto[]) || [];
+    const updatedPhotos = currentPhotos.filter((p) => p.url !== photoUrl);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ portfolio_photos: updatedPhotos })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("[Portfolio Delete] Profile update error:", updateError);
+      return { success: false, error: "Failed to update profile." };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[Portfolio Delete] Unexpected error:", err);
+    return { success: false, error: "Unexpected error during deletion." };
+  }
+}
+
+/**
  * Upload avatar and return the public URL.
  * This generates a signed upload URL for the client to use.
  */
