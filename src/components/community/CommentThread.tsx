@@ -401,27 +401,8 @@ export default function CommentThread({
 
   return (
     <div>
-      {/* Comment tree */}
-      {localComments.length === 0 ? (
-        <div className="py-8 text-center text-sm text-stone-600">
-          No comments yet. Be the first to share your thoughts.
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {localComments.map((comment) => (
-            <CommentNode
-              key={comment.id}
-              comment={comment}
-              postId={postId}
-              userId={userId}
-              maxDepth={maxDepth}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Root comment form — below comments */}
-      <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
+      {/* Root comment form */}
+      <div className="mb-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
         <textarea
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
@@ -449,6 +430,25 @@ export default function CommentThread({
           </button>
         </div>
       </div>
+
+      {/* Comment tree */}
+      {localComments.length === 0 ? (
+        <div className="py-8 text-center text-sm text-stone-600">
+          No comments yet. Be the first to share your thoughts.
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {localComments.map((comment) => (
+            <CommentNode
+              key={comment.id}
+              comment={comment}
+              postId={postId}
+              userId={userId}
+              maxDepth={maxDepth}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

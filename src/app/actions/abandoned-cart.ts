@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendAbandonedCartEmail } from "@/lib/email";
+import { siteConfig } from "@/config/site";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -195,9 +196,8 @@ export async function processAbandonedCarts(): Promise<{
           installerName = installer?.business_name || installer?.first_name || null;
         }
 
-        // Generate resume URL
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://storagenetwork.io";
-        const resumeUrl = `${baseUrl}/pay/${lead.id}`;
+        // Generate resume URL (uses same domain resolution as rest of app)
+        const resumeUrl = `${siteConfig.baseUrl}/pay/${lead.id}`;
 
         // Send the email
         await sendAbandonedCartEmail(lead.customer_email, {

@@ -15,6 +15,7 @@ import {
   cancelProSubscription,
   reactivateProSubscription,
   createCustomerPortalSession,
+  getPendingBountySummary,
 } from "@/app/actions/pro-subscription";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -39,6 +40,11 @@ export default function ProSubscriptionCard({
   } | null>(null);
   const [error, setError] = useState("");
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [bountySummary, setBountySummary] = useState<{
+    count: number;
+    estimatedValue: number;
+  } | null>(null);
+  const [bountyLoading, setBountyLoading] = useState(false);
 
   useEffect(() => {
     async function fetchStatus() {
@@ -237,7 +243,13 @@ export default function ProSubscriptionCard({
 
             {!showCancelConfirm ? (
               <button
-                onClick={() => setShowCancelConfirm(true)}
+                onClick={async () => {
+                  setShowCancelConfirm(true);
+                  setBountyLoading(true);
+                  const summary = await getPendingBountySummary(userId);
+                  setBountySummary(summary);
+                  setBountyLoading(false);
+                }}
                 className="w-full py-2 text-center text-xs text-stone-500 transition-colors hover:text-red-400"
               >
                 Cancel subscription
@@ -248,9 +260,40 @@ export default function ProSubscriptionCard({
                   Are you sure? You'll keep Pro benefits until the end of your
                   billing period, then revert to Free with 15% fees.
                 </p>
+
+                {/* Pending Bounty Warning */}
+                {bountyLoading ? (
+                  <div className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+                    <span className="text-[11px] text-amber-400">
+                      Checking pending bounties...
+                    </span>
+                  </div>
+                ) : bountySummary && bountySummary.count > 0 ? (
+                  <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+                      <div>
+                        <p className="text-[11px] font-bold text-amber-400">
+                          {bountySummary.count} pending bounty
+                          {bountySummary.count !== 1 ? "ies" : ""} (~$
+                          {bountySummary.estimatedValue.toLocaleString()})
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-stone-400">
+                          These will be forfeited when your subscription ends.
+                          No payout even if deposits come in later.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setShowCancelConfirm(false)}
+                    onClick={() => {
+                      setShowCancelConfirm(false);
+                      setBountySummary(null);
+                    }}
                     className="flex-1 rounded-lg border border-slate-600 bg-slate-800 py-2 text-xs font-medium text-white hover:bg-slate-700"
                   >
                     Keep Pro

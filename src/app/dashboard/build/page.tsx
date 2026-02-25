@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild } from "@/app/actions/calculator";
 import { generateBuildManifest } from "@/lib/buildEngine";
-import { createQuote } from "@/app/actions/createQuote";
+import { createQuote, type DeliveryAddress } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import { calculateMaterialCost, DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { toFraction } from "@/lib/utils";
@@ -125,6 +125,14 @@ export default function BuildConfiguratorPage() {
   const [quoteError, setQuoteError] = useState("");
   const [quoteLeadId, setQuoteLeadId] = useState<string | null>(null);
   const [quoteLinkCopied, setQuoteLinkCopied] = useState(false);
+
+  // Delivery address state
+  const [deliveryLine1, setDeliveryLine1] = useState("");
+  const [deliveryLine2, setDeliveryLine2] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryZip, setDeliveryZip] = useState("");
+  const [showDeliveryAddress, setShowDeliveryAddress] = useState(false);
 
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -373,8 +381,8 @@ export default function BuildConfiguratorPage() {
   }
 
   async function handleSendQuote() {
-    if (!customerName.trim() || !customerEmail.trim()) {
-      setQuoteError("Name and email are required.");
+    if (!customerName.trim()) {
+      setQuoteError("Customer name is required.");
       return;
     }
     const quoteUnits = buildQuoteUnits();
@@ -389,15 +397,28 @@ export default function BuildConfiguratorPage() {
     try {
       const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
 
+      // Build delivery address object if fields are filled
+      let delivery_address: DeliveryAddress | undefined;
+      if (deliveryLine1.trim()) {
+        delivery_address = {
+          line1: deliveryLine1.trim(),
+          line2: deliveryLine2.trim() || undefined,
+          city: deliveryCity.trim(),
+          state: deliveryState.trim(),
+          zip: deliveryZip.trim(),
+        };
+      }
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
         customer_name: customerName,
-        customer_email: customerEmail,
+        customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
         quote_data: quoteUnits,
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
+        delivery_address,
       });
 
       if (!result.success) {
@@ -417,8 +438,8 @@ export default function BuildConfiguratorPage() {
   }
 
   async function handleGetLink() {
-    if (!customerName.trim() || !customerEmail.trim()) {
-      setQuoteError("Name and email are required.");
+    if (!customerName.trim()) {
+      setQuoteError("Customer name is required.");
       return;
     }
     const quoteUnits = buildQuoteUnits();
@@ -433,16 +454,28 @@ export default function BuildConfiguratorPage() {
     try {
       const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
 
+      // Build delivery address object if fields are filled
+      let delivery_address: DeliveryAddress | undefined;
+      if (deliveryLine1.trim()) {
+        delivery_address = {
+          line1: deliveryLine1.trim(),
+          line2: deliveryLine2.trim() || undefined,
+          city: deliveryCity.trim(),
+          state: deliveryState.trim(),
+          zip: deliveryZip.trim(),
+        };
+      }
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
         customer_name: customerName,
-        customer_email: customerEmail,
+        customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
         quote_data: quoteUnits,
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
-        skip_email: true,
+        delivery_address,
       });
 
       if (!result.success) {
@@ -1280,7 +1313,7 @@ export default function BuildConfiguratorPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Email *
+                      Email (optional)
                     </label>
                     <input
                       type="email"
@@ -1317,6 +1350,61 @@ export default function BuildConfiguratorPage() {
                     <p className="mt-1 text-[10px] text-stone-600">
                       Attach a promo code — customer can apply it at checkout.
                     </p>
+                  </div>
+
+                  {/* Delivery Address (collapsible) */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeliveryAddress(!showDeliveryAddress)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500 hover:text-stone-400"
+                    >
+                      <ChevronDown className={`h-3 w-3 transition-transform ${showDeliveryAddress ? "rotate-180" : ""}`} />
+                      Delivery / Install Address (optional)
+                    </button>
+                    {showDeliveryAddress && (
+                      <div className="mt-2 space-y-2 rounded-lg border border-slate-700/50 bg-slate-800/40 p-3">
+                        <input
+                          type="text"
+                          value={deliveryLine1}
+                          onChange={(e) => setDeliveryLine1(e.target.value)}
+                          placeholder="Street address"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={deliveryLine2}
+                          onChange={(e) => setDeliveryLine2(e.target.value)}
+                          placeholder="Apt / Suite (optional)"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={deliveryCity}
+                            onChange={(e) => setDeliveryCity(e.target.value)}
+                            placeholder="City"
+                            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={deliveryState}
+                            onChange={(e) => setDeliveryState(e.target.value.toUpperCase())}
+                            placeholder="ST"
+                            maxLength={2}
+                            className="w-16 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={deliveryZip}
+                            onChange={(e) => setDeliveryZip(e.target.value)}
+                            placeholder="ZIP"
+                            maxLength={5}
+                            className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1358,12 +1446,12 @@ export default function BuildConfiguratorPage() {
               <div className="py-4 text-center">
                 <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
                 <h3 className="mb-1 text-lg font-bold text-white">
-                  {quoteLinkCopied ? "Link Copied!" : "Quote Sent!"}
+                  Quote Created!
                 </h3>
                 <p className="mb-5 text-sm text-stone-400">
-                  {quoteLinkCopied
-                    ? "The quote link has been copied to your clipboard. Send it to your customer via text, message, or any channel."
-                    : "Your customer will receive an email with their quote and a link to confirm."}
+                  {customerEmail?.trim()
+                    ? "Your customer will receive an email with their quote and a link to confirm."
+                    : "Copy the link below to send it to your customer via text, message, or any channel."}
                 </p>
 
                 {/* ── Shareable Quote Link ── */}

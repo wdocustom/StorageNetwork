@@ -1000,9 +1000,7 @@ export default function DesignConfigurator({
                 onChange={(e) => {
                   const val = e.target.value || null;
                   setActivePreset(val);
-                  if (!val) {
-                    setCompoundBuild(null);
-                  }
+                  setCompoundBuild(null);
                 }}
                 className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
               >

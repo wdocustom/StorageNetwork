@@ -44,6 +44,17 @@ export interface ProfileUpdateResult {
 }
 
 /**
+ * Stamp the last login timestamp for a user.
+ * Uses service role to bypass RLS so it never fails silently.
+ */
+export async function stampLastLogin(userId: string): Promise<void> {
+  await supabase
+    .from("profiles")
+    .update({ last_login_at: new Date().toISOString() })
+    .eq("id", userId);
+}
+
+/**
  * Update user profile information.
  */
 export async function updateProfile(

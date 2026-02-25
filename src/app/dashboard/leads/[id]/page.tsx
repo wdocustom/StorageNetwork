@@ -44,6 +44,11 @@ interface LeadDetail {
   address_city: string | null;
   address_state: string | null;
   address_zip: string | null;
+  delivery_address_line1: string | null;
+  delivery_address_line2: string | null;
+  delivery_address_city: string | null;
+  delivery_address_state: string | null;
+  delivery_address_zip: string | null;
   source: string | null;
   en_route_notified: boolean;
 }
@@ -84,7 +89,7 @@ export default function JobTicketPage() {
     // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
-      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, source, en_route_notified")
+      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified")
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();
@@ -224,6 +229,31 @@ export default function JobTicketPage() {
               </p>
             </div>
           ) : null}
+
+          {/* Delivery / Installation Address */}
+          {lead.delivery_address_line1 && (
+            <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                Delivery / Installation Address
+              </p>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(
+                  [lead.delivery_address_line1, lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm font-semibold text-white hover:text-emerald-300"
+              >
+                <Navigation className="h-3 w-3 text-emerald-400" />
+                {lead.delivery_address_line1}
+                {lead.delivery_address_line2 ? `, ${lead.delivery_address_line2}` : ""}
+              </a>
+              <p className="text-xs text-stone-400">
+                {[lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")}
+              </p>
+            </div>
+          )}
+
           <p className="mt-2 text-xs text-stone-600">
             Submitted {new Date(lead.created_at).toLocaleDateString()}
           </p>

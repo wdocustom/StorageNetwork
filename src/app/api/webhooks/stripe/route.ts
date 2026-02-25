@@ -488,6 +488,32 @@ export async function POST(request: NextRequest) {
       console.log("[Webhook] Pro subscription cancelled for user:", userId);
       await deactivateProSubscription(userId);
 
+      // ── Forfeit all pending bounties ─────────────────────────────
+      // When a Pro cancels, any pending bounties become forfeited.
+      // This ensures no payout even if a deposit comes in later.
+      try {
+        const { data: forfeited, error: forfeitErr } = await supabase
+          .from("leads")
+          .update({
+            bounty_status: "forfeited",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("referring_installer_id", userId)
+          .eq("bounty_status", "pending")
+          .select("id");
+
+        if (forfeitErr) {
+          console.error("[Webhook] Bounty forfeiture DB error (non-fatal):", forfeitErr);
+        } else {
+          const count = forfeited?.length ?? 0;
+          if (count > 0) {
+            console.log(`[Webhook] Forfeited ${count} pending bounties for installer: ${userId}`);
+          }
+        }
+      } catch (bountyErr) {
+        console.error("[Webhook] Bounty forfeiture failed (non-fatal):", bountyErr);
+      }
+
       // ── Deactivate affiliate referral ──────────────────────────────
       try {
         await supabase

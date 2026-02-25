@@ -347,6 +347,40 @@ export async function reactivateProSubscription(
 }
 
 /**
+ * Get a summary of pending bounties for a user.
+ * Used in the cancellation confirmation modal to warn the installer
+ * about forfeiting pending bounties.
+ */
+export async function getPendingBountySummary(
+  userId: string
+): Promise<{
+  count: number;
+  estimatedValue: number;
+}> {
+  const { data: pendingLeads } = await supabase
+    .from("leads")
+    .select("deposit_amount, estimated_price")
+    .eq("referring_installer_id", userId)
+    .eq("bounty_status", "pending");
+
+  if (!pendingLeads || pendingLeads.length === 0) {
+    return { count: 0, estimatedValue: 0 };
+  }
+
+  // Estimate bounty: 30% of deposit, min $15 per lead
+  const estimatedValue = pendingLeads.reduce((sum: number, lead: { deposit_amount: number | null; estimated_price: number | null }) => {
+    const deposit = lead.deposit_amount ?? (lead.estimated_price ? lead.estimated_price * 0.15 : 0);
+    const bounty = Math.max(Math.round(deposit * 0.30 * 100) / 100, 15);
+    return sum + bounty;
+  }, 0);
+
+  return {
+    count: pendingLeads.length,
+    estimatedValue: Math.round(estimatedValue * 100) / 100,
+  };
+}
+
+/**
  * Create a Stripe Customer Portal session for subscription management.
  * Allows user to update payment method, view invoices, cancel, etc.
  */

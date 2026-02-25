@@ -111,6 +111,7 @@ const SOURCE_GROUP_MAP: Record<string, string> = {
   "linkedin.com": "LinkedIn",
   "lnkd.in": "LinkedIn",
   "nextdoor.com": "Nextdoor",
+  "craigslist.org": "Craigslist",
   "pinterest.com": "Pinterest",
   "pin.it": "Pinterest",
   "reddit.com": "Reddit",
@@ -125,7 +126,14 @@ function classifySource(referrer: string | null): { group: string; detail: strin
   try {
     const url = new URL(referrer);
     const hostname = url.hostname.replace("www.", "").toLowerCase();
-    const group = SOURCE_GROUP_MAP[hostname] || hostname;
+    // Check hostname map first
+    let group = SOURCE_GROUP_MAP[hostname];
+    // Also detect fbclid/gclid URL params (ad click tracking)
+    if (!group && url.searchParams.has("fbclid")) group = "Facebook";
+    if (!group && url.searchParams.has("gclid")) group = "Google";
+    // Also detect Craigslist subdomains (e.g. city.craigslist.org)
+    if (!group && hostname.endsWith("craigslist.org")) group = "Craigslist";
+    if (!group) group = hostname;
     // Show a readable path for the detail
     const path = url.pathname !== "/" ? url.pathname : "";
     const detail = hostname + path;

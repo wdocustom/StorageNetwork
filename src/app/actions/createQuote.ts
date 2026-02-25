@@ -9,7 +9,7 @@ import {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
-// Saves lead, calculates price server-side, sends email via Resend
+// Saves lead, calculates price server-side, sends email via Brevo
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = createClient(
@@ -32,18 +32,26 @@ export interface QuoteUnit {
   desc: string;
 }
 
+export interface DeliveryAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 export interface CreateQuoteInput {
   installer_id: string;
   installer_business_name: string;
   customer_name: string;
-  customer_email: string;
+  customer_email?: string;
   customer_phone?: string;
   customer_address?: string;
   quote_data: QuoteUnit[];
   grand_total: number;
   project_title?: string;
   discount_code?: string;
-  skip_email?: boolean;
+  delivery_address?: DeliveryAddress;
 }
 
 export interface CreateQuoteResult {
@@ -56,47 +64,55 @@ export interface CreateQuoteResult {
 
 /**
  * Create a quote and send it via email.
- * All pricing validated server-side, email sent via Resend.
+ * All pricing validated server-side, email sent via Brevo.
  */
 export async function createQuote(
   input: CreateQuoteInput
 ): Promise<CreateQuoteResult> {
+  const {
+    installer_id,
+    installer_business_name,
+    customer_name,
+    customer_email,
+    customer_phone,
+    customer_address,
+    quote_data,
+    grand_total,
+    project_title,
+    discount_code,
+    delivery_address,
+  } = input;
+
+  // ── Validation ──────────────────────────────────────────────────────────
+  if (!customer_name?.trim()) {
+    return { success: false, error: "Customer name is required." };
+  }
+
+  const normalizedEmail = customer_email?.trim().toLowerCase() || null;
+
+  if (!quote_data?.length) {
+    return { success: false, error: "Quote must contain at least one item." };
+  }
+
+  if (!installer_id) {
+    return { success: false, error: "Installer ID is required." };
+  }
+
   try {
-    const {
-      installer_id,
-      installer_business_name,
-      customer_name,
-      customer_email,
-      customer_phone,
-      customer_address,
-      quote_data,
-      grand_total,
-      project_title,
-      discount_code,
-      skip_email,
-    } = input;
-
-    // ── Validation ──────────────────────────────────────────────────────────
-    if (!customer_name?.trim() || !customer_email?.trim()) {
-      return { success: false, error: "Customer name and email are required." };
-    }
-
-    if (!quote_data?.length) {
-      return { success: false, error: "Quote must contain at least one item." };
-    }
-
-    if (!installer_id) {
-      return { success: false, error: "Installer ID is required." };
-    }
-
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
-    const { data: existingCustomer } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("email", customer_email.toLowerCase().trim())
-      .eq("installer_id", installer_id)
-      .single();
+
+    // If email provided, try to find existing customer by email + installer
+    let existingCustomer = null;
+    if (normalizedEmail) {
+      const { data } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .eq("installer_id", installer_id)
+        .single();
+      existingCustomer = data;
+    }
 
     if (existingCustomer) {
       customerId = existingCustomer.id;
@@ -116,7 +132,7 @@ export async function createQuote(
         .from("customers")
         .insert({
           name: customer_name.trim(),
-          email: customer_email.toLowerCase().trim(),
+          email: normalizedEmail,
           phone: customer_phone?.trim() || null,
           address: customer_address?.trim() || null,
           installer_id,
@@ -150,7 +166,7 @@ export async function createQuote(
         installer_id,
         customer_id: customerId,
         customer_name: customer_name.trim(),
-        customer_email: customer_email.toLowerCase().trim(),
+        customer_email: normalizedEmail,
         customer_phone: customer_phone?.trim() || null,
         address: customer_address?.trim() || null,
         quote_data,
@@ -161,70 +177,71 @@ export async function createQuote(
         status: "pending_payment",
         deposit_paid: false,
         discount_code: discount_code?.toUpperCase() || null,
+        // Delivery / installation address (entered by installer at quote time)
+        delivery_address_line1: delivery_address?.line1 || null,
+        delivery_address_line2: delivery_address?.line2 || null,
+        delivery_address_city: delivery_address?.city || null,
+        delivery_address_state: delivery_address?.state || null,
+        delivery_address_zip: delivery_address?.zip || null,
       })
       .select("id")
       .single();
 
     if (leadError || !lead) {
       console.error("[Quote] Lead create error:", JSON.stringify(leadError));
-      // Surface the actual DB error so we can debug
       const detail = leadError?.message || leadError?.code || "Unknown DB error";
       return { success: false, error: `Failed to create quote: ${detail}` };
     }
 
-    // ── 4. Send Email (unless skip_email) ────────────────────────────────
-    if (skip_email) {
-      return {
-        success: true,
-        lead_id: lead.id,
-        customer_id: customerId,
-        email_sent: false,
-      };
-    }
+    // ── 4. Send Email via Brevo (only if email provided) ──────────────────
+    let emailSent = false;
 
-    const baseUrl = siteConfig.baseUrl;
-    const checkoutUrl = `${baseUrl}/pay/${lead.id}`;
+    if (normalizedEmail) {
+      const baseUrl = siteConfig.baseUrl;
+      const checkoutUrl = `${baseUrl}/pay/${lead.id}`;
 
-    // Build quote items for email
-    const quoteItems = quote_data.map((unit) => ({
-      description: unit.desc || `${unit.cols}×${unit.rows} Storage Unit`,
-      price: unit.price,
-    }));
+      // Build quote items for email
+      const quoteItems = quote_data.map((unit) => ({
+        description: unit.desc || `${unit.cols}×${unit.rows} Storage Unit`,
+        price: unit.price,
+      }));
 
-    // Generate email HTML (white-label: uses businessName, no hardcoded brands)
-    const emailHtml = buildQuoteEmailTemplate({
-      customerName: customer_name.trim(),
-      businessName: installer_business_name || siteConfig.name,
-      quoteItems,
-      totalPrice: finalTotal,
-      depositAmount,
-      checkoutUrl,
-    });
+      // Generate email HTML (white-label: uses businessName, no hardcoded brands)
+      const emailHtml = buildQuoteEmailTemplate({
+        customerName: customer_name.trim(),
+        businessName: installer_business_name || siteConfig.name,
+        quoteItems,
+        totalPrice: finalTotal,
+        depositAmount,
+        checkoutUrl,
+      });
 
-    // Build subject line
-    const subjectTitle = project_title
-      ? `Quote for ${customer_name.trim()} - ${project_title}`
-      : `Your Quote from ${installer_business_name || siteConfig.name}`;
+      // Build subject line
+      const subjectTitle = project_title
+        ? `Quote for ${customer_name.trim()} - ${project_title}`
+        : `Your Quote from ${installer_business_name || siteConfig.name}`;
 
-    // Send email with installer's business name as sender
-    const emailResult = await sendTransactionalEmail({
-      to: customer_email.toLowerCase().trim(),
-      toName: customer_name.trim(),
-      subject: subjectTitle,
-      html: emailHtml,
-      senderName: installer_business_name || undefined, // White-label: use installer name
-    });
+      // Send email with installer's business name as sender
+      const emailResult = await sendTransactionalEmail({
+        to: normalizedEmail,
+        toName: customer_name.trim(),
+        subject: subjectTitle,
+        html: emailHtml,
+        senderName: installer_business_name || undefined, // White-label: use installer name
+      });
 
-    if (!emailResult.success) {
-      console.error("[Quote] Email send failed:", emailResult.error);
-      // Don't fail the whole operation — quote was saved
+      if (!emailResult.success) {
+        console.error("[Quote] Email send failed:", emailResult.error);
+        // Don't fail the whole operation — quote was saved
+      }
+      emailSent = emailResult.success;
     }
 
     return {
       success: true,
       lead_id: lead.id,
       customer_id: customerId,
-      email_sent: emailResult.success,
+      email_sent: emailSent,
     };
   } catch (err) {
     console.error("[Quote] Unexpected error:", err);
