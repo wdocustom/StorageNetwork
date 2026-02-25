@@ -806,6 +806,22 @@ export default function BuildConfiguratorPage() {
               </section>
             )}
 
+            {/* Module Diagram — visual overview */}
+            {displayManifest && displayManifest.cut_plan_visuals.length > 1 && (
+              <div className={!isPro ? "select-none blur-[6px]" : ""}>
+                <ModuleDiagram
+                  units={units.length > 0
+                    ? units.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))
+                    : buildResult
+                      ? [{ cols: buildResult.cols, rows: buildResult.rows, toteType }]
+                      : []
+                  }
+                  cutPlanModules={displayManifest.cut_plan_visuals}
+                  scrollIdPrefix="build-cut-module"
+                />
+              </div>
+            )}
+
             {/* ── Profit Calculator ────────────────────────────────────── */}
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -1034,22 +1050,6 @@ export default function BuildConfiguratorPage() {
                 </div>
               )}
             </section>
-
-            {/* Module Diagram — visual overview */}
-            {displayManifest && displayManifest.cut_plan_visuals.length > 1 && (
-              <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                <ModuleDiagram
-                  units={units.length > 0
-                    ? units.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))
-                    : buildResult
-                      ? [{ cols: buildResult.cols, rows: buildResult.rows, toteType }]
-                      : []
-                  }
-                  cutPlanModules={displayManifest.cut_plan_visuals}
-                  scrollIdPrefix="build-cut-module"
-                />
-              </div>
-            )}
 
             {/* Cut Plan — PRO-gated */}
             <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
