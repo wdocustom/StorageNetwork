@@ -39,6 +39,7 @@ import BookingModal from "@/components/booking/BookingModal";
 import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
+import ModuleDiagram from "@/components/dashboard/ModuleDiagram";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -1034,6 +1035,22 @@ export default function BuildConfiguratorPage() {
               )}
             </section>
 
+            {/* Module Diagram — visual overview */}
+            {displayManifest && displayManifest.cut_plan_visuals.length > 1 && (
+              <div className={!isPro ? "select-none blur-[6px]" : ""}>
+                <ModuleDiagram
+                  units={units.length > 0
+                    ? units.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))
+                    : buildResult
+                      ? [{ cols: buildResult.cols, rows: buildResult.rows, toteType }]
+                      : []
+                  }
+                  cutPlanModules={displayManifest.cut_plan_visuals}
+                  scrollIdPrefix="build-cut-module"
+                />
+              </div>
+            )}
+
             {/* Cut Plan — PRO-gated */}
             <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -1043,9 +1060,12 @@ export default function BuildConfiguratorPage() {
 
               {displayManifest && (
                 <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                  {displayManifest.cut_plan_visuals.map((mod, mi) => (
-                    <div key={mi} className="mb-4">
-                      <h3 className="mb-2 text-sm font-bold text-yellow-400">
+                  {displayManifest.cut_plan_visuals.map((mod, mi) => {
+                    const _modColors = ["#3b82f6","#f59e0b","#a855f7","#22c55e","#ec4899","#06b6d4"];
+                    const _mc = _modColors[mi % _modColors.length];
+                    return (
+                    <div key={mi} id={`build-cut-module-${mi}`} className="mb-4 rounded-lg border-l-[3px] pl-3 transition-all" style={{ borderLeftColor: _mc }}>
+                      <h3 className="mb-2 text-sm font-bold" style={{ color: _mc }}>
                         Module {mod.moduleIndex}{mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}x{mod.rows})
                         {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
                         {mod.heightTier && mod.heightTier > 1 && mod.heightTier === mod.heightTierTotal && <span className="ml-2 text-[10px] font-semibold text-purple-400">(Top)</span>}
@@ -1116,7 +1136,8 @@ export default function BuildConfiguratorPage() {
                         </p>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

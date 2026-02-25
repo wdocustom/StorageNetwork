@@ -38,6 +38,7 @@ import {
   formatCurrency,
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
+import ModuleDiagram from "@/components/dashboard/ModuleDiagram";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { rescheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
 
@@ -748,6 +749,15 @@ export default function JobTicket({
         </details>
       )}
 
+      {/* ── Module Diagram (visual overview) ──────────────────────────── */}
+      {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
+        <ModuleDiagram
+          units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
+          cutPlanModules={buildManifest.cut_plan_visuals}
+          scrollIdPrefix="jt-cut-module"
+        />
+      )}
+
       {/* ── Cut Plan (expandable — fractions, plywood, posts) ──────────── */}
       {buildManifest && buildManifest.cut_plan_visuals.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
@@ -755,9 +765,12 @@ export default function JobTicket({
             Cut Plan
           </summary>
           <div className="border-t border-slate-800 p-4 space-y-6">
-            {buildManifest.cut_plan_visuals.map((mod, mi) => (
-              <div key={mi}>
-                <h3 className="mb-1 text-sm font-bold text-yellow-400">
+            {buildManifest.cut_plan_visuals.map((mod, mi) => {
+              const _modColors = ["#3b82f6","#f59e0b","#a855f7","#22c55e","#ec4899","#06b6d4"];
+              const _mc = _modColors[mi % _modColors.length];
+              return (
+              <div key={mi} id={`jt-cut-module-${mi}`} className="rounded-lg border-l-[3px] pl-3 transition-all" style={{ borderLeftColor: _mc }}>
+                <h3 className="mb-1 text-sm font-bold" style={{ color: _mc }}>
                   Module {mod.moduleIndex}
                   {mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}x{mod.rows})
                   {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
@@ -836,7 +849,8 @@ export default function JobTicket({
                   </p>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
