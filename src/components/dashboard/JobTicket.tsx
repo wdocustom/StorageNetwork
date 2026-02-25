@@ -792,13 +792,26 @@ export default function JobTicket({
                       <div className="mb-1 flex justify-between text-[10px]">
                         <span className="font-semibold text-stone-400">
                           Board {bi + 1}
-                          <span className="ml-1.5 text-stone-600">96&quot; stock</span>
+                          <span className="ml-1.5 text-stone-600">{board.priorUsed ? "offcut" : "96\" stock"}</span>
                         </span>
                         <span className="font-mono font-bold text-red-400/70">
                           {toFraction(board.rem)}&quot; waste
                         </span>
                       </div>
                       <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
+                        {board.priorUsed != null && board.priorUsed > 0 && (
+                          <div
+                            className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-stone-500"
+                            style={{
+                              width: `${(board.priorUsed / 96) * 100}%`,
+                              background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.25), rgba(100,116,139,0.25) 3px, rgba(71,85,105,0.15) 3px, rgba(71,85,105,0.15) 6px)",
+                              minWidth: "30px",
+                            }}
+                            title={`Prior module — ${toFraction(board.priorUsed)}"`}
+                          >
+                            {toFraction(board.priorUsed)}&quot; used
+                          </div>
+                        )}
                         {board.cuts.map((cut, ci) => {
                           const pct = (cut.len / 96) * 100;
                           const color =

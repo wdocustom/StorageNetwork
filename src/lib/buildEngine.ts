@@ -36,6 +36,7 @@ export interface CutPart {
 export interface Board {
   cuts: CutPart[];
   rem: number;
+  priorUsed?: number; // inches used by prior modules' cuts (offcut carry-forward)
 }
 
 export interface CutPlanModule {
@@ -363,24 +364,34 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
 
   gBoards = globalBoards.length;
 
-  // ── PHASE 3: Build per-module cut plans with local bin packing ────────
-  // Previously this phase just filtered global boards, which broke the
-  // optimization: cuts that shared a global board with another module
-  // would each appear as a solo cut on its own board.  Now we collect
-  // each module's parts and re-pack them locally so the visual cut plan
-  // accurately shows optimal board usage within each module.
-  for (const meta of moduleMetadata) {
-    // Gather this module's cuts from the global parts list
-    const moduleParts = allParts
-      .filter((p) => p.unitIdx === meta.unitIdx && p.modKey === meta.modKey)
-      .map((p): CutPart => ({ len: p.len, name: p.name, type: p.type }));
+  // ── PHASE 3: Build per-module cut plans with offcut carry-forward ─────
+  // Process modules in BUILD ORDER (bottom tiers first L→R) so offcuts
+  // from earlier modules are available to later ones — just like the real
+  // build sequence.  Each module tries to place cuts on carry-forward
+  // boards before opening fresh stock.
 
-    // Sort longest-first and bin-pack (same algorithm as Phase 2)
+  interface VisualCut extends CutPart { modKey: string }
+
+  // Sort modules by build order: unit → bottom tier first → left first
+  const buildOrderMeta = [...moduleMetadata].sort((a, b) => {
+    if (a.unitIdx !== b.unitIdx) return a.unitIdx - b.unitIdx;
+    if (a.heightTierIndex !== b.heightTierIndex) return a.heightTierIndex - b.heightTierIndex;
+    return a.widthModIndex - b.widthModIndex;
+  });
+
+  // Single FFD pass, processing one module at a time in build order
+  const visualBoards: { cuts: VisualCut[]; rem: number }[] = [];
+
+  for (const meta of buildOrderMeta) {
+    const moduleParts: VisualCut[] = allParts
+      .filter((p) => p.unitIdx === meta.unitIdx && p.modKey === meta.modKey)
+      .map((p) => ({ len: p.len, name: p.name, type: p.type, modKey: meta.modKey }));
+
     moduleParts.sort((a, b) => b.len - a.len);
-    const moduleBoards: Board[] = [];
+
     for (const p of moduleParts) {
       let placed = false;
-      for (const b of moduleBoards) {
+      for (const b of visualBoards) {
         if (b.rem >= p.len + KERF) {
           b.cuts.push(p);
           b.rem -= p.len + KERF;
@@ -389,8 +400,29 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
         }
       }
       if (!placed) {
-        moduleBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
+        visualBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
       }
+    }
+  }
+
+  // Extract per-module boards (in engine order for cutPlans array)
+  for (const meta of moduleMetadata) {
+    const modKey = `${meta.unitIdx}-${meta.widthModIndex}-${meta.heightTierIndex}`;
+    const moduleBoards: Board[] = [];
+
+    for (const vb of visualBoards) {
+      const myCuts = vb.cuts.filter((c) => c.modKey === modKey);
+      if (myCuts.length === 0) continue;
+
+      const priorLen = vb.cuts
+        .filter((c) => c.modKey !== modKey)
+        .reduce((sum, c) => sum + c.len + KERF, 0);
+
+      moduleBoards.push({
+        cuts: myCuts.map((c) => ({ len: c.len, name: c.name, type: c.type })),
+        rem: vb.rem,
+        ...(priorLen > 0 ? { priorUsed: priorLen } : {}),
+      });
     }
 
     cutPlans.push({
