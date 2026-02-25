@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile — Server actions for profile management
@@ -10,6 +11,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+/** Revalidate the public portfolio page so Next.js serves fresh data. */
+async function revalidatePortfolio(userId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("slug")
+    .eq("id", userId)
+    .single();
+  if (data?.slug) {
+    revalidatePath(`/p/${data.slug}`);
+  }
+}
 
 export interface ProfileUpdateInput {
   user_id: string;
@@ -68,6 +81,7 @@ export async function updateProfile(
     return { success: false, error: error.message };
   }
 
+  await revalidatePortfolio(user_id);
   console.log("[Profile Update] Success");
   return { success: true };
 }
@@ -253,6 +267,7 @@ export async function updatePortfolioSettings(input: {
     return { success: false, error: error.message };
   }
 
+  await revalidatePortfolio(user_id);
   return { success: true };
 }
 
@@ -311,6 +326,7 @@ export async function uploadPortfolioPhoto(
       return { success: false, error: "Photo uploaded but failed to save to profile." };
     }
 
+    await revalidatePortfolio(userId);
     return { success: true, photo: newPhoto };
   } catch (err) {
     console.error("[Portfolio Upload] Unexpected error:", err);
@@ -355,6 +371,7 @@ export async function deletePortfolioPhoto(
       return { success: false, error: "Failed to update profile." };
     }
 
+    await revalidatePortfolio(userId);
     return { success: true };
   } catch (err) {
     console.error("[Portfolio Delete] Unexpected error:", err);
