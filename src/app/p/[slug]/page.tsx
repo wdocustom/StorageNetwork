@@ -13,6 +13,8 @@ import PortfolioGallery from "./PortfolioGallery";
 // credentials, and social links before being directed to the configurator.
 // ═══════════════════════════════════════════════════════════════════════════
 
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -34,9 +36,10 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
     "Storage Network Installer";
 
   const location = [profile.city, profile.state].filter(Boolean).join(", ");
-  const photos = ((profile.portfolio_photos as PortfolioPhoto[]) || []).filter(
-    (p) => p && p.url
-  );
+  const rawPhotos = Array.isArray(profile.portfolio_photos)
+    ? (profile.portfolio_photos as PortfolioPhoto[])
+    : [];
+  const photos = rawPhotos.filter((p) => p && p.url);
   const configuratorUrl = `/design?installer=${slug}`;
   const hasPhone = !!profile.phone;
   const hasInstagram = !!profile.instagram_url;

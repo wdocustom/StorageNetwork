@@ -196,11 +196,21 @@ export async function getFullProfileBySlug(slug: string) {
     .select(
       "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos"
     )
-    .eq("slug", slug.toLowerCase())
+    .ilike("slug", slug.trim())
     .single();
 
   if (error || !data) {
+    console.error("[getFullProfileBySlug]", slug, error?.message);
     return null;
+  }
+
+  // Ensure portfolio_photos is always an array (handles string-encoded JSON)
+  if (data.portfolio_photos && typeof data.portfolio_photos === "string") {
+    try {
+      data.portfolio_photos = JSON.parse(data.portfolio_photos);
+    } catch {
+      data.portfolio_photos = [];
+    }
   }
 
   return data;
