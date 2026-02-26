@@ -89,7 +89,7 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
 
   if (insertError) {
     console.error("[DemoBooking] Insert error:", insertError);
-    return { success: false, error: `Booking failed: ${insertError.message || insertError.code || "Unknown DB error"} (${insertError.code || "no code"})` };
+    return { success: false, error: "Failed to book demo. Please try again." };
   }
 
   // Build Google Calendar link — includes owner as invited guest
