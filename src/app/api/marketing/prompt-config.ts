@@ -21,7 +21,8 @@ I build and install **custom-fit sliding tote racks** designed specifically for 
 2. **Professional Delivery:** I bring the materials to you.
 3. **On-Site Installation:** I'll have it leveled, secured, and ready to load in just a few hours.
 
-**Want to know the exact cost for your setup?** Use my free 3D configurator — design your rack in 30 seconds and get instant pricing: [booking link here]
+**Want to know the exact cost for your setup?** Use my free 3D configurator — design your rack in 30 seconds and get instant pricing:
+https://yourbookinglink.com
 
 **Ready to finally see your garage floor again?**
 Send me a message with a photo of the wall you're looking to fill!
@@ -57,7 +58,10 @@ MANDATORY OUTPUT FORMAT:
 1. Use **Markdown formatting** throughout: ## H2 headers for main sections, ### H3 for subsections, **bold** for emphasis, bullet points (*) and numbered lists.
 2. Do NOT include any pricing, packages, or dollar amounts. Instead, direct customers to the booking link / 3D configurator where they can design their system and get instant pricing automatically. Frame it as: "Use my free 3D configurator — design your rack in 30 seconds and get instant pricing" with the booking link.
 3. ALWAYS end the post with a horizontal rule (---) followed by a "### Pro-Tips for Posting:" section with 2-3 bullet points of actionable advice on the best time/way to post the generated script. This section is separated by --- so the installer knows it's advice for them, not part of the post.
-4. The booking link MUST appear naturally in the post body — never as bare "click here" but worked into a sentence.
+4. The booking link MUST appear as a BARE URL on its own line so it is auto-linked/clickable when pasted into Facebook, Instagram, or any social platform. Write a call-to-action sentence ABOVE the link, then put the raw URL alone on the next line. Example:
+**Design your rack in 30 seconds and get instant pricing:**
+https://example.com/book
+NEVER wrap the URL in markdown link syntax like [text](url) — always output the raw URL on its own line.
 
 ABSOLUTE ZERO-TOLERANCE RULE — NO BRACKETS OR PLACEHOLDERS:
 - NEVER output bracketed placeholders like [City], [Local Sports Team], [Suburb 1], [Suburb 2], [Your City], [Local City], [booking link], etc.

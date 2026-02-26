@@ -121,7 +121,7 @@ export default function AIScriptGenerator({
       .replace(/^---+\s*$/gm, "")          // horizontal rules
       .replace(/^\*\s+/gm, "• ")           // * bullets → • bullets
       .replace(/^-\s+/gm, "• ")            // - bullets → • bullets
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2")  // [text](url) → text: url
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1\n$2")   // [text](url) → text + bare URL on own line (clickable on social)
       .replace(/\n{3,}/g, "\n\n")          // collapse excess blank lines
       .trim();
   }
