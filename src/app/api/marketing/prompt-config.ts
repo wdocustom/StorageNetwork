@@ -21,8 +21,7 @@ I build and install **custom-fit sliding tote racks** designed specifically for 
 2. **Professional Delivery:** I bring the materials to you.
 3. **On-Site Installation:** I'll have it leveled, secured, and ready to load in just a few hours.
 
-**Want to know the exact cost for your setup?** Use my free 3D configurator — design your rack in 30 seconds and get instant pricing:
-https://yourbookinglink.com
+**Want to know the exact cost for your setup?** I've got a free 3D configurator where you can design your rack in 30 seconds and get instant pricing — check the first comment for the link!
 
 **Ready to finally see your garage floor again?**
 Send me a message with a photo of the wall you're looking to fill!
@@ -58,17 +57,14 @@ MANDATORY OUTPUT FORMAT:
 1. Use **Markdown formatting** throughout: ## H2 headers for main sections, ### H3 for subsections, **bold** for emphasis, bullet points (*) and numbered lists.
 2. Do NOT include any pricing, packages, or dollar amounts. Instead, direct customers to the booking link / 3D configurator where they can design their system and get instant pricing automatically. Frame it as: "Use my free 3D configurator — design your rack in 30 seconds and get instant pricing" with the booking link.
 3. ALWAYS end the post with a horizontal rule (---) followed by a "### Pro-Tips for Posting:" section with 2-3 bullet points of actionable advice on the best time/way to post the generated script. This section is separated by --- so the installer knows it's advice for them, not part of the post.
-4. The booking link MUST appear as a BARE URL on its own line so it is auto-linked/clickable when pasted into Facebook, Instagram, or any social platform. Write a call-to-action sentence ABOVE the link, then put the raw URL alone on the next line. Example:
-**Design your rack in 30 seconds and get instant pricing:**
-https://example.com/book
-NEVER wrap the URL in markdown link syntax like [text](url) — always output the raw URL on its own line.
+4. Do NOT include the booking link URL anywhere in the post body. Instead, direct readers to the first comment for the link. Use natural phrasing like "check the first comment for the link", "link in the comments", or "drop a comment and I'll send you the link". This is critical because Facebook and most social platforms do NOT make URLs clickable in post bodies — the first comment is the only place links are guaranteed to be clickable. NEVER output the raw URL or markdown link syntax in the post.
 
 ABSOLUTE ZERO-TOLERANCE RULE — NO BRACKETS OR PLACEHOLDERS:
 - NEVER output bracketed placeholders like [City], [Local Sports Team], [Suburb 1], [Suburb 2], [Your City], [Local City], [booking link], etc.
 - You MUST fill in REAL, SPECIFIC names for every location reference. If the city is Omaha, write "Omaha", "Papillion", "Bellevue" — not "[City]", "[Suburb 1]", "[Suburb 2]".
 - If the city is provided, use the ACTUAL city name and research/infer REAL suburb names, sports teams, and landmarks for that area.
 - If NO city is provided, use natural generic phrasing like "right here in our area", "local homeowners", "your neighborhood" — NEVER use brackets.
-- The booking link will be provided as an actual URL. Insert it directly — never write "[booking link]" or "[link]".
+- Do NOT put any URL in the post body. Direct readers to the first comment for the link instead.
 - ANY output containing square brackets around location names or placeholders is UNACCEPTABLE. The installer will copy-paste this directly.
 
 DEEP LOCALIZATION RULES:
@@ -120,7 +116,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Mention a real local pain point (cluttered garage, basement flooding prep, seasonal cleanup)
 - Avoid aggressive sales language — group admins delete obvious ads
 - NEVER use hashtags — they get posts flagged and deleted in groups
-- Naturally work in the booking link as a helpful resource
+- Do NOT put the booking link URL in the post — direct readers to the first comment for the link
 - Keep the main post body under 250 words (before pro-tips section)`,
 
     "facebook-page": `This is for the installer's own Facebook business page. It should:
@@ -130,14 +126,14 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Include a strong but not pushy call-to-action
 - Direct customers to the 3D configurator for instant pricing — do NOT list prices
 - Can be longer and more detailed (up to 350 words before pro-tips)
-- End the main body with the booking link`,
+- Do NOT put the booking link URL in the post — direct readers to the first comment for the link`,
 
     "instagram": `This is for Instagram. It should:
 - Be written in FIRST PERSON as the installer sharing their work
 - Start with a hook that stops the scroll
 - Use short, punchy sentences — the installer showing off a build or talking shop
 - Include relevant emojis (tasteful, not overboard)
-- End the main body with a call-to-action and the booking link
+- End the main body with a call-to-action directing readers to the link in bio or first comment
 - Keep the main post body under 150 words (caption-length, before pro-tips)
 - AFTER the Pro-Tips section, include a "### Hashtags" section with 15-20 heavily researched, localized hashtags — mix of high-volume (#garageorganization, #homeimprovement) and hyper-local (#${(city || "yourcity").toLowerCase().replace(/\s+/g, "")}contractor, #${(city || "yourcity").toLowerCase().replace(/\s+/g, "")}homes)`,
 
@@ -147,7 +143,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Reference the specific neighborhood or area by name — use REAL names, never brackets
 - Be helpful and community-oriented — maybe offering a tip before the pitch
 - Short and direct — Nextdoor users scroll fast
-- Include the booking link naturally
+- Do NOT put the booking link URL in the post — direct readers to the first comment for the link
 - Keep the main post body under 150 words (before pro-tips)`,
 
     craigslist: `This is for a Craigslist services listing. It MUST:
@@ -156,7 +152,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Be structured for scannability — heavy use of bold, bullets, and short sections
 - Include detailed service descriptions (what they build, materials used, capacity)
 - Do NOT list specific prices — direct to the configurator for instant pricing
-- Include the booking link prominently
+- Do NOT put the booking link URL in the listing body — direct readers to contact you or check the first comment
 - AFTER the Pro-Tips section, include a "### Search Keywords" section with a comma-separated list of 20-30 search keywords that buyers would use to find this service on Craigslist (e.g., "garage storage, tote organizer, custom shelving, 27 gallon tote rack, garage organization ${city || "your city"}, heavy duty storage, basement storage, shed organizer, home organization, storage installation...")`,
 
     "tiktok-reels": `This is for a TikTok or Instagram Reels video script. It MUST be formatted as a two-column Audio/Visual script:
@@ -164,12 +160,12 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Each row is a 2-4 second beat of the video
 - The script should be 30-60 seconds total (8-15 rows)
 - Start with a strong hook in the first 2 seconds
-- End with a clear CTA and the booking link as text-on-screen
+- End with a clear CTA directing viewers to the link in bio or first comment
 - The tone should be fast-paced and attention-grabbing
 - Include suggested trending sounds or music style in the Pro-Tips
 - Write as the installer narrating/presenting their own work`,
 
-    general: `This is a general-purpose marketing post. Write it in FIRST PERSON as the installer promoting their own business. Use the full markdown structure with headers, bullets, and formatting. Keep the main body under 250 words (before pro-tips) and end with the booking link. Direct customers to the configurator for pricing — no dollar amounts.`,
+    general: `This is a general-purpose marketing post. Write it in FIRST PERSON as the installer promoting their own business. Use the full markdown structure with headers, bullets, and formatting. Keep the main body under 250 words (before pro-tips). Direct customers to the configurator for pricing — no dollar amounts. Do NOT put the booking link URL in the post — direct readers to the first comment for the link.`,
   };
 }
 
@@ -192,7 +188,7 @@ export const TONE_GUIDES: Record<string, string> = {
    - "Built from solid 2x4s — it'll probably outlast your house. Good luck ever needing a replacement."
    - "You can actually SEE your garage floor again. Disgusting."
 
-4. **THE CALL TO ACTION:** End with something like: "If you're ready to ruin your messy life and become a disturbingly organized adult, use my 3D configurator to design your own rack. Don't say I didn't warn you." Include the booking link naturally.
+4. **THE CALL TO ACTION:** End with something like: "If you're ready to ruin your messy life and become a disturbingly organized adult, I've got a free 3D configurator where you can design your own rack — check the first comment for the link. Don't say I didn't warn you." Direct readers to the first comment for the link — do NOT put the URL in the post.
 
 The tone is satirical, funny, and self-aware. Think infomercial parody meets genuine craftsmanship pride. The installer is genuinely proud of what they build — the reverse psychology is just the delivery vehicle. NEVER break character — maintain the "warning" tone throughout.`,
 };

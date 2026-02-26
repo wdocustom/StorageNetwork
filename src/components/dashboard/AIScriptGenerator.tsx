@@ -15,6 +15,7 @@ import {
   Globe,
   Video,
   List,
+  Link2,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -81,6 +82,7 @@ export default function AIScriptGenerator({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   async function generate() {
     setLoading(true);
@@ -151,6 +153,12 @@ export default function AIScriptGenerator({
     navigator.clipboard.writeText(getPostText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(bookingLink);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   function handleShare() {
@@ -320,12 +328,30 @@ export default function AIScriptGenerator({
             </button>
           </div>
 
-          {/* Booking link reminder */}
-          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-            <p className="text-[11px] text-emerald-400">
-              Your booking link is embedded in the script
-            </p>
+          {/* Copy link for first comment */}
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2.5">
+            <div className="mb-2 flex items-start gap-2">
+              <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
+              <p className="text-[11px] leading-relaxed text-blue-300">
+                After posting, paste your link as the <span className="font-bold text-blue-200">first comment</span> — it&apos;s the only place links are clickable on Facebook.
+              </p>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500/20 px-3 py-2 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/30"
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">Link Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy Link for First Comment
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

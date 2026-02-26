@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
 THE INSTALLER'S BUSINESS:
 ${businessName ? `Business Name: ${businessName}` : "They are a professional tote storage system installer"}
 What they build: Custom heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. Built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
-Their Booking Link: ${bookingLink}
+Their Booking Link (for reference only — DO NOT put this URL in the post body): ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
-IMPORTANT: The booking link MUST appear as the raw URL on its own line (NOT wrapped in markdown link syntax). Write a CTA sentence above it, then put the bare URL alone on the next line so it is auto-linked when pasted into Facebook or any social platform.
+IMPORTANT: Do NOT include the booking link URL anywhere in the generated post. Instead, direct readers to "check the first comment for the link" or "link in comments". Facebook and most social platforms do not make URLs clickable in post bodies — the installer will paste the link as their first comment where it IS clickable.
 
 LOCATION CONTEXT:
 ${locationContext}
