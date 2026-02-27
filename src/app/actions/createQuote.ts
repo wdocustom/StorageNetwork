@@ -226,7 +226,7 @@ export async function createQuote(
       const bizName = installer_business_name || siteConfig.name;
       const subjectTitle = project_title
         ? `Quote for ${customer_name.trim()} - ${project_title}`
-        : `Your Custom Storage Design & Quote from ${bizName}`;
+        : `Your Custom Storage Quote from ${bizName}`;
 
       // Send email with installer's business name as sender
       const emailResult = await sendTransactionalEmail({

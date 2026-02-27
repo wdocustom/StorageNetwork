@@ -44,8 +44,7 @@ export default function QuoteEmail({
         <meta name="supported-color-schemes" content="light" />
       </Head>
       <Preview>
-        Click to view your interactive 3D design and secure your installation
-        date.
+        Review your quote and secure your installation date.
       </Preview>
       <Body style={body}>
         <Container style={container}>
@@ -53,14 +52,7 @@ export default function QuoteEmail({
           <Text style={paragraph}>Hi {customerFirstName},</Text>
 
           <Text style={paragraph}>
-            I&apos;ve finished drafting the design for your custom storage
-            system.
-          </Text>
-
-          <Text style={paragraph}>
-            You can click the secure link below to view the interactive 3D model
-            of your exact build, review the dimensions, and make sure everything
-            looks perfect for your space.
+            I&apos;ve put together the quote for your custom storage system.
           </Text>
 
           {/* ── Build Summary ────────────────────────────────────────── */}
@@ -95,23 +87,19 @@ export default function QuoteEmail({
 
           {/* ── Body Copy ────────────────────────────────────────────── */}
           <Text style={paragraph}>
-            To officially get your project on my schedule, simply review the
-            design via the link below and place the initial deposit. Once that is
-            locked in, I will reserve your spot on the calendar, prep your
-            materials, and we will be ready for installation day!
+            To officially get your project on my schedule, please click the
+            secure link below to review your order details and place the initial
+            deposit. Once that is locked in, I will reserve your spot on the
+            calendar, prep your materials, and we will be ready for installation
+            day!
           </Text>
 
           {/* ── CTA Button ───────────────────────────────────────────── */}
           <Section style={ctaSection}>
             <Button style={ctaButton} href={checkoutUrl}>
-              View 3D Design &amp; Secure Installation
+              Review Quote &amp; Secure Installation
             </Button>
           </Section>
-
-          <Text style={mutedParagraph}>
-            If you want to make any tweaks to the size or layout, you can adjust
-            it right there in the 3D viewer before booking.
-          </Text>
 
           <Text style={paragraph}>
             Looking forward to getting your space organized!
@@ -168,12 +156,6 @@ const paragraph: React.CSSProperties = {
   fontSize: "15px",
   lineHeight: "1.65",
   margin: "0 0 18px",
-};
-
-const mutedParagraph: React.CSSProperties = {
-  ...paragraph,
-  color: "#64748b",
-  fontSize: "14px",
 };
 
 // ── Summary Card ──────────────────────────────────────────────────────────
