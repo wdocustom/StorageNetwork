@@ -378,11 +378,17 @@ function ProfilePageInner() {
     setStripeLoading(true);
     setStripeMessage("");
 
-    const result = await connectStripe(profile.id);
-    if (result.success && result.url) {
-      window.location.href = result.url;
-    } else {
-      setStripeMessage(result.error || "Failed to start Stripe setup.");
+    try {
+      const result = await connectStripe(profile.id);
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        setStripeMessage(result.error || "Failed to start Stripe setup.");
+        setStripeLoading(false);
+      }
+    } catch (err) {
+      console.error("Stripe connect error:", err);
+      setStripeMessage("Connection error. Please try again.");
       setStripeLoading(false);
     }
   }
@@ -390,12 +396,19 @@ function ProfilePageInner() {
   async function handleStripeDashboard() {
     if (!profile) return;
     setStripeLoading(true);
+    setStripeMessage("");
 
-    const result = await getStripeDashboardLink(profile.id);
-    if (result.success && result.url) {
-      window.open(result.url, "_blank");
-    } else {
-      setStripeMessage("Failed to open Stripe dashboard.");
+    try {
+      const result = await getStripeDashboardLink(profile.id);
+      if (result.success && result.url) {
+        // Use location.href instead of window.open to avoid popup blockers
+        window.location.href = result.url;
+      } else {
+        setStripeMessage(result.error || "Failed to open Stripe dashboard.");
+      }
+    } catch (err) {
+      console.error("Stripe dashboard error:", err);
+      setStripeMessage("Connection error. Please try again.");
     }
     setStripeLoading(false);
   }
@@ -581,21 +594,45 @@ function ProfilePageInner() {
             {stripeStatus?.charges_enabled ? (
               <button
                 onClick={handleStripeDashboard}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+                disabled={stripeLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
               >
-                <CreditCard className="h-5 w-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Stripe</span>
+                {stripeLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CreditCard className="h-5 w-5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {stripeLoading ? "Loading..." : "Stripe"}
+                </span>
               </button>
             ) : (
               <button
                 onClick={handleStripeConnect}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+                disabled={stripeLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
               >
-                <CreditCard className="h-5 w-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Payouts</span>
+                {stripeLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CreditCard className="h-5 w-5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {stripeLoading ? "Loading..." : "Payouts"}
+                </span>
               </button>
             )}
           </div>
+        )}
+        {/* Stripe toolbar feedback */}
+        {stripeMessage && (
+          <p className={`text-center text-xs font-medium ${
+            stripeMessage.includes("error") || stripeMessage.includes("Failed") || stripeMessage.includes("interrupted")
+              ? "text-red-400"
+              : "text-emerald-400"
+          }`}>
+            {stripeMessage}
+          </p>
         )}
         {/* ── Group: Business ──────────────────────────────────────────── */}
         <div className="flex items-center gap-3 pt-2">
