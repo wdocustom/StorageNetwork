@@ -581,7 +581,7 @@ function ProfilePageInner() {
         {/* ── Quick-Access Toolbar ─────────────────────────────────────── */}
         {isPro && profile?.slug && (
           <div className="grid grid-cols-3 gap-2">
-            <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+            <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} phone={profile.phone || undefined} />
             <a
               href={portfolioUrl!}
               target="_blank"
