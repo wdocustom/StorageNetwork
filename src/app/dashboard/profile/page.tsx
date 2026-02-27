@@ -1213,6 +1213,10 @@ function ProfilePageInner() {
             initialInstagram={profile.instagram_url || ""}
             initialFacebook={profile.facebook_url || ""}
             initialPhotos={(profile.portfolio_photos as PortfolioPhoto[]) || []}
+            businessName={profile.business_name || undefined}
+            firstName={profile.first_name || undefined}
+            city={profile.city || undefined}
+            state={profile.state || undefined}
           />
         )}
 

@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
   FileText,
+  Sparkles,
 } from "lucide-react";
 import {
   updatePortfolioSettings,
@@ -71,6 +72,10 @@ interface PortfolioSectionProps {
   initialInstagram: string;
   initialFacebook: string;
   initialPhotos: PortfolioPhoto[];
+  businessName?: string;
+  firstName?: string;
+  city?: string;
+  state?: string;
 }
 
 export default function PortfolioSection({
@@ -80,6 +85,10 @@ export default function PortfolioSection({
   initialInstagram,
   initialFacebook,
   initialPhotos,
+  businessName,
+  firstName,
+  city,
+  state,
 }: PortfolioSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,6 +103,7 @@ export default function PortfolioSection({
   const [saveMessage, setSaveMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
+  const [generatingBio, setGeneratingBio] = useState(false);
 
   // Save bio & social links
   const handleSave = useCallback(async () => {
@@ -116,6 +126,40 @@ export default function PortfolioSection({
 
     setSaving(false);
   }, [userId, bio, instagramUrl, facebookUrl]);
+
+  // Generate bio with AI
+  const handleGenerateBio = useCallback(async () => {
+    setGeneratingBio(true);
+    setSaveMessage("");
+
+    try {
+      const res = await fetch("/api/profile/generate-bio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName,
+          firstName,
+          city,
+          state,
+          existingBio: bio.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSaveMessage(data.error || "Failed to generate bio.");
+      } else if (data.bio) {
+        setBio(data.bio);
+        setSaveMessage("AI bio generated! Review and save when ready.");
+        setTimeout(() => setSaveMessage(""), 4000);
+      }
+    } catch {
+      setSaveMessage("Failed to connect to AI service.");
+    } finally {
+      setGeneratingBio(false);
+    }
+  }, [businessName, firstName, city, state, bio]);
 
   // Upload photo (compresses client-side before sending to server action)
   const handlePhotoUpload = useCallback(
@@ -212,20 +256,35 @@ export default function PortfolioSection({
 
       {/* Bio */}
       <div className="mb-4">
-        <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-          <FileText className="h-3 w-3" />
-          About / Bio
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+            <FileText className="h-3 w-3" />
+            About / Bio
+          </label>
+          <button
+            type="button"
+            onClick={handleGenerateBio}
+            disabled={generatingBio}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-bold text-purple-400 transition-all hover:border-purple-500/50 hover:bg-purple-500/20 disabled:opacity-50"
+          >
+            {generatingBio ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            {generatingBio ? "Writing..." : "Write My Bio with AI"}
+          </button>
+        </div>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           placeholder="Tell potential customers about your business, experience, and what makes you different..."
           rows={3}
-          maxLength={500}
+          maxLength={280}
           className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
         />
         <p className="mt-0.5 text-right text-[10px] text-stone-600">
-          {bio.length}/500
+          {bio.length}/280
         </p>
       </div>
 
