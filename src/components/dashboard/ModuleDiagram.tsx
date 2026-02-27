@@ -21,20 +21,23 @@ const MODULE_COLORS = [
 ];
 
 /** Returns the build-order color and label number for each cut-plan index.
- *  Build order: bottom tiers first (L→R), then upper tiers (L→R).
+ *  Build order: unit 1 first, then unit 2, etc.
+ *  Within each unit: bottom tiers first (L→R), then upper tiers (L→R).
  *  Shared by the diagram and the cut plan border colors. */
 export function getBuildOrderColors(
   modules: CutPlanModule[],
 ): { color: string; buildOrder: number }[] {
   if (modules.length === 0) return [];
-  // Build an array of { cpIdx, heightTier, moduleIndex } and sort by build order
+  // Build an array of { cpIdx, unitIndex, heightTier, moduleIndex } and sort by build order
   const indexed = modules.map((m, i) => ({
     cpIdx: i,
-    tier: m.heightTier ?? 1,        // 1-based; bottom = 1
+    unit: m.unitIndex ?? 0,          // 0-based unit index
+    tier: m.heightTier ?? 1,         // 1-based; bottom = 1
     widthMod: m.moduleIndex,         // 1-based; left = 1
   }));
-  // Sort: bottom first (ascending tier), then left first (ascending widthMod)
+  // Sort: unit first, then bottom first (ascending tier), then left first (ascending widthMod)
   const sorted = [...indexed].sort((a, b) => {
+    if (a.unit !== b.unit) return a.unit - b.unit;
     if (a.tier !== b.tier) return a.tier - b.tier;
     return a.widthMod - b.widthMod;
   });
@@ -73,6 +76,7 @@ interface ModuleRect {
   h: number;       // full height including plates
   cols: number;
   rows: number;
+  unitIdx: number;       // which unit this module belongs to
   widthModIdx: number;
   heightTierIdx: number;
   heightTierTotal: number;
@@ -94,7 +98,8 @@ export default function ModuleDiagram({
     let unitOffsetX = 0;
     let maxUnitH = 0;
 
-    for (const unit of units) {
+    for (let ui = 0; ui < units.length; ui++) {
+      const unit = units[ui];
       const opening = (unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
 
       // Width split
@@ -136,6 +141,7 @@ export default function ModuleDiagram({
             h,
             cols,
             rows: tierRows,
+            unitIdx: ui,
             widthModIdx: wmi,
             heightTierIdx: hti,
             heightTierTotal: heightTiers.length,
@@ -148,14 +154,12 @@ export default function ModuleDiagram({
       unitOffsetX += (unit.cols * opening + (unit.cols + 1) * GAP) + 4;
     }
 
-    // Second pass: assign build order — bottom tiers first (descending tier
-    // index = larger rows = bottom), then left-to-right within each tier.
+    // Second pass: assign build order — unit by unit, bottom tiers first
+    // (L→R), then upper tiers (L→R).
     const sorted = [...raw].sort((a, b) => {
-      // Bottom first: higher tierIdx = higher up visually, so we want
-      // lower tierIdx (bottom/tier-1) first. But tiers are 0-indexed
-      // where 0=bottom, 1=top. So sort ascending by tierIdx to get bottom first.
-      // Wait — tier 0 has the most rows (bottom), tier 1 is above it. So:
-      // Sort by tierIdx ascending (bottom first), then by widthModIdx ascending (left first).
+      // Group by unit first
+      if (a.unitIdx !== b.unitIdx) return a.unitIdx - b.unitIdx;
+      // Within each unit: bottom first (ascending tierIdx), then left first
       if (a.heightTierIdx !== b.heightTierIdx) return a.heightTierIdx - b.heightTierIdx;
       return a.widthModIdx - b.widthModIdx;
     });
@@ -224,7 +228,7 @@ export default function ModuleDiagram({
           {/* ── Render each module as its own colored frame ─────────── */}
           {sortedForRender.map((r) => {
             const color = MODULE_COLORS[r.colorIdx];
-            const opening = (units[0]?.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
+            const opening = (units[r.unitIdx]?.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
             const ox = PAD + r.x;
             const oy = PAD + r.y;
             const postH = r.h - PLATE_H * 2;

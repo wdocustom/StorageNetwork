@@ -316,28 +316,6 @@ export default function JobTicketPage() {
         )}
         ── End disabled SMS section ── */}
 
-        {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
-        <JobTicket
-          leadId={lead.id}
-          totalPrice={totalPrice}
-          depositAmount={depositAmt}
-          depositPaid={lead.deposit_paid}
-          payoutStatus={lead.payout_status}
-          status={lead.status}
-          feeStatus={(lead.fee_status as "standard" | "waived") || "standard"}
-          photoUrl={lead.photo_url}
-          quoteData={lead.quote_data}
-          customerEmail={lead.customer_email}
-          customerName={lead.customer_name}
-          customerPhone={lead.customer_phone}
-          scheduledAt={lead.scheduled_at}
-          installerStripeId={installerStripeId}
-          source={lead.source}
-          isPro={installerIsPro}
-          inventory={installerInventory}
-          onRefresh={fetchLead}
-        />
-
         {/* ── Unit Summary ───────────────────────────────────────────── */}
         {lead.quote_data && lead.quote_data.length > 0 && (
           <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -374,6 +352,28 @@ export default function JobTicketPage() {
             </div>
           </section>
         )}
+
+        {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
+        <JobTicket
+          leadId={lead.id}
+          totalPrice={totalPrice}
+          depositAmount={depositAmt}
+          depositPaid={lead.deposit_paid}
+          payoutStatus={lead.payout_status}
+          status={lead.status}
+          feeStatus={(lead.fee_status as "standard" | "waived") || "standard"}
+          photoUrl={lead.photo_url}
+          quoteData={lead.quote_data}
+          customerEmail={lead.customer_email}
+          customerName={lead.customer_name}
+          customerPhone={lead.customer_phone}
+          scheduledAt={lead.scheduled_at}
+          installerStripeId={installerStripeId}
+          source={lead.source}
+          isPro={installerIsPro}
+          inventory={installerInventory}
+          onRefresh={fetchLead}
+        />
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
         <div className="pb-8 text-center">
