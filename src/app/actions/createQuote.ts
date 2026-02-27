@@ -211,7 +211,7 @@ export async function createQuote(
       }));
 
       // Generate email HTML (white-label: uses businessName, no hardcoded brands)
-      const emailHtml = await buildQuoteEmailTemplate({
+      const emailHtml = buildQuoteEmailTemplate({
         customerName: customer_name.trim(),
         businessName: installer_business_name || siteConfig.name,
         installerFirstName: installer_first_name || undefined,
