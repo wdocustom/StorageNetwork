@@ -14,8 +14,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Pro subscription price: $99/month
-const PRO_MONTHLY_PRICE_CENTS = 9900;
+// Pro subscription price: $49/month (launch promo — first 50 subscribers)
+const PRO_MONTHLY_PRICE_CENTS = 4900;
 
 /**
  * Create a Stripe checkout session for Pro subscription.
@@ -60,7 +60,7 @@ export async function createProCheckoutSession(
             currency: "usd",
             product_data: {
               name: "Storage Network Pro",
-              description: "Pro subscription: 5% fees, custom link, white-label branding",
+              description: "Pro subscription: 3% fees, custom link, white-label branding, deposit splits",
             },
             unit_amount: PRO_MONTHLY_PRICE_CENTS,
             recurring: {

@@ -14,7 +14,7 @@ const supabase = createClient(
 // ─────────────────────────────────────────────────────────────────────────
 // Platform Lead:            15% deposit → 100% to Platform
 // Partner Link + Non-Pro:   15% deposit → 100% to Platform
-// Partner Link + Pro:       15% deposit → 10% to Installer, 5% to Platform
+// Partner Link + Pro:       15% deposit → 12% to Installer, 3% to Platform
 // ─────────────────────────────────────────────────────────────────────────
 //
 // This module handles lead record updates after checkout.
@@ -22,8 +22,8 @@ const supabase = createClient(
 // ═══════════════════════════════════════════════════════════════════════════
 
 const DEPOSIT_RATE = 0.15; // 15%
-const PRO_INSTALLER_RATE = 0.10; // 10% goes to Pro installer (from the 15%)
-const PRO_PLATFORM_RATE = 0.05;  // 5% goes to platform for Pro partner links
+const PRO_INSTALLER_RATE = 0.12; // 12% goes to Pro installer (from the 15%)
+const PRO_PLATFORM_RATE = 0.03;  // 3% goes to platform for Pro partner links
 
 export type LeadSource = "platform" | "partner_link";
 
@@ -51,7 +51,7 @@ export interface CheckoutResult {
  *
  * Platform Lead:            100% of 15% deposit → Platform
  * Partner Link + Non-Pro:   100% of 15% deposit → Platform
- * Partner Link + Pro:       10% → Installer, 5% → Platform (split)
+ * Partner Link + Pro:       12% → Installer, 3% → Platform (split)
  *
  * In all cases, installer collects 85% balance on site.
  */

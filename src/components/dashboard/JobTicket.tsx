@@ -395,7 +395,7 @@ export default function JobTicket({
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
-            DIRECT LEAD — 5% PRO FEE
+            DIRECT LEAD — 3% PRO FEE
           </span>
         </div>
       ) : (source === "partner_link" || source === "installer_manual") ? (
@@ -436,7 +436,7 @@ export default function JobTicket({
             {fmt(profit.amountToCollect)}
           </div>
           <div className="mt-1 text-[10px] text-stone-500">
-            {profit.feeWaived ? "after 5% fee (Pro)" : "after deposit"}
+            {profit.feeWaived ? "after 3% fee (Pro)" : "after deposit"}
           </div>
         </div>
 

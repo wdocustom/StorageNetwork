@@ -964,8 +964,8 @@ export default function BuildConfiguratorPage() {
                           <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
-                          <span>Platform Fee ({isPro ? "5%" : "15%"})</span>
-                          <span>-${Math.round(displayPrice * (isPro ? 0.05 : 0.15)).toLocaleString()}</span>
+                          <span>Platform Fee ({isPro ? "3%" : "15%"})</span>
+                          <span>-${Math.round(displayPrice * (isPro ? 0.03 : 0.15)).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
                           <span>You Collect</span>

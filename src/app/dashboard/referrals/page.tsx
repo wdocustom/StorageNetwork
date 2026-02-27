@@ -362,7 +362,7 @@ export default function ReferralsPage() {
                   <p className="mt-2 text-center text-xs text-red-400">{upgradeError}</p>
                 )}
                 <p className="mt-2 text-center text-[10px] text-stone-600">
-                  Cancel anytime. Also includes 5% fees, custom branding, custom pricing & more.
+                  Cancel anytime. Also includes 3% fees, custom branding, custom pricing & more.
                 </p>
               </div>
             </div>

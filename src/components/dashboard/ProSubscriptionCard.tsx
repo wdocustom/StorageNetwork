@@ -146,7 +146,7 @@ export default function ProSubscriptionCard({
           <p className="text-xs text-stone-500">
             {isCanceling
               ? `Access until ${formatDate(status?.currentPeriodEnd || "")}`
-              : "Enjoying 5% platform fees and custom branding"}
+              : "Enjoying 3% platform fees and custom branding"}
           </p>
         </div>
         <span
@@ -198,7 +198,7 @@ export default function ProSubscriptionCard({
         <div className="mb-4 flex items-center gap-2 text-xs text-stone-500">
           <Calendar className="h-3.5 w-3.5" />
           <span>
-            Next billing: {formatDate(status.currentPeriodEnd)} · $99.00
+            Next billing: {formatDate(status.currentPeriodEnd)} · $49.00
           </span>
         </div>
       )}

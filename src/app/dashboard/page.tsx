@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
+import PromoBanner from "@/components/dashboard/PromoBanner";
 import { getInstallerLink } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -168,6 +169,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950">
+      {/* ── Promo Banner ───────────────────────────────────────────── */}
+      <PromoBanner
+        isPro={profile?.is_pro}
+        isTrialActive={trialStatus?.onTrial}
+        hasStripeConnected={!!profile?.stripe_account_id}
+      />
+
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between">

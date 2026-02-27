@@ -499,11 +499,11 @@ export async function sendInstallerOnboardingEmail(
               <span style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Pro</span>
             </div>
             <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
-            <p style="margin:0;text-align:center;color:#facc15;font-size:28px;font-weight:900;">5%</p>
+            <p style="margin:0;text-align:center;color:#facc15;font-size:28px;font-weight:900;">3%</p>
             <p style="margin:0 0 16px;text-align:center;color:#94a3b8;font-size:11px;">on your direct leads</p>
             <div style="border-top:1px solid #475569;padding-top:16px;">
               <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Everything in Free, plus:</p>
-              <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 5% on partner link leads</p>
+              <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 3% on partner link leads</p>
               <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Custom branded partner link</p>
               <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Priority lead routing</p>
               <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools</p>
@@ -630,7 +630,7 @@ export async function sendProWelcomeEmail(
       <table style="width:100%;font-size:14px;color:#cbd5e1;">
         <tr>
           <td style="padding:10px 0;vertical-align:top;width:24px;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:10px 0;"><strong>Lower Fees</strong> — Only 5% platform fee on direct link leads (vs 15%)</td>
+          <td style="padding:10px 0;"><strong>Lower Fees</strong> — Only 3% platform fee on direct link leads (vs 15%)</td>
         </tr>
         <tr>
           <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>

@@ -31,8 +31,8 @@ interface ProUpgradeCTAProps {
 const BENEFITS = [
   {
     icon: Percent,
-    title: "Only 5% Platform Fee",
-    description: "Keep more of every job. Drops from 15% to just 5%.",
+    title: "Only 3% Platform Fee",
+    description: "Keep more of every job. Drops from 15% to just 3% — and 12% of the deposit goes straight to your Stripe.",
   },
   {
     icon: Link2,
@@ -62,8 +62,9 @@ const TOTE_PRICE = 12; // $12 per tote
 const WHEELS_PRICE = 65; // $65 flat for wheels
 
 const FREE_PLATFORM_FEE = 0.15; // 15%
-const PRO_PLATFORM_FEE = 0.05; // 5%
-const PRO_MONTHLY_COST = 99;
+const PRO_PLATFORM_FEE = 0.03; // 3%
+const PRO_MONTHLY_COST = 49;
+const PRO_ORIGINAL_PRICE = 99;
 
 function calculateJobPrice(slots: number): number {
   // Standard unit with totes and wheels (most common configuration)
@@ -134,13 +135,14 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
           </div>
           <div className="ml-auto flex items-center gap-1 rounded-full bg-yellow-400/20 px-2.5 py-1">
             <Sparkles className="h-3 w-3 text-yellow-400" />
-            <span className="text-xs font-bold text-yellow-400">$99/mo</span>
+            <span className="text-xs text-stone-500 line-through">$99</span>
+            <span className="text-xs font-bold text-yellow-400">$49/mo</span>
           </div>
         </div>
 
         {/* Tagline */}
         <p className="mb-4 text-lg font-bold text-white">
-          One job covers the cost. Keep 10% more on every job after.
+          One job covers the cost. Keep 12% more on every job after.
         </p>
 
         {/* Benefits */}
@@ -254,7 +256,7 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
               <p className="text-xl font-bold text-emerald-400">
                 {formatCurrency(proFee)}
               </p>
-              <p className="text-[10px] text-stone-500">5% platform fee</p>
+              <p className="text-[10px] text-stone-500">3% platform fee</p>
             </div>
           </div>
 
@@ -301,6 +303,9 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
         {/* Fine print */}
         <p className="mt-3 text-center text-[11px] text-stone-600">
           Cancel anytime. No long-term contracts.
+        </p>
+        <p className="mt-1 text-center text-[11px] font-semibold text-yellow-500/70">
+          Launch pricing — <span className="line-through">$99</span> $49/mo for the first 50 subscribers
         </p>
       </div>
     </section>

@@ -112,9 +112,12 @@ export default function CommunityUpgradePage() {
             <p className="text-xs font-bold uppercase tracking-wider text-yellow-400 mb-2">
               Included with Pro
             </p>
-            <p className="text-2xl font-black text-white mb-1">$99/mo</p>
+            <div className="mb-1 flex items-center justify-center gap-2">
+              <span className="text-lg text-stone-500 line-through">$99</span>
+              <span className="text-2xl font-black text-white">$49/mo</span>
+            </div>
             <p className="text-xs text-stone-500 mb-4">
-              Community access + 5% fees + custom branding + all Pro features
+              Community access + 3% fees + custom branding + all Pro features
             </p>
             <a
               href="/dashboard/profile"

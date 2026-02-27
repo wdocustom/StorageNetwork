@@ -6,7 +6,7 @@
 
 const NETWORK_FEE_RATE = 0.15;   // 15% — all network/search leads
 const DIRECT_FREE_FEE_RATE = 0.15; // 15% — direct leads on Free plan
-const DIRECT_PRO_FEE_RATE = 0.05;  // 5%  — direct leads on Pro plan
+const DIRECT_PRO_FEE_RATE = 0.03;  // 3%  — direct leads on Pro plan
 
 export type LeadSource = "network" | "search" | "partner_link" | string;
 
@@ -33,7 +33,7 @@ export interface NetProfitResult {
 /**
  * Fee decision tree:
  *   Network lead (source: network/search)           → Always 15%
- *   Direct lead  (source: partner_link/installer_manual) → Free plan: 15%, Pro plan: 5%
+ *   Direct lead  (source: partner_link/installer_manual) → Free plan: 15%, Pro plan: 3%
  */
 function resolveFeeRate(source?: string, isPro?: boolean): { rate: number; label: string } {
   const isDirectLead = source === "partner_link" || source === "installer_manual";
@@ -45,7 +45,7 @@ function resolveFeeRate(source?: string, isPro?: boolean): { rate: number; label
 
   // Direct lead
   if (isPro) {
-    return { rate: DIRECT_PRO_FEE_RATE, label: "Platform Fee (5%)" };
+    return { rate: DIRECT_PRO_FEE_RATE, label: "Platform Fee (3%)" };
   }
   return { rate: DIRECT_FREE_FEE_RATE, label: "Network Lead Fee (15%)" };
 }
@@ -55,7 +55,7 @@ function resolveFeeRate(source?: string, isPro?: boolean): { rate: number; label
  *
  * Network lead:          Fee 15% always
  * Direct lead (Free):    Fee 15%
- * Direct lead (Pro):     Fee 5%
+ * Direct lead (Pro):     Fee 3%
  */
 export function calculateNetProfit(input: NetProfitInput): NetProfitResult {
   const { totalPrice, materialCost, feeStatus, source, isPro: isProInput } = input;

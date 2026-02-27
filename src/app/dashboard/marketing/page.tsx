@@ -182,7 +182,7 @@ export default function MarketingPage() {
             <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
               <Check className="h-3.5 w-3.5 text-emerald-400" />
               <p className="text-xs font-semibold text-emerald-400">
-                Pro features active &mdash; Custom link & only 5% fee on your leads
+                Pro features active &mdash; Custom link & only 3% fee on your leads
               </p>
             </div>
           )}

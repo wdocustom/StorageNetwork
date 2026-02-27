@@ -14,8 +14,8 @@ interface ProUpgradeModalProps {
 const BENEFITS = [
   {
     icon: Percent,
-    title: "Only 5% Infrastructure Fee",
-    desc: "Drop from 15% to just 5% on every job booked through your link. Pays for itself in one job.",
+    title: "Only 3% Platform Fee",
+    desc: "Drop from 15% to just 3% on every job booked through your link. 12% of the deposit goes straight to your Stripe.",
   },
   {
     icon: Link2,

@@ -53,7 +53,7 @@ const FEATURES: FeatureRow[] = [
   { name: "Auto-Generated Material Lists", free: false, pro: true, id: "materials", icon: ClipboardList, highlight: true },
   { name: "Auto-Generated Cut Plans", free: false, pro: true, id: "cutplans", icon: Wrench, highlight: true },
   { name: "Smart Inventory Manager", free: true, pro: true, id: "inventory", icon: Package },
-  { name: "Direct Lead Fee", free: "15%", pro: "5%", id: "fees", icon: DollarSign, highlight: true },
+  { name: "Direct Lead Fee", free: "15%", pro: "3%", id: "fees", icon: DollarSign, highlight: true },
   { name: "Network Lead Fee", free: "15%", pro: "15%", id: "fees", icon: DollarSign },
   { name: "Stripe Instant Payouts", free: true, pro: true, id: "payments", icon: CreditCard },
   { name: "Branded Booking Page", free: true, pro: true, id: "booking", icon: Globe },
@@ -86,7 +86,7 @@ export default function FeaturesPage() {
   const [selectedScenario, setSelectedScenario] = useState(1);
   const scenario = SCENARIOS[selectedScenario];
   const freeProfit = calcProfit(scenario.price, scenario.materials, 0.15);
-  const proProfit = calcProfit(scenario.price, scenario.materials, 0.05);
+  const proProfit = calcProfit(scenario.price, scenario.materials, 0.03);
   const savings = proProfit - freeProfit;
 
   return (
@@ -292,8 +292,8 @@ export default function FeaturesPage() {
             Pro Pays for Itself. Every Single Month.
           </h2>
           <p className="mx-auto mb-10 max-w-xl text-center text-sm text-stone-400">
-            On your own direct leads, Free plan charges 15%. Pro drops it to 5%.
-            That 10% difference adds up fast. Pick a scenario:
+            On your own direct leads, Free plan charges 15%. Pro drops it to 3%.
+            That 12% difference adds up fast. Pick a scenario:
           </p>
 
           {/* Scenario selector */}
@@ -348,7 +348,7 @@ export default function FeaturesPage() {
             <div className="rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/[0.03] p-6">
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Pro Plan</span>
-                <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[10px] font-bold text-yellow-400">5% FEE</span>
+                <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[10px] font-bold text-yellow-400">3% FEE</span>
               </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
@@ -356,8 +356,8 @@ export default function FeaturesPage() {
                   <span className="font-bold text-white">${scenario.price.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-stone-500">Platform Fee (5%)</span>
-                  <span className="font-bold text-emerald-400">-${(scenario.price * 0.05).toLocaleString()}</span>
+                  <span className="text-stone-500">Platform Fee (3%)</span>
+                  <span className="font-bold text-emerald-400">-${(scenario.price * 0.03).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Est. Materials</span>
@@ -388,7 +388,7 @@ export default function FeaturesPage() {
           </div>
 
           <p className="mt-4 text-center text-[11px] text-stone-600">
-            Network leads (jobs we find for you) are 15% on both plans. The 5% Pro rate applies to direct leads — jobs from your own customers via your booking link.
+            Network leads (jobs we find for you) are 15% on both plans. The 3% Pro rate applies to direct leads — jobs from your own customers via your booking link.
           </p>
         </div>
       </section>
@@ -734,7 +734,7 @@ export default function FeaturesPage() {
                 Every installer gets a personal booking link that opens the configurator
                 with your branding. Share it on your Instagram, Craigslist ads, business
                 cards — anywhere. Jobs that come through your link are &quot;direct leads&quot;
-                and qualify for the Pro 5% fee rate instead of 15%.
+                and qualify for the Pro 3% fee rate instead of 15%.
               </p>
               <ul className="space-y-2">
                 {[
@@ -742,7 +742,7 @@ export default function FeaturesPage() {
                   "Set your working days and blackout dates",
                   "Automatic availability management",
                   "Reschedule jobs with one tap — customer gets notified",
-                  "Direct leads from your link = 5% fee on Pro",
+                  "Direct leads from your link = 3% fee on Pro",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
@@ -799,7 +799,7 @@ export default function FeaturesPage() {
                   "Location-aware group finder with direct links",
                   "Craigslist section targeting (for sale, services, etc.)",
                   "Copy-to-clipboard one-tap posting",
-                  "Every direct lead you generate = 5% fee on Pro (vs 15% Free)",
+                  "Every direct lead you generate = 3% fee on Pro (vs 15% Free)",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
