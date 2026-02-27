@@ -47,8 +47,8 @@ export default function PromoBanner({
   const isTrialUser = isTrialActive && !isPro;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-lg animate-in slide-in-from-bottom-4 duration-500">
-      <div className="relative overflow-hidden rounded-2xl border border-yellow-500/30 bg-slate-900/95 shadow-2xl shadow-yellow-400/10 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-yellow-500/30 bg-slate-900/95 shadow-2xl shadow-yellow-400/10 backdrop-blur-sm">
         {/* Close button */}
         <button
           onClick={handleDismiss}
