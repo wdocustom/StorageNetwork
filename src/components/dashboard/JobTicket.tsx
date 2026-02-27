@@ -40,7 +40,6 @@ import {
 } from "@/utils/paymentHelpers";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
-import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { rescheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
 
@@ -694,14 +693,8 @@ export default function JobTicket({
         </section>
       )}
 
-      {/* ── Blueprints: Purchase List + Module Diagram + Cut Plan ───── */}
-      {/* Only shown when deposit is paid; otherwise show locked teaser */}
-      {!depositPaid ? (
-        <LockedBlueprintsTeaser />
-      ) : null}
-
       {/* ── Purchase List (inventory-aware material list) ────────────── */}
-      {depositPaid && netPurchase && netPurchase.items.length > 0 && (
+      {netPurchase && netPurchase.items.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Purchase List
@@ -798,7 +791,7 @@ export default function JobTicket({
       )}
 
       {/* ── Module Diagram (visual overview) ──────────────────────────── */}
-      {depositPaid && buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
+      {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
         <ModuleDiagram
           units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
           cutPlanModules={buildManifest.cut_plan_visuals}
@@ -807,7 +800,7 @@ export default function JobTicket({
       )}
 
       {/* ── Cut Plan (expandable — fractions, plywood, posts) ──────────── */}
-      {depositPaid && buildManifest && buildManifest.cut_plan_visuals.length > 0 && (
+      {buildManifest && buildManifest.cut_plan_visuals.length > 0 && (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Cut Plan
