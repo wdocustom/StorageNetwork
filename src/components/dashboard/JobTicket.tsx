@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Package,
   Phone,
+  Ruler,
   TrendingUp,
   Upload,
   X,
@@ -650,6 +651,46 @@ export default function JobTicket({
             })}
           </span>
         </div>
+      )}
+
+      {/* ── Unit Summary (directly above purchase list) ───────────── */}
+      {quoteData && quoteData.length > 0 && (
+        <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+            <Ruler className="h-4 w-4 text-yellow-400" />
+            Unit Summary
+          </h2>
+          <div className="space-y-2">
+            {quoteData.map((unit, i) => {
+              const u = unit as MaterialConfig & { desc?: string; price?: number };
+              const addonsList: string[] = [
+                u.hasTotes ? "Yes Totes" : "No Totes",
+                u.hasWheels ? "Yes Wheels" : "No Wheels",
+                u.hasTop ? "Yes Top" : "No Top",
+              ];
+              return (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Unit {i + 1}: {u.desc || `${u.cols}x${u.rows}`}
+                    </p>
+                    <p className="text-[11px] text-stone-500">
+                      {u.toteType || "HDX"} &bull; {addonsList.join(", ")}
+                    </p>
+                  </div>
+                  {u.price != null && (
+                    <span className="text-sm font-bold text-yellow-400">
+                      ${u.price.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {/* ── Purchase List (inventory-aware material list) ────────────── */}

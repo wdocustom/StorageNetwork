@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Loader2,
   MapPin,
-  Ruler,
   Navigation,
   AlertCircle,
 } from "lucide-react";
@@ -315,43 +314,6 @@ export default function JobTicketPage() {
           </section>
         )}
         ── End disabled SMS section ── */}
-
-        {/* ── Unit Summary ───────────────────────────────────────────── */}
-        {lead.quote_data && lead.quote_data.length > 0 && (
-          <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-              <Ruler className="h-4 w-4 text-yellow-400" />
-              Unit Summary
-            </h2>
-            <div className="space-y-2">
-              {lead.quote_data.map((unit, i) => {
-                const addonsList: string[] = [
-                  unit.hasTotes ? "Yes Totes" : "No Totes",
-                  unit.hasWheels ? "Yes Wheels" : "No Wheels",
-                  unit.hasTop ? "Yes Top" : "No Top",
-                ];
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        Unit {i + 1}: {unit.desc}
-                      </p>
-                      <p className="text-[11px] text-stone-500">
-                        {unit.toteType} • {addonsList.join(", ")}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-yellow-400">
-                      ${unit.price.toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {/* ── Financial Breakdown (Materials / Collect / Profit) ──────── */}
         <JobTicket
