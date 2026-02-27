@@ -43,6 +43,8 @@ export interface DeliveryAddress {
 export interface CreateQuoteInput {
   installer_id: string;
   installer_business_name: string;
+  installer_first_name?: string;
+  installer_phone?: string;
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
@@ -72,6 +74,8 @@ export async function createQuote(
   const {
     installer_id,
     installer_business_name,
+    installer_first_name,
+    installer_phone,
     customer_name,
     customer_email,
     customer_phone,
@@ -207,9 +211,11 @@ export async function createQuote(
       }));
 
       // Generate email HTML (white-label: uses businessName, no hardcoded brands)
-      const emailHtml = buildQuoteEmailTemplate({
+      const emailHtml = await buildQuoteEmailTemplate({
         customerName: customer_name.trim(),
         businessName: installer_business_name || siteConfig.name,
+        installerFirstName: installer_first_name || undefined,
+        installerPhone: installer_phone || undefined,
         quoteItems,
         totalPrice: finalTotal,
         depositAmount,
@@ -217,9 +223,10 @@ export async function createQuote(
       });
 
       // Build subject line
+      const bizName = installer_business_name || siteConfig.name;
       const subjectTitle = project_title
         ? `Quote for ${customer_name.trim()} - ${project_title}`
-        : `Your Quote from ${installer_business_name || siteConfig.name}`;
+        : `Your Custom Storage Design & Quote from ${bizName}`;
 
       // Send email with installer's business name as sender
       const emailResult = await sendTransactionalEmail({

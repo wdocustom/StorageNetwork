@@ -71,6 +71,8 @@ export default function BuildConfiguratorPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
+  const [installerFirstName, setInstallerFirstName] = useState("");
+  const [installerPhone, setInstallerPhone] = useState("");
 
   // Input mode toggle
   const [inputMode, setInputMode] = useState<InputMode>("wallFit");
@@ -158,13 +160,15 @@ export default function BuildConfiguratorPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name, stripe_account_id, pricing_config")
+      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config")
       .eq("id", user.id)
       .single();
 
     if (data) {
       setIsPro(data.is_pro || data.subscription_tier === "pro");
       setBusinessName(data.business_name || data.first_name || "Your Business");
+      if (data.first_name) setInstallerFirstName(data.first_name);
+      if (data.phone) setInstallerPhone(data.phone);
       if (data.stripe_account_id) setInstallerStripeId(data.stripe_account_id);
       if (data.pricing_config) {
         setInstallerPricing(data.pricing_config as InstallerPricing);
@@ -410,6 +414,8 @@ export default function BuildConfiguratorPage() {
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
+        installer_first_name: installerFirstName || undefined,
+        installer_phone: installerPhone || undefined,
         customer_name: customerName,
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
@@ -467,6 +473,8 @@ export default function BuildConfiguratorPage() {
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
+        installer_first_name: installerFirstName || undefined,
+        installer_phone: installerPhone || undefined,
         customer_name: customerName,
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,

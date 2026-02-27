@@ -5,7 +5,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Resend } from "resend";
+import { render } from "@react-email/render";
 import { getAppUrl } from "@/lib/url-helper";
+import QuoteEmail from "@/emails/QuoteEmail";
+import type { QuoteEmailProps } from "@/emails/QuoteEmail";
 
 // Lazy singleton — only instantiated when actually sending
 let _resend: Resend | null = null;
@@ -748,56 +751,46 @@ export async function sendWaitlistAlert(
 export interface QuoteEmailData {
   customerName: string;
   businessName: string;
+  installerFirstName?: string;
+  installerPhone?: string;
   quoteItems: Array<{ description: string; price: number }>;
   totalPrice: number;
   depositAmount: number;
   checkoutUrl: string;
 }
 
-export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
-  const { customerName, businessName, quoteItems, totalPrice, depositAmount, checkoutUrl } = data;
+export async function buildQuoteEmailTemplate(data: QuoteEmailData): Promise<string> {
+  const {
+    customerName,
+    businessName,
+    installerFirstName,
+    installerPhone,
+    quoteItems,
+    totalPrice,
+    depositAmount,
+    checkoutUrl,
+  } = data;
 
-  const itemsHtml = quoteItems
-    .map(
-      (item, i) => `
-      <tr>
-        <td style="padding:12px 16px;border-bottom:1px solid #334155;color:#e2e8f0;">${i + 1}. ${item.description}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #334155;text-align:right;font-weight:600;color:#e2e8f0;">$${item.price.toFixed(2)}</td>
-      </tr>`
-    )
-    .join("");
+  // Build a human-readable unit summary from the quote line items
+  const unitSummaryText =
+    quoteItems.length === 1
+      ? quoteItems[0].description
+      : quoteItems.map((item, i) => `Unit ${i + 1}: ${item.description}`).join(" · ");
 
-  return emailShell(
-    `Your Quote from ${businessName}`,
-    `
-    <p style="margin:0 0 24px;color:#e2e8f0;font-size:16px;">Hi ${customerName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">Thank you for your interest! Here is your custom quote:</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;border:1px solid #334155;border-radius:8px;overflow:hidden;">
-      <thead><tr style="background-color:#0f172a;">
-        <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Item</th>
-        <th style="padding:12px 16px;text-align:right;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Price</th>
-      </tr></thead>
-      <tbody>${itemsHtml}</tbody>
-    </table>
-    <div style="background-color:#0f172a;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #334155;">
-      <table style="width:100%;">
-        <tr><td style="color:#94a3b8;font-size:14px;">Total Estimate</td><td style="text-align:right;color:#facc15;font-size:24px;font-weight:800;">$${totalPrice.toFixed(2)}</td></tr>
-        <tr><td style="color:#94a3b8;font-size:14px;padding-top:12px;border-top:1px dashed #475569;">Deposit Due (15%)</td><td style="text-align:right;color:#facc15;font-size:18px;font-weight:700;padding-top:12px;border-top:1px dashed #475569;">$${depositAmount.toFixed(2)}</td></tr>
-      </table>
-    </div>
-    <p style="margin:0 0 28px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
-      *Sales tax (if applicable) will be collected by your installer at the time of installation.
-    </p>
-    <div style="text-align:center;margin-bottom:28px;">
-      <a href="${checkoutUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        Confirm &amp; Pay Deposit
-      </a>
-    </div>
-    <p style="margin:0;color:#94a3b8;font-size:13px;text-align:center;">
-      Questions? Simply reply to this email to contact ${businessName}.
-    </p>
-    `
-  );
+  const firstName = customerName.split(" ")[0] || customerName;
+
+  const props: QuoteEmailProps = {
+    customerFirstName: firstName,
+    installerFirstName: installerFirstName || businessName,
+    installerBusinessName: businessName,
+    installerPhone: installerPhone || undefined,
+    unitSummaryText,
+    grandTotal: totalPrice,
+    depositAmount,
+    checkoutUrl,
+  };
+
+  return render(QuoteEmail(props));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
