@@ -529,6 +529,9 @@ function ProfilePageInner() {
   // (webhook may still be processing, so we trust the success redirect)
   const isPro = profile?.is_pro === true || proParam === "success";
 
+  // Import icons for quick-access tiles
+  const portfolioUrl = profile?.slug ? `/p/${profile.slug}` : null;
+
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -540,18 +543,67 @@ function ProfilePageInner() {
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Profile & Settings
             </h1>
             <p className="text-[11px] text-stone-500">
-              Manage your account
+              {profile?.business_name || profile?.first_name || "Manage your account"}
             </p>
           </div>
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+              isPro
+                ? "bg-yellow-400/10 text-yellow-400"
+                : "bg-slate-800 text-stone-500"
+            }`}
+          >
+            {isPro ? "Pro" : "Free"}
+          </span>
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 p-4">
+
+        {/* ── Quick-Access Toolbar ─────────────────────────────────────── */}
+        {isPro && profile?.slug && (
+          <div className="grid grid-cols-3 gap-2">
+            <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+            <a
+              href={portfolioUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+            >
+              <ExternalLink className="h-5 w-5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Portfolio</span>
+            </a>
+            {stripeStatus?.charges_enabled ? (
+              <button
+                onClick={handleStripeDashboard}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Stripe</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleStripeConnect}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Payouts</span>
+              </button>
+            )}
+          </div>
+        )}
+        {/* ── Group: Business ──────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Business</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A: Personal & Business Info
         ═══════════════════════════════════════════════════════════════ */}
@@ -774,6 +826,13 @@ function ProfilePageInner() {
             </p>
           )}
         </section>
+
+        {/* ── Group: Coverage ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Coverage</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A.5: Service Area Radius
@@ -1071,6 +1130,13 @@ function ProfilePageInner() {
           )}
         </section>
 
+        {/* ── Group: Payments ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Payments</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════════
             SECTION B: Stripe Connect (Payouts)
         ═══════════════════════════════════════════════════════════════ */}
@@ -1197,9 +1263,13 @@ function ProfilePageInner() {
           <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
         )}
 
-        {/* Pro QR Code Generator (Pro users with slug only) */}
+        {/* ── Group: Portfolio ───────────────────────────────────────── */}
         {isPro && profile?.slug && (
-          <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Portfolio</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          </div>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -1220,18 +1290,21 @@ function ProfilePageInner() {
           />
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION D: Custom Pricing (Pro users only)
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* ── Group: Pricing ─────────────────────────────────────────── */}
         {isPro && profile && (
-          <PricingSettings userId={profile.id} />
-        )}
+          <>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Pricing</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            </div>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION E: Discount Codes (Pro users only)
-        ═══════════════════════════════════════════════════════════════ */}
-        {isPro && profile && (
-          <DiscountCodesCard userId={profile.id} />
+            {/* SECTION D: Custom Pricing */}
+            <PricingSettings userId={profile.id} />
+
+            {/* SECTION E: Discount Codes */}
+            <DiscountCodesCard userId={profile.id} />
+          </>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -1259,6 +1332,13 @@ function ProfilePageInner() {
             </div>
           </section>
         )}
+
+        {/* ── Group: Account ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Account</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
@@ -1315,18 +1395,6 @@ function ProfilePageInner() {
           )}
         </section>
 
-        {/* ── Plan Badge ────────────────────────────────────────────────── */}
-        <div className="text-center">
-          <span
-            className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-              isPro
-                ? "bg-yellow-400/10 text-yellow-400"
-                : "bg-slate-800 text-stone-500"
-            }`}
-          >
-            {isPro ? "Pro Plan" : "Free Plan"}
-          </span>
-        </div>
       </main>
 
       {/* ═══════════════════════════════════════════════════════════════════
