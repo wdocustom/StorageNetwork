@@ -16,6 +16,7 @@ import {
   Video,
   List,
   Link2,
+  ShoppingBag,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24,6 +25,7 @@ import {
 
 type Platform =
   | "facebook-group"
+  | "facebook-marketplace"
   | "facebook-page"
   | "instagram"
   | "nextdoor"
@@ -42,6 +44,7 @@ type Tone =
 
 const PLATFORMS: { value: Platform; label: string; icon: typeof Facebook; desc: string }[] = [
   { value: "facebook-group", label: "FB Group", icon: Facebook, desc: "Local community groups" },
+  { value: "facebook-marketplace", label: "FB Market", icon: ShoppingBag, desc: "Marketplace listings" },
   { value: "facebook-page", label: "FB Page", icon: Facebook, desc: "Your business page" },
   { value: "instagram", label: "Instagram", icon: Instagram, desc: "Reels & feed posts" },
   { value: "nextdoor", label: "Nextdoor", icon: MapPin, desc: "Neighborhood app" },
@@ -177,7 +180,7 @@ export default function AIScriptGenerator({
         <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Platform
         </label>
-        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
           {PLATFORMS.map((p) => {
             const Icon = p.icon;
             const active = platform === p.value;
@@ -328,17 +331,33 @@ export default function AIScriptGenerator({
             </button>
           </div>
 
-          {/* Copy link for first comment */}
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2.5">
+          {/* Copy link helper — context-aware for Facebook vs other platforms */}
+          <div className={`rounded-lg border px-3 py-2.5 ${
+            platform.startsWith("facebook-")
+              ? "border-purple-500/20 bg-purple-500/5"
+              : "border-blue-500/20 bg-blue-500/5"
+          }`}>
             <div className="mb-2 flex items-start gap-2">
-              <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
-              <p className="text-[11px] leading-relaxed text-blue-300">
-                After posting, paste your link as the <span className="font-bold text-blue-200">first comment</span> — it&apos;s the only place links are clickable on Facebook.
-              </p>
+              <Link2 className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                platform.startsWith("facebook-") ? "text-purple-400" : "text-blue-400"
+              }`} />
+              {platform.startsWith("facebook-") ? (
+                <p className="text-[11px] leading-relaxed text-purple-300">
+                  When someone <span className="font-bold text-purple-200">DMs you or comments</span>, paste your configurator link in the reply — links are fully clickable inside Messenger.
+                </p>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-blue-300">
+                  After posting, paste your link as the <span className="font-bold text-blue-200">first comment</span> — it&apos;s the only place links are clickable on most platforms.
+                </p>
+              )}
             </div>
             <button
               onClick={handleCopyLink}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500/20 px-3 py-2 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/30"
+              className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                platform.startsWith("facebook-")
+                  ? "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30"
+                  : "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
+              }`}
             >
               {linkCopied ? (
                 <>
@@ -348,7 +367,9 @@ export default function AIScriptGenerator({
               ) : (
                 <>
                   <Copy className="h-3.5 w-3.5" />
-                  Copy Link for First Comment
+                  {platform.startsWith("facebook-")
+                    ? "Copy Link for DM Replies"
+                    : "Copy Link for First Comment"}
                 </>
               )}
             </button>

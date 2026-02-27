@@ -180,18 +180,18 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
         // Draw QR code inside white card
         ctx.drawImage(qrImg, cardX + qrPadding, cardY + qrPadding, qrSize, qrSize);
 
-        // ── Phone CTA (primary — works on mobile) ──
+        // ── URL CTA (primary — drives traffic to the platform) ──
         let nextY = cardY + cardSize + 45;
 
+        ctx.fillStyle = "#64748b"; // slate-500
+        ctx.font = "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Scan the code or visit:", W / 2, nextY);
+
+        ctx.fillStyle = "#facc15"; // yellow-400
+        ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText(shortUrl, W / 2, nextY + 56);
+
         if (phone) {
-          ctx.fillStyle = "#64748b"; // slate-500
-          ctx.font = "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText("Call or Text for a Free Quote", W / 2, nextY);
-
-          ctx.fillStyle = "#facc15"; // yellow-400
-          ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText(phone, W / 2, nextY + 62);
-
           // ── Small divider ──
           nextY += 110;
           ctx.strokeStyle = "#334155";
@@ -201,24 +201,15 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
           ctx.lineTo(W * 0.7, nextY);
           ctx.stroke();
 
-          // ── URL (secondary) ──
+          // ── Phone (secondary — "or call") ──
           nextY += 36;
           ctx.fillStyle = "#64748b";
           ctx.font = "22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText("Or design your system online:", W / 2, nextY);
+          ctx.fillText("Or call/text for a free quote:", W / 2, nextY);
 
-          ctx.fillStyle = "#94a3b8";
+          ctx.fillStyle = "#94a3b8"; // slate-400
           ctx.font = "bold 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText(shortUrl, W / 2, nextY + 40);
-        } else {
-          // No phone — URL is primary
-          ctx.fillStyle = "#64748b";
-          ctx.font = "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText("Scan the code or visit:", W / 2, nextY);
-
-          ctx.fillStyle = "#facc15";
-          ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-          ctx.fillText(shortUrl, W / 2, nextY + 56);
+          ctx.fillText(phone, W / 2, nextY + 40);
         }
 
         // ── Bottom tagline ──

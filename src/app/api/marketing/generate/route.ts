@@ -46,20 +46,30 @@ export async function POST(request: NextRequest) {
 
     const google = createGoogleGenerativeAI({ apiKey });
 
+    const isFacebook = platform.startsWith("facebook-");
     const locationContext = buildLocationContext(city, state, zip);
     const platformGuides = buildPlatformGuide(platform, city);
     const platformGuide = platformGuides[platform] || platformGuides.general;
     const toneGuide = TONE_GUIDES[tone] || TONE_GUIDES.professional;
-    const systemMessage = buildSystemMessage();
+    const systemMessage = buildSystemMessage(platform);
+
+    const ctaReminder = isFacebook
+      ? `IMPORTANT: This is a FACEBOOK post. Do NOT include any URL or booking link anywhere in the post.
+Facebook algorithmically suppresses posts and comments that contain links. The ONLY reliable way to get someone to the configurator is via Messenger DM.
+- The CTA must drive DMs and/or comments: "Shoot me a DM", "Send me a message", "Drop a comment and I'll reach out"
+- Do NOT say "check the first comment for the link" — links in FB comments get suppressed too
+- The installer will send their configurator link directly via Messenger to anyone who DMs or comments
+- Make the DM feel valuable: "Send me a photo of your wall and I'll tell you what fits" — not just "DM me for a link"`
+      : `IMPORTANT: Do NOT include the booking link URL anywhere in the generated post. Instead, direct readers to "check the first comment for the link" or "link in comments". The installer will paste the link as their first comment where it IS clickable.`;
 
     const userMessage = `Write a social media post AS THE INSTALLER (first person — "I", "my") for the following business:
 
 THE INSTALLER'S BUSINESS:
 ${businessName ? `Business Name: ${businessName}` : "They are a professional tote storage system installer"}
 What they build: Custom heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. Built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
-Their Booking Link (for reference only — DO NOT put this URL in the post body): ${bookingLink}
+Their Booking Link (for internal reference only — DO NOT put this URL in the post): ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
-IMPORTANT: Do NOT include the booking link URL anywhere in the generated post. Instead, direct readers to "check the first comment for the link" or "link in comments". Facebook and most social platforms do not make URLs clickable in post bodies — the installer will paste the link as their first comment where it IS clickable.
+${ctaReminder}
 
 LOCATION CONTEXT:
 ${locationContext}
@@ -74,8 +84,8 @@ ${customTopic ? `SPECIFIC TOPIC/ANGLE TO HIGHLIGHT:\n${customTopic}\n` : ""}
 REMEMBER:
 - Write as the installer in first person. They are posting this themselves to get leads.
 - Use MARKDOWN formatting: ## H2 headers, ### H3 sub-headers, **bold**, bullet points, numbered lists.
-- Do NOT include any pricing, dollar amounts, or package tiers. Direct customers to the 3D configurator (the booking link) for instant pricing.
-- MUST end with --- followed by a "### Pro-Tips for Posting:" section with 2-3 actionable bullets.
+- Do NOT include any pricing, dollar amounts, or package tiers. The configurator handles pricing.
+- MUST end with --- followed by a "### Pro-Tips for Posting:" section with 2-3 actionable bullets.${isFacebook ? '\n- Pro-Tips MUST include: "When someone DMs or comments, reply with your configurator link — it\'s fully clickable inside Messenger"' : ""}
 - ABSOLUTELY NO bracketed placeholders like [City], [Suburb 1], [Local Sports Team]. Use REAL names or natural generic phrasing. The installer will copy-paste this verbatim.
 - No customer testimonials, no third-person descriptions. Just the installer talking about what they do.
 
