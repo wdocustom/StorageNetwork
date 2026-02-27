@@ -11,11 +11,9 @@ import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
   HardHat,
-  Lock,
   Loader2,
   Maximize2,
   ShoppingCart,
-  Wrench,
   FileText,
   X,
   Send,
@@ -39,7 +37,7 @@ import BookingModal from "@/components/booking/BookingModal";
 import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
-import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
+import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -1013,216 +1011,8 @@ export default function BuildConfiguratorPage() {
               )}
             </section>
 
-            {/* Material List — PRO-gated */}
-            <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <ShoppingCart className="h-4 w-4 text-yellow-400" />
-                Material List {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
-              </h2>
-
-              {displayManifest && (
-                <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                  <ul className="space-y-1">
-                    {displayManifest.shopping_list.map((item, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-white">
-                            {item.name}
-                          </p>
-                          <p className="text-[11px] text-stone-500">
-                            {item.detail}
-                          </p>
-                        </div>
-                        <span className="font-mono text-sm font-bold text-yellow-400">
-                          {item.qty}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* PRO overlay */}
-              {!isPro && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-slate-900/80 backdrop-blur-sm">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
-                    <Lock className="h-7 w-7 text-yellow-400" />
-                  </div>
-                  <p className="mb-1 text-base font-bold text-white">
-                    Pro Feature
-                  </p>
-                  <p className="mb-4 max-w-[260px] text-center text-xs text-stone-400">
-                    Subscribe to PRO to unlock your detailed Material List —
-                    a complete shopping list for every build.
-                  </p>
-                  <a
-                    href="/upgrade"
-                    className="rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 shadow-lg transition-all hover:bg-yellow-300"
-                  >
-                    Upgrade to Pro
-                  </a>
-                </div>
-              )}
-            </section>
-
-            {/* Module Diagram — visual overview */}
-            {displayManifest && displayManifest.cut_plan_visuals.length > 1 && (
-              <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                <ModuleDiagram
-                  units={units.length > 0
-                    ? units.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))
-                    : buildResult
-                      ? [{ cols: buildResult.cols, rows: buildResult.rows, toteType }]
-                      : []
-                  }
-                  cutPlanModules={displayManifest.cut_plan_visuals}
-                  scrollIdPrefix="build-cut-module"
-                />
-              </div>
-            )}
-
-            {/* Cut Plan — PRO-gated */}
-            <section className="relative rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <Wrench className="h-4 w-4 text-yellow-400" />
-                Cut Plan {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
-              </h2>
-
-              {displayManifest && (
-                <div className={!isPro ? "select-none blur-[6px]" : ""}>
-                  {(() => { const _bo = getBuildOrderColors(displayManifest.cut_plan_visuals); return displayManifest.cut_plan_visuals.map((mod, mi) => {
-                    const _mc = _bo[mi]?.color ?? "#f59e0b";
-                    const _bn = _bo[mi]?.buildOrder ?? mi + 1;
-                    return (
-                    <div key={mi} id={`build-cut-module-${mi}`} className="mb-4 rounded-lg border-l-[3px] pl-3 transition-all" style={{ borderLeftColor: _mc }}>
-                      <h3 className="mb-2 text-sm font-bold" style={{ color: _mc }}>
-                        Module {_bn}{mod.heightTier ? ` — Tier ${mod.heightTier}/${mod.heightTierTotal}` : ""} ({mod.cols}x{mod.rows})
-                        {mod.heightTier === 1 && <span className="ml-2 text-[10px] font-semibold text-blue-400">(Bottom)</span>}
-                        {mod.heightTier && mod.heightTier > 1 && mod.heightTier === mod.heightTierTotal && <span className="ml-2 text-[10px] font-semibold text-purple-400">(Top)</span>}
-                        {mod.heightTier && mod.heightTier > 1 && mod.heightTier < (mod.heightTierTotal || 0) && <span className="ml-2 text-[10px] font-semibold text-cyan-400">(Middle)</span>}
-                      </h3>
-                      <div className="space-y-2.5">
-                        {mod.boards.map((board, bi) => (
-                          <div
-                            key={bi}
-                            className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
-                          >
-                            <div className="mb-1 flex justify-between text-[10px]">
-                              <span className="font-semibold text-stone-400">
-                                Board {bi + 1}
-                                <span className="ml-1.5 text-stone-600">{board.priorUsed ? "offcut" : "96\" stock"}</span>
-                              </span>
-                              <span className="font-mono font-bold text-red-400/70">
-                                {toFraction(board.rem)}&quot; waste
-                              </span>
-                            </div>
-                            <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
-                              {board.priorUsed != null && board.priorUsed > 0 && (
-                                <div
-                                  className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-stone-500"
-                                  style={{
-                                    width: `${(board.priorUsed / 96) * 100}%`,
-                                    background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.25), rgba(100,116,139,0.25) 3px, rgba(71,85,105,0.15) 3px, rgba(71,85,105,0.15) 6px)",
-                                    minWidth: "30px",
-                                  }}
-                                  title={`Prior module — ${toFraction(board.priorUsed)}"`}
-                                >
-                                  {toFraction(board.priorUsed)}&quot; used
-                                </div>
-                              )}
-                              {board.cuts.map((cut, ci) => {
-                                const pct = (cut.len / 96) * 100;
-                                const color =
-                                  cut.type === "rail" ? "#f59e0b" : "#3b82f6";
-                                return (
-                                  <div
-                                    key={ci}
-                                    className="flex items-center justify-center border-r border-slate-900/60 text-[10px] font-extrabold text-white"
-                                    style={{
-                                      width: `${pct}%`,
-                                      backgroundColor: color,
-                                      minWidth: "24px",
-                                      textShadow: "0 1px 2px rgba(0,0,0,0.4)",
-                                    }}
-                                    title={`${cut.name} — ${toFraction(cut.len)}"`}
-                                  >
-                                    <span className="font-semibold opacity-80 mr-1">{cut.name}</span>
-                                    <span className="font-mono">{toFraction(cut.len)}&quot;</span>
-                                  </div>
-                                );
-                              })}
-                              {board.laterUsed != null && board.laterUsed > 0 && (
-                                <div
-                                  className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-emerald-400/80"
-                                  style={{
-                                    width: `${(board.laterUsed / 96) * 100}%`,
-                                    background: "repeating-linear-gradient(45deg, rgba(16,185,129,0.15), rgba(16,185,129,0.15) 3px, rgba(5,150,105,0.08) 3px, rgba(5,150,105,0.08) 6px)",
-                                    minWidth: "40px",
-                                  }}
-                                  title={`Offcut ${board.laterLabel || ""} — ${toFraction(board.laterUsed)}"`}
-                                >
-                                  {board.laterLabel} {toFraction(board.laterUsed)}&quot;
-                                </div>
-                              )}
-                              {board.rem > 0 && (
-                                <div
-                                  className="flex-1"
-                                  style={{
-                                    background:
-                                      "repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 4px, rgba(220,38,38,0.08) 4px, rgba(220,38,38,0.08) 8px)",
-                                  }}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Plywood rails & post spacing for this module */}
-                      <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-                          Plywood Rails
-                        </p>
-                        <p className="text-xs text-stone-400">
-                          {mod.railStrips} tote rail strips + {mod.backSupports} back supports = <span className="font-bold text-yellow-400">{mod.stripCount} total strips</span> from 3/4&quot; plywood
-                        </p>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 pt-1">
-                          Post Spacing
-                        </p>
-                        <p className="text-xs text-stone-400">
-                          {mod.cols + 1} posts across {toFraction(mod.moduleWidth)}&quot; width — <span className="font-bold text-blue-400">{toFraction((mod.moduleWidth - (mod.cols + 1) * 1.5) / mod.cols)}&quot;</span> opening between posts (inside face to inside face)
-                        </p>
-                      </div>
-                    </div>
-                    );
-                  }); })()}
-                </div>
-              )}
-
-              {/* PRO overlay */}
-              {!isPro && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-slate-900/80 backdrop-blur-sm">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
-                    <Lock className="h-7 w-7 text-yellow-400" />
-                  </div>
-                  <p className="mb-1 text-base font-bold text-white">
-                    Pro Feature
-                  </p>
-                  <p className="mb-4 max-w-[260px] text-center text-xs text-stone-400">
-                    Subscribe to PRO to unlock detailed Cut Plans for your
-                    builds.
-                  </p>
-                  <a
-                    href="/upgrade"
-                    className="rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 shadow-lg transition-all hover:bg-yellow-300"
-                  >
-                    Upgrade to Pro
-                  </a>
-                </div>
-              )}
-            </section>
+            {/* ── Locked Blueprints Teaser ─────────────────────────────── */}
+            <LockedBlueprintsTeaser />
           </>
         )}
 
