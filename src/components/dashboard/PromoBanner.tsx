@@ -95,14 +95,6 @@ export default function PromoBanner({
                 <span className="text-stone-500">(was 5%)</span>
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-stone-300">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-[8px] font-bold text-emerald-400">
-                &#10003;
-              </span>
-              <span>
-                <span className="font-bold text-emerald-400">12%</span> of every deposit goes straight to your Stripe
-              </span>
-            </div>
             {!hasStripeConnected && (
               <div className="flex items-center gap-2 text-xs text-amber-300">
                 <CreditCard className="h-4 w-4 flex-shrink-0 text-amber-400" />
