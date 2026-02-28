@@ -15,6 +15,7 @@ import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/instal
 import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { getDepositAmount } from "@/app/actions/fee-engine";
+import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
@@ -37,6 +38,7 @@ import {
   Scan,
   Star,
   Truck,
+  Mail,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -270,6 +272,13 @@ export default function DesignConfigurator({
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [leadId, setLeadId] = useState<string | null>(null);
+
+  // ── Contact installer (email inquiry) ──────────────────────────────
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSending, setContactSending] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState("");
 
   // ── Service area validation ─────────────────────────────────────────
   const [zipOutOfArea, setZipOutOfArea] = useState(false);
@@ -797,6 +806,48 @@ export default function DesignConfigurator({
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // ── Contact installer handler ──────────────────────────────────────
+  async function handleContactInstaller() {
+    if (!contactMessage.trim()) {
+      setContactError("Please enter a message.");
+      return;
+    }
+    if (!email.trim()) {
+      setContactError("Please fill in your email above first.");
+      return;
+    }
+    if (!installerId) {
+      setContactError("No installer assigned yet.");
+      return;
+    }
+
+    setContactSending(true);
+    setContactError("");
+    try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Customer";
+      const result = await contactInstaller({
+        installerId,
+        customerName: fullName,
+        customerEmail: email.trim(),
+        customerPhone: phone.trim() || undefined,
+        message: contactMessage.trim(),
+        quoteTotal: grandTotal > 0 ? grandTotal : undefined,
+      });
+
+      if (!result.success) {
+        setContactError(result.error || "Failed to send message.");
+        return;
+      }
+
+      setContactSent(true);
+      setContactMessage("");
+    } catch {
+      setContactError("Failed to send message. Please try again.");
+    } finally {
+      setContactSending(false);
     }
   }
 
@@ -1481,6 +1532,70 @@ export default function DesignConfigurator({
                     </div>
                   )}
                 </div>
+
+                {/* ── Email Installer ─────────────────────────────── */}
+                {installerId && !submitted && (
+                  <div className="mt-3">
+                    {!showContactForm && !contactSent ? (
+                      <button
+                        onClick={() => setShowContactForm(true)}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        Have a Question? Email Installer
+                      </button>
+                    ) : contactSent ? (
+                      <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center">
+                        <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-500" />
+                        <p className="text-xs font-semibold text-gray-900">Message Sent!</p>
+                        <p className="text-[11px] text-stone-500">
+                          {data?.branding.title || "The installer"} will get back to you shortly.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-stone-300 bg-stone-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                            <Mail className="h-3.5 w-3.5 text-yellow-600" />
+                            Email {data?.branding.title || "Installer"}
+                          </span>
+                          <button
+                            onClick={() => { setShowContactForm(false); setContactError(""); }}
+                            className="text-stone-400 hover:text-stone-600"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <textarea
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
+                          placeholder="Ask about lead times, installation process, pricing, or anything else..."
+                          rows={3}
+                          maxLength={2000}
+                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        {contactError && (
+                          <p className="mt-1 text-xs font-medium text-red-600">{contactError}</p>
+                        )}
+                        <button
+                          onClick={handleContactInstaller}
+                          disabled={contactSending || !contactMessage.trim()}
+                          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+                        >
+                          {contactSending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Send className="h-3.5 w-3.5" />
+                          )}
+                          {contactSending ? "Sending…" : "Send Message"}
+                        </button>
+                        <p className="mt-1.5 text-[10px] text-stone-400 text-center">
+                          Your email and name will be shared so they can reply.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Booking Form */}
                 <div className="mt-4 border-t border-stone-200 pt-4">

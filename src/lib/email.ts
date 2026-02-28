@@ -742,6 +742,75 @@ export async function sendWaitlistAlert(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Customer Inquiry to Installer
+// Trigger: Customer sends a message via "Email Installer" from /design or /pay
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CustomerInquiryData {
+  installerName: string;
+  businessName: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  message: string;
+  quoteTotal?: number;
+  leadId?: string;
+}
+
+export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string {
+  const { installerName, businessName, customerName, customerEmail, customerPhone, message, quoteTotal, leadId } = data;
+
+  const phoneLine = customerPhone
+    ? `<tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="tel:${customerPhone}" style="color:#2563eb;text-decoration:none;">${customerPhone}</a></td></tr>`
+    : "";
+  const quoteLine = quoteTotal
+    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Quote Total</td><td style="padding:8px 0;font-weight:800;text-align:right;color:#facc15;">$${quoteTotal.toFixed(2)}</td></tr>`
+    : "";
+  const dashboardUrl = getAppUrl() + "/dashboard";
+
+  return emailShell(
+    "New Customer Inquiry",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${installerName},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
+      A customer has reached out with a question about their storage build.
+    </p>
+
+    <!-- Customer Message -->
+    <div style="background-color:#0f172a;border-left:4px solid #facc15;border-radius:0 12px 12px 0;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Message from ${customerName}</p>
+      <p style="margin:0;color:#e2e8f0;font-size:15px;line-height:1.7;white-space:pre-wrap;">${message}</p>
+    </div>
+
+    <!-- Customer Details -->
+    <div style="background-color:#1a2332;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${customerName}</td></tr>
+        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${customerEmail}" style="color:#2563eb;text-decoration:none;">${customerEmail}</a></td></tr>
+        ${phoneLine}
+        ${quoteLine}
+      </table>
+    </div>
+
+    <!-- CTA Buttons -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="mailto:${customerEmail}?subject=Re:%20Your%20Storage%20Build%20Inquiry%20%E2%80%94%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+        Reply to ${customerName.split(" ")[0]}
+      </a>
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
+        View Dashboard
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      You can reply directly to this email — it will go straight to the customer.
+    </p>
+    `
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Legacy Compat: Quote Email (used by existing quote flows)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -801,8 +870,23 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">
       Best,<br/>${sigName}<br/>${businessName}${phoneLine}
     </p>
+
+    <!-- Contact Installer Block -->
+    <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:13px;font-weight:700;">Have Questions?</p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">Reach out directly — we&rsquo;re happy to help.</p>
+      <div style="display:inline-block;">
+        <a href="mailto:?subject=Re:%20My%20Storage%20Quote%20from%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#1e293b;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #475569;margin:0 4px;">
+          &#9993; Reply to This Email
+        </a>
+        ${installerPhone ? `<a href="tel:${installerPhone}" style="display:inline-block;background-color:#1e293b;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #475569;margin:0 4px;">
+          &#9742; Call ${installerPhone}
+        </a>` : ""}
+      </div>
+    </div>
+
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
-      *Sales tax (if applicable) will be collected by your installer at the time of installation. Questions? Simply reply to this email.
+      *Sales tax (if applicable) will be collected by your installer at the time of installation.
     </p>
     `
   );

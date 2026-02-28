@@ -15,6 +15,8 @@ import {
   Receipt,
   Tag,
   X,
+  Mail,
+  Send,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -28,6 +30,7 @@ import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
 import { getSalesTax, type SalesTaxResult } from "@/app/actions/fee-engine";
+import { contactInstaller } from "@/app/actions/contact-installer";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Resume Payment Page — /pay/[leadId]
@@ -69,6 +72,13 @@ export default function ResumePaymentPage() {
   const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
+
+  // Contact installer state
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSending, setContactSending] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState("");
 
   // Address state
   const [step, setStep] = useState<Step>("address");
@@ -188,6 +198,44 @@ export default function ResumePaymentPage() {
     setDiscountApplied(null);
     setDiscountInput("");
     setDiscountError("");
+  }
+
+  // Contact installer handler
+  async function handleContactInstaller() {
+    if (!contactMessage.trim()) {
+      setContactError("Please enter a message.");
+      return;
+    }
+    if (!lead?.installer_id) {
+      setContactError("No installer assigned to this order.");
+      return;
+    }
+
+    setContactSending(true);
+    setContactError("");
+    try {
+      const result = await contactInstaller({
+        installerId: lead.installer_id,
+        customerName: lead.customer_name,
+        customerEmail: lead.customer_email,
+        customerPhone: lead.customer_phone || undefined,
+        message: contactMessage.trim(),
+        quoteTotal: lead.estimated_price,
+        leadId: lead.id,
+      });
+
+      if (!result.success) {
+        setContactError(result.error || "Failed to send message.");
+        return;
+      }
+
+      setContactSent(true);
+      setContactMessage("");
+    } catch {
+      setContactError("Failed to send message. Please try again.");
+    } finally {
+      setContactSending(false);
+    }
   }
 
   // Deposit always stays at full 15% — discounts only affect the balance
@@ -461,6 +509,70 @@ export default function ResumePaymentPage() {
             )}
           </div>
         </div>
+
+        {/* ── Contact Installer ──────────────────────────────────────── */}
+        {lead.installer_id && lead.installer_name && (
+          <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            {!showContactForm && !contactSent ? (
+              <button
+                onClick={() => setShowContactForm(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-stone-300 transition-colors hover:bg-slate-700 hover:text-white"
+              >
+                <Mail className="h-4 w-4 text-yellow-400" />
+                Have a Question? Email {lead.installer_name}
+              </button>
+            ) : contactSent ? (
+              <div className="text-center">
+                <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                <p className="text-sm font-semibold text-white">Message Sent!</p>
+                <p className="mt-1 text-xs text-stone-400">
+                  {lead.installer_name} will get back to you shortly.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-400">
+                    <Mail className="h-4 w-4 text-yellow-400" />
+                    Email {lead.installer_name}
+                  </span>
+                  <button
+                    onClick={() => { setShowContactForm(false); setContactError(""); }}
+                    className="text-stone-500 hover:text-stone-300"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <textarea
+                  value={contactMessage}
+                  onChange={(e) => setContactMessage(e.target.value)}
+                  placeholder="Ask about scheduling, installation process, your quote, or anything else..."
+                  rows={3}
+                  maxLength={2000}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                />
+                {contactError && (
+                  <p className="mt-1.5 text-xs font-medium text-red-400">{contactError}</p>
+                )}
+                <button
+                  onClick={handleContactInstaller}
+                  disabled={contactSending || !contactMessage.trim()}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {contactSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {contactSending ? "Sending…" : "Send Message"}
+                </button>
+                <p className="mt-2 text-[11px] text-stone-500 text-center">
+                  Your name and email will be shared so they can reply directly.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
