@@ -706,7 +706,13 @@ export default function JobTicket({
       )}
 
       {/* ── Purchase List (inventory-aware material list) ────────────── */}
-      {netPurchase && netPurchase.items.length > 0 && (
+      {netPurchase && netPurchase.items.length > 0 && (() => {
+        // Affiliate links for specific materials
+        const productLinks: Record<string, string> = {
+          "Caster Kit (4pk)": "https://amzn.to/4rPMxf6",
+        };
+
+        return (
         <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Purchase List
@@ -727,17 +733,18 @@ export default function JobTicket({
               .map((item, i) => {
                 const key = `shop-${item.name}`;
                 const isChecked = !!checkedItems[key];
+                const orderLink = productLinks[item.name];
                 return (
-                  <button
+                  <div
                     key={i}
-                    type="button"
-                    onClick={() => toggleItem(key)}
                     className={`flex w-full items-center gap-3 border-b border-slate-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
                       isChecked ? "bg-slate-800/30" : "hover:bg-slate-800/50"
                     }`}
                   >
-                    {/* Checkbox */}
-                    <div
+                    {/* Checkbox — tappable */}
+                    <button
+                      type="button"
+                      onClick={() => toggleItem(key)}
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
                         isChecked
                           ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
@@ -745,10 +752,14 @@ export default function JobTicket({
                       }`}
                     >
                       {isChecked && <CheckCircle2 className="h-3.5 w-3.5" />}
-                    </div>
+                    </button>
 
-                    {/* Item details */}
-                    <div className={`min-w-0 flex-1 ${isChecked ? "opacity-40" : ""}`}>
+                    {/* Item details — tappable for checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => toggleItem(key)}
+                      className={`min-w-0 flex-1 text-left ${isChecked ? "opacity-40" : ""}`}
+                    >
                       <p className={`text-xs font-semibold ${isChecked ? "text-stone-500 line-through" : "text-stone-300"}`}>
                         {item.name}
                       </p>
@@ -757,13 +768,26 @@ export default function JobTicket({
                           {item.detail}
                         </p>
                       )}
-                    </div>
+                    </button>
+
+                    {/* Order link (when available) */}
+                    {orderLink && !isChecked && (
+                      <a
+                        href={orderLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 rounded-md bg-yellow-400/10 px-2 py-1 text-[10px] font-bold text-yellow-400 transition-colors hover:bg-yellow-400/20"
+                      >
+                        Order
+                      </a>
+                    )}
 
                     {/* Qty */}
                     <span className={`shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-xs font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-yellow-400"}`}>
                       {item.qty}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
 
@@ -800,7 +824,8 @@ export default function JobTicket({
             )}
           </div>
         </details>
-      )}
+        );
+      })()}
 
       {/* ── Module Diagram (visual overview) ──────────────────────────── */}
       {buildManifest && buildManifest.cut_plan_visuals.length > 1 && quoteData && (
