@@ -1539,13 +1539,23 @@ export default function DesignConfigurator({
                 {installerId && !submitted && (
                   <div className="mt-3">
                     {!showContactForm && !contactSent ? (
-                      <button
-                        onClick={() => setShowContactForm(true)}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                        Have a Question? Email Installer
-                      </button>
+                      <div className="space-y-2">
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-center">
+                          <p className="text-[11px] font-semibold text-amber-800">
+                            Have a vision our configurator can&apos;t show yet?
+                          </p>
+                          <p className="text-[10px] text-amber-700/80">
+                            Email us with your custom request — we build more than what&apos;s on screen.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowContactForm(true)}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                          Email Installer with Custom Request
+                        </button>
+                      </div>
                     ) : contactSent ? (
                       <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center">
                         <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-500" />
@@ -1571,7 +1581,7 @@ export default function DesignConfigurator({
                         <textarea
                           value={contactMessage}
                           onChange={(e) => setContactMessage(e.target.value)}
-                          placeholder="Ask about lead times, installation process, pricing, or anything else..."
+                          placeholder="Describe your custom project, ask about lead times, pricing, or anything else..."
                           rows={3}
                           maxLength={2000}
                           className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
