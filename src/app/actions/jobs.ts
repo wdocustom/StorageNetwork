@@ -204,3 +204,74 @@ export async function rescheduleJob(
 
   return { success: true };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// scheduleJob — Manually assign an install date to a job ticket
+//
+// Used when an installer sends a manual quote from /build and then confirms
+// a date with the customer via email. Updates scheduled_at so the scheduler
+// engine counts this slot toward daily capacity (prevents double-booking).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function scheduleJob(
+  leadId: string,
+  date: string,
+  customerEmail: string,
+  customerName: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!leadId || !date) {
+    return { success: false, error: "Lead ID and date are required." };
+  }
+
+  // Update the lead with the scheduled date
+  const { error: updateError } = await supabase
+    .from("leads")
+    .update({ scheduled_at: date, updated_at: new Date().toISOString() })
+    .eq("id", leadId);
+
+  if (updateError) {
+    console.error("[ScheduleJob] DB error:", updateError);
+    return { success: false, error: "Failed to schedule job." };
+  }
+
+  // Send confirmation email to customer (non-blocking)
+  if (customerEmail) {
+    try {
+      const { data: lead } = await supabase
+        .from("leads")
+        .select("installer_id, installers(email)")
+        .eq("id", leadId)
+        .single();
+
+      const installerEmail = (lead?.installers as { email?: string } | null)?.email || undefined;
+
+      const formattedDate = new Date(date + "T12:00:00").toLocaleDateString(
+        "en-US",
+        { weekday: "long", month: "long", day: "numeric", year: "numeric" }
+      );
+      await sendTransactionalEmail({
+        to: customerEmail,
+        toName: customerName,
+        subject: `Your installation is scheduled for ${formattedDate}`,
+        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+          <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Scheduled</h2>
+          <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
+          <p style="color:#666;font-size:14px;">Your storage unit installation has been scheduled for:</p>
+          <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
+            <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
+          </div>
+          <p style="color:#666;font-size:14px;">We'll see you then! If you need to make any changes, just reply to this email.</p>
+          <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Questions? Reply to this email.</p>
+        </div>`,
+        replyTo: installerEmail,
+      });
+      console.log("[ScheduleJob] Confirmation email sent to:", customerEmail, "| Reply-to:", installerEmail);
+    } catch (err) {
+      console.error("[ScheduleJob] Email failed:", err);
+      // Non-blocking — scheduling succeeded even if email fails
+    }
+  }
+
+  console.log(`[ScheduleJob] Lead ${leadId} scheduled for ${date}`);
+  return { success: true };
+}

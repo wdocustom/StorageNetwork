@@ -39,7 +39,7 @@ import { getNetProfit, type NetProfitResult } from "@/app/actions/fee-engine";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
-import { rescheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
+import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -95,12 +95,15 @@ export default function JobTicket({
 }: JobTicketProps) {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showManualPayModal, setShowManualPayModal] = useState(false);
   const [payLoading, setPayLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(photoUrl);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduling, setScheduling] = useState(false);
   const [manualPayMethod, setManualPayMethod] = useState("cash");
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -388,6 +391,19 @@ export default function JobTicket({
     onRefresh();
   }
 
+  // ── Schedule (manual date assignment) ─────────────────────────────────
+  async function handleSchedule() {
+    if (!scheduleDate) return;
+    setScheduling(true);
+    const result = await scheduleJob(leadId, scheduleDate, customerEmail || "", customerName);
+    setScheduling(false);
+    if (result.success) {
+      setShowScheduleModal(false);
+      setScheduleDate("");
+      onRefresh();
+    }
+  }
+
   return (
     <section className="space-y-4">
       {/* ── Source + Fee Badge ────────────────────────────────────── */}
@@ -625,13 +641,21 @@ export default function JobTicket({
               Text
             </a>
           )}
-          {scheduledAt && (
+          {scheduledAt ? (
             <button
               onClick={() => setShowRescheduleModal(true)}
               className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
             >
               <Calendar className="h-3.5 w-3.5" />
               Reschedule
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Schedule
             </button>
           )}
         </div>
@@ -1132,6 +1156,54 @@ export default function JobTicket({
                   <>
                     <Calendar className="h-4 w-4" />
                     Confirm Reschedule
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Schedule Modal (manual date assignment) ─────────────────────── */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-bold text-white">Schedule Install Date</h3>
+              <button
+                onClick={() => { setShowScheduleModal(false); setScheduleDate(""); }}
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-xs text-stone-400">
+                Assign an install date for this job. This locks the date on your schedule so no other orders can be booked for the same slot.
+              </p>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  Install Date
+                </label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={handleSchedule}
+                disabled={!scheduleDate || scheduling}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
+              >
+                {scheduling ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Calendar className="h-4 w-4" />
+                    Confirm Schedule
                   </>
                 )}
               </button>
