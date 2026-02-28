@@ -755,17 +755,84 @@ export interface CustomerInquiryData {
   message: string;
   quoteTotal?: number;
   leadId?: string;
+  /** Full itemized quote from the configurator */
+  quoteData?: unknown[];
 }
 
 export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string {
-  const { installerName, businessName, customerName, customerEmail, customerPhone, message, quoteTotal, leadId } = data;
+  const { installerName, businessName, customerName, customerEmail, customerPhone, message, quoteTotal, quoteData } = data;
 
   const phoneLine = customerPhone
     ? `<tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="tel:${customerPhone}" style="color:#2563eb;text-decoration:none;">${customerPhone}</a></td></tr>`
     : "";
-  const quoteLine = quoteTotal
-    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Quote Total</td><td style="padding:8px 0;font-weight:800;text-align:right;color:#facc15;">$${quoteTotal.toFixed(2)}</td></tr>`
-    : "";
+
+  // Build itemized quote section if quote data is present
+  const quoteItems = Array.isArray(quoteData) ? quoteData : [];
+  const hasQuoteItems = quoteItems.length > 0;
+  const computedTotal = hasQuoteItems
+    ? quoteItems.reduce((sum: number, u: unknown) => {
+        const item = u as Record<string, unknown>;
+        return sum + (typeof item.price === "number" ? item.price : 0);
+      }, 0)
+    : quoteTotal || 0;
+
+  let quoteSection = "";
+  if (hasQuoteItems) {
+    const itemRows = quoteItems
+      .map((u: unknown, i: number) => {
+        const item = u as Record<string, unknown>;
+        const desc = item.desc || `${item.cols}\u00d7${item.rows} Unit`;
+        const price = typeof item.price === "number" ? `$${item.price.toLocaleString()}` : "";
+
+        // Build addons list
+        const addons: string[] = [];
+        if (item.hasTotes) {
+          const toteType = item.toteType === "GM" ? "GM" : "HDX";
+          const toteColor = item.toteColor === "clear" ? " (Clear)" : "";
+          addons.push(`${toteType} Totes${toteColor}`);
+        } else {
+          addons.push("No Totes");
+        }
+        if (item.hasWheels) addons.push("Wheels");
+        if (item.hasTop) addons.push("Plywood Top");
+        const addonStr = addons.join(" &bull; ");
+
+        return `
+          <tr>
+            <td style="padding:10px 0 2px;color:#e2e8f0;font-size:14px;font-weight:600;">Unit ${i + 1}: ${desc}</td>
+            <td style="padding:10px 0 2px;color:#facc15;font-size:14px;font-weight:700;text-align:right;">${price}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:0 0 10px;color:#64748b;font-size:12px;border-bottom:1px solid #1e293b;">${addonStr}</td>
+          </tr>`;
+      })
+      .join("");
+
+    quoteSection = `
+    <!-- Itemized Quote -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Quote at Time of Inquiry</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;border-collapse:collapse;">
+        ${itemRows}
+        <tr>
+          <td style="padding:12px 0 0;color:#94a3b8;font-size:13px;font-weight:600;">Total Estimate</td>
+          <td style="padding:12px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${computedTotal.toLocaleString()}</td>
+        </tr>
+      </table>
+      <p style="margin:12px 0 0;color:#475569;font-size:11px;font-style:italic;">
+        Note: This was the customer&rsquo;s quote when they sent the message — they may be asking about something different.
+      </p>
+    </div>`;
+  } else if (quoteTotal) {
+    // Fallback: just show the total if no itemized data
+    quoteSection = `
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="color:#94a3b8;">Quote Total</td><td style="font-weight:800;text-align:right;color:#facc15;">$${quoteTotal.toFixed(2)}</td></tr>
+      </table>
+    </div>`;
+  }
+
   const dashboardUrl = getAppUrl() + "/dashboard";
 
   return emailShell(
@@ -789,9 +856,10 @@ export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string 
         <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${customerName}</td></tr>
         <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${customerEmail}" style="color:#2563eb;text-decoration:none;">${customerEmail}</a></td></tr>
         ${phoneLine}
-        ${quoteLine}
       </table>
     </div>
+
+    ${quoteSection}
 
     <!-- CTA Buttons -->
     <div style="text-align:center;margin-bottom:24px;">

@@ -107,6 +107,7 @@ export async function contactInstaller(
       message: message.trim(),
       quoteTotal,
       leadId,
+      quoteData,
     });
 
     const result = await sendTransactionalEmail({
