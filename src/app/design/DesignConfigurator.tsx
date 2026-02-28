@@ -835,6 +835,8 @@ export default function DesignConfigurator({
         customerPhone: phone.trim() || undefined,
         message: contactMessage.trim(),
         quoteTotal: grandTotal > 0 ? grandTotal : undefined,
+        quoteData: orderItems.length > 0 ? orderItems : undefined,
+        zip: zip || undefined,
       });
 
       if (!result.success) {
