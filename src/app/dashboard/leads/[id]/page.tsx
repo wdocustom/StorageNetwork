@@ -70,6 +70,9 @@ export default function JobTicketPage() {
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [installerInventory, setInstallerInventory] = useState<MaterialInventory | null>(null);
 
+  // Deposit amount — computed server-side (black box)
+  const [depositAmt, setDepositAmt] = useState(0);
+
   // Start Trip SMS state
   const [tripSending, setTripSending] = useState(false);
   const [tripSent, setTripSent] = useState(false);
@@ -125,6 +128,14 @@ export default function JobTicketPage() {
     fetchLead();
   }, [fetchLead]);
 
+  // Compute deposit from server (must be above early returns — rules of hooks)
+  const totalPrice = lead?.estimated_price || 0;
+  useEffect(() => {
+    if (totalPrice > 0) {
+      getDepositAmount(totalPrice).then(setDepositAmt);
+    }
+  }, [totalPrice]);
+
   async function handleStartTrip() {
     if (!lead?.installer_id || tripSent || tripSending) return;
     setTripSending(true);
@@ -163,15 +174,6 @@ export default function JobTicketPage() {
     );
   }
 
-  const totalPrice = lead.estimated_price || 0;
-
-  // Deposit — computed server-side (black box)
-  const [depositAmt, setDepositAmt] = useState(0);
-  useEffect(() => {
-    if (totalPrice > 0) {
-      getDepositAmount(totalPrice).then(setDepositAmt);
-    }
-  }, [totalPrice]);
   const balance = totalPrice - depositAmt;
 
   // ── Render ────────────────────────────────────────────────────────────
