@@ -1,0 +1,24 @@
+# Storage Network — Crawler Policy
+# Allow indexing of public pages, block internal/admin routes
+
+User-agent: *
+Allow: /
+Allow: /design
+Allow: /features
+Allow: /about
+Allow: /installers
+Allow: /p/
+
+# Block dashboard, API, admin, and internal routes
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /login
+Disallow: /checkout
+Disallow: /pay/
+Disallow: /payment/
+Disallow: /partner/
+Disallow: /community
+Disallow: /_next/
+Disallow: /book/
+
+Sitemap: https://storage-network.app/sitemap.xml
