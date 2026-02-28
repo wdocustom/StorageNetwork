@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -26,7 +26,8 @@ import {
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
-import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
+import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
+import { getSalesTax, type SalesTaxResult } from "@/app/actions/fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Resume Payment Page — /pay/[leadId]
@@ -135,11 +136,14 @@ export default function ResumePaymentPage() {
     loadLead();
   }, [leadId]);
 
-  // Calculate sales tax based on state (for display purposes)
-  // Tax is assessed on the FULL BUILD AMOUNT and collected at installation
-  const taxInfo = useMemo(() => {
-    if (!lead || !address.state) return null;
-    return calculateSalesTax(lead.estimated_price, address.state);
+  // Sales tax — computed server-side (tax rates stay in the black box)
+  const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
+  useEffect(() => {
+    if (!lead || !address.state || address.state.length !== 2) {
+      setTaxInfo(null);
+      return;
+    }
+    getSalesTax(lead.estimated_price, address.state).then(setTaxInfo);
   }, [lead, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.

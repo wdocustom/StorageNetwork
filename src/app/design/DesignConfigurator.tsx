@@ -14,6 +14,7 @@ import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
@@ -421,7 +422,14 @@ export default function DesignConfigurator({
   const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
   const grandTotal = buildTotal + deliveryFeeAmount;
-  const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
+
+  // Deposit — computed server-side (black box: client never sees the rate)
+  const [depositAmount, setDepositAmount] = useState(0);
+  useEffect(() => {
+    if (grandTotal > 0) {
+      getDepositAmount(grandTotal).then(setDepositAmount);
+    }
+  }, [grandTotal]);
 
   // Does any unit have wheels?
   const anyHasWheels = orderItems.some((it) => it.hasWheels);

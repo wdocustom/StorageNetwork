@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 import { useParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { QuoteUnit } from "@/lib/buildEngine";
@@ -167,7 +168,14 @@ export default function JobTicketPage() {
   }
 
   const totalPrice = lead.estimated_price || 0;
-  const depositAmt = totalPrice * 0.15;
+
+  // Deposit — computed server-side (black box)
+  const [depositAmt, setDepositAmt] = useState(0);
+  useEffect(() => {
+    if (totalPrice > 0) {
+      getDepositAmount(totalPrice).then(setDepositAmt);
+    }
+  }, [totalPrice]);
   const balance = totalPrice - depositAmt;
 
   // ── Render ────────────────────────────────────────────────────────────

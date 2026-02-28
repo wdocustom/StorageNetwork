@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -21,7 +21,8 @@ import {
 } from "@stripe/react-stripe-js";
 import NativeScheduler from "./NativeScheduler";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
-import { formatCurrency, calculateSalesTax, formatTaxRate } from "@/utils/paymentHelpers";
+import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
+import { getDepositAmount, getSalesTax, type SalesTaxResult } from "@/app/actions/fee-engine";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
@@ -131,14 +132,22 @@ export default function BookingModal({
   // Grand total = build price + delivery fee
   const grandTotalWithDelivery = totalPrice + deliveryFeeAmount;
 
-  // Deposit is 15% of grand total (including delivery fee)
-  const effectiveDeposit = Math.round(grandTotalWithDelivery * 0.15 * 100) / 100;
+  // Deposit — computed server-side (black box: client never sees the rate)
+  const [effectiveDeposit, setEffectiveDeposit] = useState(0);
+  useEffect(() => {
+    if (grandTotalWithDelivery > 0) {
+      getDepositAmount(grandTotalWithDelivery).then(setEffectiveDeposit);
+    }
+  }, [grandTotalWithDelivery]);
 
-  // Calculate sales tax based on state (for display purposes)
-  // Tax is assessed on the BUILD AMOUNT ONLY — delivery fee is tax-exempt
-  const taxInfo = useMemo(() => {
-    if (!address.state || address.state.length !== 2) return null;
-    return calculateSalesTax(totalPrice, address.state);
+  // Sales tax — computed server-side (tax rates stay in the black box)
+  const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
+  useEffect(() => {
+    if (!address.state || address.state.length !== 2) {
+      setTaxInfo(null);
+      return;
+    }
+    getSalesTax(totalPrice, address.state).then(setTaxInfo);
   }, [totalPrice, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.

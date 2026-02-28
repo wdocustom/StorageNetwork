@@ -38,6 +38,7 @@ import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
+import { getBuildFeeBreakdown, getDepositAmount, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -342,6 +343,14 @@ export default function BuildConfiguratorPage() {
   const displayPrice = units.length > 0 ? units.reduce((sum, u) => sum + (u.price || 0), 0) : buildResult?.price || 0;
   const displayMaterials = units.length > 0 ? aggregateMaterials : materialBreakdown;
   const displayManifest = units.length > 0 ? aggregateManifest : manifest;
+
+  // Fee breakdown — computed server-side (black box: no fee constants in client)
+  const [feeBreakdown, setFeeBreakdown] = useState<BuildFeeBreakdown | null>(null);
+  useEffect(() => {
+    if (displayPrice > 0 && displayMaterials) {
+      getBuildFeeBreakdown(displayPrice, displayMaterials.totalCost, isPro).then(setFeeBreakdown);
+    }
+  }, [displayPrice, displayMaterials, isPro]);
 
   /** Build the quote units array from current state. */
   function buildQuoteUnits(): QuoteUnit[] | null {
@@ -914,7 +923,7 @@ export default function BuildConfiguratorPage() {
                     )}
                   </div>
 
-                  {/* Profit Scenarios Grid */}
+                  {/* Profit Scenarios Grid (values from server, no fee constants in client) */}
                   <div className="grid grid-cols-2 gap-3">
                     {/* Network Lead Scenario */}
                     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
@@ -929,12 +938,12 @@ export default function BuildConfiguratorPage() {
                           <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
-                          <span>Platform Fee (15%)</span>
-                          <span>-${Math.round(displayPrice * 0.15).toLocaleString()}</span>
+                          <span>Platform Fee ({feeBreakdown?.networkFeePercent ?? "..."})</span>
+                          <span>-${(feeBreakdown?.networkFeeAmount ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
                           <span>You Collect</span>
-                          <span>${Math.round(displayPrice * 0.85).toLocaleString()}</span>
+                          <span>${(feeBreakdown?.networkCollect ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-orange-400">
                           <span>Materials</span>
@@ -944,7 +953,7 @@ export default function BuildConfiguratorPage() {
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-stone-300">Net Profit</span>
                             <span className="text-lg font-black text-emerald-400">
-                              ${Math.max(0, Math.round(displayPrice * 0.85 - displayMaterials.totalCost)).toLocaleString()}
+                              ${(feeBreakdown?.networkNetProfit ?? 0).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -964,12 +973,12 @@ export default function BuildConfiguratorPage() {
                           <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
-                          <span>Platform Fee ({isPro ? "3%" : "15%"})</span>
-                          <span>-${Math.round(displayPrice * (isPro ? 0.03 : 0.15)).toLocaleString()}</span>
+                          <span>Platform Fee ({feeBreakdown?.directFeePercent ?? "..."})</span>
+                          <span>-${(feeBreakdown?.directFeeAmount ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
                           <span>You Collect</span>
-                          <span>${Math.round(displayPrice * (isPro ? 0.95 : 0.85)).toLocaleString()}</span>
+                          <span>${(feeBreakdown?.directCollect ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-orange-400">
                           <span>Materials</span>
@@ -979,7 +988,7 @@ export default function BuildConfiguratorPage() {
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-stone-300">Net Profit</span>
                             <span className="text-lg font-black text-emerald-400">
-                              ${Math.max(0, Math.round(displayPrice * (isPro ? 0.95 : 0.85) - displayMaterials.totalCost)).toLocaleString()}
+                              ${(feeBreakdown?.directNetProfit ?? 0).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -1003,7 +1012,7 @@ export default function BuildConfiguratorPage() {
                           <p className="text-xs font-bold text-yellow-400">Save 10% on Direct Leads with Pro</p>
                           <p className="mt-0.5 text-[11px] text-stone-400">
                             Upgrade to Pro and keep more profit on jobs from your own customers.
-                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${Math.round(displayPrice * 0.10).toLocaleString()}</span>.
+                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${(feeBreakdown?.proSavingsOnDirect ?? 0).toLocaleString()}</span>.
                           </p>
                           <a
                             href="/upgrade"
@@ -1342,7 +1351,7 @@ export default function BuildConfiguratorPage() {
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
           leadId={leadIdForBooking}
-          depositAmount={Math.round(buildResult.price * 0.15)}
+          depositAmount={feeBreakdown?.depositAmount ?? 0}
           totalPrice={buildResult.price}
           installerId={userId}
           source="installer_manual"

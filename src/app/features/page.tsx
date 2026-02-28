@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -69,6 +69,7 @@ const FEATURES: FeatureRow[] = [
 ];
 
 // ── Job analysis scenarios ───────────────────────────────────────────────
+import { getMarketingComparison } from "@/app/actions/fee-engine";
 
 const SCENARIOS = [
   { label: "Small Pantry Build", price: 400, materials: 60 },
@@ -77,17 +78,16 @@ const SCENARIOS = [
   { label: "Premium Custom Build", price: 2400, materials: 310 },
 ];
 
-function calcProfit(price: number, materials: number, feeRate: number) {
-  const fee = price * feeRate;
-  return price - fee - materials;
-}
-
 export default function FeaturesPage() {
   const [selectedScenario, setSelectedScenario] = useState(1);
   const scenario = SCENARIOS[selectedScenario];
-  const freeProfit = calcProfit(scenario.price, scenario.materials, 0.15);
-  const proProfit = calcProfit(scenario.price, scenario.materials, 0.03);
-  const savings = proProfit - freeProfit;
+
+  // Fee comparison — computed server-side (black box)
+  const [comparison, setComparison] = useState({ freeProfit: 0, proProfit: 0, freeFee: 0, proFee: 0, savings: 0, monthlyPrice: 49 });
+  useEffect(() => {
+    getMarketingComparison(scenario.price, scenario.materials).then(setComparison);
+  }, [scenario.price, scenario.materials]);
+  const { freeProfit, proProfit, savings } = comparison;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -329,7 +329,7 @@ export default function FeaturesPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Platform Fee (15%)</span>
-                  <span className="font-bold text-red-400">-${(scenario.price * 0.15).toLocaleString()}</span>
+                  <span className="font-bold text-red-400">-${comparison.freeFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Est. Materials</span>
@@ -357,7 +357,7 @@ export default function FeaturesPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Platform Fee (3%)</span>
-                  <span className="font-bold text-emerald-400">-${(scenario.price * 0.03).toLocaleString()}</span>
+                  <span className="font-bold text-emerald-400">-${comparison.proFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500">Est. Materials</span>
@@ -379,11 +379,11 @@ export default function FeaturesPage() {
               You keep an extra ${savings.toLocaleString()} on this one job alone.
             </p>
             <p className="text-xs text-stone-500">
-              At just 2 direct jobs per month, that&apos;s <span className="font-bold text-white">${(savings * 2).toLocaleString()}/mo extra</span> in your pocket — minus the $99 subscription, you net{" "}
-              <span className="font-bold text-emerald-400">${(savings * 2 - 99).toLocaleString()}/mo more</span> than Free plan.
+              At just 2 direct jobs per month, that&apos;s <span className="font-bold text-white">${(savings * 2).toLocaleString()}/mo extra</span> in your pocket — minus the ${comparison.monthlyPrice} subscription, you net{" "}
+              <span className="font-bold text-emerald-400">${(savings * 2 - comparison.monthlyPrice).toLocaleString()}/mo more</span> than Free plan.
             </p>
             <p className="mt-3 text-xs text-stone-600">
-              At 4 direct jobs/month → <span className="text-white font-bold">${(savings * 4 - 99).toLocaleString()}/mo</span> extra profit. At 8 → <span className="text-white font-bold">${(savings * 8 - 99).toLocaleString()}/mo</span>. The more you build, the more Pro saves.
+              At 4 direct jobs/month → <span className="text-white font-bold">${(savings * 4 - comparison.monthlyPrice).toLocaleString()}/mo</span> extra profit. At 8 → <span className="text-white font-bold">${(savings * 8 - comparison.monthlyPrice).toLocaleString()}/mo</span>. The more you build, the more Pro saves.
             </p>
           </div>
 

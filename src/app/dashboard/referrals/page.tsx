@@ -48,7 +48,8 @@ function estimateBounty(ref: ReferralItem): number {
   if (ref.bounty_status === "paid" && typeof ref.bounty_amount === "number") {
     return ref.bounty_amount;
   }
-  const deposit = ref.deposit_amount ?? (ref.estimated_price ? ref.estimated_price * 0.15 : 0);
+  // deposit_amount comes from server; fallback uses the stored amount or 0
+  const deposit = ref.deposit_amount ?? 0;
   return Math.max(Math.round(deposit * 0.30 * 100) / 100, 15);
 }
 

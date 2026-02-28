@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import {
   Calendar,
@@ -34,10 +34,8 @@ import {
   type NetPurchaseResult,
 } from "@/utils/inventoryManager";
 import { toFraction } from "@/lib/utils";
-import {
-  calculateNetProfit,
-  formatCurrency,
-} from "@/utils/paymentHelpers";
+import { formatCurrency } from "@/utils/paymentHelpers";
+import { getNetProfit, type NetProfitResult } from "@/app/actions/fee-engine";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
@@ -152,18 +150,20 @@ export default function JobTicket({
 
   const estMaterials = materialBreakdown?.totalCost ?? 0;
 
-  // ── True Profit Calculation ──────────────────────────────────────────
-  const profit = useMemo(
-    () =>
-      calculateNetProfit({
-        totalPrice,
-        materialCost: estMaterials,
-        feeStatus,
-        source: source ?? undefined,
-        isPro,
-      }),
-    [totalPrice, estMaterials, feeStatus, source, isPro]
-  );
+  // ── True Profit Calculation (server-side, black box) ─────────────────
+  const [profit, setProfit] = useState<NetProfitResult>({
+    totalPrice, depositAmount: 0, amountToCollect: totalPrice,
+    estMaterials, netProfit: 0, feeWaived: false, feeRate: 0, feeLabel: "",
+  });
+  useEffect(() => {
+    getNetProfit({
+      totalPrice,
+      materialCost: estMaterials,
+      feeStatus,
+      source: source ?? undefined,
+      isPro,
+    }).then(setProfit);
+  }, [totalPrice, estMaterials, feeStatus, source, isPro]);
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Zap,
   Percent,
@@ -17,11 +17,15 @@ import {
   QrCode,
 } from "lucide-react";
 import { createProCheckoutSession } from "@/app/actions/pro-subscription";
+import { getProFeeComparison, type ProFeeComparison } from "@/app/actions/fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pro Upgrade CTA — Persistent call-to-action for profile page
 // Highlights benefits and links to Stripe checkout
 // Includes interactive fee comparison calculator
+//
+// All pricing constants and fee math live in fee-engine.ts (server action).
+// This component only renders computed values — zero business logic.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ProUpgradeCTAProps {
@@ -56,23 +60,6 @@ const BENEFITS = [
   },
 ];
 
-// Pricing constants (matches /design calculator)
-const PRICE_PER_SLOT = 30; // $30 per storage opening
-const TOTE_PRICE = 12; // $12 per tote
-const WHEELS_PRICE = 65; // $65 flat for wheels
-
-const FREE_PLATFORM_FEE = 0.15; // 15%
-const PRO_PLATFORM_FEE = 0.03; // 3%
-const PRO_MONTHLY_COST = 49;
-const PRO_ORIGINAL_PRICE = 99;
-
-function calculateJobPrice(slots: number): number {
-  // Standard unit with totes and wheels (most common configuration)
-  const basePrice = slots * PRICE_PER_SLOT;
-  const totesPrice = slots * TOTE_PRICE;
-  return basePrice + totesPrice + WHEELS_PRICE;
-}
-
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -87,13 +74,18 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
   const [error, setError] = useState("");
   const [slots, setSlots] = useState(16); // Default: 4x4 unit
 
-  const jobPrice = calculateJobPrice(slots);
-  const freeFee = Math.round(jobPrice * FREE_PLATFORM_FEE);
-  const proFee = Math.round(jobPrice * PRO_PLATFORM_FEE);
-  const savings = freeFee - proFee;
+  // Fee comparison data — fetched from server (black box)
+  const [comparison, setComparison] = useState<ProFeeComparison | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Calculate how many jobs to break even on Pro
-  const jobsToBreakEven = Math.ceil(PRO_MONTHLY_COST / savings);
+  // Fetch comparison data on mount and when slots change (debounced)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      getProFeeComparison(slots).then(setComparison);
+    }, 150);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [slots]);
 
   async function handleUpgrade() {
     setLoading(true);
@@ -112,6 +104,15 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
   function adjustSlots(delta: number) {
     setSlots((prev) => Math.max(1, Math.min(36, prev + delta)));
   }
+
+  // Use server-computed values (fallback to 0 while loading)
+  const jobPrice = comparison?.jobPrice ?? 0;
+  const freeFee = comparison?.freeFee ?? 0;
+  const proFee = comparison?.proFee ?? 0;
+  const savings = comparison?.savings ?? 0;
+  const jobsToBreakEven = comparison?.jobsToBreakEven ?? 0;
+  const monthlyPrice = comparison?.monthlyPrice ?? 0;
+  const originalPrice = comparison?.originalPrice ?? 0;
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900">
@@ -135,8 +136,12 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
           </div>
           <div className="ml-auto flex items-center gap-1 rounded-full bg-yellow-400/20 px-2.5 py-1">
             <Sparkles className="h-3 w-3 text-yellow-400" />
-            <span className="text-xs text-stone-500 line-through">$99</span>
-            <span className="text-xs font-bold text-yellow-400">$49/mo</span>
+            {originalPrice > 0 && (
+              <span className="text-xs text-stone-500 line-through">${originalPrice}</span>
+            )}
+            <span className="text-xs font-bold text-yellow-400">
+              ${monthlyPrice || "..."}/mo
+            </span>
           </div>
         </div>
 
@@ -167,7 +172,7 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════════
-            Interactive Fee Calculator
+            Interactive Fee Calculator (server-computed values)
         ═══════════════════════════════════════════════════════════════════ */}
         <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/80 p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -304,9 +309,11 @@ export default function ProUpgradeCTA({ userId }: ProUpgradeCTAProps) {
         <p className="mt-3 text-center text-[11px] text-stone-600">
           Cancel anytime. No long-term contracts.
         </p>
-        <p className="mt-1 text-center text-[11px] font-semibold text-yellow-500/70">
-          Launch pricing — <span className="line-through">$99</span> $49/mo for the first 50 subscribers
-        </p>
+        {originalPrice > 0 && (
+          <p className="mt-1 text-center text-[11px] font-semibold text-yellow-500/70">
+            Launch pricing — <span className="line-through">${originalPrice}</span> ${monthlyPrice}/mo for the first 50 subscribers
+          </p>
+        )}
       </div>
     </section>
   );
