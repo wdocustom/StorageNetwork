@@ -816,7 +816,7 @@ export default function DesignConfigurator({
       return;
     }
     if (!email.trim()) {
-      setContactError("Please fill in your email above first.");
+      setContactError("Please enter your email so the installer can reply.");
       return;
     }
     if (!installerId) {
@@ -1452,6 +1452,129 @@ export default function DesignConfigurator({
             </section>
             )}
 
+            {/* ── Custom Request / Email Installer ─────────────────── */}
+            {installerId && !submitted && (
+              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
+                {!showContactForm && !contactSent ? (
+                  <div className="space-y-2.5">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-semibold text-amber-800">
+                        Have a vision our configurator can&apos;t show yet?
+                      </p>
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-amber-700/80">
+                        Custom layouts, unique dimensions, special materials — email us with your request. We build more than what&apos;s on screen.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowContactForm(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Email Installer
+                    </button>
+                  </div>
+                ) : contactSent ? (
+                  <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center">
+                    <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-500" />
+                    <p className="text-xs font-semibold text-gray-900">Message Sent!</p>
+                    <p className="text-[11px] text-stone-500">
+                      {data?.branding.title || "The installer"} will get back to you shortly.
+                    </p>
+                    {orderItems.length > 0 && (
+                      <p className="mt-1 text-[10px] text-stone-400">
+                        Your current quote was included for reference.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                        <Mail className="h-3.5 w-3.5 text-yellow-600" />
+                        Email {data?.branding.title || "Installer"}
+                      </span>
+                      <button
+                        onClick={() => { setShowContactForm(false); setContactError(""); }}
+                        className="text-stone-400 hover:text-stone-600"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          placeholder="First Name"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Last Name"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="email"
+                          placeholder="Your Email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Phone (optional)"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                      </div>
+                      <textarea
+                        value={contactMessage}
+                        onChange={(e) => setContactMessage(e.target.value)}
+                        placeholder="Describe your custom project, ask about lead times, pricing, or anything else..."
+                        rows={3}
+                        maxLength={2000}
+                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                    </div>
+                    {orderItems.length > 0 && (
+                      <div className="mt-2 rounded-md bg-stone-50 px-2.5 py-1.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
+                          Current quote attached for reference
+                        </p>
+                        <p className="text-[11px] text-stone-500">
+                          {orderItems.length} unit{orderItems.length > 1 ? "s" : ""} &bull; ${grandTotal.toLocaleString()} est.
+                        </p>
+                      </div>
+                    )}
+                    {contactError && (
+                      <p className="mt-1 text-xs font-medium text-red-600">{contactError}</p>
+                    )}
+                    <button
+                      onClick={handleContactInstaller}
+                      disabled={contactSending || !contactMessage.trim()}
+                      className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {contactSending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                      {contactSending ? "Sending…" : "Send Message"}
+                    </button>
+                    <p className="mt-1.5 text-center text-[10px] text-stone-400">
+                      Your contact info will be shared so they can reply directly.
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* ── Quote List ────────────────────────────────────────── */}
             {orderItems.length > 0 && (
               <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
@@ -1534,80 +1657,6 @@ export default function DesignConfigurator({
                     </div>
                   )}
                 </div>
-
-                {/* ── Email Installer ─────────────────────────────── */}
-                {installerId && !submitted && (
-                  <div className="mt-3">
-                    {!showContactForm && !contactSent ? (
-                      <div className="space-y-2">
-                        <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-center">
-                          <p className="text-[11px] font-semibold text-amber-800">
-                            Have a vision our configurator can&apos;t show yet?
-                          </p>
-                          <p className="text-[10px] text-amber-700/80">
-                            Email us with your custom request — we build more than what&apos;s on screen.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setShowContactForm(true)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
-                        >
-                          <Mail className="h-3.5 w-3.5" />
-                          Email Installer with Custom Request
-                        </button>
-                      </div>
-                    ) : contactSent ? (
-                      <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center">
-                        <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-500" />
-                        <p className="text-xs font-semibold text-gray-900">Message Sent!</p>
-                        <p className="text-[11px] text-stone-500">
-                          {data?.branding.title || "The installer"} will get back to you shortly.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-stone-300 bg-stone-50 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                            <Mail className="h-3.5 w-3.5 text-yellow-600" />
-                            Email {data?.branding.title || "Installer"}
-                          </span>
-                          <button
-                            onClick={() => { setShowContactForm(false); setContactError(""); }}
-                            className="text-stone-400 hover:text-stone-600"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <textarea
-                          value={contactMessage}
-                          onChange={(e) => setContactMessage(e.target.value)}
-                          placeholder="Describe your custom project, ask about lead times, pricing, or anything else..."
-                          rows={3}
-                          maxLength={2000}
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        {contactError && (
-                          <p className="mt-1 text-xs font-medium text-red-600">{contactError}</p>
-                        )}
-                        <button
-                          onClick={handleContactInstaller}
-                          disabled={contactSending || !contactMessage.trim()}
-                          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
-                        >
-                          {contactSending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Send className="h-3.5 w-3.5" />
-                          )}
-                          {contactSending ? "Sending…" : "Send Message"}
-                        </button>
-                        <p className="mt-1.5 text-[10px] text-stone-400 text-center">
-                          Your email and name will be shared so they can reply.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Booking Form */}
                 <div className="mt-4 border-t border-stone-200 pt-4">
