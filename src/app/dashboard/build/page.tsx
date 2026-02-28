@@ -1343,8 +1343,8 @@ const MATERIAL_FIELDS: { key: keyof typeof DEFAULT_MATERIAL_PRICES; label: strin
   { key: "lumber_2x4_8ft", label: "2×4 Lumber (8ft)", unit: "each" },
   { key: "plywood_sheet", label: "Plywood (4×8 sheet)", unit: "sheet" },
   { key: "tote", label: "27-Gal Tote", unit: "each" },
-  { key: "screw_1_5_8in_145ct", label: '1⅝" Screws (145ct box)', unit: "box" },
-  { key: "screw_3in_70ct", label: '3" Screws (70ct box)', unit: "box" },
+  { key: "screw_1_5_8in_158ct", label: '1⅝" Screws (158ct box)', unit: "box" },
+  { key: "screw_3in_137ct", label: '3" Screws (137ct box)', unit: "box" },
   { key: "screw_1in_90ct", label: '1" Screws (90ct box)', unit: "box" },
   { key: "wheels_4pk", label: "Caster Kit (4pk)", unit: "set" },
 ];

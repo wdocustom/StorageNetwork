@@ -710,6 +710,9 @@ export default function JobTicket({
         // Affiliate links for specific materials
         const productLinks: Record<string, string> = {
           "Caster Kit (4pk)": "https://amzn.to/4rPMxf6",
+          '1⅝" #8 Screws': "https://amzn.to/46xZ664",
+          '3" Screws': "https://amzn.to/3OEWiho",
+          '1" Screws': "https://www.menards.com/main/hardware/fasteners-connectors/bolts/lag-screws/grip-fast-reg-premium-1-4-x-1-star-drive-tan-washer-head-structural-screw-95-count/30783-12/p-1553840877420-c-8742.htm",
         };
 
         return (

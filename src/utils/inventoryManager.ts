@@ -12,8 +12,8 @@
 // ── Box / Sheet Sizes ────────────────────────────────────────────────────
 
 export const BOX_SIZES = {
-  screws_1_5_8: 145,
-  screws_3: 70,
+  screws_1_5_8: 158,
+  screws_3: 137,
   screws_1: 90,
   plywood_strips_per_struct_sheet: 72,
   plywood_strips_per_top_offcut: 27,
@@ -175,13 +175,13 @@ export function calculateNetPurchaseList(
     {
       key: "screws_1_5_8",
       name: '1⅝" #8 Screws',
-      detail: "Rails (145ct box)",
+      detail: "Rails (158ct box)",
       boxSize: BOX_SIZES.screws_1_5_8,
     },
     {
       key: "screws_3",
       name: '3" Screws',
-      detail: "Frame (70ct box)",
+      detail: "Frame (137ct box)",
       boxSize: BOX_SIZES.screws_3,
     },
     {
