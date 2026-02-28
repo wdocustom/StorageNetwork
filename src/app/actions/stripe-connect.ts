@@ -226,9 +226,11 @@ export async function getStripeDashboardLink(userId: string): Promise<ConnectRes
       url: loginLink.url,
     };
   } catch (err) {
+    console.error("[StripeDashboard] Login link creation failed:", err);
+    // Fallback: link to Stripe's direct dashboard
     return {
-      success: false,
-      error: "Failed to create dashboard link",
+      success: true,
+      url: "https://dashboard.stripe.com/",
     };
   }
 }
