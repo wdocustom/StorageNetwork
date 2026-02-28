@@ -66,12 +66,8 @@ export async function startTripNotify(
       .eq("id", installerId)
       .single();
 
-    // Pro-only gate
-    if (!installer?.is_pro) {
-      return {
-        success: false,
-        error: "SMS notifications are a Pro feature. Upgrade to unlock.",
-      };
+    if (!installer) {
+      return { success: false, error: "Installer profile not found." };
     }
 
     const installerFirstName = installer.first_name || "Your installer";
@@ -149,8 +145,8 @@ export async function sendInstallerBookingSms(
       .eq("id", installerId)
       .single();
 
-    if (!installer?.is_pro) {
-      return { success: false, error: "Installer is not Pro." };
+    if (!installer) {
+      return { success: false, error: "Installer not found." };
     }
 
     if (!installer.phone) {

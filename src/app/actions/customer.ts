@@ -92,14 +92,13 @@ export async function checkAvailability(
 
   try {
     // Primary: search the service_zips array (covers radius)
-    // Sort by Pro status (Pro first), then by current_month_leads (lowest first)
+    // Sort by lowest lead count first (round-robin fairness)
     // Only include active installers
     const { data: matches, error } = await supabase
       .from("profiles")
       .select(INSTALLER_SELECT)
       .contains("service_zips", [trimmed])
       .neq("active", false)  // Exclude deactivated accounts
-      .order("is_pro", { ascending: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
@@ -131,7 +130,6 @@ export async function checkAvailability(
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
-      .order("is_pro", { ascending: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
@@ -183,7 +181,6 @@ export async function rerouteToLocalInstaller(
       .contains("service_zips", [trimmed])
       .neq("id", originalInstallerId)
       .neq("active", false)
-      .order("is_pro", { ascending: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
@@ -213,7 +210,6 @@ export async function rerouteToLocalInstaller(
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
       .neq("id", originalInstallerId)
-      .order("is_pro", { ascending: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
@@ -277,6 +273,11 @@ export async function getInstallerBySlug(
     if (error || !data) {
       // Fallback: try ref_slug for backward compat
       return getInstallerByRef(slug);
+    }
+
+    // Suspended installers (is_pro=false) should not accept new leads
+    if (data.is_pro === false) {
+      return toResult(null, "This installer is not currently active.");
     }
 
     return toResult(data, "");

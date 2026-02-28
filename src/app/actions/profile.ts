@@ -152,7 +152,7 @@ export interface SlugUpdateResult {
 }
 
 /**
- * Update user's custom booking slug (PRO only).
+ * Update user's custom booking slug.
  */
 export async function updateSlug(
   userId: string,
@@ -169,17 +169,6 @@ export async function updateSlug(
   const check = await checkSlugAvailability(normalized, userId);
   if (!check.available) {
     return { success: false, error: check.error };
-  }
-
-  // Check if user is PRO
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", userId)
-    .single();
-
-  if (profile?.subscription_tier !== "pro") {
-    return { success: false, error: "Custom slugs require a Pro subscription." };
   }
 
   // Update

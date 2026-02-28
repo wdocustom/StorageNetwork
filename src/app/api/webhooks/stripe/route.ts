@@ -62,21 +62,15 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
 
     console.log(`[Bounty] Deposit: $${(depositCents / 100).toFixed(2)} → 30% = $${(calculatedBountyCents / 100).toFixed(2)} → Final: $${(bountyAmountCents / 100).toFixed(2)}`);
 
-    // 3. Fetch the referring installer's Stripe account, Pro status, + email
+    // 3. Fetch the referring installer's Stripe account + email
     const { data: referrer, error: refErr } = await supabase
       .from("profiles")
-      .select("stripe_account_id, is_pro, email, business_name, first_name")
+      .select("stripe_account_id, email, business_name, first_name")
       .eq("id", lead.referring_installer_id)
       .single();
 
     if (refErr || !referrer?.stripe_account_id) {
       console.warn("[Bounty] Referring installer has no Stripe account:", lead.referring_installer_id);
-      return;
-    }
-
-    // Pro gate: only Pro subscribers earn bounties
-    if (!referrer.is_pro) {
-      console.warn("[Bounty] Referring installer is not Pro — bounty skipped:", lead.referring_installer_id);
       return;
     }
 

@@ -9,15 +9,12 @@ import {
   Link2,
   ExternalLink,
   Megaphone,
-  Lock,
   ArrowLeft,
   Loader2,
-  Zap,
   Search,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
-import ProUpgradeModal from "@/components/dashboard/ProUpgradeModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Marketing & Promotion — Installer sales toolkit
@@ -38,7 +35,7 @@ export default function MarketingPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showProModal, setShowProModal] = useState(false);
+
 
   useEffect(() => {
     async function load() {
@@ -58,8 +55,8 @@ export default function MarketingPage() {
 
       setProfile(
         data
-          ? { id: data.id, slug: data.slug ?? null, is_pro: !!data.is_pro, city: data.city ?? null, state: data.state ?? null, service_zip: data.service_zip ?? null, business_name: data.business_name ?? null }
-          : { id: user.id, slug: null, is_pro: false, city: null, state: null, service_zip: null, business_name: null }
+          ? { id: data.id, slug: data.slug ?? null, is_pro: true, city: data.city ?? null, state: data.state ?? null, service_zip: data.service_zip ?? null, business_name: data.business_name ?? null }
+          : { id: user.id, slug: null, is_pro: true, city: null, state: null, service_zip: null, business_name: null }
       );
       setLoading(false);
     }
@@ -158,34 +155,13 @@ export default function MarketingPage() {
             </a>
           </div>
 
-          {/* Pro feature: Customize Link */}
-          {!profile.is_pro ? (
-            <button
-              onClick={() => setShowProModal(true)}
-              className="mt-4 flex w-full items-center gap-2 rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-4 py-3 text-left transition-colors hover:border-yellow-400/30 hover:bg-slate-800/50"
-            >
-              <Lock className="h-3.5 w-3.5 text-stone-600" />
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-stone-500">
-                  Customize Link & Remove Branding
-                </p>
-                <p className="text-[11px] text-stone-600">
-                  Get a branded URL like{" "}
-                  <span className="text-blue-400/60">
-                    ?installer=your-business
-                  </span>
-                </p>
-              </div>
-              <Zap className="h-3.5 w-3.5 text-yellow-400/50" />
-            </button>
-          ) : (
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
-              <p className="text-xs font-semibold text-emerald-400">
-                Pro features active &mdash; Custom link & only 3% fee on your leads
-              </p>
-            </div>
-          )}
+          {/* Pro features */}
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+            <Check className="h-3.5 w-3.5 text-emerald-400" />
+            <p className="text-xs font-semibold text-emerald-400">
+              Pro features active &mdash; Custom link & only 3% fee on your leads
+            </p>
+          </div>
         </section>
 
         {/* ── Section 2: AI Group Finder ──────────────────────────── */}
@@ -246,10 +222,6 @@ export default function MarketingPage() {
         </section>
       </main>
 
-      <ProUpgradeModal
-        open={showProModal}
-        onClose={() => setShowProModal(false)}
-      />
     </div>
   );
 }

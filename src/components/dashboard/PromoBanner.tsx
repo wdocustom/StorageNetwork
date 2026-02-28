@@ -1,20 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Zap, CreditCard, ArrowRight } from "lucide-react";
+import { X, Zap, CreditCard } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Promo Banner — Floating announcement for pricing changes
-//
-// Highlights:
-// - Pro price drop: $99 → $49 (first 50 subscribers)
-// - Platform fee drop: 5% → 3%
-// - Deposit split: 12% back to installer Stripe
-// - Stripe connect reminder
-// - Dismissible via localStorage
+// Promo Banner — Stripe connection reminder + pricing info
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BANNER_DISMISS_KEY = "promo-banner-dismissed-v1";
+const BANNER_DISMISS_KEY = "promo-banner-dismissed-v2";
 
 interface PromoBannerProps {
   isPro?: boolean;
@@ -23,8 +16,6 @@ interface PromoBannerProps {
 }
 
 export default function PromoBanner({
-  isPro = false,
-  isTrialActive = false,
   hasStripeConnected = false,
 }: PromoBannerProps) {
   const [visible, setVisible] = useState(false);
@@ -42,9 +33,6 @@ export default function PromoBanner({
   }
 
   if (!visible) return null;
-
-  // Trial users get a more urgent message
-  const isTrialUser = isTrialActive && !isPro;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -69,7 +57,7 @@ export default function PromoBanner({
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-yellow-400">
-                {isTrialUser ? "Your Trial is Active" : "New Pro Pricing"}
+                Pro Pricing
               </p>
             </div>
           </div>
@@ -80,19 +68,18 @@ export default function PromoBanner({
             <span className="text-3xl font-black text-white">$49</span>
             <span className="text-sm text-stone-400">/mo</span>
             <span className="ml-auto rounded-full bg-red-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
-              First 50 only
+              Launch Price
             </span>
           </div>
 
-          {/* Key changes */}
+          {/* Key info */}
           <div className="mb-3 space-y-1.5">
             <div className="flex items-center gap-2 text-xs text-stone-300">
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-[8px] font-bold text-emerald-400">
                 &#10003;
               </span>
               <span>
-                Platform fee dropped to <span className="font-bold text-emerald-400">3%</span>{" "}
-                <span className="text-stone-500">(was 5%)</span>
+                Only <span className="font-bold text-emerald-400">3% maintenance fee</span> on direct leads
               </span>
             </div>
             {!hasStripeConnected && (
@@ -105,37 +92,15 @@ export default function PromoBanner({
             )}
           </div>
 
-          {/* CTA — context-aware */}
-          {isTrialUser && (
-            <div className="rounded-lg border border-yellow-500/20 bg-yellow-400/5 p-2.5">
-              <p className="text-[11px] leading-relaxed text-stone-300">
-                You&apos;re on a Pro trial — lock in the{" "}
-                <span className="font-bold text-yellow-400">$49/mo launch price</span> before the
-                first 50 spots fill. This price won&apos;t last.
-              </p>
-            </div>
-          )}
-
-          {isPro && !hasStripeConnected && (
+          {!hasStripeConnected && (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
               <p className="text-[11px] leading-relaxed text-stone-300">
-                You&apos;re Pro, but your Stripe isn&apos;t connected yet. Orders in your area
-                collect a <span className="font-bold text-white">15% deposit</span> — with Stripe
+                Orders in your area collect a{" "}
+                <span className="font-bold text-white">15% deposit</span> — with Stripe
                 connected, <span className="font-bold text-emerald-400">12% goes to you</span> and
                 only 3% stays with the platform.
               </p>
             </div>
-          )}
-
-          {!isPro && !isTrialUser && (
-            <a
-              href="/dashboard/profile"
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              Upgrade to Pro
-              <ArrowRight className="h-3.5 w-3.5" />
-            </a>
           )}
         </div>
       </div>

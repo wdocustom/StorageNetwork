@@ -4,13 +4,19 @@ import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Pro Trial — Check and expire 7-day trial periods
+// Pro Trial — Check and manage trial periods
 //
-// Called on dashboard load to check if a trial has expired.
-// If expired, reverts is_pro to false and clears trial fields.
-// If active but is_pro is false (e.g. manually added via table editor),
-// auto-activates Pro + generates slug so the experience is identical
-// to signing up through a referral link.
+// Trial ends when EITHER condition is met:
+//   1. Installer completes 3 jobs (paid status)
+//   2. 45 days pass from signup (hidden — installer never sees this timer)
+//
+// If trial expires without a Stripe subscription:
+//   → Account is suspended (is_pro = false)
+//   → Portfolio page shows "inactive installer" overlay
+//   → Configurator/booking links stop working
+//
+// If they subscribe via Stripe, trial fields are cleared and they continue
+// as a paid Pro subscriber.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = createClient(
@@ -18,25 +24,32 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const TRIAL_JOB_LIMIT = 3;
+
 export interface TrialStatus {
   onTrial: boolean;
-  daysRemaining: number;
+  trialExpired: boolean;
+  jobsCompleted: number;
+  jobsRemaining: number;
   partnerName: string | null;
-  trialEndsAt: string | null;
 }
 
 /**
- * Check trial status for a user. If the trial has expired and they haven't
- * subscribed to Pro (no stripe_subscription_id), reverts them to free.
+ * Check trial status for a user.
+ *
+ * If the trial has expired (3 jobs completed OR 45 days elapsed) and they
+ * haven't subscribed (no stripe_subscription_id), suspends the account.
+ *
  * If the trial is active but is_pro is false or slug is missing,
  * auto-corrects to ensure full trial experience.
  */
 export async function checkProTrial(userId: string): Promise<TrialStatus> {
   const noTrial: TrialStatus = {
     onTrial: false,
-    daysRemaining: 0,
+    trialExpired: false,
+    jobsCompleted: 0,
+    jobsRemaining: 0,
     partnerName: null,
-    trialEndsAt: null,
   };
 
   if (!userId) return noTrial;
@@ -50,13 +63,10 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
 
     if (!profile) return noTrial;
 
-    // No trial set — they're either paid Pro or free
+    // No trial set — they're either a paid subscriber or suspended
     if (!profile.pro_trial_ends_at) return noTrial;
 
-    const trialEnd = new Date(profile.pro_trial_ends_at);
-    const now = new Date();
-
-    // If they've since subscribed to Pro via Stripe, the trial is irrelevant
+    // If they've subscribed to Pro via Stripe, the trial is irrelevant
     // Clear the trial fields and keep them as paid Pro
     if (profile.stripe_subscription_id) {
       await supabase
@@ -69,14 +79,25 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       return noTrial;
     }
 
-    // Trial still active
-    if (now < trialEnd) {
-      const msRemaining = trialEnd.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+    // Count completed jobs for this installer
+    const { count: jobsCompleted } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("installer_id", userId)
+      .eq("status", "paid");
 
-      // ── Self-healing: auto-activate Pro if trial is valid but is_pro/slug missing ──
-      // This handles the case where trial fields were added manually via table editor
-      // without setting is_pro=true or generating a slug.
+    const completedJobs = jobsCompleted ?? 0;
+
+    const trialEnd = new Date(profile.pro_trial_ends_at);
+    const now = new Date();
+    const timeExpired = now >= trialEnd;
+    const jobsExpired = completedJobs >= TRIAL_JOB_LIMIT;
+    const trialExpired = timeExpired || jobsExpired;
+
+    if (!trialExpired) {
+      // ── Trial still active ──────────────────────────────────────────────
+
+      // Self-healing: auto-activate Pro if trial is valid but is_pro/slug missing
       if (!profile.is_pro || !profile.slug) {
         const updates: Record<string, unknown> = {};
 
@@ -99,7 +120,6 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
 
           if (existing) {
             trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
-            // Double-check after appending year
             const { data: existing2 } = await supabase
               .from("profiles")
               .select("id")
@@ -125,25 +145,37 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
 
       return {
         onTrial: true,
-        daysRemaining,
+        trialExpired: false,
+        jobsCompleted: completedJobs,
+        jobsRemaining: Math.max(0, TRIAL_JOB_LIMIT - completedJobs),
         partnerName: profile.pro_trial_partner,
-        trialEndsAt: profile.pro_trial_ends_at,
       };
     }
 
-    // ── Trial expired — revert to free ────────────────────────────────────
+    // ── Trial expired — suspend account ──────────────────────────────────
+    // Slug is preserved so the portfolio URL still resolves
+    // (shows an "inactive installer" overlay instead of 404)
     await supabase
       .from("profiles")
       .update({
         is_pro: false,
         pro_trial_ends_at: null,
         pro_trial_partner: null,
-        slug: null, // Remove Pro slug
       })
       .eq("id", userId);
 
-    console.log(`[ProTrial] Trial expired for ${userId} — reverted to free`);
-    return noTrial;
+    const reason = jobsExpired
+      ? `completed ${completedJobs} jobs`
+      : "45-day period elapsed";
+    console.log(`[ProTrial] Trial expired for ${userId} — ${reason} — account suspended`);
+
+    return {
+      onTrial: false,
+      trialExpired: true,
+      jobsCompleted: completedJobs,
+      jobsRemaining: 0,
+      partnerName: null,
+    };
   } catch {
     return noTrial;
   }

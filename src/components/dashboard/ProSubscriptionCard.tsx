@@ -141,12 +141,12 @@ export default function ProSubscriptionCard({
         </div>
         <div className="flex-1">
           <h2 className="text-sm font-bold text-yellow-400">
-            Pro Subscription {isCanceling ? "(Canceling)" : "Active"}
+            Pro {isCanceling ? "(Canceling)" : "Active"}
           </h2>
           <p className="text-xs text-stone-500">
             {isCanceling
               ? `Access until ${formatDate(status?.currentPeriodEnd || "")}`
-              : "Enjoying 3% platform fees and custom branding"}
+              : "3% maintenance fee on direct leads"}
           </p>
         </div>
         <span
@@ -174,7 +174,7 @@ export default function ProSubscriptionCard({
                 <span className="font-semibold text-white">
                   {formatDate(status?.currentPeriodEnd || "")}
                 </span>
-                . After that, you'll revert to the Free plan with 15% fees.
+                . After that, your account will be suspended and your links will stop working.
               </p>
             </div>
           </div>
@@ -258,7 +258,7 @@ export default function ProSubscriptionCard({
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                 <p className="mb-3 text-xs text-stone-400">
                   Are you sure? You'll keep Pro benefits until the end of your
-                  billing period, then revert to Free with 15% fees.
+                  billing period, then your account will be suspended.
                 </p>
 
                 {/* Pending Bounty Warning */}

@@ -36,7 +36,6 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
@@ -538,10 +537,6 @@ function ProfilePageInner() {
     );
   }
 
-  // isPro: true if database says so OR if just returned from successful checkout
-  // (webhook may still be processing, so we trust the success redirect)
-  const isPro = profile?.is_pro === true || proParam === "success";
-
   // Import icons for quick-access tiles
   const portfolioUrl = profile?.slug ? `/p/${profile.slug}` : null;
 
@@ -565,13 +560,9 @@ function ProfilePageInner() {
             </p>
           </div>
           <span
-            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-              isPro
-                ? "bg-yellow-400/10 text-yellow-400"
-                : "bg-slate-800 text-stone-500"
-            }`}
+            className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400/10 text-yellow-400"
           >
-            {isPro ? "Pro" : "Free"}
+            Pro
           </span>
         </div>
       </header>
@@ -579,7 +570,7 @@ function ProfilePageInner() {
       <main className="mx-auto max-w-lg space-y-4 p-4">
 
         {/* ── Quick-Access Toolbar ─────────────────────────────────────── */}
-        {isPro && profile?.slug && (
+        {profile?.slug && (
           <div className="grid grid-cols-3 gap-2">
             <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} phone={profile.phone || undefined} />
             <a
@@ -1260,13 +1251,6 @@ function ProfilePageInner() {
           </p>
         </section>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION C: Pro Upgrade CTA (Non-Pro users only)
-        ═══════════════════════════════════════════════════════════════ */}
-        {!isPro && profile && (
-          <ProUpgradeCTA userId={profile.id} />
-        )}
-
         {/* Pro Upgrade Success/Cancel Message */}
         {proMessage && (
           <div
@@ -1295,13 +1279,13 @@ function ProfilePageInner() {
           </div>
         )}
 
-        {/* Pro Subscription Management (Pro users only) */}
-        {isPro && profile && (
+        {/* Pro Subscription Management */}
+        {profile && (
           <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
         )}
 
         {/* ── Group: Portfolio ───────────────────────────────────────── */}
-        {isPro && profile?.slug && (
+        {profile?.slug && (
           <div className="flex items-center gap-3 pt-2">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Portfolio</span>
@@ -1310,9 +1294,9 @@ function ProfilePageInner() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            SECTION C.5: Portfolio & Social (Pro users with slug only)
+            SECTION C.5: Portfolio & Social
         ═══════════════════════════════════════════════════════════════ */}
-        {isPro && profile?.slug && (
+        {profile?.slug && (
           <PortfolioSection
             userId={profile.id}
             slug={profile.slug}
@@ -1328,7 +1312,7 @@ function ProfilePageInner() {
         )}
 
         {/* ── Group: Pricing ─────────────────────────────────────────── */}
-        {isPro && profile && (
+        {profile && (
           <>
             <div className="flex items-center gap-3 pt-2">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />

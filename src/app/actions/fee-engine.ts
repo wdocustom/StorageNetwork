@@ -9,10 +9,9 @@
 //
 // This is the single source of truth for:
 //   - Deposit rate
-//   - Platform fee rates (network, direct-free, direct-pro)
+//   - Fee rates (network 15%, maintenance 3%)
 //   - State sales tax rates
 //   - Net profit calculations
-//   - Pro vs Free fee comparison
 //   - Build page profit breakdown
 //
 // The browser bundle contains zero knowledge of how any of these are derived.
@@ -21,15 +20,12 @@
 // ── Fee Constants (server-only, never shipped to client) ─────────────────
 const DEPOSIT_RATE = 0.15;
 const NETWORK_FEE_RATE = 0.15;
-const DIRECT_FREE_FEE_RATE = 0.15;
-const DIRECT_PRO_FEE_RATE = 0.03;
+const MAINTENANCE_FEE_RATE = 0.03;
 
 // ── Pricing Constants (server-only) ─────────────────────────────────────
 const PRICE_PER_SLOT = 30;
 const TOTE_PRICE = 12;
 const WHEELS_PRICE = 65;
-const PRO_MONTHLY_COST = 49;
-const PRO_ORIGINAL_PRICE = 99;
 
 // ── State Tax Rates (server-only) ────────────────────────────────────────
 const STATE_TAX_RATES: Record<string, number> = {
@@ -62,19 +58,8 @@ export interface NetProfitResult {
   amountToCollect: number;
   estMaterials: number;
   netProfit: number;
-  feeWaived: boolean;
   feeRate: number;
   feeLabel: string;
-}
-
-export interface ProFeeComparison {
-  jobPrice: number;
-  freeFee: number;
-  proFee: number;
-  savings: number;
-  jobsToBreakEven: number;
-  monthlyPrice: number;
-  originalPrice: number;
 }
 
 export interface BuildFeeBreakdown {
@@ -87,7 +72,6 @@ export interface BuildFeeBreakdown {
   directCollect: number;
   directNetProfit: number;
   depositAmount: number;
-  proSavingsOnDirect: number; // How much a Free user would save per job by upgrading
 }
 
 // ── Server Actions ───────────────────────────────────────────────────────
@@ -117,17 +101,14 @@ export async function getSalesTax(
 
 /**
  * Calculate the installer's true net profit after fees and materials.
- * Fee decision tree stays server-side — client only gets final numbers.
+ * Network leads: 15% fee. Direct leads: 3% maintenance fee.
  */
 export async function getNetProfit(input: {
   totalPrice: number;
   materialCost: number;
-  feeStatus: "standard" | "waived";
   source?: string;
-  isPro?: boolean;
 }): Promise<NetProfitResult> {
-  const { totalPrice, materialCost, feeStatus, source, isPro: isProInput } = input;
-  const isPro = isProInput ?? feeStatus === "waived";
+  const { totalPrice, materialCost, source } = input;
 
   const isDirectLead = source === "partner_link" || source === "installer_manual";
   let feeRate: number;
@@ -136,12 +117,9 @@ export async function getNetProfit(input: {
   if (!isDirectLead) {
     feeRate = NETWORK_FEE_RATE;
     feeLabel = "Network Lead Fee (15%)";
-  } else if (isPro) {
-    feeRate = DIRECT_PRO_FEE_RATE;
-    feeLabel = "Platform Fee (3%)";
   } else {
-    feeRate = DIRECT_FREE_FEE_RATE;
-    feeLabel = "Network Lead Fee (15%)";
+    feeRate = MAINTENANCE_FEE_RATE;
+    feeLabel = "Maintenance Fee (3%)";
   }
 
   const depositAmount = Math.round(totalPrice * feeRate * 100) / 100;
@@ -154,33 +132,8 @@ export async function getNetProfit(input: {
     amountToCollect,
     estMaterials: materialCost,
     netProfit,
-    feeWaived: isPro && isDirectLead,
     feeRate,
     feeLabel,
-  };
-}
-
-/**
- * Interactive fee comparison for the Pro upgrade calculator.
- * All pricing constants and fee math stay server-side.
- */
-export async function getProFeeComparison(slots: number): Promise<ProFeeComparison> {
-  const clampedSlots = Math.max(1, Math.min(36, slots));
-  const jobPrice = clampedSlots * PRICE_PER_SLOT + clampedSlots * TOTE_PRICE + WHEELS_PRICE;
-
-  const freeFee = Math.round(jobPrice * DIRECT_FREE_FEE_RATE);
-  const proFee = Math.round(jobPrice * DIRECT_PRO_FEE_RATE);
-  const savings = freeFee - proFee;
-  const jobsToBreakEven = savings > 0 ? Math.ceil(PRO_MONTHLY_COST / savings) : 0;
-
-  return {
-    jobPrice,
-    freeFee,
-    proFee,
-    savings,
-    jobsToBreakEven,
-    monthlyPrice: PRO_MONTHLY_COST,
-    originalPrice: PRO_ORIGINAL_PRICE,
   };
 }
 
@@ -190,56 +143,36 @@ export async function getProFeeComparison(slots: number): Promise<ProFeeComparis
  */
 export async function getBuildFeeBreakdown(
   jobPrice: number,
-  materialsCost: number,
-  isPro: boolean
+  materialsCost: number
 ): Promise<BuildFeeBreakdown> {
   const networkFee = Math.round(jobPrice * NETWORK_FEE_RATE);
-  const directFeeRate = isPro ? DIRECT_PRO_FEE_RATE : DIRECT_FREE_FEE_RATE;
-  const directFee = Math.round(jobPrice * directFeeRate);
-
-  // Pro savings: difference between Free direct fee and Pro direct fee
-  const freeDirect = Math.round(jobPrice * DIRECT_FREE_FEE_RATE);
-  const proDirect = Math.round(jobPrice * DIRECT_PRO_FEE_RATE);
+  const directFee = Math.round(jobPrice * MAINTENANCE_FEE_RATE);
 
   return {
     networkFeePercent: "15%",
     networkFeeAmount: networkFee,
     networkCollect: Math.round(jobPrice * (1 - NETWORK_FEE_RATE)),
     networkNetProfit: Math.max(0, Math.round(jobPrice * (1 - NETWORK_FEE_RATE) - materialsCost)),
-    directFeePercent: isPro ? "3%" : "15%",
+    directFeePercent: "3%",
     directFeeAmount: directFee,
-    directCollect: Math.round(jobPrice * (1 - directFeeRate)),
-    directNetProfit: Math.max(0, Math.round(jobPrice * (1 - directFeeRate) - materialsCost)),
+    directCollect: Math.round(jobPrice * (1 - MAINTENANCE_FEE_RATE)),
+    directNetProfit: Math.max(0, Math.round(jobPrice * (1 - MAINTENANCE_FEE_RATE) - materialsCost)),
     depositAmount: Math.round(jobPrice * DEPOSIT_RATE),
-    proSavingsOnDirect: freeDirect - proDirect,
   };
 }
 
 /**
- * Marketing fee comparison for the features page calculator.
- * Given a job price and materials cost, returns Free vs Pro profit comparison.
+ * Get pricing constants for build page calculations.
+ * Constants stay server-side — client only gets the values it needs.
  */
-export async function getMarketingComparison(
-  price: number,
-  materials: number
-): Promise<{
-  freeProfit: number;
-  proProfit: number;
-  freeFee: number;
-  proFee: number;
-  savings: number;
-  monthlyPrice: number;
+export async function getPricingConstants(): Promise<{
+  pricePerSlot: number;
+  totePrice: number;
+  wheelsPrice: number;
 }> {
-  const freeFee = price * DIRECT_FREE_FEE_RATE;
-  const proFee = price * DIRECT_PRO_FEE_RATE;
-  const freeProfit = price - freeFee - materials;
-  const proProfit = price - proFee - materials;
   return {
-    freeProfit,
-    proProfit,
-    freeFee,
-    proFee,
-    savings: proProfit - freeProfit,
-    monthlyPrice: PRO_MONTHLY_COST,
+    pricePerSlot: PRICE_PER_SLOT,
+    totePrice: TOTE_PRICE,
+    wheelsPrice: WHEELS_PRICE,
   };
 }

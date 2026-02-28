@@ -157,8 +157,7 @@ export default function DashboardPage() {
     );
   }
 
-  // is_pro is the DB source of truth — subscription_tier can be stale/cached
-  const tier = profile?.is_pro ? "pro" : (profile?.subscription_tier === "pro" ? "pro" : "free");
+  const tier = "pro"; // All active users are Pro
   const hasStripe = !!profile?.stripe_account_id;
 
   // Dynamic welcome name
@@ -220,21 +219,14 @@ export default function DashboardPage() {
         <div className="mx-auto flex max-w-lg items-center justify-center gap-4">
           {/* Plan Status */}
           <div className="flex items-center gap-1.5">
-            {tier === "pro" && trialStatus?.onTrial ? (
+            {trialStatus?.onTrial ? (
               <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-purple-400">
-                PRO TRIAL · {trialStatus.daysRemaining}D LEFT
-              </span>
-            ) : tier === "pro" ? (
-              <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
-                PRO PLAN
+                TRIAL · {trialStatus.jobsRemaining} JOBS LEFT
               </span>
             ) : (
-              <>
-                <div className="h-2 w-2 rounded-full bg-stone-600" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-stone-400">
-                  Free Plan
-                </span>
-              </>
+              <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
+                PRO
+              </span>
             )}
           </div>
 
@@ -295,20 +287,40 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Pro Trial Banner ──────────────────────────────────────── */}
+      {/* ── Trial Banner ──────────────────────────────────────────── */}
       {trialStatus?.onTrial && (
         <div className="shrink-0 border-b border-purple-400/20 bg-purple-400/5 px-4 py-3">
           <div className="mx-auto max-w-lg text-center">
             <p className="text-sm font-bold text-purple-300">
-              7-Day Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
+              Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
             </p>
             <p className="text-xs text-purple-400/70 mt-0.5">
-              {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? "day" : "days"} remaining · All Pro features unlocked ·{" "}
+              {trialStatus.jobsRemaining} {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining · All features unlocked ·{" "}
               <a
                 href="/dashboard/profile"
                 className="font-bold underline hover:text-purple-200"
               >
-                Subscribe to keep Pro
+                Subscribe to continue
+              </a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Trial Expired Banner ───────────────────────────────────── */}
+      {trialStatus?.trialExpired && (
+        <div className="shrink-0 border-b border-red-400/20 bg-red-400/5 px-4 py-3">
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-sm font-bold text-red-300">
+              Your trial has ended
+            </p>
+            <p className="text-xs text-red-400/70 mt-0.5">
+              Subscribe to reactivate your account, portfolio, and booking links ·{" "}
+              <a
+                href="/upgrade"
+                className="font-bold underline hover:text-red-200"
+              >
+                Subscribe Now
               </a>
             </p>
           </div>
@@ -355,7 +367,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Network Passive Income ─────────────────────────────── */}
-          {profile && <NetworkPassiveIncome userId={profile.id} isPro={tier === "pro"} />}
+          {profile && <NetworkPassiveIncome userId={profile.id} />}
 
           {/* JOBS / LEADS Tile */}
           <a
@@ -411,36 +423,21 @@ export default function DashboardPage() {
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
 
-          {/* PRO COMMUNITY Tile */}
+          {/* COMMUNITY Tile */}
           <a
-            href={tier === "pro" ? "/community" : "/community/upgrade"}
-            className={`group relative flex items-center gap-5 rounded-2xl border p-6 transition-all active:scale-[0.98] ${
-              tier === "pro"
-                ? "border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 hover:border-yellow-400/50 hover:from-yellow-500/10"
-                : "border-slate-800 bg-slate-900 hover:border-yellow-400/30 hover:bg-slate-800"
-            }`}
+            href="/community"
+            className="group relative flex items-center gap-5 rounded-2xl border p-6 transition-all active:scale-[0.98] border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 hover:border-yellow-400/50 hover:from-yellow-500/10"
           >
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
               <Users className="h-8 w-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">Community</h2>
-                <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-yellow-400">
-                  PRO
-                </span>
-              </div>
+              <h2 className="text-lg font-bold text-white">Community</h2>
               <p className="text-sm text-stone-500">
-                {tier === "pro"
-                  ? "Discuss, share builds & get advice"
-                  : "Upgrade to join the Pro community"}
+                Discuss, share builds &amp; get advice
               </p>
             </div>
-            {tier === "pro" ? (
-              <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
-            ) : (
-              <Zap className="h-5 w-5 text-yellow-400/50" />
-            )}
+            <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
 
           {/* ANALYTICS Tile */}

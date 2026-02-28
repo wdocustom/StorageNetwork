@@ -25,7 +25,7 @@ export interface OnboardInput {
   email: string;
   password: string;
   zipCode: string;
-  withStandardTrial?: boolean; // Standard 7-day Pro trial (non-partner)
+  withStandardTrial?: boolean; // Activate trial on signup
 }
 
 export interface OnboardResult {
@@ -90,7 +90,7 @@ export async function onboardInstaller(
       service_zip: baseZip,
       service_radius_miles: DEFAULT_SERVICE_RADIUS,
       service_zips: coveredZips.length > 0 ? coveredZips : [baseZip],
-      subscription_tier: "free",
+      subscription_tier: "pro",
     });
 
     console.log("✅ Installer account created:", userId);
@@ -113,12 +113,12 @@ export async function onboardInstaller(
           await supabase.from("referrals").insert({
             partner_id: partner.id,
             installer_id: userId,
-            status: "pending", // Activates when they subscribe to Pro
+            status: "pending", // Activates when they subscribe
           });
 
-          // ── 7-Day Pro Trial — courtesy of the referring partner ───────
+          // ── Trial — 3 jobs or 45 days, courtesy of the referring partner ──
           const trialEnd = new Date();
-          trialEnd.setDate(trialEnd.getDate() + 7);
+          trialEnd.setDate(trialEnd.getDate() + 45);
           const partnerDisplayName = partner.company || partner.name;
 
           // Generate a slug for the trial (Pro feature)
@@ -149,7 +149,7 @@ export async function onboardInstaller(
             .eq("id", userId);
 
           isTrialActivated = true;
-          console.log(`✅ Referral + 7-day Pro trial activated: ${userId} → partner ${partner.id} (slug: ${affiliateSlug}) | Trial ends: ${trialEnd.toISOString()}`);
+          console.log(`✅ Referral + trial activated: ${userId} → partner ${partner.id} (slug: ${affiliateSlug}) | Trial ends: ${trialEnd.toISOString()}`);
         }
       }
     } catch (refErr) {
@@ -157,11 +157,11 @@ export async function onboardInstaller(
       console.error("[Onboard] Referral tracking failed (non-fatal):", refErr);
     }
 
-    // 2c. Standard system trial (CTA join — no partner) if no affiliate trial was activated
+    // 2c. Standard trial (CTA join — no partner) if no affiliate trial was activated
     if (!isTrialActivated && input.withStandardTrial) {
       try {
         const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 7);
+        trialEnd.setDate(trialEnd.getDate() + 45);
 
         const rawName = businessName.trim() || name.trim() || userId.slice(0, 8);
         let trialSlug = slugify(rawName);
@@ -189,7 +189,7 @@ export async function onboardInstaller(
           .eq("id", userId);
 
         isTrialActivated = true;
-        console.log(`✅ Standard 7-day Pro trial activated: ${userId} | Trial ends: ${trialEnd.toISOString()}`);
+        console.log(`✅ Trial activated: ${userId} | Trial ends: ${trialEnd.toISOString()}`);
       } catch (trialErr) {
         console.error("[Onboard] Standard trial activation failed (non-fatal):", trialErr);
       }

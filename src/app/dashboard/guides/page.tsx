@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,9 +18,7 @@ import {
   Sparkles,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -82,24 +80,6 @@ const INSTALLATION_CHECKLIST = [
 
 export default function GuidesPage() {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-  const [isPro, setIsPro] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) {
-        setIsPro(false);
-        return;
-      }
-      const { data } = await supabase
-        .from("profiles")
-        .select("is_pro")
-        .eq("id", user.id)
-        .single();
-      setIsPro(data?.is_pro === true);
-    });
-  }, []);
-
   function toggleItem(id: string) {
     setCheckedItems((prev) => {
       const next = new Set(prev);
@@ -398,32 +378,15 @@ export default function GuidesPage() {
               </div>
             </div>
 
-            {/* CTA Button — adapts based on Pro status */}
-            {isPro ? (
-              <a
-                href="/community"
-                className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-gray-950 transition-all hover:bg-yellow-300"
-              >
-                <Users className="h-4 w-4" />
-                Browse the Community
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            ) : (
-              <a
-                href="/community/upgrade"
-                className="flex items-center justify-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3 text-sm font-bold text-yellow-400 transition-all hover:border-yellow-500/50 hover:bg-yellow-400/20"
-              >
-                <Zap className="h-4 w-4" />
-                {isPro === false ? "Upgrade to Pro to Join" : "Join the Community"}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </a>
-            )}
-
-            {isPro === false && (
-              <p className="mt-2 text-center text-[11px] text-stone-600">
-                Community access is included with the Pro plan — $99/mo
-              </p>
-            )}
+            {/* CTA Button */}
+            <a
+              href="/community"
+              className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 text-sm font-bold text-gray-950 transition-all hover:bg-yellow-300"
+            >
+              <Users className="h-4 w-4" />
+              Browse the Community
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         </section>
 

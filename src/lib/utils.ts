@@ -1,6 +1,6 @@
 /**
  * Generate the correct booking link for an installer.
- * Pro users get a vanity slug link; Basic users get the UUID link.
+ * Installers with a slug get their portfolio page; others go direct to design.
  * Both formats are supported by the design page resolver.
  */
 export function getInstallerLink(user: {
@@ -12,8 +12,8 @@ export function getInstallerLink(user: {
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== "undefined" ? window.location.origin : "https://storage-network.app");
 
-  // Pro users with a slug get their portfolio page; Basic users go direct to design.
-  if (user.is_pro === true && user.slug) {
+  // Installers with a slug get their portfolio page
+  if (user.slug) {
     return `${baseUrl}/p/${encodeURIComponent(user.slug)}`;
   }
 

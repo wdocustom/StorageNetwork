@@ -68,7 +68,6 @@ interface UnitConfig {
 export default function BuildConfiguratorPage() {
   const supabase = getSupabaseBrowserClient();
 
-  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -166,7 +165,6 @@ export default function BuildConfiguratorPage() {
       .single();
 
     if (data) {
-      setIsPro(data.is_pro || data.subscription_tier === "pro");
       setBusinessName(data.business_name || data.first_name || "Your Business");
       if (data.first_name) setInstallerFirstName(data.first_name);
       if (data.phone) setInstallerPhone(data.phone);
@@ -348,9 +346,9 @@ export default function BuildConfiguratorPage() {
   const [feeBreakdown, setFeeBreakdown] = useState<BuildFeeBreakdown | null>(null);
   useEffect(() => {
     if (displayPrice > 0 && displayMaterials) {
-      getBuildFeeBreakdown(displayPrice, displayMaterials.totalCost, isPro).then(setFeeBreakdown);
+      getBuildFeeBreakdown(displayPrice, displayMaterials.totalCost).then(setFeeBreakdown);
     }
-  }, [displayPrice, displayMaterials, isPro]);
+  }, [displayPrice, displayMaterials]);
 
   /** Build the quote units array from current state. */
   function buildQuoteUnits(): QuoteUnit[] | null {
@@ -560,11 +558,9 @@ export default function BuildConfiguratorPage() {
               Estimate, Quote & New Build
             </p>
           </div>
-          {isPro && (
-            <span className="rounded-full bg-yellow-400/20 px-3 py-1 text-[10px] font-bold text-yellow-400">
-              PRO
-            </span>
-          )}
+          <span className="rounded-full bg-yellow-400/20 px-3 py-1 text-[10px] font-bold text-yellow-400">
+            PRO
+          </span>
         </div>
       </header>
 
@@ -938,7 +934,7 @@ export default function BuildConfiguratorPage() {
                           <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
-                          <span>Platform Fee ({feeBreakdown?.networkFeePercent ?? "..."})</span>
+                          <span>Network Fee ({feeBreakdown?.networkFeePercent ?? "..."})</span>
                           <span>-${(feeBreakdown?.networkFeeAmount ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
@@ -961,9 +957,9 @@ export default function BuildConfiguratorPage() {
                     </div>
 
                     {/* Direct Lead Scenario */}
-                    <div className={`relative rounded-lg border p-3 ${isPro ? "border-yellow-400/50 bg-yellow-400/5" : "border-slate-700 bg-slate-800/50"}`}>
+                    <div className="relative rounded-lg border p-3 border-yellow-400/50 bg-yellow-400/5">
                       <div className="mb-2 text-center">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isPro ? "bg-yellow-400/20 text-yellow-400" : "bg-slate-600/50 text-stone-400"}`}>
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-yellow-400/20 text-yellow-400">
                           DIRECT LEAD
                         </span>
                       </div>
@@ -973,7 +969,7 @@ export default function BuildConfiguratorPage() {
                           <span>${displayPrice.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-red-400">
-                          <span>Platform Fee ({feeBreakdown?.directFeePercent ?? "..."})</span>
+                          <span>Maintenance Fee ({feeBreakdown?.directFeePercent ?? "..."})</span>
                           <span>-${(feeBreakdown?.directFeeAmount ?? 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-stone-400">
@@ -993,37 +989,8 @@ export default function BuildConfiguratorPage() {
                           </div>
                         </div>
                       </div>
-                      {isPro && (
-                        <div className="absolute -top-2 right-2">
-                          <span className="rounded bg-yellow-400 px-1.5 py-0.5 text-[9px] font-black text-gray-950">PRO</span>
-                        </div>
-                      )}
                     </div>
                   </div>
-
-                  {/* Pro Upsell for Free Users */}
-                  {!isPro && (
-                    <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-400/10">
-                          <TrendingUp className="h-4 w-4 text-yellow-400" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-yellow-400">Save 10% on Direct Leads with Pro</p>
-                          <p className="mt-0.5 text-[11px] text-stone-400">
-                            Upgrade to Pro and keep more profit on jobs from your own customers.
-                            On this job alone, you&apos;d save <span className="font-bold text-emerald-400">${(feeBreakdown?.proSavingsOnDirect ?? 0).toLocaleString()}</span>.
-                          </p>
-                          <a
-                            href="/upgrade"
-                            className="mt-2 inline-block rounded bg-yellow-400 px-3 py-1.5 text-[10px] font-bold uppercase text-gray-950 transition-colors hover:bg-yellow-300"
-                          >
-                            Upgrade to Pro
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </section>

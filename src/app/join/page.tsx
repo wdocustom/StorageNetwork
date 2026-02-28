@@ -19,7 +19,7 @@ import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Join the Network — Standard System Trial (7-day Pro)
+// Join the Network — Pro Trial (3 jobs + 45-day expiry)
 //
 // This is the direct-from-landing-page join flow.
 // Different from /partner/join which is partner-referred.
@@ -185,10 +185,10 @@ export default function JoinPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-yellow-300">
-                  7-Day Free Pro Trial
+                  Pro Trial Included
                 </p>
                 <p className="text-[11px] text-yellow-400/70">
-                  All Pro features unlocked — no credit card required
+                  Complete 3 jobs to experience the full platform — no credit card required
                 </p>
               </div>
             </div>
@@ -333,7 +333,7 @@ export default function JoinPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  Start Free Trial
+                  Start Your Trial
                   <ChevronRight className="h-4 w-4" />
                 </>
               )}

@@ -9,15 +9,7 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
-  Zap,
-  ArrowRight,
-  Share2,
-  Globe,
-  Wallet,
-  TrendingUp,
-  Lock,
 } from "lucide-react";
-import { createProCheckoutSession } from "@/app/actions/pro-subscription";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -61,10 +53,6 @@ export default function ReferralsPage() {
   const supabase = getSupabaseBrowserClient();
   const [referrals, setReferrals] = useState<ReferralItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isPro, setIsPro] = useState(false);
-  const [userId, setUserId] = useState("");
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
-  const [upgradeError, setUpgradeError] = useState("");
 
   const fetchReferrals = useCallback(async () => {
     const {
@@ -74,17 +62,6 @@ export default function ReferralsPage() {
       window.location.href = "/login";
       return;
     }
-
-    setUserId(user.id);
-
-    // Check Pro status
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_pro")
-      .eq("id", user.id)
-      .single();
-
-    setIsPro(!!profile?.is_pro);
 
     const { data } = await supabase
       .from("leads")
@@ -124,18 +101,6 @@ export default function ReferralsPage() {
   useEffect(() => {
     fetchReferrals();
   }, [fetchReferrals]);
-
-  async function handleUpgrade() {
-    setUpgradeLoading(true);
-    setUpgradeError("");
-    const result = await createProCheckoutSession(userId);
-    if (result.success && result.url) {
-      window.location.href = result.url;
-    } else {
-      setUpgradeError(result.error || "Failed to start checkout");
-      setUpgradeLoading(false);
-    }
-  }
 
   const paidReferrals = referrals.filter((r) => r.bounty_status === "paid");
   const pendingCount = referrals.filter((r) => r.bounty_status === "pending").length;
@@ -246,131 +211,6 @@ export default function ReferralsPage() {
         </div>
       </div>
 
-      {/* ── Pro Upsell — only shown to free-plan installers ──────── */}
-      {!isPro && (
-        <div className="border-b border-slate-800 px-4 py-6">
-          <div className="mx-auto max-w-2xl">
-            <div className="overflow-hidden rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900">
-              {/* Upsell Header */}
-              <div className="border-b border-yellow-500/20 bg-yellow-400/5 px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/15">
-                    <TrendingUp className="h-5 w-5 text-yellow-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-black text-white">
-                        Unlock Network Bounties
-                      </h3>
-                      <Lock className="h-3.5 w-3.5 text-yellow-400/60" />
-                    </div>
-                    <p className="text-[11px] text-stone-400">
-                      Turn every link share into passive income
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Selling Points */}
-              <div className="space-y-4 px-5 py-5">
-                <p className="text-sm leading-relaxed text-stone-300">
-                  Pro members earn <span className="font-bold text-yellow-400">30% of the deposit</span> every time
-                  someone outside their service area books through their link. You don&apos;t lift a finger — another
-                  installer handles the job. You get paid.
-                </p>
-
-                <div className="space-y-3">
-                  {[
-                    {
-                      icon: Globe,
-                      title: "No Territory Limits",
-                      desc: "Your link works nationwide. Share it on Facebook, Instagram, TikTok, your website — anywhere.",
-                    },
-                    {
-                      icon: Share2,
-                      title: "Share Once, Earn Forever",
-                      desc: "One social post can drive referrals for months. No cap on how many you earn.",
-                    },
-                    {
-                      icon: Wallet,
-                      title: "Direct to Your Stripe",
-                      desc: "Bounties deposit automatically. No invoicing, no chasing payments.",
-                    },
-                    {
-                      icon: DollarSign,
-                      title: "Minimum $15 Per Referral",
-                      desc: "A $500 deposit earns you $150. A $1,000 deposit? $300. Guaranteed minimum.",
-                    },
-                  ].map((item) => (
-                    <div key={item.title} className="flex gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10">
-                        <item.icon className="h-4 w-4 text-yellow-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white">{item.title}</p>
-                        <p className="text-[11px] leading-relaxed text-stone-500">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Example Earnings */}
-                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400/70">
-                    Example monthly earnings
-                  </p>
-                  <div className="mt-2 grid grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-lg font-black text-white">$150</p>
-                      <p className="text-[10px] text-stone-500">5 referrals</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-black text-yellow-400">$450</p>
-                      <p className="text-[10px] text-stone-500">15 referrals</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-black text-emerald-400">$1,500</p>
-                      <p className="text-[10px] text-stone-500">50 referrals</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[10px] text-stone-600">
-                    Based on avg. $100 deposit × 30% bounty
-                  </p>
-                </div>
-              </div>
-
-              {/* CTA */}
-              <div className="border-t border-yellow-500/20 bg-slate-900/50 px-5 py-4">
-                <button
-                  onClick={handleUpgrade}
-                  disabled={upgradeLoading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-widest text-gray-950 shadow-lg shadow-yellow-400/25 transition-all hover:bg-yellow-300 hover:shadow-yellow-400/40 disabled:opacity-50"
-                >
-                  {upgradeLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      Upgrade to Pro — $99/mo
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-                {upgradeError && (
-                  <p className="mt-2 text-center text-xs text-red-400">{upgradeError}</p>
-                )}
-                <p className="mt-2 text-center text-[10px] text-stone-600">
-                  Cancel anytime. Also includes 3% fees, custom branding, custom pricing & more.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Referral List ──────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-4 py-4">
         {referrals.length === 0 ? (
@@ -380,9 +220,7 @@ export default function ReferralsPage() {
               No referrals yet
             </p>
             <p className="mt-1 text-xs text-stone-600">
-              {isPro
-                ? "Share your link — when a customer books outside your area, it'll show up here."
-                : "Upgrade to Pro to start earning passive income from network referrals."}
+              Share your link — when a customer books outside your area, it&apos;ll show up here.
             </p>
           </div>
         ) : (

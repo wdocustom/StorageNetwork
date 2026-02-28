@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -19,76 +18,53 @@ import {
   Globe,
   Layout,
   Megaphone,
-  Minus,
   Package,
   Star,
   Target,
   TrendingUp,
   Users,
   Wrench,
-  X,
   Zap,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Features Page — Master reference: Free vs Pro comparison
+// Features Page — What's Included
 //
-// Not linked publicly yet. Lives at /features for internal reference.
+// Single plan: $49/mo, 3% maintenance fee on direct leads, 15% on network leads.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Feature comparison data ──────────────────────────────────────────────
+// ── Feature list data ────────────────────────────────────────────────────
 
 interface FeatureRow {
   name: string;
-  free: string | boolean;
-  pro: string | boolean;
+  included: string | boolean;
   id: string;
   icon: React.ElementType;
   highlight?: boolean;
 }
 
 const FEATURES: FeatureRow[] = [
-  { name: "Pre-Sold Leads from Network", free: true, pro: true, id: "leads", icon: Target },
-  { name: "3D Configurator & Quoting", free: true, pro: true, id: "configurator", icon: Layout },
-  { name: "Auto-Generated Material Lists", free: false, pro: true, id: "materials", icon: ClipboardList, highlight: true },
-  { name: "Auto-Generated Cut Plans", free: false, pro: true, id: "cutplans", icon: Wrench, highlight: true },
-  { name: "Smart Inventory Manager", free: true, pro: true, id: "inventory", icon: Package },
-  { name: "Direct Lead Fee", free: "15%", pro: "3%", id: "fees", icon: DollarSign, highlight: true },
-  { name: "Network Lead Fee", free: "15%", pro: "15%", id: "fees", icon: DollarSign },
-  { name: "Stripe Instant Payouts", free: true, pro: true, id: "payments", icon: CreditCard },
-  { name: "Branded Booking Page", free: true, pro: true, id: "booking", icon: Globe },
-  { name: "Job Scheduling & Calendar", free: true, pro: true, id: "scheduling", icon: Calendar },
-  { name: "AI Marketing Scripts", free: true, pro: true, id: "marketing", icon: Megaphone },
-  { name: "Where to Post Finder", free: true, pro: true, id: "marketing", icon: Target },
-  { name: "Installer Community", free: false, pro: true, id: "community", icon: Users, highlight: true },
-  { name: "Guides & Training Library", free: true, pro: true, id: "guides", icon: BookOpen },
-  { name: "Photo QR Upload (Desktop)", free: false, pro: true, id: "community", icon: Camera },
-  { name: "Referral Bounty Program", free: false, pro: true, id: "referrals", icon: Banknote, highlight: true },
-  { name: "Analytics Dashboard", free: true, pro: true, id: "analytics", icon: BarChart3 },
-  { name: "Custom Pricing Controls", free: false, pro: true, id: "pricing", icon: Calculator },
-];
-
-// ── Job analysis scenarios ───────────────────────────────────────────────
-import { getMarketingComparison } from "@/app/actions/fee-engine";
-
-const SCENARIOS = [
-  { label: "Small Pantry Build", price: 400, materials: 60 },
-  { label: "Standard Garage Unit", price: 800, materials: 120 },
-  { label: "Full Garage Build (2 units)", price: 1600, materials: 220 },
-  { label: "Premium Custom Build", price: 2400, materials: 310 },
+  { name: "Pre-Sold Leads from Network", included: true, id: "leads", icon: Target },
+  { name: "3D Configurator & Quoting", included: true, id: "configurator", icon: Layout },
+  { name: "Auto-Generated Material Lists", included: true, id: "materials", icon: ClipboardList, highlight: true },
+  { name: "Auto-Generated Cut Plans", included: true, id: "cutplans", icon: Wrench, highlight: true },
+  { name: "Smart Inventory Manager", included: true, id: "inventory", icon: Package },
+  { name: "Direct Lead Maintenance Fee", included: "3%", id: "fees", icon: DollarSign, highlight: true },
+  { name: "Network Lead Fee", included: "15%", id: "fees", icon: DollarSign },
+  { name: "Stripe Instant Payouts", included: true, id: "payments", icon: CreditCard },
+  { name: "Branded Booking Page", included: true, id: "booking", icon: Globe },
+  { name: "Job Scheduling & Calendar", included: true, id: "scheduling", icon: Calendar },
+  { name: "AI Marketing Scripts", included: true, id: "marketing", icon: Megaphone },
+  { name: "Where to Post Finder", included: true, id: "marketing", icon: Target },
+  { name: "Installer Community", included: true, id: "community", icon: Users, highlight: true },
+  { name: "Guides & Training Library", included: true, id: "guides", icon: BookOpen },
+  { name: "Photo QR Upload (Desktop)", included: true, id: "community", icon: Camera },
+  { name: "Referral Bounty Program", included: true, id: "referrals", icon: Banknote, highlight: true },
+  { name: "Analytics Dashboard", included: true, id: "analytics", icon: BarChart3 },
+  { name: "Custom Pricing Controls", included: true, id: "pricing", icon: Calculator },
 ];
 
 export default function FeaturesPage() {
-  const [selectedScenario, setSelectedScenario] = useState(1);
-  const scenario = SCENARIOS[selectedScenario];
-
-  // Fee comparison — computed server-side (black box)
-  const [comparison, setComparison] = useState({ freeProfit: 0, proProfit: 0, freeFee: 0, proFee: 0, savings: 0, monthlyPrice: 49 });
-  useEffect(() => {
-    getMarketingComparison(scenario.price, scenario.materials).then(setComparison);
-  }, [scenario.price, scenario.materials]);
-  const { freeProfit, proProfit, savings } = comparison;
-
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ═══════════════════════════════════════════════════════════════════
@@ -129,7 +105,7 @@ export default function FeaturesPage() {
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-stone-400">
             The Storage Network platform handles sales, planning, payments, and
             marketing so you can focus on what you do best — building. Here&apos;s
-            every feature, and why Pro pays for itself on your first job.
+            every feature included in your subscription.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -137,14 +113,14 @@ export default function FeaturesPage() {
               href="/join"
               className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
             >
-              Start Free Trial
+              Start Your Trial
               <ChevronRight className="h-4 w-4" />
             </a>
             <a
-              href="#comparison"
+              href="#features"
               className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-8 py-4 text-sm font-bold text-stone-300 transition-all hover:border-yellow-400/30 hover:text-white"
             >
-              Compare Plans
+              See All Features
               <ArrowRight className="h-4 w-4" />
             </a>
           </div>
@@ -203,43 +179,36 @@ export default function FeaturesPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          PLAN COMPARISON TABLE
+          WHAT'S INCLUDED — Feature List
       ═══════════════════════════════════════════════════════════════════ */}
-      <section id="comparison" className="scroll-mt-8 border-b border-slate-800 py-20">
+      <section id="features" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-            Plans &amp; Pricing
+            What&apos;s Included
           </p>
           <h2 className="mb-4 text-center text-3xl font-black text-white md:text-4xl">
-            Free vs. Pro
+            Everything, One Plan
           </h2>
           <p className="mx-auto mb-12 max-w-xl text-center text-sm text-stone-400">
-            Every installer starts with a 7-day Pro trial. No credit card required.
-            After that, choose the plan that fits — or let the math decide for you.
+            $49/mo gets you the full platform — every tool, every feature, no upsells.
+            3% maintenance fee on direct leads, 15% on network leads.
           </p>
 
-          {/* Plan headers */}
-          <div className="mb-0 grid grid-cols-[1fr_120px_120px] gap-0 md:grid-cols-[1fr_160px_160px]">
-            <div />
-            <div className="rounded-t-xl border border-b-0 border-slate-700 bg-slate-800 py-3 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Free</p>
-              <p className="text-lg font-black text-white">$0</p>
-              <p className="text-[10px] text-stone-600">forever</p>
-            </div>
-            <div className="rounded-t-xl border border-b-0 border-yellow-400/30 bg-yellow-400/5 py-3 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">Pro</p>
-              <p className="text-lg font-black text-yellow-400">$99</p>
-              <p className="text-[10px] text-yellow-400/60">/month</p>
-            </div>
+          {/* Pricing card */}
+          <div className="mx-auto mb-10 max-w-sm rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/[0.03] p-6 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">Pro</p>
+            <p className="mt-1 text-4xl font-black text-yellow-400">$49</p>
+            <p className="text-sm text-yellow-400/60">/month</p>
+            <p className="mt-3 text-xs text-stone-500">3% maintenance fee on direct leads &middot; 15% on network leads</p>
           </div>
 
           {/* Feature rows */}
-          <div className="overflow-hidden rounded-b-xl border border-slate-700">
+          <div className="overflow-hidden rounded-xl border border-slate-700">
             {FEATURES.map((f, i) => (
               <a
                 key={i}
                 href={`#${f.id}`}
-                className={`grid grid-cols-[1fr_120px_120px] gap-0 border-b border-slate-800 transition-colors hover:bg-slate-800/50 md:grid-cols-[1fr_160px_160px] ${
+                className={`grid grid-cols-[1fr_100px] gap-0 border-b border-slate-800 transition-colors hover:bg-slate-800/50 ${
                   f.highlight ? "bg-yellow-400/[0.02]" : ""
                 } ${i === FEATURES.length - 1 ? "border-b-0" : ""}`}
               >
@@ -252,26 +221,13 @@ export default function FeaturesPage() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center justify-center border-x border-slate-800 py-3">
-                  {typeof f.free === "boolean" ? (
-                    f.free ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Minus className="h-4 w-4 text-stone-700" />
-                    )
-                  ) : (
-                    <span className="text-sm font-bold text-stone-400">{f.free}</span>
-                  )}
-                </div>
                 <div className="flex items-center justify-center py-3">
-                  {typeof f.pro === "boolean" ? (
-                    f.pro ? (
+                  {typeof f.included === "boolean" ? (
+                    f.included ? (
                       <Check className="h-4 w-4 text-yellow-400" />
-                    ) : (
-                      <Minus className="h-4 w-4 text-stone-700" />
-                    )
+                    ) : null
                   ) : (
-                    <span className="text-sm font-black text-yellow-400">{f.pro}</span>
+                    <span className="text-sm font-black text-yellow-400">{f.included}</span>
                   )}
                 </div>
               </a>
@@ -281,114 +237,51 @@ export default function FeaturesPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          THE MONEY MATH — Interactive Scenario Calculator
+          THE FEE STRUCTURE
       ═══════════════════════════════════════════════════════════════════ */}
       <section id="fees" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-            The No-Brainer Math
+            Simple Pricing
           </p>
           <h2 className="mb-4 text-center text-3xl font-black text-white md:text-4xl">
-            Pro Pays for Itself. Every Single Month.
+            Transparent Fees. No Surprises.
           </h2>
           <p className="mx-auto mb-10 max-w-xl text-center text-sm text-stone-400">
-            On your own direct leads, Free plan charges 15%. Pro drops it to 3%.
-            That 12% difference adds up fast. Pick a scenario:
+            Two fee tiers based on where the lead comes from. Direct leads you bring in yourself
+            have a low 3% maintenance fee. Network leads we find for you are 15%.
           </p>
 
-          {/* Scenario selector */}
-          <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {SCENARIOS.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedScenario(i)}
-                className={`rounded-lg border px-3 py-3 text-center transition-all ${
-                  selectedScenario === i
-                    ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-                    : "border-slate-700 bg-slate-800 text-stone-600 hover:border-slate-600 hover:text-stone-400"
-                }`}
-              >
-                <p className="text-xs font-bold">{s.label}</p>
-                <p className="mt-1 text-lg font-black">${s.price.toLocaleString()}</p>
-              </button>
-            ))}
-          </div>
-
-          {/* Side-by-side comparison */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Free column */}
-            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-stone-500">Free Plan</span>
-                <span className="rounded-full bg-stone-800 px-3 py-1 text-[10px] font-bold text-stone-400">15% FEE</span>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Job Price</span>
-                  <span className="font-bold text-white">${scenario.price.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Platform Fee (15%)</span>
-                  <span className="font-bold text-red-400">-${comparison.freeFee.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Est. Materials</span>
-                  <span className="font-bold text-stone-400">-${scenario.materials.toLocaleString()}</span>
-                </div>
-                <div className="border-t border-slate-700 pt-3">
-                  <div className="flex justify-between">
-                    <span className="font-bold text-stone-400">Your Profit</span>
-                    <span className="text-xl font-black text-white">${freeProfit.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Pro column */}
+            {/* Direct leads */}
             <div className="rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/[0.03] p-6">
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Pro Plan</span>
-                <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[10px] font-bold text-yellow-400">3% FEE</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Direct Leads</span>
+                <span className="rounded-full bg-yellow-400/10 px-3 py-1 text-[10px] font-bold text-yellow-400">3% MAINTENANCE FEE</span>
               </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Job Price</span>
-                  <span className="font-bold text-white">${scenario.price.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Platform Fee (3%)</span>
-                  <span className="font-bold text-emerald-400">-${comparison.proFee.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Est. Materials</span>
-                  <span className="font-bold text-stone-400">-${scenario.materials.toLocaleString()}</span>
-                </div>
-                <div className="border-t border-yellow-400/20 pt-3">
-                  <div className="flex justify-between">
-                    <span className="font-bold text-yellow-400">Your Profit</span>
-                    <span className="text-xl font-black text-yellow-400">${proProfit.toLocaleString()}</span>
-                  </div>
-                </div>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Jobs from your own customers via your personal booking link. You drive the traffic
+                through your marketing — Craigslist, Facebook, Instagram, word of mouth — and the
+                platform handles the rest. You keep the vast majority of every dollar.
+              </p>
+            </div>
+
+            {/* Network leads */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-500">Network Leads</span>
+                <span className="rounded-full bg-stone-800 px-3 py-1 text-[10px] font-bold text-stone-400">15% FEE</span>
               </div>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Jobs we find for you through the Storage Network marketplace. Customers come to
+                the platform, design their build, and get matched with an installer in their area.
+                You didn&apos;t lift a finger to get the lead — the platform did the selling for you.
+              </p>
             </div>
           </div>
 
-          {/* Savings callout */}
-          <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
-            <p className="mb-1 text-sm font-bold text-emerald-400">
-              You keep an extra ${savings.toLocaleString()} on this one job alone.
-            </p>
-            <p className="text-xs text-stone-500">
-              At just 2 direct jobs per month, that&apos;s <span className="font-bold text-white">${(savings * 2).toLocaleString()}/mo extra</span> in your pocket — minus the ${comparison.monthlyPrice} subscription, you net{" "}
-              <span className="font-bold text-emerald-400">${(savings * 2 - comparison.monthlyPrice).toLocaleString()}/mo more</span> than Free plan.
-            </p>
-            <p className="mt-3 text-xs text-stone-600">
-              At 4 direct jobs/month → <span className="text-white font-bold">${(savings * 4 - comparison.monthlyPrice).toLocaleString()}/mo</span> extra profit. At 8 → <span className="text-white font-bold">${(savings * 8 - comparison.monthlyPrice).toLocaleString()}/mo</span>. The more you build, the more Pro saves.
-            </p>
-          </div>
-
-          <p className="mt-4 text-center text-[11px] text-stone-600">
-            Network leads (jobs we find for you) are 15% on both plans. The 3% Pro rate applies to direct leads — jobs from your own customers via your booking link.
+          <p className="mt-6 text-center text-[11px] text-stone-600">
+            The more direct leads you generate, the more you keep. Use the marketing tools and your personal booking link to maximize your 3% rate.
           </p>
         </div>
       </section>
@@ -407,7 +300,7 @@ export default function FeaturesPage() {
                   <Target className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">Pre-Sold Leads</h3>
@@ -464,7 +357,7 @@ export default function FeaturesPage() {
                   <Layout className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">3D Configurator &amp; Quoting</h3>
@@ -493,7 +386,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* ── Material Lists & Cut Plans (PRO) ──────────────────────────── */}
+      {/* ── Material Lists & Cut Plans ──────────────────────────────────── */}
       <section id="materials" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
@@ -502,13 +395,13 @@ export default function FeaturesPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
                   <ClipboardList className="h-4 w-4 text-yellow-400" />
                 </div>
-                <span className="rounded bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-yellow-400">
-                  Pro Only
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  Included
                 </span>
               </div>
               <h3 id="cutplans" className="mb-3 scroll-mt-8 text-2xl font-black text-white">Material Lists &amp; Cut Plans</h3>
               <p className="mb-4 text-sm leading-relaxed text-stone-400">
-                This is where Pro installers save hours of planning on every single job.
+                Save hours of planning on every single job.
                 The platform auto-generates a complete shopping list and a board-by-board
                 cut plan with fractional measurements — so you walk into the lumber yard
                 knowing exactly what to grab and exactly where to cut.
@@ -559,7 +452,7 @@ export default function FeaturesPage() {
                   <Package className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">Smart Inventory Manager</h3>
@@ -687,7 +580,7 @@ export default function FeaturesPage() {
                   <CreditCard className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">Instant Payments &amp; Payouts</h3>
@@ -726,7 +619,7 @@ export default function FeaturesPage() {
                   <Globe className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 id="scheduling" className="mb-3 scroll-mt-8 text-2xl font-black text-white">Branded Booking &amp; Scheduling</h3>
@@ -734,7 +627,7 @@ export default function FeaturesPage() {
                 Every installer gets a personal booking link that opens the configurator
                 with your branding. Share it on your Instagram, Craigslist ads, business
                 cards — anywhere. Jobs that come through your link are &quot;direct leads&quot;
-                and qualify for the Pro 3% fee rate instead of 15%.
+                and qualify for the 3% maintenance fee rate instead of 15%.
               </p>
               <ul className="space-y-2">
                 {[
@@ -742,7 +635,7 @@ export default function FeaturesPage() {
                   "Set your working days and blackout dates",
                   "Automatic availability management",
                   "Reschedule jobs with one tap — customer gets notified",
-                  "Direct leads from your link = 3% fee on Pro",
+                  "Direct leads from your link = 3% maintenance fee",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
@@ -783,7 +676,7 @@ export default function FeaturesPage() {
                   <Megaphone className="h-4 w-4 text-yellow-400" />
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-                  Both Plans
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">Marketing Tools</h3>
@@ -799,7 +692,7 @@ export default function FeaturesPage() {
                   "Location-aware group finder with direct links",
                   "Craigslist section targeting (for sale, services, etc.)",
                   "Copy-to-clipboard one-tap posting",
-                  "Every direct lead you generate = 3% fee on Pro (vs 15% Free)",
+                  "Every direct lead you generate = 3% maintenance fee",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
@@ -812,7 +705,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* ── Community (PRO) ────────────────────────────────────────────── */}
+      {/* ── Community ────────────────────────────────────────────────────── */}
       <section id="community" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
@@ -821,23 +714,23 @@ export default function FeaturesPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
                   <Users className="h-4 w-4 text-yellow-400" />
                 </div>
-                <span className="rounded bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-yellow-400">
-                  Pro Only
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  Included
                 </span>
               </div>
               <h3 className="mb-3 text-2xl font-black text-white">Installer Community</h3>
               <p className="mb-4 text-sm leading-relaxed text-stone-400">
-                Connect with other Pro installers. Share build photos, ask questions,
+                Connect with other installers. Share build photos, ask questions,
                 swap tips on tricky installs, and learn what&apos;s working in other
-                markets. The community is exclusive to Pro subscribers so the quality
-                stays high and the conversations stay relevant.
+                markets. The community keeps the quality
+                high and the conversations relevant.
               </p>
               <ul className="space-y-2">
                 {[
                   "Post builds, ask questions, share tips",
                   "Comment threads on every post",
-                  "Photo uploads with QR code support (desktop → phone)",
-                  "Pro-only access keeps signal-to-noise ratio high",
+                  "Photo uploads with QR code support (desktop \u2192 phone)",
+                  "High signal-to-noise ratio",
                   "Learn from installers who are actively building",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
@@ -860,15 +753,15 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* ── Referral Bounties (PRO) ────────────────────────────────────── */}
+      {/* ── Referral Bounties ────────────────────────────────────────────── */}
       <section id="referrals" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="mb-3 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
               <Banknote className="h-4 w-4 text-yellow-400" />
             </div>
-            <span className="rounded bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-yellow-400">
-              Pro Only
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+              Included
             </span>
           </div>
           <h3 className="mb-3 text-2xl font-black text-white">Referral Bounty Program</h3>
@@ -889,7 +782,7 @@ export default function FeaturesPage() {
               <BookOpen className="h-4 w-4 text-yellow-400" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-              Both Plans
+              Included
             </span>
           </div>
           <h3 className="mb-3 text-2xl font-black text-white">Guides &amp; Training Library</h3>
@@ -902,22 +795,21 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* ── Custom Pricing (PRO) ───────────────────────────────────────── */}
+      {/* ── Custom Pricing ───────────────────────────────────────────── */}
       <section id="pricing" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="mb-3 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
               <Calculator className="h-4 w-4 text-yellow-400" />
             </div>
-            <span className="rounded bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase text-yellow-400">
-              Pro Only
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+              Included
             </span>
           </div>
           <h3 className="mb-3 text-2xl font-black text-white">Custom Pricing Controls</h3>
           <p className="mb-6 max-w-2xl text-sm leading-relaxed text-stone-400">
-            Pro installers can customize their pricing structure. Adjust your base
-            rates, add delivery fees, and tailor quotes for your local market. Standard
-            plan uses the default network pricing.
+            Customize your pricing structure. Adjust your base
+            rates, add delivery fees, and tailor quotes for your local market.
           </p>
         </div>
       </section>
@@ -930,7 +822,7 @@ export default function FeaturesPage() {
               <BarChart3 className="h-4 w-4 text-yellow-400" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
-              Both Plans
+              Included
             </span>
           </div>
           <h3 className="mb-3 text-2xl font-black text-white">Analytics Dashboard</h3>
@@ -954,23 +846,22 @@ export default function FeaturesPage() {
             Ready to Build Smarter?
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed text-stone-400">
-            Start with a 7-day Pro trial. No credit card. No commitment. See every
-            feature in action, complete a few jobs, and let the numbers speak for
-            themselves. Most installers who try Pro never go back.
+            Start your trial and see every feature in action. Complete a few jobs and
+            let the numbers speak for themselves.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
               href="/join"
               className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-10 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
             >
-              Start Free Trial
+              Start Your Trial
               <ChevronRight className="h-4 w-4" />
             </a>
             <a
               href="/demo"
               className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-8 py-4 text-sm font-bold text-stone-300 transition-all hover:border-yellow-400/30 hover:text-white"
             >
-              Book a Free Demo
+              Book a Demo
               <ArrowRight className="h-4 w-4" />
             </a>
           </div>

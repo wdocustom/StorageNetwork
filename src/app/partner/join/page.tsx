@@ -207,10 +207,10 @@ function PartnerJoinPageInner() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-purple-300">
-                  7-Day Free Pro Trial
+                  Pro Trial Included
                 </p>
                 <p className="text-[11px] text-purple-400/70">
-                  Courtesy of {referringPartner} — all Pro features unlocked
+                  Courtesy of {referringPartner} — complete 3 jobs to experience the full platform
                 </p>
               </div>
             </div>
@@ -656,7 +656,7 @@ function PartnerJoinPageInner() {
                   Passive Income
                 </p>
                 <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-400 ring-1 ring-yellow-400/30">
-                  Pro Plan
+                  Pro
                 </span>
               </div>
               <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
@@ -666,7 +666,7 @@ function PartnerJoinPageInner() {
                 </span>
               </h2>
               <p className="mb-8 max-w-md text-base leading-relaxed text-stone-400">
-                Pro Plan subscribers unlock a personal referral link.
+                Every installer gets a personal referral link.
                 Share it anywhere — nationwide, no territory limits. When a
                 customer books a project through your link, even if they&apos;re
                 across the country, you pocket 30% of the deposit automatically.
@@ -714,11 +714,10 @@ function PartnerJoinPageInner() {
 
               <div className="mt-8 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
                 <p className="text-xs font-bold text-yellow-400">
-                  Upgrade to Pro + Connect Stripe to start earning.
+                  Connect Stripe to start earning.
                 </p>
                 <p className="mt-1 text-[11px] text-stone-500">
-                  Network bounties are a Pro Plan feature. Upgrade from your
-                  dashboard, connect Stripe in 2 minutes, and referral
+                  Connect Stripe from your dashboard in 2 minutes and referral
                   payouts hit your bank automatically.
                 </p>
               </div>
@@ -734,7 +733,7 @@ function PartnerJoinPageInner() {
             Ready to Stop Chasing Leads?
           </h2>
           <p className="mb-6 text-sm text-stone-400">
-            Create your free account in 60 seconds. No credit card. No commitment.
+            Create your account in 60 seconds. No credit card. No commitment.
           </p>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

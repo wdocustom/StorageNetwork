@@ -298,7 +298,7 @@ export default function LandingPage() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </a>
               <p className="mt-2 text-center text-[10px] text-stone-600">
-                Free 7-day Pro trial included
+                Pro trial included
               </p>
               <a
                 href="/demo"

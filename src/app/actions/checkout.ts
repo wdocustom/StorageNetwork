@@ -12,9 +12,9 @@ const supabase = createClient(
 //
 // FEE STRUCTURE:
 // ─────────────────────────────────────────────────────────────────────────
-// Platform Lead:            15% deposit → 100% to Platform
-// Partner Link + Non-Pro:   15% deposit → 100% to Platform
-// Partner Link + Pro:       15% deposit → 12% to Installer, 3% to Platform
+// Platform Lead:                 15% deposit → 100% to Platform
+// Partner Link (no Stripe):      15% deposit → 100% to Platform
+// Partner Link (Stripe connected): 15% deposit → 12% to Installer, 3% to Platform
 // ─────────────────────────────────────────────────────────────────────────
 //
 // This module handles lead record updates after checkout.
@@ -49,9 +49,9 @@ export interface CheckoutResult {
 /**
  * Process deposit checkout with source-aware financial routing.
  *
- * Platform Lead:            100% of 15% deposit → Platform
- * Partner Link + Non-Pro:   100% of 15% deposit → Platform
- * Partner Link + Pro:       12% → Installer, 3% → Platform (split)
+ * Platform Lead:                  100% of 15% deposit → Platform
+ * Partner Link (no Stripe):      100% of 15% deposit → Platform
+ * Partner Link (Stripe connected): 12% → Installer, 3% → Platform (split)
  *
  * In all cases, installer collects 85% balance on site.
  */
@@ -94,7 +94,7 @@ export async function processCheckout(
       installerAmount = Math.round(grand_total * PRO_INSTALLER_RATE * 100) / 100;
       payoutTo = "split";
     } else {
-      // Non-Pro OR no Stripe: platform keeps 100%
+      // No Stripe connected: platform keeps 100%
       platformAmount = depositAmount;
       installerAmount = 0;
       payoutTo = "platform";

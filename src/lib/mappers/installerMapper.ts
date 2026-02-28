@@ -6,7 +6,8 @@ import type { DesignPageViewModel } from "@/types/viewModels";
 //
 // Single Source of Truth for branding decisions.
 // This logic runs on the server (page.tsx) so the raw profile
-// never reaches the client. Free installers always get platform branding.
+// never reaches the client. All active installers get their own branding.
+// Platform branding is used as fallback when installer data is missing.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const PLATFORM_BRANDING = {
@@ -17,7 +18,7 @@ const PLATFORM_BRANDING = {
 
 /**
  * Map a raw AvailabilityResult into a DesignPageViewModel.
- * Branding is gated by is_pro — Free installers get platform identity.
+ * All active installers get their own branding. Platform branding is the fallback.
  */
 export function mapToDesignViewModel(
   installer: AvailabilityResult | null
@@ -26,7 +27,7 @@ export function mapToDesignViewModel(
     return null;
   }
 
-  const hasBrandingRights = installer.installer_is_pro === true;
+  const hasCustomBranding = !!(installer.installer_name || installer.installer_logo_url || installer.installer_avatar_url);
 
   return {
     routing: {
@@ -37,18 +38,17 @@ export function mapToDesignViewModel(
       workingDays: installer.installer_working_days,
     },
     branding: {
-      title: hasBrandingRights
+      title: hasCustomBranding
         ? (installer.installer_name || "Authorized Installer")
         : PLATFORM_BRANDING.title,
-      subtitle: hasBrandingRights
+      subtitle: hasCustomBranding
         ? "Authorized Installer"
         : PLATFORM_BRANDING.subtitle,
-      logoUrl: hasBrandingRights
+      logoUrl: hasCustomBranding
         ? (installer.installer_logo_url || installer.installer_avatar_url)
         : PLATFORM_BRANDING.logoUrl,
-      isVerified: hasBrandingRights,
+      isVerified: hasCustomBranding,
     },
-    // Custom pricing applies to all installers who have set it (not gated by Pro)
     pricing: installer.installer_pricing ?? undefined,
     available: true,
     message: installer.message,
@@ -57,8 +57,7 @@ export function mapToDesignViewModel(
 
 /**
  * Client-side mapper for ZIP lookup results.
- * Applies the same branding gate so client-resolved installers
- * also get platform branding if not Pro.
+ * Applies the same branding logic.
  */
 export function mapAvailabilityToViewModel(
   result: AvailabilityResult

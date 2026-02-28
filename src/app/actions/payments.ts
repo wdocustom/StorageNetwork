@@ -14,8 +14,8 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 //
 // FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
-// Non-Pro:          15% of build → Platform fee
-// Pro:              3% of build → Platform fee, 12% → Installer
+// Standard:         3% of build → Platform (maintenance fee), 12% → Installer
+// No Stripe:        15% of build → Platform keeps full deposit
 // Fee Override (0): 0% → Platform, 15% → Installer (Founder accounts)
 // ─────────────────────────────────────────────────────────────────────────
 //
@@ -37,14 +37,14 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 // Example: $1000 build, 6% tax ($60), 15% deposit ($150), $50 discount
 // ─────────────────────────────────────────────────────────────────────────
 //
-// Non-Pro (or Pro without Stripe):
+// Without Stripe connected:
 //   Customer pays today: $150 (deposit — unchanged)
-//   Platform keeps: $150 (15% fee)
+//   Platform keeps: $150 (full deposit until Stripe connected)
 //   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
 //
-// Pro with Stripe connected:
+// With Stripe connected:
 //   Customer pays today: $150 (deposit — unchanged)
-//   Platform keeps: $30 (3% fee)
+//   Platform keeps: $30 (3% maintenance fee)
 //   Installer receives via Stripe: $120 (12%)
 //   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
 // ─────────────────────────────────────────────────────────────────────────
@@ -430,8 +430,8 @@ export async function createDepositIntent(
     // DEPOSIT ONLY (no tax) is always charged. Tax collected at installation.
     //
     // Fee rates (calculated on BUILD PRICE):
-    //   - Non-Pro (or no Stripe): 15% → all to Platform
-    //   - Pro + Stripe:           3% → Platform, 12% → Installer via Stripe
+    //   - No Stripe connected:  15% → all to Platform (until they connect Stripe)
+    //   - Stripe connected:     3% → Platform (maintenance fee), 12% → Installer
     //
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
@@ -534,8 +534,8 @@ export async function createDepositIntent(
 
       console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (3%), Installer $${installerReceivesCents / 100} (12%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     } else {
-      // ── Non-Pro OR no Stripe: Full deposit to Platform ────────────────────
-      // Platform keeps entire deposit (15% of build)
+      // ── No Stripe connected: Full deposit to Platform ──────────────────────
+      // Platform keeps entire deposit (15% of build) until installer connects Stripe
       // Installer collects balance + tax at installation (minus any discount)
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
@@ -567,8 +567,7 @@ export async function createDepositIntent(
         },
       });
 
-      const planLabel = isPro ? "Pro (no Stripe)" : "Non-Pro";
-      console.log(`[Deposit] ${planLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
+      console.log(`[Deposit] No Stripe: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     }
 
     // Update lead with scheduling info, tax info, and discount (for reference)

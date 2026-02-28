@@ -616,7 +616,7 @@ export default function DemoPage() {
               <span className="text-yellow-400">Sign up directly.</span>
             </h3>
             <p className="mb-5 text-sm text-stone-400">
-              Skip the call and start your free 7-day Pro trial right now.
+              Skip the call and start your Pro trial right now.
             </p>
             <a
               href="/join"

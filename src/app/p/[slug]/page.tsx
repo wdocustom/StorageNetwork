@@ -30,6 +30,8 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
   const profile = await getFullProfileBySlug(slug);
   if (!profile) notFound();
 
+  const isActive = profile.is_pro !== false;
+
   const displayName =
     profile.business_name ||
     profile.trade_name ||
@@ -46,6 +48,81 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
   const hasInstagram = !!profile.instagram_url;
   const hasFacebook = !!profile.facebook_url;
   const hasBio = !!profile.bio?.trim();
+
+  // ── Suspended installer — show inactive overlay ──────────────────────
+  if (!isActive) {
+    return (
+      <div className="min-h-screen bg-[#080c16]">
+        {/* Top bar */}
+        <div className="border-b border-slate-800/60 bg-[#0a0e1a]">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+            <Link href="/" className="flex items-center gap-2 opacity-70 transition-opacity hover:opacity-100">
+              <Image
+                src="/landing_page_logo.png"
+                alt="Storage Network"
+                width={80}
+                height={24}
+                className="h-6 w-auto"
+              />
+              <span className="text-xs font-semibold tracking-wide text-stone-400">
+                Storage Network
+              </span>
+            </Link>
+            <Link
+              href="/design"
+              className="rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-bold text-yellow-400 transition-colors hover:bg-yellow-400/20"
+            >
+              Find an Installer
+            </Link>
+          </div>
+        </div>
+
+        {/* Blurred content with overlay */}
+        <div className="relative">
+          {/* Blurred background — the avatar and name are visible but blurred */}
+          <div className="pointer-events-none select-none blur-md opacity-40">
+            <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+              <div className="mx-auto mb-4 h-28 w-28 rounded-full bg-slate-800 sm:h-32 sm:w-32" />
+              <div className="mx-auto mb-3 h-7 w-48 rounded bg-slate-800" />
+              <div className="mx-auto mb-6 h-4 w-32 rounded bg-slate-800/60" />
+              <div className="mx-auto grid max-w-lg grid-cols-3 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="aspect-square rounded-xl bg-slate-800/50" />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Overlay message */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="mx-4 max-w-md rounded-2xl border border-slate-700 bg-slate-900/95 p-8 text-center shadow-2xl backdrop-blur-sm">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-stone-800">
+                <svg className="h-8 w-8 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-lg font-black uppercase tracking-tight text-white">
+                Installer Not Active
+              </h2>
+              <p className="mb-6 text-sm leading-relaxed text-stone-400">
+                This Storage-Network.app Installer is not currently active.
+                Use the link below to find an available installer in your area.
+              </p>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-6 py-3 text-sm font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+              >
+                Find an Active Installer
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080c16]">

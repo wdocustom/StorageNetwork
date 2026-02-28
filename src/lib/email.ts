@@ -437,7 +437,6 @@ export async function sendInstallerOnboardingEmail(
   }
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard`;
-  const upgradeUrl = `${getAppUrl()}/upgrade`;
 
   const html = emailShell(
     "Welcome to Storage Network",
@@ -472,63 +471,34 @@ export async function sendInstallerOnboardingEmail(
       </table>
     </div>
 
-    <!-- Fee Structure Comparison -->
-    <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Simple, Transparent Pricing</p>
-
-    <div style="display:flex;gap:12px;margin-bottom:24px;">
-      <table style="width:100%;border-collapse:separate;border-spacing:12px 0;">
+    <!-- Fee Structure -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Simple, Transparent Pricing</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
         <tr>
-          <!-- Free Plan -->
-          <td style="width:50%;vertical-align:top;background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;">
-            <div style="text-align:center;margin-bottom:16px;">
-              <span style="display:inline-block;background-color:#94a3b8;color:#fff;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Free</span>
-            </div>
-            <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
-            <p style="margin:0 0 16px;text-align:center;color:#e2e8f0;font-size:28px;font-weight:900;">15%</p>
-            <div style="border-top:1px solid #334155;padding-top:16px;">
-              <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">&#10003; Automated leads in your ZIP</p>
-              <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">&#10003; Cut lists &amp; material guides</p>
-              <p style="margin:0;color:#94a3b8;font-size:12px;">&#10003; Direct bank payouts</p>
-            </div>
-          </td>
-
-          <!-- Pro Plan -->
-          <td style="width:50%;vertical-align:top;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;position:relative;">
-            <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:9px;font-weight:900;padding:4px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;">Recommended</div>
-            <div style="text-align:center;margin-bottom:16px;">
-              <span style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1e293b;font-size:10px;font-weight:800;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;">Pro</span>
-            </div>
-            <p style="margin:0 0 4px;text-align:center;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Platform Fee</p>
-            <p style="margin:0;text-align:center;color:#facc15;font-size:28px;font-weight:900;">3%</p>
-            <p style="margin:0 0 16px;text-align:center;color:#94a3b8;font-size:11px;">on your direct leads</p>
-            <div style="border-top:1px solid #475569;padding-top:16px;">
-              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Everything in Free, plus:</p>
-              <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:600;">&#9733; Only 3% on partner link leads</p>
-              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Custom branded partner link</p>
-              <p style="margin:0 0 8px;color:#e2e8f0;font-size:12px;">&#10003; Priority lead routing</p>
-              <p style="margin:0;color:#e2e8f0;font-size:12px;">&#10003; Marketing tools</p>
-            </div>
-          </td>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;"><strong style="color:#facc15;">3% maintenance fee</strong> on direct leads from your own link</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;"><strong>15% network fee</strong> on leads we bring to you</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;">Custom branded partner link &amp; portfolio page</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;">Full marketing tools, community, and analytics</td>
         </tr>
       </table>
     </div>
 
-    <!-- Savings Example -->
-    <div style="background-color:#052e16;border:1px solid #166534;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <p style="margin:0;color:#16a34a;font-size:13px;line-height:1.6;">
-        <strong>&#128176; Pro Math:</strong> On a $1,500 job from your own customer, Free takes $225 in fees.
-        Pro takes just $75 &mdash; that&rsquo;s <strong>$150 more in your pocket</strong>.
-      </p>
-    </div>
-
-    <!-- CTA Buttons -->
+    <!-- CTA Button -->
     <div style="text-align:center;margin-bottom:24px;">
-      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
         Open Dashboard
       </a>
-      ${!data.isPro ? `<a href="${upgradeUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
-        Upgrade to Pro
-      </a>` : ""}
     </div>
 
     <!-- Closing -->
@@ -630,7 +600,7 @@ export async function sendProWelcomeEmail(
       <table style="width:100%;font-size:14px;color:#cbd5e1;">
         <tr>
           <td style="padding:10px 0;vertical-align:top;width:24px;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:10px 0;"><strong>Lower Fees</strong> — Only 3% platform fee on direct link leads (vs 15%)</td>
+          <td style="padding:10px 0;"><strong>Low Fees</strong> — Only 3% maintenance fee on your direct leads</td>
         </tr>
         <tr>
           <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>

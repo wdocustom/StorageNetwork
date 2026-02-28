@@ -60,7 +60,7 @@ export async function createProCheckoutSession(
             currency: "usd",
             product_data: {
               name: "Storage Network Pro",
-              description: "Pro subscription: 3% fees, custom link, white-label branding, deposit splits",
+              description: "Pro subscription: 3% maintenance fee, custom link, branded portfolio, deposit splits",
             },
             unit_amount: PRO_MONTHLY_PRICE_CENTS,
             recurring: {
@@ -190,6 +190,9 @@ export async function activateProSubscription(
 
 /**
  * Deactivate Pro subscription (called by webhook when subscription ends).
+ * Suspends the account: is_pro=false, booking links stop working,
+ * portfolio page shows inactive overlay. Slug is preserved so the
+ * portfolio URL still resolves (but shows "inactive installer" state).
  */
 export async function deactivateProSubscription(
   userId: string

@@ -35,7 +35,7 @@ export async function GET(
   const redirectUrl = new URL("/partner/join", request.url);
 
   if (partner) {
-    // Pass partner name so the signup page can show "7-day Pro trial courtesy of..."
+    // Pass partner name so the signup page can show "Pro trial courtesy of..."
     const partnerDisplay = partner.company || partner.name;
     redirectUrl.searchParams.set("ref", partnerDisplay);
   }

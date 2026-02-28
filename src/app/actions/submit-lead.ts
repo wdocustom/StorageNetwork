@@ -87,18 +87,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   }
 
   try {
-    // ── Pro Gate: Only Pro installers qualify for referral bounties ────────
-    // We still track referring_installer_id for analytics, but bounty_status
-    // is set to "none" if the referrer isn't on the Pro plan.
-    let referralEligible = false;
-    if (input.referring_installer_id) {
-      const { data: referrerProfile } = await supabase
-        .from("profiles")
-        .select("is_pro")
-        .eq("id", input.referring_installer_id)
-        .single();
-      referralEligible = referrerProfile?.is_pro === true;
-    }
+    // All installers are eligible for referral bounties
+    const referralEligible = !!input.referring_installer_id;
 
     // Build a human-readable summary for the dimensions field (backward compat)
     const dimensionsSummary = {

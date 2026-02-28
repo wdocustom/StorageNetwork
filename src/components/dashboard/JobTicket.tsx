@@ -57,7 +57,6 @@ interface JobTicketProps {
   depositPaid: boolean;
   payoutStatus: string | null;
   status: string;
-  feeStatus: "standard" | "waived";
   photoUrl: string | null;
   quoteData: MaterialConfig[] | null;
   customerEmail: string | null;
@@ -66,7 +65,6 @@ interface JobTicketProps {
   scheduledAt?: string | null;
   installerStripeId: string | null;
   source?: string | null;
-  isPro?: boolean;
   inventory?: MaterialInventory | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
@@ -79,7 +77,6 @@ export default function JobTicket({
   depositPaid,
   payoutStatus,
   status,
-  feeStatus,
   photoUrl,
   quoteData,
   customerEmail,
@@ -88,7 +85,6 @@ export default function JobTicket({
   scheduledAt,
   installerStripeId,
   source,
-  isPro,
   inventory,
   onRefresh,
   onStatusChange,
@@ -156,17 +152,15 @@ export default function JobTicket({
   // ── True Profit Calculation (server-side, black box) ─────────────────
   const [profit, setProfit] = useState<NetProfitResult>({
     totalPrice, depositAmount: 0, amountToCollect: totalPrice,
-    estMaterials, netProfit: 0, feeWaived: false, feeRate: 0, feeLabel: "",
+    estMaterials, netProfit: 0, feeRate: 0, feeLabel: "",
   });
   useEffect(() => {
     getNetProfit({
       totalPrice,
       materialCost: estMaterials,
-      feeStatus,
       source: source ?? undefined,
-      isPro,
     }).then(setProfit);
-  }, [totalPrice, estMaterials, feeStatus, source, isPro]);
+  }, [totalPrice, estMaterials, source]);
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)
@@ -407,17 +401,11 @@ export default function JobTicket({
   return (
     <section className="space-y-4">
       {/* ── Source + Fee Badge ────────────────────────────────────── */}
-      {(source === "partner_link" || source === "installer_manual") && isPro ? (
+      {(source === "partner_link" || source === "installer_manual") ? (
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
             <CheckCircle2 className="h-3 w-3" />
-            DIRECT LEAD — 3% PRO FEE
-          </span>
-        </div>
-      ) : (source === "partner_link" || source === "installer_manual") ? (
-        <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-400/15 px-3 py-1 text-[11px] font-bold text-purple-400">
-            Direct Lead — 15% Fee
+            DIRECT LEAD — 3% MAINTENANCE FEE
           </span>
         </div>
       ) : (
@@ -452,7 +440,7 @@ export default function JobTicket({
             {fmt(profit.amountToCollect)}
           </div>
           <div className="mt-1 text-[10px] text-stone-500">
-            {profit.feeWaived ? "after 3% fee (Pro)" : "after deposit"}
+            after {profit.feeLabel ? profit.feeLabel.toLowerCase().replace(/\(.*\)/, "").trim() : "deposit"}
           </div>
         </div>
 

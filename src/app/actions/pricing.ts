@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Pricing — Server actions for installer custom pricing (Pro feature)
+// Pricing — Server actions for installer custom pricing
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = createClient(
@@ -40,10 +40,6 @@ export async function getInstallerPricing(
       return { success: false, error: "Installer not found." };
     }
 
-    if (!data.is_pro) {
-      return { success: false, error: "Custom pricing requires a Pro subscription." };
-    }
-
     const pricing = (data.pricing_config as InstallerPricing) ?? {};
     return { success: true, pricing };
   } catch {
@@ -53,7 +49,6 @@ export async function getInstallerPricing(
 
 /**
  * Save installer's custom pricing config.
- * Only Pro installers can set custom pricing.
  * NULL values fall back to platform defaults.
  */
 export async function updateInstallerPricing(
@@ -74,10 +69,6 @@ export async function updateInstallerPricing(
 
     if (profileError || !profile) {
       return { success: false, error: "Installer not found." };
-    }
-
-    if (!profile.is_pro) {
-      return { success: false, error: "Custom pricing requires a Pro subscription." };
     }
 
     // Validate pricing values — must be positive numbers or undefined/null

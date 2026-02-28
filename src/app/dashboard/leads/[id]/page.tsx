@@ -68,7 +68,6 @@ export default function JobTicketPage() {
 
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
-  const [installerIsPro, setInstallerIsPro] = useState<boolean>(false);
   const [installerInventory, setInstallerInventory] = useState<MaterialInventory | null>(null);
 
   // Start Trip SMS state
@@ -104,18 +103,15 @@ export default function JobTicketPage() {
     setLead(leadData);
     setTripSent(!!leadData.en_route_notified);
 
-    // Fetch installer's Stripe account ID and Pro status
+    // Fetch installer's Stripe account ID and inventory
     if (leadData.installer_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("stripe_account_id, is_pro, material_inventory")
+        .select("stripe_account_id, material_inventory")
         .eq("id", leadData.installer_id)
         .single();
       if (profile?.stripe_account_id) {
         setInstallerStripeId(profile.stripe_account_id);
-      }
-      if (profile?.is_pro) {
-        setInstallerIsPro(profile.is_pro);
       }
       if (profile?.material_inventory) {
         setInstallerInventory(profile.material_inventory as MaterialInventory);
@@ -269,8 +265,7 @@ export default function JobTicketPage() {
         {/* ── Start Trip & Notify Customer — temporarily disabled ──────
         {lead.deposit_paid &&
           lead.status === "open" &&
-          lead.customer_phone &&
-          installerIsPro && (
+          lead.customer_phone && (
           <section className="overflow-hidden rounded-xl border border-yellow-400/20 bg-gradient-to-r from-yellow-400/5 to-slate-900">
             <div className="p-4">
               {tripSent ? (
@@ -331,7 +326,6 @@ export default function JobTicketPage() {
           depositPaid={lead.deposit_paid}
           payoutStatus={lead.payout_status}
           status={lead.status}
-          feeStatus={(lead.fee_status as "standard" | "waived") || "standard"}
           photoUrl={lead.photo_url}
           quoteData={lead.quote_data}
           customerEmail={lead.customer_email}
@@ -340,7 +334,6 @@ export default function JobTicketPage() {
           scheduledAt={lead.scheduled_at}
           installerStripeId={installerStripeId}
           source={lead.source}
-          isPro={installerIsPro}
           inventory={installerInventory}
           onRefresh={fetchLead}
         />

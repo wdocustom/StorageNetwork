@@ -267,17 +267,6 @@ export async function createPost(input: {
 }): Promise<{ success: boolean; postId?: string; error?: string }> {
   const { communityId, authorId, title, content, tags = [] } = input;
 
-  // Verify the user is Pro
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_pro")
-    .eq("id", authorId)
-    .single();
-
-  if (!profile?.is_pro) {
-    return { success: false, error: "Pro subscription required to post." };
-  }
-
   const { data, error } = await supabase
     .from("posts")
     .insert({
@@ -489,17 +478,6 @@ export async function createComment(input: {
   parentId?: string | null;
 }): Promise<{ success: boolean; commentId?: string; error?: string }> {
   const { postId, authorId, content, parentId } = input;
-
-  // Verify the user is Pro
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_pro")
-    .eq("id", authorId)
-    .single();
-
-  if (!profile?.is_pro) {
-    return { success: false, error: "Pro subscription required to comment." };
-  }
 
   // Calculate depth from parent
   let depth = 0;
