@@ -533,6 +533,15 @@ export default function BuildConfiguratorPage() {
       setQuoteError("Customer name is required.");
       return;
     }
+    const zip = deliveryZip.trim();
+    if (!zip || !/^\d{5}$/.test(zip)) {
+      setQuoteError("Customer ZIP code is required to check installer coverage.");
+      return;
+    }
+    if (zipCheckStatus === "checking") {
+      setQuoteError("Still checking service area — please wait a moment.");
+      return;
+    }
     if (zipCheckStatus === "waitlist" && !customerEmail.trim()) {
       setQuoteError("Email is required to add this customer to the waitlist.");
       return;
@@ -569,6 +578,7 @@ export default function BuildConfiguratorPage() {
         customer_name: customerName,
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
+        customer_zip: deliveryZip.trim(),
         quote_data: quoteUnits,
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
@@ -597,6 +607,15 @@ export default function BuildConfiguratorPage() {
   async function handleGetLink() {
     if (!customerName.trim()) {
       setQuoteError("Customer name is required.");
+      return;
+    }
+    const zip = deliveryZip.trim();
+    if (!zip || !/^\d{5}$/.test(zip)) {
+      setQuoteError("Customer ZIP code is required to check installer coverage.");
+      return;
+    }
+    if (zipCheckStatus === "checking") {
+      setQuoteError("Still checking service area — please wait a moment.");
       return;
     }
     const quoteUnits = buildQuoteUnits();
@@ -631,6 +650,7 @@ export default function BuildConfiguratorPage() {
         customer_name: customerName,
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
+        customer_zip: deliveryZip.trim(),
         quote_data: quoteUnits,
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
@@ -1396,7 +1416,7 @@ export default function BuildConfiguratorPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Email (optional)
+                      Email {zipCheckStatus === "waitlist" ? "*" : "(optional)"}
                     </label>
                     <input
                       type="email"
@@ -1419,6 +1439,67 @@ export default function BuildConfiguratorPage() {
                     />
                   </div>
                   <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                      Customer ZIP Code *
+                    </label>
+                    <input
+                      type="text"
+                      value={deliveryZip}
+                      onChange={(e) => setDeliveryZip(e.target.value)}
+                      placeholder="e.g. 30301"
+                      maxLength={5}
+                      className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <p className="mt-1 text-[10px] text-stone-600">
+                      Used to verify installer coverage for this customer.
+                    </p>
+
+                    {/* ── Real-time ZIP area check feedback ── */}
+                    {zipCheckStatus === "checking" && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-stone-500">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Checking service area...
+                      </div>
+                    )}
+                    {zipCheckStatus === "in_area" && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-400">
+                        <MapPin className="h-3 w-3" />
+                        This ZIP is in your service area.
+                      </div>
+                    )}
+                    {zipCheckStatus === "referral" && (
+                      <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+                          <div>
+                            <p className="text-[11px] font-semibold text-amber-300">
+                              Outside your service area
+                            </p>
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
+                              <strong className="text-white">{zipCoveringName}</strong> covers this area.
+                              The quote will be handed off to them and you&apos;ll earn a referral bounty (30% of deposit, min $15).
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {zipCheckStatus === "waitlist" && (
+                      <div className="mt-2 rounded-lg border border-orange-500/30 bg-orange-500/10 p-2.5">
+                        <div className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
+                          <div>
+                            <p className="text-[11px] font-semibold text-orange-300">
+                              No installer in this area yet
+                            </p>
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
+                              The customer will be added to the waitlist and notified when an installer is available. You&apos;ll still earn referral credit.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
                     <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500">
                       <Tag className="h-3 w-3" />
                       Discount Code (optional)
@@ -1435,7 +1516,7 @@ export default function BuildConfiguratorPage() {
                     </p>
                   </div>
 
-                  {/* Delivery Address (collapsible) */}
+                  {/* Delivery Address (collapsible) — street/city/state only, ZIP is above */}
                   <div>
                     <button
                       type="button"
@@ -1477,60 +1558,7 @@ export default function BuildConfiguratorPage() {
                             maxLength={2}
                             className="w-16 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                           />
-                          <input
-                            type="text"
-                            value={deliveryZip}
-                            onChange={(e) => setDeliveryZip(e.target.value)}
-                            placeholder="ZIP"
-                            maxLength={5}
-                            className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                          />
                         </div>
-
-                        {/* ── Real-time ZIP area check feedback ── */}
-                        {zipCheckStatus === "checking" && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Checking service area...
-                          </div>
-                        )}
-                        {zipCheckStatus === "in_area" && (
-                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-400">
-                            <MapPin className="h-3 w-3" />
-                            This ZIP is in your service area.
-                          </div>
-                        )}
-                        {zipCheckStatus === "referral" && (
-                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
-                              <div>
-                                <p className="text-[11px] font-semibold text-amber-300">
-                                  Outside your service area
-                                </p>
-                                <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
-                                  <strong className="text-white">{zipCoveringName}</strong> covers this area.
-                                  The quote will be handed off to them and you&apos;ll earn a referral bounty (30% of deposit, min $15).
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {zipCheckStatus === "waitlist" && (
-                          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2.5">
-                            <div className="flex items-start gap-2">
-                              <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                              <div>
-                                <p className="text-[11px] font-semibold text-orange-300">
-                                  No installer in this area yet
-                                </p>
-                                <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
-                                  The customer will be added to the waitlist and notified when an installer is available. You&apos;ll still earn referral credit.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

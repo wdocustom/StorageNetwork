@@ -63,6 +63,7 @@ export interface CreateQuoteInput {
   customer_email?: string;
   customer_phone?: string;
   customer_address?: string;
+  customer_zip: string;           // Required — used for service area check
   quote_data: QuoteUnit[];
   grand_total: number;
   project_title?: string;
@@ -160,6 +161,7 @@ export async function createQuote(
     customer_email,
     customer_phone,
     customer_address,
+    customer_zip,
     quote_data,
     grand_total,
     project_title,
@@ -196,77 +198,79 @@ export async function createQuote(
     let effectiveQuoteData = quote_data;
     let effectiveTotal = grand_total;
 
-    const deliveryZip = delivery_address?.zip?.trim();
+    const deliveryZip = customer_zip?.trim() || delivery_address?.zip?.trim();
 
-    if (deliveryZip && /^\d{5}$/.test(deliveryZip)) {
-      const areaCheck = await validateServiceArea(installer_id, deliveryZip);
+    if (!deliveryZip || !/^\d{5}$/.test(deliveryZip)) {
+      return { success: false, error: "A valid 5-digit ZIP code is required." };
+    }
 
-      if (!areaCheck.inArea) {
-        // Out of area — try to find a covering installer
-        const localResult = await rerouteToLocalInstaller(deliveryZip, installer_id);
+    const areaCheck = await validateServiceArea(installer_id, deliveryZip);
 
-        if (localResult.available && localResult.installer_id) {
-          // ── Handoff: re-route to covering installer ──────────────────
-          referringInstallerId = installer_id;
-          effectiveInstallerId = localResult.installer_id;
-          effectiveBusinessName = localResult.installer_name || "Storage Network";
-          coveringInstallerName = localResult.installer_name || "a local installer";
-          referralStatus = "handed_off";
+    if (!areaCheck.inArea) {
+      // Out of area — try to find a covering installer
+      const localResult = await rerouteToLocalInstaller(deliveryZip, installer_id);
 
-          // Fetch covering installer's profile for email details + pricing
-          const { data: coveringProfile } = await supabase
-            .from("profiles")
-            .select("first_name, phone, pricing_config")
-            .eq("id", effectiveInstallerId)
-            .single();
+      if (localResult.available && localResult.installer_id) {
+        // ── Handoff: re-route to covering installer ──────────────────
+        referringInstallerId = installer_id;
+        effectiveInstallerId = localResult.installer_id;
+        effectiveBusinessName = localResult.installer_name || "Storage Network";
+        coveringInstallerName = localResult.installer_name || "a local installer";
+        referralStatus = "handed_off";
 
-          if (coveringProfile) {
-            effectiveFirstName = (coveringProfile.first_name as string) || undefined;
-            effectivePhone = (coveringProfile.phone as string) || undefined;
+        // Fetch covering installer's profile for email details + pricing
+        const { data: coveringProfile } = await supabase
+          .from("profiles")
+          .select("first_name, phone, pricing_config")
+          .eq("id", effectiveInstallerId)
+          .single();
 
-            // ── Re-price with covering installer's rates ──────────────
-            const coveringPricing = (coveringProfile.pricing_config as InstallerPricing) || undefined;
-            const repriced = await repriceQuoteUnits(quote_data, coveringPricing);
-            effectiveQuoteData = repriced.units;
-            effectiveTotal = repriced.total;
-          }
-        } else {
-          // ── No covering installer — waitlist path ────────────────────
-          referralStatus = "waitlisted";
+        if (coveringProfile) {
+          effectiveFirstName = (coveringProfile.first_name as string) || undefined;
+          effectivePhone = (coveringProfile.phone as string) || undefined;
 
-          // Record demand signal so the customer gets notified when an
-          // installer covers their area
-          if (normalizedEmail) {
-            await recordWaitlistDemand({
-              zip: deliveryZip,
-              customerName: customer_name.trim(),
-              customerEmail: normalizedEmail,
-              customerPhone: customer_phone?.trim(),
-              sourceInstallerId: installer_id,
-              quoteData: quote_data,
-            }).catch((err) => {
-              console.error("[Quote] Waitlist demand recording failed (non-fatal):", err);
-            });
-
-            // Send the customer a waitlist confirmation email so they
-            // know their build is saved and they'll be notified later
-            await sendWaitlistCustomerConfirmation(normalizedEmail, {
-              customerName: customer_name.trim(),
-              installerBusinessName: installer_business_name,
-              zip: deliveryZip,
-              quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
-            }).catch((err) => {
-              console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
-            });
-          }
-
-          return {
-            success: true,
-            referral_status: "waitlisted",
-            email_sent: !!normalizedEmail,
-            error: undefined,
-          };
+          // ── Re-price with covering installer's rates ──────────────
+          const coveringPricing = (coveringProfile.pricing_config as InstallerPricing) || undefined;
+          const repriced = await repriceQuoteUnits(quote_data, coveringPricing);
+          effectiveQuoteData = repriced.units;
+          effectiveTotal = repriced.total;
         }
+      } else {
+        // ── No covering installer — waitlist path ────────────────────
+        referralStatus = "waitlisted";
+
+        // Record demand signal so the customer gets notified when an
+        // installer covers their area
+        if (normalizedEmail) {
+          await recordWaitlistDemand({
+            zip: deliveryZip,
+            customerName: customer_name.trim(),
+            customerEmail: normalizedEmail,
+            customerPhone: customer_phone?.trim(),
+            sourceInstallerId: installer_id,
+            quoteData: quote_data,
+          }).catch((err) => {
+            console.error("[Quote] Waitlist demand recording failed (non-fatal):", err);
+          });
+
+          // Send the customer a waitlist confirmation email so they
+          // know their build is saved and they'll be notified later
+          await sendWaitlistCustomerConfirmation(normalizedEmail, {
+            customerName: customer_name.trim(),
+            installerBusinessName: installer_business_name,
+            zip: deliveryZip,
+            quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
+          }).catch((err) => {
+            console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
+          });
+        }
+
+        return {
+          success: true,
+          referral_status: "waitlisted",
+          email_sent: !!normalizedEmail,
+          error: undefined,
+        };
       }
     }
 
