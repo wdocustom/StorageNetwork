@@ -195,7 +195,7 @@ export async function onboardInstaller(
       }
     }
 
-    // 3. Send welcome email with fee structure
+    // 3. Send welcome email (Email 1: "Get Paid" Hook) + set onboarding step
     const displayName = businessName.trim() || firstName || name.trim();
     await sendInstallerOnboardingEmail(email.trim().toLowerCase(), {
       name: displayName,
@@ -204,6 +204,17 @@ export async function onboardInstaller(
       // Don't fail onboarding if email fails
       console.error("[Onboard] Welcome email failed:", err);
     });
+
+    // Mark onboarding step 1 (welcome email sent) for drip sequence
+    try {
+      await supabase
+        .from("profiles")
+        .update({ onboarding_step: 1 })
+        .eq("id", userId);
+      console.log(`[Onboard] Onboarding step set to 1 for ${userId}`);
+    } catch (stepErr) {
+      console.error("[Onboard] Failed to set onboarding step:", stepErr);
+    }
 
     // 4. Redirect to dashboard (no Stripe step)
     return { success: true, redirectUrl: "/dashboard" };

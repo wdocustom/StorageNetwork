@@ -425,10 +425,19 @@ export async function sendPaymentReceivedAlert(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Template: Installer Onboarding Welcome
-// Trigger: New installer signs up / completes registration
+// Installer Onboarding Drip Sequence — 4 Emails
+//
+// Email 1 (Day 0): "Get Paid" Hook — connect Stripe, activate profile
+// Email 2 (Day 2): "Marketing Asset" — download QR code, share link
+// Email 3 (Day 4): "First Sale Playbook" — copy-paste marketing template
+// Email 4 (Day 7): "Scarcity Reminder" — 3-job trial countdown
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Email 1 — Day 0 (Instant)
+ * Subject: Welcome to the Network. Let's get your first job booked.
+ * Angle: Don't talk about features. Talk about money.
+ */
 export async function sendInstallerOnboardingEmail(
   email: string,
   data: {
@@ -437,75 +446,54 @@ export async function sendInstallerOnboardingEmail(
   }
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const profileUrl = `${getAppUrl()}/dashboard/profile`;
 
   const html = emailShell(
-    "Welcome to Storage Network",
+    "Let&rsquo;s Get Your First Job Booked",
     `
-    <!-- Hero Welcome -->
-    <div style="text-align:center;margin-bottom:28px;">
-      <p style="margin:0 0 8px;font-size:32px;">&#128075;</p>
-      <p style="margin:0;color:#e2e8f0;font-size:18px;font-weight:700;">Welcome aboard, ${data.name}!</p>
-    </div>
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Welcome to Storage Network, ${data.name}.</p>
 
     <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      You&rsquo;ve just joined a growing network of skilled installers building custom tote storage systems
-      for customers across the country. Here&rsquo;s everything you need to know to get started.
+      You now have a custom 3D configurator that makes you look like a top-tier professional.
+      Your first 3 jobs are completely free to process.
     </p>
 
-    <!-- How It Works -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">How It Works</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;width:32px;font-size:20px;">1&#65039;&#8419;</td>
-          <td style="padding:10px 0;"><strong>Leads come to you</strong> — Customers design their system and pay a deposit. You get notified instantly.</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;font-size:20px;">2&#65039;&#8419;</td>
-          <td style="padding:10px 0;"><strong>Everything&rsquo;s ready</strong> — Each job includes a cut list and materials list so you know exactly what to build.</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;font-size:20px;">3&#65039;&#8419;</td>
-          <td style="padding:10px 0;"><strong>Flexible payments</strong> — Collect the balance on-site however works best: Venmo, cash, check, or process cards through Stripe.</td>
-        </tr>
-      </table>
-    </div>
-
-    <!-- Fee Structure -->
-    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Simple, Transparent Pricing</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr>
-          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:8px 0;"><strong style="color:#facc15;">3% maintenance fee</strong> on direct leads from your own link</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:8px 0;"><strong>15% network fee</strong> on leads we bring to you</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:8px 0;">Custom branded partner link &amp; portfolio page</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:8px 0;">Full marketing tools, community, and analytics</td>
-        </tr>
-      </table>
-    </div>
-
-    <!-- CTA Button -->
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
-        Open Dashboard
-      </a>
-    </div>
-
-    <!-- Closing -->
-    <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#422006,#451a03);border-radius:12px;margin-bottom:16px;">
-      <p style="margin:0;color:#facc15;font-size:16px;font-weight:700;">
-        We look forward to building with you! &#128170;
+    <!-- Money Hook -->
+    <div style="background-color:#052e16;border:1px solid #166534;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#16a34a;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">To Get Paid</p>
+      <p style="margin:0;color:#e2e8f0;font-size:15px;line-height:1.7;">
+        To actually receive the <strong style="color:#facc15;">15% upfront deposits</strong> from your customers,
+        you must connect your bank account. Once connected, you can start sending quotes.
       </p>
+    </div>
+
+    <!-- What You Get -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;">3D configurator that closes sales for you</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;">Auto-generated cut lists &amp; material lists</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
+          <td style="padding:8px 0;">Automated deposit routing straight to your bank</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#facc15;font-size:18px;font-weight:700;">$0</td>
+          <td style="padding:8px 0;"><strong style="color:#facc15;">First 3 jobs — zero platform fees</strong></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- CTA: Connect Stripe -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${profileUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
+        Connect Stripe &amp; Activate Profile
+      </a>
     </div>
 
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
@@ -517,7 +505,205 @@ export async function sendInstallerOnboardingEmail(
   return sendTransactionalEmail({
     to: email,
     toName: data.name,
-    subject: "Welcome to Storage Network — Let's Build!",
+    subject: "Welcome to the Network. Let's get your first job booked.",
+    html,
+  });
+}
+
+/**
+ * Email 2 — Day 2
+ * Subject: Your custom QR code is ready.
+ * Angle: Get the software into the physical world.
+ */
+export async function sendOnboardingEmail2_QRCode(
+  email: string,
+  data: { name: string; slug?: string | null }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const portfolioUrl = data.slug
+    ? `${getAppUrl()}/p/${data.slug}`
+    : `${getAppUrl()}/dashboard/profile`;
+
+  const html = emailShell(
+    "Your Custom QR Code is Ready",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Your public portfolio page is live. Homeowners can now design their own units and book you directly.
+    </p>
+
+    ${data.slug ? `
+    <!-- Live Link Preview -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Your Public Portfolio</p>
+      <p style="margin:0;color:#facc15;font-size:16px;font-weight:700;word-break:break-all;">${portfolioUrl}</p>
+    </div>
+    ` : ""}
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Go to your dashboard and download your custom QR code.
+    </p>
+
+    <!-- Pro Tip -->
+    <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:14px;font-weight:700;">Pro Tip</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Put this QR code on your <strong>truck</strong>, your <strong>business cards</strong>,
+        and the bottom of your <strong>invoices</strong>. Every scan is a potential booking.
+      </p>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
+        View Your Public Link
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Just reply to this email.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Your custom QR code is ready.",
+    html,
+  });
+}
+
+/**
+ * Email 3 — Day 4
+ * Subject: Copy & paste this to get your first custom storage lead.
+ * Angle: Do the marketing work for them.
+ */
+export async function sendOnboardingEmail3_FirstSale(
+  email: string,
+  data: { name: string; slug?: string | null }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const portfolioUrl = data.slug
+    ? `${getAppUrl()}/p/${data.slug}`
+    : "[Your Link — set up in Dashboard]";
+
+  const html = emailShell(
+    "Your First Sale Playbook",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      The fastest way to get your first booking is Facebook Marketplace or Nextdoor.
+      Copy this exact text and post it in your local community groups:
+    </p>
+
+    <!-- Copy-Paste Template -->
+    <div style="background-color:#0f172a;border-left:4px solid #facc15;border-radius:0 12px 12px 0;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Copy &amp; Paste This</p>
+      <p style="margin:0;color:#e2e8f0;font-size:15px;line-height:1.8;font-style:italic;">
+        &ldquo;Hey neighbors, I&rsquo;m doing custom heavy-duty garage storage builds this month.
+        They hold 1,000+ lbs and are built to fit your exact space.
+        You can design your own unit and get instant pricing here: ${data.slug ? portfolioUrl : "[Your Link]"}&rdquo;
+      </p>
+    </div>
+
+    <!-- Where to Post -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Where to Post</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Facebook Marketplace &mdash; &ldquo;Home Services&rdquo;</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Nextdoor &mdash; your neighborhood group</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Local Facebook groups (HOA, buy/sell, neighborhood)</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Craigslist &mdash; &ldquo;Services Offered&rdquo;</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
+        Go to Dashboard to Copy Link
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Just reply to this email.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Copy & paste this to get your first custom storage lead.",
+    html,
+  });
+}
+
+/**
+ * Email 4 — Day 7
+ * Subject: Don't let your free jobs go to waste.
+ * Angle: Remind them of the 3-Job Trial scarcity.
+ */
+export async function sendOnboardingEmail4_Scarcity(
+  email: string,
+  data: { name: string; jobsCompleted?: number }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const jobsLeft = Math.max(0, 3 - (data.jobsCompleted || 0));
+
+  const html = emailShell(
+    "Don&rsquo;t Let Your Free Jobs Go to Waste",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Just a reminder: your first 3 jobs on Storage Network are on us. You get the 3D tool,
+      the automated cut lists, and the deposit routing with zero monthly fees.
+    </p>
+
+    <!-- Trial Status -->
+    <div style="background:linear-gradient(135deg,#422006,#451a03);border:1px solid #92400e;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Trial Status</p>
+      <p style="margin:0;color:#e2e8f0;font-size:36px;font-weight:900;">${jobsLeft}</p>
+      <p style="margin:4px 0 0;color:#94a3b8;font-size:13px;">free ${jobsLeft === 1 ? "job" : "jobs"} remaining</p>
+    </div>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Have a quote you&rsquo;ve been working on? Build it in the dashboard and text the link
+      to your customer today to lock it in.
+    </p>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
+        Open Dashboard
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Just reply to this email.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Don't let your free jobs go to waste.",
     html,
   });
 }
