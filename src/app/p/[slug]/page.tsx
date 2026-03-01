@@ -124,8 +124,59 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
     );
   }
 
+  // ── JSON-LD: LocalBusiness schema for GEO / AI search visibility ────
+  const localBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `https://storage-network.app/p/${slug}#business`,
+    name: displayName,
+    url: `https://storage-network.app/p/${slug}`,
+    ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
+    ...(profile.phone ? { telephone: profile.phone } : {}),
+    ...(hasBio ? { description: profile.bio } : {}),
+    ...(profile.city || profile.state
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            ...(profile.city ? { addressLocality: profile.city } : {}),
+            ...(profile.state ? { addressRegion: profile.state } : {}),
+            addressCountry: "US",
+          },
+        }
+      : {}),
+    parentOrganization: {
+      "@type": "Organization",
+      "@id": "https://storage-network.app/#organization",
+      name: "Storage Network",
+    },
+    makesOffer: {
+      "@type": "Offer",
+      name: "Custom Tote Storage Installation",
+      description: `Professional tote rack installation by ${displayName}${location ? ` in ${location}` : ""}. Design in 3D, get instant pricing.`,
+      url: `https://storage-network.app${configuratorUrl}`,
+    },
+    ...(photos.length > 0
+      ? {
+          photo: photos.slice(0, 6).map((p) => ({
+            "@type": "ImageObject",
+            url: p.url,
+            ...(p.caption ? { caption: p.caption } : {}),
+          })),
+        }
+      : {}),
+    priceRange: "$$",
+    currenciesAccepted: "USD",
+    additionalType: "https://schema.org/HomeAndConstructionBusiness",
+  };
+
   return (
     <div className="min-h-screen bg-[#080c16]">
+      {/* JSON-LD structured data for AI/GEO crawlers */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+      />
+
       {/* ── Subtle top bar ──────────────────────────────────────────────── */}
       <div className="border-b border-slate-800/60 bg-[#0a0e1a]">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
