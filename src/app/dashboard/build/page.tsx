@@ -69,6 +69,8 @@ interface UnitConfig {
   presetName?: string;
   /** Human-readable description override */
   desc?: string;
+  /** Groups multiple sub-units from the same preset together for display */
+  presetGroup?: string;
 }
 
 export default function BuildConfiguratorPage() {
@@ -222,32 +224,47 @@ export default function BuildConfiguratorPage() {
     else setPresetResult(null);
   }, [selectedPreset, presetHasTotes, fetchPresetBuild]);
 
-  // Add a bestseller preset to the quote builder
+  // Add a bestseller preset to the quote builder — expands compound presets
+  // into individual sub-units so cut plans generate correctly for each frame.
   function handleAddPreset() {
     if (!presetResult) return;
     const preset = BESTSELLER_PRESETS.find((p) => p.id === presetResult.presetId);
     if (!preset) return;
 
+    const groupId = `preset-${Date.now()}`;
     const totalSlots = presetResult.subUnits.reduce((s, u) => s + u.slots, 0);
-    const subDesc = presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ");
 
-    const newUnit: UnitConfig = {
-      id: `unit-${Date.now()}`,
-      cols: presetResult.subUnits[0].cols,
-      rows: presetResult.subUnits[0].rows,
-      toteType: preset.toteModel as ToteType,
-      hasTotes: presetHasTotes,
-      hasWheels: preset.units.some((u) => u.hasWheels),
-      hasTop: preset.units.some((u) => u.hasTop),
-      price: presetResult.totalPrice,
-      totalW: presetResult.combinedW,
-      totalH: presetResult.maxH,
-      depth: presetResult.depth,
-      slots: totalSlots,
-      presetName: preset.name,
-      desc: `${preset.name} (${subDesc})`,
-    };
-    setUnits((prev) => [...prev, newUnit]);
+    // Distribute total price across sub-units proportionally by slot count
+    // so each QuoteUnit carries its fair share (cut plans use per-unit data).
+    let priceRemaining = presetResult.totalPrice;
+    const newUnits: UnitConfig[] = presetResult.subUnits.map((su, i) => {
+      const isLast = i === presetResult.subUnits.length - 1;
+      const proportion = su.slots / totalSlots;
+      const unitPrice = isLast
+        ? priceRemaining  // last unit gets remainder to avoid rounding drift
+        : Math.round(presetResult.totalPrice * proportion);
+      if (!isLast) priceRemaining -= unitPrice;
+
+      return {
+        id: `unit-${Date.now()}-${i}`,
+        cols: su.cols,
+        rows: su.rows,
+        toteType: preset.toteModel as ToteType,
+        hasTotes: presetHasTotes,
+        hasWheels: preset.units[i].hasWheels,
+        hasTop: preset.units[i].hasTop,
+        price: unitPrice,
+        totalW: su.totalW,
+        totalH: su.totalH,
+        depth: su.depth,
+        slots: su.slots,
+        presetName: preset.name,
+        presetGroup: groupId,
+        desc: `${preset.name} — ${su.cols}×${su.rows}${presetResult.subUnits.length > 1 ? ` (${i + 1}/${presetResult.subUnits.length})` : ""}`,
+      };
+    });
+
+    setUnits((prev) => [...prev, ...newUnits]);
   }
 
   async function handleCalculate() {
@@ -360,9 +377,15 @@ export default function BuildConfiguratorPage() {
     setUnits((prev) => [...prev, newUnit]);
   }
 
-  // Remove unit from list
+  // Remove unit from list — if it's part of a preset group, remove all sub-units
   function handleRemoveUnit(unitId: string) {
-    setUnits((prev) => prev.filter((u) => u.id !== unitId));
+    setUnits((prev) => {
+      const target = prev.find((u) => u.id === unitId);
+      if (target?.presetGroup) {
+        return prev.filter((u) => u.presetGroup !== target.presetGroup);
+      }
+      return prev.filter((u) => u.id !== unitId);
+    });
   }
 
   // Calculate grand total from all units in Quote Builder only
@@ -944,37 +967,83 @@ export default function BuildConfiguratorPage() {
                 </h2>
 
                 <div className="space-y-2">
-                  {units.map((unit, index) => (
-                    <div
-                      key={unit.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {unit.presetName
-                            ? <><Star className="mr-1 inline h-3 w-3 text-yellow-400" />{unit.desc || unit.presetName}</>
-                            : <>Unit {index + 1}: {unit.cols} × {unit.rows}</>}
-                        </p>
-                        <p className="text-[11px] text-stone-500">
-                          {unit.toteType} • {unit.slots} slots
-                          {unit.hasTotes && " • Totes"}
-                          {unit.hasWheels && " • Wheels"}
-                          {unit.hasTop && " • Top"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-yellow-400">
-                          ${unit.price?.toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveUnit(unit.id)}
-                          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                  {(() => {
+                    // Group preset sub-units together for display
+                    const rendered = new Set<string>();
+                    return units.map((unit, index) => {
+                      // Preset group — render a single grouped card
+                      if (unit.presetGroup) {
+                        if (rendered.has(unit.presetGroup)) return null;
+                        rendered.add(unit.presetGroup);
+                        const groupUnits = units.filter((u) => u.presetGroup === unit.presetGroup);
+                        const groupPrice = groupUnits.reduce((s, u) => s + (u.price || 0), 0);
+                        const groupSlots = groupUnits.reduce((s, u) => s + (u.slots || 0), 0);
+                        return (
+                          <div
+                            key={unit.presetGroup}
+                            className="rounded-lg border border-yellow-400/20 bg-slate-800 p-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
+                                  {unit.presetName}
+                                </p>
+                                <p className="text-[11px] text-stone-500">
+                                  {groupUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")} • {groupSlots} slots
+                                  {groupUnits[0].hasTotes && " • Totes"}
+                                  {groupUnits.some((u) => u.hasWheels) && " • Wheels"}
+                                  {groupUnits.some((u) => u.hasTop) && " • Top"}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-yellow-400">
+                                  ${groupPrice.toLocaleString()}
+                                </span>
+                                <button
+                                  onClick={() => handleRemoveUnit(unit.id)}
+                                  className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Standard custom unit
+                      return (
+                        <div
+                          key={unit.id}
+                          className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              Unit {index + 1}: {unit.cols} × {unit.rows}
+                            </p>
+                            <p className="text-[11px] text-stone-500">
+                              {unit.toteType} • {unit.slots} slots
+                              {unit.hasTotes && " • Totes"}
+                              {unit.hasWheels && " • Wheels"}
+                              {unit.hasTop && " • Top"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-yellow-400">
+                              ${unit.price?.toLocaleString()}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveUnit(unit.id)}
+                              className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 {/* Grand Total */}
@@ -1191,16 +1260,32 @@ export default function BuildConfiguratorPage() {
                       {units.length} Unit{units.length > 1 ? "s" : ""} in Quote
                     </p>
                     <div className="space-y-1">
-                      {units.map((u, idx) => (
-                        <div key={u.id} className="flex justify-between text-sm">
-                          <span className="text-stone-400">
-                            {u.presetName
-                              ? <><Star className="mr-1 inline h-3 w-3 text-yellow-400" />{u.presetName}</>
-                              : <>Unit {idx + 1}: {u.cols}×{u.rows}</>}
-                          </span>
-                          <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const seen = new Set<string>();
+                        return units.map((u, idx) => {
+                          if (u.presetGroup) {
+                            if (seen.has(u.presetGroup)) return null;
+                            seen.add(u.presetGroup);
+                            const group = units.filter((g) => g.presetGroup === u.presetGroup);
+                            const groupPrice = group.reduce((s, g) => s + (g.price || 0), 0);
+                            return (
+                              <div key={u.presetGroup} className="flex justify-between text-sm">
+                                <span className="text-stone-400">
+                                  <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
+                                  {u.presetName} ({group.map((g) => `${g.cols}×${g.rows}`).join(" + ")})
+                                </span>
+                                <span className="font-semibold text-white">${groupPrice.toLocaleString()}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={u.id} className="flex justify-between text-sm">
+                              <span className="text-stone-400">Unit {idx + 1}: {u.cols}×{u.rows}</span>
+                              <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                     <div className="mt-2 border-t border-slate-700 pt-2 flex justify-between">
                       <span className="text-sm font-bold text-stone-400">Total</span>
