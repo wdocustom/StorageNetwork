@@ -54,12 +54,16 @@ export interface SalesTaxResult {
 
 export interface NetProfitResult {
   totalPrice: number;
-  depositAmount: number;
-  amountToCollect: number;
+  depositAmount: number;      // the actual 15% customer deposit
+  feeAmount: number;          // platform fee (15% network or 3% maintenance)
+  customerBalance: number;    // what customer owes at install (totalPrice - deposit)
+  installerTakeHome: number;  // installer's total after fees (totalPrice - fee)
   estMaterials: number;
   netProfit: number;
   feeRate: number;
   feeLabel: string;
+  // Legacy aliases (kept for backward compat with build page)
+  amountToCollect: number;    // = installerTakeHome
 }
 
 export interface BuildFeeBreakdown {
@@ -122,14 +126,19 @@ export async function getNetProfit(input: {
     feeLabel = "Maintenance Fee (3%)";
   }
 
-  const depositAmount = Math.round(totalPrice * feeRate * 100) / 100;
-  const amountToCollect = Math.round((totalPrice - depositAmount) * 100) / 100;
-  const netProfit = Math.max(0, Math.round((amountToCollect - materialCost) * 100) / 100);
+  const feeAmount = Math.round(totalPrice * feeRate * 100) / 100;
+  const depositAmount = Math.round(totalPrice * DEPOSIT_RATE * 100) / 100;
+  const customerBalance = Math.round((totalPrice - depositAmount) * 100) / 100;
+  const installerTakeHome = Math.round((totalPrice - feeAmount) * 100) / 100;
+  const netProfit = Math.max(0, Math.round((installerTakeHome - materialCost) * 100) / 100);
 
   return {
     totalPrice,
     depositAmount,
-    amountToCollect,
+    feeAmount,
+    customerBalance,
+    installerTakeHome,
+    amountToCollect: installerTakeHome, // legacy alias
     estMaterials: materialCost,
     netProfit,
     feeRate,

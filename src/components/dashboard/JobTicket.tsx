@@ -66,6 +66,7 @@ interface JobTicketProps {
   installerStripeId: string | null;
   source?: string | null;
   inventory?: MaterialInventory | null;
+  salesTaxAmount?: number | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -86,6 +87,7 @@ export default function JobTicket({
   installerStripeId,
   source,
   inventory,
+  salesTaxAmount,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -151,7 +153,9 @@ export default function JobTicket({
 
   // ── True Profit Calculation (server-side, black box) ─────────────────
   const [profit, setProfit] = useState<NetProfitResult>({
-    totalPrice, depositAmount: 0, amountToCollect: totalPrice,
+    totalPrice, depositAmount: 0, feeAmount: 0,
+    customerBalance: totalPrice, installerTakeHome: totalPrice,
+    amountToCollect: totalPrice,
     estMaterials, netProfit: 0, feeRate: 0, feeLabel: "",
   });
   useEffect(() => {
@@ -161,6 +165,10 @@ export default function JobTicket({
       source: source ?? undefined,
     }).then(setProfit);
   }, [totalPrice, estMaterials, source]);
+
+  // Amount the customer actually owes = balance + sales tax
+  const tax = salesTaxAmount ?? 0;
+  const collectFromCustomer = Math.round((profit.customerBalance + tax) * 100) / 100;
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)
@@ -237,7 +245,7 @@ export default function JobTicket({
         if (installerStripeId) {
           const session = await createPaymentSession({
             leadId,
-            amount: profit.amountToCollect,
+            amount: collectFromCustomer,
             installerStripeId,
             customerEmail: customerEmail || undefined,
           });
@@ -250,7 +258,7 @@ export default function JobTicket({
           result.publicUrl,
           customerEmail,
           customerName,
-          profit.amountToCollect,
+          collectFromCustomer,
           paymentUrl
         );
         setPayLoading(false);
@@ -280,7 +288,7 @@ export default function JobTicket({
     if (installerStripeId) {
       const session = await createPaymentSession({
         leadId,
-        amount: profit.amountToCollect,
+        amount: collectFromCustomer,
         installerStripeId,
         customerEmail: customerEmail || undefined,
       });
@@ -294,7 +302,7 @@ export default function JobTicket({
       uploadedPhotoUrl,
       customerEmail,
       customerName,
-      profit.amountToCollect,
+      collectFromCustomer,
       paymentUrl
     );
 
@@ -310,7 +318,7 @@ export default function JobTicket({
     setPayLoading(true);
     const result = await createPaymentSession({
       leadId,
-      amount: profit.amountToCollect,
+      amount: collectFromCustomer,
       installerStripeId,
       customerEmail: customerEmail || undefined,
     });
@@ -326,7 +334,7 @@ export default function JobTicket({
     setPayLoading(true);
     await sendPaymentInvoice({
       leadId,
-      amount: profit.amountToCollect,
+      amount: collectFromCustomer,
       installerStripeId,
       customerEmail,
       customerName,
@@ -352,14 +360,14 @@ export default function JobTicket({
     setPayLoading(true);
     const result = await createPaymentSession({
       leadId,
-      amount: profit.amountToCollect,
+      amount: collectFromCustomer,
       installerStripeId,
       customerEmail: customerEmail || undefined,
     });
     setPayLoading(false);
     if (result.success && result.url) {
       const smsBody = encodeURIComponent(
-        `Your payment of ${fmt(profit.amountToCollect)} is ready: ${result.url}`
+        `Your payment of ${fmt(collectFromCustomer)} is ready: ${result.url}`
       );
       window.open(`sms:${customerPhone}?body=${smsBody}`, "_self");
     }
@@ -430,17 +438,17 @@ export default function JobTicket({
           <div className="mt-1 text-[10px] text-stone-600">estimated cost</div>
         </div>
 
-        {/* Box 2: Amount to Collect (yellow — THE BIG NUMBER) */}
+        {/* Box 2: Balance Due — what customer owes at install (yellow) */}
         <div className="rounded-xl border-2 border-yellow-400 bg-yellow-400/5 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-yellow-400">
             <DollarSign className="h-3 w-3" />
-            Collect
+            Balance Due
           </div>
           <div className="text-lg font-black text-white sm:text-xl">
-            {fmt(profit.amountToCollect)}
+            {fmt(collectFromCustomer)}
           </div>
           <div className="mt-1 text-[10px] text-stone-500">
-            after {profit.feeLabel ? profit.feeLabel.toLowerCase().replace(/\(.*\)/, "").trim() : "deposit"}
+            collect from customer
           </div>
         </div>
 
@@ -453,20 +461,34 @@ export default function JobTicket({
           <div className="text-base font-black text-emerald-400 sm:text-lg">
             {fmt(profit.netProfit)}
           </div>
-          <div className="mt-1 text-[10px] text-stone-600">after materials</div>
+          <div className="mt-1 text-[10px] text-stone-600">after materials & fees</div>
         </div>
       </div>
 
       {/* ── Breakdown row ─────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-stone-500">
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-stone-500">
         <span>
           Total:{" "}
           <span className="font-bold text-white">{fmt(profit.totalPrice)}</span>
         </span>
         <span>
-          {profit.feeLabel}:{" "}
+          Deposit Paid:{" "}
           <span className="font-bold text-emerald-400">
             -{fmt(profit.depositAmount)}
+          </span>
+        </span>
+        {tax > 0 && (
+          <span>
+            Tax:{" "}
+            <span className="font-bold text-stone-300">
+              +{fmt(tax)}
+            </span>
+          </span>
+        )}
+        <span>
+          {profit.feeLabel}:{" "}
+          <span className="font-bold text-stone-400">
+            -{fmt(profit.feeAmount)}
           </span>
         </span>
       </div>
@@ -497,7 +519,7 @@ export default function JobTicket({
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98]"
           >
             <DollarSign className="h-6 w-6" />
-            GET PAID — {fmt(profit.amountToCollect)}
+            GET PAID — {fmt(collectFromCustomer)}
             <ChevronDown className={`h-5 w-5 transition-transform ${showGetPaidMenu ? "rotate-180" : ""}`} />
           </button>
 
@@ -1098,7 +1120,7 @@ export default function JobTicket({
             </div>
             <div className="space-y-4 p-5">
               <p className="text-sm text-stone-400">
-                Mark this job as paid for <span className="font-bold text-white">{fmt(profit.amountToCollect)}</span>?
+                Mark this job as paid for <span className="font-bold text-white">{fmt(collectFromCustomer)}</span>?
               </p>
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
