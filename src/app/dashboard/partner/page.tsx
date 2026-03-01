@@ -599,7 +599,7 @@ export default function PartnerDashboardPage() {
                               )}
                               {u.is_suspended && (
                                 <span className="flex-shrink-0 rounded bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
-                                  SUSPENDED
+                                  LOCKED
                                 </span>
                               )}
                             </div>
@@ -717,19 +717,19 @@ export default function PartnerDashboardPage() {
                               </div>
                             </div>
 
-                            {/* Suspension Toggle */}
+                            {/* Account Lock Toggle */}
                             <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <Ban className="h-3.5 w-3.5 text-stone-500" />
                                 <div>
                                   <p className="text-xs font-semibold text-stone-300">
-                                    Account Suspension
+                                    Account Lock
                                   </p>
                                   <p className="text-[10px] text-stone-500">
                                     {u.is_suspended
                                       ? u.suspension_reason === "payment"
-                                        ? "Suspended — subscription payment issue"
-                                        : "Suspended — manual admin hold"
+                                        ? "Locked — subscription payment issue"
+                                        : "Locked — manual admin hold"
                                       : "Account is active"}
                                   </p>
                                 </div>
@@ -738,7 +738,7 @@ export default function PartnerDashboardPage() {
                                 onClick={() => handleToggleSuspension(u)}
                                 disabled={suspendingUser === u.id}
                                 className="p-1 transition-colors hover:opacity-80 disabled:opacity-40"
-                                title={u.is_suspended ? "Unsuspend account" : "Suspend account"}
+                                title={u.is_suspended ? "Unlock account" : "Lock account"}
                               >
                                 {suspendingUser === u.id ? (
                                   <Loader2 className="h-5 w-5 animate-spin text-stone-500" />

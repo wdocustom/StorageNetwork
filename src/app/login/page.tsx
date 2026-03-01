@@ -112,7 +112,7 @@ export default function LoginPage() {
     if (e.key === "Enter") handleEmailAuth();
   }
 
-  // ── Suspended Account Blocked Screen ─────────────────────────────────
+  // ── Locked Account Blocked Screen ────────────────────────────────────
   if (suspension.blocked) {
     const isPayment = suspension.reason === "payment";
 
@@ -131,12 +131,12 @@ export default function LoginPage() {
 
           <div className="rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center">
             <ShieldOff className="mx-auto mb-3 h-10 w-10 text-red-400" />
-            <h2 className="text-lg font-bold text-white">Account Suspended</h2>
+            <h2 className="text-lg font-bold text-white">Account Locked</h2>
 
             {isPayment ? (
               <>
                 <p className="mt-3 text-sm text-stone-400">
-                  Your account has been suspended due to a missing subscription
+                  Your account has been locked due to a missing subscription
                   payment. Please reconcile your payment to regain access.
                 </p>
                 {recoveryUrl ? (
@@ -181,7 +181,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <p className="mt-3 text-sm text-stone-400">
-                  Your account has been suspended. Please contact support to
+                  Your account has been locked. Please contact support to
                   regain access.
                 </p>
                 <a
