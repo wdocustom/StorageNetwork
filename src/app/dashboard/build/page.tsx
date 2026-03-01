@@ -5,7 +5,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { generateBuildManifest } from "@/lib/buildEngine";
-import { createQuote, type DeliveryAddress } from "@/app/actions/createQuote";
+import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import { calculateMaterialCost, DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { toFraction } from "@/lib/utils";
@@ -33,6 +33,9 @@ import {
   Copy,
   Check,
   Star,
+  AlertTriangle,
+  MapPin,
+  Clock,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -142,6 +145,13 @@ export default function BuildConfiguratorPage() {
   const [deliveryZip, setDeliveryZip] = useState("");
   const [showDeliveryAddress, setShowDeliveryAddress] = useState(false);
 
+  // Referral / handoff state (real-time ZIP check)
+  const [zipCheckStatus, setZipCheckStatus] = useState<"idle" | "checking" | "in_area" | "referral" | "waitlist">("idle");
+  const [zipCoveringName, setZipCoveringName] = useState("");
+  const [quoteReferralStatus, setQuoteReferralStatus] = useState<ReferralStatus>("none");
+  const [quoteCoveringName, setQuoteCoveringName] = useState("");
+  const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -225,6 +235,38 @@ export default function BuildConfiguratorPage() {
     if (selectedPreset) fetchPresetBuild(selectedPreset, presetHasTotes);
     else setPresetResult(null);
   }, [selectedPreset, presetHasTotes, fetchPresetBuild]);
+
+  // Real-time delivery ZIP check — debounced, fires when ZIP field changes.
+  // Shows referral/waitlist status inline so the installer has immediate feedback.
+  useEffect(() => {
+    if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    setZipCheckStatus("idle");
+    setZipCoveringName("");
+
+    const zip = deliveryZip.trim();
+    if (!userId || !zip || zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
+
+    setZipCheckStatus("checking");
+    zipCheckRef.current = setTimeout(async () => {
+      try {
+        const result = await checkDeliveryZip(userId, zip);
+        if (result.in_area) {
+          setZipCheckStatus("in_area");
+        } else if (result.waitlist) {
+          setZipCheckStatus("waitlist");
+        } else {
+          setZipCheckStatus("referral");
+          setZipCoveringName(result.covering_installer_name || "a local installer");
+        }
+      } catch {
+        setZipCheckStatus("idle");
+      }
+    }, 600);
+
+    return () => {
+      if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    };
+  }, [deliveryZip, userId]);
 
   // Add a bestseller preset to the quote builder — expands compound presets
   // into individual sub-units so cut plans generate correctly for each frame.
@@ -534,6 +576,9 @@ export default function BuildConfiguratorPage() {
         return;
       }
 
+      // Track referral/handoff status for success screen messaging
+      setQuoteReferralStatus(result.referral_status || "none");
+      setQuoteCoveringName(result.covering_installer_name || "");
       setQuoteSent(true);
       if (result.lead_id) setQuoteLeadId(result.lead_id);
       setUnits([]);
@@ -606,6 +651,8 @@ export default function BuildConfiguratorPage() {
           // Clipboard failed but quote was created — user can still copy manually
         }
       }
+      setQuoteReferralStatus(result.referral_status || "none");
+      setQuoteCoveringName(result.covering_installer_name || "");
       setQuoteSent(true);
       setUnits([]);
     } catch (err) {
@@ -626,6 +673,10 @@ export default function BuildConfiguratorPage() {
     setQuoteError("");
     setQuoteLeadId(null);
     setQuoteLinkCopied(false);
+    setQuoteReferralStatus("none");
+    setQuoteCoveringName("");
+    setZipCheckStatus("idle");
+    setZipCoveringName("");
   }
 
   if (loading) {
@@ -1251,7 +1302,7 @@ export default function BuildConfiguratorPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       {showQuoteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
+          <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
             {/* Close button */}
             <button
               onClick={resetQuoteModal}
@@ -1431,6 +1482,51 @@ export default function BuildConfiguratorPage() {
                             className="w-20 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                           />
                         </div>
+
+                        {/* ── Real-time ZIP area check feedback ── */}
+                        {zipCheckStatus === "checking" && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-stone-500">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Checking service area...
+                          </div>
+                        )}
+                        {zipCheckStatus === "in_area" && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+                            <MapPin className="h-3 w-3" />
+                            This ZIP is in your service area.
+                          </div>
+                        )}
+                        {zipCheckStatus === "referral" && (
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+                              <div>
+                                <p className="text-[11px] font-semibold text-amber-300">
+                                  Outside your service area
+                                </p>
+                                <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
+                                  <strong className="text-white">{zipCoveringName}</strong> covers this area.
+                                  The quote will be handed off to them and you&apos;ll earn a referral bounty (30% of deposit, min $15).
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {zipCheckStatus === "waitlist" && (
+                          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-2.5">
+                            <div className="flex items-start gap-2">
+                              <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
+                              <div>
+                                <p className="text-[11px] font-semibold text-orange-300">
+                                  No installer in this area yet
+                                </p>
+                                <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
+                                  The customer will be added to the waitlist and notified when an installer is available. You&apos;ll still earn referral credit.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1474,13 +1570,33 @@ export default function BuildConfiguratorPage() {
               <div className="py-4 text-center">
                 <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
                 <h3 className="mb-1 text-lg font-bold text-white">
-                  Quote Created!
+                  {quoteReferralStatus === "waitlisted"
+                    ? "Customer Waitlisted"
+                    : quoteReferralStatus === "handed_off"
+                      ? "Quote Sent & Referred"
+                      : "Quote Created!"}
                 </h3>
                 <p className="mb-5 text-sm text-stone-400">
-                  {customerEmail?.trim()
-                    ? "Your customer will receive an email with their quote and a link to confirm."
-                    : "Copy the link below to send it to your customer via text, message, or any channel."}
+                  {quoteReferralStatus === "waitlisted"
+                    ? "No installer covers this area yet. The customer has been added to the waitlist and will be notified when one is available. You'll earn the referral bounty when they book."
+                    : quoteReferralStatus === "handed_off"
+                      ? `The quote was handed off to ${quoteCoveringName}. The customer will receive the email from them. You'll earn a referral bounty (30% of deposit, min $15) when they book.`
+                      : customerEmail?.trim()
+                        ? "Your customer will receive an email with their quote and a link to confirm."
+                        : "Copy the link below to send it to your customer via text, message, or any channel."}
                 </p>
+
+                {/* Referral bounty info */}
+                {quoteReferralStatus === "handed_off" && (
+                  <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left">
+                    <p className="text-[11px] font-semibold text-amber-300">
+                      Referral Bounty Pending
+                    </p>
+                    <p className="mt-1 text-[10px] text-stone-400">
+                      Track your referrals and bounty earnings in your <strong className="text-white">Referrals</strong> dashboard.
+                    </p>
+                  </div>
+                )}
 
                 {/* ── Shareable Quote Link ── */}
                 {quoteLeadId && (
