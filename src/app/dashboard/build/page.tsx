@@ -1302,7 +1302,7 @@ export default function BuildConfiguratorPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       {showQuoteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
+          <div className="scrollbar-dark relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
             {/* Close button */}
             <button
               onClick={resetQuoteModal}
