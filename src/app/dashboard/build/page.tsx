@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
@@ -155,6 +155,8 @@ export default function BuildConfiguratorPage() {
   const [presetHasTotes, setPresetHasTotes] = useState(true);
   const [presetLoading, setPresetLoading] = useState(false);
   const [presetResult, setPresetResult] = useState<CompoundBuildResult | null>(null);
+  const [presetAdded, setPresetAdded] = useState(false);
+  const quoteBuilderRef = useRef<HTMLElement>(null);
 
   // Custom material pricing (stored in localStorage)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
@@ -265,6 +267,13 @@ export default function BuildConfiguratorPage() {
     });
 
     setUnits((prev) => [...prev, ...newUnits]);
+
+    // Visual feedback + scroll to quote builder
+    setPresetAdded(true);
+    setTimeout(() => setPresetAdded(false), 2000);
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   async function handleCalculate() {
@@ -720,10 +729,23 @@ export default function BuildConfiguratorPage() {
                   </div>
                   <button
                     onClick={handleAddPreset}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                      presetAdded
+                        ? "bg-emerald-500 text-white"
+                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                    }`}
                   >
-                    <Plus className="h-4 w-4" />
-                    Add to Quote
+                    {presetAdded ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Added to Quote
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Add to Quote
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -1111,7 +1133,7 @@ export default function BuildConfiguratorPage() {
         {/* ── Quote Builder (Multiple Units) ────────────────────────── */}
         {/* Lives outside buildResult gate so preset-only quotes are visible */}
         {units.length > 0 && (
-          <section className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+          <section ref={quoteBuilderRef} className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
             <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
               <ShoppingCart className="h-4 w-4" />
               Quote Builder ({units.length} unit{units.length > 1 ? "s" : ""})
