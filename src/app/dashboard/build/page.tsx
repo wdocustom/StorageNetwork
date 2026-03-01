@@ -262,7 +262,7 @@ export default function BuildConfiguratorPage() {
         slots: su.slots,
         presetName: preset.name,
         presetGroup: groupId,
-        desc: `${preset.name} — ${su.cols}×${su.rows}${presetResult.subUnits.length > 1 ? ` (${i + 1}/${presetResult.subUnits.length})` : ""}`,
+        desc: `${preset.name} — ${su.cols}×${su.rows}`,
       };
     });
 
