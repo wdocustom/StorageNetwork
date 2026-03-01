@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
-import { sendWaitlistAlert } from "@/lib/email";
+import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
 
 const supabase = createClient(
@@ -208,6 +208,16 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
       customerPhone: input.customer_phone?.trim() || undefined,
       customerZip: input.customer_zip.trim(),
       radiusMiles: installer.service_radius_miles || undefined,
+    });
+
+    // Send the customer a waitlist confirmation email
+    await sendWaitlistCustomerConfirmation(input.customer_email.trim(), {
+      customerName: input.customer_name.trim(),
+      installerBusinessName: installer.business_name || "Storage Network",
+      zip: input.customer_zip.trim(),
+      quoteData: input.quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
+    }).catch((err) => {
+      console.error("[Waitlist] Customer confirmation email failed (non-fatal):", err);
     });
 
     return { success: true };
