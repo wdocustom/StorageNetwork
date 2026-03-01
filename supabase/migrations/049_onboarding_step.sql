@@ -18,15 +18,8 @@ CREATE INDEX IF NOT EXISTS idx_profiles_onboarding_drip
   ON profiles (onboarding_step, created_at)
   WHERE onboarding_step < 4;
 
--- Backfill: existing installers who already received a welcome email
--- (anyone with is_pro = true or subscription_tier = 'pro') → step 1
--- This prevents the cron from re-sending Email 1 to existing users
-UPDATE profiles
-  SET onboarding_step = 4
-  WHERE onboarding_step = 0
-    AND created_at < NOW() - INTERVAL '7 days';
-
+-- Backfill: all existing installers start at step 1 so they receive
+-- the full drip sequence (QR code → First Sale → Scarcity emails)
 UPDATE profiles
   SET onboarding_step = 1
-  WHERE onboarding_step = 0
-    AND created_at >= NOW() - INTERVAL '7 days';
+  WHERE onboarding_step = 0;
