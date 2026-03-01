@@ -51,7 +51,6 @@ interface LeadDetail {
   delivery_address_zip: string | null;
   source: string | null;
   en_route_notified: boolean;
-  sales_tax_amount: number | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -92,7 +91,7 @@ export default function JobTicketPage() {
     // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
-      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount")
+      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified")
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();
@@ -338,7 +337,6 @@ export default function JobTicketPage() {
           installerStripeId={installerStripeId}
           source={lead.source}
           inventory={installerInventory}
-          salesTaxAmount={lead.sales_tax_amount}
           onRefresh={fetchLead}
         />
 
