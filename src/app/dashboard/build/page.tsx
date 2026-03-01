@@ -2,7 +2,8 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { calculateBuild } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, type CompoundBuildResult } from "@/app/actions/calculator";
+import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote, type DeliveryAddress } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
@@ -31,6 +32,7 @@ import {
   Link2,
   Copy,
   Check,
+  Star,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -63,6 +65,10 @@ interface UnitConfig {
   totalH?: number;
   depth?: number;
   slots?: number;
+  /** When set, this unit came from a bestseller preset */
+  presetName?: string;
+  /** Human-readable description override */
+  desc?: string;
 }
 
 export default function BuildConfiguratorPage() {
@@ -142,6 +148,12 @@ export default function BuildConfiguratorPage() {
   // Installer pricing from profile
   const [installerPricing, setInstallerPricing] = useState<InstallerPricing | undefined>();
 
+  // Bestseller preset state
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const [presetHasTotes, setPresetHasTotes] = useState(true);
+  const [presetLoading, setPresetLoading] = useState(false);
+  const [presetResult, setPresetResult] = useState<CompoundBuildResult | null>(null);
+
   // Custom material pricing (stored in localStorage)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
   const [showMaterialPricing, setShowMaterialPricing] = useState(false);
@@ -184,6 +196,59 @@ export default function BuildConfiguratorPage() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  // ── Bestseller preset calculation ──────────────────────────────────────
+  const fetchPresetBuild = useCallback(async (presetId: string, withTotes: boolean) => {
+    if (!presetId) { setPresetResult(null); return; }
+    setPresetLoading(true);
+    try {
+      const res = await calculateCompoundBuild({
+        presetId,
+        hasTotes: withTotes,
+        installerPricing,
+      });
+      if (res.success) setPresetResult(res);
+      else setPresetResult(null);
+    } catch {
+      setPresetResult(null);
+    } finally {
+      setPresetLoading(false);
+    }
+  }, [installerPricing]);
+
+  // Re-fetch when preset or totes toggle changes
+  useEffect(() => {
+    if (selectedPreset) fetchPresetBuild(selectedPreset, presetHasTotes);
+    else setPresetResult(null);
+  }, [selectedPreset, presetHasTotes, fetchPresetBuild]);
+
+  // Add a bestseller preset to the quote builder
+  function handleAddPreset() {
+    if (!presetResult) return;
+    const preset = BESTSELLER_PRESETS.find((p) => p.id === presetResult.presetId);
+    if (!preset) return;
+
+    const totalSlots = presetResult.subUnits.reduce((s, u) => s + u.slots, 0);
+    const subDesc = presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ");
+
+    const newUnit: UnitConfig = {
+      id: `unit-${Date.now()}`,
+      cols: presetResult.subUnits[0].cols,
+      rows: presetResult.subUnits[0].rows,
+      toteType: preset.toteModel as ToteType,
+      hasTotes: presetHasTotes,
+      hasWheels: preset.units.some((u) => u.hasWheels),
+      hasTop: preset.units.some((u) => u.hasTop),
+      price: presetResult.totalPrice,
+      totalW: presetResult.combinedW,
+      totalH: presetResult.maxH,
+      depth: presetResult.depth,
+      slots: totalSlots,
+      presetName: preset.name,
+      desc: `${preset.name} (${subDesc})`,
+    };
+    setUnits((prev) => [...prev, newUnit]);
+  }
 
   async function handleCalculate() {
     // Validate inputs based on mode
@@ -332,7 +397,7 @@ export default function BuildConfiguratorPage() {
       totalW: u.totalW || 0,
       totalH: u.totalH || 0,
       depth: u.depth || 30,
-      desc: `${u.cols} Wide × ${u.rows} High`,
+      desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
     }));
     return generateBuildManifest(quoteUnits);
   }, [units]);
@@ -365,7 +430,7 @@ export default function BuildConfiguratorPage() {
       totalW: u.totalW || 0,
       totalH: u.totalH || 0,
       depth: u.depth || 30,
-      desc: `${u.cols} Wide × ${u.rows} High`,
+      desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
     }));
 
     if (buildResult && units.length === 0) {
@@ -565,6 +630,84 @@ export default function BuildConfiguratorPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
+        {/* ── Bestseller Presets ─────────────────────────────────────── */}
+        <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+            <Star className="h-4 w-4 text-yellow-400" />
+            Bestsellers
+          </h2>
+
+          <select
+            value={selectedPreset}
+            onChange={(e) => {
+              setSelectedPreset(e.target.value);
+              setPresetHasTotes(true);
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+          >
+            <option value="">Choose a bestseller…</option>
+            {BESTSELLER_PRESETS.map((p) => {
+              const subDesc = p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ");
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.name} — {subDesc} ({p.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)
+                </option>
+              );
+            })}
+          </select>
+
+          {selectedPreset && (
+            <div className="mt-3 space-y-3">
+              {/* Totes toggle */}
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={presetHasTotes}
+                  onChange={(e) => setPresetHasTotes(e.target.checked)}
+                  className="h-4 w-4 accent-yellow-400"
+                />
+                <span className="text-sm text-stone-300">Include Totes</span>
+              </label>
+
+              {/* Result */}
+              {presetLoading && (
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Calculating…
+                </div>
+              )}
+
+              {presetResult && !presetLoading && (
+                <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="rounded-lg bg-slate-800 p-2">
+                      <p className="text-lg font-black text-white">{presetResult.totalSlots} slots</p>
+                      <p className="text-[10px] font-bold uppercase text-stone-500">
+                        {presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-slate-800 p-2">
+                      <p className="text-lg font-black text-yellow-400">
+                        ${presetResult.totalPrice.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase text-stone-500">
+                        {presetResult.presetName}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddPreset}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add to Quote
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
         {/* ── Input Card ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
           {/* Mode Toggle */}
@@ -808,7 +951,9 @@ export default function BuildConfiguratorPage() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          Unit {index + 1}: {unit.cols} × {unit.rows}
+                          {unit.presetName
+                            ? <><Star className="mr-1 inline h-3 w-3 text-yellow-400" />{unit.desc || unit.presetName}</>
+                            : <>Unit {index + 1}: {unit.cols} × {unit.rows}</>}
                         </p>
                         <p className="text-[11px] text-stone-500">
                           {unit.toteType} • {unit.slots} slots
@@ -1048,7 +1193,11 @@ export default function BuildConfiguratorPage() {
                     <div className="space-y-1">
                       {units.map((u, idx) => (
                         <div key={u.id} className="flex justify-between text-sm">
-                          <span className="text-stone-400">Unit {idx + 1}: {u.cols}×{u.rows}</span>
+                          <span className="text-stone-400">
+                            {u.presetName
+                              ? <><Star className="mr-1 inline h-3 w-3 text-yellow-400" />{u.presetName}</>
+                              : <>Unit {idx + 1}: {u.cols}×{u.rows}</>}
+                          </span>
                           <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
                         </div>
                       ))}
