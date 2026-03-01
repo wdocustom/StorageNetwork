@@ -533,6 +533,10 @@ export default function BuildConfiguratorPage() {
       setQuoteError("Customer name is required.");
       return;
     }
+    if (zipCheckStatus === "waitlist" && !customerEmail.trim()) {
+      setQuoteError("Email is required to add this customer to the waitlist.");
+      return;
+    }
     const quoteUnits = buildQuoteUnits();
     if (!quoteUnits || !userId) {
       setQuoteError("No build calculated or not logged in.");
@@ -1536,8 +1540,9 @@ export default function BuildConfiguratorPage() {
                 <div className="mt-5 flex gap-2">
                   <button
                     onClick={handleGetLink}
-                    disabled={quoteSending}
+                    disabled={quoteSending || zipCheckStatus === "waitlist"}
                     className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20 disabled:opacity-50"
+                    title={zipCheckStatus === "waitlist" ? "No installers in this area — use Email Quote to waitlist the customer" : undefined}
                   >
                     {quoteSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1549,14 +1554,20 @@ export default function BuildConfiguratorPage() {
                   <button
                     onClick={handleSendQuote}
                     disabled={quoteSending}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
+                      zipCheckStatus === "waitlist"
+                        ? "bg-orange-500 text-white hover:bg-orange-400"
+                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                    }`}
                   >
                     {quoteSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : zipCheckStatus === "waitlist" ? (
+                      <Clock className="h-4 w-4" />
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    Email Quote
+                    {zipCheckStatus === "waitlist" ? "Add to Waitlist" : "Email Quote"}
                   </button>
                 </div>
 

@@ -898,6 +898,107 @@ export async function sendWaitlistAlert(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Template: Waitlist Confirmation (Customer)
+// Trigger: Installer sends a quote via /build to a ZIP with no coverage
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendWaitlistCustomerConfirmation(
+  customerEmail: string,
+  data: {
+    customerName: string;
+    installerBusinessName: string;
+    zip: string;
+    quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+  }
+): Promise<SendEmailResult> {
+  const firstName = (data.customerName || "").split(" ")[0] || "there";
+  const hasQuote = data.quoteData && data.quoteData.length > 0;
+  const totalPrice = hasQuote
+    ? data.quoteData!.reduce((sum, u) => sum + (typeof u.price === "number" ? u.price : 0), 0)
+    : 0;
+
+  const buildSummaryHtml = hasQuote
+    ? `
+      <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Saved Build</p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${data.quoteData!.map((u, i) => `
+            <tr>
+              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
+              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+            </tr>
+          `).join("")}
+          ${totalPrice > 0 ? `
+            <tr style="border-top:1px solid #92400e;">
+              <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total Estimate</td>
+              <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${totalPrice.toLocaleString()}</td>
+            </tr>
+          ` : ""}
+        </table>
+      </div>
+    `
+    : "";
+
+  const html = emailShell(
+    "You\u2019re on the Waitlist",
+    `
+    <!-- Clock Icon -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
+        &#128337;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      <strong style="color:#e2e8f0;">${data.installerBusinessName}</strong> put together a custom storage quote for you, but we don&rsquo;t have a verified installer in your area (ZIP <strong style="color:#facc15;">${data.zip}</strong>) just yet.
+    </p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      <strong style="color:#e2e8f0;">You&rsquo;ve been added to our waitlist.</strong>
+      As soon as a professional installer becomes available near you, we&rsquo;ll email you right away so you can pick up exactly where you left off &mdash; ${hasQuote ? "your build is saved and ready to go." : "no extra steps needed."}
+    </p>
+
+    ${buildSummaryHtml}
+
+    <!-- What happens next -->
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">What Happens Next</p>
+      <table style="width:100%;font-size:14px;color:#94a3b8;">
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;width:24px;">1.</td>
+          <td style="padding:8px 0;">We&rsquo;re actively recruiting installers in your area</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;">2.</td>
+          <td style="padding:8px 0;">The moment one is available, you&rsquo;ll get an email</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;">3.</td>
+          <td style="padding:8px 0;">${hasQuote ? "Click through and your saved build will be ready to confirm" : "Design your system and book an installation"}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:14px;text-align:center;">
+      No payment has been charged. You&rsquo;re under no obligation.
+    </p>
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      You&rsquo;re receiving this because ${data.installerBusinessName} submitted a quote on your behalf at storage-network.app.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: data.customerName,
+    subject: `${firstName}, you're on the waitlist — we'll notify you when an installer is available`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Template: Customer Inquiry to Installer
 // Trigger: Customer sends a message via "Email Installer" from /design or /pay
 // ═══════════════════════════════════════════════════════════════════════════

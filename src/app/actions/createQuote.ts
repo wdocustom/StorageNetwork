@@ -6,6 +6,7 @@ import {
   sendTransactionalEmail,
   buildQuoteEmailTemplate,
   sendReferralHandoffEmail,
+  sendWaitlistCustomerConfirmation,
 } from "@/lib/email";
 import { validateServiceArea } from "@/app/actions/installer";
 import { rerouteToLocalInstaller } from "@/app/actions/customer";
@@ -246,11 +247,23 @@ export async function createQuote(
             }).catch((err) => {
               console.error("[Quote] Waitlist demand recording failed (non-fatal):", err);
             });
+
+            // Send the customer a waitlist confirmation email so they
+            // know their build is saved and they'll be notified later
+            await sendWaitlistCustomerConfirmation(normalizedEmail, {
+              customerName: customer_name.trim(),
+              installerBusinessName: installer_business_name,
+              zip: deliveryZip,
+              quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
+            }).catch((err) => {
+              console.error("[Quote] Waitlist customer confirmation email failed (non-fatal):", err);
+            });
           }
 
           return {
             success: true,
             referral_status: "waitlisted",
+            email_sent: !!normalizedEmail,
             error: undefined,
           };
         }
