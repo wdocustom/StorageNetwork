@@ -32,7 +32,7 @@ export interface AvailabilityResult {
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, is_suspended";
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -99,6 +99,7 @@ export async function checkAvailability(
       .select(INSTALLER_SELECT)
       .contains("service_zips", [trimmed])
       .neq("active", false)  // Exclude deactivated accounts
+      .neq("is_suspended", true)  // Exclude suspended accounts
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
@@ -130,6 +131,7 @@ export async function checkAvailability(
       .from("profiles")
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
+      .neq("is_suspended", true)
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
@@ -181,6 +183,7 @@ export async function rerouteToLocalInstaller(
       .contains("service_zips", [trimmed])
       .neq("id", originalInstallerId)
       .neq("active", false)
+      .neq("is_suspended", true)
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
@@ -210,6 +213,7 @@ export async function rerouteToLocalInstaller(
       .select(INSTALLER_SELECT)
       .eq("service_zip", trimmed)
       .neq("id", originalInstallerId)
+      .neq("is_suspended", true)
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
@@ -248,6 +252,10 @@ export async function getInstallerById(
       return toResult(null, "Installer not found.");
     }
 
+    if ((data as Record<string, unknown>).is_suspended === true) {
+      return toResult(null, "This installer is not currently active.");
+    }
+
     return toResult(data, "");
   } catch {
     return toResult(null, "Unable to load installer profile.");
@@ -275,8 +283,8 @@ export async function getInstallerBySlug(
       return getInstallerByRef(slug);
     }
 
-    // Suspended installers (is_pro=false) should not accept new leads
-    if (data.is_pro === false) {
+    // Suspended or inactive installers should not accept new leads
+    if (data.is_pro === false || (data as Record<string, unknown>).is_suspended === true) {
       return toResult(null, "This installer is not currently active.");
     }
 
@@ -304,6 +312,10 @@ export async function getInstallerByRef(
 
     if (error || !data) {
       return toResult(null, "Installer not found.");
+    }
+
+    if ((data as Record<string, unknown>).is_suspended === true) {
+      return toResult(null, "This installer is not currently active.");
     }
 
     return toResult(data, "");

@@ -522,6 +522,62 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Handle subscription payment failure — auto-suspend ─────────────────
+  // When a subscription invoice fails, suspend the installer's account so
+  // they can't receive leads until they fix their payment.  Trial users
+  // (pro_trial_ends_at in the future, <45 days, <3 jobs) are never
+  // auto-suspended — their trial is still valid.
+  if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const userId = subscription.metadata?.userId;
+
+    if (userId && (subscription.status === "past_due" || subscription.status === "unpaid")) {
+      console.log("[Webhook] Subscription payment issue for user:", userId, "status:", subscription.status);
+
+      // Check if installer is on an active trial — skip suspension if so
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("pro_trial_ends_at, is_suspended")
+        .eq("id", userId)
+        .single();
+
+      const onActiveTrial =
+        profile?.pro_trial_ends_at &&
+        new Date(profile.pro_trial_ends_at) > new Date();
+
+      if (!onActiveTrial && !profile?.is_suspended) {
+        await supabase
+          .from("profiles")
+          .update({
+            is_suspended: true,
+            suspension_reason: "payment",
+          })
+          .eq("id", userId);
+        console.log("[Webhook] Auto-suspended installer due to payment failure:", userId);
+      }
+    }
+
+    // If subscription becomes active again (e.g. payment recovered), lift payment suspension
+    if (userId && subscription.status === "active") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_suspended, suspension_reason")
+        .eq("id", userId)
+        .single();
+
+      if (profile?.is_suspended && profile.suspension_reason === "payment") {
+        await supabase
+          .from("profiles")
+          .update({
+            is_suspended: false,
+            suspension_reason: null,
+          })
+          .eq("id", userId);
+        console.log("[Webhook] Payment recovered — lifted suspension for:", userId);
+      }
+    }
+  }
+
   // ── Handle payment_intent.succeeded (deposits via BookingModal + balance payments) ──
   if (event.type === "payment_intent.succeeded") {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;

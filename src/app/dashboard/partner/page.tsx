@@ -6,6 +6,7 @@ import {
   getPartnerDashboard,
   getAdminPlatformUsers,
   getAdminReferralBounties,
+  toggleInstallerSuspension,
   type PartnerCommission,
   type ReferralRow,
   type PlatformUser,
@@ -30,6 +31,9 @@ import {
   Banknote,
   Clock,
   MapPin,
+  ToggleLeft,
+  ToggleRight,
+  Ban,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 
@@ -64,6 +68,8 @@ export default function PartnerDashboardPage() {
   const [adminSearch, setAdminSearch] = useState("");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  const [suspendingUser, setSuspendingUser] = useState<string | null>(null);
 
   // Bounty admin state
   const [bountyReferrers, setBountyReferrers] = useState<ReferrerSummary[]>([]);
@@ -135,6 +141,30 @@ export default function PartnerDashboardPage() {
     navigator.clipboard.writeText(link);
     setCopiedLink(userId);
     setTimeout(() => setCopiedLink(null), 2500);
+  }
+
+  async function handleToggleSuspension(u: PlatformUser) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setSuspendingUser(u.id);
+    const result = await toggleInstallerSuspension(user.id, u.id, !u.is_suspended);
+    if (result.success) {
+      setPlatformUsers((prev) =>
+        prev.map((p) =>
+          p.id === u.id
+            ? {
+                ...p,
+                is_suspended: !u.is_suspended,
+                suspension_reason: !u.is_suspended ? "manual" : null,
+              }
+            : p
+        )
+      );
+    }
+    setSuspendingUser(null);
   }
 
   // ── Loading State ──────────────────────────────────────────────────────
@@ -567,6 +597,11 @@ export default function PartnerDashboardPage() {
                                   PARTNER
                                 </span>
                               )}
+                              {u.is_suspended && (
+                                <span className="flex-shrink-0 rounded bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+                                  SUSPENDED
+                                </span>
+                              )}
                             </div>
                             <p className="truncate text-[11px] text-stone-500">
                               {u.business_name || u.email || "—"}
@@ -680,6 +715,39 @@ export default function PartnerDashboardPage() {
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
                               </div>
+                            </div>
+
+                            {/* Suspension Toggle */}
+                            <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <Ban className="h-3.5 w-3.5 text-stone-500" />
+                                <div>
+                                  <p className="text-xs font-semibold text-stone-300">
+                                    Account Suspension
+                                  </p>
+                                  <p className="text-[10px] text-stone-500">
+                                    {u.is_suspended
+                                      ? u.suspension_reason === "payment"
+                                        ? "Suspended — subscription payment issue"
+                                        : "Suspended — manual admin hold"
+                                      : "Account is active"}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleToggleSuspension(u)}
+                                disabled={suspendingUser === u.id}
+                                className="p-1 transition-colors hover:opacity-80 disabled:opacity-40"
+                                title={u.is_suspended ? "Unsuspend account" : "Suspend account"}
+                              >
+                                {suspendingUser === u.id ? (
+                                  <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
+                                ) : u.is_suspended ? (
+                                  <ToggleRight className="h-6 w-6 text-red-400" />
+                                ) : (
+                                  <ToggleLeft className="h-6 w-6 text-stone-500" />
+                                )}
+                              </button>
                             </div>
                           </div>
                         )}

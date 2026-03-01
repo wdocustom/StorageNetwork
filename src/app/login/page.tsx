@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { stampLastLogin } from "@/app/actions/profile";
-import { Loader2, Mail, ArrowLeft, KeyRound } from "lucide-react";
+import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
+import { getPaymentRecoveryUrl } from "@/app/actions/pro-subscription";
+import { Loader2, Mail, ArrowLeft, KeyRound, ShieldOff } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Login Page — Supabase Email/Password Auth with Forgot Password
@@ -22,6 +23,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [suspension, setSuspension] = useState<{
+    blocked: boolean;
+    reason: "manual" | "payment" | null;
+    userId: string | null;
+  }>({ blocked: false, reason: null, userId: null });
+  const [recoveryUrl, setRecoveryUrl] = useState<string | null>(null);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   async function handleEmailAuth() {
     const trimmedEmail = email.trim().toLowerCase();
@@ -66,8 +74,28 @@ export default function LoginPage() {
         if (signInError) {
           setError(signInError.message);
         } else {
-          // Stamp last login time via server action (service role bypasses RLS)
+          // Check suspension before allowing dashboard access
           if (signInData.user) {
+            const status = await checkSuspensionStatus(signInData.user.id);
+            if (status.suspended) {
+              const suspendedUserId = signInData.user.id;
+              // Sign out immediately — they cannot use the dashboard
+              await supabase.auth.signOut();
+              setSuspension({
+                blocked: true,
+                reason: status.reason,
+                userId: suspendedUserId,
+              });
+              // If payment issue, generate billing portal URL
+              if (status.reason === "payment") {
+                const recovery = await getPaymentRecoveryUrl(suspendedUserId);
+                if (recovery.success && recovery.url) {
+                  setRecoveryUrl(recovery.url);
+                }
+              }
+              setLoading(false);
+              return;
+            }
             await stampLastLogin(signInData.user.id);
           }
           window.location.href = redirectTo;
@@ -82,6 +110,105 @@ export default function LoginPage() {
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleEmailAuth();
+  }
+
+  // ── Suspended Account Blocked Screen ─────────────────────────────────
+  if (suspension.blocked) {
+    const isPayment = suspension.reason === "payment";
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <Image
+              src="/landing_page_logo.png"
+              alt="Storage Network"
+              width={128}
+              height={128}
+              className="mx-auto mb-4 h-32 w-auto object-contain"
+            />
+          </div>
+
+          <div className="rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center">
+            <ShieldOff className="mx-auto mb-3 h-10 w-10 text-red-400" />
+            <h2 className="text-lg font-bold text-white">Account Suspended</h2>
+
+            {isPayment ? (
+              <>
+                <p className="mt-3 text-sm text-stone-400">
+                  Your account has been suspended due to a missing subscription
+                  payment. Please reconcile your payment to regain access.
+                </p>
+                {recoveryUrl ? (
+                  <a
+                    href={recoveryUrl}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                  >
+                    Manage Subscription
+                  </a>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      if (!suspension.userId) return;
+                      setRecoveryLoading(true);
+                      const result = await getPaymentRecoveryUrl(suspension.userId);
+                      if (result.success && result.url) {
+                        setRecoveryUrl(result.url);
+                        window.open(result.url, "_blank");
+                      }
+                      setRecoveryLoading(false);
+                    }}
+                    disabled={recoveryLoading}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {recoveryLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Manage Subscription"
+                    )}
+                  </button>
+                )}
+                <p className="mt-3 text-xs text-stone-500">
+                  If you need help, contact{" "}
+                  <a
+                    href="mailto:support@storage-network.app"
+                    className="font-semibold text-yellow-400 hover:text-yellow-300"
+                  >
+                    support@storage-network.app
+                  </a>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-sm text-stone-400">
+                  Your account has been suspended. Please contact support to
+                  regain access.
+                </p>
+                <a
+                  href="mailto:support@storage-network.app"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                >
+                  Contact support@storage-network.app
+                </a>
+              </>
+            )}
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setSuspension({ blocked: false, reason: null, userId: null });
+                setRecoveryUrl(null);
+              }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 hover:text-yellow-400"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

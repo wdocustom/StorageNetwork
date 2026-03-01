@@ -431,3 +431,56 @@ export async function createCustomerPortalSession(
     };
   }
 }
+
+/**
+ * Generate a Stripe billing portal link for a payment-suspended installer
+ * so they can reconcile their subscription from the login blocked screen.
+ * Uses service role so it works even though the user is signed out.
+ */
+export async function getPaymentRecoveryUrl(
+  userId: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  if (!stripe) {
+    return { success: false, error: "Stripe not configured" };
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_subscription_id, is_suspended, suspension_reason")
+      .eq("id", userId)
+      .single();
+
+    if (!profile?.stripe_subscription_id) {
+      return { success: false, error: "No subscription found" };
+    }
+
+    if (!profile.is_suspended || profile.suspension_reason !== "payment") {
+      return { success: false, error: "Account is not payment-suspended" };
+    }
+
+    const subscription = (await stripe.subscriptions.retrieve(
+      profile.stripe_subscription_id
+    )) as Stripe.Subscription;
+
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id;
+
+    const baseUrl = getAppUrl();
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${baseUrl}/login`,
+    });
+
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[ProSubscription] Payment recovery portal failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to create recovery portal",
+    };
+  }
+}

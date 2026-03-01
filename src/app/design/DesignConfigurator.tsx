@@ -1658,8 +1658,8 @@ export default function DesignConfigurator({
 
             {/* ── Quote List ────────────────────────────────────────── */}
             {orderItems.length > 0 && (
-              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
+              <section className="rounded-xl border border-gray-700 bg-gray-950 p-4 shadow-lg">
+                <h2 className="mb-3 border-b border-gray-700 pb-2 text-xs font-extrabold uppercase tracking-wider text-stone-300">
                   Your Quote List
                 </h2>
 
@@ -1682,23 +1682,23 @@ export default function DesignConfigurator({
                     return (
                       <li
                         key={index}
-                        className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-3"
+                        className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900 px-3 py-3"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-sm font-semibold text-stone-100">
                             Unit #{index + 1}: {item.desc}
                           </p>
-                          <p className="text-[11px] text-stone-500">
+                          <p className="text-[11px] text-stone-400">
                             {extraStr}
                           </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-gray-900">
+                          <span className="text-sm font-bold text-yellow-400">
                             ${item.price.toLocaleString()}
                           </span>
                           <button
                             onClick={() => handleRemoveUnit(index)}
-                            className="text-red-400 transition-colors hover:text-red-600"
+                            className="text-red-500 transition-colors hover:text-red-400"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -1709,19 +1709,19 @@ export default function DesignConfigurator({
                 </ul>
 
                 {/* Grand Total */}
-                <div className="mt-4 border-t-2 border-dashed border-stone-300 pt-4 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                <div className="mt-4 border-t-2 border-dashed border-gray-700 pt-4 text-center">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                     Estimated Grand Total
                   </div>
-                  <div className="mt-1 text-4xl font-black text-gray-900">
+                  <div className="mt-1 text-4xl font-black text-white">
                     ${grandTotal.toLocaleString()}
                   </div>
                   {deliveryFeeAmount > 0 && (
-                    <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-stone-500">
-                      <Truck className="h-3.5 w-3.5 text-amber-600" />
+                    <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-stone-400">
+                      <Truck className="h-3.5 w-3.5 text-amber-500" />
                       <span>
                         Includes{" "}
-                        <span className="font-bold text-amber-600">
+                        <span className="font-bold text-amber-500">
                           ${deliveryFeeAmount.toLocaleString()}
                         </span>{" "}
                         delivery fee
@@ -1730,9 +1730,9 @@ export default function DesignConfigurator({
                     </div>
                   )}
                   {stripeAccountId && (
-                    <div className="mt-1 text-xs text-stone-500">
+                    <div className="mt-1 text-xs text-stone-400">
                       Deposit (15%):{" "}
-                      <span className="font-bold text-yellow-600">
+                      <span className="font-bold text-yellow-400">
                         ${depositAmount.toLocaleString()}
                       </span>
                     </div>
@@ -1740,7 +1740,7 @@ export default function DesignConfigurator({
                 </div>
 
                 {/* Booking Form */}
-                <div className="mt-4 border-t border-stone-200 pt-4">
+                <div className="mt-4 border-t border-gray-700 pt-4">
                   {!submitted ? (
                     <div className="space-y-2">
                       {/* Name fields */}
@@ -1750,14 +1750,14 @@ export default function DesignConfigurator({
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="First Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <input
                           type="text"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Last Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
                       {/* Contact info */}
@@ -1767,19 +1767,19 @@ export default function DesignConfigurator({
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="Email *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <input
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Phone *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
                       {/* Billing address */}
                       <div className="pt-1">
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
+                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-400">
                           Billing Address
                         </label>
                         <input
@@ -1787,7 +1787,7 @@ export default function DesignConfigurator({
                           value={streetAddress}
                           onChange={(e) => setStreetAddress(e.target.value)}
                           placeholder="Street Address"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
@@ -1796,48 +1796,48 @@ export default function DesignConfigurator({
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
                           placeholder="City"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <input
                           type="text"
                           value={addrState}
                           onChange={(e) => setAddrState(e.target.value)}
                           placeholder="State"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <input
                           type="text"
                           value={addrZip}
                           onChange={(e) => setAddrZip(e.target.value)}
                           placeholder="Zip"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                       </div>
                       {/* Network hand-off: customer's ZIP routed to a local installer */}
                       {handedOff && !zipOutOfArea && (
-                        <div className="rounded-lg border border-blue-300 bg-blue-50 p-3">
+                        <div className="rounded-lg border border-blue-500/30 bg-blue-950/40 p-3">
                           <div className="mb-1 flex items-start gap-2">
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-                            <p className="text-xs font-medium text-blue-700">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
+                            <p className="text-xs font-medium text-blue-300">
                               The original installer doesn&apos;t service your area, but we have a partner installer nearby.
                             </p>
                           </div>
-                          <p className="text-xs text-stone-500">
+                          <p className="text-xs text-stone-400">
                             <strong>{handoffInstallerName}</strong> will handle your build. You can continue booking below.
                           </p>
                         </div>
                       )}
                       {/* No installer in area — waitlist */}
                       {zipOutOfArea && !waitlistSent && (
-                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-950/40 p-3">
                           <div className="mb-2 flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                            <p className="text-xs font-medium text-amber-700">{zipCheckMsg}</p>
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                            <p className="text-xs font-medium text-amber-300">{zipCheckMsg}</p>
                           </div>
                           <button
                             onClick={handleWaitlist}
                             disabled={waitlistSending}
-                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-100 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-200 disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-900/40 py-2.5 text-sm font-bold text-amber-300 transition-colors hover:bg-amber-900/60 disabled:opacity-50"
                           >
                             {waitlistSending ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1847,15 +1847,15 @@ export default function DesignConfigurator({
                             {waitlistSending ? "Sending…" : "Notify Me When Available"}
                           </button>
                           {waitlistError && (
-                            <p className="mt-2 text-xs font-medium text-red-600">{waitlistError}</p>
+                            <p className="mt-2 text-xs font-medium text-red-400">{waitlistError}</p>
                           )}
                         </div>
                       )}
                       {waitlistSent && (
-                        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center">
-                          <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
-                          <p className="text-sm font-semibold text-gray-900">You&apos;re on the List</p>
-                          <p className="mt-1 text-xs text-stone-500">
+                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 p-4 text-center">
+                          <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                          <p className="text-sm font-semibold text-stone-100">You&apos;re on the List</p>
+                          <p className="mt-1 text-xs text-stone-400">
                             {orderItems.length > 0
                               ? "Your build has been saved. We'll email you as soon as an installer is available — you'll be able to pick up right where you left off."
                               : "We'll email you as soon as an installer is available in your area."}
@@ -1863,21 +1863,21 @@ export default function DesignConfigurator({
                         </div>
                       )}
                       {/* Installation address toggle */}
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 transition-colors hover:bg-gray-700">
                         <input
                           type="checkbox"
                           checked={hasDifferentDelivery}
                           onChange={(e) => setHasDifferentDelivery(e.target.checked)}
-                          className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
+                          className="h-4 w-4 rounded border-gray-600 accent-yellow-400"
                         />
-                        <span className="text-xs font-medium text-stone-600">
+                        <span className="text-xs font-medium text-stone-300">
                           Installation address is different from billing
                         </span>
                       </label>
                       {/* Installation address fields (conditional) */}
                       {hasDifferentDelivery && (
-                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                          <label className="block text-[10px] font-semibold uppercase text-amber-700">
+                        <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-950/30 p-3">
+                          <label className="block text-[10px] font-semibold uppercase text-amber-400">
                             Installation Address
                           </label>
                           <input
@@ -1885,7 +1885,7 @@ export default function DesignConfigurator({
                             value={deliveryStreet}
                             onChange={(e) => setDeliveryStreet(e.target.value)}
                             placeholder="Street Address"
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                           />
                           <div className="grid grid-cols-3 gap-2">
                             <input
@@ -1893,21 +1893,21 @@ export default function DesignConfigurator({
                               value={deliveryCity}
                               onChange={(e) => setDeliveryCity(e.target.value)}
                               placeholder="City"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                             />
                             <input
                               type="text"
                               value={deliveryState}
                               onChange={(e) => setDeliveryState(e.target.value)}
                               placeholder="State"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                             />
                             <input
                               type="text"
                               value={deliveryZip}
                               onChange={(e) => setDeliveryZip(e.target.value)}
                               placeholder="Zip"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-stone-100 placeholder-stone-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
                             />
                           </div>
                         </div>
@@ -1938,27 +1938,27 @@ export default function DesignConfigurator({
                               ? "Pay Deposit & Book"
                               : "Submit Quote Request"}
                           </button>
-                          <p className="text-[11px] text-stone-500 text-center">
+                          <p className="text-[11px] text-stone-400 text-center">
                             By placing this order, you agree to our{" "}
-                            <a href="/terms" className="underline hover:text-yellow-600">
+                            <a href="/terms" className="underline hover:text-yellow-400">
                               Terms of Service
                             </a>.
                           </p>
                         </>
                       )}
                       {submitError && (
-                        <p className="text-xs font-medium text-red-600">
+                        <p className="text-xs font-medium text-red-400">
                           {submitError}
                         </p>
                       )}
                     </div>
                   ) : (
                     <div className="py-4 text-center">
-                      <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
-                      <p className="font-bold text-gray-900">
+                      <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
+                      <p className="font-bold text-stone-100">
                         Booking Received!
                       </p>
-                      <p className="mt-0.5 text-xs text-stone-500">
+                      <p className="mt-0.5 text-xs text-stone-400">
                         We&apos;ll reach out within 24 hours.
                       </p>
                     </div>

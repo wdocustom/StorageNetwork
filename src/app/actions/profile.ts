@@ -55,6 +55,33 @@ export async function stampLastLogin(userId: string): Promise<void> {
 }
 
 /**
+ * Check if an installer account is suspended.
+ * Returns suspension details including reason and Stripe subscription info
+ * so the login page can show the appropriate remediation UI.
+ */
+export async function checkSuspensionStatus(userId: string): Promise<{
+  suspended: boolean;
+  reason: "manual" | "payment" | null;
+  stripeSubscriptionId: string | null;
+}> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_suspended, suspension_reason, stripe_subscription_id")
+    .eq("id", userId)
+    .single();
+
+  if (!data || !data.is_suspended) {
+    return { suspended: false, reason: null, stripeSubscriptionId: null };
+  }
+
+  return {
+    suspended: true,
+    reason: data.suspension_reason ?? null,
+    stripeSubscriptionId: data.stripe_subscription_id ?? null,
+  };
+}
+
+/**
  * Update user profile information.
  */
 export async function updateProfile(

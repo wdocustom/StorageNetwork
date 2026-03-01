@@ -28,6 +28,8 @@ export interface PlatformUser {
   created_at: string;
   last_login_at: string | null;
   booking_link: string;
+  is_suspended: boolean;
+  suspension_reason: "manual" | "payment" | null;
 }
 
 export interface PartnerCommission {
@@ -426,7 +428,7 @@ export async function getAdminPlatformUsers(
     const { data: allProfiles, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at"
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason"
       )
       .order("created_at", { ascending: false });
 
@@ -460,6 +462,8 @@ export async function getAdminPlatformUsers(
         created_at: p.created_at,
         last_login_at: p.last_login_at ?? null,
         booking_link: `${baseUrl}/design?${bookingParam}`,
+        is_suspended: p.is_suspended ?? false,
+        suspension_reason: p.suspension_reason ?? null,
       };
     });
 
@@ -469,6 +473,50 @@ export async function getAdminPlatformUsers(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to load users.",
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// toggleInstallerSuspension — Admin manually suspends / unsuspends an
+// installer account.  Sets is_suspended + suspension_reason='manual'.
+// On unsuspend, clears both fields.
+// ═══════════════════════════════════════════════════════════════════════════
+export async function toggleInstallerSuspension(
+  adminUserId: string,
+  installerId: string,
+  suspend: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Verify caller is admin
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", adminUserId)
+      .single();
+
+    if (!adminProfile?.is_admin) {
+      return { success: false, error: "Not authorized." };
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        is_suspended: suspend,
+        suspension_reason: suspend ? "manual" : null,
+      })
+      .eq("id", installerId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[Admin] Suspension toggle failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to toggle suspension.",
     };
   }
 }
