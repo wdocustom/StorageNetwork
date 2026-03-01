@@ -210,7 +210,7 @@ function PartnerJoinPageInner() {
                   Pro Trial Included
                 </p>
                 <p className="text-[11px] text-purple-400/70">
-                  Courtesy of {referringPartner} — complete 3 jobs to experience the full platform
+                  Courtesy of {referringPartner} — trial ends when the platform demonstrates its true value, after 3 paid jobs land in your dashboard
                 </p>
               </div>
             </div>

@@ -846,8 +846,8 @@ export default function FeaturesPage() {
             Ready to Build Smarter?
           </h2>
           <p className="mx-auto mb-8 max-w-xl text-sm leading-relaxed text-stone-400">
-            Start your trial and see every feature in action. Complete a few jobs and
-            let the numbers speak for themselves.
+            Start your trial and see every feature in action. The trial ends when the
+            platform demonstrates its true value — after 3 paid jobs land in your dashboard.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a

@@ -221,7 +221,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-1.5">
             {trialStatus?.onTrial ? (
               <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-purple-400">
-                TRIAL · {trialStatus.jobsRemaining} JOBS LEFT
+                TRIAL · {trialStatus.jobsRemaining} {trialStatus.jobsRemaining === 1 ? "JOB" : "JOBS"} TO GO
               </span>
             ) : (
               <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
@@ -295,12 +295,12 @@ export default function DashboardPage() {
               Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
             </p>
             <p className="text-xs text-purple-400/70 mt-0.5">
-              {trialStatus.jobsRemaining} {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining · All features unlocked ·{" "}
+              Trial ends after {trialStatus.jobsRemaining} more paid {trialStatus.jobsRemaining === 1 ? "job lands" : "jobs land"} in your dashboard ·{" "}
               <a
                 href="/dashboard/profile"
                 className="font-bold underline hover:text-purple-200"
               >
-                Subscribe to continue
+                Subscribe anytime
               </a>
             </p>
           </div>
