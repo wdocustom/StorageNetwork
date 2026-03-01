@@ -422,6 +422,87 @@ export default function DesignConfigurator({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addrZip, deliveryZip, hasDifferentDelivery]);
 
+  // ── Re-price existing order items after handoff ─────────────────────
+  // When the installer changes during a referral handoff, existing items
+  // in the quote still carry the originating installer's pricing.  This
+  // effect detects the handoff and recalculates every item using the
+  // covering installer's pricing_config so the customer sees accurate
+  // rates for the installer who will actually do the work.
+  const prevPricingRef = useRef(data?.pricing);
+  useEffect(() => {
+    const newPricing = data?.pricing;
+    // Only fire when pricing actually changes AND there are items to reprice
+    if (newPricing === prevPricingRef.current || orderItems.length === 0) {
+      prevPricingRef.current = newPricing;
+      return;
+    }
+    prevPricingRef.current = newPricing;
+
+    if (!handedOff) return; // Only reprice during a handoff, not on initial load
+
+    (async () => {
+      const repriced: UnitConfig[] = [];
+
+      for (const item of orderItems) {
+        // Check if this is a preset (compound) item by matching its desc
+        // against known preset names.  Preset descs look like
+        // "Indiana Joe (2x4 + 2x2 + 2x4)"
+        const matchedPreset = BESTSELLER_PRESETS.find((p) =>
+          item.desc.startsWith(p.name)
+        );
+
+        if (matchedPreset) {
+          // Re-price via compound build with the new installer's pricing
+          try {
+            const result = await calculateCompoundBuild({
+              presetId: matchedPreset.id,
+              hasTotes: item.hasTotes,
+              installerPricing: newPricing,
+            });
+            if (result.success) {
+              repriced.push({ ...item, price: result.totalPrice });
+            } else {
+              repriced.push(item); // Keep original on failure
+            }
+          } catch {
+            repriced.push(item);
+          }
+        } else {
+          // Re-price via standard calculateBuild
+          try {
+            const result = await calculateBuild({
+              cols: item.cols,
+              rows: item.rows,
+              toteModel: item.toteType as "HDX" | "GM",
+              toteColor: item.toteColor,
+              unitType: item.unitType,
+              orientation: item.orientation,
+              addOns: {
+                totes: item.hasTotes,
+                wheels: item.hasWheels,
+                top: item.hasTop,
+              },
+              mode: "manual",
+              installerPricing: newPricing,
+            });
+            if (result.success) {
+              repriced.push({ ...item, price: result.price });
+            } else {
+              repriced.push(item);
+            }
+          } catch {
+            repriced.push(item);
+          }
+        }
+      }
+
+      setOrderItems(repriced);
+    })();
+  // orderItems is intentionally NOT a dep — we read it once when pricing
+  // changes and write back.  Including it would cause an infinite loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.pricing, handedOff]);
+
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
 
