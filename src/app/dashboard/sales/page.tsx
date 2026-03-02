@@ -9,6 +9,10 @@ import {
   type OrderDetail,
 } from "@/app/actions/sales-insights";
 import {
+  updateOperationalStatus,
+  type OperationalStatus,
+} from "@/app/actions/jobs";
+import {
   ArrowLeft,
   DollarSign,
   Package,
@@ -19,15 +23,20 @@ import {
   TrendingUp,
   Loader2,
   Star,
+  Phone,
+  MapPin,
+  Ruler,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — CRM / Sales History Dashboard
 //
 // Installer-scoped view of all completed orders with:
-//   - Top tiles: Total Sales, Total COGS, Total Orders
+//   - Top tiles: Gross Revenue (with Net Payout), COGS, Total Orders
+//   - Actionable customer cards (Call, Navigate, Blueprints)
+//   - Operational status pipeline (New → Scheduled → Completed)
+//   - Financial summary mini-cards with highlighted Gross Profit
 //   - Comprehensive search (customer, address, config type)
-//   - Expandable order rows with full details
 //   - Popular unit rankings for bestseller campaigns
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -65,6 +74,31 @@ export default function SalesInsightsPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Callback for OrderRow to update operational status optimistically
+  const handleOpStatusChange = useCallback(
+    async (orderId: string, newStatus: OperationalStatus) => {
+      if (!data) return;
+
+      // Optimistic update
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          orders: prev.orders.map((o) =>
+            o.id === orderId ? { ...o, operationalStatus: newStatus } : o
+          ),
+        };
+      });
+
+      const result = await updateOperationalStatus(orderId, newStatus);
+      if (!result.success) {
+        // Revert on failure
+        fetchData();
+      }
+    },
+    [data, fetchData]
+  );
 
   // ── Search Logic ────────────────────────────────────────────────────
   const filteredOrders = useMemo(() => {
@@ -170,7 +204,7 @@ export default function SalesInsightsPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Top Tiles ────────────────────────────────────────────── */}
+        {/* ══ Phase 1: KPI Top Tiles — Gross Revenue + Net Payout ══ */}
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <DollarSign className="mx-auto mb-1 h-5 w-5 text-yellow-400" />
@@ -178,7 +212,10 @@ export default function SalesInsightsPage() {
               {fmt(data.totalSales)}
             </p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-              Total Sales
+              Gross Revenue
+            </p>
+            <p className="mt-0.5 text-[10px] text-stone-600">
+              Net Payout: {fmt(data.netPayout)}
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
@@ -306,10 +343,57 @@ export default function SalesInsightsPage() {
               onToggle={() =>
                 setExpandedId(expandedId === order.id ? null : order.id)
               }
+              onOpStatusChange={handleOpStatusChange}
             />
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OperationalStatusPills — Pipeline state toggle
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OP_STATUS_CONFIG: {
+  value: OperationalStatus;
+  label: string;
+}[] = [
+  { value: "new", label: "New" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "completed", label: "Completed" },
+];
+
+function OperationalStatusPills({
+  current,
+  onChange,
+}: {
+  current: string;
+  onChange: (status: OperationalStatus) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {OP_STATUS_CONFIG.map((opt) => {
+        const isActive = current === opt.value;
+        return (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
+              isActive
+                ? opt.value === "completed"
+                  ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40"
+                  : opt.value === "scheduled"
+                  ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40"
+                  : "bg-yellow-400/20 text-yellow-400 ring-1 ring-yellow-400/40"
+                : "bg-slate-800 text-stone-600 hover:bg-slate-700 hover:text-stone-400"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -322,10 +406,12 @@ function OrderRow({
   order,
   expanded,
   onToggle,
+  onOpStatusChange,
 }: {
   order: OrderDetail;
   expanded: boolean;
   onToggle: () => void;
+  onOpStatusChange: (orderId: string, status: OperationalStatus) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
@@ -360,9 +446,9 @@ function OrderRow({
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-slate-800 bg-slate-800/30 p-3">
+        <div className="border-t border-slate-800 bg-slate-800/30 p-3 space-y-3">
           {/* Customer info */}
-          <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-2 gap-2 text-xs">
             {order.customerEmail && (
               <div>
                 <span className="text-stone-500">Email: </span>
@@ -391,22 +477,66 @@ function OrderRow({
                 <span className="text-stone-300">{order.address}</span>
               </div>
             )}
-            <div>
-              <span className="text-stone-500">Status: </span>
-              <span className={order.status === "paid" ? "font-semibold text-emerald-400" : "text-amber-400"}>
-                {order.status === "paid" ? "Paid" : "Payment Pending"}
+          </div>
+
+          {/* ══ Phase 2: Action Buttons — Call, Navigate, Blueprints ══ */}
+          <div className="grid grid-cols-3 gap-2">
+            <a
+              href={order.customerPhone ? `tel:${order.customerPhone}` : undefined}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold transition-all ${
+                order.customerPhone
+                  ? "text-stone-300 hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
+                  : "pointer-events-none text-stone-700"
+              }`}
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Call
+            </a>
+            <a
+              href={order.address ? `https://maps.google.com/?q=${encodeURIComponent(order.address)}` : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold transition-all ${
+                order.address
+                  ? "text-stone-300 hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
+                  : "pointer-events-none text-stone-700"
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Navigate
+            </a>
+            <Link
+              href={`/dashboard/leads/${order.id}`}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-300 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
+            >
+              <Ruler className="h-3.5 w-3.5" />
+              Blueprints
+            </Link>
+          </div>
+
+          {/* ══ Phase 3: Status Row — Payment + Operational Pipeline ══ */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Payment:</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                order.status === "paid"
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "bg-amber-500/20 text-amber-400"
+              }`}>
+                {order.status === "paid" ? "Paid" : "Pending"}
               </span>
             </div>
-            {order.scheduledAt && (
-              <div>
-                <span className="text-stone-500">Scheduled: </span>
-                <span className="text-stone-300">{fmtDate(order.scheduledAt)}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Job:</span>
+              <OperationalStatusPills
+                current={order.operationalStatus}
+                onChange={(status) => onOpStatusChange(order.id, status)}
+              />
+            </div>
           </div>
 
           {/* Unit breakdown */}
-          <div className="mb-3 space-y-1.5">
+          <div className="space-y-1.5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
               Units
             </p>
@@ -434,19 +564,24 @@ function OrderRow({
             })}
           </div>
 
-          {/* Financials */}
-          <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-800 p-2.5">
-            <div className="text-center">
-              <p className="text-[10px] text-stone-500">Revenue</p>
-              <p className="text-xs font-bold text-white">{fmt(order.totalPrice)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-stone-500">Materials</p>
-              <p className="text-xs font-bold text-amber-400">{fmt(order.materialCost)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-stone-500">Gross Profit</p>
-              <p className="text-xs font-bold text-emerald-400">{fmt(order.profit)}</p>
+          {/* ══ Phase 4: Financial Summary Mini-Card ══ */}
+          <div className="rounded-xl border border-slate-700/50 bg-slate-900 p-3">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+              Financial Summary
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center">
+                <p className="text-[10px] text-stone-500">Revenue</p>
+                <p className="text-sm font-black text-white">{fmt(order.totalPrice)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-stone-500">Materials</p>
+                <p className="text-sm font-black text-amber-400">{fmt(order.materialCost)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-stone-500">Gross Profit</p>
+                <p className="text-sm font-black text-emerald-400">{fmt(order.profit)}</p>
+              </div>
             </div>
           </div>
         </div>

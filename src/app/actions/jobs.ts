@@ -10,6 +10,40 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// ═══════════════════════════════════════════════════════════════════════════
+// updateOperationalStatus — Pipeline state toggle from CRM cards
+// Updates the installer-facing operational status independently of payment.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type OperationalStatus = "new" | "scheduled" | "completed";
+
+const VALID_OP_STATUSES: OperationalStatus[] = ["new", "scheduled", "completed"];
+
+export async function updateOperationalStatus(
+  leadId: string,
+  status: OperationalStatus
+): Promise<{ success: boolean; error?: string }> {
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+  if (!VALID_OP_STATUSES.includes(status)) {
+    return { success: false, error: `Invalid status: ${status}` };
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update({
+      operational_status: status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", leadId);
+
+  if (error) {
+    console.error("[OperationalStatus] DB error:", error);
+    return { success: false, error: "Failed to update status." };
+  }
+
+  return { success: true };
+}
+
 /**
  * Update material inventory after a job is completed.
  * Fetches the lead's quote_data, calculates raw material usage,
