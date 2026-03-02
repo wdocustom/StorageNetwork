@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
+import ShareKit from "@/components/dashboard/ShareKit";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Marketing & Promotion — Installer sales toolkit
@@ -100,6 +101,14 @@ export default function MarketingPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-6 p-4 pt-6">
+        {/* ── Section 0: Quick Share Kit ──────────────────────────── */}
+        <ShareKit
+          bookingLink={bookingLink}
+          businessName={profile.business_name}
+          city={profile.city}
+          state={profile.state}
+        />
+
         {/* ── Section 1: Booking Link ──────────────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
