@@ -9,6 +9,7 @@ import {
   Loader2,
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
+import ProPill from "@/components/dashboard/ProPill";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -151,6 +152,7 @@ export default function LeadsListPage() {
               {leads.length} total
             </p>
           </div>
+          <ProPill />
         </div>
       </header>
 

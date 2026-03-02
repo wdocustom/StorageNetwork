@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -103,12 +104,13 @@ export default function GuidesPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
-          <div>
+          <div className="flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Plans & Guides
             </h1>
             <p className="text-[11px] text-stone-500">Training Library</p>
           </div>
+          <ProPill />
         </div>
       </header>
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerAnalytics, type AnalyticsSummary, type GroupedReferrer } from "@/app/actions/analytics";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Analytics Dashboard
@@ -133,7 +134,7 @@ export default function AnalyticsPage() {
             </h1>
             <p className="text-[11px] text-stone-500">Link Performance & Conversions</p>
           </div>
-          <BarChart3 className="h-5 w-5 text-purple-400" />
+          <ProPill />
         </div>
       </header>
 

@@ -16,6 +16,7 @@ import {
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
 import ShareKit from "@/components/dashboard/ShareKit";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Marketing & Promotion — Installer sales toolkit
@@ -91,12 +92,13 @@ export default function MarketingPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
-          <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-yellow-400" />
             <h1 className="text-lg font-bold text-white">
               Marketing & Promotion
             </h1>
           </div>
+          <ProPill link={bookingLink} />
         </div>
       </header>
 
@@ -116,11 +118,6 @@ export default function MarketingPage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
               Your Booking Link
             </h2>
-            {profile.is_pro && (
-              <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-                Pro
-              </span>
-            )}
           </div>
           <p className="mb-4 text-sm text-stone-500">
             {profile.is_pro && profile.slug

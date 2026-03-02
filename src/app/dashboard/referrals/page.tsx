@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin,
 } from "lucide-react";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -129,18 +130,14 @@ export default function ReferralsPage() {
             <ArrowLeft className="h-4 w-4" />
           </a>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-                Network Referrals
-              </h1>
-              <span className="rounded bg-yellow-400/15 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest text-yellow-400">
-                PRO
-              </span>
-            </div>
+            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
+              Network Referrals
+            </h1>
             <p className="text-[10px] text-stone-500">
               {referrals.length} total referral{referrals.length !== 1 ? "s" : ""}
             </p>
           </div>
+          <ProPill />
         </div>
       </header>
 

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
+import ProPill from "@/components/dashboard/ProPill";
 import { startTripNotify } from "@/app/actions/sms";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
@@ -197,6 +198,7 @@ export default function JobTicketPage() {
               #{leadId.slice(0, 8)}
             </p>
           </div>
+          <ProPill />
           <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
         </div>
       </header>

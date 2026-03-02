@@ -15,9 +15,6 @@ import {
   AlertCircle,
   ChevronRight,
   Settings,
-  Copy,
-  Check,
-  Link2,
   DollarSign,
   Package,
   Trophy,
@@ -30,6 +27,7 @@ import {
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
+import ProPill from "@/components/dashboard/ProPill";
 import { getInstallerLink } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -61,7 +59,6 @@ export default function DashboardPage() {
   const [totalSales, setTotalSales] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -143,12 +140,6 @@ export default function DashboardPage() {
     window.location.href = "/login";
   }
 
-  function copyToClipboard(link: string, linkType: string) {
-    navigator.clipboard.writeText(link);
-    setCopiedLink(linkType);
-    setTimeout(() => setCopiedLink(null), 2000);
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -224,9 +215,7 @@ export default function DashboardPage() {
                 TRIAL · {trialStatus.jobsRemaining} {trialStatus.jobsRemaining === 1 ? "JOB" : "JOBS"} TO GO
               </span>
             ) : (
-              <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-yellow-400">
-                PRO
-              </span>
+              <ProPill link={leadLink} />
             )}
           </div>
 
@@ -482,44 +471,6 @@ export default function DashboardPage() {
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
 
-          {/* Your Links Section */}
-          {profile && (
-            <div className="space-y-3">
-              {/* Lead/Affiliate Link */}
-              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Link2 className="h-3 w-3 text-blue-400" />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
-                      My Lead Link
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(leadLink, "lead")}
-                    className="flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-slate-600"
-                  >
-                    {copiedLink === "lead" ? (
-                      <>
-                        <Check className="h-3 w-3 text-emerald-400" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p className="select-all break-all text-sm font-medium text-blue-400">
-                  {leadLink}
-                </p>
-                <p className="mt-2 text-[11px] text-stone-600">
-                  Share anywhere — tracks leads for 30 days via cookie.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </main>
 

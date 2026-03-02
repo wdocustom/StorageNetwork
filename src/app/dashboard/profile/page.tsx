@@ -36,6 +36,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import ProPill from "@/components/dashboard/ProPill";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
@@ -559,11 +560,7 @@ function ProfilePageInner() {
               {profile?.business_name || profile?.first_name || "Manage your account"}
             </p>
           </div>
-          <span
-            className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400/10 text-yellow-400"
-          >
-            Pro
-          </span>
+          <ProPill />
         </div>
       </header>
 

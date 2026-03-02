@@ -27,6 +27,7 @@ import {
   MapPin,
   Ruler,
 } from "lucide-react";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — CRM / Sales History Dashboard
@@ -200,6 +201,7 @@ export default function SalesInsightsPage() {
             <h1 className="text-base font-black text-white">Sales &amp; Customers</h1>
             <p className="text-[10px] text-stone-500">Order history, analytics &amp; CRM</p>
           </div>
+          <ProPill />
         </div>
       </header>
 

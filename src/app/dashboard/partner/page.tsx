@@ -36,6 +36,7 @@ import {
   Ban,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Dashboard — "The Elite View"
@@ -228,11 +229,7 @@ export default function PartnerDashboardPage() {
                 </span>
               </div>
             )}
-            <div className="rounded-full bg-yellow-400/10 px-3 py-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
-                Affiliate Partner
-              </span>
-            </div>
+            <ProPill />
           </div>
         </div>
       </header>

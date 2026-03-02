@@ -43,6 +43,7 @@ import type { BookingAddress } from "@/components/booking/BookingModal";
 import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
+import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, getDepositAmount, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
@@ -730,9 +731,7 @@ export default function BuildConfiguratorPage() {
               Estimate, Quote & New Build
             </p>
           </div>
-          <span className="rounded-full bg-yellow-400/20 px-3 py-1 text-[10px] font-bold text-yellow-400">
-            PRO
-          </span>
+          <ProPill />
         </div>
       </header>
 
