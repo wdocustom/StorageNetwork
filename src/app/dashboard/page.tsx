@@ -337,15 +337,15 @@ export default function DashboardPage() {
 
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
-            <a href="/dashboard/sales" className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]">
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
               <DollarSign className="mx-auto mb-1 h-5 w-5 text-yellow-400" />
               <p className="text-xl font-black text-white">
                 ${totalSales.toLocaleString()}
               </p>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-                Sales &amp; Customers
+                Gross Revenue
               </p>
-            </a>
+            </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
               <Trophy className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
               <p className="text-xl font-black text-white">
@@ -355,15 +355,15 @@ export default function DashboardPage() {
                 Jobs Done
               </p>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
-              <Package className="mx-auto mb-1 h-5 w-5 text-blue-400" />
+            <a href="/dashboard/sales" className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]">
+              <Users className="mx-auto mb-1 h-5 w-5 text-blue-400" />
               <p className="text-xl font-black text-white">
                 {newLeadCount}
               </p>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
-                New Leads
+                Sales &amp; Customers
               </p>
-            </div>
+            </a>
           </div>
 
           {/* ── Network Passive Income ─────────────────────────────── */}
