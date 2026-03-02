@@ -356,10 +356,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <a href="/dashboard/sales" className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]">
-              <Users className="mx-auto mb-1 h-5 w-5 text-blue-400" />
-              <p className="text-xl font-black text-white">
-                {newLeadCount}
-              </p>
+              <Users className="mx-auto mb-2 h-6 w-6 text-blue-400" />
               <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
                 Sales &amp; Customers
               </p>
