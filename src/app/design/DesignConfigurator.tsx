@@ -257,6 +257,7 @@ export default function DesignConfigurator({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const [phone, setPhone] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [city, setCity] = useState("");
@@ -803,6 +804,10 @@ export default function DesignConfigurator({
       setWaitlistError("Name and email are required to join the waitlist.");
       return;
     }
+    if (!emailRegex.test(email.trim())) {
+      setWaitlistError("Please enter a valid email address.");
+      return;
+    }
     const zip = hasDifferentDelivery ? deliveryZip.trim() : addrZip.trim();
     if (!zip) {
       setWaitlistError("ZIP code is required.");
@@ -834,6 +839,10 @@ export default function DesignConfigurator({
     setSubmitError("");
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
       setSubmitError("First name, last name, email, and phone are required.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setSubmitError("Please enter a valid email address.");
       return;
     }
     if (orderItems.length === 0) {
@@ -902,6 +911,10 @@ export default function DesignConfigurator({
     }
     if (!email.trim()) {
       setContactError("Please enter your email so the installer can reply.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setContactError("Please enter a valid email address.");
       return;
     }
     if (!installerId) {

@@ -1120,7 +1120,7 @@ export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string 
 
     <!-- CTA Buttons -->
     <div style="text-align:center;margin-bottom:24px;">
-      <a href="mailto:${customerEmail}?subject=Re:%20Your%20Storage%20Build%20Inquiry%20%E2%80%94%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;margin-right:8px;">
+      <a href="mailto:${customerEmail}?subject=Re:%20Your%20Storage%20Build%20Inquiry%20%E2%80%94%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#facc15;color:#0f172a;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:14px;margin-right:8px;">
         Reply to ${customerName.split(" ")[0]}
       </a>
       <a href="${dashboardUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">

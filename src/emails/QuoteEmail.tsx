@@ -222,10 +222,10 @@ const ctaSection: React.CSSProperties = {
 const ctaButton: React.CSSProperties = {
   backgroundColor: "#FACC15",
   borderRadius: "10px",
-  color: "#1a1a1a",
+  color: "#0f172a",
   display: "inline-block",
   fontSize: "15px",
-  fontWeight: 800,
+  fontWeight: "bold",
   letterSpacing: "0.3px",
   padding: "16px 36px",
   textDecoration: "none",

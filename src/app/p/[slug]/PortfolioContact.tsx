@@ -26,9 +26,15 @@ export default function PortfolioContact({ installerId, businessName }: Portfoli
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   async function handleSend() {
     if (!name.trim() || !email.trim() || !message.trim()) {
       setError("Name, email, and message are required.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address.");
       return;
     }
     setSending(true);

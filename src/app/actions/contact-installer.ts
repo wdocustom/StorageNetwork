@@ -64,6 +64,9 @@ export async function contactInstaller(
   if (!customerEmail?.trim()) {
     return { success: false, error: "Your email is required." };
   }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
   if (!message?.trim()) {
     return { success: false, error: "Please enter a message." };
   }
@@ -215,7 +218,7 @@ export async function contactInstaller(
             ` : ""}
 
             <div style="text-align:center;margin-bottom:24px;">
-              <a href="${designUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
+              <a href="${designUrl}" style="display:inline-block;background-color:#facc15;color:#0f172a;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;">
                 Return to My Quote &rarr;
               </a>
             </div>
