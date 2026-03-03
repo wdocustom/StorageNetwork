@@ -89,6 +89,15 @@ const nextConfig = {
         ],
       },
       {
+        source: "/design",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=300, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
         source: "/demo",
         headers: [
           {

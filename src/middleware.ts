@@ -2,14 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { siteConfig } from "@/config/site";
 import { rateLimit } from "@/lib/rate-limit";
+import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Middleware — Rate Limiting + Affiliate Cookie Tracking
+// Middleware — Rate Limiting + Cache Control + Affiliate Cookie Tracking
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Rate limit tiers (requests per 60-second window)
 const API_LIMIT = 30; // API routes — tighter
 const PAGE_LIMIT = 60; // Page requests — generous
+
+// Paths whose Cache-Control is driven by Edge Config
+const EDGE_CACHED_PATHS = new Set(["/design", "/join"]);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -42,6 +46,17 @@ export async function middleware(request: NextRequest) {
   // Rate limit headers (informational)
   response.headers.set("X-RateLimit-Limit", String(limit));
   response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+
+  // ── Edge Config Cache Control ──────────────────────────────────────────
+  // Dynamic cache headers for /design and /join — tunable from Vercel dashboard
+  if (EDGE_CACHED_PATHS.has(pathname)) {
+    const cacheConfig = await getCacheConfig();
+    const rule = cacheConfig.paths[pathname];
+    if (rule) {
+      response.headers.set("Cache-Control", buildCacheHeader(rule));
+      response.headers.set("CDN-Cache-Control", buildCacheHeader(rule));
+    }
+  }
 
   // ── Affiliate Cookie Tracking ──────────────────────────────────────────
   const installerId = request.nextUrl.searchParams.get("installer_id");

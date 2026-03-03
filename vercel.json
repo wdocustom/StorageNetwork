@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/onboarding-drip",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/prewarm",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
