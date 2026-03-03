@@ -1053,7 +1053,115 @@ export default function BuildConfiguratorPage() {
               </div>
 
             </section>
+          </>
+        )}
 
+        {/* ── Quote Builder (Multiple Units) ────────────────────────── */}
+        {/* Lives outside buildResult gate so preset-only quotes are visible */}
+        {units.length > 0 && (
+          <section ref={quoteBuilderRef} className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+              <ShoppingCart className="h-4 w-4" />
+              Quote Builder ({units.length} unit{units.length > 1 ? "s" : ""})
+            </h2>
+
+            <div className="space-y-2">
+              {(() => {
+                const rendered = new Set<string>();
+                return units.map((unit, index) => {
+                  if (unit.presetGroup) {
+                    if (rendered.has(unit.presetGroup)) return null;
+                    rendered.add(unit.presetGroup);
+                    const groupUnits = units.filter((u) => u.presetGroup === unit.presetGroup);
+                    const groupPrice = groupUnits.reduce((s, u) => s + (u.price || 0), 0);
+                    const groupSlots = groupUnits.reduce((s, u) => s + (u.slots || 0), 0);
+                    return (
+                      <div
+                        key={unit.presetGroup}
+                        className="rounded-lg border border-yellow-400/20 bg-slate-800 p-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
+                              {unit.presetName}
+                            </p>
+                            <p className="text-[11px] text-stone-500">
+                              {groupUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")} • {groupSlots} slots
+                              {groupUnits[0].hasTotes && " • Totes"}
+                              {groupUnits.some((u) => u.hasWheels) && " • Wheels"}
+                              {groupUnits.some((u) => u.hasTop) && " • Top"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-yellow-400">
+                              ${groupPrice.toLocaleString()}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveUnit(unit.id)}
+                              className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={unit.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Unit {index + 1}: {unit.cols} × {unit.rows}
+                        </p>
+                        <p className="text-[11px] text-stone-500">
+                          {unit.toteType} • {unit.slots} slots
+                          {unit.hasTotes && " • Totes"}
+                          {unit.hasWheels && " • Wheels"}
+                          {unit.hasTop && " • Top"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-yellow-400">
+                          ${unit.price?.toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => handleRemoveUnit(unit.id)}
+                          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Grand Total */}
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3">
+              <span className="text-sm font-bold uppercase text-stone-400">Grand Total</span>
+              <span className="text-xl font-black text-yellow-400">
+                ${grandTotal.toLocaleString()}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setShowQuoteModal(true)}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+            >
+              <FileText className="h-4 w-4" />
+              Send Quote
+            </button>
+          </section>
+        )}
+
+        {buildResult && (
+          <>
             {/* ── Profit Calculator ────────────────────────────────────── */}
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
               <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -1202,110 +1310,6 @@ export default function BuildConfiguratorPage() {
             {/* ── Locked Blueprints Teaser ─────────────────────────────── */}
             <LockedBlueprintsTeaser />
           </>
-        )}
-
-        {/* ── Quote Builder (Multiple Units) ────────────────────────── */}
-        {/* Lives outside buildResult gate so preset-only quotes are visible */}
-        {units.length > 0 && (
-          <section ref={quoteBuilderRef} className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
-              <ShoppingCart className="h-4 w-4" />
-              Quote Builder ({units.length} unit{units.length > 1 ? "s" : ""})
-            </h2>
-
-            <div className="space-y-2">
-              {(() => {
-                const rendered = new Set<string>();
-                return units.map((unit, index) => {
-                  if (unit.presetGroup) {
-                    if (rendered.has(unit.presetGroup)) return null;
-                    rendered.add(unit.presetGroup);
-                    const groupUnits = units.filter((u) => u.presetGroup === unit.presetGroup);
-                    const groupPrice = groupUnits.reduce((s, u) => s + (u.price || 0), 0);
-                    const groupSlots = groupUnits.reduce((s, u) => s + (u.slots || 0), 0);
-                    return (
-                      <div
-                        key={unit.presetGroup}
-                        className="rounded-lg border border-yellow-400/20 bg-slate-800 p-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
-                              {unit.presetName}
-                            </p>
-                            <p className="text-[11px] text-stone-500">
-                              {groupUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")} • {groupSlots} slots
-                              {groupUnits[0].hasTotes && " • Totes"}
-                              {groupUnits.some((u) => u.hasWheels) && " • Wheels"}
-                              {groupUnits.some((u) => u.hasTop) && " • Top"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-yellow-400">
-                              ${groupPrice.toLocaleString()}
-                            </span>
-                            <button
-                              onClick={() => handleRemoveUnit(unit.id)}
-                              className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={unit.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          Unit {index + 1}: {unit.cols} × {unit.rows}
-                        </p>
-                        <p className="text-[11px] text-stone-500">
-                          {unit.toteType} • {unit.slots} slots
-                          {unit.hasTotes && " • Totes"}
-                          {unit.hasWheels && " • Wheels"}
-                          {unit.hasTop && " • Top"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-yellow-400">
-                          ${unit.price?.toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveUnit(unit.id)}
-                          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-
-            {/* Grand Total */}
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3">
-              <span className="text-sm font-bold uppercase text-stone-400">Grand Total</span>
-              <span className="text-xl font-black text-yellow-400">
-                ${grandTotal.toLocaleString()}
-              </span>
-            </div>
-
-            <button
-              onClick={() => setShowQuoteModal(true)}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-            >
-              <FileText className="h-4 w-4" />
-              Send Quote
-            </button>
-          </section>
         )}
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
