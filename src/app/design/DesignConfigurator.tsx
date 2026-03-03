@@ -14,7 +14,7 @@ import { submitNetworkLead } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
-import { getDepositAmount } from "@/app/actions/fee-engine";
+import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
@@ -513,13 +513,17 @@ export default function DesignConfigurator({
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
   const grandTotal = buildTotal + deliveryFeeAmount;
 
-  // Deposit — computed server-side (black box: client never sees the rate)
+  // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [depositAmount, setDepositAmount] = useState(0);
+  const [depositLabelText, setDepositLabelText] = useState("15%");
   useEffect(() => {
     if (grandTotal > 0) {
-      getDepositAmount(grandTotal).then(setDepositAmount);
+      getDepositAmount(grandTotal, installerId || undefined).then(setDepositAmount);
     }
-  }, [grandTotal]);
+  }, [grandTotal, installerId]);
+  useEffect(() => {
+    getDepositLabel(installerId || undefined).then(setDepositLabelText);
+  }, [installerId]);
 
   // Does any unit have wheels?
   const anyHasWheels = orderItems.some((it) => it.hasWheels);
@@ -1731,7 +1735,7 @@ export default function DesignConfigurator({
                   )}
                   {stripeAccountId && (
                     <div className="mt-1 text-xs text-stone-500">
-                      Deposit (15%):{" "}
+                      Deposit ({depositLabelText}):{" "}
                       <span className="font-bold text-yellow-600">
                         ${depositAmount.toLocaleString()}
                       </span>

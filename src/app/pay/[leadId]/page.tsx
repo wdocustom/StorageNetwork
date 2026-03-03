@@ -238,7 +238,7 @@ export default function ResumePaymentPage() {
     }
   }
 
-  // Deposit always stays at full 15% — discounts only affect the balance
+  // Deposit uses installer's configured rate (min 15%) — discounts only affect the balance
   const effectiveDeposit = lead ? lead.deposit_amount : 0;
 
   // Initialize Stripe payment

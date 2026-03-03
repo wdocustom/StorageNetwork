@@ -1,5 +1,7 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
 //
@@ -8,7 +10,7 @@
 // pricing decision trees. It only receives computed display values.
 //
 // This is the single source of truth for:
-//   - Deposit rate
+//   - Deposit rate (default 15%, installer-configurable)
 //   - Fee rates (network 15%, maintenance 3%)
 //   - State sales tax rates
 //   - Net profit calculations
@@ -16,6 +18,11 @@
 //
 // The browser bundle contains zero knowledge of how any of these are derived.
 // ═══════════════════════════════════════════════════════════════════════════
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ── Fee Constants (server-only, never shipped to client) ─────────────────
 const DEPOSIT_RATE = 0.15;
@@ -42,6 +49,13 @@ const STATE_TAX_RATES: Record<string, number> = {
   DC: 0.06,
 };
 
+// ── Deposit Config Types ─────────────────────────────────────────────────
+
+export interface DepositConfig {
+  type: "percentage" | "flat";
+  value: number; // percentage (e.g. 25 = 25%) or flat dollar amount
+}
+
 // ── Shared Types (safe to export — these are just shapes, no values) ────
 
 export interface SalesTaxResult {
@@ -54,7 +68,7 @@ export interface SalesTaxResult {
 
 export interface NetProfitResult {
   totalPrice: number;
-  depositAmount: number;      // the actual 15% customer deposit
+  depositAmount: number;      // the customer deposit (installer-configurable, min 15%)
   feeAmount: number;          // platform fee (15% network or 3% maintenance)
   customerBalance: number;    // what customer owes at install (totalPrice - deposit)
   installerTakeHome: number;  // installer's total after fees (totalPrice - fee)
@@ -76,16 +90,90 @@ export interface BuildFeeBreakdown {
   directCollect: number;
   directNetProfit: number;
   depositAmount: number;
+  depositLabel: string;        // e.g. "15%", "25%", "$200"
+}
+
+// ── Deposit Helpers (server-only) ────────────────────────────────────────
+
+/**
+ * Fetch the installer's custom deposit config from the database.
+ * Returns null if no custom config is set (use default 15%).
+ */
+async function getInstallerDepositConfig(installerId: string): Promise<DepositConfig | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("deposit_config")
+    .eq("id", installerId)
+    .single();
+
+  if (!data?.deposit_config) return null;
+
+  const config = data.deposit_config as DepositConfig;
+  if (config.type && typeof config.value === "number" && config.value > 0) {
+    return config;
+  }
+  return null;
+}
+
+/**
+ * Calculate deposit from config, enforcing the 15% minimum floor.
+ * The deposit must always be at least 15% of the total to cover
+ * the platform's network lead fee.
+ */
+function computeDeposit(grandTotal: number, config: DepositConfig | null): number {
+  const minimumDeposit = Math.round(grandTotal * DEPOSIT_RATE * 100) / 100;
+
+  if (!config) return minimumDeposit;
+
+  let customDeposit: number;
+  if (config.type === "flat") {
+    customDeposit = Math.round(config.value * 100) / 100;
+  } else {
+    // percentage — stored as whole number (e.g. 25 = 25%)
+    const rate = config.value / 100;
+    customDeposit = Math.round(grandTotal * rate * 100) / 100;
+  }
+
+  // Floor: deposit must cover the platform's 15% network fee
+  return Math.max(customDeposit, minimumDeposit);
+}
+
+/**
+ * Build a human-readable label for the deposit (e.g. "15%", "25%", "$200").
+ * Used for UI display — never reveals the rate constant itself.
+ */
+function depositLabel(config: DepositConfig | null): string {
+  if (!config) return "15%";
+  if (config.type === "flat") return `$${config.value}`;
+  return `${config.value}%`;
 }
 
 // ── Server Actions ───────────────────────────────────────────────────────
 
 /**
  * Calculate the deposit amount for a given grand total.
+ * If installerId is provided, uses the installer's custom deposit config.
+ * Deposit is always at least 15% of the total (to cover platform fees).
  * Client never sees the deposit rate constant.
  */
-export async function getDepositAmount(grandTotal: number): Promise<number> {
-  return Math.round(grandTotal * DEPOSIT_RATE * 100) / 100;
+export async function getDepositAmount(grandTotal: number, installerId?: string): Promise<number> {
+  if (!installerId) {
+    return Math.round(grandTotal * DEPOSIT_RATE * 100) / 100;
+  }
+
+  const config = await getInstallerDepositConfig(installerId);
+  return computeDeposit(grandTotal, config);
+}
+
+/**
+ * Get the deposit display label for an installer (e.g. "15%", "25%", "$200").
+ * Used by UI components to show what the deposit rate is.
+ */
+export async function getDepositLabel(installerId?: string): Promise<string> {
+  if (!installerId) return "15%";
+
+  const config = await getInstallerDepositConfig(installerId);
+  return depositLabel(config);
 }
 
 /**
@@ -106,13 +194,15 @@ export async function getSalesTax(
 /**
  * Calculate the installer's true net profit after fees and materials.
  * Network leads: 15% fee. Direct leads: 3% maintenance fee.
+ * Deposit uses installer's custom config (if set).
  */
 export async function getNetProfit(input: {
   totalPrice: number;
   materialCost: number;
   source?: string;
+  installerId?: string;
 }): Promise<NetProfitResult> {
-  const { totalPrice, materialCost, source } = input;
+  const { totalPrice, materialCost, source, installerId } = input;
 
   const isDirectLead = source === "partner_link" || source === "installer_manual";
   let feeRate: number;
@@ -127,7 +217,11 @@ export async function getNetProfit(input: {
   }
 
   const feeAmount = Math.round(totalPrice * feeRate * 100) / 100;
-  const depositAmount = Math.round(totalPrice * DEPOSIT_RATE * 100) / 100;
+
+  // Use installer's custom deposit config
+  const config = installerId ? await getInstallerDepositConfig(installerId) : null;
+  const depositAmount = computeDeposit(totalPrice, config);
+
   const customerBalance = Math.round((totalPrice - depositAmount) * 100) / 100;
   const installerTakeHome = Math.round((totalPrice - feeAmount) * 100) / 100;
   const netProfit = Math.max(0, Math.round((installerTakeHome - materialCost) * 100) / 100);
@@ -149,13 +243,19 @@ export async function getNetProfit(input: {
 /**
  * Fee breakdown for the build page profit calculator.
  * Returns display-ready values — no fee constants exposed to the client.
+ * Uses installer's custom deposit config if installerId provided.
  */
 export async function getBuildFeeBreakdown(
   jobPrice: number,
-  materialsCost: number
+  materialsCost: number,
+  installerId?: string
 ): Promise<BuildFeeBreakdown> {
   const networkFee = Math.round(jobPrice * NETWORK_FEE_RATE);
   const directFee = Math.round(jobPrice * MAINTENANCE_FEE_RATE);
+
+  // Use installer's custom deposit config
+  const config = installerId ? await getInstallerDepositConfig(installerId) : null;
+  const deposit = computeDeposit(jobPrice, config);
 
   return {
     networkFeePercent: "15%",
@@ -166,7 +266,8 @@ export async function getBuildFeeBreakdown(
     directFeeAmount: directFee,
     directCollect: Math.round(jobPrice * (1 - MAINTENANCE_FEE_RATE)),
     directNetProfit: Math.max(0, Math.round(jobPrice * (1 - MAINTENANCE_FEE_RATE) - materialsCost)),
-    depositAmount: Math.round(jobPrice * DEPOSIT_RATE),
+    depositAmount: deposit,
+    depositLabel: depositLabel(config),
   };
 }
 

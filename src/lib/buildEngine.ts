@@ -177,7 +177,12 @@ function calcUprightHeight(rows: number, unitType: UnitType): number {
 
 // ── Main Export ──────────────────────────────────────────────────────────
 
-export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
+/**
+ * Generate a build manifest with shopping list, cut plans, and financials.
+ * @param quoteData - Array of configured units
+ * @param customDepositRate - Optional custom deposit rate (e.g. 0.25 for 25%). Defaults to 15%.
+ */
+export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?: number): BuildManifest {
   let gBoards = 0;
   let gScrew16 = 0;
   let gScrew3 = 0;
@@ -522,7 +527,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
   }
 
   // ── Financials ────────────────────────────────────────────────────────
-  const depositAmount = Math.round(gRetail * DEPOSIT_RATE * 100) / 100;
+  const effectiveRate = customDepositRate ?? DEPOSIT_RATE;
+  const depositAmount = Math.round(gRetail * effectiveRate * 100) / 100;
   const balanceDue = Math.round((gRetail - depositAmount) * 100) / 100;
 
   return {
@@ -530,7 +536,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[]): BuildManifest {
     cut_plan_visuals: cutPlans,
     financials: {
       retailTotal: gRetail,
-      depositRate: DEPOSIT_RATE,
+      depositRate: effectiveRate,
       depositAmount,
       balanceDue,
     },

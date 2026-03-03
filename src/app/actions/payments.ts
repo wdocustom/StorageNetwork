@@ -29,7 +29,7 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 // DISCOUNT CODE HANDLING:
 // ─────────────────────────────────────────────────────────────────────────
 // - Discount codes only affect the REMAINING BALANCE (not deposit)
-// - Deposit always stays at full 15% of original price
+// - Deposit stays at the installer-configured rate (min 15%)
 // - Installer absorbs the discount (reduced balance collection)
 // - Tax is always on the full subtotal BEFORE any discounts
 // - Platform first-order discounts are permanently deactivated
@@ -60,7 +60,8 @@ const supabase = createClient(
 );
 
 // ── Fee Constants ────────────────────────────────────────────────────────
-const DEPOSIT_RATE = 0.15;           // 15% deposit from customer
+// Deposit rate is now installer-configurable (min 15%) via fee-engine.ts.
+// The deposit amount is passed in by callers who resolve it from getDepositAmount().
 const PRO_PLATFORM_FEE_RATE = 0.03;  // 3% platform fee for Pro installers
 const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
 // Note: Balance payments have NO platform fee — platform already took their cut from deposit
@@ -417,7 +418,7 @@ export async function createDepositIntent(
   }
 
   // Deposit is always charged WITHOUT tax. Tax is collected by installer at installation.
-  // Deposit is ALWAYS the full 15% — discount codes only affect the remaining balance.
+  // Deposit uses installer's custom rate (min 15%) — discount codes only affect the remaining balance.
   const depositAmountCents = Math.round(amount * 100);
   const totalPriceCents = Math.round(totalPrice * 100);
   const taxCents = salesTaxAmount ? Math.round(salesTaxAmount * 100) : 0;
@@ -445,8 +446,8 @@ export async function createDepositIntent(
     let paymentIntent;
 
     // ── Discount codes do NOT affect the deposit or platform fees. ──────────
-    // Deposit is always full 15%. Discount reduces the balance the installer
-    // collects at installation (installer absorbs their own discount codes).
+    // Deposit uses installer's custom rate (min 15%). Discount reduces the
+    // balance the installer collects at installation (installer absorbs their own discount codes).
 
     if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
       // ── Fee Override (Founder / special rate) + Stripe ───────────────────
@@ -571,7 +572,7 @@ export async function createDepositIntent(
     }
 
     // Update lead with scheduling info, tax info, and discount (for reference)
-    // Deposit stays at full 15% — discount only reduces balance_due (installer absorbs)
+    // Deposit stays at installer's configured rate — discount only reduces balance_due (installer absorbs)
     const leadUpdate: Record<string, unknown> = {
       source,
       scheduled_at: scheduledAt || null,

@@ -35,6 +35,8 @@ import {
   Truck,
   Plus,
   Trash2,
+  Percent,
+  DollarSign,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
@@ -70,6 +72,12 @@ export interface DeliveryFeeConfig {
   tiers: DeliveryFeeTier[];
 }
 
+/** Deposit configuration stored in profiles.deposit_config */
+interface DepositConfig {
+  type: "percentage" | "flat";
+  value: number;
+}
+
 interface Profile {
   id: string;
   email: string;
@@ -91,6 +99,7 @@ interface Profile {
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
   delivery_fee_config: DeliveryFeeConfig | null;
+  deposit_config: DepositConfig | null;
   bio: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
@@ -127,6 +136,12 @@ function ProfilePageInner() {
   const [deliveryTiers, setDeliveryTiers] = useState<DeliveryFeeTier[]>([]);
   const [deliveryFeeSaving, setDeliveryFeeSaving] = useState(false);
   const [deliveryFeeMessage, setDeliveryFeeMessage] = useState("");
+
+  // Deposit config state
+  const [depositType, setDepositType] = useState<"percentage" | "flat">("percentage");
+  const [depositValue, setDepositValue] = useState<number>(15);
+  const [depositSaving, setDepositSaving] = useState(false);
+  const [depositMessage, setDepositMessage] = useState("");
 
   // Service radius state
   const [serviceRadius, setServiceRadius] = useState(25);
@@ -177,6 +192,11 @@ function ProfilePageInner() {
       setDeliveryFeeEnabled(p.delivery_fee_config.enabled);
       setDeliveryTiers(p.delivery_fee_config.tiers || []);
     }
+    // Deposit config
+    if (p.deposit_config) {
+      setDepositType(p.deposit_config.type);
+      setDepositValue(p.deposit_config.value);
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -190,7 +210,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, bio, instagram_url, facebook_url, portfolio_photos")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos")
       .eq("id", user.id)
       .single();
 
@@ -201,7 +221,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, bio, instagram_url, facebook_url, portfolio_photos")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -459,6 +479,42 @@ function ProfilePageInner() {
       setTimeout(() => setDeliveryFeeMessage(""), 3000);
     }
     setDeliveryFeeSaving(false);
+  }
+
+  async function handleSaveDepositConfig() {
+    if (!profile) return;
+    setDepositSaving(true);
+    setDepositMessage("");
+
+    // Validate: percentage must be >= 15
+    if (depositType === "percentage" && depositValue < 15) {
+      setDepositMessage("Minimum deposit is 15% to cover network lead fees.");
+      setDepositSaving(false);
+      return;
+    }
+    // Validate: flat must be > 0
+    if (depositType === "flat" && depositValue <= 0) {
+      setDepositMessage("Deposit amount must be greater than $0.");
+      setDepositSaving(false);
+      return;
+    }
+
+    // If it's the default (percentage, 15%), store null to use system default
+    const isDefault = depositType === "percentage" && depositValue === 15;
+    const config: DepositConfig | null = isDefault ? null : { type: depositType, value: depositValue };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ deposit_config: config })
+      .eq("id", profile.id);
+
+    if (error) {
+      setDepositMessage("Failed to save deposit settings.");
+    } else {
+      setDepositMessage("Deposit settings saved!");
+      setTimeout(() => setDepositMessage(""), 3000);
+    }
+    setDepositSaving(false);
   }
 
   function addDeliveryTier() {
@@ -1319,6 +1375,115 @@ function ProfilePageInner() {
 
             {/* SECTION D: Custom Pricing */}
             <PricingSettings userId={profile.id} />
+
+            {/* SECTION D.5: Custom Deposit */}
+            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-yellow-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Customer Deposit
+                </h2>
+              </div>
+
+              <p className="mb-4 text-xs text-stone-500">
+                Set how much your customers pay upfront when booking. Minimum is <span className="font-semibold text-stone-400">15%</span> to cover
+                the network lead fee. You can require a higher percentage or a flat dollar amount.
+              </p>
+
+              {/* Deposit Type Selector */}
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={() => { setDepositType("percentage"); if (depositValue < 15) setDepositValue(15); }}
+                  className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+                    depositType === "percentage"
+                      ? "bg-yellow-400 text-gray-950"
+                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <Percent className="h-3.5 w-3.5" />
+                  Percentage
+                </button>
+                <button
+                  onClick={() => setDepositType("flat")}
+                  className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+                    depositType === "flat"
+                      ? "bg-yellow-400 text-gray-950"
+                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Flat Amount
+                </button>
+              </div>
+
+              {/* Deposit Value Input */}
+              <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+                <div className="flex items-center gap-3">
+                  {depositType === "flat" && (
+                    <span className="text-lg font-bold text-stone-400">$</span>
+                  )}
+                  <input
+                    type="number"
+                    min={depositType === "percentage" ? 15 : 1}
+                    max={depositType === "percentage" ? 100 : 99999}
+                    step={depositType === "percentage" ? 5 : 25}
+                    value={depositValue}
+                    onChange={(e) => setDepositValue(e.target.value === "" ? 0 : Number(e.target.value))}
+                    onBlur={() => {
+                      if (depositType === "percentage" && depositValue < 15) setDepositValue(15);
+                      if (depositType === "flat" && depositValue < 1) setDepositValue(1);
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    className="w-24 rounded border border-slate-600 bg-slate-700 px-3 py-2 text-center text-lg font-bold text-white outline-none focus:border-yellow-400"
+                  />
+                  {depositType === "percentage" && (
+                    <span className="text-lg font-bold text-stone-400">%</span>
+                  )}
+                  <span className="ml-2 text-xs text-stone-500">
+                    {depositType === "percentage"
+                      ? depositValue === 15
+                        ? "Default — standard 15% deposit"
+                        : `Customer pays ${depositValue}% of build total upfront`
+                      : `Customer pays $${depositValue} upfront (min 15% of total enforced)`
+                    }
+                  </span>
+                </div>
+                {depositType === "flat" && (
+                  <p className="mt-2 text-[10px] text-amber-400/80">
+                    If 15% of the build total exceeds this amount, the deposit will automatically increase to cover the network fee.
+                  </p>
+                )}
+                {depositType === "percentage" && depositValue > 15 && (
+                  <p className="mt-2 text-[10px] text-emerald-400/80">
+                    You&apos;ll collect {depositValue}% upfront. The remaining {100 - depositValue}% is due at installation.
+                  </p>
+                )}
+              </div>
+
+              {/* Save */}
+              <button
+                onClick={handleSaveDepositConfig}
+                disabled={depositSaving}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {depositSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <DollarSign className="h-4 w-4" />
+                )}
+                {depositSaving ? "Saving..." : "Save Deposit Settings"}
+              </button>
+
+              {depositMessage && (
+                <p
+                  className={`mt-2 text-center text-xs font-medium ${
+                    depositMessage.includes("saved") ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {depositMessage}
+                </p>
+              )}
+            </section>
 
             {/* SECTION E: Discount Codes */}
             <DiscountCodesCard userId={profile.id} />

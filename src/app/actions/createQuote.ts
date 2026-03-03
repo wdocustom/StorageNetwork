@@ -13,6 +13,7 @@ import { rerouteToLocalInstaller } from "@/app/actions/customer";
 import { calculateCompoundBuild } from "@/app/actions/calculator";
 import { calculateBuild } from "@/app/actions/calculator";
 import { recordWaitlistDemand } from "@/app/actions/demand-signals";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,8 +31,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const DEPOSIT_RATE = 0.15; // 15%
 
 export interface QuoteUnit {
   cols: number;
@@ -327,7 +326,8 @@ export async function createQuote(
     const serverTotal = effectiveQuoteData.reduce((sum, unit) => sum + unit.price, 0);
     const finalTotal = serverTotal > 0 ? serverTotal : effectiveTotal;
 
-    const depositAmount = Math.round(finalTotal * DEPOSIT_RATE * 100) / 100;
+    // Use the effective installer's custom deposit config (min 15% enforced by fee engine)
+    const depositAmount = await getDepositAmount(finalTotal, effectiveInstallerId);
     const balanceDue = Math.round((finalTotal - depositAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────

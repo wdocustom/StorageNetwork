@@ -132,13 +132,13 @@ export default function BookingModal({
   // Grand total = build price + delivery fee
   const grandTotalWithDelivery = totalPrice + deliveryFeeAmount;
 
-  // Deposit — computed server-side (black box: client never sees the rate)
+  // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [effectiveDeposit, setEffectiveDeposit] = useState(0);
   useEffect(() => {
     if (grandTotalWithDelivery > 0) {
-      getDepositAmount(grandTotalWithDelivery).then(setEffectiveDeposit);
+      getDepositAmount(grandTotalWithDelivery, installerId).then(setEffectiveDeposit);
     }
-  }, [grandTotalWithDelivery]);
+  }, [grandTotalWithDelivery, installerId]);
 
   // Sales tax — computed server-side (tax rates stay in the black box)
   const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
@@ -213,7 +213,7 @@ export default function BookingModal({
 
     const result = await createDepositIntent({
       leadId,
-      amount: effectiveDeposit, // Deposit = 15% of grand total (build + delivery)
+      amount: effectiveDeposit, // Deposit = installer's custom rate of grand total (build + delivery)
       totalPrice: grandTotalWithDelivery, // Grand total includes delivery fee
       installerId,
       source,
@@ -388,7 +388,7 @@ export default function BookingModal({
                   </div>
                 )}
                 <div className="border-t border-slate-700 pt-3 space-y-1">
-                  {/* Due Today = Deposit (15% of grand total incl. delivery) */}
+                  {/* Due Today = Deposit (installer-configured rate, min 15%) */}
                   <div className="flex items-center justify-between text-sm pt-1">
                     <span className="font-bold text-stone-400">Due Today (Deposit)</span>
                     <span className="font-black text-yellow-400">

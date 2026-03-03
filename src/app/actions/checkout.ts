@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,16 +13,16 @@ const supabase = createClient(
 //
 // FEE STRUCTURE:
 // ─────────────────────────────────────────────────────────────────────────
-// Platform Lead:                 15% deposit → 100% to Platform
-// Partner Link (no Stripe):      15% deposit → 100% to Platform
-// Partner Link (Stripe connected): 15% deposit → 12% to Installer, 3% to Platform
+// Platform Lead:                 deposit → Platform fee + remainder to Installer
+// Partner Link (no Stripe):      deposit → 100% to Platform
+// Partner Link (Stripe connected): deposit → 3% to Platform, rest to Installer
 // ─────────────────────────────────────────────────────────────────────────
 //
+// Deposit amount is installer-configurable (minimum 15% of build).
 // This module handles lead record updates after checkout.
 // Actual Stripe payment processing is in /app/actions/payments.ts
 // ═══════════════════════════════════════════════════════════════════════════
 
-const DEPOSIT_RATE = 0.15; // 15%
 const PRO_INSTALLER_RATE = 0.12; // 12% goes to Pro installer (from the 15%)
 const PRO_PLATFORM_RATE = 0.03;  // 3% goes to platform for Pro partner links
 
@@ -60,7 +61,8 @@ export async function processCheckout(
 ): Promise<CheckoutResult> {
   const { lead_id, source, installer_id, grand_total } = input;
 
-  const depositAmount = Math.round(grand_total * DEPOSIT_RATE * 100) / 100;
+  // Use installer's custom deposit config (min 15% enforced by fee engine)
+  const depositAmount = await getDepositAmount(grand_total, installer_id || undefined);
   const balanceDue = Math.round((grand_total - depositAmount) * 100) / 100;
 
   let stripeAccountId: string | null = null;

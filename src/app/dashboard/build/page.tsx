@@ -44,7 +44,7 @@ import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import ProPill from "@/components/dashboard/ProPill";
-import { getBuildFeeBreakdown, getDepositAmount, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
+import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -482,13 +482,13 @@ export default function BuildConfiguratorPage() {
   const displayMaterials = units.length > 0 ? aggregateMaterials : materialBreakdown;
   const displayManifest = units.length > 0 ? aggregateManifest : manifest;
 
-  // Fee breakdown — computed server-side (black box: no fee constants in client)
+  // Fee breakdown — computed server-side using installer's custom deposit config
   const [feeBreakdown, setFeeBreakdown] = useState<BuildFeeBreakdown | null>(null);
   useEffect(() => {
     if (displayPrice > 0 && displayMaterials) {
-      getBuildFeeBreakdown(displayPrice, displayMaterials.totalCost).then(setFeeBreakdown);
+      getBuildFeeBreakdown(displayPrice, displayMaterials.totalCost, userId || undefined).then(setFeeBreakdown);
     }
-  }, [displayPrice, displayMaterials]);
+  }, [displayPrice, displayMaterials, userId]);
 
   /** Build the quote units array from current state. */
   function buildQuoteUnits(): QuoteUnit[] | null {
