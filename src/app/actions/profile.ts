@@ -1,16 +1,18 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { getServiceClient } from "@/lib/supabase-server";
+import { TtlCache } from "@/lib/cache";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile — Server actions for profile management
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
+
+/** Cache for public profile reads (60s TTL) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const profileCache = new TtlCache<any>(60_000);
 
 /** Revalidate the public portfolio page so Next.js serves fresh data. */
 async function revalidatePortfolio(userId: string) {
@@ -230,31 +232,36 @@ export async function getProfileBySlug(slug: string) {
 
 /**
  * Get full profile by slug (for the public portfolio page).
+ * Cached for 60s to absorb viral traffic on /p/[slug] pages.
  */
 export async function getFullProfileBySlug(slug: string) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos"
-    )
-    .ilike("slug", slug.trim())
-    .single();
+  const key = `fullprofile:${slug.trim().toLowerCase()}`;
 
-  if (error || !data) {
-    console.error("[getFullProfileBySlug]", slug, error?.message);
-    return null;
-  }
+  return profileCache.getOrFetch(key, async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos"
+      )
+      .ilike("slug", slug.trim())
+      .single();
 
-  // Ensure portfolio_photos is always an array (handles string-encoded JSON)
-  if (data.portfolio_photos && typeof data.portfolio_photos === "string") {
-    try {
-      data.portfolio_photos = JSON.parse(data.portfolio_photos);
-    } catch {
-      data.portfolio_photos = [];
+    if (error || !data) {
+      console.error("[getFullProfileBySlug]", slug, error?.message);
+      return null;
     }
-  }
 
-  return data;
+    // Ensure portfolio_photos is always an array (handles string-encoded JSON)
+    if (data.portfolio_photos && typeof data.portfolio_photos === "string") {
+      try {
+        data.portfolio_photos = JSON.parse(data.portfolio_photos);
+      } catch {
+        data.portfolio_photos = [];
+      }
+    }
+
+    return data;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

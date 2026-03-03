@@ -1,6 +1,5 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
 import {
   sendTransactionalEmail,
@@ -27,10 +26,9 @@ import type { InstallerPricing } from "@/types/viewModels";
 // from the covering installer and continues with them.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getServiceClient } from "@/lib/supabase-server";
+
+const supabase = getServiceClient();
 
 export interface QuoteUnit {
   cols: number;

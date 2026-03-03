@@ -1,20 +1,12 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    global: {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-        fetch(input, { ...init, cache: "no-store" }),
-    },
-  }
-);
+const supabase = getServiceClient();
 
 import type { InstallerPricing } from "@/types/viewModels";
 import { recordAnonymousDemand } from "@/app/actions/demand-signals";
+import { zipCache, installerCache } from "@/lib/cache";
 
 export interface AvailabilityResult {
   available: boolean;
@@ -81,6 +73,9 @@ function toResult(
  * When multiple installers cover a ZIP:
  * - Pro installers get priority over Basic
  * - Among same tier, installer with fewer current leads gets the job
+ *
+ * The DB query is cached for 60s per ZIP to absorb viral traffic.
+ * Lead-cap mutations still execute normally.
  */
 export async function checkAvailability(
   zip: string
@@ -90,72 +85,74 @@ export async function checkAvailability(
     return toResult(null, "Please enter a valid 5-digit ZIP code.");
   }
 
-  try {
-    // Primary: search the service_zips array (covers radius)
-    // Sort by lowest lead count first (round-robin fairness)
-    // Only include active installers
-    const { data: matches, error } = await supabase
-      .from("profiles")
-      .select(INSTALLER_SELECT)
-      .contains("service_zips", [trimmed])
-      .neq("active", false)  // Exclude deactivated accounts
-      .neq("is_suspended", true)  // Exclude suspended accounts
-      .order("current_month_leads", { ascending: true, nullsFirst: true });
+  return zipCache.getOrFetch(`avail:${trimmed}`, async () => {
+    try {
+      // Primary: search the service_zips array (covers radius)
+      // Sort by lowest lead count first (round-robin fairness)
+      // Only include active installers
+      const { data: matches, error } = await supabase
+        .from("profiles")
+        .select(INSTALLER_SELECT)
+        .contains("service_zips", [trimmed])
+        .neq("active", false)  // Exclude deactivated accounts
+        .neq("is_suspended", true)  // Exclude suspended accounts
+        .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-    if (!error && matches && matches.length > 0) {
-      // Find the first installer who isn't at capacity
-      for (const installer of matches) {
-        // Lead cap check: reset if needed
-        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-        if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
-          await supabase
-            .from("profiles")
-            .update({ current_month_leads: 0, leads_reset_at: monthStart })
-            .eq("id", installer.id);
-          (installer as Record<string, unknown>).current_month_leads = 0;
+      if (!error && matches && matches.length > 0) {
+        // Find the first installer who isn't at capacity
+        for (const installer of matches) {
+          // Lead cap check: reset if needed
+          const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+          if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
+            await supabase
+              .from("profiles")
+              .update({ current_month_leads: 0, leads_reset_at: monthStart })
+              .eq("id", installer.id);
+            (installer as Record<string, unknown>).current_month_leads = 0;
+          }
+
+          const currentLeads = (installer.current_month_leads as number) ?? 0;
+          const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+
+          if (currentLeads < maxLeads) {
+            return toResult(installer, "");
+          }
         }
-
-        const currentLeads = (installer.current_month_leads as number) ?? 0;
-        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
-
-        if (currentLeads < maxLeads) {
-          return toResult(installer, "");
-        }
+        // All installers at capacity
+        return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
       }
-      // All installers at capacity
-      return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
-    }
 
-    // Fallback: exact match on service_zip (the installer's base ZIP)
-    const { data: fallbackMatches, error: fbErr } = await supabase
-      .from("profiles")
-      .select(INSTALLER_SELECT)
-      .eq("service_zip", trimmed)
-      .neq("is_suspended", true)
-      .order("current_month_leads", { ascending: true, nullsFirst: true });
+      // Fallback: exact match on service_zip (the installer's base ZIP)
+      const { data: fallbackMatches, error: fbErr } = await supabase
+        .from("profiles")
+        .select(INSTALLER_SELECT)
+        .eq("service_zip", trimmed)
+        .neq("is_suspended", true)
+        .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-    if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
-      for (const installer of fallbackMatches) {
-        const currentLeads = (installer.current_month_leads as number) ?? 0;
-        const maxLeads = (installer.max_monthly_leads as number) ?? 25;
+      if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
+        for (const installer of fallbackMatches) {
+          const currentLeads = (installer.current_month_leads as number) ?? 0;
+          const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 
-        if (currentLeads < maxLeads) {
-          return toResult(installer, "");
+          if (currentLeads < maxLeads) {
+            return toResult(installer, "");
+          }
         }
+        return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
       }
-      return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
+
+      // Record anonymous demand signal — no installer covers this ZIP
+      recordAnonymousDemand(trimmed).catch(() => {});
+
+      return toResult(
+        null,
+        "We aren\u2019t in this area yet. Join the waitlist?"
+      );
+    } catch {
+      return toResult(null, "Unable to check availability. Please try again.");
     }
-
-    // Record anonymous demand signal — no installer covers this ZIP
-    recordAnonymousDemand(trimmed).catch(() => {});
-
-    return toResult(
-      null,
-      "We aren\u2019t in this area yet. Join the waitlist?"
-    );
-  } catch {
-    return toResult(null, "Unable to check availability. Please try again.");
-  }
+  }) as Promise<AvailabilityResult>;
 }
 
 /**
@@ -235,91 +232,98 @@ export async function rerouteToLocalInstaller(
 
 /**
  * Fetch installer profile by ID (for URL param ?installer=xyz).
+ * Cached for 60s to absorb viral traffic spikes.
  */
 export async function getInstallerById(
   id: string
 ): Promise<AvailabilityResult> {
   if (!id) return toResult(null, "No installer specified.");
 
-  try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(INSTALLER_SELECT)
-      .eq("id", id)
-      .maybeSingle();
+  return installerCache.getOrFetch(`id:${id}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(INSTALLER_SELECT)
+        .eq("id", id)
+        .maybeSingle();
 
-    if (error || !data) {
-      return toResult(null, "Installer not found.");
+      if (error || !data) {
+        return toResult(null, "Installer not found.");
+      }
+
+      if ((data as Record<string, unknown>).is_suspended === true) {
+        return toResult(null, "This installer is not currently active.");
+      }
+
+      return toResult(data, "");
+    } catch {
+      return toResult(null, "Unable to load installer profile.");
     }
-
-    if ((data as Record<string, unknown>).is_suspended === true) {
-      return toResult(null, "This installer is not currently active.");
-    }
-
-    return toResult(data, "");
-  } catch {
-    return toResult(null, "Unable to load installer profile.");
-  }
+  }) as Promise<AvailabilityResult>;
 }
 
 /**
  * Fetch installer profile by vanity slug (for URL param ?installer=slug).
+ * Cached for 60s to absorb viral traffic spikes.
  */
 export async function getInstallerBySlug(
   slug: string
 ): Promise<AvailabilityResult> {
   if (!slug) return toResult(null, "No installer specified.");
 
-  try {
-    // Use ilike for case-insensitive matching in case slug was stored with mixed case
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(INSTALLER_SELECT)
-      .ilike("slug", slug.trim())
-      .maybeSingle();
+  return installerCache.getOrFetch(`slug:${slug.trim().toLowerCase()}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(INSTALLER_SELECT)
+        .ilike("slug", slug.trim())
+        .maybeSingle();
 
-    if (error || !data) {
-      // Fallback: try ref_slug for backward compat
-      return getInstallerByRef(slug);
+      if (error || !data) {
+        // Fallback: try ref_slug for backward compat
+        return getInstallerByRef(slug);
+      }
+
+      // Suspended or inactive installers should not accept new leads
+      if (data.is_pro === false || (data as Record<string, unknown>).is_suspended === true) {
+        return toResult(null, "This installer is not currently active.");
+      }
+
+      return toResult(data, "");
+    } catch {
+      return toResult(null, "Unable to load installer profile.");
     }
-
-    // Suspended or inactive installers should not accept new leads
-    if (data.is_pro === false || (data as Record<string, unknown>).is_suspended === true) {
-      return toResult(null, "This installer is not currently active.");
-    }
-
-    return toResult(data, "");
-  } catch {
-    return toResult(null, "Unable to load installer profile.");
-  }
+  }) as Promise<AvailabilityResult>;
 }
 
 /**
  * Fetch installer profile by ref slug (for URL param ?ref=slug).
+ * Cached for 60s to absorb viral traffic spikes.
  */
 export async function getInstallerByRef(
   slug: string
 ): Promise<AvailabilityResult> {
   if (!slug) return toResult(null, "No installer specified.");
 
-  try {
-    // Use ilike for case-insensitive matching in case ref_slug was stored with mixed case
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(INSTALLER_SELECT)
-      .ilike("ref_slug", slug.trim())
-      .maybeSingle();
+  return installerCache.getOrFetch(`ref:${slug.trim().toLowerCase()}`, async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(INSTALLER_SELECT)
+        .ilike("ref_slug", slug.trim())
+        .maybeSingle();
 
-    if (error || !data) {
-      return toResult(null, "Installer not found.");
+      if (error || !data) {
+        return toResult(null, "Installer not found.");
+      }
+
+      if ((data as Record<string, unknown>).is_suspended === true) {
+        return toResult(null, "This installer is not currently active.");
+      }
+
+      return toResult(data, "");
+    } catch {
+      return toResult(null, "Unable to load installer profile.");
     }
-
-    if ((data as Record<string, unknown>).is_suspended === true) {
-      return toResult(null, "This installer is not currently active.");
-    }
-
-    return toResult(data, "");
-  } catch {
-    return toResult(null, "Unable to load installer profile.");
-  }
+  }) as Promise<AvailabilityResult>;
 }

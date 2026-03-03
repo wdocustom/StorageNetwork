@@ -1,13 +1,47 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { siteConfig } from "@/config/site";
+import { rateLimit } from "@/lib/rate-limit";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Middleware — Affiliate Cookie Tracking
+// Middleware — Rate Limiting + Affiliate Cookie Tracking
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Rate limit tiers (requests per 60-second window)
+const API_LIMIT = 30; // API routes — tighter
+const PAGE_LIMIT = 60; // Page requests — generous
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Rate Limiting ────────────────────────────────────────────────────────
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+
+  const isApi = pathname.startsWith("/api/");
+  const limit = isApi ? API_LIMIT : PAGE_LIMIT;
+  const key = `${ip}:${isApi ? "api" : "page"}`;
+
+  const result = rateLimit(key, limit);
+
+  if (!result.allowed) {
+    return new NextResponse("Too many requests. Please try again shortly.", {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
+        "X-RateLimit-Limit": String(limit),
+        "X-RateLimit-Remaining": "0",
+      },
+    });
+  }
+
   const response = NextResponse.next();
+
+  // Rate limit headers (informational)
+  response.headers.set("X-RateLimit-Limit", String(limit));
+  response.headers.set("X-RateLimit-Remaining", String(result.remaining));
 
   // ── Affiliate Cookie Tracking ──────────────────────────────────────────
   const installerId = request.nextUrl.searchParams.get("installer_id");
@@ -32,11 +66,21 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// Run middleware on design, checkout, and partner signup pages
+// Run middleware on all public pages + API routes
 export const config = {
   matcher: [
+    // Public pages
+    "/",
     "/design/:path*",
     "/checkout/:path*",
     "/partner/join",
+    "/p/:path*",
+    "/join",
+    "/demo",
+    "/features",
+    "/technology",
+    "/about/:path*",
+    // API routes
+    "/api/:path*",
   ],
 };

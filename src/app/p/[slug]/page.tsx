@@ -14,7 +14,10 @@ import PortfolioContact from "./PortfolioContact";
 // credentials, and social links before being directed to the configurator.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const dynamic = "force-dynamic";
+// ISR: serve cached page, revalidate in background every 60s.
+// Slashes DB load during viral spikes while keeping data reasonably fresh.
+// Installer profile updates trigger on-demand revalidation via revalidatePath().
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
