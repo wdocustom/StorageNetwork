@@ -1,12 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Camera, ScanLine, CheckCircle2, AlertCircle, Package, ChevronRight } from "lucide-react";
-import { type ToteDefinition, getToteByUPC, getAllTotes, formatToteDimensions } from "@/lib/tote-data";
-
 // ═══════════════════════════════════════════════════════════════════════════
 // TOTE SCANNER MODAL — Barcode scanner with manual fallback
+//
+// Camera access is managed by the shared useCameraStream hook.
 // ═══════════════════════════════════════════════════════════════════════════
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  X,
+  Camera,
+  ScanLine,
+  CheckCircle2,
+  AlertCircle,
+  Package,
+  ChevronRight,
+  RotateCcw,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  type ToteDefinition,
+  getToteByUPC,
+  getAllTotes,
+  formatToteDimensions,
+} from "@/lib/tote-data";
+import { useCameraStream } from "@/hooks/useCameraStream";
 
 type ScannerState = "idle" | "scanning" | "matched" | "error" | "manual";
 
@@ -17,10 +35,25 @@ interface ToteScannerModalProps {
 }
 
 // ── Retailer brand colors ─────────────────────────────────────────────────
-const RETAILER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  "Home Depot": { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/30" },
-  "Costco": { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30" },
-  "Lowe's": { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/30" },
+const RETAILER_COLORS: Record<
+  string,
+  { bg: string; text: string; border: string }
+> = {
+  "Home Depot": {
+    bg: "bg-orange-500/20",
+    text: "text-orange-400",
+    border: "border-orange-500/30",
+  },
+  Costco: {
+    bg: "bg-red-500/20",
+    text: "text-red-400",
+    border: "border-red-500/30",
+  },
+  "Lowe's": {
+    bg: "bg-blue-500/20",
+    text: "text-blue-400",
+    border: "border-blue-500/30",
+  },
 };
 
 export default function ToteScannerModal({
@@ -31,16 +64,14 @@ export default function ToteScannerModal({
   const [state, setState] = useState<ScannerState>("idle");
   const [matchedTote, setMatchedTote] = useState<ToteDefinition | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [hasCamera, setHasCamera] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // ── BarcodeDetector API (native browser API) ────────────────────────────
   const barcodeDetectorRef = useRef<BarcodeDetector | null>(null);
+
+  // Camera (shared hook)
+  const camera = useCameraStream({ idealWidth: 1280, idealHeight: 720 });
 
   // ── Initialize barcode detector ─────────────────────────────────────────
   useEffect(() => {
@@ -51,78 +82,75 @@ export default function ToteScannerModal({
     }
   }, []);
 
-  // ── Start camera stream ─────────────────────────────────────────────────
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+  // ── Handle detected barcode ───────────────────────────────────────────
+  const handleBarcodeDetected = useCallback(
+    (code: string) => {
+      if (state === "matched") return;
 
-      streamRef.current = stream;
+      const tote = getToteByUPC(code);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setState("scanning");
-        startScanning();
+      if (tote) {
+        setMatchedTote(tote);
+        setState("matched");
+        camera.stop();
+        stopScanning();
+
+        setTimeout(() => {
+          onToteSelected(tote);
+          onClose();
+        }, 1500);
+      } else {
+        setErrorMessage(`Unknown barcode: ${code}`);
+        setState("error");
+
+        setTimeout(() => {
+          setState((prev) => (prev === "error" ? "scanning" : prev));
+          setErrorMessage("");
+        }, 2000);
       }
-    } catch (err) {
-      console.error("Camera access denied:", err);
-      setHasCamera(false);
-      setState("manual");
-    }
-  }, []);
+    },
+    [state, onToteSelected, onClose, camera]
+  );
 
-  // ── Stop camera stream ──────────────────────────────────────────────────
-  const stopCamera = useCallback(() => {
+  // ── Barcode scanning loop ─────────────────────────────────────────────
+  const stopScanning = useCallback(() => {
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
   }, []);
 
-  // ── Barcode scanning loop ───────────────────────────────────────────────
   const startScanning = useCallback(() => {
     if (scanIntervalRef.current) return;
 
     scanIntervalRef.current = setInterval(async () => {
-      if (!videoRef.current || !canvasRef.current || isProcessing) return;
-      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
+      if (
+        !camera.videoRef.current ||
+        !canvasRef.current ||
+        isProcessing
+      )
+        return;
+      if (
+        camera.videoRef.current.readyState !==
+        camera.videoRef.current.HAVE_ENOUGH_DATA
+      )
+        return;
 
-      const video = videoRef.current;
+      const video = camera.videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Set canvas size to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-
-      // Draw current frame
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Try native BarcodeDetector first
       if (barcodeDetectorRef.current) {
         try {
           setIsProcessing(true);
           const barcodes = await barcodeDetectorRef.current.detect(canvas);
-
           if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue;
-            handleBarcodeDetected(code);
+            handleBarcodeDetected(barcodes[0].rawValue);
           }
         } catch {
           // Silently fail and retry
@@ -130,49 +158,41 @@ export default function ToteScannerModal({
           setIsProcessing(false);
         }
       }
-    }, 250); // Scan every 250ms
-  }, [isProcessing]);
+    }, 250);
+  }, [isProcessing, camera.videoRef, handleBarcodeDetected]);
 
-  // ── Handle detected barcode ─────────────────────────────────────────────
-  const handleBarcodeDetected = useCallback(
-    (code: string) => {
-      if (state === "matched") return; // Already matched
+  // ── Start camera and scanning ─────────────────────────────────────────
+  const startCameraAndScan = useCallback(async () => {
+    await camera.start();
+    // Camera hook sets isActive on success — we start scanning in an effect
+  }, [camera]);
 
-      const tote = getToteByUPC(code);
+  // When camera becomes active, begin scanning
+  useEffect(() => {
+    if (camera.isActive && state !== "matched") {
+      setState("scanning");
+      startScanning();
+    }
+  }, [camera.isActive, state, startScanning]);
 
-      if (tote) {
-        // Success! Found a matching tote
-        setMatchedTote(tote);
-        setState("matched");
-        stopCamera();
-
-        // Auto-close after 1.5s
-        setTimeout(() => {
-          onToteSelected(tote);
-          onClose();
-        }, 1500);
-      } else {
-        // Unknown barcode
-        setErrorMessage(`Unknown barcode: ${code}`);
-        setState("error");
-
-        // Reset error after 2 seconds
-        setTimeout(() => {
-          if (state === "error") {
-            setState("scanning");
-            setErrorMessage("");
-          }
-        }, 2000);
+  // When camera errors out, go to manual
+  useEffect(() => {
+    if (camera.error) {
+      stopScanning();
+      // For "not-found" or "unsupported" errors, go straight to manual
+      if (camera.error === "not-found" || camera.error === "unsupported") {
+        setState("manual");
       }
-    },
-    [state, onToteSelected, onClose, stopCamera]
-  );
+      // For "denied" or "in-use", show inline error with retry
+    }
+  }, [camera.error, stopScanning]);
 
-  // ── Manual tote selection ───────────────────────────────────────────────
+  // ── Manual tote selection ─────────────────────────────────────────────
   const handleManualSelect = (tote: ToteDefinition) => {
     setMatchedTote(tote);
     setState("matched");
-    stopCamera();
+    camera.stop();
+    stopScanning();
 
     setTimeout(() => {
       onToteSelected(tote);
@@ -180,30 +200,29 @@ export default function ToteScannerModal({
     }, 800);
   };
 
-  // ── Switch to manual mode ───────────────────────────────────────────────
   const switchToManual = () => {
-    stopCamera();
+    camera.stop();
+    stopScanning();
     setState("manual");
   };
 
-  // ── Switch to scanner mode ──────────────────────────────────────────────
   const switchToScanner = () => {
     setState("idle");
-    startCamera();
+    startCameraAndScan();
   };
 
-  // ── Lifecycle: Start/stop camera on modal open/close ────────────────────
+  // ── Lifecycle: Start/stop camera on modal open/close ──────────────────
   useEffect(() => {
     if (isOpen && state === "idle") {
-      startCamera();
+      startCameraAndScan();
     }
-
     return () => {
-      stopCamera();
+      camera.stop();
+      stopScanning();
     };
-  }, [isOpen, startCamera, stopCamera, state]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reset state when modal closes ───────────────────────────────────────
+  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setState("idle");
@@ -212,8 +231,20 @@ export default function ToteScannerModal({
     }
   }, [isOpen]);
 
-  // ── Don't render if not open ────────────────────────────────────────────
   if (!isOpen) return null;
+
+  const showCameraView =
+    (state === "idle" ||
+      state === "scanning" ||
+      state === "error" ||
+      state === "matched") &&
+    !camera.error;
+
+  const showCameraError =
+    (state === "idle" || state === "scanning") &&
+    camera.error &&
+    camera.error !== "not-found" &&
+    camera.error !== "unsupported";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -232,8 +263,12 @@ export default function ToteScannerModal({
               <ScanLine className="h-5 w-5 text-yellow-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Identify Your Tote</h2>
-              <p className="text-xs text-stone-400">Scan the barcode or select manually</p>
+              <h2 className="text-lg font-bold text-white">
+                Identify Your Tote
+              </h2>
+              <p className="text-xs text-stone-400">
+                Scan the barcode or select manually
+              </p>
             </div>
           </div>
           <button
@@ -247,40 +282,29 @@ export default function ToteScannerModal({
         {/* Content */}
         <div className="p-5">
           {/* Scanner View */}
-          {(state === "idle" || state === "scanning" || state === "error" || state === "matched") && hasCamera && (
+          {showCameraView && (
             <div className="space-y-4">
               {/* Camera Container */}
               <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-700 bg-black">
-                {/* Video Element */}
                 <video
-                  ref={videoRef}
+                  ref={camera.videoRef}
                   className="h-full w-full object-cover"
                   playsInline
                   muted
+                  autoPlay
                 />
-
-                {/* Hidden canvas for processing */}
                 <canvas ref={canvasRef} className="hidden" />
 
                 {/* Scanning Overlay */}
                 {state === "scanning" && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    {/* Corner brackets */}
                     <div className="relative h-48 w-64">
-                      {/* Top-left */}
                       <div className="absolute left-0 top-0 h-8 w-8 border-l-2 border-t-2 border-yellow-400" />
-                      {/* Top-right */}
                       <div className="absolute right-0 top-0 h-8 w-8 border-r-2 border-t-2 border-yellow-400" />
-                      {/* Bottom-left */}
                       <div className="absolute bottom-0 left-0 h-8 w-8 border-b-2 border-l-2 border-yellow-400" />
-                      {/* Bottom-right */}
                       <div className="absolute bottom-0 right-0 h-8 w-8 border-b-2 border-r-2 border-yellow-400" />
-
-                      {/* Animated laser line */}
                       <div className="absolute left-2 right-2 h-0.5 animate-scan bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
                     </div>
-
-                    {/* Status text */}
                     <div className="absolute bottom-4 left-0 right-0 text-center">
                       <p className="text-sm font-medium text-yellow-400">
                         Point camera at barcode
@@ -293,8 +317,12 @@ export default function ToteScannerModal({
                 {state === "error" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-950/80 backdrop-blur-sm">
                     <AlertCircle className="mb-2 h-12 w-12 text-red-400" />
-                    <p className="text-sm font-semibold text-red-400">Unknown Barcode</p>
-                    <p className="mt-1 text-xs text-red-300/80">Try Manual Select below</p>
+                    <p className="text-sm font-semibold text-red-400">
+                      Unknown Barcode
+                    </p>
+                    <p className="mt-1 text-xs text-red-300/80">
+                      Try Manual Select below
+                    </p>
                   </div>
                 )}
 
@@ -312,7 +340,7 @@ export default function ToteScannerModal({
                 )}
 
                 {/* Loading state */}
-                {state === "idle" && (
+                {state === "idle" && !camera.error && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80">
                     <Camera className="mb-2 h-8 w-8 animate-pulse text-stone-400" />
                     <p className="text-sm text-stone-400">Starting camera...</p>
@@ -323,8 +351,12 @@ export default function ToteScannerModal({
               {/* Fallback Section */}
               <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-stone-300">Label missing or damaged?</p>
-                  <p className="text-xs text-stone-500">Select your tote manually</p>
+                  <p className="text-sm font-medium text-stone-300">
+                    Label missing or damaged?
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    Select your tote manually
+                  </p>
                 </div>
                 <button
                   onClick={switchToManual}
@@ -337,23 +369,75 @@ export default function ToteScannerModal({
             </div>
           )}
 
-          {/* Manual Selection View */}
-          {(state === "manual" || !hasCamera) && (
+          {/* Camera Error View (denied / in-use) */}
+          {showCameraError && (
             <div className="space-y-4">
-              {/* Back to scanner button (if camera available) */}
-              {hasCamera && (
+              <div className="flex flex-col items-center rounded-xl border border-slate-700 bg-slate-800/50 px-6 py-8">
+                <ShieldAlert className="w-10 h-10 text-yellow-400 mb-3" />
+                <p className="text-slate-300 text-sm text-center mb-2">
+                  Camera access is needed to scan barcodes
+                </p>
+                {camera.errorMessage && (
+                  <p className="text-slate-400 text-xs text-center mb-4 max-w-xs">
+                    {camera.errorMessage}
+                  </p>
+                )}
                 <button
-                  onClick={switchToScanner}
-                  className="flex items-center gap-2 text-sm text-stone-400 transition-colors hover:text-yellow-400"
+                  onClick={() => camera.start()}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
                 >
-                  <Camera className="h-4 w-4" />
-                  Back to Scanner
+                  <Camera className="w-4 h-4" />
+                  {camera.permissionState === "denied"
+                    ? "Try Again"
+                    : "Allow Camera Access"}
                 </button>
-              )}
+                {camera.retryCount >= 1 && (
+                  <>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors text-sm"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Reload Page
+                    </button>
+                    <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
+                      Most mobile browsers require a page reload after changing
+                      camera permissions.
+                    </p>
+                  </>
+                )}
+                <button
+                  onClick={switchToManual}
+                  className="mt-4 text-sm text-stone-400 hover:text-yellow-400 transition-colors"
+                >
+                  Or select your tote manually
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Manual Selection View */}
+          {(state === "manual" ||
+            camera.error === "not-found" ||
+            camera.error === "unsupported") && (
+            <div className="space-y-4">
+              {/* Back to scanner (only if camera might work) */}
+              {camera.error !== "not-found" &&
+                camera.error !== "unsupported" && (
+                  <button
+                    onClick={switchToScanner}
+                    className="flex items-center gap-2 text-sm text-stone-400 transition-colors hover:text-yellow-400"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Back to Scanner
+                  </button>
+                )}
 
               {/* Tote Selection Grid */}
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-stone-300">Select your tote:</p>
+                <p className="text-sm font-semibold text-stone-300">
+                  Select your tote:
+                </p>
 
                 {getAllTotes().map((tote) => {
                   const colors = RETAILER_COLORS[tote.retailer] || {
@@ -369,28 +453,29 @@ export default function ToteScannerModal({
                       className="group w-full rounded-xl border border-slate-700 bg-slate-800/50 p-4 text-left transition-all hover:border-yellow-400/50 hover:bg-slate-800"
                     >
                       <div className="flex items-start gap-4">
-                        {/* Tote Icon */}
-                        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl ${colors.bg} ${colors.border} border`}>
+                        <div
+                          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl ${colors.bg} ${colors.border} border`}
+                        >
                           <Package className={`h-7 w-7 ${colors.text}`} />
                         </div>
-
-                        {/* Tote Info */}
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h3 className="font-bold text-white group-hover:text-yellow-400">
                               {tote.brand}
                             </h3>
-                            <span className={`rounded-full ${colors.bg} px-2 py-0.5 text-[10px] font-semibold ${colors.text}`}>
+                            <span
+                              className={`rounded-full ${colors.bg} px-2 py-0.5 text-[10px] font-semibold ${colors.text}`}
+                            >
                               {tote.retailer}
                             </span>
                           </div>
-                          <p className="mt-0.5 text-sm text-stone-400">{tote.capacity}</p>
+                          <p className="mt-0.5 text-sm text-stone-400">
+                            {tote.capacity}
+                          </p>
                           <p className="mt-1 text-xs text-stone-500">
                             {formatToteDimensions(tote)}
                           </p>
                         </div>
-
-                        {/* Arrow */}
                         <ChevronRight className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-1 group-hover:text-yellow-400" />
                       </div>
                     </button>
@@ -398,7 +483,6 @@ export default function ToteScannerModal({
                 })}
               </div>
 
-              {/* Help text */}
               <p className="text-center text-xs text-stone-500">
                 Don&apos;t see your tote? Contact support for assistance.
               </p>
@@ -417,7 +501,8 @@ export default function ToteScannerModal({
       {/* Custom Animation Styles */}
       <style jsx global>{`
         @keyframes scan {
-          0%, 100% {
+          0%,
+          100% {
             top: 0.5rem;
           }
           50% {
@@ -430,7 +515,8 @@ export default function ToteScannerModal({
         }
 
         @keyframes bounce-once {
-          0%, 100% {
+          0%,
+          100% {
             transform: scale(1);
           }
           50% {
@@ -454,7 +540,9 @@ declare global {
 
   class BarcodeDetector {
     constructor(options?: { formats: string[] });
-    detect(image: ImageBitmapSource): Promise<{ rawValue: string; format: string }[]>;
+    detect(
+      image: ImageBitmapSource
+    ): Promise<{ rawValue: string; format: string }[]>;
     static getSupportedFormats(): Promise<string[]>;
   }
 }
