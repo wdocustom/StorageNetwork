@@ -8,7 +8,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { X, Camera, CameraOff, Scan, ArrowRight, RotateCcw, Check, AlertCircle, Loader2 } from "lucide-react";
+import { X, Camera, CameraOff, Scan, ArrowRight, RotateCcw, Check, AlertCircle, Loader2, ShieldAlert } from "lucide-react";
 import { getToteByUPC, getAllUniqueTotes, type ScanToteData } from "@/lib/scan-data";
 import type { MeasurementResult } from "@/app/api/vision/measure/route";
 
@@ -97,6 +97,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   const [error, setError] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraBlocked, setCameraBlocked] = useState(false);
+  const [permissionState, setPermissionState] = useState<"prompt" | "denied" | "granted" | "unknown">("unknown");
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -104,6 +105,20 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   const streamRef = useRef<MediaStream | null>(null);
 
   // ── Camera Management ─────────────────────────────────────────────────────
+  const checkPermissionState = useCallback(async () => {
+    try {
+      if (navigator.permissions) {
+        const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+        setPermissionState(status.state as "prompt" | "denied" | "granted");
+        return status.state;
+      }
+    } catch {
+      // Permissions API not supported for camera in this browser
+    }
+    setPermissionState("unknown");
+    return "unknown";
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -122,22 +137,25 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
         await videoRef.current.play();
       }
       setCameraActive(true);
+      setCameraBlocked(false);
+      setPermissionState("granted");
       setError(null);
     } catch (err) {
       console.error("Camera error:", err);
       setCameraBlocked(true);
       setCameraActive(false);
+      await checkPermissionState();
       if (err instanceof Error && err.message === "UNSUPPORTED") {
         setError("Camera is not available in this browser. Make sure you're using HTTPS. Select your tote manually below.");
       } else if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setError("Camera permission was denied. Please allow camera access in your browser settings, or select your tote manually below.");
+        setError("Camera access is needed to scan barcodes and capture your wall.");
       } else if (err instanceof DOMException && err.name === "NotFoundError") {
         setError("No camera found on this device. Please select your tote manually below.");
       } else {
         setError("Could not access camera. Please select your tote manually below.");
       }
     }
-  }, []);
+  }, [checkPermissionState]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -266,6 +284,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
     setMeasurement(null);
     setError(null);
     setCameraBlocked(false);
+    setPermissionState("unknown");
     onClose();
   }, [stopCamera, onClose]);
 
@@ -301,7 +320,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
         {/* Content */}
         <div className="p-6">
           {/* Step Progress */}
-          <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8 px-2">
             {["Scan", "Place", "Capture", "Results"].map((label, idx) => {
               const stepMap: WizardStep[] = ["SCAN_BARCODE", "INSTRUCT_PLACEMENT", "CAPTURE_WALL", "RESULTS"];
               const currentIdx = stepMap.indexOf(step);
@@ -309,9 +328,9 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
               const isCurrent = idx === currentIdx;
 
               return (
-                <div key={label} className="flex items-center gap-2">
+                <div key={label} className="flex items-center gap-1 sm:gap-2 min-w-0">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-colors flex-shrink-0 ${
                       isCurrent
                         ? "bg-yellow-400 text-slate-900"
                         : isActive
@@ -319,13 +338,13 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                         : "bg-slate-800 text-slate-500"
                     }`}
                   >
-                    {isActive && idx < currentIdx ? <Check className="w-4 h-4" /> : idx + 1}
+                    {isActive && idx < currentIdx ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : idx + 1}
                   </div>
-                  <span className={`text-sm ${isActive ? "text-white" : "text-slate-500"}`}>
+                  <span className={`text-xs sm:text-sm truncate ${isActive ? "text-white" : "text-slate-500"}`}>
                     {label}
                   </span>
                   {idx < 3 && (
-                    <div className={`w-8 h-0.5 ${isActive && idx < currentIdx ? "bg-green-500" : "bg-slate-700"}`} />
+                    <div className={`w-4 sm:w-8 h-0.5 flex-shrink-0 ${isActive && idx < currentIdx ? "bg-green-500" : "bg-slate-700"}`} />
                   )}
                 </div>
               );
@@ -400,12 +419,34 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                 {!cameraActive && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
                     {cameraBlocked ? (
-                      <>
-                        <CameraOff className="w-10 h-10 text-slate-500 mb-3" />
-                        <p className="text-slate-400 text-sm text-center px-6">
-                          Camera unavailable
+                      <div className="flex flex-col items-center px-6">
+                        <ShieldAlert className="w-10 h-10 text-yellow-400 mb-3" />
+                        <p className="text-slate-300 text-sm text-center mb-4">
+                          Camera access is needed to scan barcodes
                         </p>
-                      </>
+                        {permissionState !== "denied" ? (
+                          <button
+                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Allow Camera Access
+                          </button>
+                        ) : (
+                          <p className="text-slate-500 text-xs text-center">
+                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
+                          </p>
+                        )}
+                        {permissionState === "denied" && (
+                          <button
+                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Try Again
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
                     )}
@@ -511,12 +552,34 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                 {!cameraActive && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
                     {cameraBlocked ? (
-                      <>
-                        <CameraOff className="w-10 h-10 text-slate-500 mb-3" />
-                        <p className="text-slate-400 text-sm text-center px-6">
-                          Camera unavailable — please allow camera access and try again
+                      <div className="flex flex-col items-center px-6">
+                        <ShieldAlert className="w-10 h-10 text-yellow-400 mb-3" />
+                        <p className="text-slate-300 text-sm text-center mb-4">
+                          Camera access is needed to capture your wall
                         </p>
-                      </>
+                        {permissionState !== "denied" ? (
+                          <button
+                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Allow Camera Access
+                          </button>
+                        ) : (
+                          <p className="text-slate-500 text-xs text-center">
+                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
+                          </p>
+                        )}
+                        {permissionState === "denied" && (
+                          <button
+                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Try Again
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
                     )}
