@@ -251,8 +251,10 @@ export default function AIScriptGenerator({
 
   /**
    * Share flow that works on BOTH desktop and mobile:
-   *  - Mobile: native share sheet (if available)
-   *  - Desktop: copy text to clipboard + open Facebook compose in new tab
+   *  - Copies post text to clipboard
+   *  - Opens Facebook sharer dialog with the booking link so FB renders
+   *    the OG card (image + title + description) automatically
+   *  - The `quote` param pre-fills the post text above the card
    */
   function handleShareFacebook() {
     const text = getActiveText();
@@ -263,8 +265,13 @@ export default function AIScriptGenerator({
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
 
-    // Open Facebook — desktop users paste into the compose box
-    window.open("https://www.facebook.com/", "_blank");
+    // Open Facebook sharer with the booking link — FB fetches the OG
+    // metadata and renders a rich card preview automatically
+    const sharerUrl =
+      `https://www.facebook.com/sharer/sharer.php` +
+      `?u=${encodeURIComponent(bookingLink)}` +
+      `&quote=${encodeURIComponent(text)}`;
+    window.open(sharerUrl, "_blank", "width=600,height=500");
   }
 
   function handleShareNative() {
@@ -533,7 +540,7 @@ export default function AIScriptGenerator({
             <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-500" />
             <p className="text-[11px] leading-relaxed text-stone-500">
               <span className="font-bold text-stone-400">Desktop tip:</span>{" "}
-              Click &quot;Post to Facebook&quot; — your post text is auto-copied. Just paste (Ctrl+V / Cmd+V) into the Facebook compose box.
+              Click &quot;Post to Facebook&quot; — a share dialog opens with your link card. Your post text is also copied to clipboard if you want to paste it.
             </p>
           </div>
 
