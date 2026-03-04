@@ -241,6 +241,7 @@ export default function MarketingPage() {
           <MyFacebookGroups
             installerId={profile.id}
             postText={activePostText}
+            bookingLink={bookingLink}
           />
         </section>
       </main>

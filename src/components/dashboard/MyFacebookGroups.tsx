@@ -31,6 +31,8 @@ interface MyFacebookGroupsProps {
   installerId: string;
   /** The post text to share — when provided, the group selection UI shows */
   postText?: string | null;
+  /** The installer's booking link — used for OG card in Facebook sharer */
+  bookingLink?: string;
   /** Callback after the user triggers "Post to Groups" */
   onPosted?: () => void;
 }
@@ -38,6 +40,7 @@ interface MyFacebookGroupsProps {
 export default function MyFacebookGroups({
   installerId,
   postText,
+  bookingLink,
   onPosted,
 }: MyFacebookGroupsProps) {
   const [groups, setGroups] = useState<SavedFacebookGroup[]>([]);
@@ -49,6 +52,10 @@ export default function MyFacebookGroups({
   const [newUrl, setNewUrl] = useState("");
   const [error, setError] = useState("");
   const [posted, setPosted] = useState(false);
+
+  // Sequential posting flow — walks through groups one at a time
+  const [postingGroups, setPostingGroups] = useState<SavedFacebookGroup[]>([]);
+  const [postingStep, setPostingStep] = useState(-1); // -1 = not in flow
 
   // ── Load saved groups ──────────────────────────────────────────────
   const loadGroups = useCallback(async () => {
@@ -128,17 +135,35 @@ export default function MyFacebookGroups({
     setSelected(new Set());
   }
 
-  // ── Post to selected groups ────────────────────────────────────────
+  // ── Open a Facebook sharer dialog with pre-filled text + OG card ──
+  function openSharer(text: string, link: string) {
+    const sharerUrl =
+      `https://www.facebook.com/sharer/sharer.php` +
+      `?u=${encodeURIComponent(link)}` +
+      `&quote=${encodeURIComponent(text)}`;
+    window.open(sharerUrl, "_blank", "width=600,height=500");
+  }
+
+  // ── Post to selected groups — sequential sharer flow ─────────────
   function handlePostToGroups() {
     if (!postText || selected.size === 0) return;
 
     // Copy text to clipboard
     navigator.clipboard.writeText(postText);
 
-    // Open each selected group in a new tab
-    const selectedGroups = groups.filter((g) => selected.has(g.id));
-    selectedGroups.forEach((g, i) => {
-      // Stagger window opens slightly to avoid popup blockers
+    const ordered = groups.filter((g) => selected.has(g.id));
+
+    // Desktop with booking link: use sequential sharer flow
+    // so the text + OG card carry over automatically
+    if (bookingLink) {
+      setPostingGroups(ordered);
+      setPostingStep(0);
+      openSharer(postText, bookingLink);
+      return;
+    }
+
+    // Fallback: open each group URL directly (old behavior)
+    ordered.forEach((g, i) => {
       setTimeout(() => {
         window.open(g.group_url, "_blank");
       }, i * 300);
@@ -147,6 +172,32 @@ export default function MyFacebookGroups({
     setPosted(true);
     setTimeout(() => setPosted(false), 4000);
     onPosted?.();
+  }
+
+  // ── Sequential flow: advance to next group ──────────────────────
+  function handleNextGroup() {
+    if (!postText || !bookingLink) return;
+
+    const nextStep = postingStep + 1;
+    if (nextStep >= postingGroups.length) {
+      // All done
+      setPostingStep(-1);
+      setPostingGroups([]);
+      setPosted(true);
+      setTimeout(() => setPosted(false), 4000);
+      onPosted?.();
+      return;
+    }
+
+    setPostingStep(nextStep);
+    // Re-copy text for convenience (user may have clipboard overwritten)
+    navigator.clipboard.writeText(postText);
+    openSharer(postText, bookingLink);
+  }
+
+  function handleCancelPosting() {
+    setPostingStep(-1);
+    setPostingGroups([]);
   }
 
   // ── Render ─────────────────────────────────────────────────────────
@@ -338,8 +389,66 @@ export default function MyFacebookGroups({
         </div>
       )}
 
-      {/* Post to Groups button — only shows when there's post text and groups */}
-      {postText && groups.length > 0 && selected.size > 0 && (
+      {/* Sequential posting progress — active when walking through groups */}
+      {postingStep >= 0 && postingGroups.length > 0 && (
+        <div className="rounded-xl border border-blue-500/30 bg-blue-500/[0.06] p-4 space-y-3">
+          {/* Progress header */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-blue-400">
+              Group {postingStep + 1} of {postingGroups.length}
+            </p>
+            <button
+              onClick={handleCancelPosting}
+              className="flex items-center gap-1 text-[10px] font-semibold text-stone-500 hover:text-stone-400"
+            >
+              <X className="h-3 w-3" />
+              Cancel
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${((postingStep + 1) / postingGroups.length) * 100}%` }}
+            />
+          </div>
+
+          {/* Current group */}
+          <div className="flex items-center gap-2">
+            <Facebook className="h-4 w-4 text-blue-400" />
+            <p className="text-sm font-semibold text-white truncate">
+              {postingGroups[postingStep].group_name}
+            </p>
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-stone-500">
+            A Facebook share dialog opened with your post text and link card pre-filled.
+            Post it, then come back here and click below for the next group.
+          </p>
+
+          {/* Next / Finish button */}
+          <button
+            onClick={handleNextGroup}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-400"
+          >
+            {postingStep + 1 < postingGroups.length ? (
+              <>
+                <Facebook className="h-3.5 w-3.5" />
+                Next Group: {postingGroups[postingStep + 1].group_name}
+              </>
+            ) : (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                All Done
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Post to Groups button — only shows when there's post text, groups, and NOT in sequential flow */}
+      {postText && groups.length > 0 && selected.size > 0 && postingStep < 0 && (
         <button
           onClick={handlePostToGroups}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 py-3.5 text-sm font-black uppercase tracking-wider text-white transition-all hover:from-blue-400 hover:to-indigo-500"
@@ -347,7 +456,7 @@ export default function MyFacebookGroups({
           {posted ? (
             <>
               <Check className="h-4 w-4" />
-              Text Copied — Groups Opening!
+              Posted to All Groups!
             </>
           ) : (
             <>
@@ -358,14 +467,14 @@ export default function MyFacebookGroups({
         </button>
       )}
 
-      {/* Tip when posting */}
-      {postText && groups.length > 0 && selected.size > 0 && (
+      {/* Tip when posting — context-aware for desktop vs mobile */}
+      {postText && groups.length > 0 && selected.size > 0 && postingStep < 0 && !posted && (
         <div className="flex items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-900/50 px-3 py-2.5">
           <Copy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
           <p className="text-[11px] leading-relaxed text-stone-500">
             <span className="font-bold text-stone-400">How it works:</span>{" "}
-            Your post text is copied to clipboard, then each selected group opens in a new tab.
-            Just paste (Ctrl+V) and post in each one.
+            Your post text and link card are pre-filled in a Facebook share dialog for each group.
+            Just post it, come back, and click &quot;Next Group.&quot;
           </p>
         </div>
       )}
