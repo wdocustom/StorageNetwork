@@ -99,6 +99,9 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   const [cameraBlocked, setCameraBlocked] = useState(false);
   const [permissionState, setPermissionState] = useState<"prompt" | "denied" | "granted" | "unknown">("unknown");
 
+  const [retryCount, setRetryCount] = useState(0);
+  const [barcodeSupported, setBarcodeSupported] = useState(true);
+
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -117,6 +120,13 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
     }
     setPermissionState("unknown");
     return "unknown";
+  }, []);
+
+  // Check BarcodeDetector support on mount
+  useEffect(() => {
+    if (!("BarcodeDetector" in window)) {
+      setBarcodeSupported(false);
+    }
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -144,6 +154,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       console.error("Camera error:", err);
       setCameraBlocked(true);
       setCameraActive(false);
+      setRetryCount((c) => c + 1);
       await checkPermissionState();
       if (err instanceof Error && err.message === "UNSUPPORTED") {
         setError("Camera is not available in this browser. Make sure you're using HTTPS. Select your tote manually below.");
@@ -156,6 +167,37 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       }
     }
   }, [checkPermissionState]);
+
+  // Listen for permission changes (user toggling in browser settings)
+  useEffect(() => {
+    let cancelled = false;
+
+    const listen = async () => {
+      try {
+        if (!navigator.permissions) return;
+        const statusObj = await navigator.permissions.query({ name: "camera" as PermissionName });
+        if (cancelled) return;
+        const handler = () => {
+          if (cancelled) return;
+          const newState = statusObj.state as "prompt" | "denied" | "granted";
+          setPermissionState(newState);
+          // Auto-retry camera when permission is freshly granted
+          if (newState === "granted" && cameraBlocked) {
+            setCameraBlocked(false);
+            setError(null);
+            setRetryCount(0);
+            startCamera();
+          }
+        };
+        statusObj.addEventListener("change", handler);
+      } catch {
+        // Permissions API not supported
+      }
+    };
+
+    listen();
+    return () => { cancelled = true; };
+  }, [cameraBlocked, startCamera]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -285,6 +327,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
     setError(null);
     setCameraBlocked(false);
     setPermissionState("unknown");
+    setRetryCount(0);
     onClose();
   }, [stopCamera, onClose]);
 
@@ -433,9 +476,16 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                             Allow Camera Access
                           </button>
                         ) : (
-                          <p className="text-slate-500 text-xs text-center">
-                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
-                          </p>
+                          <>
+                            <p className="text-slate-500 text-xs text-center">
+                              Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
+                            </p>
+                            {retryCount >= 2 && (
+                              <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
+                                If you already changed the permission, try refreshing the page — most mobile browsers require a reload after changing camera permissions.
+                              </p>
+                            )}
+                          </>
                         )}
                         {permissionState === "denied" && (
                           <button
@@ -452,12 +502,20 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                     )}
                   </div>
                 )}
+                {/* BarcodeDetector not supported warning */}
+                {cameraActive && !barcodeSupported && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-yellow-400/90 px-4 py-2 text-center">
+                    <p className="text-slate-900 text-xs font-medium">
+                      Barcode scanning is not supported in this browser. Please select your tote manually below.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Manual Selection */}
               <div className="border-t border-slate-800 pt-6">
-                <p className={`text-sm mb-4 text-center ${cameraBlocked ? "text-yellow-400 font-medium" : "text-slate-400"}`}>
-                  {cameraBlocked ? "Select your tote manually:" : "Or select your tote manually:"}
+                <p className={`text-sm mb-4 text-center ${cameraBlocked || (cameraActive && !barcodeSupported) ? "text-yellow-400 font-medium" : "text-slate-400"}`}>
+                  {cameraBlocked || (cameraActive && !barcodeSupported) ? "Select your tote manually:" : "Or select your tote manually:"}
                 </p>
                 <div className="grid gap-3">
                   {allTotes.map((tote) => (
@@ -566,9 +624,16 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                             Allow Camera Access
                           </button>
                         ) : (
-                          <p className="text-slate-500 text-xs text-center">
-                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
-                          </p>
+                          <>
+                            <p className="text-slate-500 text-xs text-center">
+                              Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
+                            </p>
+                            {retryCount >= 2 && (
+                              <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
+                                If you already changed the permission, try refreshing the page — most mobile browsers require a reload after changing camera permissions.
+                              </p>
+                            )}
+                          </>
                         )}
                         {permissionState === "denied" && (
                           <button
