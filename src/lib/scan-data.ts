@@ -90,6 +90,17 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     height: 14.75,
     configKey: "GM",
   },
+  // Project Source Commander 27 Gallon (Lowe's) — Centrex Plastics
+  "899441002823": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
 };
 
 // ── Helper Functions ──────────────────────────────────────────────────────

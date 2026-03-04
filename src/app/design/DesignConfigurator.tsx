@@ -721,16 +721,51 @@ export default function DesignConfigurator({
   }
 
   // Handler for ScanWizard completion
-  function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
+  async function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
     // Set wall dimensions from AI measurement (default height to 96" if not detected)
     const effectiveHeight = height ?? 96;
     setWallWidth(width.toFixed(1));
     setWallHeight(effectiveHeight.toFixed(1));
     // Set tote type based on scanned tote
     setToteType(toteConfigKey);
-    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide × ${effectiveHeight.toFixed(1)}" tall${!height ? " (default height)" : ""} — calculating max fit…`);
-    // Always trigger auto-fit (use default 96" height if AI couldn't detect)
-    setTimeout(() => handleWallFit(), 100);
+    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide × ${effectiveHeight.toFixed(1)}" tall${!height ? " (default height)" : ""}`);
+    // Call calculateBuild directly with the known values to avoid stale state
+    setBuildLoading(true);
+    try {
+      const res = await calculateBuild({
+        wallWidth: width,
+        wallHeight: effectiveHeight,
+        toteModel: toteConfigKey,
+        toteColor: effectiveToteColor,
+        unitType,
+        orientation: effectiveOrientation,
+        addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
+        mode: "wallFit",
+        installerPricing: data?.pricing,
+      });
+      if (res.success) {
+        setCols(res.cols);
+        setRows(res.rows);
+        setBuild({
+          cols: res.cols,
+          rows: res.rows,
+          price: res.price,
+          totalW: res.dimensions.totalW,
+          totalH: res.dimensions.totalH,
+          depth: res.dimensions.depth,
+          slots: res.config.slots,
+          unitType: res.config.unitType,
+          orientation: res.config.orientation,
+        });
+        setWallFitMsg(
+          `AI measured: ${width.toFixed(1)}" × ${effectiveHeight.toFixed(1)}"${!height ? " (default height)" : ""} — Max fit: ${res.cols} Wide × ${res.rows} High`
+        );
+      }
+    } catch {
+      // keep previous state on error
+    } finally {
+      setBuildLoading(false);
+    }
   }
 
   function handleAddUnit() {

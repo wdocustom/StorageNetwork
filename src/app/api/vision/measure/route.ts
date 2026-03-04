@@ -53,49 +53,50 @@ export async function POST(request: NextRequest) {
     const google = createGoogleGenerativeAI({ apiKey });
 
     // Build the measurement prompt
-    const systemPrompt = `You are an expert construction estimator with years of experience measuring spaces for storage installations.
-
-Your task: Analyze the provided image to measure wall dimensions using a reference object (a storage tote) of known size.
+    const systemPrompt = `You are an expert construction estimator measuring wall dimensions using a reference object.
 
 REFERENCE OBJECT:
-- A storage tote is placed against the wall with its shorter side facing the camera.
-- The visible face of the tote is exactly ${referenceWidth} inches wide${referenceDepth ? ` (the longer side going into the wall is ${referenceDepth} inches)` : ""}.
+- A storage tote is placed on the floor against the wall.
+- The visible face of the tote (facing the camera) is exactly ${referenceWidth} inches wide.
+${referenceDepth ? `- The longer side going into the wall is ${referenceDepth} inches.` : ""}
 - The tote height is approximately 14.5 to 15 inches.
-- Use the visible ${referenceWidth}-inch face as your measuring ruler.
 
-MEASUREMENT METHOD:
-1. Locate the storage tote in the image — it is placed on the floor against the wall.
-2. Measure how many times the tote's visible width (${referenceWidth}") fits across the full wall width. Multiply that count by ${referenceWidth} to get wall width in inches.
-3. For wall height: estimate how many tote-widths tall the wall is (floor to ceiling), or use the tote height (~14.75") as a vertical reference if visible.
-4. The wall boundaries are defined by corners, door frames, or other clear vertical/horizontal edges.
+MEASUREMENT METHOD — PIXEL-BASED RATIO:
+1. Locate the storage tote in the image.
+2. Measure the tote's visible face width IN PIXELS in the image. Call this T_pixels.
+3. Measure the wall width IN PIXELS between its left and right boundaries (corners, door frames, or clear vertical edges). Call this W_pixels.
+4. Calculate: wall_width_inches = (W_pixels / T_pixels) × ${referenceWidth}
+5. For height: measure the tote height in pixels (T_h_pixels), then measure floor-to-ceiling in pixels (H_pixels). Calculate: wall_height_inches = (H_pixels / T_h_pixels) × 14.75
 
-CRITICAL — PERSPECTIVE DISTORTION CORRECTION:
-- Camera photos ALWAYS make walls appear wider than they actually are due to lens distortion and perspective.
-- The tote is a 3D object sitting on the floor against the wall. Its visible face may appear slightly wider in the photo than its actual ${referenceWidth}" due to the camera angle looking slightly down at it.
-- When counting how many tote-widths fit across the wall, you MUST account for perspective foreshortening: parts of the wall farther from the camera appear compressed. Do NOT simply extrapolate the tote size linearly across the image.
-- BIAS CORRECTION: Phone cameras at typical shooting distances (6-12 feet) tend to overestimate wall width by 15-25%. After your initial estimate, apply a conservative reduction of about 10-15% to correct for this systematic bias.
-- Cross-check: if the tote is near one edge, mentally "walk" the tote width across the wall, making each successive tote slightly smaller as it recedes from the camera.
-- If the image was taken at an angle (not perpendicular to the wall), the distortion is even greater — apply a stronger correction.
+CRITICAL — PERSPECTIVE & LENS CORRECTIONS:
+- The tote and wall are at the same distance from the camera (both against the wall), so the pixel ratio method works well for the section of wall NEAR the tote.
+- However, wide-angle phone lenses cause barrel distortion — objects at the edges of the frame appear stretched wider than they actually are.
+- IMPORTANT: Phone cameras (especially at close range, 6-12 feet) systematically overestimate dimensions. After your pixel-ratio calculation, apply these corrections:
+  * If the photo appears to be taken straight-on from 8+ feet: reduce your estimate by 15-20%
+  * If taken from closer or at a slight angle: reduce by 20-30%
+  * If taken at a significant angle or very close range: reduce by 25-35%
+- The tote may appear proportionally larger in the image if it's closer to the camera than the wall edges. Only trust the ratio in the area immediately around the tote.
+- If the tote is near one edge, the opposite wall edge is farther from the camera and appears compressed — do NOT assume uniform scale across the image.
 
 HEIGHT ESTIMATION:
-- ALWAYS attempt to estimate the wall height, even if the photo is taken at an angle.
-- Use the tote height (~14.75") as a vertical ruler. Count how many tote-heights from floor to ceiling.
-- If the ceiling is slightly cut off or the angle makes it uncertain, still provide your best estimate and mark confidence accordingly.
-- Standard garage walls are 96" (8ft) or 120" (10ft). Standard room walls are 96" (8ft). Use these as sanity checks.
-- Only omit heightInches if the ceiling and floor are both completely invisible in the image.
+- ALWAYS estimate wall height. Use the tote height (~14.75") as a vertical ruler.
+- Standard residential ceiling heights: 96" (8ft) is most common, some garages are 108-120" (9-10ft).
+- Apply the same lens correction to height estimates.
+- Only omit heightInches if both ceiling and floor are completely invisible.
 
-COMMON WALL SIZES (for sanity check):
-- Garage walls are typically 96" to 120" tall (8-10 ft) and 100" to 240" wide.
-- Standard room walls are 96" tall (8 ft).
-- If your width estimate exceeds 200", double-check — very few residential walls exceed 240" (20 ft).
-- If your estimate is significantly outside these ranges, reconsider your measurement.
+SANITY CHECKS — USE THESE TO CATCH ERRORS:
+- Most residential walls are 96-192" wide (8-16 ft). Walls over 200" are rare.
+- Most walls are 96" (8ft) tall. Garage walls may be 96-120".
+- A standard interior door is 80" tall × 36" wide. If a door is visible, cross-check your measurement against it.
+- If your estimate exceeds 200" for width, you are very likely overestimating.
+- ALWAYS err on the side of underestimating — a storage unit that fits is better than one that doesn't.
 
-ACCURACY GUIDELINES:
-- "high" confidence: Tote clearly visible, wall edges clearly defined, minimal perspective distortion, photo taken straight-on
-- "medium" confidence: Tote visible but photo at slight angle, or wall edges partially obscured
-- "low" confidence: Significant perspective distortion, tote partially hidden, angled photo, or unclear wall boundaries
+CONFIDENCE LEVELS:
+- "high": Tote clearly visible, straight-on photo, clear wall edges
+- "medium": Slight angle, or wall edges partially obscured
+- "low": Significant angle, tote partially hidden, or unclear boundaries
 
-Return your best estimate. It's better to slightly underestimate than overestimate — a smaller measurement is safer for fitting storage units.`;
+Return conservative estimates. Underestimating by 5-10% is far better than overestimating.`;
 
     // Remove data URL prefix if present
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
