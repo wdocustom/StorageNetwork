@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   Copy,
@@ -124,6 +124,8 @@ interface AIScriptGeneratorProps {
   state: string | null;
   zip: string | null;
   businessName: string | null;
+  /** Called whenever the active post text changes (for parent components to react) */
+  onActiveTextChange?: (text: string | null) => void;
 }
 
 export default function AIScriptGenerator({
@@ -132,6 +134,7 @@ export default function AIScriptGenerator({
   state,
   zip,
   businessName,
+  onActiveTextChange,
 }: AIScriptGeneratorProps) {
   // Mode toggle
   const [mode, setMode] = useState<Mode>("quick");
@@ -289,6 +292,11 @@ export default function AIScriptGenerator({
   // ── Determine if we have output to show ────────────────────────────
   const activeText = getActiveText();
   const hasOutput = !!activeText;
+
+  // Notify parent when post text changes
+  useEffect(() => {
+    onActiveTextChange?.(activeText);
+  }, [activeText, onActiveTextChange]);
 
   // For the link hint, use the selected platform (AI mode) or default to facebook-group (quick mode)
   const activePlatform = mode === "ai" ? platform : "facebook-group";

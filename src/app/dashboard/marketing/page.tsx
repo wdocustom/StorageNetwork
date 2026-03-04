@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 import {
@@ -12,9 +12,11 @@ import {
   ArrowLeft,
   Loader2,
   Search,
+  Facebook,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
+import MyFacebookGroups from "@/components/dashboard/MyFacebookGroups";
 import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -36,6 +38,11 @@ export default function MarketingPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activePostText, setActivePostText] = useState<string | null>(null);
+
+  const handleActiveTextChange = useCallback((text: string | null) => {
+    setActivePostText(text);
+  }, []);
 
 
   useEffect(() => {
@@ -215,6 +222,25 @@ export default function MarketingPage() {
             state={profile.state}
             zip={profile.service_zip}
             businessName={profile.business_name}
+            onActiveTextChange={handleActiveTextChange}
+          />
+        </section>
+
+        {/* ── Section 4: My Facebook Groups ──────────────────────── */}
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <Facebook className="h-4 w-4 text-blue-400" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+              Post to My Groups
+            </h2>
+          </div>
+          <p className="mb-4 text-sm text-stone-500">
+            Save your Facebook groups here. When you have a post ready above, select groups and blast it to all of them.
+          </p>
+
+          <MyFacebookGroups
+            installerId={profile.id}
+            postText={activePostText}
           />
         </section>
       </main>
