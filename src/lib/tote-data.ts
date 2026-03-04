@@ -42,7 +42,7 @@ export const TOTE_DATABASE: ToteDefinition[] = [
     name: "27 Gallon Storage Tote",
     retailer: "Costco",
     capacity: "27 Gallon",
-    upcs: ["760655026216"],
+    upcs: ["760655026216", "737839436020"],
     dimensions: {
       width: 30.5,
       depth: 20.5,

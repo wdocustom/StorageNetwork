@@ -37,8 +37,18 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     configKey: "HDX",
   },
 
-  // Greenmade 27 Gallon (Costco)
+  // Greenmade 27 Gallon (Costco) — Multiple UPCs
   "760655026216": {
+    id: "greenmade-27-gal",
+    brand: "Greenmade",
+    name: "27 Gallon Storage Tote",
+    retailer: "Costco",
+    width: 30.5,
+    depth: 20.5,
+    height: 15.0,
+    configKey: "GM",
+  },
+  "737839436020": {
     id: "greenmade-27-gal",
     brand: "Greenmade",
     name: "27 Gallon Storage Tote",
