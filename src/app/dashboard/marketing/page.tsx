@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
-import ShareKit from "@/components/dashboard/ShareKit";
 import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,14 +102,6 @@ export default function MarketingPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-6 p-4 pt-6">
-        {/* ── Section 0: Quick Share Kit ──────────────────────────── */}
-        <ShareKit
-          bookingLink={bookingLink}
-          businessName={profile.business_name}
-          city={profile.city}
-          state={profile.state}
-        />
-
         {/* ── Section 1: Booking Link ──────────────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
@@ -198,19 +189,19 @@ export default function MarketingPage() {
           />
         </section>
 
-        {/* ── Section 3: AI Script Generator ──────────────────────── */}
+        {/* ── Section 3: Post Generator ─────────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-amber-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              AI Script Generator
+              Post Generator
             </h2>
-            <span className="rounded-full bg-gradient-to-r from-yellow-400/10 to-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-              Powered by AI
+            <span className="rounded-full bg-gradient-to-r from-emerald-400/10 to-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+              Quick + AI
             </span>
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            Generate platform-specific, localized marketing scripts tailored to your area.
+            Grab a ready-to-paste post or generate a custom AI script for any platform.
             {profile.city && profile.state && (
               <span className="ml-1 font-semibold text-emerald-400">
                 Localized to {profile.city}, {profile.state}.
