@@ -4,6 +4,8 @@ import Stripe from "stripe";
 import { sendInstallerWelcome } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Callback — Return URL after Stripe Connect onboarding
 // Verifies the account, marks onboarding complete, sends welcome email.
