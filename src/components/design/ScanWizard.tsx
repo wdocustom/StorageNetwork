@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import "barcode-detector/side-effects";
 import Image from "next/image";
 import {
   X,

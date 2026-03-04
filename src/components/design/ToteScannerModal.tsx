@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import "barcode-detector/side-effects";
 import {
   X,
   Camera,
@@ -532,17 +533,4 @@ export default function ToteScannerModal({
   );
 }
 
-// ── TypeScript declaration for BarcodeDetector ────────────────────────────
-declare global {
-  interface Window {
-    BarcodeDetector: typeof BarcodeDetector;
-  }
-
-  class BarcodeDetector {
-    constructor(options?: { formats: string[] });
-    detect(
-      image: ImageBitmapSource
-    ): Promise<{ rawValue: string; format: string }[]>;
-    static getSupportedFormats(): Promise<string[]>;
-  }
-}
+// BarcodeDetector types are provided by the "barcode-detector" polyfill package.
