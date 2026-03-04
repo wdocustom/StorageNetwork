@@ -206,7 +206,9 @@ export default function ScanWizard({
         setStep("INSTRUCT_PLACEMENT");
         camera.stop();
       } else {
-        setWizardError(`Unknown barcode: ${code}. Try manual selection.`);
+        setWizardError(
+          `Barcode "${code}" not in our database yet. Please select your tote manually below — we'll add this UPC in a future update.`
+        );
       }
     },
     [camera.stop]
@@ -248,8 +250,9 @@ export default function ScanWizard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             image: capturedImage,
-            referenceWidth: selectedTote.width,
-            referenceDepth: selectedTote.depth,
+            // Tote is placed with the depth side (20.5") facing the camera
+            referenceWidth: selectedTote.depth,
+            referenceDepth: selectedTote.width,
           }),
         });
 
@@ -584,7 +587,7 @@ export default function ScanWizard({
                   {selectedTote.brand} {selectedTote.name}
                 </p>
                 <p className="text-slate-400 text-sm">
-                  Reference width: {selectedTote.width}&quot; &bull;{" "}
+                  Reference: {selectedTote.depth}&quot; side facing camera &bull;{" "}
                   {selectedTote.retailer}
                 </p>
               </div>
@@ -599,8 +602,10 @@ export default function ScanWizard({
                       1
                     </span>
                     <span>
-                      Place the tote flat against the wall where you want to
-                      install storage
+                      Place the tote flat against the wall with the{" "}
+                      <strong className="text-yellow-400">
+                        short side ({selectedTote.depth}&quot;) facing you
+                      </strong>
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
@@ -615,14 +620,16 @@ export default function ScanWizard({
                     <span className="flex-shrink-0 w-6 h-6 bg-yellow-400/10 rounded-full flex items-center justify-center text-yellow-400 text-sm font-medium">
                       3
                     </span>
-                    <span>Make sure the full wall width is visible</span>
+                    <span>
+                      Make sure the full wall width and height are visible
+                    </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="flex-shrink-0 w-6 h-6 bg-yellow-400/10 rounded-full flex items-center justify-center text-yellow-400 text-sm font-medium">
                       4
                     </span>
                     <span>
-                      Stand back and center the camera for best results
+                      Stand back far enough to capture the entire wall in frame
                     </span>
                   </li>
                 </ol>
@@ -659,6 +666,45 @@ export default function ScanWizard({
                   muted
                   className="w-full h-full object-cover"
                 />
+                {/* Guide Box Overlay — shows user what to capture */}
+                {camera.isActive && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Semi-transparent darkened edges */}
+                    <div className="absolute inset-0 border-[12px] border-black/40 rounded-lg" />
+                    {/* Guide rectangle with corner brackets */}
+                    <div className="absolute inset-[5%] border-2 border-white/50 border-dashed rounded-md">
+                      {/* Corner brackets */}
+                      <div className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-2 border-l-2 border-yellow-400 rounded-tl" />
+                      <div className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-yellow-400 rounded-tr" />
+                      <div className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-yellow-400 rounded-bl" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-yellow-400 rounded-br" />
+                    </div>
+                    {/* Green horizontal arrow hint (width) */}
+                    <div className="absolute bottom-[8%] left-[10%] right-[10%] flex items-center">
+                      <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-r-[6px] border-r-green-400" />
+                      <div className="h-[1px] flex-1 bg-green-400/60" />
+                      <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-green-400" />
+                    </div>
+                    <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-green-500/80 rounded text-white text-[10px] font-semibold">
+                      Wall Width
+                    </div>
+                    {/* Blue vertical arrow hint (height) */}
+                    <div className="absolute left-[8%] top-[10%] bottom-[14%] flex flex-col items-center">
+                      <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] border-b-blue-400" />
+                      <div className="w-[1px] flex-1 bg-blue-400/60" />
+                      <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-blue-400" />
+                    </div>
+                    <div className="absolute left-[3%] top-1/2 -translate-y-1/2 px-1.5 py-0.5 bg-blue-500/80 rounded text-white text-[10px] font-semibold -rotate-90 origin-center">
+                      Height
+                    </div>
+                    {/* Top instruction label */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/60 rounded-full">
+                      <p className="text-white text-xs font-medium whitespace-nowrap">
+                        Fit entire wall in frame
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {!camera.isActive && (
                   camera.error ? (
                     <CameraBlockedOverlay
@@ -737,7 +783,7 @@ export default function ScanWizard({
                 </h3>
               </div>
 
-              {/* Captured Image Preview */}
+              {/* Captured Image Preview with Measurement Arrows */}
               {capturedImage && (
                 <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden mb-6">
                   <Image
@@ -747,6 +793,30 @@ export default function ScanWizard({
                     className="object-cover"
                     unoptimized
                   />
+                  {/* Green arrow — Width (horizontal, bottom) */}
+                  <div className="absolute bottom-4 left-6 right-6 flex items-center gap-1">
+                    <div className="h-0.5 flex-1 bg-green-400" />
+                    <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-green-400" />
+                  </div>
+                  <div className="absolute bottom-4 left-6 flex items-center gap-1">
+                    <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-r-[8px] border-r-green-400" />
+                  </div>
+                  <div className="absolute bottom-9 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-green-500/90 rounded text-white text-xs font-bold whitespace-nowrap">
+                    Width: {measurement.widthInches.toFixed(1)}&quot;
+                  </div>
+                  {/* Blue arrow — Height (vertical, left) */}
+                  {measurement.heightInches && (
+                    <>
+                      <div className="absolute top-6 bottom-6 left-4 flex flex-col items-center gap-1">
+                        <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[8px] border-b-blue-400" />
+                        <div className="w-0.5 flex-1 bg-blue-400" />
+                        <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[8px] border-t-blue-400" />
+                      </div>
+                      <div className="absolute top-1/2 left-7 -translate-y-1/2 px-2 py-0.5 bg-blue-500/90 rounded text-white text-xs font-bold whitespace-nowrap -rotate-90 origin-center">
+                        Height: {measurement.heightInches.toFixed(1)}&quot;
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 

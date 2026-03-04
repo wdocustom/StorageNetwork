@@ -49,7 +49,7 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     configKey: "GM",
   },
 
-  // Project Source 27 Gallon (Lowe's)
+  // Project Source 27 Gallon (Lowe's) — Multiple UPCs
   "840059628008": {
     id: "project-source-27-gal",
     brand: "Project Source",
@@ -58,7 +58,37 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     width: 30.5,
     depth: 20.5,
     height: 14.75,
-    configKey: "HDX", // Similar dimensions to HDX
+    configKey: "GM",
+  },
+  "840059616984": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
+  "075457685703": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
+  "079682126115": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
   },
 };
 

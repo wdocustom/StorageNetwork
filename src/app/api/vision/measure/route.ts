@@ -58,15 +58,23 @@ export async function POST(request: NextRequest) {
 Your task: Analyze the provided image to measure wall dimensions using a reference object (a storage tote) of known size.
 
 REFERENCE OBJECT:
-- The storage tote in the image is exactly ${referenceWidth} inches wide${referenceDepth ? ` and ${referenceDepth} inches deep` : ""}.
-- Use this as your measuring reference.
+- A storage tote is placed against the wall with its shorter side facing the camera.
+- The visible face of the tote is exactly ${referenceWidth} inches wide${referenceDepth ? ` (the longer side going into the wall is ${referenceDepth} inches)` : ""}.
+- The tote height is approximately 14.5 to 15 inches.
+- Use the visible ${referenceWidth}-inch face as your measuring ruler.
 
-INSTRUCTIONS:
-1. Locate the storage tote in the image - it should be placed against or near the wall.
-2. Using the known tote width as reference, estimate the total usable wall width.
-3. If the full wall height is visible, estimate that too.
-4. Consider perspective distortion - objects further from the camera appear smaller.
-5. Look for visual cues: baseboards, outlets, door frames, ceiling lines.
+MEASUREMENT METHOD:
+1. Locate the storage tote in the image — it is placed on the floor against the wall.
+2. Measure how many times the tote's visible width (${referenceWidth}") fits across the full wall width. Multiply that count by ${referenceWidth} to get wall width in inches.
+3. For wall height: estimate how many tote-widths tall the wall is (floor to ceiling), or use the tote height (~14.75") as a vertical reference if visible.
+4. The wall boundaries are defined by corners, door frames, or other clear vertical/horizontal edges.
+5. IMPORTANT: Account for perspective distortion — objects farther from the camera appear smaller. If the tote is near one wall edge, the opposite edge will appear compressed. Compensate for this.
+6. Look for visual cues: baseboards, outlets, door frames, ceiling lines, floor-to-ceiling transitions.
+
+COMMON WALL SIZES (for sanity check):
+- Garage walls are typically 96" to 120" tall (8-10 ft) and 100" to 240" wide.
+- Standard room walls are 96" tall (8 ft).
+- If your estimate is significantly outside these ranges, reconsider your measurement.
 
 ACCURACY GUIDELINES:
 - "high" confidence: Tote clearly visible, wall edges clearly defined, minimal perspective distortion
