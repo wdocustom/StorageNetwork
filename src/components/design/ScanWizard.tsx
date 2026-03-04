@@ -169,12 +169,26 @@ export default function ScanWizard({
   const [measurement, setMeasurement] = useState<MeasurementResult | null>(null);
   const [wizardError, setWizardError] = useState<string | null>(null);
   const [barcodeSupported, setBarcodeSupported] = useState(true);
+  const [cameraStalled, setCameraStalled] = useState(false);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Camera (shared hook)
   const camera = useCameraStream();
+
+  // Show "taking too long" message if camera doesn't start within 8 seconds
+  useEffect(() => {
+    if (camera.isActive || camera.error) {
+      setCameraStalled(false);
+      return;
+    }
+    const cameraSteps: WizardStep[] = ["SCAN_BARCODE", "CAPTURE_WALL"];
+    if (!cameraSteps.includes(step)) return;
+
+    const timer = setTimeout(() => setCameraStalled(true), 8000);
+    return () => clearTimeout(timer);
+  }, [camera.isActive, camera.error, step]);
 
   // Check BarcodeDetector support on mount
   useEffect(() => {
@@ -259,18 +273,31 @@ export default function ScanWizard({
     analyzeImage();
   }, [step, capturedImage, selectedTote]);
 
+  // ── Auto-start camera when entering a camera step ─────────────────────────
+  // Deferred to useEffect so the <video> element is in the DOM before
+  // getUserMedia resolves and tries to attach the stream.
+  const prevStepRef = useRef<WizardStep>("IDLE");
+  useEffect(() => {
+    const cameraSteps: WizardStep[] = ["SCAN_BARCODE", "CAPTURE_WALL"];
+    const entering = cameraSteps.includes(step) && !cameraSteps.includes(prevStepRef.current);
+    prevStepRef.current = step;
+    if (entering) {
+      camera.start();
+    }
+  }, [step, camera]);
+
   // ── Step Navigation ───────────────────────────────────────────────────────
   const startWizard = useCallback(() => {
     setStep("SCAN_BARCODE");
     setWizardError(null);
-    camera.start();
-  }, [camera]);
+    // camera.start() is deferred to the useEffect above
+  }, []);
 
   const goToCapture = useCallback(() => {
     setStep("CAPTURE_WALL");
     setWizardError(null);
-    camera.start();
-  }, [camera]);
+    // camera.start() is deferred to the useEffect above
+  }, []);
 
   const handleManualSelect = useCallback(
     (tote: ScanToteData) => {
@@ -286,8 +313,8 @@ export default function ScanWizard({
     setMeasurement(null);
     setWizardError(null);
     setStep("CAPTURE_WALL");
-    camera.start();
-  }, [camera]);
+    // camera.start() is deferred to the useEffect above
+  }, []);
 
   const handleComplete = useCallback(() => {
     if (measurement && selectedTote) {
@@ -474,8 +501,23 @@ export default function ScanWizard({
                       context="scan barcodes"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
                       <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                      {cameraStalled && (
+                        <div className="mt-4 flex flex-col items-center">
+                          <p className="text-slate-400 text-sm mb-3">Camera is taking longer than expected...</p>
+                          <button
+                            onClick={() => {
+                              setCameraStalled(false);
+                              camera.start();
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Try Again
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                 )}
@@ -631,6 +673,21 @@ export default function ScanWizard({
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
                       <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                      {cameraStalled && (
+                        <div className="mt-4 flex flex-col items-center">
+                          <p className="text-slate-400 text-sm mb-3">Camera is taking longer than expected...</p>
+                          <button
+                            onClick={() => {
+                              setCameraStalled(false);
+                              camera.start();
+                            }}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Try Again
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                 )}

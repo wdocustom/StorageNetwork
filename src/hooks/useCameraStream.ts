@@ -14,6 +14,8 @@ export type CameraError =
   | "denied"          // User blocked camera permission
   | "not-found"       // Device has no camera
   | "in-use"          // Camera held by another app/tab
+  | "timeout"         // getUserMedia hung (permission prompt dismissed, etc.)
+  | "not-ready"       // Video element not in DOM when stream was ready
   | "unknown";        // Catch-all
 
 export type PermissionState = "prompt" | "denied" | "granted" | "unknown";
@@ -42,7 +44,11 @@ export interface UseCameraStreamReturn extends CameraStreamState {
 
 /** Classify a getUserMedia error into our known categories */
 function classifyError(err: unknown): CameraError {
-  if (err instanceof Error && err.message === "UNSUPPORTED") return "unsupported";
+  if (err instanceof Error) {
+    if (err.message === "UNSUPPORTED") return "unsupported";
+    if (err.message === "TIMEOUT") return "timeout";
+    if (err.message === "VIDEO_NOT_READY") return "not-ready";
+  }
   if (err instanceof DOMException) {
     switch (err.name) {
       case "NotAllowedError":
@@ -71,6 +77,10 @@ function getErrorMessage(error: CameraError | null): string | null {
       return "No camera found on this device.";
     case "in-use":
       return "Camera is in use by another app. Close other apps using the camera and try again.";
+    case "timeout":
+      return "Camera did not respond in time. Please tap 'Try Again' or reload the page.";
+    case "not-ready":
+      return "Camera started before the page was ready. Please tap 'Try Again'.";
     case "unknown":
       return "Could not access camera. Please try again.";
     case null:
@@ -139,15 +149,26 @@ export function useCameraStream(options: UseCameraStreamOptions = {}): UseCamera
       // Tear down any existing stream first
       stop();
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: idealWidth }, height: { ideal: idealHeight } },
-      });
+      // Wrap getUserMedia with a timeout to prevent hanging indefinitely
+      // (mobile browsers can stall if permission prompt is dismissed)
+      const stream = await Promise.race([
+        navigator.mediaDevices.getUserMedia({
+          video: { facingMode, width: { ideal: idealWidth }, height: { ideal: idealHeight } },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), 15000)
+        ),
+      ]);
 
       streamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+      } else {
+        // Video element not yet in DOM — stop tracks to avoid orphaned stream
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error("VIDEO_NOT_READY");
       }
 
       setIsActive(true);
