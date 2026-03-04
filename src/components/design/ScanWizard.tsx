@@ -8,7 +8,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { X, Camera, Scan, ArrowRight, RotateCcw, Check, AlertCircle, Loader2 } from "lucide-react";
+import { X, Camera, CameraOff, Scan, ArrowRight, RotateCcw, Check, AlertCircle, Loader2 } from "lucide-react";
 import { getToteByUPC, getAllUniqueTotes, type ScanToteData } from "@/lib/scan-data";
 import type { MeasurementResult } from "@/app/api/vision/measure/route";
 
@@ -96,6 +96,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   const [measurement, setMeasurement] = useState<MeasurementResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraBlocked, setCameraBlocked] = useState(false);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -105,6 +106,9 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   // ── Camera Management ─────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("UNSUPPORTED");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
@@ -121,8 +125,17 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       setError(null);
     } catch (err) {
       console.error("Camera error:", err);
-      setError("Could not access camera. Please check permissions.");
+      setCameraBlocked(true);
       setCameraActive(false);
+      if (err instanceof Error && err.message === "UNSUPPORTED") {
+        setError("Camera is not available in this browser. Make sure you're using HTTPS. Select your tote manually below.");
+      } else if (err instanceof DOMException && err.name === "NotAllowedError") {
+        setError("Camera permission was denied. Please allow camera access in your browser settings, or select your tote manually below.");
+      } else if (err instanceof DOMException && err.name === "NotFoundError") {
+        setError("No camera found on this device. Please select your tote manually below.");
+      } else {
+        setError("Could not access camera. Please select your tote manually below.");
+      }
     }
   }, []);
 
@@ -208,12 +221,14 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   const startWizard = useCallback(() => {
     setStep("SCAN_BARCODE");
     setError(null);
+    setCameraBlocked(false);
     startCamera();
   }, [startCamera]);
 
   const goToCapture = useCallback(() => {
     setStep("CAPTURE_WALL");
     setError(null);
+    setCameraBlocked(false);
     startCamera();
   }, [startCamera]);
 
@@ -227,6 +242,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
     setCapturedImage(null);
     setMeasurement(null);
     setError(null);
+    setCameraBlocked(false);
     setStep("CAPTURE_WALL");
     startCamera();
   }, [startCamera]);
@@ -249,6 +265,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
     setCapturedImage(null);
     setMeasurement(null);
     setError(null);
+    setCameraBlocked(false);
     onClose();
   }, [stopCamera, onClose]);
 
@@ -381,16 +398,25 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                   </div>
                 </div>
                 {!cameraActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                    <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
+                    {cameraBlocked ? (
+                      <>
+                        <CameraOff className="w-10 h-10 text-slate-500 mb-3" />
+                        <p className="text-slate-400 text-sm text-center px-6">
+                          Camera unavailable
+                        </p>
+                      </>
+                    ) : (
+                      <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Manual Selection */}
               <div className="border-t border-slate-800 pt-6">
-                <p className="text-slate-400 text-sm mb-4 text-center">
-                  Or select your tote manually:
+                <p className={`text-sm mb-4 text-center ${cameraBlocked ? "text-yellow-400 font-medium" : "text-slate-400"}`}>
+                  {cameraBlocked ? "Select your tote manually:" : "Or select your tote manually:"}
                 </p>
                 <div className="grid gap-3">
                   {allTotes.map((tote) => (
@@ -483,8 +509,17 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                   className="w-full h-full object-cover"
                 />
                 {!cameraActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                    <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900">
+                    {cameraBlocked ? (
+                      <>
+                        <CameraOff className="w-10 h-10 text-slate-500 mb-3" />
+                        <p className="text-slate-400 text-sm text-center px-6">
+                          Camera unavailable — please allow camera access and try again
+                        </p>
+                      </>
+                    ) : (
+                      <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+                    )}
                   </div>
                 )}
               </div>
