@@ -722,19 +722,15 @@ export default function DesignConfigurator({
 
   // Handler for ScanWizard completion
   function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
-    // Set wall dimensions from AI measurement
+    // Set wall dimensions from AI measurement (default height to 96" if not detected)
+    const effectiveHeight = height ?? 96;
     setWallWidth(width.toFixed(1));
-    if (height) {
-      setWallHeight(height.toFixed(1));
-    }
+    setWallHeight(effectiveHeight.toFixed(1));
     // Set tote type based on scanned tote
     setToteType(toteConfigKey);
-    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide${height ? ` × ${height.toFixed(1)}" tall` : ""}`);
-    // Trigger auto-fit if we have both dimensions
-    if (height) {
-      // Small delay to let state update, then trigger auto-fit
-      setTimeout(() => handleWallFit(), 100);
-    }
+    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide × ${effectiveHeight.toFixed(1)}" tall${!height ? " (default height)" : ""} — calculating max fit…`);
+    // Always trigger auto-fit (use default 96" height if AI couldn't detect)
+    setTimeout(() => handleWallFit(), 100);
   }
 
   function handleAddUnit() {

@@ -170,6 +170,9 @@ export default function ScanWizard({
   const [wizardError, setWizardError] = useState<string | null>(null);
   const [barcodeSupported, setBarcodeSupported] = useState(true);
   const [cameraStalled, setCameraStalled] = useState(false);
+  // Editable measurement fields for user confirmation
+  const [editWidth, setEditWidth] = useState("");
+  const [editHeight, setEditHeight] = useState("");
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -263,6 +266,9 @@ export default function ScanWizard({
 
         const data = await response.json();
         setMeasurement(data.measurement);
+        // Pre-fill editable fields with AI results
+        setEditWidth(data.measurement.widthInches.toFixed(1));
+        setEditHeight(data.measurement.heightInches ? data.measurement.heightInches.toFixed(1) : "");
         setStep("RESULTS");
       } catch (err) {
         console.error("Analysis error:", err);
@@ -320,15 +326,19 @@ export default function ScanWizard({
   }, []);
 
   const handleComplete = useCallback(() => {
-    if (measurement && selectedTote) {
-      onComplete(
-        measurement.widthInches,
-        measurement.heightInches,
-        selectedTote.configKey
-      );
+    if (selectedTote) {
+      const finalWidth = parseFloat(editWidth);
+      const finalHeight = parseFloat(editHeight);
+      if (finalWidth > 0) {
+        onComplete(
+          finalWidth,
+          finalHeight > 0 ? finalHeight : undefined,
+          selectedTote.configKey
+        );
+      }
     }
     handleClose();
-  }, [measurement, selectedTote, onComplete]);
+  }, [selectedTote, editWidth, editHeight, onComplete]);
 
   const handleClose = useCallback(() => {
     camera.stop();
@@ -356,7 +366,7 @@ export default function ScanWizard({
   const allTotes = getAllUniqueTotes();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
       <div className="scrollbar-dark relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 bg-slate-950 border-b border-slate-800">
@@ -820,34 +830,12 @@ export default function ScanWizard({
                 </div>
               )}
 
-              {/* Measurement Results */}
-              <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 mb-6">
-                <div className="grid grid-cols-2 gap-6 mb-4">
-                  <div className="text-center">
-                    <p className="text-slate-400 text-sm mb-1">Wall Width</p>
-                    <p className="text-3xl font-bold text-yellow-400">
-                      {measurement.widthInches.toFixed(1)}&quot;
-                    </p>
-                    <p className="text-slate-500 text-sm">
-                      ({(measurement.widthInches / 12).toFixed(1)} ft)
-                    </p>
-                  </div>
-                  {measurement.heightInches && (
-                    <div className="text-center">
-                      <p className="text-slate-400 text-sm mb-1">Wall Height</p>
-                      <p className="text-3xl font-bold text-yellow-400">
-                        {measurement.heightInches.toFixed(1)}&quot;
-                      </p>
-                      <p className="text-slate-500 text-sm">
-                        ({(measurement.heightInches / 12).toFixed(1)} ft)
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-center gap-2 mb-4">
+              {/* AI Measurement Results with confidence */}
+              <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">AI Result</p>
                   <div
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       measurement.confidence === "high"
                         ? "bg-green-500/10 text-green-400"
                         : measurement.confidence === "medium"
@@ -858,10 +846,63 @@ export default function ScanWizard({
                     {measurement.confidence} confidence
                   </div>
                 </div>
-
-                <p className="text-slate-400 text-sm text-center">
+                <div className="flex items-center gap-4 mb-2">
+                  <span className="text-slate-300 text-sm">
+                    Width: <strong className="text-yellow-400">{measurement.widthInches.toFixed(1)}&quot;</strong>
+                  </span>
+                  {measurement.heightInches && (
+                    <span className="text-slate-300 text-sm">
+                      Height: <strong className="text-yellow-400">{measurement.heightInches.toFixed(1)}&quot;</strong>
+                    </span>
+                  )}
+                  {!measurement.heightInches && (
+                    <span className="text-slate-500 text-sm italic">
+                      Height: not detected
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-500 text-xs">
                   {measurement.reasoning}
                 </p>
+              </div>
+
+              {/* Beta disclaimer + editable confirmation fields */}
+              <div className="bg-yellow-400/5 border border-yellow-400/30 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-yellow-300 text-xs">
+                    <strong>Beta Feature:</strong> AI measurements are estimates.
+                    Please confirm or correct the dimensions below before continuing.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">
+                      Wall Width (inches)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={editWidth}
+                      onChange={(e) => setEditWidth(e.target.value)}
+                      placeholder="e.g. 140"
+                      className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">
+                      Wall Height (inches)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={editHeight}
+                      onChange={(e) => setEditHeight(e.target.value)}
+                      placeholder="e.g. 96"
+                      className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Actions */}
@@ -875,10 +916,11 @@ export default function ScanWizard({
                 </button>
                 <button
                   onClick={handleComplete}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
+                  disabled={!editWidth || parseFloat(editWidth) <= 0}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="w-5 h-5" />
-                  Use These Measurements
+                  Use Measurements
                 </button>
               </div>
             </div>

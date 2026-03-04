@@ -68,20 +68,34 @@ MEASUREMENT METHOD:
 2. Measure how many times the tote's visible width (${referenceWidth}") fits across the full wall width. Multiply that count by ${referenceWidth} to get wall width in inches.
 3. For wall height: estimate how many tote-widths tall the wall is (floor to ceiling), or use the tote height (~14.75") as a vertical reference if visible.
 4. The wall boundaries are defined by corners, door frames, or other clear vertical/horizontal edges.
-5. IMPORTANT: Account for perspective distortion — objects farther from the camera appear smaller. If the tote is near one wall edge, the opposite edge will appear compressed. Compensate for this.
-6. Look for visual cues: baseboards, outlets, door frames, ceiling lines, floor-to-ceiling transitions.
+
+CRITICAL — PERSPECTIVE DISTORTION CORRECTION:
+- Camera photos ALWAYS make walls appear wider than they actually are due to lens distortion and perspective.
+- The tote is a 3D object sitting on the floor against the wall. Its visible face may appear slightly wider in the photo than its actual ${referenceWidth}" due to the camera angle looking slightly down at it.
+- When counting how many tote-widths fit across the wall, you MUST account for perspective foreshortening: parts of the wall farther from the camera appear compressed. Do NOT simply extrapolate the tote size linearly across the image.
+- BIAS CORRECTION: Phone cameras at typical shooting distances (6-12 feet) tend to overestimate wall width by 15-25%. After your initial estimate, apply a conservative reduction of about 10-15% to correct for this systematic bias.
+- Cross-check: if the tote is near one edge, mentally "walk" the tote width across the wall, making each successive tote slightly smaller as it recedes from the camera.
+- If the image was taken at an angle (not perpendicular to the wall), the distortion is even greater — apply a stronger correction.
+
+HEIGHT ESTIMATION:
+- ALWAYS attempt to estimate the wall height, even if the photo is taken at an angle.
+- Use the tote height (~14.75") as a vertical ruler. Count how many tote-heights from floor to ceiling.
+- If the ceiling is slightly cut off or the angle makes it uncertain, still provide your best estimate and mark confidence accordingly.
+- Standard garage walls are 96" (8ft) or 120" (10ft). Standard room walls are 96" (8ft). Use these as sanity checks.
+- Only omit heightInches if the ceiling and floor are both completely invisible in the image.
 
 COMMON WALL SIZES (for sanity check):
 - Garage walls are typically 96" to 120" tall (8-10 ft) and 100" to 240" wide.
 - Standard room walls are 96" tall (8 ft).
+- If your width estimate exceeds 200", double-check — very few residential walls exceed 240" (20 ft).
 - If your estimate is significantly outside these ranges, reconsider your measurement.
 
 ACCURACY GUIDELINES:
-- "high" confidence: Tote clearly visible, wall edges clearly defined, minimal perspective distortion
-- "medium" confidence: Tote visible but at angle, or wall edges partially obscured
-- "low" confidence: Significant perspective distortion, tote partially hidden, or unclear wall boundaries
+- "high" confidence: Tote clearly visible, wall edges clearly defined, minimal perspective distortion, photo taken straight-on
+- "medium" confidence: Tote visible but photo at slight angle, or wall edges partially obscured
+- "low" confidence: Significant perspective distortion, tote partially hidden, angled photo, or unclear wall boundaries
 
-Return your best estimate. It's better to be approximately right than precisely wrong.`;
+Return your best estimate. It's better to slightly underestimate than overestimate — a smaller measurement is safer for fitting storage units.`;
 
     // Remove data URL prefix if present
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
