@@ -163,8 +163,34 @@ export function useCameraStream(options: UseCameraStreamOptions = {}): UseCamera
       streamRef.current = stream;
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const video = videoRef.current;
+        video.srcObject = stream;
+        // Ensure muted is set programmatically — some browsers (especially
+        // incognito mode) require this for autoplay to succeed.
+        video.muted = true;
+
+        // Wait for the stream metadata to load before calling play().
+        // Without this, play() can hang indefinitely in incognito/strict contexts.
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("TIMEOUT")), 10000);
+          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            clearTimeout(timeout);
+            resolve();
+          } else {
+            video.onloadedmetadata = () => {
+              clearTimeout(timeout);
+              video.onloadedmetadata = null;
+              resolve();
+            };
+          }
+        });
+
+        await Promise.race([
+          video.play(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("TIMEOUT")), 5000)
+          ),
+        ]);
       } else {
         // Video element not yet in DOM — stop tracks to avoid orphaned stream
         stream.getTracks().forEach((t) => t.stop());
@@ -177,6 +203,8 @@ export function useCameraStream(options: UseCameraStreamOptions = {}): UseCamera
       setRetryCount(0);
     } catch (err) {
       console.error("Camera error:", err);
+      // Release stream/tracks so the camera LED turns off on failure
+      stop();
       const classified = classifyError(err);
       setError(classified);
       setIsActive(false);
