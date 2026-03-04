@@ -294,7 +294,7 @@ export default function BookingModal({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 pb-8">
+        <div className="scrollbar-dark flex-1 overflow-y-auto p-5 pb-8">
           {step === "success" ? (
             /* ── Success State ───────────────────────────────────────── */
             <div className="py-6 text-center">
