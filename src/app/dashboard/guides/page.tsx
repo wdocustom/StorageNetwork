@@ -408,21 +408,29 @@ export default function GuidesPage() {
           </p>
 
           <div className="space-y-3">
-            {/* Tutorial 1 */}
-            <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
-                <PlayCircle className="h-6 w-6 text-purple-400" />
+            {/* Tutorial 1 — Create Quote */}
+            <a
+              href="https://youtu.be/LC2uZlzrHx0"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4 rounded-xl border border-purple-500/30 bg-purple-500/5 p-4 transition-all hover:border-purple-500/50 hover:bg-purple-500/10"
+            >
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-purple-500/20 transition-colors group-hover:bg-purple-500/30">
+                <Play className="h-5 w-5 text-purple-300 transition-transform group-hover:scale-110" />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold text-white">How to Quote a Job</h3>
+                <h3 className="text-sm font-bold text-white group-hover:text-purple-200">
+                  How to Quote a Job
+                </h3>
                 <p className="text-[11px] text-stone-500">
                   Walk through the build tool from unit sizing to sending a professional quote.
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
-                Coming Soon
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-300">
+                <Play className="h-2.5 w-2.5" />
+                Watch Now
               </span>
-            </div>
+            </a>
 
             {/* Tutorial 2 */}
             <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
