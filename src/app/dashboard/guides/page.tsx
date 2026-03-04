@@ -432,21 +432,29 @@ export default function GuidesPage() {
               </span>
             </a>
 
-            {/* Tutorial 2 */}
-            <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
-                <PlayCircle className="h-6 w-6 text-blue-400" />
+            {/* Tutorial 2 — 3D Configurator */}
+            <a
+              href="https://youtu.be/a1buHgU4i58"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 transition-all hover:border-blue-500/50 hover:bg-blue-500/10"
+            >
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 transition-colors group-hover:bg-blue-500/30">
+                <Play className="h-5 w-5 text-blue-300 transition-transform group-hover:scale-110" />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold text-white">Using the 3D Configurator</h3>
+                <h3 className="text-sm font-bold text-white group-hover:text-blue-200">
+                  Using the 3D Configurator
+                </h3>
                 <p className="text-[11px] text-stone-500">
                   Learn how customers use the interactive designer and how leads flow to your dashboard.
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
-                Coming Soon
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold text-blue-300">
+                <Play className="h-2.5 w-2.5" />
+                Watch Now
               </span>
-            </div>
+            </a>
 
             {/* Tutorial 3 */}
             <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
