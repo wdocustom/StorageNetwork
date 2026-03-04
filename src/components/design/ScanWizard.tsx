@@ -134,6 +134,16 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error("UNSUPPORTED");
       }
+
+      // Stop any existing stream before requesting a new one
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
@@ -150,6 +160,7 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       setCameraBlocked(false);
       setPermissionState("granted");
       setError(null);
+      setRetryCount(0);
     } catch (err) {
       console.error("Camera error:", err);
       setCameraBlocked(true);
@@ -159,9 +170,11 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
       if (err instanceof Error && err.message === "UNSUPPORTED") {
         setError("Camera is not available in this browser. Make sure you're using HTTPS. Select your tote manually below.");
       } else if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setError("Camera access is needed to scan barcodes and capture your wall.");
+        setError("Camera access was denied. On most mobile browsers you need to change the permission AND reload the page. Check your browser's address bar for a camera or lock icon.");
       } else if (err instanceof DOMException && err.name === "NotFoundError") {
         setError("No camera found on this device. Please select your tote manually below.");
+      } else if (err instanceof DOMException && err.name === "NotReadableError") {
+        setError("Camera is in use by another app. Close other apps using the camera and try again.");
       } else {
         setError("Could not access camera. Please select your tote manually below.");
       }
@@ -171,18 +184,20 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
   // Listen for permission changes (user toggling in browser settings)
   useEffect(() => {
     let cancelled = false;
+    let statusObj: PermissionStatus | null = null;
+    let handler: (() => void) | null = null;
 
     const listen = async () => {
       try {
         if (!navigator.permissions) return;
-        const statusObj = await navigator.permissions.query({ name: "camera" as PermissionName });
+        statusObj = await navigator.permissions.query({ name: "camera" as PermissionName });
         if (cancelled) return;
-        const handler = () => {
-          if (cancelled) return;
+        handler = () => {
+          if (cancelled || !statusObj) return;
           const newState = statusObj.state as "prompt" | "denied" | "granted";
           setPermissionState(newState);
           // Auto-retry camera when permission is freshly granted
-          if (newState === "granted" && cameraBlocked) {
+          if (newState === "granted") {
             setCameraBlocked(false);
             setError(null);
             setRetryCount(0);
@@ -191,13 +206,18 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
         };
         statusObj.addEventListener("change", handler);
       } catch {
-        // Permissions API not supported
+        // Permissions API not supported for camera in this browser
       }
     };
 
     listen();
-    return () => { cancelled = true; };
-  }, [cameraBlocked, startCamera]);
+    return () => {
+      cancelled = true;
+      if (statusObj && handler) {
+        statusObj.removeEventListener("change", handler);
+      }
+    };
+  }, [startCamera]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -467,34 +487,31 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                         <p className="text-slate-300 text-sm text-center mb-4">
                           Camera access is needed to scan barcodes
                         </p>
-                        {permissionState !== "denied" ? (
-                          <button
-                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
-                          >
-                            <Camera className="w-4 h-4" />
-                            Allow Camera Access
-                          </button>
-                        ) : (
-                          <>
-                            <p className="text-slate-500 text-xs text-center">
-                              Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
-                            </p>
-                            {retryCount >= 2 && (
-                              <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
-                                If you already changed the permission, try refreshing the page — most mobile browsers require a reload after changing camera permissions.
-                              </p>
-                            )}
-                          </>
-                        )}
+                        <button
+                          onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                        >
+                          <Camera className="w-4 h-4" />
+                          {permissionState === "denied" ? "Try Again" : "Allow Camera Access"}
+                        </button>
                         {permissionState === "denied" && (
+                          <p className="text-slate-500 text-xs text-center mt-3">
+                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access.
+                          </p>
+                        )}
+                        {retryCount >= 1 && (
                           <button
-                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            onClick={() => window.location.reload()}
                             className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors text-sm"
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Try Again
+                            Reload Page
                           </button>
+                        )}
+                        {retryCount >= 1 && (
+                          <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
+                            Most mobile browsers require a page reload after changing camera permissions.
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -615,34 +632,31 @@ export default function ScanWizard({ isOpen, onClose, onComplete }: ScanWizardPr
                         <p className="text-slate-300 text-sm text-center mb-4">
                           Camera access is needed to capture your wall
                         </p>
-                        {permissionState !== "denied" ? (
-                          <button
-                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
-                          >
-                            <Camera className="w-4 h-4" />
-                            Allow Camera Access
-                          </button>
-                        ) : (
-                          <>
-                            <p className="text-slate-500 text-xs text-center">
-                              Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access, then tap below.
-                            </p>
-                            {retryCount >= 2 && (
-                              <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
-                                If you already changed the permission, try refreshing the page — most mobile browsers require a reload after changing camera permissions.
-                              </p>
-                            )}
-                          </>
-                        )}
+                        <button
+                          onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors text-sm"
+                        >
+                          <Camera className="w-4 h-4" />
+                          {permissionState === "denied" ? "Try Again" : "Allow Camera Access"}
+                        </button>
                         {permissionState === "denied" && (
+                          <p className="text-slate-500 text-xs text-center mt-3">
+                            Permission was blocked. Tap the lock/camera icon in your browser&apos;s address bar to allow access.
+                          </p>
+                        )}
+                        {retryCount >= 1 && (
                           <button
-                            onClick={() => { setCameraBlocked(false); setError(null); startCamera(); }}
+                            onClick={() => window.location.reload()}
                             className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-medium rounded-lg hover:bg-slate-600 transition-colors text-sm"
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Try Again
+                            Reload Page
                           </button>
+                        )}
+                        {retryCount >= 1 && (
+                          <p className="text-yellow-400 text-xs text-center mt-2 font-medium">
+                            Most mobile browsers require a page reload after changing camera permissions.
+                          </p>
                         )}
                       </div>
                     ) : (
