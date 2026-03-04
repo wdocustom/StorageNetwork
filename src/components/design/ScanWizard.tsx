@@ -209,7 +209,7 @@ export default function ScanWizard({
         setWizardError(`Unknown barcode: ${code}. Try manual selection.`);
       }
     },
-    [camera]
+    [camera.stop]
   );
 
   // Use barcode scanner hook
@@ -235,7 +235,7 @@ export default function ScanWizard({
     setCapturedImage(imageData);
     setStep("ANALYZING");
     camera.stop();
-  }, [camera]);
+  }, [camera.videoRef, camera.stop]);
 
   // ── Analyze Image with AI ─────────────────────────────────────────────────
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function ScanWizard({
     if (entering) {
       camera.start();
     }
-  }, [step, camera]);
+  }, [step, camera.start]);
 
   // ── Step Navigation ───────────────────────────────────────────────────────
   const startWizard = useCallback(() => {
@@ -305,7 +305,7 @@ export default function ScanWizard({
       setStep("INSTRUCT_PLACEMENT");
       camera.stop();
     },
-    [camera]
+    [camera.stop]
   );
 
   const handleRetry = useCallback(() => {
@@ -335,14 +335,15 @@ export default function ScanWizard({
     setMeasurement(null);
     setWizardError(null);
     onClose();
-  }, [camera, onClose]);
+  }, [camera.stop, onClose]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       camera.stop();
     };
-  }, [camera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (!isOpen) return null;

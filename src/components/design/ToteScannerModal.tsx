@@ -110,7 +110,8 @@ export default function ToteScannerModal({
         }, 2000);
       }
     },
-    [state, onToteSelected, onClose, camera]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, onToteSelected, onClose, camera.stop]
   );
 
   // ── Barcode scanning loop ─────────────────────────────────────────────
@@ -166,7 +167,7 @@ export default function ToteScannerModal({
   const startCameraAndScan = useCallback(async () => {
     await camera.start();
     // Camera hook sets isActive on success — we start scanning in an effect
-  }, [camera]);
+  }, [camera.start]);
 
   // When camera becomes active, begin scanning
   useEffect(() => {
