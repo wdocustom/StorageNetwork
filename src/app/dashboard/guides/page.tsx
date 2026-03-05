@@ -479,6 +479,65 @@ export default function GuidesPage() {
                 Watch Now
               </span>
             </a>
+            {/* Tutorial 4 — Using the How-To Guide (Coming Soon) */}
+            <div
+              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+            >
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+                <Play className="h-5 w-5 text-stone-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-stone-300">
+                  Using the How-To Guide
+                </h3>
+                <p className="text-[11px] text-stone-600">
+                  Navigate the guides section, find answers fast, and make the most of every resource.
+                </p>
+              </div>
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
+
+            {/* Tutorial 5 — General Features of Storage-Network.app (Coming Soon) */}
+            <div
+              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+            >
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+                <Play className="h-5 w-5 text-stone-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-stone-300">
+                  General Features of Storage-Network.app
+                </h3>
+                <p className="text-[11px] text-stone-600">
+                  A complete walkthrough of the platform — dashboard, leads, scheduling, and everything in between.
+                </p>
+              </div>
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
+
+            {/* Tutorial 6 — Building your Tote Organizer (Coming Soon) */}
+            <div
+              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+            >
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+                <Play className="h-5 w-5 text-stone-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-stone-300">
+                  Building your Tote Organizer
+                </h3>
+                <p className="text-[11px] text-stone-600">
+                  Step-by-step assembly instructions from framing to final tote placement.
+                </p>
+              </div>
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+                Coming Soon
+              </span>
+            </div>
           </div>
         </section>
 
