@@ -251,11 +251,11 @@ export default function BookingModal({
   // Auto-init payment when both address and date are pre-filled from sidebar
   const autoInitRef = useRef(false);
   useEffect(() => {
-    if (isOpen && prefilled && hasPrefilledDate && selectedDate && !clientSecret && !autoInitRef.current) {
+    if (isOpen && prefilled && hasPrefilledDate && selectedDate && effectiveDeposit > 0 && !clientSecret && !autoInitRef.current) {
       autoInitRef.current = true;
       handleInitPayment();
     }
-  }, [isOpen, prefilled, hasPrefilledDate, selectedDate, clientSecret, handleInitPayment]);
+  }, [isOpen, prefilled, hasPrefilledDate, selectedDate, effectiveDeposit, clientSecret, handleInitPayment]);
 
   // Reset auto-init flag when modal closes
   useEffect(() => {
