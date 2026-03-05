@@ -23,7 +23,7 @@ import {
   ShieldAlert,
   Camera,
 } from "lucide-react";
-import { useCameraStream } from "@/hooks/useCameraStream";
+import { useCameraStream, type UseCameraStreamReturn } from "@/hooks/useCameraStream";
 import { useWebXRMeasure } from "@/hooks/useWebXRMeasure";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -45,6 +45,8 @@ interface WallTapMeasureProps {
   onMeasured: (widthInches: number, heightInches: number | undefined) => void;
   /** Called when user cancels */
   onCancel: () => void;
+  /** Shared camera instance from parent (avoids duplicate stream on mobile) */
+  camera?: UseCameraStreamReturn;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -78,9 +80,11 @@ export default function WallTapMeasure({
   referenceHeightInches = 14.75,
   onMeasured,
   onCancel,
+  camera: externalCamera,
 }: WallTapMeasureProps) {
   const webxr = useWebXRMeasure();
-  const camera = useCameraStream();
+  const internalCamera = useCameraStream();
+  const camera = externalCamera ?? internalCamera;
   const overlayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -103,7 +107,10 @@ export default function WallTapMeasure({
       camera.start().then(() => setCameraStarted(true));
     }
     return () => {
-      camera.stop();
+      // Only stop if we own the camera (no external instance provided)
+      if (!externalCamera) {
+        camera.stop();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

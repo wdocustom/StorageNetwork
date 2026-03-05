@@ -708,6 +708,7 @@ export default function ScanWizard({
                 referenceHeightInches={14.75}
                 onMeasured={handleTapMeasured}
                 onCancel={() => setStep("INSTRUCT_PLACEMENT")}
+                camera={camera}
               />
             </div>
           )}
