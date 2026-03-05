@@ -438,9 +438,18 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   const numCols = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string) || 0;
   const numRows = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string) || 0;
 
+  // "Your Details" collapse state — auto-collapse when all required fields filled
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
+  const detailsFilled = !!(props.firstName.trim() && props.lastName.trim() && props.email.trim() && props.phone.trim() && props.streetAddress.trim() && props.city.trim() && props.addrState.trim() && props.addrZip.trim());
+
   // Navigate to next step
   const goNext = () => setActiveStep((s) => Math.min(4, s + 1));
   const goPrev = () => setActiveStep((s) => Math.max(1, s - 1));
+
+  // Wall dimensions for bestseller fit check
+  const wallW = parseFloat(props.wallWidth) || 0;
+  const wallH = parseFloat(props.wallHeight) || 0;
+  const hasWallDimensions = wallW > 0 && wallH > 0;
 
   // ═══════════════════════════════════════════════════════════════════════
   // RENDER
@@ -712,50 +721,67 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Orientation Cards (standard only) */}
-                {props.unitType === "standard" && (
-                  <div>
-                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                      Tote Orientation
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <SelectionCard
-                        selected={props.orientation === "standard"}
-                        onSelect={() => props.onOrientationChange("standard")}
-                      >
-                        <div className="text-xs font-bold text-zinc-300">Standard</div>
-                        <div className="mt-0.5 text-[10px] text-zinc-500">30&quot; Deep</div>
-                      </SelectionCard>
-                      <SelectionCard
-                        selected={props.orientation === "sideways"}
-                        onSelect={() => props.onOrientationChange("sideways")}
-                      >
-                        <div className="text-xs font-bold text-zinc-300">Sideways</div>
-                        <div className="mt-0.5 text-[10px] text-zinc-500">20&quot; Deep</div>
-                      </SelectionCard>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bestseller Presets */}
+                {/* Bestseller Presets — shown BEFORE orientation */}
                 {props.presetOptions.length > 0 && (
                   <section className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
                     <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-400/80">
                       <Star className="h-3.5 w-3.5" />
                       Bestsellers
                     </h3>
-                    <select
-                      value={props.activePreset || ""}
-                      onChange={(e) => props.onPresetChange(e.target.value || null)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm font-semibold text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/50"
-                    >
-                      <option value="">Custom Build</option>
-                      {props.presetOptions.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} — {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      {/* Custom Build option */}
+                      <SelectionCard
+                        selected={!props.activePreset}
+                        onSelect={() => props.onPresetChange(null)}
+                        className="w-full"
+                      >
+                        <div className="text-xs font-bold text-zinc-300">Custom Build</div>
+                        <div className="mt-0.5 text-[10px] text-zinc-500">Configure your own layout</div>
+                      </SelectionCard>
+
+                      {/* Preset options with fit check */}
+                      {props.presetOptions.map((p) => {
+                        // Check if preset fits within wall dimensions (if entered)
+                        const presetCombinedW = props.compoundBuild && props.activePreset === p.id
+                          ? props.compoundBuild.subUnits.reduce((sum, su) => sum + su.totalW, 0)
+                          : null;
+                        const presetMaxH = props.compoundBuild && props.activePreset === p.id
+                          ? Math.max(...props.compoundBuild.subUnits.map((su) => su.totalH))
+                          : null;
+                        // For non-active presets, estimate from grid size (rough: ~18" per col, ~16" per row for standard)
+                        const estimatedW = p.units.reduce((sum, u) => sum + u.cols * 18, 0);
+                        const estimatedH = Math.max(...p.units.map((u) => u.rows * 16));
+                        const checkW = presetCombinedW ?? estimatedW;
+                        const checkH = presetMaxH ?? estimatedH;
+                        const doesntFit = hasWallDimensions && (checkW > wallW || checkH > wallH);
+
+                        return (
+                          <SelectionCard
+                            key={p.id}
+                            selected={props.activePreset === p.id}
+                            onSelect={() => !doesntFit && props.onPresetChange(p.id)}
+                            className={`w-full ${doesntFit ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-bold text-zinc-300">{p.name}</div>
+                                <div className="mt-0.5 text-[10px] text-zinc-500">
+                                  {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
+                                </div>
+                              </div>
+                              {doesntFit && (
+                                <span className="flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[9px] font-bold text-red-400">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Won&apos;t Fit
+                                </span>
+                              )}
+                            </div>
+                          </SelectionCard>
+                        );
+                      })}
+                    </div>
+
+                    {/* Active preset details — totes toggle + add to quote */}
                     {props.activePreset && props.compoundBuild && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
@@ -813,7 +839,32 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </section>
                 )}
 
-                {/* Continue Button */}
+                {/* Orientation Cards — only shown for custom builds (no bestseller selected) */}
+                {!props.activePreset && props.unitType === "standard" && (
+                  <div>
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                      Tote Orientation
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <SelectionCard
+                        selected={props.orientation === "standard"}
+                        onSelect={() => props.onOrientationChange("standard")}
+                      >
+                        <div className="text-xs font-bold text-zinc-300">Standard</div>
+                        <div className="mt-0.5 text-[10px] text-zinc-500">30&quot; Deep</div>
+                      </SelectionCard>
+                      <SelectionCard
+                        selected={props.orientation === "sideways"}
+                        onSelect={() => props.onOrientationChange("sideways")}
+                      >
+                        <div className="text-xs font-bold text-zinc-300">Sideways</div>
+                        <div className="mt-0.5 text-[10px] text-zinc-500">20&quot; Deep</div>
+                      </SelectionCard>
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation — bestseller skips Style, custom build continues to Style */}
                 <div className="flex gap-2">
                   <button
                     onClick={goPrev}
@@ -821,15 +872,17 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   >
                     Back
                   </button>
-                  <motion.button
-                    onClick={goNext}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Continue to Style
-                    <ChevronRight className="h-4 w-4" />
-                  </motion.button>
+                  {!props.activePreset && (
+                    <motion.button
+                      onClick={goNext}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Continue to Style
+                      <ChevronRight className="h-4 w-4" />
+                    </motion.button>
+                  )}
                 </div>
               </>
             )}
@@ -1093,7 +1146,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                     <ShoppingCart className="mx-auto h-8 w-8 text-zinc-700" />
                     <p className="mt-2 text-sm font-medium text-zinc-500">No units added yet</p>
                     <button
-                      onClick={() => setActiveStep(3)}
+                      onClick={() => setActiveStep(2)}
                       className="mt-3 text-xs font-bold uppercase tracking-wider text-yellow-400 hover:text-yellow-300"
                     >
                       Go configure a unit
@@ -1206,13 +1259,39 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </section>
                 )}
 
-                {/* Booking Form */}
+                {/* Booking Form — collapsible when details are filled */}
                 {props.orderItems.length > 0 && !props.submitted && (
-                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                    <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                      Your Details
-                    </h3>
-                    <div className="space-y-2">
+                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setDetailsCollapsed(!detailsCollapsed)}
+                      className="flex w-full items-center justify-between p-4"
+                    >
+                      <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-yellow-400" />
+                        Your Details
+                        {detailsFilled && detailsCollapsed && (
+                          <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" /> Complete
+                          </span>
+                        )}
+                      </h3>
+                      <motion.div
+                        animate={{ rotate: detailsCollapsed ? 0 : 90 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronRight className="h-4 w-4 text-zinc-500" />
+                      </motion.div>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {!detailsCollapsed && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: "easeInOut" }}
+                        >
+                    <div className="space-y-2 px-4 pb-4">
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="text"
@@ -1399,7 +1478,23 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                       {props.submitError && (
                         <p className="text-xs font-medium text-red-400">{props.submitError}</p>
                       )}
+
+                      {/* Collapse button when details are filled */}
+                      {detailsFilled && (
+                        <motion.button
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          onClick={() => setDetailsCollapsed(true)}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Details Complete — Continue
+                        </motion.button>
+                      )}
                     </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </section>
                 )}
 
@@ -1541,8 +1636,8 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
           </div>
         </div>
 
-        {/* CTA Button */}
-        {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && (
+        {/* CTA Button — only visible when quote fully built through summary (details + date) */}
+        {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && activeStep === 4 && detailsFilled && props.scheduledDate && (
           <motion.button
             onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
             disabled={props.submitting}

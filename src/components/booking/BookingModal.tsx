@@ -96,7 +96,7 @@ export default function BookingModal({
   // If both address and date are pre-filled from sidebar, skip directly to payment init
   const hasPrefilledDate = !!initialScheduledDate;
   const [step, setStep] = useState<Step>(
-    prefilled && hasPrefilledDate ? "schedule" : prefilled ? "schedule" : "address"
+    prefilled && hasPrefilledDate ? "payment" : prefilled ? "schedule" : "address"
   );
   const [address, setAddress] = useState<BookingAddress>({
     line1: initialAddress?.line1 || "",
