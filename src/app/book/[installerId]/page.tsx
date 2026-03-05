@@ -201,8 +201,8 @@ function BookingPageInner() {
 
   async function handleBookDeposit() {
     setSubmitError("");
-    if (!name.trim()) {
-      setSubmitError("Name is required.");
+    if (!name.trim() || !email.trim()) {
+      setSubmitError("Name and email are required.");
       return;
     }
     if (orderItems.length === 0) {
@@ -237,8 +237,8 @@ function BookingPageInner() {
 
   async function handleWaitlist() {
     setWaitlistError("");
-    if (!name.trim()) {
-      setWaitlistError("Name is required to join the waitlist.");
+    if (!name.trim() || !email.trim()) {
+      setWaitlistError("Name and email are required to join the waitlist.");
       return;
     }
     setWaitlistSending(true);
@@ -453,7 +453,7 @@ function BookingPageInner() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email (optional)"
+                      placeholder="Email *"
                       className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
                     />
                   </div>

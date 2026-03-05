@@ -27,8 +27,8 @@ export interface QuoteUnit {
 
 export interface SubmitQuoteInput {
   customer_name: string;
-  customer_email?: string;
-  customer_phone?: string;
+  customer_email: string;
+  customer_phone: string;
   address: string;
   address_line1?: string;
   address_city?: string;
@@ -64,7 +64,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   if (!input.customer_name?.trim()) {
     return { success: false, error: "Name is required." };
   }
-  // Email is optional — installers can follow up via phone or in person
+  if (!input.customer_email?.trim()) {
+    return { success: false, error: "Email is required." };
+  }
   if (!input.quote_data || input.quote_data.length === 0) {
     return { success: false, error: "At least one unit is required in the quote." };
   }
@@ -161,7 +163,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         installer_id: input.installer_id || null,
         is_network_lead: true,
         customer_name: input.customer_name.trim(),
-        customer_email: input.customer_email?.trim() || null,
+        customer_email: input.customer_email.trim(),
         customer_phone: input.customer_phone?.trim() || null,
         address: input.address?.trim() || null,
         address_line1: input.address_line1?.trim() || null,
