@@ -414,7 +414,13 @@ export async function createDepositIntent(
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
-    return { success: false, error: "Missing required parameters." };
+    const missing = [
+      !leadId && "leadId",
+      !amount && "deposit amount",
+      !installerId && "installerId",
+      !totalPrice && "totalPrice",
+    ].filter(Boolean).join(", ");
+    return { success: false, error: `Missing required parameters: ${missing}.` };
   }
 
   // Deposit is always charged WITHOUT tax. Tax is collected by installer at installation.
