@@ -73,9 +73,9 @@ function correctBarrelDistortion(
   axis: "horizontal" | "vertical"
 ): number {
   // Distortion coefficients for typical smartphone wide-angle lens
-  // These are conservative — they correct the ~10-15% overestimate we see
-  const k1 = 0.12;
-  const k2 = 0.04;
+  // Conservative values — slight correction for edge stretching
+  const k1 = 0.06;
+  const k2 = 0.02;
 
   const cx = imageWidth / 2;
   const cy = imageHeight / 2;
@@ -125,6 +125,9 @@ function computeMeasurements(
   let widthInches: number;
   let heightInches: number | undefined;
 
+  // Also compute width using the height-based scale as a cross-check
+  let widthFromHeightScale: number | undefined;
+
   if (imageWidth && imageHeight) {
     // Apply barrel distortion correction
     const correctedToteWidth = correctBarrelDistortion(bb.tote, imageWidth, imageHeight, "horizontal");
@@ -142,19 +145,38 @@ function computeMeasurements(
         imageWidth, imageHeight, "vertical"
       );
       heightInches = (correctedWallHeight / correctedToteHeight) * TOTE_HEIGHT_INCHES;
+
+      // Cross-validate: compute inches-per-pixel from height, apply to width
+      const inchesPerPixelFromHeight = TOTE_HEIGHT_INCHES / correctedToteHeight;
+      widthFromHeightScale = correctedWallWidth * inchesPerPixelFromHeight;
     }
   } else {
     // Fallback: simple ratio without distortion correction
     widthInches = (wallPixelWidth / totePixelWidth) * referenceWidth;
     if (bb.heightVisible) {
       heightInches = (wallPixelHeight / totePixelHeight) * TOTE_HEIGHT_INCHES;
+
+      // Cross-validate using height scale
+      const inchesPerPixelFromHeight = TOTE_HEIGHT_INCHES / totePixelHeight;
+      widthFromHeightScale = wallPixelWidth * inchesPerPixelFromHeight;
     }
   }
 
-  // Sanity clamps — don't let measurements go wildly out of range
+  // Cross-validation: if width estimates from horizontal and vertical scales
+  // disagree significantly, use the larger value (AI tends to underestimate
+  // wall boundaries, so the larger estimate is usually more accurate)
+  if (widthFromHeightScale !== undefined) {
+    const widthRatio = widthFromHeightScale / widthInches;
+    // If the height-based estimate is >20% larger, blend toward the larger value
+    if (widthRatio > 1.2) {
+      widthInches = Math.max(widthInches, widthFromHeightScale);
+    }
+  }
+
+  // Sanity clamps — reasonable range for storage units and garages
   widthInches = Math.max(36, Math.min(widthInches, 300));
   if (heightInches !== undefined) {
-    heightInches = Math.max(72, Math.min(heightInches, 144));
+    heightInches = Math.max(60, Math.min(heightInches, 168));
   }
 
   // Round to nearest 0.5 inch
@@ -195,30 +217,42 @@ export async function POST(request: NextRequest) {
     const google = createGoogleGenerativeAI({ apiKey });
 
     // Build the bounding-box detection prompt
-    const systemPrompt = `You are an expert at identifying objects and boundaries in construction photos. Your job is to return PIXEL COORDINATES — not measurements.
+    const imageDimsHint = imageWidth && imageHeight
+      ? `\nIMAGE DIMENSIONS: This image is ${imageWidth}px wide × ${imageHeight}px tall. Use these to calibrate your pixel coordinate estimates.`
+      : "";
+
+    const systemPrompt = `You are an expert at identifying objects and boundaries in construction/storage-unit photos. Your job is to return PIXEL COORDINATES — not measurements.
 
 WHAT'S IN THE IMAGE:
-- A storage tote is placed on the floor against a wall.
-- The visible face of the tote (facing the camera) is exactly ${referenceWidth} inches wide.
+- A storage tote (plastic bin) is placed on the floor against a wall. The tote is a SMALL reference object compared to the wall.
+- The visible face of the tote (the short side, facing the camera) is exactly ${referenceWidth} inches wide.
 ${referenceDepth ? `- The longer side going into the wall is ${referenceDepth} inches.` : ""}
 - The tote height is approximately 14.5 to 15 inches.
+- IMPORTANT: The wall is MUCH larger than the tote — typically 5x to 10x wider. A typical storage unit or garage wall is 10-15 feet (120-180 inches) wide and 7-10 feet (84-120 inches) tall.
+${imageDimsHint}
 
 YOUR TASK — RETURN BOUNDING BOXES:
 1. Locate the storage tote in the image. Return the pixel coordinates of its LEFT edge, RIGHT edge, TOP edge, and BOTTOM edge as seen in the photo.
-2. Locate the wall section being measured. Return the pixel coordinates of the wall's LEFT boundary, RIGHT boundary, TOP (ceiling), and BOTTOM (floor).
+2. Locate the FULL wall section being measured. Return the pixel coordinates of the wall's LEFT boundary, RIGHT boundary, TOP (ceiling), and BOTTOM (floor).
 
-IMPORTANT GUIDELINES:
-- Return X/Y pixel coordinates relative to the top-left corner of the image (0,0).
-- For the tote: identify the face of the tote visible to the camera. The left/right edges should mark the visible width of that face.
-- For the wall: identify the clear boundaries — corners, door frames, edges where the wall meets another surface or ends.
-- The wall TOP should be the ceiling line. The wall BOTTOM should be the floor line.
+CRITICAL — WALL BOUNDARY DETECTION:
+- The wall boundaries should span the ENTIRE measurable wall section, from its leftmost edge to its rightmost edge.
+- For storage units: the wall spans the full width of the roll-up door opening, from the left door track/frame to the right door track/frame.
+- For garages: the wall spans the full interior width between the side walls.
+- The wall boundaries often extend to or very near the edges of the photo. Do NOT underestimate the wall span.
+- Look for the structural boundaries: door frames, corner joints, wall-to-wall transitions, or where the wall meets a perpendicular surface.
+- The wall TOP should be the ceiling line or top of the door opening. The wall BOTTOM should be the floor line.
 - Set heightVisible to true ONLY if you can clearly see both the floor and ceiling lines.
-- Be as precise as possible with pixel positions. Do NOT round to nice numbers — use your best estimate of the exact pixel.
 
-EDGE DETECTION TIPS:
-- Look for vertical lines/corners that define where this wall section starts and ends.
-- The tote edges should be crisp and well-defined — use the contrast between the tote and the background.
-- If a wall edge is partially occluded, estimate where the true corner would be.
+TOTE DETECTION:
+- The tote is a small rectangular plastic bin on the floor. It will appear relatively small compared to the wall.
+- Identify the face of the tote visible to the camera. The left/right edges should mark the visible width of ONLY that face — do not include shadows or the lid overhang.
+- The tote top/bottom edges should mark the visible height of the tote body.
+
+PIXEL COORDINATE GUIDELINES:
+- Return X/Y pixel coordinates relative to the top-left corner of the image (0,0).
+- Be as precise as possible with pixel positions. Do NOT round to nice numbers — use your best estimate of the exact pixel.
+- If a wall edge extends to or beyond the image frame, set that coordinate to the image edge (0 for left/top, image width for right, image height for bottom).
 
 CONFIDENCE:
 - "high": Both tote and wall boundaries are clearly visible with sharp edges
