@@ -166,7 +166,7 @@ export function useCameraStream(options: UseCameraStreamOptions = {}): UseCamera
       // the camera instance is shared across components and start() fires
       // before React has committed the new <video> element to the DOM).
       if (!videoRef.current) {
-        await new Promise<void>((resolve) => requestAnimationFrame(resolve));
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       }
 
       if (videoRef.current) {
