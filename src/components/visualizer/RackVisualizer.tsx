@@ -45,7 +45,7 @@ interface RackVisualizerProps {
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
-  const [viewMode, setViewMode] = useState<"2D" | "3D">("2D");
+  const [viewMode, setViewMode] = useState<"2D" | "3D">("3D");
 
   return (
     <div className="relative h-full w-full">

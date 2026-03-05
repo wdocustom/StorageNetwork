@@ -1666,25 +1666,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
           </motion.button>
         )}
 
-        {props.orderItems.length === 0 && activeStep !== 4 && (
-          <motion.button
-            onClick={() => {
-              if (props.activePreset) {
-                props.onAddPresetUnit();
-              } else {
-                props.onAddUnit();
-              }
-              setActiveStep(4);
-            }}
-            disabled={props.activePreset ? props.presetLoading : (props.buildLoading || props.build.price === 0)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus className="h-4 w-4" />
-            Add to Quote
-          </motion.button>
-        )}
 
         {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && (
           <p className="mt-2 text-center text-[10px] text-zinc-600">
