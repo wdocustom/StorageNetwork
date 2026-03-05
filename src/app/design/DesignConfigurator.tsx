@@ -35,7 +35,6 @@ import {
   ArrowLeft,
   User,
   CreditCard,
-  Scan,
   Star,
   Truck,
   Mail,
@@ -1115,17 +1114,6 @@ export default function DesignConfigurator({
                 Auto-Fit Wall Calculator
               </h2>
 
-              {/* Scan Wall Button */}
-              <div className="mb-3">
-                <button
-                  onClick={() => setShowScanWizard(true)}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-yellow-400 bg-yellow-50 py-3 text-sm font-bold uppercase tracking-wide text-yellow-700 transition-colors hover:bg-yellow-100 hover:border-yellow-500"
-                >
-                  <Scan className="h-5 w-5" />
-                  Scan Wall with AI
-                </button>
-              </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
@@ -2123,12 +2111,6 @@ export default function DesignConfigurator({
         />
       )}
 
-      {/* ── Scan-to-Build Wizard ───────────────────────────────────────── */}
-      <ScanWizard
-        isOpen={showScanWizard}
-        onClose={() => setShowScanWizard(false)}
-        onComplete={handleScanWizardComplete}
-      />
     </div>
   );
 }
