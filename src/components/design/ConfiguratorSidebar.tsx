@@ -22,7 +22,10 @@ import {
   User,
   Mail,
   ChevronRight,
+  Calendar,
+  Tag,
 } from "lucide-react";
+import NativeScheduler from "@/components/booking/NativeScheduler";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -227,6 +230,22 @@ export interface ConfiguratorSidebarProps {
   contactError: string;
   onContactInstaller: () => void;
 
+  // Scheduler (inline in sidebar)
+  scheduledDate: string | null;
+  onScheduledDateChange: (date: string) => void;
+  installerLeadTime: number;
+  installerWorkingDays: string[];
+  blackoutDates: { start_date: string; end_date: string }[];
+
+  // Discount code (inline in sidebar)
+  discountInput: string;
+  onDiscountInputChange: (v: string) => void;
+  discountApplied: { code: string; amount: number } | null;
+  discountLoading: boolean;
+  discountError: string;
+  onApplyDiscount: () => void;
+  onRemoveDiscount: () => void;
+
   // Pulse trigger — called after "Find Max" updates inputs
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight
   // to draw attention to the updated configuration.
@@ -364,9 +383,13 @@ function StudioToggle({
   label: string;
 }) {
   return (
-    <label className="group flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800/30 px-3 py-2.5 transition-colors hover:border-zinc-600 hover:bg-zinc-800/50">
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="group flex w-full cursor-pointer items-center gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800/30 px-3 py-2.5 transition-colors hover:border-zinc-600 hover:bg-zinc-800/50"
+    >
       <motion.div
-        className={`relative h-5 w-9 rounded-full ${checked ? "bg-yellow-400" : "bg-zinc-700"}`}
+        className={`relative h-5 w-9 shrink-0 rounded-full ${checked ? "bg-yellow-400" : "bg-zinc-700"}`}
         animate={{ backgroundColor: checked ? "#facc15" : "#3f3f46" }}
         transition={{ duration: 0.2 }}
       >
@@ -376,10 +399,10 @@ function StudioToggle({
           transition={{ type: "spring", stiffness: 500, damping: 30 }}
         />
       </motion.div>
-      <span className="flex-1 text-sm font-medium text-zinc-300 group-hover:text-zinc-100">
+      <span className="flex-1 text-left text-sm font-medium text-zinc-300 group-hover:text-zinc-100">
         {label}
       </span>
-    </label>
+    </button>
   );
 }
 
@@ -1082,21 +1105,21 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 {props.installerId && !props.submitted && (
                   <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                     {!props.showContactForm && !props.contactSent ? (
-                      <div className="space-y-2.5">
-                        <div className="rounded-lg border border-yellow-400/10 bg-yellow-400/5 px-3 py-2.5 text-center">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-semibold text-yellow-400/80">
                             Custom layouts, unique dimensions, special materials?
                           </p>
                           <p className="mt-0.5 text-[10px] text-zinc-500">
-                            Email us your request. We build more than what&apos;s on screen.
+                            We build more than what&apos;s on screen.
                           </p>
                         </div>
                         <button
                           onClick={() => props.onShowContactFormChange(true)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-[11px] font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
                         >
                           <Mail className="h-3.5 w-3.5" />
-                          Email Installer
+                          Email
                         </button>
                       </div>
                     ) : props.contactSent ? (
@@ -1380,6 +1403,79 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </section>
                 )}
 
+                {/* Scheduler — pick a date inline */}
+                {props.orderItems.length > 0 && !props.submitted && props.installerId && (
+                  <section className="space-y-3">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                      <Calendar className="mr-1.5 inline h-3.5 w-3.5 text-yellow-400" />
+                      Pick a Date
+                    </h3>
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                      <NativeScheduler
+                        leadTimeDays={props.installerLeadTime}
+                        workingDays={props.installerWorkingDays}
+                        blackoutDates={props.blackoutDates}
+                        selectedDate={props.scheduledDate}
+                        onSelectDate={props.onScheduledDateChange}
+                      />
+                    </div>
+                    {props.scheduledDate && (
+                      <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-3 py-2 text-center text-xs font-semibold text-yellow-400">
+                        Scheduled:{" "}
+                        {new Date(props.scheduledDate + "T12:00:00").toLocaleDateString("en-US", {
+                          weekday: "long",
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* Discount Code — inline */}
+                {props.orderItems.length > 0 && !props.submitted && props.installerId && (
+                  <section>
+                    {!props.discountApplied ? (
+                      <div>
+                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                          Discount Code
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={props.discountInput}
+                            onChange={(e) => props.onDiscountInputChange(e.target.value.toUpperCase())}
+                            placeholder="Enter code"
+                            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                            onKeyDown={(e) => { if (e.key === "Enter") props.onApplyDiscount(); }}
+                          />
+                          <button
+                            onClick={props.onApplyDiscount}
+                            disabled={!props.discountInput.trim() || props.discountLoading}
+                            className="rounded-lg bg-zinc-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-600 disabled:opacity-40"
+                          >
+                            {props.discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                          </button>
+                        </div>
+                        {props.discountError && (
+                          <p className="mt-1 text-xs text-red-400">{props.discountError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+                        <Tag className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="flex-1 text-xs font-semibold text-emerald-400">
+                          {props.discountApplied.code} — ${props.discountApplied.amount} off
+                        </span>
+                        <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
+
                 {/* Submitted confirmation */}
                 {props.submitted && (
                   <motion.div
@@ -1470,7 +1566,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
               : props.submitting
               ? "Submitting..."
               : props.stripeAccountId
-              ? "Pay Deposit & Book"
+              ? `Pay $${props.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} & Book`
               : "Submit Quote Request"}
           </motion.button>
         )}

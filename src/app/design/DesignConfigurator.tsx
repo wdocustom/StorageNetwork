@@ -523,6 +523,55 @@ export default function DesignConfigurator({
   // ── Convenience: routing shortcuts ──────────────────────────────────
   const stripeAccountId = data?.routing.stripeAccountId || null;
 
+  // ── Scheduler (inline in sidebar) ────────────────────────────────────
+  const [scheduledDate, setScheduledDate] = useState<string | null>(null);
+  const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
+
+  // Fetch blackout dates when installer is known
+  useEffect(() => {
+    if (!installerId) return;
+    (async () => {
+      const { getBlackoutDates } = await import("@/app/actions/blackout-dates");
+      const result = await getBlackoutDates(installerId);
+      if (result.success) {
+        setBlackoutDates(result.dates.map((d: { start_date: string; end_date: string }) => ({ start_date: d.start_date, end_date: d.end_date })));
+      }
+    })();
+  }, [installerId]);
+
+  // Effective lead time: 3-day minimum for caster add-ons
+  const effectiveLeadTime = anyHasWheels
+    ? Math.max(data?.routing.leadTime ?? 5, 3)
+    : (data?.routing.leadTime ?? 5);
+
+  // ── Discount code (inline in sidebar) ───────────────────────────────
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
+
+  async function handleApplyDiscount() {
+    if (!discountInput.trim() || !installerId) return;
+    setDiscountLoading(true);
+    setDiscountError("");
+    const { validateDiscountCode } = await import("@/app/actions/discount-codes");
+    const result = await validateDiscountCode(discountInput.trim(), installerId, grandTotal);
+    setDiscountLoading(false);
+    if (result.valid) {
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountError("");
+    } else {
+      setDiscountApplied(null);
+      setDiscountError(result.error || "Invalid code.");
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(null);
+    setDiscountInput("");
+    setDiscountError("");
+  }
+
   // ── Debounced server call ─────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1172,13 +1221,24 @@ export default function DesignConfigurator({
           contactError={contactError}
           onContactInstaller={handleContactInstaller}
 
+          // Scheduler (inline in sidebar)
+          scheduledDate={scheduledDate}
+          onScheduledDateChange={setScheduledDate}
+          installerLeadTime={effectiveLeadTime}
+          installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          blackoutDates={blackoutDates}
+
+          // Discount code (inline in sidebar)
+          discountInput={discountInput}
+          onDiscountInputChange={(v) => { setDiscountInput(v); setDiscountError(""); }}
+          discountApplied={discountApplied}
+          discountLoading={discountLoading}
+          discountError={discountError}
+          onApplyDiscount={handleApplyDiscount}
+          onRemoveDiscount={handleRemoveDiscount}
+
           // UI Trigger bridge for 3D model animation
-          // TODO: Connect this to the 3D visualizer's animation system
-          onPulseVisualizerTrigger={() => {
-            // UI_TRIGGER: When "Find Max" updates dimensions, signal the
-            // 3D model to play a highlight/pulse animation to draw the
-            // user's attention to the updated rack configuration.
-          }}
+          onPulseVisualizerTrigger={() => {}}
         />
 
         {/* ── RIGHT: Visualizer (2D/3D Toggle) ────────────────────── */}
@@ -1285,6 +1345,8 @@ export default function DesignConfigurator({
             state: addrState || undefined,
             zip: addrZip || zip || undefined,
           }}
+          initialScheduledDate={scheduledDate}
+          initialDiscount={discountApplied}
           onSuccess={() => {
             setShowBookingModal(false);
             setSubmitted(true);

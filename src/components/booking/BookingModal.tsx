@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -67,6 +67,8 @@ interface BookingModalProps {
   hasWheels?: boolean;
   totalCols?: number;
   initialAddress?: Partial<BookingAddress>;
+  initialScheduledDate?: string | null;
+  initialDiscount?: { code: string; amount: number } | null;
   onSuccess?: (scheduledDate: string, address: BookingAddress) => void;
 }
 
@@ -85,11 +87,17 @@ export default function BookingModal({
   hasWheels = false,
   totalCols = 1,
   initialAddress,
+  initialScheduledDate,
+  initialDiscount,
   onSuccess,
 }: BookingModalProps) {
   // Pre-fill address from lead flow data if available
   const prefilled = !!(initialAddress?.line1 && initialAddress?.city && initialAddress?.state && initialAddress?.zip);
-  const [step, setStep] = useState<Step>(prefilled ? "schedule" : "address");
+  // If both address and date are pre-filled from sidebar, skip directly to payment init
+  const hasPrefilledDate = !!initialScheduledDate;
+  const [step, setStep] = useState<Step>(
+    prefilled && hasPrefilledDate ? "schedule" : prefilled ? "schedule" : "address"
+  );
   const [address, setAddress] = useState<BookingAddress>({
     line1: initialAddress?.line1 || "",
     line2: initialAddress?.line2 || "",
@@ -97,13 +105,13 @@ export default function BookingModal({
     state: initialAddress?.state || "",
     zip: initialAddress?.zip || "",
   });
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialScheduledDate || null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
-  const [discountInput, setDiscountInput] = useState("");
-  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountInput, setDiscountInput] = useState(initialDiscount?.code || "");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(initialDiscount || null);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
@@ -239,6 +247,20 @@ export default function BookingModal({
       setError(result.error || "Failed to initialize payment.");
     }
   }, [selectedDate, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
+
+  // Auto-init payment when both address and date are pre-filled from sidebar
+  const autoInitRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && prefilled && hasPrefilledDate && selectedDate && !clientSecret && !autoInitRef.current) {
+      autoInitRef.current = true;
+      handleInitPayment();
+    }
+  }, [isOpen, prefilled, hasPrefilledDate, selectedDate, clientSecret, handleInitPayment]);
+
+  // Reset auto-init flag when modal closes
+  useEffect(() => {
+    if (!isOpen) autoInitRef.current = false;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
