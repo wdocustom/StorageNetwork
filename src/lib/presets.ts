@@ -73,7 +73,7 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     withTotesPrice: 715,
     units: [
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
-      { cols: 5, rows: 2, hasTop: true, hasWheels: false },
+      { cols: 4, rows: 2, hasTop: true, hasWheels: false },
     ],
   },
 ];
