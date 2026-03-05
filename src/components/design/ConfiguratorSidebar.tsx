@@ -22,7 +22,10 @@ import {
   User,
   Mail,
   ChevronRight,
+  Calendar,
+  Tag,
 } from "lucide-react";
+import NativeScheduler from "@/components/booking/NativeScheduler";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -1495,7 +1498,78 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </section>
                 )}
 
-                {/* Scheduler + Discount Code moved into BookingModal */}
+                {/* Scheduler — pick a date inline */}
+                {props.orderItems.length > 0 && !props.submitted && props.installerId && (
+                  <section className="space-y-3">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                      <Calendar className="mr-1.5 inline h-3.5 w-3.5 text-yellow-400" />
+                      Pick a Date
+                    </h3>
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                      <NativeScheduler
+                        leadTimeDays={props.installerLeadTime}
+                        workingDays={props.installerWorkingDays}
+                        blackoutDates={props.blackoutDates}
+                        selectedDate={props.scheduledDate}
+                        onSelectDate={props.onScheduledDateChange}
+                      />
+                    </div>
+                    {props.scheduledDate && (
+                      <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-3 py-2 text-center text-xs font-semibold text-yellow-400">
+                        Scheduled:{" "}
+                        {new Date(props.scheduledDate + "T12:00:00").toLocaleDateString("en-US", {
+                          weekday: "long",
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* Discount Code — inline */}
+                {props.orderItems.length > 0 && !props.submitted && props.installerId && (
+                  <section>
+                    {!props.discountApplied ? (
+                      <div>
+                        <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                          Discount Code
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={props.discountInput}
+                            onChange={(e) => props.onDiscountInputChange(e.target.value.toUpperCase())}
+                            placeholder="Enter code"
+                            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                            onKeyDown={(e) => { if (e.key === "Enter") props.onApplyDiscount(); }}
+                          />
+                          <button
+                            onClick={props.onApplyDiscount}
+                            disabled={!props.discountInput.trim() || props.discountLoading}
+                            className="rounded-lg bg-zinc-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-600 disabled:opacity-40"
+                          >
+                            {props.discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                          </button>
+                        </div>
+                        {props.discountError && (
+                          <p className="mt-1 text-xs text-red-400">{props.discountError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+                        <Tag className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="flex-1 text-xs font-semibold text-emerald-400">
+                          {props.discountApplied.code} — ${props.discountApplied.amount} off
+                        </span>
+                        <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
 
                 {/* Submitted confirmation */}
                 {props.submitted && (
@@ -1563,7 +1637,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
         </div>
 
         {/* CTA Button — only visible when quote fully built through summary (details + date) */}
-        {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && activeStep === 4 && detailsFilled && (
+        {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && activeStep === 4 && detailsFilled && props.scheduledDate && (
           <motion.button
             onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
             disabled={props.submitting}
