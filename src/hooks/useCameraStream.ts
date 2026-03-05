@@ -162,6 +162,13 @@ export function useCameraStream(options: UseCameraStreamOptions = {}): UseCamera
 
       streamRef.current = stream;
 
+      // Wait for the video ref to be set if it isn't yet (can happen when
+      // the camera instance is shared across components and start() fires
+      // before React has committed the new <video> element to the DOM).
+      if (!videoRef.current) {
+        await new Promise<void>((resolve) => requestAnimationFrame(resolve));
+      }
+
       if (videoRef.current) {
         const video = videoRef.current;
         video.srcObject = stream;
