@@ -11,9 +11,11 @@ interface PostImageGalleryProps {
 export default function PostImageGallery({ images }: PostImageGalleryProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  if (!images || images.length === 0) return null;
+  if (!images || !Array.isArray(images) || images.length === 0) return null;
 
-  const sorted = [...images].sort((a, b) => a.sort_order - b.sort_order);
+  const sorted = [...images].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  );
 
   function openLightbox(index: number) {
     setLightboxIndex(index);

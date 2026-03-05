@@ -348,7 +348,7 @@ export default function PostDetailPage({
                 </div>
 
                 {/* Post images */}
-                {post.images && post.images.length > 0 && (
+                {Array.isArray(post.images) && post.images.length > 0 && (
                   <PostImageGallery images={post.images} />
                 )}
               </>

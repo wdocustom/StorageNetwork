@@ -156,14 +156,15 @@ export async function getPosts(options: {
 }): Promise<Post[]> {
   const { communitySlug, feed = "latest", limit = 20, offset = 0, userId } = options;
 
+  // Fetch posts WITHOUT the post_images join to avoid PostgREST schema
+  // cache issues (same pattern used for comment_images — see getComments).
   let query = supabase
     .from("posts")
     .select(
       `
       *,
       author:profiles!posts_author_id_fkey(id, first_name, business_name, avatar_url),
-      community:communities!posts_community_id_fkey(name, slug),
-      images:post_images(id, post_id, image_url, storage_path, sort_order, caption, created_at)
+      community:communities!posts_community_id_fkey(name, slug)
     `
     )
     .range(offset, offset + limit - 1);
@@ -197,7 +198,37 @@ export async function getPosts(options: {
     return [];
   }
 
-  let posts = (data || []) as Post[];
+  let posts = (data || []).map((p: Record<string, unknown>) => ({
+    ...p,
+    images: [] as PostImage[],
+  })) as Post[];
+
+  // Fetch post images separately (non-blocking — if this fails, posts still show)
+  if (posts.length > 0) {
+    try {
+      const postIds = posts.map((p) => p.id);
+      const { data: images } = await supabase
+        .from("post_images")
+        .select("id, post_id, image_url, storage_path, sort_order, caption, created_at")
+        .in("post_id", postIds)
+        .order("sort_order", { ascending: true });
+
+      if (images && images.length > 0) {
+        const imageMap = new Map<string, PostImage[]>();
+        for (const img of images as PostImage[]) {
+          const existing = imageMap.get(img.post_id) || [];
+          existing.push(img);
+          imageMap.set(img.post_id, existing);
+        }
+        posts = posts.map((p) => ({
+          ...p,
+          images: imageMap.get(p.id) || [],
+        }));
+      }
+    } catch (imgErr) {
+      console.error("Failed to fetch post images (non-fatal):", imgErr);
+    }
+  }
 
   // Attach current user's vote state
   if (userId && posts.length > 0) {
@@ -232,8 +263,7 @@ export async function getPostById(
       `
       *,
       author:profiles!posts_author_id_fkey(id, first_name, business_name, avatar_url),
-      community:communities!posts_community_id_fkey(name, slug),
-      images:post_images(id, post_id, image_url, storage_path, sort_order, caption, created_at)
+      community:communities!posts_community_id_fkey(name, slug)
     `
     )
     .eq("id", postId)
@@ -241,7 +271,22 @@ export async function getPostById(
 
   if (error || !data) return null;
 
-  let post = data as Post;
+  let post = { ...data, images: [] as PostImage[] } as Post;
+
+  // Fetch post images separately to avoid PostgREST schema cache issues
+  try {
+    const { data: images } = await supabase
+      .from("post_images")
+      .select("id, post_id, image_url, storage_path, sort_order, caption, created_at")
+      .eq("post_id", postId)
+      .order("sort_order", { ascending: true });
+
+    if (images && images.length > 0) {
+      post = { ...post, images: images as PostImage[] };
+    }
+  } catch (imgErr) {
+    console.error("Failed to fetch post images (non-fatal):", imgErr);
+  }
 
   // Attach current user's vote state
   if (userId) {

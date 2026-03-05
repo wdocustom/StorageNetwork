@@ -69,7 +69,7 @@ export default function PostCard({ post, userId }: PostCardProps) {
         </p>
 
         {/* Image thumbnails */}
-        {post.images && post.images.length > 0 && (
+        {Array.isArray(post.images) && post.images.length > 0 && (
           <div className="mt-2 flex items-center gap-1.5">
             {post.images.slice(0, 3).map((img) => (
               <div
@@ -147,7 +147,7 @@ export default function PostCard({ post, userId }: PostCardProps) {
             {post.comment_count} {post.comment_count === 1 ? "reply" : "replies"}
           </div>
 
-          {post.images && post.images.length > 0 && (
+          {Array.isArray(post.images) && post.images.length > 0 && (
             <div className="flex items-center gap-1">
               <ImageIcon className="h-3 w-3" />
               {post.images.length} {post.images.length === 1 ? "photo" : "photos"}
