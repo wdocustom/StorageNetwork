@@ -106,6 +106,21 @@
     );
   }
 
+  /* Studio configurator sidebar — zinc-themed dark input autofill */
+  .bg-zinc-950 input:-webkit-autofill,
+  .bg-zinc-950 input:-webkit-autofill:hover,
+  .bg-zinc-950 input:-webkit-autofill:focus,
+  .bg-zinc-950 input:-webkit-autofill:active,
+  .bg-zinc-900 input:-webkit-autofill,
+  .bg-zinc-900 input:-webkit-autofill:hover,
+  .bg-zinc-900 input:-webkit-autofill:focus,
+  .bg-zinc-900 input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #27272a inset !important; /* zinc-800 */
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
   /* Dark industrial scrollbar — used inside step cards and dark panels */
   .scrollbar-dark::-webkit-scrollbar {
     width: 6px;

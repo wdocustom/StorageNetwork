@@ -21,23 +21,13 @@ import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
+import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
+import DatePickerDrawer from "@/components/design/DatePickerDrawer";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
 import {
-  MapPin,
-  CheckCircle2,
   AlertTriangle,
-  Clock,
-  Loader2,
-  Send,
-  Plus,
-  X,
-  Maximize2,
   ArrowLeft,
   User,
-  CreditCard,
-  Star,
-  Truck,
-  Mail,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1049,956 +1039,147 @@ export default function DesignConfigurator({
 
       {/* ── Split Layout ────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* ── LEFT SIDEBAR: Controls ──────────────────────────────────── */}
-        <aside className="flex w-full shrink-0 flex-col lg:w-[38%] xl:w-[35%]">
-          <div className="flex-1 space-y-4 overflow-y-auto bg-stone-100 p-4">
-            {/* ── Find My Local Pro (hidden when installer locked) ──── */}
-            {!installerLocked && (
-              <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
-                <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                  <MapPin className="h-4 w-4 text-yellow-600" />
-                  Find My Local Pro
-                </h2>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    value={zip}
-                    onChange={(e) => {
-                      setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                      setZipResult(null);
-                    }}
-                    placeholder="ZIP Code"
-                    className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                  <button
-                    onClick={handleZipCheck}
-                    disabled={zip.length < 5 || zipChecking}
-                    className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-                  >
-                    {zipChecking ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Check"
-                    )}
-                  </button>
-                </div>
-                {zipResult?.available && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    {zipResult.message}
-                  </div>
-                )}
-                {zipResult && !zipResult.available && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    {zipResult.message}
-                  </div>
-                )}
-              </section>
-            )}
+        {/* ── LEFT SIDEBAR: Premium Configurator ──────────────────────── */}
+        <ConfiguratorSidebar
+          // Step 1: Dimensions
+          wallWidth={wallWidth}
+          wallHeight={wallHeight}
+          onWallWidthChange={(v) => { setWallWidth(v); setWallFitMsg(""); }}
+          onWallHeightChange={(v) => { setWallHeight(v); setWallFitMsg(""); }}
+          onWallFit={handleWallFit}
+          wallFitMsg={wallFitMsg}
+          buildLoading={buildLoading}
+          cols={cols}
+          rows={rows}
+          onColsChange={setCols}
+          onRowsChange={setRows}
 
-            {/* ── Installer loading state ──────────────────────────── */}
-            {installerLoading && (
-              <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 p-4 text-xs font-semibold text-stone-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading installer profile…
-              </div>
-            )}
+          // Step 2: Configuration
+          unitType={unitType}
+          orientation={orientation}
+          onUnitTypeChange={setUnitType}
+          onOrientationChange={setOrientation}
+          toteType={toteType}
+          toteColor={toteColor}
+          onToteTypeChange={setToteType}
+          onToteColorChange={setToteColor}
+          hasTotes={hasTotes}
+          hasWheels={hasWheels}
+          hasTop={hasTop}
+          onHasTotesChange={setHasTotes}
+          onHasWheelsChange={setHasWheels}
+          onHasTopChange={setHasTop}
+          effectiveHasTop={effectiveHasTop}
+          miniDisabled={!!data?.pricing?.mini_disabled}
 
-            {/* ── Auto-Fit Wall Calculator ──────────────────────────── */}
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <Maximize2 className="h-4 w-4 text-yellow-600" />
-                Auto-Fit Wall Calculator
-              </h2>
+          // Pricing
+          pricing={data?.pricing}
+          platformDefaults={PLATFORM_DEFAULTS}
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Width (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallWidth}
-                    onChange={(e) => {
-                      setWallWidth(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 100"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Height (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallHeight}
-                    onChange={(e) => {
-                      setWallHeight(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 96"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={handleWallFit}
-                disabled={!wallWidth || !wallHeight || buildLoading}
-                className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-              >
-                {buildLoading ? "Calculating…" : "Find Max Size →"}
-              </button>
-              {wallFitMsg && (
-                <p className="mt-2 text-center text-xs font-semibold text-emerald-600">
-                  {wallFitMsg}
-                </p>
-              )}
-            </section>
+          // Build
+          build={build}
+          onAddUnit={handleAddUnit}
 
-            {/* ── Bestseller Presets ─────────────────────────────────── */}
-            <section className="rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <Star className="h-4 w-4 text-yellow-500" />
-                Bestsellers
-              </h2>
-              <select
-                value={activePreset || ""}
-                onChange={(e) => {
-                  const val = e.target.value || null;
-                  setActivePreset(val);
-                  setCompoundBuild(null);
-                }}
-                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              >
-                <option value="">Custom Build</option>
-                {BESTSELLER_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
-                  </option>
-                ))}
-              </select>
-              {activePreset && compoundBuild && (
-                <div className="mt-3 space-y-3">
-                  <div className="rounded-lg border border-amber-200 bg-white p-3">
-                    <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                      Preset Includes
-                    </div>
-                    <ul className="space-y-1">
-                      {compoundBuild.subUnits.map((su, i) => (
-                        <li key={i} className="flex items-center justify-between text-xs text-gray-700">
-                          <span className="font-medium">
-                            {su.cols}W &times; {su.rows}H ({su.slots} slots)
-                          </span>
-                          <span className="text-stone-500">
-                            {su.totalW.toFixed(1)}&quot; &times; {su.totalH.toFixed(1)}&quot;
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-2 border-t border-amber-100 pt-2 text-[10px] font-semibold text-stone-500">
-                      {(() => {
-                        const tops = activePresetObj?.units.every((u) => u.hasTop);
-                        const wheels = activePresetObj?.units.every((u) => u.hasWheels);
-                        const parts: string[] = [];
-                        if (tops) parts.push("plywood tops");
-                        if (wheels) parts.push("wheels");
-                        const included = parts.length > 0 ? `Includes ${parts.join(" and ")}` : "";
-                        if (!wheels) return `${included} \u2014 no wheels`;
-                        return included;
-                      })()}
-                    </div>
-                  </div>
-                  <Toggle
-                    checked={presetTotes}
-                    onChange={setPresetTotes}
-                    label={`Include ${activePresetObj?.toteColor === "black" ? "Black " : ""}Totes (+$${activePresetObj?.toteColor === "clear" ? (data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) : (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)}/each)`}
-                  />
-                  <p className="text-[10px] text-amber-700/70 -mt-1 ml-9">
-                    Built for standard 27-gal totes (HDX / Performax)
-                  </p>
-                  <div className="flex items-center gap-3 border-t border-amber-200 pt-3">
-                    <div className="flex-1 text-center">
-                      <div className="text-2xl font-black text-gray-900">
-                        {presetLoading ? "…" : `$${compoundBuild.totalPrice.toLocaleString()}`}
-                      </div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                        {compoundBuild.presetName}
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleAddPresetUnit}
-                      disabled={presetLoading || compoundBuild.totalPrice === 0}
-                      className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add to Quote
-                    </button>
-                  </div>
-                </div>
-              )}
-              {activePreset && !compoundBuild && presetLoading && (
-                <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs font-semibold text-stone-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Calculating preset…
-                </div>
-              )}
-            </section>
+          // Presets
+          activePreset={activePreset}
+          onPresetChange={(v) => { setActivePreset(v); setCompoundBuild(null); }}
+          presetOptions={BESTSELLER_PRESETS}
+          compoundBuild={compoundBuild}
+          presetLoading={presetLoading}
+          presetTotes={presetTotes}
+          onPresetTotesChange={setPresetTotes}
+          onAddPresetUnit={handleAddPresetUnit}
+          activePresetObj={activePresetObj}
 
-            {/* ── Manual Configuration ──────────────────────────────── */}
-            {!activePreset && (
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
-                Manual Configuration
-              </h2>
+          // Summary
+          orderItems={orderItems}
+          onRemoveUnit={handleRemoveUnit}
+          grandTotal={grandTotal}
+          deliveryFeeAmount={deliveryFeeAmount}
+          deliveryFeeResult={deliveryFeeResult}
+          depositAmount={depositAmount}
+          depositLabelText={depositLabelText}
+          stripeAccountId={stripeAccountId}
 
-              {/* Unit Size Selector — hidden when installer disabled mini */}
-              {!data?.pricing?.mini_disabled && (
-              <div className="mb-4">
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Unit Size
-                </label>
-                <select
-                  value={unitType}
-                  onChange={(e) => {
-                    setUnitType(e.target.value as UnitType);
-                    // Reset orientation when switching unit types
-                    if (e.target.value === "mini") {
-                      setOrientation("standard");
-                    }
-                  }}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="standard">Standard (27 Gallon Totes)</option>
-                  <option value="mini">Mini (6.5 Quart Totes)</option>
-                </select>
-                {unitType === "mini" && (
-                  <p className="mt-1 text-[10px] italic text-amber-600">
-                    Mini units use compact 6.5qt shoebox totes with 1&quot; plywood rails.
-                  </p>
-                )}
-              </div>
-              )}
+          // Booking form
+          firstName={firstName}
+          lastName={lastName}
+          email={email}
+          phone={phone}
+          onFirstNameChange={setFirstName}
+          onLastNameChange={setLastName}
+          onEmailChange={setEmail}
+          onPhoneChange={setPhone}
 
-              {/* Orientation Selector - Only for Standard units */}
-              {unitType === "standard" && (
-                <div className="mb-4">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Orientation
-                  </label>
-                  <select
-                    value={orientation}
-                    onChange={(e) => setOrientation(e.target.value as Orientation)}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="standard">Standard (30&quot; Deep)</option>
-                    <option value="sideways">Sideways (20&quot; Deep)</option>
-                  </select>
-                  {orientation === "sideways" && (
-                    <p className="mt-1 text-[10px] italic text-amber-600">
-                      Sideways orientation: Totes rotated 90° for shallower depth (20&quot;).
-                    </p>
-                  )}
-                </div>
-              )}
+          // Address
+          streetAddress={streetAddress}
+          city={city}
+          addrState={addrState}
+          addrZip={addrZip}
+          onStreetAddressChange={setStreetAddress}
+          onCityChange={setCity}
+          onAddrStateChange={setAddrState}
+          onAddrZipChange={setAddrZip}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Columns
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={cols}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setCols(v === "" ? "" : parseInt(v) || "");
-                    }}
-                    onBlur={() => {
-                      const n = typeof cols === "number" ? cols : parseInt(cols as string);
-                      setCols(Math.min(12, Math.max(1, n || 1)));
-                    }}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tiers High
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={unitType === "mini" ? 4 : 10}
-                    value={rows}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setRows(v === "" ? "" : parseInt(v) || "");
-                    }}
-                    onBlur={() => {
-                      const n = typeof rows === "number" ? rows : parseInt(rows as string);
-                      const maxTiers = unitType === "mini" ? 4 : 10;
-                      setRows(Math.min(maxTiers, Math.max(1, n || 1)));
-                    }}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                  {unitType === "mini" && (
-                    <p className="mt-1 text-[10px] italic text-amber-600">
-                      Max 4 tiers to prevent tipping. Taller units require custom anchoring.
-                    </p>
-                  )}
-                </div>
-              </div>
+          // Delivery address
+          hasDifferentDelivery={hasDifferentDelivery}
+          onHasDifferentDeliveryChange={setHasDifferentDelivery}
+          deliveryStreet={deliveryStreet}
+          deliveryCity={deliveryCity}
+          deliveryState={deliveryState}
+          deliveryZip={deliveryZip}
+          onDeliveryStreetChange={setDeliveryStreet}
+          onDeliveryCityChange={setDeliveryCity}
+          onDeliveryStateChange={setDeliveryState}
+          onDeliveryZipChange={setDeliveryZip}
 
-              {/* Tote Model - Only show for Standard units */}
-              {unitType === "standard" ? (
-                <div className="mt-3 space-y-3">
-                  <div>
-                    <label className="mb-1.5 block text-[10px] font-semibold uppercase text-stone-500">
-                      Tote Size
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* 19-3/4" Opening — HDX / Performax */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setToteType("HDX");
-                        }}
-                        className={`relative rounded-xl border-2 p-3 text-left transition-all ${
-                          toteType === "HDX"
-                            ? "border-yellow-500 bg-yellow-50 shadow-sm ring-1 ring-yellow-200"
-                            : "border-stone-200 bg-white hover:border-stone-300"
-                        }`}
-                      >
-                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
-                          19-3/4&quot; Opening
-                        </div>
-                        <div className="text-sm font-bold text-gray-900">Standard</div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          <span className="inline-block rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-semibold text-orange-700">
-                            HDX
-                          </span>
-                          <span className="inline-block rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-semibold text-orange-700">
-                            Performax
-                          </span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap gap-x-2 text-[9px] text-stone-400">
-                          <span>Home Depot</span>
-                          <span>Menards</span>
-                        </div>
-                        {toteType === "HDX" && (
-                          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-white">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </div>
-                        )}
-                      </button>
+          // Submit
+          submitting={submitting}
+          submitted={submitted}
+          submitError={submitError}
+          onBookDeposit={isDemo ? () => setDemoToast(true) : handleBookDeposit}
+          isDemo={isDemo}
+          onDemoToast={() => setDemoToast(true)}
 
-                      {/* 20-3/4" Opening — GreenMade / Project Source / Hyper Tough */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setToteType("GM");
-                          setToteColor("black");
-                        }}
-                        className={`relative rounded-xl border-2 p-3 text-left transition-all ${
-                          toteType === "GM"
-                            ? "border-yellow-500 bg-yellow-50 shadow-sm ring-1 ring-yellow-200"
-                            : "border-stone-200 bg-white hover:border-stone-300"
-                        }`}
-                      >
-                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
-                          20-3/4&quot; Opening
-                        </div>
-                        <div className="text-sm font-bold text-gray-900">Wide</div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          <span className="inline-block rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                            GreenMade
-                          </span>
-                          <span className="inline-block rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
-                            Project Source
-                          </span>
-                          <span className="inline-block rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700">
-                            Hyper Tough
-                          </span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap gap-x-2 text-[9px] text-stone-400">
-                          <span>Costco</span>
-                          <span>Lowe&apos;s</span>
-                          <span>Walmart</span>
-                        </div>
-                        {toteType === "GM" && (
-                          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-white">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                    <p className="mt-1.5 text-[10px] italic text-stone-400">
-                      Choose based on which totes you have or plan to buy.
-                    </p>
-                  </div>
+          // ZIP check
+          zip={zip}
+          onZipChange={setZip}
+          onZipCheck={handleZipCheck}
+          zipChecking={zipChecking}
+          zipResult={zipResult as { available: boolean; message?: string } | null}
+          onZipResultClear={() => setZipResult(null)}
+          installerLocked={installerLocked}
 
-                  {/* HDX Color Selection - Only show when HDX is selected and totes are included */}
-                  {toteType === "HDX" && hasTotes && (
-                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                      <label className="mb-1.5 block text-[10px] font-semibold uppercase text-yellow-700">
-                        HDX Tote Style
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setToteColor("black")}
-                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all ${
-                            toteColor === "black"
-                              ? "border-yellow-500 bg-white shadow-sm"
-                              : "border-stone-200 bg-white/50 hover:border-stone-300"
-                          }`}
-                        >
-                          <div className="flex h-6 w-6 items-center justify-center rounded border border-stone-300 bg-gray-900">
-                            <div className="h-2 w-4 rounded-sm bg-yellow-400" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-semibold text-gray-900">Black / Yellow</div>
-                            <div className="text-[10px] text-stone-500">${data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote}/tote</div>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setToteColor("clear")}
-                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all ${
-                            toteColor === "clear"
-                              ? "border-yellow-500 bg-white shadow-sm"
-                              : "border-stone-200 bg-white/50 hover:border-stone-300"
-                          }`}
-                        >
-                          <div className="flex h-6 w-6 items-center justify-center rounded border border-stone-300 bg-gradient-to-b from-stone-100 to-stone-200">
-                            <div className="h-2 w-4 rounded-sm bg-yellow-400" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-semibold text-gray-900">Clear / Yellow</div>
-                            <div className="text-[10px] text-amber-600 font-medium">${data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear}/tote (+${(data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) - (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)})</div>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-3">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Type
-                  </label>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-gray-700">
-                    6.5 Quart Clear Totes (Yellow Lids)
-                  </div>
-                  <p className="mt-1 text-[10px] italic text-stone-400">
-                    Mini units use standard 6.5qt shoebox totes (8&quot; × 12.75&quot; × 6.25&quot;).
-                  </p>
-                </div>
-              )}
+          // Waitlist
+          zipOutOfArea={zipOutOfArea}
+          zipCheckMsg={zipCheckMsg}
+          handedOff={handedOff}
+          handoffInstallerName={handoffInstallerName}
+          waitlistSending={waitlistSending}
+          waitlistSent={waitlistSent}
+          waitlistError={waitlistError}
+          onWaitlist={handleWaitlist}
 
-              {/* Toggles */}
-              <div className="mt-4 space-y-2">
-                <Toggle
-                  checked={hasTotes}
-                  onChange={setHasTotes}
-                  label={unitType === "mini"
-                    ? `Include Clear Totes (+$${data?.pricing?.mini_tote ?? PLATFORM_DEFAULTS.mini_tote}/each)`
-                    : `Totes (+$${(toteType === "HDX" && toteColor === "clear") ? (data?.pricing?.standard_tote_clear ?? PLATFORM_DEFAULTS.standard_tote_clear) : (data?.pricing?.standard_tote ?? PLATFORM_DEFAULTS.standard_tote)}/each)`}
-                />
-                <Toggle
-                  checked={hasWheels}
-                  onChange={setHasWheels}
-                  label={unitType === "mini"
-                    ? `Wheels (+$${data?.pricing?.mini_wheels ?? PLATFORM_DEFAULTS.mini_wheels})`
-                    : `Wheels (+$${data?.pricing?.standard_wheels ?? PLATFORM_DEFAULTS.standard_wheels})`}
-                />
-                {unitType === "standard" ? (
-                  <Toggle
-                    checked={hasTop}
-                    onChange={setHasTop}
-                    label={`Plywood Top (+$${data?.pricing?.plywood_top ?? PLATFORM_DEFAULTS.plywood_top})`}
-                  />
-                ) : (
-                  <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded border border-emerald-400 bg-emerald-400">
-                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="flex-1 text-sm font-medium text-emerald-800">
-                      Plywood Top (Included)
-                    </span>
-                  </div>
-                )}
-              </div>
+          // Contact installer
+          installerId={installerId}
+          brandingTitle={data?.branding.title || ""}
+          showContactForm={showContactForm}
+          onShowContactFormChange={setShowContactForm}
+          contactMessage={contactMessage}
+          onContactMessageChange={setContactMessage}
+          contactSending={contactSending}
+          contactSent={contactSent}
+          contactError={contactError}
+          onContactInstaller={handleContactInstaller}
 
-              {/* Price + Add to Quote */}
-              <div className="mt-5 flex items-center gap-3 border-t border-stone-200 pt-4">
-                <div className="flex-1 text-center">
-                  <div className="text-2xl font-black text-gray-900">
-                    {buildLoading ? "…" : `$${build.price.toLocaleString()}`}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                    Current Unit
-                  </div>
-                </div>
-                <button
-                  onClick={handleAddUnit}
-                  disabled={buildLoading || build.price === 0}
-                  className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote
-                </button>
-              </div>
-            </section>
-            )}
-
-            {/* ── Custom Request / Email Installer ─────────────────── */}
-            {installerId && !submitted && (
-              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                {!showContactForm && !contactSent ? (
-                  <div className="space-y-2.5">
-                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-center">
-                      <p className="text-[11px] font-semibold text-amber-800">
-                        Have a vision our configurator can&apos;t show yet?
-                      </p>
-                      <p className="mt-0.5 text-[10px] leading-relaxed text-amber-700/80">
-                        Custom layouts, unique dimensions, special materials — email us with your request. We build more than what&apos;s on screen.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setShowContactForm(true)}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-stone-300 bg-stone-50 py-2.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-gray-900"
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                      Email Installer
-                    </button>
-                  </div>
-                ) : contactSent ? (
-                  <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-center">
-                    <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-500" />
-                    <p className="text-xs font-semibold text-gray-900">Message Sent!</p>
-                    <p className="text-[11px] text-stone-500">
-                      {data?.branding.title || "The installer"} will get back to you shortly.
-                    </p>
-                    {orderItems.length > 0 && (
-                      <p className="mt-1 text-[10px] text-stone-400">
-                        Your current quote was included for reference.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="mb-2.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                        <Mail className="h-3.5 w-3.5 text-yellow-600" />
-                        Email {data?.branding.title || "Installer"}
-                      </span>
-                      <button
-                        onClick={() => { setShowContactForm(false); setContactError(""); }}
-                        className="text-stone-400 hover:text-stone-600"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          placeholder="First Name"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Last Name"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="email"
-                          placeholder="Your Email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="tel"
-                          placeholder="Phone (optional)"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <textarea
-                        value={contactMessage}
-                        onChange={(e) => setContactMessage(e.target.value)}
-                        placeholder="Describe your custom project, ask about lead times, pricing, or anything else..."
-                        rows={3}
-                        maxLength={2000}
-                        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                      />
-                    </div>
-                    {orderItems.length > 0 && (
-                      <div className="mt-2 rounded-md bg-stone-50 px-2.5 py-1.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-400">
-                          Current quote attached for reference
-                        </p>
-                        <p className="text-[11px] text-stone-500">
-                          {orderItems.length} unit{orderItems.length > 1 ? "s" : ""} &bull; ${grandTotal.toLocaleString()} est.
-                        </p>
-                      </div>
-                    )}
-                    {contactError && (
-                      <p className="mt-1 text-xs font-medium text-red-600">{contactError}</p>
-                    )}
-                    <button
-                      onClick={handleContactInstaller}
-                      disabled={contactSending || !contactMessage.trim()}
-                      className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
-                    >
-                      {contactSending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Send className="h-3.5 w-3.5" />
-                      )}
-                      {contactSending ? "Sending…" : "Send Message"}
-                    </button>
-                    <p className="mt-1.5 text-center text-[10px] text-stone-400">
-                      Your contact info will be shared so they can reply directly.
-                    </p>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ── Quote List ────────────────────────────────────────── */}
-            {orderItems.length > 0 && (
-              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
-                  Your Quote List
-                </h2>
-
-                <ul className="space-y-2">
-                  {orderItems.map((item, index) => {
-                    const extras: string[] = [];
-                    if (item.hasTotes) {
-                      // Add tote color info for HDX standard units
-                      if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
-                        extras.push("Clear Totes");
-                      } else {
-                        extras.push("Totes");
-                      }
-                    }
-                    if (item.hasWheels) extras.push("Wheels");
-                    if (item.hasTop) extras.push("Top");
-                    const extraStr =
-                      extras.length > 0 ? extras.join(", ") : "Frame Only";
-
-                    return (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            Unit #{index + 1}: {item.desc}
-                          </p>
-                          <p className="text-[11px] text-stone-500">
-                            {extraStr}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-gray-900">
-                            ${item.price.toLocaleString()}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveUnit(index)}
-                            className="text-red-400 transition-colors hover:text-red-600"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {/* Grand Total */}
-                <div className="mt-4 border-t-2 border-dashed border-stone-300 pt-4 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                    Estimated Grand Total
-                  </div>
-                  <div className="mt-1 text-4xl font-black text-gray-900">
-                    ${grandTotal.toLocaleString()}
-                  </div>
-                  {deliveryFeeAmount > 0 && (
-                    <div className="mt-1.5 flex items-center justify-center gap-1.5 text-xs text-stone-500">
-                      <Truck className="h-3.5 w-3.5 text-amber-600" />
-                      <span>
-                        Includes{" "}
-                        <span className="font-bold text-amber-600">
-                          ${deliveryFeeAmount.toLocaleString()}
-                        </span>{" "}
-                        delivery fee
-                        {deliveryFeeResult?.distance ? ` (${deliveryFeeResult.distance} mi)` : ""}
-                      </span>
-                    </div>
-                  )}
-                  {stripeAccountId && (
-                    <div className="mt-1 text-xs text-stone-500">
-                      Deposit ({depositLabelText}):{" "}
-                      <span className="font-bold text-yellow-600">
-                        ${depositAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Booking Form */}
-                <div className="mt-4 border-t border-stone-200 pt-4">
-                  {!submitted ? (
-                    <div className="space-y-2">
-                      {/* Name fields */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="First Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Last Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Contact info */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Email *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Phone *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Billing address */}
-                      <div className="pt-1">
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
-                          Billing Address
-                        </label>
-                        <input
-                          type="text"
-                          value={streetAddress}
-                          onChange={(e) => setStreetAddress(e.target.value)}
-                          placeholder="Street Address"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <input
-                          type="text"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="City"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={addrState}
-                          onChange={(e) => setAddrState(e.target.value)}
-                          placeholder="State"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={addrZip}
-                          onChange={(e) => setAddrZip(e.target.value)}
-                          placeholder="Zip"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Network hand-off: customer's ZIP routed to a local installer */}
-                      {handedOff && !zipOutOfArea && (
-                        <div className="rounded-lg border border-blue-300 bg-blue-50 p-3">
-                          <div className="mb-1 flex items-start gap-2">
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-                            <p className="text-xs font-medium text-blue-700">
-                              The original installer doesn&apos;t service your area, but we have a partner installer nearby.
-                            </p>
-                          </div>
-                          <p className="text-xs text-stone-500">
-                            <strong>{handoffInstallerName}</strong> will handle your build. You can continue booking below.
-                          </p>
-                        </div>
-                      )}
-                      {/* No installer in area — waitlist */}
-                      {zipOutOfArea && !waitlistSent && (
-                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
-                          <div className="mb-2 flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                            <p className="text-xs font-medium text-amber-700">{zipCheckMsg}</p>
-                          </div>
-                          <button
-                            onClick={handleWaitlist}
-                            disabled={waitlistSending}
-                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400 bg-amber-100 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-200 disabled:opacity-50"
-                          >
-                            {waitlistSending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Clock className="h-4 w-4" />
-                            )}
-                            {waitlistSending ? "Sending…" : "Notify Me When Available"}
-                          </button>
-                          {waitlistError && (
-                            <p className="mt-2 text-xs font-medium text-red-600">{waitlistError}</p>
-                          )}
-                        </div>
-                      )}
-                      {waitlistSent && (
-                        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center">
-                          <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
-                          <p className="text-sm font-semibold text-gray-900">You&apos;re on the List</p>
-                          <p className="mt-1 text-xs text-stone-500">
-                            {orderItems.length > 0
-                              ? "Your build has been saved. We'll email you as soon as an installer is available — you'll be able to pick up right where you left off."
-                              : "We'll email you as soon as an installer is available in your area."}
-                          </p>
-                        </div>
-                      )}
-                      {/* Installation address toggle */}
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
-                        <input
-                          type="checkbox"
-                          checked={hasDifferentDelivery}
-                          onChange={(e) => setHasDifferentDelivery(e.target.checked)}
-                          className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
-                        />
-                        <span className="text-xs font-medium text-stone-600">
-                          Installation address is different from billing
-                        </span>
-                      </label>
-                      {/* Installation address fields (conditional) */}
-                      {hasDifferentDelivery && (
-                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                          <label className="block text-[10px] font-semibold uppercase text-amber-700">
-                            Installation Address
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryStreet}
-                            onChange={(e) => setDeliveryStreet(e.target.value)}
-                            placeholder="Street Address"
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                          />
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="text"
-                              value={deliveryCity}
-                              onChange={(e) => setDeliveryCity(e.target.value)}
-                              placeholder="City"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                            <input
-                              type="text"
-                              value={deliveryState}
-                              onChange={(e) => setDeliveryState(e.target.value)}
-                              placeholder="State"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                            <input
-                              type="text"
-                              value={deliveryZip}
-                              onChange={(e) => setDeliveryZip(e.target.value)}
-                              placeholder="Zip"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {!zipOutOfArea && (
-                        <>
-                          <button
-                            onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
-                            disabled={submitting}
-                            className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
-                              isDemo
-                                ? "bg-stone-400 text-white shadow-stone-400/20 cursor-not-allowed"
-                                : "bg-yellow-400 text-gray-950 shadow-yellow-400/30 hover:bg-yellow-300 hover:-translate-y-0.5"
-                            }`}
-                          >
-                            {submitting ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : stripeAccountId ? (
-                              <CreditCard className="h-4 w-4" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
-                            {isDemo
-                              ? "Demo Mode — No Payment"
-                              : submitting
-                              ? "Submitting…"
-                              : stripeAccountId
-                              ? "Pay Deposit & Book"
-                              : "Submit Quote Request"}
-                          </button>
-                          <p className="text-[11px] text-stone-500 text-center">
-                            By placing this order, you agree to our{" "}
-                            <a href="/terms" className="underline hover:text-yellow-600">
-                              Terms of Service
-                            </a>.
-                          </p>
-                        </>
-                      )}
-                      {submitError && (
-                        <p className="text-xs font-medium text-red-600">
-                          {submitError}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
-                      <p className="font-bold text-gray-900">
-                        Booking Received!
-                      </p>
-                      <p className="mt-0.5 text-xs text-stone-500">
-                        We&apos;ll reach out within 24 hours.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-          </div>
-        </aside>
+          // UI Trigger bridge for 3D model animation
+          // TODO: Connect this to the 3D visualizer's animation system
+          onPulseVisualizerTrigger={() => {
+            // UI_TRIGGER: When "Find Max" updates dimensions, signal the
+            // 3D model to play a highlight/pulse animation to draw the
+            // user's attention to the updated rack configuration.
+          }}
+        />
 
         {/* ── RIGHT: Visualizer (2D/3D Toggle) ────────────────────── */}
         <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
@@ -2115,29 +1296,3 @@ export default function DesignConfigurator({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Toggle component (no pricing details exposed)
-// ═══════════════════════════════════════════════════════════════════════════
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 transition-colors hover:bg-stone-100">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5 rounded border-stone-300 accent-yellow-400 focus:ring-yellow-400"
-      />
-      <span className="flex-1 text-sm font-medium text-gray-800">
-        {label}
-      </span>
-    </label>
-  );
-}
