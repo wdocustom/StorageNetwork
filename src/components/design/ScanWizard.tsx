@@ -26,12 +26,14 @@ import {
 import { getToteByUPC, getAllUniqueTotes, type ScanToteData } from "@/lib/scan-data";
 import { useCameraStream } from "@/hooks/useCameraStream";
 import type { MeasurementResult } from "@/app/api/vision/measure/route";
+import WallTapMeasure from "@/components/design/WallTapMeasure";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type WizardStep =
   | "IDLE"
   | "SCAN_BARCODE"
   | "INSTRUCT_PLACEMENT"
+  | "TAP_CORNERS"
   | "CAPTURE_WALL"
   | "ANALYZING"
   | "RESULTS";
@@ -312,6 +314,11 @@ export default function ScanWizard({
     // camera.start() is deferred to the useEffect above
   }, []);
 
+  const goToTapCorners = useCallback(() => {
+    setStep("TAP_CORNERS");
+    setWizardError(null);
+  }, []);
+
   const handleManualSelect = useCallback(
     (tote: ScanToteData) => {
       setSelectedTote(tote);
@@ -343,6 +350,23 @@ export default function ScanWizard({
     }
     handleClose();
   }, [selectedTote, editWidth, editHeight, onComplete]);
+
+  const handleTapMeasured = useCallback(
+    (widthInches: number, heightInches: number | undefined) => {
+      if (selectedTote) {
+        setEditWidth(widthInches.toFixed(1));
+        setEditHeight(heightInches ? heightInches.toFixed(1) : "");
+        setMeasurement({
+          widthInches,
+          heightInches,
+          confidence: "medium",
+          reasoning: "Measured via tap-two-corners on live camera feed.",
+        });
+        setStep("RESULTS");
+      }
+    },
+    [selectedTote]
+  );
 
   const handleClose = useCallback(() => {
     camera.stop();
@@ -392,14 +416,18 @@ export default function ScanWizard({
         <div className="p-6">
           {/* Step Progress */}
           <div className="flex items-center justify-center gap-1 sm:gap-2 mb-8 px-2">
-            {["Scan", "Place", "Capture", "Results"].map((label, idx) => {
+            {["Scan", "Place", "Measure", "Results"].map((label, idx) => {
               const stepMap: WizardStep[] = [
                 "SCAN_BARCODE",
                 "INSTRUCT_PLACEMENT",
                 "CAPTURE_WALL",
                 "RESULTS",
               ];
-              const currentIdx = stepMap.indexOf(step);
+              // TAP_CORNERS and CAPTURE_WALL both map to the "Measure" step (idx 2)
+              const currentIdx =
+                step === "TAP_CORNERS" || step === "ANALYZING"
+                  ? 2
+                  : stepMap.indexOf(step);
               const isActive = idx <= currentIdx && step !== "IDLE";
               const isCurrent = idx === currentIdx;
 
@@ -649,13 +677,38 @@ export default function ScanWizard({
                 </ol>
               </div>
 
-              <button
-                onClick={goToCapture}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
-              >
-                <Camera className="w-5 h-5" />
-                Ready to Capture
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={goToTapCorners}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors"
+                >
+                  <Scan className="w-5 h-5" />
+                  Tap Two Corners
+                </button>
+                <button
+                  onClick={goToCapture}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-700 transition-colors border border-slate-600"
+                >
+                  <Camera className="w-5 h-5" />
+                  Take Photo Instead
+                </button>
+              </div>
+              <p className="text-slate-500 text-xs text-center mt-3">
+                &ldquo;Tap Two Corners&rdquo; lets you point your phone at the wall and tap
+                the bottom-left and top-right corners for a quick measurement.
+              </p>
+            </div>
+          )}
+
+          {/* Step: TAP_CORNERS */}
+          {step === "TAP_CORNERS" && selectedTote && (
+            <div>
+              <WallTapMeasure
+                referenceWidthInches={selectedTote.depth}
+                referenceHeightInches={14.75}
+                onMeasured={handleTapMeasured}
+                onCancel={() => setStep("INSTRUCT_PLACEMENT")}
+              />
             </div>
           )}
 
