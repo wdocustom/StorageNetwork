@@ -818,7 +818,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                             </div>
                           </div>
                           <motion.button
-                            onClick={props.onAddPresetUnit}
+                            onClick={() => { props.onAddPresetUnit(); setActiveStep(4); }}
                             disabled={props.presetLoading}
                             className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
                             whileHover={{ scale: 1.01 }}
@@ -1052,7 +1052,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                       </div>
                     </div>
                     <motion.button
-                      onClick={props.onAddUnit}
+                      onClick={() => { props.onAddUnit(); setActiveStep(4); }}
                       disabled={props.buildLoading || props.build.price === 0}
                       className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
                       whileHover={{ scale: 1.01 }}
@@ -1073,12 +1073,12 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                     Back
                   </button>
                   <motion.button
-                    onClick={goNext}
+                    onClick={props.activePreset ? () => setActiveStep(4) : goNext}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    Review Summary
+                    {props.activePreset ? "Review Summary" : "Next"}
                     <ChevronRight className="h-4 w-4" />
                   </motion.button>
                 </div>
@@ -1668,8 +1668,15 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
 
         {props.orderItems.length === 0 && activeStep !== 4 && (
           <motion.button
-            onClick={props.onAddUnit}
-            disabled={props.buildLoading || props.build.price === 0}
+            onClick={() => {
+              if (props.activePreset) {
+                props.onAddPresetUnit();
+              } else {
+                props.onAddUnit();
+              }
+              setActiveStep(4);
+            }}
+            disabled={props.activePreset ? props.presetLoading : (props.buildLoading || props.build.price === 0)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
