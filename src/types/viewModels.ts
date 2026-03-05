@@ -21,12 +21,13 @@ export interface InstallerPricing {
    *  Key pattern: bestseller_<preset_id_with_underscores> */
   bestseller_indiana_joe?: number;
   bestseller_cornhusker?: number;
+  bestseller_long_ranger?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "bestseller_indiana_joe" | "bestseller_cornhusker"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,
@@ -42,6 +43,7 @@ export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled"
 export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_indiana_joe: 950,
   bestseller_cornhusker: 660,
+  bestseller_long_ranger: 715,
 };
 
 export interface DesignPageViewModel {

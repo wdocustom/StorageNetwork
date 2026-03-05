@@ -61,4 +61,19 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
       { cols: 4, rows: 4, hasTop: true, hasWheels: true },
     ],
   },
+  {
+    id: "long-ranger",
+    name: "The Long Ranger",
+    label: "Bestseller",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    basePrice: 500,
+    withTotesPrice: 715,
+    units: [
+      { cols: 2, rows: 4, hasTop: true, hasWheels: false },
+      { cols: 5, rows: 2, hasTop: true, hasWheels: false },
+    ],
+  },
 ];
