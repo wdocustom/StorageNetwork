@@ -166,6 +166,7 @@ export default function ScanWizard({
   const [step, setStep] = useState<WizardStep>("IDLE");
   const [selectedTote, setSelectedTote] = useState<ScanToteData | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedImageDimensions, setCapturedImageDimensions] = useState<{ width: number; height: number } | null>(null);
   const [measurement, setMeasurement] = useState<MeasurementResult | null>(null);
   const [wizardError, setWizardError] = useState<string | null>(null);
   const [barcodeSupported, setBarcodeSupported] = useState(true);
@@ -238,6 +239,7 @@ export default function ScanWizard({
     ctx.drawImage(video, 0, 0);
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedImage(imageData);
+    setCapturedImageDimensions({ width: video.videoWidth, height: video.videoHeight });
     setStep("ANALYZING");
     camera.stop();
   }, [camera.videoRef, camera.stop]);
@@ -256,6 +258,8 @@ export default function ScanWizard({
             // Tote is placed with the depth side (20.5") facing the camera
             referenceWidth: selectedTote.depth,
             referenceDepth: selectedTote.width,
+            imageWidth: capturedImageDimensions?.width,
+            imageHeight: capturedImageDimensions?.height,
           }),
         });
 

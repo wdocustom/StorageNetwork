@@ -51,23 +51,38 @@ function CommentImagePicker({
   inputId: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const maxImages = 4;
 
   function handleFiles(files: FileList | null) {
     if (!files) return;
+    setFileError(null);
     const remaining = maxImages - staged.length;
-    if (remaining <= 0) return;
+    if (remaining <= 0) {
+      setFileError(`Maximum ${maxImages} photos per comment.`);
+      return;
+    }
 
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 15 * 1024 * 1024;
     const added: StagedFile[] = [];
+    const skipped: string[] = [];
 
     for (const file of Array.from(files).slice(0, remaining)) {
-      if (file.type && !allowed.includes(file.type)) continue;
-      if (file.size > maxSize) continue;
+      if (file.type && !allowed.includes(file.type)) {
+        skipped.push(`"${file.name}" — unsupported format`);
+        continue;
+      }
+      if (file.size > maxSize) {
+        skipped.push(`"${file.name}" — over 15MB`);
+        continue;
+      }
       added.push({ file, preview: URL.createObjectURL(file) });
     }
 
+    if (skipped.length > 0) {
+      setFileError(`Skipped: ${skipped.join(", ")}`);
+    }
     if (added.length > 0) onStaged([...staged, ...added]);
   }
 
