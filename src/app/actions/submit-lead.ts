@@ -2,6 +2,7 @@
 
 import { calculateWeight } from "@/utils/scheduling";
 import { validateServiceArea } from "@/app/actions/installer";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 import { getServiceClient } from "@/lib/supabase-server";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
@@ -151,7 +152,11 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       }
     }
 
-    // 3. Create lead in database
+    // 3. Compute deposit using the installer's custom config (respects 15% floor)
+    const depositAmount = await getDepositAmount(input.grand_total, input.installer_id);
+    const balanceDue = Math.round((input.grand_total - depositAmount) * 100) / 100;
+
+    // 4. Create lead in database
     const { data, error } = await supabase
       .from("leads")
       .insert({
@@ -168,9 +173,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         dimensions: dimensionsSummary,
         quote_data: input.quote_data,
         estimated_price: input.grand_total,
-        deposit_amount: Math.round(input.grand_total * 0.15 * 100) / 100,
+        deposit_amount: depositAmount,
         deposit_paid: false,
-        balance_due: Math.round(input.grand_total * 0.85 * 100) / 100,
+        balance_due: balanceDue,
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
         status: "pending_payment",
         scheduled_at: input.scheduled_at || null,
@@ -217,9 +222,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
               localInstallerName = localInstaller?.business_name || null;
             }
 
-            // Estimate the bounty: 30% of 15% deposit, min $15
-            const depositAmt = Math.round(input.grand_total * 0.15 * 100) / 100;
-            const estimatedBounty = Math.max(Math.round(depositAmt * 0.30 * 100) / 100, 15);
+            // Estimate the bounty: 30% of actual deposit, min $15
+            const estimatedBounty = Math.max(Math.round(depositAmount * 0.30 * 100) / 100, 15);
 
             const { sendReferralHandoffEmail } = await import("@/lib/email");
             await sendReferralHandoffEmail(referrer.email, {
