@@ -686,9 +686,10 @@ function RackAssembly({
                   const isRight = addon.target === "right";
                   if (!isLeft && !isRight) return null;
 
+                  // When facing the front (door side, -Z), left is +X and right is -X
                   const panelX = isLeft
-                    ? -RAIL_THICKNESS / 2
-                    : totalW + RAIL_THICKNESS / 2;
+                    ? totalW + RAIL_THICKNESS / 2
+                    : -RAIL_THICKNESS / 2;
 
                   return (
                     <SidePanel
