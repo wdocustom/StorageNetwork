@@ -15,6 +15,7 @@ import {
   Package,
   Phone,
   Ruler,
+  Link,
   Trash2,
   TrendingUp,
   Upload,
@@ -110,6 +111,7 @@ export default function JobTicket({
   const [scheduling, setScheduling] = useState(false);
   const [manualPayMethod, setManualPayMethod] = useState("cash");
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
+  const [copyLinkSuccess, setCopyLinkSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -398,6 +400,24 @@ export default function JobTicket({
         `Your payment of ${fmt(collectFromCustomer)} is ready: ${result.url}`
       );
       window.open(`sms:${customerPhone}?body=${smsBody}`, "_self");
+    }
+  }
+
+  // ── Payment Collection: Copy Payment Link ────────────────────────────────
+  async function handleCopyPaymentLink() {
+    if (!installerStripeId) return;
+    setPayLoading(true);
+    const result = await createPaymentSession({
+      leadId,
+      amount: collectFromCustomer,
+      installerStripeId,
+      customerEmail: customerEmail || undefined,
+    });
+    setPayLoading(false);
+    if (result.success && result.url) {
+      await navigator.clipboard.writeText(result.url);
+      setCopyLinkSuccess(true);
+      setTimeout(() => setCopyLinkSuccess(false), 2000);
     }
   }
 
@@ -726,6 +746,27 @@ export default function JobTicket({
                 </button>
               )}
 
+              {/* Copy Payment Link */}
+              <button
+                onClick={handleCopyPaymentLink}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
+                ) : (
+                  <Link className="h-5 w-5 text-violet-400" />
+                )}
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {copyLinkSuccess ? "Copied!" : "Copy Payment Link"}
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    Generate link to share via any channel
+                  </p>
+                </div>
+              </button>
+
               {/* Mark Paid (Manual) */}
               <button
                 onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
@@ -833,6 +874,27 @@ export default function JobTicket({
                   </div>
                 </button>
               )}
+
+              {/* Copy Payment Link */}
+              <button
+                onClick={handleCopyPaymentLink}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
+                ) : (
+                  <Link className="h-5 w-5 text-violet-400" />
+                )}
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {copyLinkSuccess ? "Copied!" : "Copy Payment Link"}
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    Generate link to share via any channel
+                  </p>
+                </div>
+              </button>
 
               {/* Mark Paid (Manual) */}
               <button
