@@ -172,7 +172,9 @@ export default function BlueprintCanvas({
           const railFromBottom = RENDER_FIRST_RAIL + r * RENDER_TIER;
           railY = startY + pFrameH - pPlate - railFromBottom * scale - railH / 2;
         } else {
-          railY = startY + pPlate + pTopGap + r * RENDER_TIER * scale;
+          // Invert row for canvas coords: row 0 = bottom (large Y), highest row = top (small Y)
+          const invertedR = unitRows - 1 - r;
+          railY = startY + pPlate + pTopGap + invertedR * RENDER_TIER * scale;
         }
 
         if (!isRailRemoved) {

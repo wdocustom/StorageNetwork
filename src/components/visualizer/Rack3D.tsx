@@ -783,7 +783,8 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: P
   const dist = maxDim * 2.2;
 
   useEffect(() => {
-    camera.position.set(dist * 0.6, dist * 0.6, dist * 0.6);
+    // Camera at front-right: +X, +Y, -Z so doors (at -Z face) are visible
+    camera.position.set(dist * 0.6, dist * 0.6, -dist * 0.6);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
@@ -916,7 +917,8 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
   const dist = maxDim * 2.2;
 
   useEffect(() => {
-    camera.position.set(dist * 0.6, dist * 0.6, dist * 0.6);
+    // Camera at front-right: +X, +Y, -Z so doors (at -Z face) are visible
+    camera.position.set(dist * 0.6, dist * 0.6, -dist * 0.6);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
