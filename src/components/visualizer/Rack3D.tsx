@@ -621,7 +621,7 @@ function RackAssembly({
                 castShadow
                 receiveShadow
               >
-                <boxGeometry args={[shelfW, PLY_TOP_H, unitDepth - POST_D]} />
+                <boxGeometry args={[shelfW, PLY_TOP_H, unitDepth]} />
               </mesh>
             );
           })}

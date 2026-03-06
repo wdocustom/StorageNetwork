@@ -631,8 +631,9 @@ function OrganizerCustomization({
                         className="overflow-hidden"
                       >
                         <div className="grid gap-1 mt-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
-                          {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
-                            Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
+                          {Array.from({ length: Math.min(rows, 10) }).map((_, ri) => {
+                            const r = Math.min(rows, 10) - 1 - ri; // reverse: top of grid = highest row, bottom = row 0
+                            return Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
                               const cellAddons = getCellAddons(c, r);
                               const hasRailRemoved = cellAddons.some((a) => a.type === "rail_removed");
                               const hasShelf = cellAddons.some((a) => a.type === "shelf");
@@ -652,11 +653,11 @@ function OrganizerCustomization({
                                       : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
                                   }`}
                                 >
-                                  {hasRailRemoved ? <Minus className="mx-auto h-3 w-3" /> : hasShelf ? <Layers className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
+                                  {hasRailRemoved ? <Minus className="mx-auto h-3 w-3" /> : hasShelf ? <Layers className="mx-auto h-3 w-3" /> : `${r + 1},${c + 1}`}
                                 </button>
                               );
-                            })
-                          )}
+                            });
+                          })}
                         </div>
 
                         {/* Active cell customization menu */}
@@ -670,7 +671,7 @@ function OrganizerCustomization({
                             >
                               <div className="flex items-center justify-between">
                                 <p className="text-xs font-bold text-zinc-300">
-                                  Bay {activeCell.col + 1}, Row {activeCell.row + 1}
+                                  Row {activeCell.row + 1}, Bay {activeCell.col + 1}
                                 </p>
                                 <button
                                   type="button"
