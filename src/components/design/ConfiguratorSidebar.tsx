@@ -33,6 +33,7 @@ import {
   Wrench,
   Minus,
   Grid3X3,
+  Layers,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 import type { SectionAddon, AddonPricing } from "@/types/viewModels";
@@ -459,10 +460,13 @@ function OrganizerCustomization({
   const doorPrice = addonPricing?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
   const sidePanelPrice = addonPricing?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
   const railRemovalPrice = addonPricing?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+  const shelfPrice = addonPricing?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
 
   const showDoor = addonPricing?.plywood_door_enabled !== false;
   const showSidePanel = addonPricing?.side_panel_enabled !== false;
   const showRailRemoval = addonPricing?.rail_removal_enabled !== false;
+  const showShelf = addonPricing?.shelf_enabled !== false;
+  const showSlotGrid = showRailRemoval || showShelf;
 
   // Doors: total price = per-door price × number of columns
   const doorsTotalPrice = doorPrice * cols;
@@ -500,9 +504,9 @@ function OrganizerCustomization({
   // Count addons for display
   const addonCount = addons.length;
 
-  // Get addons for a specific cell (only rail removal now)
+  // Get addons for a specific cell (rail removal + shelf)
   function getCellAddons(col: number, row: number) {
-    return addons.filter((a) => a.type === "rail_removed" && typeof a.target === "number" && a.target === col && (a.row === undefined || a.row === row));
+    return addons.filter((a) => (a.type === "rail_removed" || a.type === "shelf") && typeof a.target === "number" && a.target === col && (a.row === undefined || a.row === row));
   }
 
   if (cols < 1 || rows < 1) return null;
@@ -603,8 +607,8 @@ function OrganizerCustomization({
                 </div>
               )}
 
-              {/* Rail Removal — collapsible per-cell grid */}
-              {showRailRemoval && (
+              {/* Per-slot customization — collapsible grid (rail removal + shelf) */}
+              {showSlotGrid && (
                 <div>
                   <button
                     type="button"
@@ -616,7 +620,7 @@ function OrganizerCustomization({
                     ) : (
                       <ChevronRight className="h-3 w-3" />
                     )}
-                    Tap a slot to remove rails
+                    Tap a slot to customize
                   </button>
                   <AnimatePresence>
                     {railGridOpen && (
@@ -630,6 +634,8 @@ function OrganizerCustomization({
                           {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
                             Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
                               const cellAddons = getCellAddons(c, r);
+                              const hasRailRemoved = cellAddons.some((a) => a.type === "rail_removed");
+                              const hasShelf = cellAddons.some((a) => a.type === "shelf");
                               const isActive = activeCell?.col === c && activeCell?.row === r;
                               return (
                                 <button
@@ -639,19 +645,21 @@ function OrganizerCustomization({
                                   className={`relative rounded-md border py-1.5 text-[9px] font-bold transition-all ${
                                     isActive
                                       ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                                      : cellAddons.length > 0
+                                      : hasRailRemoved
                                       ? "border-red-500/40 bg-red-500/10 text-red-400"
+                                      : hasShelf
+                                      ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
                                       : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
                                   }`}
                                 >
-                                  {cellAddons.length > 0 ? <Minus className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
+                                  {hasRailRemoved ? <Minus className="mx-auto h-3 w-3" /> : hasShelf ? <Layers className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
                                 </button>
                               );
                             })
                           )}
                         </div>
 
-                        {/* Active cell rail removal menu */}
+                        {/* Active cell customization menu */}
                         <AnimatePresence>
                           {activeCell && (
                             <motion.div
@@ -672,13 +680,24 @@ function OrganizerCustomization({
                                   <X className="h-3.5 w-3.5" />
                                 </button>
                               </div>
-                              <AddonToggleBtn
-                                icon={<Minus className="h-3.5 w-3.5" />}
-                                label="Remove Rails"
-                                price={railRemovalPrice}
-                                active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
-                                onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
-                              />
+                              {showRailRemoval && (
+                                <AddonToggleBtn
+                                  icon={<Minus className="h-3.5 w-3.5" />}
+                                  label="Remove Rails"
+                                  price={railRemovalPrice}
+                                  active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
+                                  onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
+                                />
+                              )}
+                              {showShelf && (
+                                <AddonToggleBtn
+                                  icon={<Layers className="h-3.5 w-3.5" />}
+                                  label="Add Shelf"
+                                  price={shelfPrice}
+                                  active={hasAddon("shelf", activeCell.col, activeCell.row)}
+                                  onToggle={() => toggleAddon("shelf", activeCell.col, activeCell.row)}
+                                />
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -1457,6 +1476,10 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                         }
                         if (item.hasWheels) extras.push("Wheels");
                         if (item.hasTop) extras.push("Top");
+                        const shelfCount = item.addons?.filter((a) => a.type === "shelf").length ?? 0;
+                        if (shelfCount > 0) extras.push(`${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`);
+                        const railRemovedCount = item.addons?.filter((a) => a.type === "rail_removed").length ?? 0;
+                        if (railRemovedCount > 0) extras.push(`${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`);
 
                         return (
                           <motion.div

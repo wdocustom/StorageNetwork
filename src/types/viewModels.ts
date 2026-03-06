@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Types of addons that can be applied per-section */
-export type AddonType = "plywood_door" | "side_panel" | "rail_removed" | "hinge_concealed";
+export type AddonType = "plywood_door" | "side_panel" | "rail_removed" | "hinge_concealed" | "shelf";
 
 /** A single addon applied to a specific bay/row/side of the unit */
 export interface SectionAddon {
@@ -30,6 +30,7 @@ export interface AddonPricing {
   side_panel?: number;            // per side panel
   concealed_hinge_pair?: number;  // per pair of Blum concealed hinges (included in door price for retail)
   rail_removal?: number;          // per rail removed (labor credit or charge)
+  shelf?: number;                 // per plywood shelf (3/4" plywood sitting on rails)
   /** Master toggle: when false, the entire Organizer Customization section is hidden */
   organizer_customization_enabled?: boolean;
   /** Per-addon-type toggles: when false, that addon type is hidden */
@@ -37,14 +38,16 @@ export interface AddonPricing {
   side_panel_enabled?: boolean;
   hinge_concealed_enabled?: boolean;
   rail_removal_enabled?: boolean;
+  shelf_enabled?: boolean;
 }
 
 /** Platform default addon pricing */
-export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal">> = {
+export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal" | "shelf">> = {
   plywood_door: 45,               // per door (installer sees this as per-door price)
   side_panel: 55,
   concealed_hinge_pair: 15,       // per pair of Blum concealed hinges
   rail_removal: 0,                // no charge by default (it's a material subtraction)
+  shelf: 20,                      // per shelf (3/4" plywood on top of rails)
 };
 
 /** Installer-configurable pricing overrides (all optional, NULL = platform default) */

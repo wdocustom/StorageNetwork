@@ -198,7 +198,23 @@ export default function BlueprintCanvas({
           ctx.restore();
         }
 
-        if (hasTotes && !isRailRemoved) {
+        // Check if shelf is placed for this cell
+        const hasShelf = unitAddons?.some(
+          (a) => a.type === "shelf" && a.target === c && (a.row === undefined || a.row === r)
+        );
+
+        if (hasShelf && !isRailRemoved) {
+          // Draw shelf as a filled plywood rectangle on top of rails
+          const shelfH = 0.75 * scale;
+          ctx.fillStyle = "#c4a882";
+          ctx.strokeStyle = "#a0845e";
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(bayLeftX, railY - shelfH, pBay, shelfH);
+          ctx.strokeRect(bayLeftX, railY - shelfH, pBay, shelfH);
+          ctx.lineWidth = 2;
+        }
+
+        if (hasTotes && !isRailRemoved && !hasShelf) {
           const toteBodyH = isMini ? 6.25 : 11;
           const tW = pBay * 0.94;
           const tH = toteBodyH * scale;

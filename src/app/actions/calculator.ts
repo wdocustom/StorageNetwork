@@ -344,6 +344,7 @@ export async function calculateBuild(
     const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
     const sidePanelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
     const railRemovalPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+    const shelfPrice = ap?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
 
     for (const addon of sectionAddons) {
       switch (addon.type) {
@@ -365,6 +366,9 @@ export async function calculateBuild(
           break;
         case "rail_removed":
           addonPrice += railRemovalPrice;
+          break;
+        case "shelf":
+          addonPrice += shelfPrice;
           break;
       }
     }

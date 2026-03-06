@@ -15,6 +15,7 @@ import {
   PanelLeft,
   Wrench,
   Minus,
+  Layers,
 } from "lucide-react";
 import {
   getInstallerPricing,
@@ -244,6 +245,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     side_panel_enabled: true,
     hinge_concealed_enabled: true,
     rail_removal_enabled: true,
+    shelf_enabled: true,
   });
 
   const loadPricing = useCallback(async () => {
@@ -263,7 +265,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       if (ap) {
         setAddonEnabled(ap.organizer_customization_enabled !== false);
         const loadedAddon: Record<string, string> = {};
-        for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal"] as const) {
+        for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf"] as const) {
           const v = ap[k];
           loadedAddon[k] = v !== undefined && v !== null ? String(v) : "";
         }
@@ -273,6 +275,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           side_panel_enabled: ap.side_panel_enabled !== false,
           hinge_concealed_enabled: ap.hinge_concealed_enabled !== false,
           rail_removal_enabled: ap.rail_removal_enabled !== false,
+          shelf_enabled: ap.shelf_enabled !== false,
         });
       }
     }
@@ -316,7 +319,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       organizer_customization_enabled: addonEnabled,
       ...addonToggles,
     } as AddonPricing;
-    for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal"] as const) {
+    for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf"] as const) {
       const v = addonValues[k];
       if (v !== undefined && v !== "") {
         (addonPricing as Record<string, unknown>)[k] = Number(v);
@@ -613,6 +616,20 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 enabled={addonToggles.rail_removal_enabled}
                 onValueChange={(v) => handleAddonChange("rail_removal", v)}
                 onToggle={() => setAddonToggles((prev) => ({ ...prev, rail_removal_enabled: !prev.rail_removal_enabled }))}
+              />
+
+              {/* Shelf */}
+              <AddonPricingRow
+                icon={<Layers className="h-4 w-4 text-blue-400" />}
+                label="Plywood Shelf"
+                description="Per shelf (3/4&quot; plywood sitting on rails)"
+                priceKey="shelf"
+                toggleKey="shelf_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.shelf}
+                value={addonValues.shelf ?? ""}
+                enabled={addonToggles.shelf_enabled}
+                onValueChange={(v) => handleAddonChange("shelf", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, shelf_enabled: !prev.shelf_enabled }))}
               />
             </div>
           </div>

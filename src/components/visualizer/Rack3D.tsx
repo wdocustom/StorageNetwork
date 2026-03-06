@@ -573,11 +573,14 @@ function RackAssembly({
             const bayCenterX = (leftPostX + rightPostX) / 2;
 
             return Array.from({ length: rows }).map((_, r) => {
-              // Skip tote if rails are removed for this bay/row
+              // Skip tote if rails are removed or shelf is placed for this bay/row
               const isRailRemoved = addons?.some(
                 (a) => a.type === "rail_removed" && a.target === c && (a.row === undefined || a.row === r)
               );
-              if (isRailRemoved) return null;
+              const hasShelfAddon = addons?.some(
+                (a) => a.type === "shelf" && a.target === c && (a.row === undefined || a.row === r)
+              );
+              if (isRailRemoved || hasShelfAddon) return null;
 
               const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
               const railTop = railCenterY + railHeight / 2;
@@ -597,6 +600,30 @@ function RackAssembly({
                 />
               );
             });
+          })}
+
+          {/* Shelves — 3/4" plywood sitting on top of rails */}
+          {addons && addons.filter((a) => a.type === "shelf").map((addon) => {
+            const col = addon.target as number;
+            const row = addon.row ?? 0;
+            const leftPostX = getPostX(col, bayW);
+            const rightPostX = getPostX(col + 1, bayW);
+            const shelfCenterX = (leftPostX + rightPostX) / 2;
+            const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+            const railTop = railCenterY + railHeight / 2;
+            const shelfY = railTop + PLY_TOP_H / 2; // sits on top of rails
+            const shelfW = bayW - RAIL_THICKNESS; // fits between the two rail strips
+            return (
+              <mesh
+                key={`shelf-${col}-${row}`}
+                position={[shelfCenterX, shelfY, unitDepth / 2]}
+                material={PLYWOOD_MAT}
+                castShadow
+                receiveShadow
+              >
+                <boxGeometry args={[shelfW, PLY_TOP_H, unitDepth - POST_D]} />
+              </mesh>
+            );
           })}
 
           {/* Plywood top — mandatory for Mini, optional for Standard */}
