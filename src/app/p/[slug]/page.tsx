@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getFullProfileBySlug } from "@/app/actions/profile";
 import PortfolioGallery from "./PortfolioGallery";
 import PortfolioContact from "./PortfolioContact";
+import CleanOutBooking from "./CleanOutBooking";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Portfolio Page — /p/[slug]
@@ -362,6 +363,49 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Services ─────────────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-3xl px-4 pb-6">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <h2 className="text-xs font-bold uppercase tracking-widest text-stone-500">
+            Services
+          </h2>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
+        <div className="space-y-3">
+          {/* Design Your Unit — existing CTA as a service card */}
+          <Link
+            href={configuratorUrl}
+            className="group flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-700/60 bg-[#0d1220] p-5 transition-all hover:border-yellow-400/30 hover:bg-[#111827] sm:flex-row sm:items-start"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
+              <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+              </svg>
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="text-sm font-black uppercase tracking-wide text-white">
+                Custom Tote Storage
+              </h3>
+              <p className="mt-1 text-xs text-stone-400">
+                Design in 3D, get instant pricing, book installation.
+              </p>
+            </div>
+            <svg className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-0.5 group-hover:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          {/* Garage / Basement Clean Out */}
+          <CleanOutBooking
+            installerId={profile.id}
+            installerSlug={slug}
+            installerLeadTime={profile.lead_time_days ?? 5}
+            installerWorkingDays={profile.working_days as string[] ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          />
         </div>
       </section>
 

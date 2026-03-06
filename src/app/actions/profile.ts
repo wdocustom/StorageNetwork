@@ -241,7 +241,7 @@ export async function getFullProfileBySlug(slug: string) {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos"
+        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days"
       )
       .ilike("slug", slug.trim())
       .single();
