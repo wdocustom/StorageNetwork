@@ -44,7 +44,8 @@ import PricingSettings from "@/components/dashboard/PricingSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 import PortfolioSection from "@/components/profile/PortfolioSection";
-import type { PortfolioPhoto } from "@/app/actions/profile";
+import ServicesSection from "@/components/profile/ServicesSection";
+import type { PortfolioPhoto, ServiceOffering } from "@/app/actions/profile";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -104,6 +105,7 @@ interface Profile {
   instagram_url: string | null;
   facebook_url: string | null;
   portfolio_photos: PortfolioPhoto[] | null;
+  services_config: ServiceOffering[] | null;
 }
 
 function ProfilePageInner() {
@@ -210,7 +212,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config")
       .eq("id", user.id)
       .single();
 
@@ -221,7 +223,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -1362,6 +1364,22 @@ function ProfilePageInner() {
             city={profile.city || undefined}
             state={profile.state || undefined}
           />
+        )}
+
+        {/* ── Group: Services ────────────────────────────────────────── */}
+        {profile?.slug && (
+          <>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Services</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            </div>
+
+            <ServicesSection
+              userId={profile.id}
+              initialServices={profile.services_config}
+            />
+          </>
         )}
 
         {/* ── Group: Pricing ─────────────────────────────────────────── */}

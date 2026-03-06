@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, X, ChevronRight, Check, Plus } from "lucide-react";
-import { submitCleanOutLead, getCleanOutTotal } from "@/app/actions/submit-cleanout-lead";
+import { submitCleanOutLead } from "@/app/actions/submit-cleanout-lead";
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
 
@@ -11,6 +11,14 @@ interface CleanOutBookingProps {
   installerSlug: string;
   installerLeadTime?: number;
   installerWorkingDays?: string[];
+  /** Custom price for 1-car cleanout (from services_config). Defaults to 349. */
+  price1Car?: number;
+  /** Custom price for 2-car cleanout (from services_config). Defaults to 549. */
+  price2Car?: number;
+  /** Whether to show the 1-car option. Defaults to true. */
+  show1Car?: boolean;
+  /** Whether to show the 2-car option. Defaults to true. */
+  show2Car?: boolean;
 }
 
 type ServiceType = "1_car" | "2_car";
@@ -21,6 +29,10 @@ export default function CleanOutBooking({
   installerSlug,
   installerLeadTime = 5,
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  price1Car = 349,
+  price2Car = 549,
+  show1Car = true,
+  show2Car = true,
 }: CleanOutBookingProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<FlowStep>("select");
@@ -43,10 +55,19 @@ export default function CleanOutBooking({
 
   function handleOpen() {
     setIsOpen(true);
-    setStep("select");
-    setServiceType(null);
     setAddOrganizer(false);
     setError("");
+    // If only one option is available, skip the selection step
+    if (show1Car && !show2Car) {
+      setServiceType("1_car");
+      setStep("info");
+    } else if (!show1Car && show2Car) {
+      setServiceType("2_car");
+      setStep("info");
+    } else {
+      setStep("select");
+      setServiceType(null);
+    }
   }
 
   function handleClose() {
@@ -86,6 +107,8 @@ export default function CleanOutBooking({
       service_type: serviceType,
       add_tote_organizer: addOrganizer,
       source: "partner_link",
+      custom_price_1car: price1Car,
+      custom_price_2car: price2Car,
     });
 
     setSubmitting(false);
@@ -101,7 +124,9 @@ export default function CleanOutBooking({
     }
   }
 
-  const currentTotal = serviceType ? getCleanOutTotal(serviceType, addOrganizer) : 0;
+  const TOTE_ORGANIZER_PRICE = 500;
+  const basePrice = serviceType === "1_car" ? price1Car : serviceType === "2_car" ? price2Car : 0;
+  const currentTotal = basePrice + (addOrganizer ? TOTE_ORGANIZER_PRICE : 0);
 
   return (
     <>
@@ -120,7 +145,7 @@ export default function CleanOutBooking({
             Garage / Basement Clean Out
           </h3>
           <p className="mt-1 text-xs text-stone-400">
-            We come, haul it away. Starting at $349.
+            We come, haul it away. Starting at {formatCurrency(Math.min(show1Car ? price1Car : Infinity, show2Car ? price2Car : Infinity))}.
           </p>
         </div>
         <ChevronRight className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-0.5 group-hover:text-yellow-400" />
@@ -155,52 +180,56 @@ export default function CleanOutBooking({
                   </p>
 
                   {/* 1-Car Garage */}
-                  <button
-                    onClick={() => handleSelectService("1_car")}
-                    className="group w-full rounded-xl border border-slate-700 bg-slate-800/60 p-5 text-left transition-all hover:border-yellow-400/40 hover:bg-slate-800"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-base font-black text-white">
-                          1-Car Garage
-                        </h4>
-                        <p className="mt-0.5 text-xs text-stone-400">
-                          Single bay / small basement
-                        </p>
+                  {show1Car && (
+                    <button
+                      onClick={() => handleSelectService("1_car")}
+                      className="group w-full rounded-xl border border-slate-700 bg-slate-800/60 p-5 text-left transition-all hover:border-yellow-400/40 hover:bg-slate-800"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-base font-black text-white">
+                            1-Car Garage
+                          </h4>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            Single bay / small basement
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price1Car)}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-2xl font-black text-yellow-400">$349</span>
+                      <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
+                        Select
+                        <ChevronRight className="h-3.5 w-3.5" />
                       </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
-                      Select
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </div>
-                  </button>
+                    </button>
+                  )}
 
                   {/* 2-Car Garage */}
-                  <button
-                    onClick={() => handleSelectService("2_car")}
-                    className="group w-full rounded-xl border border-slate-700 bg-slate-800/60 p-5 text-left transition-all hover:border-yellow-400/40 hover:bg-slate-800"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-base font-black text-white">
-                          2-Car Garage
-                        </h4>
-                        <p className="mt-0.5 text-xs text-stone-400">
-                          Double bay / large basement
-                        </p>
+                  {show2Car && (
+                    <button
+                      onClick={() => handleSelectService("2_car")}
+                      className="group w-full rounded-xl border border-slate-700 bg-slate-800/60 p-5 text-left transition-all hover:border-yellow-400/40 hover:bg-slate-800"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-base font-black text-white">
+                            2-Car Garage
+                          </h4>
+                          <p className="mt-0.5 text-xs text-stone-400">
+                            Double bay / large basement
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-black text-yellow-400">{formatCurrency(price2Car)}</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-2xl font-black text-yellow-400">$549</span>
+                      <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
+                        Select
+                        <ChevronRight className="h-3.5 w-3.5" />
                       </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-stone-500 transition-colors group-hover:text-yellow-400">
-                      Select
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </div>
-                  </button>
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Customer Info + Add-on */
@@ -217,7 +246,7 @@ export default function CleanOutBooking({
                         </p>
                       </div>
                       <span className="text-lg font-black text-yellow-400">
-                        {formatCurrency(serviceType === "1_car" ? 349 : 549)}
+                        {formatCurrency(serviceType === "1_car" ? price1Car : price2Car)}
                       </span>
                     </div>
 

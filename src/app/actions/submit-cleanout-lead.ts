@@ -13,19 +13,28 @@ export interface CleanOutInput {
   service_type: "1_car" | "2_car";
   add_tote_organizer: boolean;
   source?: "platform" | "partner_link";
+  /** Custom price for 1-car cleanout (from installer's services_config) */
+  custom_price_1car?: number;
+  /** Custom price for 2-car cleanout (from installer's services_config) */
+  custom_price_2car?: number;
 }
 
-const PRICES = {
+const DEFAULT_PRICES = {
   "1_car": 349,
   "2_car": 549,
   tote_organizer: 500,
 } as const;
 
-export function getCleanOutTotal(
+function getCleanOutTotal(
   serviceType: "1_car" | "2_car",
-  addToteOrganizer: boolean
+  addToteOrganizer: boolean,
+  customPrice1Car?: number,
+  customPrice2Car?: number,
 ): number {
-  return PRICES[serviceType] + (addToteOrganizer ? PRICES.tote_organizer : 0);
+  const price = serviceType === "1_car"
+    ? (customPrice1Car ?? DEFAULT_PRICES["1_car"])
+    : (customPrice2Car ?? DEFAULT_PRICES["2_car"]);
+  return price + (addToteOrganizer ? DEFAULT_PRICES.tote_organizer : 0);
 }
 
 export async function submitCleanOutLead(input: CleanOutInput): Promise<{
@@ -45,7 +54,15 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
     return { success: false, error: "Phone is required." };
   }
 
-  const totalPrice = getCleanOutTotal(input.service_type, input.add_tote_organizer);
+  const totalPrice = getCleanOutTotal(
+    input.service_type,
+    input.add_tote_organizer,
+    input.custom_price_1car,
+    input.custom_price_2car,
+  );
+  const servicePrice = input.service_type === "1_car"
+    ? (input.custom_price_1car ?? DEFAULT_PRICES["1_car"])
+    : (input.custom_price_2car ?? DEFAULT_PRICES["2_car"]);
   const serviceLabel = input.service_type === "1_car" ? "1-Car Garage" : "2-Car Garage";
 
   try {
@@ -53,8 +70,8 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
     const balanceDue = Math.round((totalPrice - depositAmount) * 100) / 100;
 
     const notes = [
-      `Garage/Basement Clean Out - ${serviceLabel} ($${PRICES[input.service_type]})`,
-      input.add_tote_organizer ? `+ 4x4 Tote Organizer System ($${PRICES.tote_organizer})` : null,
+      `Garage/Basement Clean Out - ${serviceLabel} ($${servicePrice})`,
+      input.add_tote_organizer ? `+ 4x4 Tote Organizer System ($${DEFAULT_PRICES.tote_organizer})` : null,
       `Grand Total: $${totalPrice}`,
     ]
       .filter(Boolean)
@@ -68,7 +85,7 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
         hasTotes: input.add_tote_organizer,
         hasWheels: false,
         hasTop: false,
-        price: PRICES[input.service_type],
+        price: servicePrice,
         totalW: 0,
         totalH: 0,
         desc: `Garage/Basement Clean Out - ${serviceLabel}`,
@@ -82,7 +99,7 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
               hasTotes: true,
               hasWheels: false,
               hasTop: false,
-              price: PRICES.tote_organizer,
+              price: DEFAULT_PRICES.tote_organizer,
               totalW: 0,
               totalH: 0,
               desc: "4x4 Tote Organizer System (Bundle Add-On)",

@@ -241,7 +241,7 @@ export async function getFullProfileBySlug(slug: string) {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days"
+        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days, services_config"
       )
       .ilike("slug", slug.trim())
       .single();
@@ -529,4 +529,82 @@ export async function uploadAvatarServerSide(
     console.error("[Avatar Server Upload] Unexpected error:", err);
     return { success: false, error: "Unexpected error during upload." };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Services Config — Manage service offerings shown on portfolio page
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ServiceOffering {
+  id: string;
+  name: string;
+  description: string;
+  price: number | null; // null for tote_storage (priced via configurator)
+  enabled: boolean;
+  built_in: boolean;
+}
+
+/** Default built-in services every installer starts with */
+export const DEFAULT_SERVICES: ServiceOffering[] = [
+  {
+    id: "tote_storage",
+    name: "Custom Tote Storage",
+    description: "Design in 3D, get instant pricing, book installation.",
+    price: null,
+    enabled: true,
+    built_in: true,
+  },
+  {
+    id: "cleanout_1car",
+    name: "1-Car Garage Clean Out",
+    description: "Single bay / small basement",
+    price: 349,
+    enabled: true,
+    built_in: true,
+  },
+  {
+    id: "cleanout_2car",
+    name: "2-Car Garage Clean Out",
+    description: "Double bay / large basement",
+    price: 549,
+    enabled: true,
+    built_in: true,
+  },
+];
+
+/** Read services config for an installer, falling back to defaults if NULL */
+export async function getServicesConfig(userId: string): Promise<ServiceOffering[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("services_config")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data?.services_config) {
+    return DEFAULT_SERVICES;
+  }
+
+  return data.services_config as ServiceOffering[];
+}
+
+/** Save services config and revalidate the portfolio page */
+export async function updateServicesConfig(
+  userId: string,
+  services: ServiceOffering[]
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ services_config: services })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("[updateServicesConfig]", error);
+    return { success: false, error: "Failed to save services." };
+  }
+
+  // Bust cache and revalidate public portfolio
+  profileCache.clear();
+  await revalidatePortfolio(userId);
+
+  return { success: true };
 }
