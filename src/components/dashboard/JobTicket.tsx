@@ -36,8 +36,9 @@ import {
 } from "@/utils/inventoryManager";
 import { toFraction } from "@/lib/utils";
 import { formatCurrency } from "@/utils/paymentHelpers";
-import { getNetProfit, type NetProfitResult } from "@/app/actions/fee-engine";
+import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/fee-engine";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
+import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
@@ -68,6 +69,8 @@ interface JobTicketProps {
   source?: string | null;
   inventory?: MaterialInventory | null;
   salesTaxAmount?: number | null;
+  addressState?: string | null;
+  installerId?: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -89,6 +92,8 @@ export default function JobTicket({
   source,
   inventory,
   salesTaxAmount,
+  addressState,
+  installerId,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -108,6 +113,20 @@ export default function JobTicket({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Discount Code State ─────────────────────────────────────────────────
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(null);
+  const appliedDiscount = discountResult?.valid ? discountResult.discountAmount : 0;
+
+  // ── On-the-fly sales tax for unpaid quotes (salesTaxAmount is null) ─────
+  const [computedTax, setComputedTax] = useState<number>(0);
+  useEffect(() => {
+    if (salesTaxAmount == null && addressState && totalPrice > 0) {
+      getSalesTax(totalPrice, addressState).then((r) => setComputedTax(r.taxAmount));
+    }
+  }, [salesTaxAmount, addressState, totalPrice]);
 
   // ── Cut List Checkbox State (persisted to localStorage) ────────────────
   const storageKey = `cutlist-${leadId}`;
@@ -169,12 +188,13 @@ export default function JobTicket({
     }).then(setProfit);
   }, [totalPrice, estMaterials, source]);
 
-  // Amount the customer actually owes = balance + sales tax
+  // Amount the customer actually owes = balance + sales tax - discount
   // When deposit was never paid, collect the FULL price (not just balance)
-  const tax = salesTaxAmount ?? 0;
+  // Use computedTax for unpaid quotes where salesTaxAmount wasn't stored
+  const tax = salesTaxAmount ?? computedTax;
   const collectFromCustomer = depositPaid
-    ? Math.round((profit.customerBalance + tax) * 100) / 100
-    : Math.round((totalPrice + tax) * 100) / 100;
+    ? Math.round((profit.customerBalance + tax - appliedDiscount) * 100) / 100
+    : Math.round((totalPrice + tax - appliedDiscount) * 100) / 100;
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)
@@ -414,6 +434,25 @@ export default function JobTicket({
     }
   }
 
+  // ── Apply Discount Code ──────────────────────────────────────────────
+  async function handleApplyDiscount() {
+    if (!discountInput.trim() || !installerId) return;
+    setDiscountLoading(true);
+    const result = await validateDiscountCode(
+      discountInput,
+      installerId,
+      totalPrice,
+      { noDepositCap: !depositPaid }
+    );
+    setDiscountResult(result);
+    setDiscountLoading(false);
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountResult(null);
+    setDiscountInput("");
+  }
+
   // ── Delete unpaid quote ─────────────────────────────────────────────
   async function handleDeleteQuote() {
     setDeleting(true);
@@ -547,6 +586,79 @@ export default function JobTicket({
               No Deposit Paid — Collect Full Amount
             </span>
           </div>
+
+          {/* Tax + Discount Breakdown */}
+          {(tax > 0 || appliedDiscount > 0) && (
+            <div className="space-y-1 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-xs">
+              <div className="flex justify-between text-stone-400">
+                <span>Subtotal</span>
+                <span className="font-bold text-white">{fmt(totalPrice)}</span>
+              </div>
+              {tax > 0 && (
+                <div className="flex justify-between text-stone-400">
+                  <span>Sales Tax ({addressState})</span>
+                  <span className="font-bold text-stone-300">+{fmt(tax)}</span>
+                </div>
+              )}
+              {appliedDiscount > 0 && (
+                <div className="flex justify-between text-stone-400">
+                  <span>
+                    Discount ({discountResult?.code})
+                  </span>
+                  <span className="font-bold text-emerald-400">-{fmt(appliedDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-slate-700 pt-1 text-stone-300">
+                <span className="font-bold">Total to Collect</span>
+                <span className="font-black text-orange-400">{fmt(collectFromCustomer)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Discount Code Input */}
+          {installerId && (
+            <div className="space-y-2">
+              {appliedDiscount > 0 ? (
+                <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                  <div className="text-xs">
+                    <span className="font-bold text-emerald-400">{discountResult?.code}</span>
+                    <span className="ml-2 text-stone-400">
+                      {discountResult?.discountType === "percentage"
+                        ? `${discountResult.discountValue}% off`
+                        : `$${discountResult?.discountValue} off`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleRemoveDiscount}
+                    className="rounded p-1 text-stone-500 transition-colors hover:bg-slate-700 hover:text-red-400"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
+                    placeholder="Discount code"
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-stone-600 focus:border-orange-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleApplyDiscount}
+                    disabled={!discountInput.trim() || discountLoading}
+                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-600 hover:text-white disabled:opacity-40"
+                  >
+                    {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+              )}
+              {discountResult && !discountResult.valid && (
+                <p className="text-[11px] font-semibold text-red-400">{discountResult.error}</p>
+              )}
+            </div>
+          )}
 
           {/* COLLECT FULL PAYMENT button */}
           <button

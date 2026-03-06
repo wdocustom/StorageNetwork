@@ -47,7 +47,8 @@ export interface DiscountValidationResult {
 export async function validateDiscountCode(
   code: string,
   installerId: string,
-  orderTotal: number
+  orderTotal: number,
+  options?: { noDepositCap?: boolean }
 ): Promise<DiscountValidationResult> {
   if (!code?.trim() || !installerId) {
     return { valid: false, discountAmount: 0, error: "Missing code or installer." };
@@ -98,9 +99,12 @@ export async function validateDiscountCode(
     discountAmount = Number(data.discount_value);
   }
 
-  // Never discount more than the remaining balance (85% of order — deposit is untouched)
-  const remainingBalance = Math.round(orderTotal * 0.85 * 100) / 100;
-  discountAmount = Math.min(discountAmount, remainingBalance);
+  // Never discount more than the remaining balance
+  // For unpaid quotes (no deposit), allow discount on full amount
+  const maxDiscountable = options?.noDepositCap
+    ? orderTotal
+    : Math.round(orderTotal * 0.85 * 100) / 100;
+  discountAmount = Math.min(discountAmount, maxDiscountable);
 
   return {
     valid: true,

@@ -341,6 +341,8 @@ export default function JobTicketPage() {
           source={lead.source}
           inventory={installerInventory}
           salesTaxAmount={lead.sales_tax_amount}
+          addressState={lead.delivery_address_state || lead.address_state}
+          installerId={lead.installer_id}
           onRefresh={fetchLead}
         />
 
