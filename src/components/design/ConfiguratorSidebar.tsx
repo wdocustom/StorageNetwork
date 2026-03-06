@@ -1185,7 +1185,8 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                               <Info className="inline h-2.5 w-2.5 text-yellow-400/50 group-hover/cleanout:text-yellow-400" />
                             </span>
                             {/* Tooltip */}
-                            <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-zinc-700 bg-zinc-900 p-3 opacity-0 shadow-xl transition-opacity group-hover/cleanout:pointer-events-auto group-hover/cleanout:opacity-100">
+                            <div className="pointer-events-none absolute top-full left-0 z-50 mt-2 w-64 rounded-lg border border-zinc-700 bg-zinc-900 p-3 opacity-0 shadow-xl transition-opacity group-hover/cleanout:pointer-events-auto group-hover/cleanout:opacity-100">
+                              <div className="absolute -top-1.5 left-4 h-3 w-3 rotate-45 border-l border-t border-zinc-700 bg-zinc-900" />
                               <h4 className="mb-1.5 text-[11px] font-bold text-yellow-400">Cleanout Service Details</h4>
                               <p className="mb-2 text-[10px] leading-relaxed text-zinc-400">
                                 Professional crew to clear, sort, and haul away unwanted items from your garage or basement.
@@ -1198,7 +1199,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                               <p className="text-[9px] leading-relaxed text-zinc-500">
                                 Pricing is a starting estimate. Final cost confirmed on-site. Hazardous materials &amp; heavy items may incur extra fees.
                               </p>
-                              <div className="absolute -bottom-1.5 left-4 h-3 w-3 rotate-45 border-b border-r border-zinc-700 bg-zinc-900" />
                             </div>
                             <p className="text-[10px] leading-tight text-zinc-500 truncate">
                               We&apos;ll clear your space first
