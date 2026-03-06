@@ -25,6 +25,7 @@ import {
   Calendar,
   Tag,
   Sparkles,
+  Info,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 
@@ -1174,14 +1175,31 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   );
                   if (cleanoutServices.length === 0) return null;
                   return (
-                    <section className="rounded-xl border border-yellow-400/20 bg-zinc-900/60 px-3 py-2.5">
+                    <section className="relative rounded-xl border border-yellow-400/20 bg-zinc-900/60 px-3 py-2.5">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <Sparkles className="h-3 w-3 shrink-0 text-yellow-400" />
-                          <div className="min-w-0">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+                          <div className="min-w-0 group/cleanout relative">
+                            <span className="inline-flex cursor-help items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-yellow-400 border-b border-dashed border-yellow-400/30 transition-colors hover:border-yellow-400 hover:text-yellow-300">
                               Cleanout
+                              <Info className="inline h-2.5 w-2.5 text-yellow-400/50 group-hover/cleanout:text-yellow-400" />
                             </span>
+                            {/* Tooltip */}
+                            <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-zinc-700 bg-zinc-900 p-3 opacity-0 shadow-xl transition-opacity group-hover/cleanout:pointer-events-auto group-hover/cleanout:opacity-100">
+                              <h4 className="mb-1.5 text-[11px] font-bold text-yellow-400">Cleanout Service Details</h4>
+                              <p className="mb-2 text-[10px] leading-relaxed text-zinc-400">
+                                Professional crew to clear, sort, and haul away unwanted items from your garage or basement.
+                              </p>
+                              <ul className="mb-2 space-y-1 text-[10px] text-zinc-400">
+                                <li className="flex items-start gap-1"><span className="text-yellow-400/60">•</span>Crew to clear &amp; load items</li>
+                                <li className="flex items-start gap-1"><span className="text-yellow-400/60">•</span>Hauling &amp; disposal included</li>
+                                <li className="flex items-start gap-1"><span className="text-yellow-400/60">•</span>Basic sweep of cleared area</li>
+                              </ul>
+                              <p className="text-[9px] leading-relaxed text-zinc-500">
+                                Pricing is a starting estimate. Final cost confirmed on-site. Hazardous materials &amp; heavy items may incur extra fees.
+                              </p>
+                              <div className="absolute -bottom-1.5 left-4 h-3 w-3 rotate-45 border-b border-r border-zinc-700 bg-zinc-900" />
+                            </div>
                             <p className="text-[10px] leading-tight text-zinc-500 truncate">
                               We&apos;ll clear your space first
                             </p>
