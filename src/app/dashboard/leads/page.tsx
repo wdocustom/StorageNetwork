@@ -35,7 +35,7 @@ interface LeadItem {
 // Jobs / Leads List — Unified view of all active jobs
 // ═══════════════════════════════════════════════════════════════════════════
 
-type TabKey = "active" | "past";
+type TabKey = "active" | "past" | "unpaid";
 
 // Group jobs by scheduled date
 function groupByDate(jobs: LeadItem[]): Record<string, LeadItem[]> {
@@ -78,6 +78,7 @@ function groupByDate(jobs: LeadItem[]): Record<string, LeadItem[]> {
 export default function LeadsListPage() {
   const supabase = getSupabaseBrowserClient();
   const [leads, setLeads] = useState<LeadItem[]>([]);
+  const [unpaidLeads, setUnpaidLeads] = useState<LeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("active");
 
@@ -103,6 +104,19 @@ export default function LeadsListPage() {
       .order("created_at", { ascending: false });
 
     if (data) setLeads(data as LeadItem[]);
+
+    // Fetch unpaid quotes (pending_payment, deposit not paid)
+    const { data: unpaid } = await supabase
+      .from("leads")
+      .select(
+        "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
+      )
+      .eq("installer_id", user.id)
+      .eq("deposit_paid", false)
+      .eq("status", "pending_payment")
+      .order("created_at", { ascending: false });
+
+    if (unpaid) setUnpaidLeads(unpaid as LeadItem[]);
     setLoading(false);
   }, [supabase]);
 
@@ -119,7 +133,7 @@ export default function LeadsListPage() {
     () => leads.filter((l) => l.status === "paid" || l.status === "completed"),
     [leads]
   );
-  const filtered = tab === "active" ? activeLeads : pastLeads;
+  const filtered = tab === "active" ? activeLeads : tab === "past" ? pastLeads : unpaidLeads;
   const grouped = useMemo(
     () => (tab === "active" ? groupByDate(filtered) : null),
     [tab, filtered]
@@ -175,6 +189,21 @@ export default function LeadsListPage() {
             )}
           </button>
           <button
+            onClick={() => setTab("unpaid")}
+            className={`flex-1 py-3 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
+              tab === "unpaid"
+                ? "border-b-2 border-orange-400 text-orange-400"
+                : "text-stone-500 hover:text-stone-300"
+            }`}
+          >
+            Unpaid{" "}
+            {unpaidLeads.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400/20 px-1.5 text-[10px] font-bold text-orange-400">
+                {unpaidLeads.length}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setTab("past")}
             className={`flex-1 py-3 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
               tab === "past"
@@ -199,14 +228,23 @@ export default function LeadsListPage() {
               <Briefcase className="h-10 w-10 text-stone-600" />
             </div>
             <p className="text-lg font-bold text-stone-400">
-              {tab === "active" ? "No active jobs" : "No past jobs"}
+              {tab === "active" ? "No active jobs" : tab === "unpaid" ? "No unpaid quotes" : "No past jobs"}
             </p>
             <p className="mt-1 text-sm text-stone-600">
               {tab === "active"
                 ? "Leads from the network and your lead link will appear here."
+                : tab === "unpaid"
+                ? "Quotes where the customer hasn't paid the deposit yet will appear here."
                 : "Completed and paid jobs will show up here."}
             </p>
           </div>
+        ) : tab === "unpaid" ? (
+          /* ── Flat list for unpaid quotes ────────────────────────────── */
+          <ul className="space-y-3">
+            {filtered.map((lead) => (
+              <JobCard key={lead.id} lead={lead} />
+            ))}
+          </ul>
         ) : tab === "active" && grouped ? (
           /* ── Date-grouped active jobs ────────────────────────────────── */
           <div className="space-y-6">

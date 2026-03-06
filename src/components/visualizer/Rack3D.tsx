@@ -715,10 +715,12 @@ function RackAssembly({
                   const isRight = addon.target === "right";
                   if (!isLeft && !isRight) return null;
 
-                  // When facing the front (door side, -Z), left is +X and right is -X
+                  // Inner group has scale={[-1,1,1]} so local X is mirrored.
+                  // Left (low local X) → flipped to high world X → screen-left ✓
+                  // Right (high local X) → flipped to low world X → screen-right ✓
                   const panelX = isLeft
-                    ? totalW + RAIL_THICKNESS / 2
-                    : -RAIL_THICKNESS / 2;
+                    ? -RAIL_THICKNESS / 2
+                    : totalW + RAIL_THICKNESS / 2;
 
                   return (
                     <SidePanel

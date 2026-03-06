@@ -167,13 +167,18 @@ export default function JobTicket({
   }, [totalPrice, estMaterials, source]);
 
   // Amount the customer actually owes = balance + sales tax
+  // When deposit was never paid, collect the FULL price (not just balance)
   const tax = salesTaxAmount ?? 0;
-  const collectFromCustomer = Math.round((profit.customerBalance + tax) * 100) / 100;
+  const collectFromCustomer = depositPaid
+    ? Math.round((profit.customerBalance + tax) * 100) / 100
+    : Math.round((totalPrice + tax) * 100) / 100;
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)
   const isPaymentPending = status === "payment_pending" || (!!uploadedPhotoUrl && status !== "paid");
-  const isActive = !isPaid && !isPaymentPending && status !== "completed";
+  // Unpaid quote: deposit never paid, allow collecting full payment on delivery
+  const isUnpaidQuote = !depositPaid && status === "pending_payment";
+  const isActive = !isPaid && !isPaymentPending && !isUnpaidQuote && status !== "completed";
   const fmt = formatCurrency;
 
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -438,11 +443,17 @@ export default function JobTicket({
           <div className="mt-1 text-[10px] text-stone-600">estimated cost</div>
         </div>
 
-        {/* Box 2: Balance Due — what customer owes at install (yellow) */}
-        <div className="rounded-xl border-2 border-yellow-400 bg-yellow-400/5 p-3 text-center">
-          <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+        {/* Box 2: Balance Due — what customer owes at install */}
+        <div className={`rounded-xl border-2 p-3 text-center ${
+          depositPaid
+            ? "border-yellow-400 bg-yellow-400/5"
+            : "border-orange-400 bg-orange-400/5"
+        }`}>
+          <div className={`mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest ${
+            depositPaid ? "text-yellow-400" : "text-orange-400"
+          }`}>
             <DollarSign className="h-3 w-3" />
-            Balance Due
+            {depositPaid ? "Balance Due" : "Full Amount"}
           </div>
           <div className="text-lg font-black text-white sm:text-xl">
             {fmt(collectFromCustomer)}
@@ -471,12 +482,21 @@ export default function JobTicket({
           Total:{" "}
           <span className="font-bold text-white">{fmt(profit.totalPrice)}</span>
         </span>
-        <span>
-          Deposit Paid:{" "}
-          <span className="font-bold text-emerald-400">
-            -{fmt(profit.depositAmount)}
+        {depositPaid ? (
+          <span>
+            Deposit Paid:{" "}
+            <span className="font-bold text-emerald-400">
+              -{fmt(profit.depositAmount)}
+            </span>
           </span>
-        </span>
+        ) : (
+          <span>
+            Deposit:{" "}
+            <span className="font-bold text-orange-400">
+              None
+            </span>
+          </span>
+        )}
         {tax > 0 && (
           <span>
             Tax:{" "}
@@ -501,6 +521,83 @@ export default function JobTicket({
           <span className="text-lg font-black uppercase tracking-wider text-emerald-400">
             PAID
           </span>
+        </div>
+      ) : isUnpaidQuote ? (
+        /* ── UNPAID QUOTE — Collect Full Payment on Delivery ────────── */
+        <div className="relative space-y-3">
+          {/* No deposit badge */}
+          <div className="flex items-center justify-center gap-2 rounded-xl bg-orange-500/15 px-4 py-2">
+            <DollarSign className="h-3.5 w-3.5 text-orange-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
+              No Deposit Paid — Collect Full Amount
+            </span>
+          </div>
+
+          {/* COLLECT FULL PAYMENT button */}
+          <button
+            onClick={() => setShowGetPaidMenu(!showGetPaidMenu)}
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-orange-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-400 hover:shadow-orange-400/30 active:scale-[0.98]"
+          >
+            <DollarSign className="h-6 w-6" />
+            COLLECT FULL PAYMENT — {fmt(collectFromCustomer)}
+            <ChevronDown className={`h-5 w-5 transition-transform ${showGetPaidMenu ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Dropdown menu — same options as payment_pending */}
+          {showGetPaidMenu && (
+            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {/* Enter Card Details */}
+              <button
+                onClick={handleEnterCard}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+                ) : (
+                  <CreditCard className="h-5 w-5 text-orange-400" />
+                )}
+                <div>
+                  <p className="text-sm font-bold text-white">Manual Card Entry</p>
+                  <p className="text-[11px] text-stone-500">
+                    Open Stripe — type in customer&apos;s card
+                  </p>
+                </div>
+              </button>
+
+              {/* Send to Phone */}
+              {customerPhone && (
+                <button
+                  onClick={handleSendToPhone}
+                  disabled={payLoading}
+                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Phone className="h-5 w-5 text-emerald-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Send Payment Link to Phone</p>
+                    <p className="text-[11px] text-stone-500">
+                      SMS payment link to customer
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {/* Mark Paid (Manual) */}
+              <button
+                onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
+                disabled={payLoading}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Mark Paid (Cash/Venmo/Check)</p>
+                  <p className="text-[11px] text-stone-500">
+                    Customer paid in person — close the job
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
         </div>
       ) : isPaymentPending ? (
         /* ── PAYMENT PENDING — GET PAID button + dropdown ─────────── */
