@@ -3,10 +3,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 const COMMUNITY_BUCKET = "community-images";
 
@@ -16,7 +18,7 @@ export async function createUploadSession(
 ): Promise<{ token: string }> {
   const token = randomUUID();
 
-  const { error } = await supabase.from("qr_upload_sessions").insert({
+  const { error } = await getSupabase().from("qr_upload_sessions").insert({
     token,
     user_id: userId,
   });
@@ -35,7 +37,7 @@ export async function uploadToSession(
   formData: FormData
 ): Promise<{ success: boolean; error?: string; url?: string }> {
   // Verify session exists and is not expired
-  const { data: session } = await supabase
+  const { data: session } = await getSupabase()
     .from("qr_upload_sessions")
     .select("token, user_id, expires_at")
     .eq("token", token)
@@ -69,11 +71,11 @@ export async function uploadToSession(
   }
 
   // Ensure bucket
-  const { data: bucketData } = await supabase.storage.getBucket(
+  const { data: bucketData } = await getSupabase().storage.getBucket(
     COMMUNITY_BUCKET
   );
   if (!bucketData) {
-    await supabase.storage.createBucket(COMMUNITY_BUCKET, {
+    await getSupabase().storage.createBucket(COMMUNITY_BUCKET, {
       public: true,
       fileSizeLimit: 10 * 1024 * 1024,
     });
@@ -84,7 +86,7 @@ export async function uploadToSession(
   const storagePath = `qr-upload/${token}/${Date.now()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await getSupabase().storage
     .from(COMMUNITY_BUCKET)
     .upload(storagePath, buffer, {
       contentType: file.type || "image/jpeg",
@@ -95,14 +97,14 @@ export async function uploadToSession(
     return { success: false, error: "Upload failed: " + uploadError.message };
   }
 
-  const { data: urlData } = supabase.storage
+  const { data: urlData } = getSupabase().storage
     .from(COMMUNITY_BUCKET)
     .getPublicUrl(storagePath);
 
   const url = urlData.publicUrl;
 
   // Store image record in DB
-  const { error: imgError } = await supabase
+  const { error: imgError } = await getSupabase()
     .from("qr_upload_images")
     .insert({
       session_token: token,
@@ -125,7 +127,7 @@ export async function getSessionImages(
   images: { url: string; storagePath: string; name: string }[];
 }> {
   // Verify session exists
-  const { data: session } = await supabase
+  const { data: session } = await getSupabase()
     .from("qr_upload_sessions")
     .select("token")
     .eq("token", token)
@@ -133,7 +135,7 @@ export async function getSessionImages(
 
   if (!session) return { images: [] };
 
-  const { data: images } = await supabase
+  const { data: images } = await getSupabase()
     .from("qr_upload_images")
     .select("url, storage_path, name")
     .eq("session_token", token)
@@ -151,5 +153,5 @@ export async function getSessionImages(
 // ── Close/destroy session ────────────────────────────────────────────────
 export async function closeUploadSession(token: string): Promise<void> {
   // Cascade delete removes images too
-  await supabase.from("qr_upload_sessions").delete().eq("token", token);
+  await getSupabase().from("qr_upload_sessions").delete().eq("token", token);
 }

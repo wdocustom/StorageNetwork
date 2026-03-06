@@ -19,10 +19,9 @@ import {
 // If email crashes, the DB update is ALREADY committed.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getDb() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -45,7 +44,7 @@ const BOUNTY_FLOOR_CENTS = 1500; // $15.00 minimum
 async function processReferralBounty(leadId: string, paymentIntentId: string) {
   try {
     // 1. Check if this lead has a pending referral bounty
-    const { data: lead, error: leadErr } = await supabase
+    const { data: lead, error: leadErr } = await getDb()
       .from("leads")
       .select("referring_installer_id, bounty_status, address_city, address_state, deposit_amount")
       .eq("id", leadId)
@@ -63,7 +62,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     console.log(`[Bounty] Deposit: $${(depositCents / 100).toFixed(2)} → 30% = $${(calculatedBountyCents / 100).toFixed(2)} → Final: $${(bountyAmountCents / 100).toFixed(2)}`);
 
     // 3. Fetch the referring installer's Stripe account + email
-    const { data: referrer, error: refErr } = await supabase
+    const { data: referrer, error: refErr } = await getDb()
       .from("profiles")
       .select("stripe_account_id, email, business_name, first_name")
       .eq("id", lead.referring_installer_id)
@@ -87,7 +86,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     console.log("[Bounty] Transfer created:", transfer.id, "→", referrer.stripe_account_id, `| $${(bountyAmountCents / 100).toFixed(2)}`);
 
     // 5. Mark bounty as paid + record actual amount
-    await supabase
+    await getDb()
       .from("leads")
       .update({
         bounty_status: "paid",
@@ -166,7 +165,7 @@ export async function POST(request: NextRequest) {
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {
       try {
-        const { error } = await supabase
+        const { error } = await getDb()
           .from("leads")
           .update({
             status: "paid",
@@ -188,7 +187,7 @@ export async function POST(request: NextRequest) {
 
       // Send emails: receipt to customer, payment alert to installer
       try {
-        const { data: lead } = await supabase
+        const { data: lead } = await getDb()
           .from("leads")
           .select("customer_name, customer_email, estimated_price, deposit_amount, quote_data, installer_id")
           .eq("id", leadId)
@@ -199,7 +198,7 @@ export async function POST(request: NextRequest) {
         let installerEmail: string | null = null;
 
         if (lead?.installer_id) {
-          const { data: profile } = await supabase
+          const { data: profile } = await getDb()
             .from("profiles")
             .select("first_name, last_name, business_name")
             .eq("id", lead.installer_id)
@@ -208,7 +207,7 @@ export async function POST(request: NextRequest) {
             installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
           }
           // Get installer's email from auth
-          const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+          const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
           installerEmail = authUser?.user?.email || null;
         }
 
@@ -303,7 +302,7 @@ export async function POST(request: NextRequest) {
 
       console.log("[Webhook] DB update payload:", JSON.stringify(updatePayload));
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await getDb()
         .from("leads")
         .update(updatePayload)
         .eq("id", leadId);
@@ -330,7 +329,7 @@ export async function POST(request: NextRequest) {
     // Fetch lead details for email (isolated — if this fails, DB is saved)
     let lead: any = null;
     try {
-      const { data } = await supabase
+      const { data } = await getDb()
         .from("leads")
         .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
         .eq("id", leadId)
@@ -357,7 +356,7 @@ export async function POST(request: NextRequest) {
         let installerAvatar: string | undefined;
 
         if (resolvedInstallerId) {
-          const { data: profile } = await supabase
+          const { data: profile } = await getDb()
             .from("profiles")
             .select("first_name, last_name, business_name, phone, avatar_url")
             .eq("id", resolvedInstallerId)
@@ -428,13 +427,13 @@ export async function POST(request: NextRequest) {
 
         // Send Pro welcome email
         try {
-          const { data: profile } = await supabase
+          const { data: profile } = await getDb()
             .from("profiles")
             .select("first_name, last_name, business_name")
             .eq("id", userId)
             .single();
 
-          const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+          const { data: authUser } = await getDb().auth.admin.getUserById(userId);
           const email = authUser?.user?.email;
 
           if (email && profile) {
@@ -451,7 +450,7 @@ export async function POST(request: NextRequest) {
 
         // ── Activate affiliate referral if one exists ──────────────────
         try {
-          const { data: pendingRef } = await supabase
+          const { data: pendingRef } = await getDb()
             .from("referrals")
             .select("id")
             .eq("installer_id", userId)
@@ -459,7 +458,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
 
           if (pendingRef) {
-            await supabase
+            await getDb()
               .from("referrals")
               .update({ status: "active" })
               .eq("id", pendingRef.id);
@@ -486,7 +485,7 @@ export async function POST(request: NextRequest) {
       // When a Pro cancels, any pending bounties become forfeited.
       // This ensures no payout even if a deposit comes in later.
       try {
-        const { data: forfeited, error: forfeitErr } = await supabase
+        const { data: forfeited, error: forfeitErr } = await getDb()
           .from("leads")
           .update({
             bounty_status: "forfeited",
@@ -510,7 +509,7 @@ export async function POST(request: NextRequest) {
 
       // ── Deactivate affiliate referral ──────────────────────────────
       try {
-        await supabase
+        await getDb()
           .from("referrals")
           .update({ status: "inactive" })
           .eq("installer_id", userId)
@@ -535,7 +534,7 @@ export async function POST(request: NextRequest) {
       console.log("[Webhook] Subscription payment issue for user:", userId, "status:", subscription.status);
 
       // Check if installer is on an active trial — skip suspension if so
-      const { data: profile } = await supabase
+      const { data: profile } = await getDb()
         .from("profiles")
         .select("pro_trial_ends_at, is_suspended")
         .eq("id", userId)
@@ -546,7 +545,7 @@ export async function POST(request: NextRequest) {
         new Date(profile.pro_trial_ends_at) > new Date();
 
       if (!onActiveTrial && !profile?.is_suspended) {
-        await supabase
+        await getDb()
           .from("profiles")
           .update({
             is_suspended: true,
@@ -559,14 +558,14 @@ export async function POST(request: NextRequest) {
 
     // If subscription becomes active again (e.g. payment recovered), lift payment suspension
     if (userId && subscription.status === "active") {
-      const { data: profile } = await supabase
+      const { data: profile } = await getDb()
         .from("profiles")
         .select("is_suspended, suspension_reason")
         .eq("id", userId)
         .single();
 
       if (profile?.is_suspended && profile.suspension_reason === "payment") {
-        await supabase
+        await getDb()
           .from("profiles")
           .update({
             is_suspended: false,
@@ -622,7 +621,7 @@ export async function POST(request: NextRequest) {
 
           console.log("[Webhook] Deposit update payload:", JSON.stringify(updatePayload));
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await getDb()
             .from("leads")
             .update(updatePayload)
             .eq("id", leadId);
@@ -641,7 +640,7 @@ export async function POST(request: NextRequest) {
 
         // ── Send booking confirmation email ───────────────────────────
         try {
-          const { data: lead } = await supabase
+          const { data: lead } = await getDb()
             .from("leads")
             .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
             .eq("id", leadId)
@@ -658,7 +657,7 @@ export async function POST(request: NextRequest) {
             const instId = metadata.installer_stripe_id ? lead.installer_id : lead.installer_id;
 
             if (instId) {
-              const { data: profile } = await supabase
+              const { data: profile } = await getDb()
                 .from("profiles")
                 .select("first_name, last_name, business_name, phone, avatar_url")
                 .eq("id", instId)
@@ -693,7 +692,7 @@ export async function POST(request: NextRequest) {
 
           // ── Send installer alert ────────────────────────────────────
           if (lead?.installer_id) {
-            const { data: authUser } = await supabase.auth.admin.getUserById(lead.installer_id);
+            const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
             const installerEmail = authUser?.user?.email;
             if (installerEmail) {
               const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
@@ -727,7 +726,7 @@ export async function POST(request: NextRequest) {
       } else {
         // ── FINAL PAYMENT (balance collection) ─────────────────────────
         try {
-          await supabase
+          await getDb()
             .from("leads")
             .update({
               status: "paid",

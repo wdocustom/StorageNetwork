@@ -12,10 +12,12 @@ import { createClient } from "@supabase/supabase-js";
 // The cookie is later read by onboardInstaller() to create the referral link.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +26,7 @@ export async function GET(
   const { slug } = await params;
 
   // Validate partner slug
-  const { data: partner } = await supabase
+  const { data: partner } = await getSupabase()
     .from("partners")
     .select("id, slug, name, company")
     .eq("slug", slug.toLowerCase())

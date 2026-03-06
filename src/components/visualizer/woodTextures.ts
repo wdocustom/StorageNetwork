@@ -42,7 +42,8 @@ export function createDougFirCanvas(
   width = 512,
   height = 512,
   seed = 42,
-): HTMLCanvasElement {
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -173,7 +174,8 @@ export function createPlywoodCanvas(
   width = 512,
   height = 512,
   seed = 137,
-): HTMLCanvasElement {
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -274,7 +276,8 @@ export function createPlywoodEdgeCanvas(
   width = 256,
   height = 64,
   seed = 200,
-): HTMLCanvasElement {
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -342,21 +345,24 @@ export function createPlywoodEdgeCanvas(
  */
 export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
   const canvas = createDougFirCanvas(512, 512, seed);
+  if (!canvas) {
+    return new MeshStandardMaterial({ color: new Color("#C8A96E"), roughness: 0.82, metalness: 0.0 });
+  }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
 
-  // Create a bump map from the same texture for surface depth
   const bumpCanvas = createDougFirCanvas(256, 256, seed + 1);
-  const bumpTexture = new CanvasTexture(bumpCanvas);
-  bumpTexture.wrapS = RepeatWrapping;
-  bumpTexture.wrapT = RepeatWrapping;
+  const bumpTexture = bumpCanvas ? new CanvasTexture(bumpCanvas) : null;
+  if (bumpTexture) {
+    bumpTexture.wrapS = RepeatWrapping;
+    bumpTexture.wrapT = RepeatWrapping;
+  }
 
   return new MeshStandardMaterial({
     map: texture,
-    bumpMap: bumpTexture,
-    bumpScale: 0.3,
+    ...(bumpTexture ? { bumpMap: bumpTexture, bumpScale: 0.3 } : {}),
     roughness: 0.78,
     metalness: 0.0,
     color: new Color("#DDBC82"),
@@ -368,6 +374,9 @@ export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
  */
 export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
   const canvas = createPlywoodCanvas(512, 512, seed);
+  if (!canvas) {
+    return new MeshStandardMaterial({ color: new Color("#A8884E"), roughness: 0.6, metalness: 0.0 });
+  }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
@@ -386,6 +395,9 @@ export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
  */
 export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
   const canvas = createPlywoodCanvas(512, 512, seed);
+  if (!canvas) {
+    return new MeshStandardMaterial({ color: new Color("#D4B896"), roughness: 0.5, metalness: 0.0 });
+  }
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
@@ -408,6 +420,7 @@ export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
  */
 export function create2DWoodPattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   const canvas = createDougFirCanvas(128, 128, 42);
+  if (!canvas) return null;
   return ctx.createPattern(canvas, "repeat");
 }
 
@@ -416,5 +429,6 @@ export function create2DWoodPattern(ctx: CanvasRenderingContext2D): CanvasPatter
  */
 export function create2DPlywoodPattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   const canvas = createPlywoodCanvas(128, 128, 137);
+  if (!canvas) return null;
   return ctx.createPattern(canvas, "repeat");
 }
