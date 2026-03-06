@@ -635,13 +635,13 @@ function RackAssembly({
             const hasLeftPanel = sidePanelAddons.some((a) => a.target === "left");
             const hasRightPanel = sidePanelAddons.some((a) => a.target === "right");
 
-            // Side panels extend from bottom plate top to underside of top
-            // For standard units: from PLATE_H to frameH - PLATE_H (underside of top 2x4 plate)
-            // For mini units: from PLATE_H to PLATE_H + postH (underside of plywood top)
-            const panelBottom = PLATE_H;
+            // Side panels extend to cover both top and bottom 2x4 plates
+            // For standard units: from 0 (bottom of bottom plate) to frameH (top of top plate)
+            // For mini units: from 0 to PLATE_H + postH + PLY_TOP_H
+            const panelBottom = 0;
             const panelTop = isMini
-              ? PLATE_H + postH
-              : frameH - PLATE_H; // underside of top 2x4 plates
+              ? PLATE_H + postH + PLY_TOP_H
+              : frameH; // covers top 2x4 plates fully
             const panelH = panelTop - panelBottom;
             const panelCenterY = panelBottom + panelH / 2;
 

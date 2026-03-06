@@ -453,6 +453,7 @@ function OrganizerCustomization({
   addonPricing?: AddonPricing;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [railGridOpen, setRailGridOpen] = useState(false);
   const [activeCell, setActiveCell] = useState<{ col: number; row: number } | null>(null);
 
   const doorPrice = addonPricing?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
@@ -602,65 +603,85 @@ function OrganizerCustomization({
                 </div>
               )}
 
-              {/* Rail Removal — per-cell grid */}
+              {/* Rail Removal — collapsible per-cell grid */}
               {showRailRemoval && (
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                    Tap a slot to remove rails
-                  </p>
-                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
-                    {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
-                      Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
-                        const cellAddons = getCellAddons(c, r);
-                        const isActive = activeCell?.col === c && activeCell?.row === r;
-                        return (
-                          <button
-                            key={`cell-${c}-${r}`}
-                            type="button"
-                            onClick={() => setActiveCell(isActive ? null : { col: c, row: r })}
-                            className={`relative aspect-square rounded-md border text-[9px] font-bold transition-all ${
-                              isActive
-                                ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                                : cellAddons.length > 0
-                                ? "border-red-500/40 bg-red-500/10 text-red-400"
-                                : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
-                            }`}
-                          >
-                            {cellAddons.length > 0 ? <Minus className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
-                          </button>
-                        );
-                      })
+                  <button
+                    type="button"
+                    onClick={() => { setRailGridOpen(!railGridOpen); if (railGridOpen) setActiveCell(null); }}
+                    className="mb-1 flex w-full items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-400 transition-colors"
+                  >
+                    {railGridOpen ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
                     )}
-                  </div>
-
-                  {/* Active cell rail removal menu */}
+                    Tap a slot to remove rails
+                  </button>
                   <AnimatePresence>
-                    {activeCell && (
+                    {railGridOpen && (
                       <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="mt-2 rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 space-y-2"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
                       >
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-zinc-300">
-                            Bay {activeCell.col + 1}, Row {activeCell.row + 1}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setActiveCell(null)}
-                            className="text-zinc-500 hover:text-zinc-300"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                        <div className="grid gap-1 mt-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
+                          {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
+                            Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
+                              const cellAddons = getCellAddons(c, r);
+                              const isActive = activeCell?.col === c && activeCell?.row === r;
+                              return (
+                                <button
+                                  key={`cell-${c}-${r}`}
+                                  type="button"
+                                  onClick={() => setActiveCell(isActive ? null : { col: c, row: r })}
+                                  className={`relative rounded-md border py-1.5 text-[9px] font-bold transition-all ${
+                                    isActive
+                                      ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                                      : cellAddons.length > 0
+                                      ? "border-red-500/40 bg-red-500/10 text-red-400"
+                                      : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
+                                  }`}
+                                >
+                                  {cellAddons.length > 0 ? <Minus className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
+                                </button>
+                              );
+                            })
+                          )}
                         </div>
-                        <AddonToggleBtn
-                          icon={<Minus className="h-3.5 w-3.5" />}
-                          label="Remove Rails"
-                          price={railRemovalPrice}
-                          active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
-                          onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
-                        />
+
+                        {/* Active cell rail removal menu */}
+                        <AnimatePresence>
+                          {activeCell && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              className="mt-2 rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-zinc-300">
+                                  Bay {activeCell.col + 1}, Row {activeCell.row + 1}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveCell(null)}
+                                  className="text-zinc-500 hover:text-zinc-300"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <AddonToggleBtn
+                                icon={<Minus className="h-3.5 w-3.5" />}
+                                label="Remove Rails"
+                                price={railRemovalPrice}
+                                active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
+                                onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </motion.div>
                     )}
                   </AnimatePresence>
