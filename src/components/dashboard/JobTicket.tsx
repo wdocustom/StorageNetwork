@@ -692,6 +692,23 @@ export default function JobTicket({
                 </div>
               </button>
 
+              {/* Send Email */}
+              {customerEmail && (
+                <button
+                  onClick={handleResendInvoice}
+                  disabled={payLoading || !installerStripeId}
+                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Mail className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Send Email</p>
+                    <p className="text-[11px] text-stone-500">
+                      Email payment link to {customerEmail}
+                    </p>
+                  </div>
+                </button>
+              )}
+
               {/* Send to Phone */}
               {customerPhone && (
                 <button
