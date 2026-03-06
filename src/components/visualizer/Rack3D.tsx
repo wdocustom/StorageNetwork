@@ -501,7 +501,8 @@ function RackAssembly({
 
   return (
     <group scale={[S, S, S]}>
-      <group position={[-cx, -cy, -cz]}>
+      {/* scale X by -1 so bay 0 (lowest X) maps to LEFT when facing front (-Z face) */}
+      <group position={[cx, -cy, -cz]} scale={[-1, 1, 1]}>
 
         {/* ── WOOD FRAME — lifted by caster height ── */}
         <group position={[0, lift, 0]}>
