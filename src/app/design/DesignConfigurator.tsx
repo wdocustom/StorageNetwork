@@ -19,6 +19,8 @@ import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
+import type { SectionAddon, AddonPricing } from "@/types/viewModels";
+import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
 import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
@@ -51,6 +53,7 @@ interface UnitConfig {
   totalH: number;
   depth: number;
   desc: string;
+  addons: SectionAddon[];
 }
 
 interface ServerBuild {
@@ -207,6 +210,7 @@ export default function DesignConfigurator({
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(true);
+  const [addons, setAddons] = useState<SectionAddon[]>([]);
 
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
@@ -604,7 +608,8 @@ export default function DesignConfigurator({
       orient: Orientation,
       totes: boolean,
       wheels: boolean,
-      top: boolean
+      top: boolean,
+      sectionAddons?: SectionAddon[]
     ) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(async () => {
@@ -620,6 +625,7 @@ export default function DesignConfigurator({
             addOns: { totes, wheels, top },
             mode: "manual",
             installerPricing: data?.pricing,
+            sectionAddons,
           });
           if (res.success) {
             setBuild({
@@ -691,9 +697,9 @@ export default function DesignConfigurator({
 
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
+      fetchBuild(numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, addons);
     }
-  }, [numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, addons, fetchBuild]);
 
   // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
   const prevUnitTypeRef = useRef(unitType);
@@ -852,8 +858,11 @@ export default function DesignConfigurator({
         totalH: build.totalH,
         depth: build.depth,
         desc: `${unitLabel}: ${build.cols}W × ${build.rows}H${toteDesc}`,
+        addons: [...addons],
       },
     ]);
+    // Clear addons after adding to quote
+    setAddons([]);
   }
 
   function handleAddPresetUnit() {
@@ -877,6 +886,7 @@ export default function DesignConfigurator({
         totalH: compoundBuild.maxH,
         depth: compoundBuild.depth,
         desc: `${activePresetObj.name} (${subDesc})`,
+        addons: [],
       },
     ]);
   }
@@ -1280,6 +1290,11 @@ export default function DesignConfigurator({
           onApplyDiscount={handleApplyDiscount}
           onRemoveDiscount={handleRemoveDiscount}
 
+          // Organizer Customization (per-section addons)
+          addons={addons}
+          onAddonsChange={setAddons}
+          addonPricing={data?.pricing?.addon_pricing}
+
           // UI Trigger bridge for 3D model animation
           onPulseVisualizerTrigger={() => {}}
         />
@@ -1300,6 +1315,7 @@ export default function DesignConfigurator({
               totalW={activePresetObj && compoundBuild ? compoundBuild.combinedW : build.totalW}
               totalH={activePresetObj && compoundBuild ? compoundBuild.maxH : build.totalH}
               presetUnits={presetVisUnits}
+              addons={activePresetObj ? undefined : addons}
             />
           </div>
           {/* Dimensions bar */}

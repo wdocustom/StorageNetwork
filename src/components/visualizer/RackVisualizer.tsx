@@ -3,6 +3,7 @@
 import { Suspense, lazy, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BlueprintCanvas from "./BlueprintCanvas";
+import type { SectionAddon } from "@/types/viewModels";
 
 // Lazy-load 3D (heavy Three.js bundle)
 const Rack3D = lazy(() => import("./Rack3D"));
@@ -42,6 +43,8 @@ interface RackVisualizerProps {
   totalH: number;
   /** When set, renders a compound preset (multiple sub-units side by side) */
   presetUnits?: VisualizerSubUnit[];
+  /** Per-section addons (doors, side panels, rail removal, hinges) */
+  addons?: SectionAddon[];
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
@@ -99,6 +102,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             totalW={props.totalW}
             totalH={props.totalH}
             presetUnits={props.presetUnits}
+            addons={props.addons}
           />
         </div>
       ) : (
@@ -129,6 +133,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               hasWheels={props.hasWheels}
               hasTop={props.hasTop}
               presetUnits={props.presetUnits}
+              addons={props.addons}
             />
           </Suspense>
         </div>

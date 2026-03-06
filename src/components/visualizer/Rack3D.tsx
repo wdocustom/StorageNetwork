@@ -27,6 +27,8 @@ import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial 
 //   - Smaller shoebox totes (8" x 12.75" x 6.25")
 // ═══════════════════════════════════════════════════════════════════════════
 
+import type { SectionAddon } from "@/types/viewModels";
+
 type ToteType = "HDX" | "GM";
 type ToteColor = "black" | "clear";
 type UnitType = "standard" | "mini";
@@ -54,6 +56,8 @@ interface Rack3DProps {
   hasTop: boolean;
   /** When set, renders compound preset (multiple sub-units side by side) */
   presetUnits?: SubUnit3D[];
+  /** Per-section addons (doors, side panels, rail removal, hinges) */
+  addons?: SectionAddon[];
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -385,10 +389,74 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   );
 }
 
+// ── Hinge Material ──────────────────────────────────────────────────────
+import { MeshStandardMaterial, Color } from "three";
+
+const HINGE_MAT = new MeshStandardMaterial({
+  color: new Color("#888888"),
+  roughness: 0.3,
+  metalness: 0.7,
+});
+
+// ── PlywoodDoor — flat plywood panel at front face of a bay opening ─────
+function PlywoodDoor({ position, width, height }: {
+  position: [number, number, number];
+  width: number;
+  height: number;
+}) {
+  return (
+    <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
+      <boxGeometry args={[width, height, RAIL_THICKNESS]} />
+    </mesh>
+  );
+}
+
+// ── SurfaceHinge — two bracket plates + cylindrical pin ─────────────────
+function SurfaceHinge({ position, height }: {
+  position: [number, number, number];
+  height: number;
+}) {
+  const plateW = 0.75;
+  const plateH = Math.min(height * 0.3, 3);
+  const plateD = 0.15;
+  const pinR = 0.15;
+  const pinH = plateH;
+
+  return (
+    <group position={position}>
+      {/* Post-side bracket */}
+      <mesh position={[-plateW / 2, 0, 0]} material={HINGE_MAT} castShadow>
+        <boxGeometry args={[plateW, plateH, plateD]} />
+      </mesh>
+      {/* Door-side bracket */}
+      <mesh position={[plateW / 2, 0, 0]} material={HINGE_MAT} castShadow>
+        <boxGeometry args={[plateW, plateH, plateD]} />
+      </mesh>
+      {/* Pin (cylinder) */}
+      <mesh position={[0, 0, 0]} material={HINGE_MAT} castShadow>
+        <cylinderGeometry args={[pinR, pinR, pinH, 8]} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── SidePanel — full-height plywood sheet on left or right side ──────────
+function SidePanel({ position, height, depth }: {
+  position: [number, number, number];
+  height: number;
+  depth: number;
+}) {
+  return (
+    <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
+      <boxGeometry args={[RAIL_THICKNESS, height, depth]} />
+    </mesh>
+  );
+}
+
 // ── Rack Assembly ────────────────────────────────────────────────────────
 
 function RackAssembly({
-  cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop,
+  cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
 }: Rack3DProps) {
   const isMini = unitType === "mini";
   const bayW = getBayWidth(toteType, unitType, orientation);
@@ -459,8 +527,12 @@ function RackAssembly({
                 <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
                 <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
 
-                {/* Right-face rails (serve bay i) */}
+                {/* Right-face rails (serve bay i) — skip if rail_removed addon */}
                 {i < cols && Array.from({ length: rows }).map((_, r) => {
+                  const isRailRemoved = addons?.some(
+                    (a) => a.type === "rail_removed" && a.target === i && (a.row === undefined || a.row === r)
+                  );
+                  if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
                   return (
@@ -473,8 +545,12 @@ function RackAssembly({
                   );
                 })}
 
-                {/* Left-face rails (serve bay i-1) */}
+                {/* Left-face rails (serve bay i-1) — skip if rail_removed addon */}
                 {i > 0 && Array.from({ length: rows }).map((_, r) => {
+                  const isRailRemoved = addons?.some(
+                    (a) => a.type === "rail_removed" && a.target === (i - 1) && (a.row === undefined || a.row === r)
+                  );
+                  if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
                   return (
@@ -490,13 +566,19 @@ function RackAssembly({
             );
           })}
 
-          {/* Totes — rim ON TOP of rail, body hangs BELOW */}
+          {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots) */}
           {hasTotes && Array.from({ length: cols }).map((_, c) => {
             const leftPostX = getPostX(c, bayW);
             const rightPostX = getPostX(c + 1, bayW);
             const bayCenterX = (leftPostX + rightPostX) / 2;
 
             return Array.from({ length: rows }).map((_, r) => {
+              // Skip tote if rails are removed for this bay/row
+              const isRailRemoved = addons?.some(
+                (a) => a.type === "rail_removed" && a.target === c && (a.row === undefined || a.row === r)
+              );
+              if (isRailRemoved) return null;
+
               const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
               const railTop = railCenterY + railHeight / 2;
               // Rim bottom = rail top → body bottom = rail top - toteBodyH
@@ -536,6 +618,89 @@ function RackAssembly({
               <primitive object={PLYWOOD_TOP_MAT} attach="material" />
             </mesh>
           )}
+
+          {/* ── Section Addons (Organizer Customization) ────────────── */}
+          {addons && addons.length > 0 && (() => {
+            const doorAddons = addons.filter((a) => a.type === "plywood_door");
+            const sidePanelAddons = addons.filter((a) => a.type === "side_panel");
+            const hingeAddons = addons.filter((a) => a.type === "hinge_surface");
+
+            return (
+              <>
+                {/* Plywood Doors — at the front face of each bay opening */}
+                {doorAddons.map((addon, idx) => {
+                  if (typeof addon.target !== "number") return null;
+                  const col = addon.target;
+                  const row = addon.row ?? 0;
+                  if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
+
+                  const leftPostX = getPostX(col, bayW);
+                  const rightPostX = getPostX(col + 1, bayW);
+                  const bayCenterX = (leftPostX + rightPostX) / 2;
+                  const doorW = bayW - 0.5; // slight inset from posts
+                  const doorH = tierSpacing - 1; // slightly less than tier height
+                  const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+                  const doorCenterY = railCenterY + tierSpacing / 2;
+                  // Door sits at front face (z = 0 side, offset inward by post depth)
+                  const doorZ = POST_D + RAIL_THICKNESS / 2;
+
+                  return (
+                    <PlywoodDoor
+                      key={`door-${idx}`}
+                      position={[bayCenterX, doorCenterY, doorZ]}
+                      width={doorW}
+                      height={doorH}
+                    />
+                  );
+                })}
+
+                {/* Surface Hinges — on the post face next to doors */}
+                {hingeAddons.map((addon, idx) => {
+                  if (typeof addon.target !== "number") return null;
+                  const col = addon.target;
+                  const row = addon.row ?? 0;
+                  if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
+
+                  const leftPostX = getPostX(col, bayW);
+                  const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+                  const hingeCenterY = railCenterY + tierSpacing / 2;
+                  // Hinge sits on the left post, front face
+                  const hingeX = leftPostX + POST_W / 2;
+                  const hingeZ = POST_D + RAIL_THICKNESS / 2;
+
+                  return (
+                    <SurfaceHinge
+                      key={`hinge-${idx}`}
+                      position={[hingeX, hingeCenterY, hingeZ]}
+                      height={tierSpacing}
+                    />
+                  );
+                })}
+
+                {/* Side Panels — left and/or right side */}
+                {sidePanelAddons.map((addon, idx) => {
+                  const isLeft = addon.target === "left";
+                  const isRight = addon.target === "right";
+                  if (!isLeft && !isRight) return null;
+
+                  const panelH = postH;
+                  const panelX = isLeft
+                    ? -RAIL_THICKNESS / 2
+                    : totalW + RAIL_THICKNESS / 2;
+                  const panelCenterY = PLATE_H + panelH / 2;
+
+                  return (
+                    <SidePanel
+                      key={`side-${idx}`}
+                      position={[panelX, panelCenterY, unitDepth / 2]}
+                      height={panelH}
+                      depth={unitDepth}
+                    />
+                  );
+                })}
+              </>
+            );
+          })()}
         </group>
 
         {/* ── 4 CASTERS — outer corners only ── */}

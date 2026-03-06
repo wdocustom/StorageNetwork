@@ -26,8 +26,17 @@ import {
   Tag,
   Sparkles,
   Info,
+  ChevronDown,
+  ChevronUp,
+  DoorOpen,
+  PanelLeft,
+  Wrench,
+  Minus,
+  Grid3X3,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
+import type { SectionAddon, AddonPricing } from "@/types/viewModels";
+import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -53,6 +62,7 @@ interface UnitConfig {
   totalH: number;
   depth: number;
   desc: string;
+  addons: SectionAddon[];
 }
 
 interface ServerBuild {
@@ -260,6 +270,11 @@ export interface ConfiguratorSidebarProps {
   onApplyDiscount: () => void;
   onRemoveDiscount: () => void;
 
+  // Organizer Customization (per-section addons)
+  addons: SectionAddon[];
+  onAddonsChange: (addons: SectionAddon[]) => void;
+  addonPricing?: AddonPricing;
+
   // Pulse trigger — called after "Find Max" updates inputs
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight
   // to draw attention to the updated configuration.
@@ -416,6 +431,259 @@ function StudioToggle({
       <span className="flex-1 text-left text-sm font-medium text-zinc-300 group-hover:text-zinc-100">
         {label}
       </span>
+    </button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Organizer Customization — Per-Section Addon Picker
+// ═══════════════════════════════════════════════════════════════════════════
+
+function OrganizerCustomization({
+  cols,
+  rows,
+  addons,
+  onAddonsChange,
+  addonPricing,
+}: {
+  cols: number;
+  rows: number;
+  addons: SectionAddon[];
+  onAddonsChange: (addons: SectionAddon[]) => void;
+  addonPricing?: AddonPricing;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [activeCell, setActiveCell] = useState<{ col: number; row: number } | null>(null);
+
+  const doorPrice = addonPricing?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
+  const sidePanelPrice = addonPricing?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
+  const hingePrice = addonPricing?.surface_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.surface_hinge_pair;
+  const railRemovalPrice = addonPricing?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+
+  const showDoor = addonPricing?.plywood_door_enabled !== false;
+  const showSidePanel = addonPricing?.side_panel_enabled !== false;
+  const showHinge = addonPricing?.hinge_surface_enabled !== false;
+  const showRailRemoval = addonPricing?.rail_removal_enabled !== false;
+
+  // Helper: check if an addon exists for a given type/target/row
+  function hasAddon(type: SectionAddon["type"], target: SectionAddon["target"], row?: number): boolean {
+    return addons.some((a) =>
+      a.type === type && a.target === target && (row === undefined || a.row === row)
+    );
+  }
+
+  // Toggle an addon on/off
+  function toggleAddon(type: SectionAddon["type"], target: SectionAddon["target"], row?: number) {
+    if (hasAddon(type, target, row)) {
+      onAddonsChange(addons.filter((a) =>
+        !(a.type === type && a.target === target && (row === undefined || a.row === row))
+      ));
+    } else {
+      onAddonsChange([...addons, { type, target, row }]);
+    }
+  }
+
+  // Count addons for display
+  const addonCount = addons.length;
+
+  // Get addons for a specific cell
+  function getCellAddons(col: number, row: number) {
+    return addons.filter((a) => typeof a.target === "number" && a.target === col && (a.row === undefined || a.row === row));
+  }
+
+  if (cols < 1 || rows < 1) return null;
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-800/30 px-3 py-2.5 transition-colors hover:border-zinc-600 hover:bg-zinc-800/50"
+      >
+        <Grid3X3 className="h-4 w-4 text-yellow-400" />
+        <span className="flex-1 text-left text-sm font-medium text-zinc-300">
+          Organizer Customization
+        </span>
+        {addonCount > 0 && (
+          <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
+            {addonCount}
+          </span>
+        )}
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-zinc-500" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-zinc-500" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3 space-y-3">
+              {/* Interactive Grid — cols × rows */}
+              <div>
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                  Tap a slot to customize
+                </p>
+                <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
+                  {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
+                    Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
+                      const cellAddons = getCellAddons(c, r);
+                      const isActive = activeCell?.col === c && activeCell?.row === r;
+                      return (
+                        <button
+                          key={`cell-${c}-${r}`}
+                          type="button"
+                          onClick={() => setActiveCell(isActive ? null : { col: c, row: r })}
+                          className={`relative aspect-square rounded-md border text-[9px] font-bold transition-all ${
+                            isActive
+                              ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                              : cellAddons.length > 0
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
+                              : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
+                          }`}
+                        >
+                          {cellAddons.length > 0 ? cellAddons.length : `${c + 1},${r + 1}`}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Active cell addon menu */}
+              <AnimatePresence>
+                {activeCell && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-zinc-300">
+                        Bay {activeCell.col + 1}, Row {activeCell.row + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveCell(null)}
+                        className="text-zinc-500 hover:text-zinc-300"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {showDoor && (
+                      <AddonToggleBtn
+                        icon={<DoorOpen className="h-3.5 w-3.5" />}
+                        label="Plywood Door"
+                        price={doorPrice}
+                        active={hasAddon("plywood_door", activeCell.col, activeCell.row)}
+                        onToggle={() => toggleAddon("plywood_door", activeCell.col, activeCell.row)}
+                      />
+                    )}
+                    {showHinge && (
+                      <AddonToggleBtn
+                        icon={<Wrench className="h-3.5 w-3.5" />}
+                        label="Surface Hinges"
+                        price={hingePrice}
+                        active={hasAddon("hinge_surface", activeCell.col, activeCell.row)}
+                        onToggle={() => toggleAddon("hinge_surface", activeCell.col, activeCell.row)}
+                      />
+                    )}
+                    {showRailRemoval && (
+                      <AddonToggleBtn
+                        icon={<Minus className="h-3.5 w-3.5" />}
+                        label="Remove Rails"
+                        price={railRemovalPrice}
+                        active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
+                        onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
+                      />
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Side Panel Buttons */}
+              {showSidePanel && (
+                <div>
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    Side Panels
+                  </p>
+                  <div className="flex gap-2">
+                    <AddonToggleBtn
+                      icon={<PanelLeft className="h-3.5 w-3.5" />}
+                      label={`Left (+$${sidePanelPrice})`}
+                      active={hasAddon("side_panel", "left")}
+                      onToggle={() => toggleAddon("side_panel", "left")}
+                    />
+                    <AddonToggleBtn
+                      icon={<PanelLeft className="h-3.5 w-3.5 scale-x-[-1]" />}
+                      label={`Right (+$${sidePanelPrice})`}
+                      active={hasAddon("side_panel", "right")}
+                      onToggle={() => toggleAddon("side_panel", "right")}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Addon Summary */}
+              {addonCount > 0 && (
+                <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/40 p-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-400">{addonCount} add-on{addonCount !== 1 ? "s" : ""} selected</span>
+                    <button
+                      type="button"
+                      onClick={() => onAddonsChange([])}
+                      className="text-[10px] font-medium text-red-400 hover:text-red-300"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Small toggle button for individual addon items */
+function AddonToggleBtn({
+  icon,
+  label,
+  price,
+  active,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  price?: number;
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex flex-1 items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-all ${
+        active
+          ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-300"
+          : "border-zinc-700 bg-zinc-800/30 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+      }`}
+    >
+      {icon}
+      <span className="flex-1">{label}</span>
+      {price !== undefined && price > 0 && (
+        <span className="text-[10px] text-zinc-500">+${price}</span>
+      )}
     </button>
   );
 }
@@ -1053,6 +1321,17 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                     </div>
                   )}
                 </div>
+
+                {/* ── Organizer Customization (per-section addons) ────────── */}
+                {!props.activePreset && (props.addonPricing?.organizer_customization_enabled !== false) && (
+                  <OrganizerCustomization
+                    cols={numCols}
+                    rows={numRows}
+                    addons={props.addons}
+                    onAddonsChange={props.onAddonsChange}
+                    addonPricing={props.addonPricing}
+                  />
+                )}
 
                 {/* Current Unit Price + Add */}
                 {!props.activePreset && (

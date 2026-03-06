@@ -9,14 +9,20 @@ import {
   CheckCircle2,
   Info,
   EyeOff,
+  ChevronDown,
+  ChevronUp,
+  DoorOpen,
+  PanelLeft,
+  Wrench,
+  Minus,
 } from "lucide-react";
 import {
   getInstallerPricing,
   updateInstallerPricing,
   resetInstallerPricing,
 } from "@/app/actions/pricing";
-import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS } from "@/types/viewModels";
-import type { InstallerPricing } from "@/types/viewModels";
+import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
+import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -156,6 +162,68 @@ const PRICE_FIELDS: PriceField[] = [
   }),
 ];
 
+/** Row component for each addon type — toggle + price input */
+function AddonPricingRow({
+  icon,
+  label,
+  description,
+  defaultPrice,
+  value,
+  enabled,
+  onValueChange,
+  onToggle,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  priceKey: string;
+  toggleKey: string;
+  defaultPrice: number;
+  value: string;
+  enabled: boolean;
+  onValueChange: (v: string) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className={`mt-2 flex items-center gap-3 rounded-lg border p-3 transition-all ${
+      enabled ? "border-slate-700 bg-slate-800/30" : "border-slate-700/50 bg-slate-900/50 opacity-50"
+    }`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="shrink-0"
+        title={enabled ? `Disable ${label}` : `Enable ${label}`}
+      >
+        <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-yellow-400" : "bg-slate-600"}`}>
+          <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
+        </div>
+      </button>
+      <div className="flex items-center gap-2">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white">{label}</p>
+        <p className="text-[11px] text-stone-500">{description}</p>
+      </div>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) onValueChange(v);
+          }}
+          placeholder={String(defaultPrice)}
+          disabled={!enabled}
+          className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -166,6 +234,17 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   // Each field can be: a custom number string, or empty (use default)
   const [values, setValues] = useState<Record<string, string>>({});
   const [miniDisabled, setMiniDisabled] = useState(false);
+
+  // ── Organizer Customization (addon pricing) state ──────────────────
+  const [addonExpanded, setAddonExpanded] = useState(false);
+  const [addonEnabled, setAddonEnabled] = useState(true);
+  const [addonValues, setAddonValues] = useState<Record<string, string>>({});
+  const [addonToggles, setAddonToggles] = useState<Record<string, boolean>>({
+    plywood_door_enabled: true,
+    side_panel_enabled: true,
+    hinge_surface_enabled: true,
+    rail_removal_enabled: true,
+  });
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -178,6 +257,24 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
       setValues(loaded);
       setMiniDisabled(result.pricing.mini_disabled === true);
+
+      // Load addon pricing
+      const ap = result.pricing.addon_pricing;
+      if (ap) {
+        setAddonEnabled(ap.organizer_customization_enabled !== false);
+        const loadedAddon: Record<string, string> = {};
+        for (const k of ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const) {
+          const v = ap[k];
+          loadedAddon[k] = v !== undefined && v !== null ? String(v) : "";
+        }
+        setAddonValues(loadedAddon);
+        setAddonToggles({
+          plywood_door_enabled: ap.plywood_door_enabled !== false,
+          side_panel_enabled: ap.side_panel_enabled !== false,
+          hinge_surface_enabled: ap.hinge_surface_enabled !== false,
+          rail_removal_enabled: ap.rail_removal_enabled !== false,
+        });
+      }
     }
     setLoading(false);
   }, [userId]);
@@ -194,6 +291,13 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     }
   }
 
+  function handleAddonChange(key: string, val: string) {
+    if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+      setAddonValues((prev) => ({ ...prev, [key]: val }));
+      setMessage("");
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setMessage("");
@@ -206,6 +310,19 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
     }
     if (miniDisabled) pricing.mini_disabled = true;
+
+    // Build addon_pricing
+    const addonPricing: AddonPricing = {
+      organizer_customization_enabled: addonEnabled,
+      ...addonToggles,
+    } as AddonPricing;
+    for (const k of ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const) {
+      const v = addonValues[k];
+      if (v !== undefined && v !== "") {
+        (addonPricing as Record<string, unknown>)[k] = Number(v);
+      }
+    }
+    pricing.addon_pricing = addonPricing;
 
     const result = await updateInstallerPricing(userId, pricing);
     if (result.success) {
@@ -232,6 +349,14 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
       setValues(cleared);
       setMiniDisabled(false);
+      setAddonEnabled(true);
+      setAddonValues({});
+      setAddonToggles({
+        plywood_door_enabled: true,
+        side_panel_enabled: true,
+        hinge_surface_enabled: true,
+        rail_removal_enabled: true,
+      });
       setMessage("Pricing reset to platform defaults.");
       setMessageType("success");
       setTimeout(() => setMessage(""), 4000);
@@ -243,7 +368,11 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   }
 
   function hasCustomValues(): boolean {
-    return miniDisabled || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "");
+    return miniDisabled
+      || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
+      || !addonEnabled
+      || Object.values(addonToggles).some((v) => !v)
+      || Object.values(addonValues).some((v) => v !== undefined && v !== "");
   }
 
   if (loading) {
@@ -378,6 +507,116 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── Organizer Customization (Section Addons) ──────────────── */}
+      <div className="mt-5">
+        <button
+          type="button"
+          onClick={() => setAddonExpanded(!addonExpanded)}
+          className="flex w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+        >
+          <Wrench className="h-4 w-4 text-yellow-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white">Organizer Customization</p>
+            <p className="text-[11px] text-stone-500">
+              Doors, side panels, hinges &amp; rail removal add-ons
+            </p>
+          </div>
+          {addonExpanded ? (
+            <ChevronUp className="h-4 w-4 text-stone-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-stone-400" />
+          )}
+        </button>
+
+        {addonExpanded && (
+          <div className="mt-3 space-y-4 rounded-lg border border-slate-700 bg-slate-800/20 p-4">
+            {/* Master toggle */}
+            <button
+              type="button"
+              onClick={() => setAddonEnabled(!addonEnabled)}
+              className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+                !addonEnabled
+                  ? "border-red-500/30 bg-red-500/5"
+                  : "border-emerald-500/30 bg-emerald-500/5"
+              }`}
+            >
+              <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${addonEnabled ? "bg-emerald-500" : "bg-slate-600"}`}>
+                <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${addonEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${addonEnabled ? "text-emerald-400" : "text-red-400"}`}>
+                  {addonEnabled ? "Customization Enabled" : "Customization Disabled"}
+                </p>
+                <p className="text-[11px] text-stone-500">
+                  {addonEnabled
+                    ? "Customers can add doors, panels & hinges on your design page"
+                    : "The entire Organizer Customization section is hidden from customers"}
+                </p>
+              </div>
+            </button>
+
+            {/* Per-addon items (greyed out when master is disabled) */}
+            <div className={!addonEnabled ? "opacity-40 pointer-events-none" : ""}>
+              {/* Plywood Door */}
+              <AddonPricingRow
+                icon={<DoorOpen className="h-4 w-4 text-amber-400" />}
+                label="Plywood Door"
+                description="Per door panel with hinges"
+                priceKey="plywood_door"
+                toggleKey="plywood_door_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.plywood_door}
+                value={addonValues.plywood_door ?? ""}
+                enabled={addonToggles.plywood_door_enabled}
+                onValueChange={(v) => handleAddonChange("plywood_door", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, plywood_door_enabled: !prev.plywood_door_enabled }))}
+              />
+
+              {/* Side Panel */}
+              <AddonPricingRow
+                icon={<PanelLeft className="h-4 w-4 text-blue-400" />}
+                label="Side Panel"
+                description="Per plywood side panel (left or right)"
+                priceKey="side_panel"
+                toggleKey="side_panel_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.side_panel}
+                value={addonValues.side_panel ?? ""}
+                enabled={addonToggles.side_panel_enabled}
+                onValueChange={(v) => handleAddonChange("side_panel", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, side_panel_enabled: !prev.side_panel_enabled }))}
+              />
+
+              {/* Surface Hinge Pair */}
+              <AddonPricingRow
+                icon={<Wrench className="h-4 w-4 text-slate-400" />}
+                label="Surface Hinge Pair"
+                description="Per pair of surface-mounted hinges"
+                priceKey="surface_hinge_pair"
+                toggleKey="hinge_surface_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.surface_hinge_pair}
+                value={addonValues.surface_hinge_pair ?? ""}
+                enabled={addonToggles.hinge_surface_enabled}
+                onValueChange={(v) => handleAddonChange("surface_hinge_pair", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, hinge_surface_enabled: !prev.hinge_surface_enabled }))}
+              />
+
+              {/* Rail Removal */}
+              <AddonPricingRow
+                icon={<Minus className="h-4 w-4 text-red-400" />}
+                label="Rail Removal"
+                description="Per rail removed (credit or charge)"
+                priceKey="rail_removal"
+                toggleKey="rail_removal_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.rail_removal}
+                value={addonValues.rail_removal ?? ""}
+                enabled={addonToggles.rail_removal_enabled}
+                onValueChange={(v) => handleAddonChange("rail_removal", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, rail_removal_enabled: !prev.rail_removal_enabled }))}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}

@@ -6,6 +6,8 @@
 
 // ── Types ────────────────────────────────────────────────────────────────
 
+import type { SectionAddon } from "@/types/viewModels";
+
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 export type ToteColor = "black" | "clear";
@@ -25,6 +27,7 @@ export interface QuoteUnit {
   totalH: number;
   depth: number;
   desc: string;
+  addons?: SectionAddon[]; // Per-section addons (Organizer Customization)
 }
 
 export interface CutPart {

@@ -99,10 +99,48 @@ export async function updateInstallerPricing(
       (validated as Record<string, unknown>).mini_disabled = true;
     }
 
+    // Carry over addon_pricing if provided
+    if (pricing.addon_pricing) {
+      const ap = pricing.addon_pricing;
+      const validatedAddon: Record<string, unknown> = {};
+
+      // Validate numeric addon pricing fields
+      const addonNumericFields = ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const;
+      for (const field of addonNumericFields) {
+        const val = ap[field];
+        if (val !== undefined && val !== null) {
+          const num = Number(val);
+          if (isNaN(num) || num < 0) {
+            return { success: false, error: `Invalid addon pricing value for ${field}. Must be a non-negative number.` };
+          }
+          validatedAddon[field] = Math.round(num * 100) / 100;
+        }
+      }
+
+      // Toggle booleans
+      const addonToggleFields = [
+        "organizer_customization_enabled",
+        "plywood_door_enabled",
+        "side_panel_enabled",
+        "hinge_surface_enabled",
+        "rail_removal_enabled",
+      ] as const;
+      for (const field of addonToggleFields) {
+        if (ap[field] !== undefined) {
+          validatedAddon[field] = ap[field];
+        }
+      }
+
+      if (Object.keys(validatedAddon).length > 0) {
+        (validated as Record<string, unknown>).addon_pricing = validatedAddon;
+      }
+    }
+
     // If all values match platform defaults, store null (use defaults)
     const hasCustomValues = fields.some(
       (f) => validated[f] !== undefined
-    ) || (validated as Record<string, unknown>).mini_disabled === true;
+    ) || (validated as Record<string, unknown>).mini_disabled === true
+      || (validated as Record<string, unknown>).addon_pricing !== undefined;
 
     const pricingConfig = hasCustomValues ? validated : null;
 

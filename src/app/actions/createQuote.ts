@@ -41,6 +41,12 @@ export interface QuoteUnit {
   totalW: number;
   totalH: number;
   desc: string;
+  addons?: Array<{
+    type: string;
+    target: number | "left" | "right";
+    row?: number;
+    options?: Record<string, string>;
+  }>;
 }
 
 export interface DeliveryAddress {

@@ -6,6 +6,47 @@
 // It only renders what the server explicitly decided to show.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Section Addon Types — Per-bay/per-row addon system ("Organizer Customization")
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Types of addons that can be applied per-section */
+export type AddonType = "plywood_door" | "side_panel" | "rail_removed" | "hinge_surface";
+
+/** A single addon applied to a specific bay/row/side of the unit */
+export interface SectionAddon {
+  type: AddonType;
+  /** Which bay (column index) this applies to, or "left"/"right" for side panels */
+  target: number | "left" | "right";
+  /** Which row/tier, if applicable (e.g., doors per opening) */
+  row?: number;
+  /** Optional configuration (e.g., { hingeStyle: "surface" }) */
+  options?: Record<string, string>;
+}
+
+/** Installer-level addon pricing overrides (all optional, NULL = platform default) */
+export interface AddonPricing {
+  plywood_door?: number;          // per door
+  side_panel?: number;            // per side panel
+  surface_hinge_pair?: number;    // per hinge pair
+  rail_removal?: number;          // per rail removed (labor credit or charge)
+  /** Master toggle: when false, the entire Organizer Customization section is hidden */
+  organizer_customization_enabled?: boolean;
+  /** Per-addon-type toggles: when false, that addon type is hidden */
+  plywood_door_enabled?: boolean;
+  side_panel_enabled?: boolean;
+  hinge_surface_enabled?: boolean;
+  rail_removal_enabled?: boolean;
+}
+
+/** Platform default addon pricing */
+export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "surface_hinge_pair" | "rail_removal">> = {
+  plywood_door: 45,
+  side_panel: 55,
+  surface_hinge_pair: 12,
+  rail_removal: 0,     // no charge by default (it's a material subtraction)
+};
+
 /** Installer-configurable pricing overrides (all optional, NULL = platform default) */
 export interface InstallerPricing {
   standard_slot?: number;
@@ -24,10 +65,12 @@ export interface InstallerPricing {
   bestseller_long_ranger?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
+  /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
+  addon_pricing?: AddonPricing;
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,

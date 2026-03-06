@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { create2DWoodPattern, create2DPlywoodPattern } from "./woodTextures";
+import type { SectionAddon } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BlueprintCanvas — 2D visual-only rendering (dimensions from server)
@@ -37,6 +38,8 @@ interface BlueprintCanvasProps {
   totalH: number;
   /** When set, renders compound preset (multiple sub-units side by side) */
   presetUnits?: SubUnit[];
+  /** Per-section addons (doors, side panels, rail removal, hinges) */
+  addons?: SectionAddon[];
 }
 
 // Wheel height constant (industrial casters)
@@ -55,6 +58,7 @@ export default function BlueprintCanvas({
   totalW,
   totalH,
   presetUnits,
+  addons,
 }: BlueprintCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -92,6 +96,7 @@ export default function BlueprintCanvas({
     startX: number,
     startY: number,
     scale: number,
+    unitAddons?: SectionAddon[],
   ) => {
     const woodPattern = create2DWoodPattern(ctx);
     const plywoodPattern = create2DPlywoodPattern(ctx);
@@ -150,13 +155,18 @@ export default function BlueprintCanvas({
       ctx.strokeRect(x, postY, pStud, postH);
     }
 
-    // Rails + Totes
+    // Rails + Totes (with rail-skip for rail_removed addons)
     const railH = (isMini ? 1.0 : 1.875) * scale;
     const railW = 0.75 * scale;
     for (let c = 0; c < unitCols; c++) {
       const bayLeftX = startX + pStud + c * (pBay + pStud);
       const bayRightX = bayLeftX + pBay;
       for (let r = 0; r < unitRows; r++) {
+        // Check if rails are removed for this cell
+        const isRailRemoved = unitAddons?.some(
+          (a) => a.type === "rail_removed" && a.target === c && (a.row === undefined || a.row === r)
+        );
+
         let railY: number;
         if (isMini) {
           const railFromBottom = RENDER_FIRST_RAIL + r * RENDER_TIER;
@@ -164,14 +174,31 @@ export default function BlueprintCanvas({
         } else {
           railY = startY + pPlate + pTopGap + r * RENDER_TIER * scale;
         }
-        ctx.fillStyle = woodFill;
-        ctx.strokeStyle = woodStroke;
-        ctx.fillRect(bayLeftX, railY, railW, railH);
-        ctx.strokeRect(bayLeftX, railY, railW, railH);
-        ctx.fillRect(bayRightX - railW, railY, railW, railH);
-        ctx.strokeRect(bayRightX - railW, railY, railW, railH);
 
-        if (hasTotes) {
+        if (!isRailRemoved) {
+          ctx.fillStyle = woodFill;
+          ctx.strokeStyle = woodStroke;
+          ctx.fillRect(bayLeftX, railY, railW, railH);
+          ctx.strokeRect(bayLeftX, railY, railW, railH);
+          ctx.fillRect(bayRightX - railW, railY, railW, railH);
+          ctx.strokeRect(bayRightX - railW, railY, railW, railH);
+        } else {
+          // Draw an "X" to indicate removed rails
+          ctx.save();
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(bayLeftX + 2, railY - 1);
+          ctx.lineTo(bayRightX - 2, railY + railH + 1);
+          ctx.moveTo(bayRightX - 2, railY - 1);
+          ctx.lineTo(bayLeftX + 2, railY + railH + 1);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+
+        if (hasTotes && !isRailRemoved) {
           const toteBodyH = isMini ? 6.25 : 11;
           const tW = pBay * 0.94;
           const tH = toteBodyH * scale;
@@ -195,6 +222,61 @@ export default function BlueprintCanvas({
           ctx.strokeRect(bodyX, bodyY, bodyW, clampedBodyH);
           ctx.lineWidth = 2;
         }
+
+        // Door annotation — dashed rectangle at front of bay
+        const hasDoor = unitAddons?.some(
+          (a) => a.type === "plywood_door" && a.target === c && (a.row === undefined || a.row === r)
+        );
+        if (hasDoor) {
+          ctx.save();
+          ctx.strokeStyle = "#d97706";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 3]);
+          const doorW = pBay - 4;
+          const doorH = RENDER_TIER * scale * 0.8;
+          const doorX = bayLeftX + (pBay - doorW) / 2;
+          const doorY = railY - doorH * 0.1;
+          ctx.strokeRect(doorX, doorY, doorW, doorH);
+          // Small "D" label
+          ctx.fillStyle = "#d97706";
+          ctx.font = `bold ${Math.max(8, Math.round(scale * 3))}px Arial`;
+          ctx.textAlign = "center";
+          ctx.fillText("D", doorX + doorW / 2, doorY + doorH / 2 + 3);
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+    }
+
+    // Side panels — shaded rectangles on left/right edges
+    if (unitAddons) {
+      const hasLeftPanel = unitAddons.some((a) => a.type === "side_panel" && a.target === "left");
+      const hasRightPanel = unitAddons.some((a) => a.type === "side_panel" && a.target === "right");
+      const panelW = 3 * scale;
+      const panelH = isMini ? pFrameH - pPlate : pFrameH - pPlate * 2;
+      const panelY = isMini ? startY : startY + pPlate;
+
+      if (hasLeftPanel) {
+        ctx.save();
+        ctx.fillStyle = "rgba(217, 119, 6, 0.15)";
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        ctx.fillRect(startX - panelW, panelY, panelW, panelH);
+        ctx.strokeRect(startX - panelW, panelY, panelW, panelH);
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+      if (hasRightPanel) {
+        ctx.save();
+        ctx.fillStyle = "rgba(217, 119, 6, 0.15)";
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        ctx.fillRect(startX + pTotalW, panelY, panelW, panelH);
+        ctx.strokeRect(startX + pTotalW, panelY, panelW, panelH);
+        ctx.setLineDash([]);
+        ctx.restore();
       }
     }
 
@@ -294,7 +376,7 @@ export default function BlueprintCanvas({
     const startX = (cW - realW * scale) / 2;
     const startY = (cH - visualPixelH) / 2 + topOverhang;
 
-    drawSingleUnit(ctx, cols, rows, realW, hasWheels, hasTop, startX, startY, scale);
+    drawSingleUnit(ctx, cols, rows, realW, hasWheels, hasTop, startX, startY, scale, addons);
 
     // Watermark
     ctx.save();
@@ -305,7 +387,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, presetUnits, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
+  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();

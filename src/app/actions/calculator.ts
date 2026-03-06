@@ -9,8 +9,8 @@ export type ToteColor = "black" | "clear";
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
-import type { InstallerPricing } from "@/types/viewModels";
-import { PLATFORM_BESTSELLER_DEFAULTS } from "@/types/viewModels";
+import type { InstallerPricing, SectionAddon, AddonPricing } from "@/types/viewModels";
+import { PLATFORM_BESTSELLER_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -29,6 +29,8 @@ interface CalculateBuildInput {
   mode: "wallFit" | "manual";
   /** Optional installer pricing overrides (Pro feature) */
   installerPricing?: InstallerPricing;
+  /** Per-section addons (Organizer Customization) */
+  sectionAddons?: SectionAddon[];
 }
 
 interface BuildResult {
@@ -36,6 +38,7 @@ interface BuildResult {
   cols: number;
   rows: number;
   price: number;
+  addonPrice: number;
   dimensions: { totalW: number; totalH: number; depth: number };
   config: {
     toteModel: ToteModel;
@@ -333,11 +336,41 @@ export async function calculateBuild(
     price += topSheets * effectiveTopPrice;
   }
 
+  // ── Section Addon Pricing (Organizer Customization) ──────────────────
+  let addonPrice = 0;
+  const sectionAddons = input.sectionAddons ?? [];
+  if (sectionAddons.length > 0) {
+    const ap = ip?.addon_pricing;
+    const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
+    const sidePanelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
+    const hingePairPrice = ap?.surface_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.surface_hinge_pair;
+    const railRemovalPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+
+    for (const addon of sectionAddons) {
+      switch (addon.type) {
+        case "plywood_door":
+          addonPrice += doorPrice;
+          break;
+        case "side_panel":
+          addonPrice += sidePanelPrice;
+          break;
+        case "hinge_surface":
+          addonPrice += hingePairPrice;
+          break;
+        case "rail_removed":
+          addonPrice += railRemovalPrice;
+          break;
+      }
+    }
+  }
+  price += addonPrice;
+
   return {
     success: true,
     cols,
     rows,
     price,
+    addonPrice,
     dimensions: { totalW, totalH, depth: config.depth },
     config: {
       toteModel,
