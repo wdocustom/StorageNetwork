@@ -381,10 +381,29 @@ export async function createQuote(
       const baseUrl = siteConfig.baseUrl;
       const checkoutUrl = `${baseUrl}/pay/${lead.id}`;
 
-      const quoteItems = effectiveQuoteData.map((unit) => ({
-        description: unit.desc || `${unit.cols}×${unit.rows} Storage Unit`,
-        price: unit.price,
-      }));
+      const quoteItems = effectiveQuoteData.map((unit) => {
+        let description = unit.desc || `${unit.cols}×${unit.rows} Storage Unit`;
+
+        // Append addon summary if present
+        const addons = unit.addons ?? [];
+        if (addons.length > 0) {
+          const addonCounts: Record<string, number> = {};
+          for (const a of addons) {
+            const label =
+              a.type === "plywood_door" ? "Plywood Door" :
+              a.type === "side_panel" ? "Side Panel" :
+              a.type === "hinge_surface" ? "Surface Hinge" :
+              a.type === "rail_removed" ? "Rail Removed" : a.type;
+            addonCounts[label] = (addonCounts[label] ?? 0) + 1;
+          }
+          const parts = Object.entries(addonCounts).map(
+            ([name, count]) => count > 1 ? `${count}× ${name}` : name
+          );
+          description += ` + ${parts.join(", ")}`;
+        }
+
+        return { description, price: unit.price };
+      });
 
       const emailHtml = buildQuoteEmailTemplate({
         customerName: customer_name.trim(),

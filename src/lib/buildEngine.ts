@@ -197,6 +197,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   let globalStripCount = 0;
   let globalTopSheets = 0;
 
+  // Section addon counters
+  let gAddonDoors = 0;
+  let gAddonSidePanels = 0;
+  let gAddonHingePairs = 0;
+  let gAddonRailsRemoved = 0;
+
   const cutPlans: CutPlanModule[] = [];
 
   // modKey encodes: unitIdx, widthModIndex, heightTierIndex
@@ -347,6 +353,25 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
       globalTopSheets += sheetsForUnit;
       gRetail += sheetsForUnit * PLYWOOD_TOP_PRICE;
+    }
+
+    // ── Section Addons (Organizer Customization) ─────────────────
+    const unitAddons = unit.addons ?? [];
+    for (const addon of unitAddons) {
+      switch (addon.type) {
+        case "plywood_door":
+          gAddonDoors++;
+          break;
+        case "side_panel":
+          gAddonSidePanels++;
+          break;
+        case "hinge_surface":
+          gAddonHingePairs++;
+          break;
+        case "rail_removed":
+          gAddonRailsRemoved++;
+          break;
+      }
     }
   });
 
@@ -527,6 +552,24 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       detail: "Wheels (90ct box)",
       qty: `${boxes1} Box`,
     });
+  }
+
+  // ── Section Addon Materials ─────────────────────────────────────────
+  if (gAddonDoors > 0) {
+    // Each plywood door is cut from a 3/4" plywood sheet (~2 doors per half-sheet)
+    const doorSheets = Math.ceil(gAddonDoors / 4);
+    shopping_list.push({ name: "Plywood (Doors)", detail: `${gAddonDoors} door panel${gAddonDoors > 1 ? "s" : ""}`, qty: doorSheets });
+  }
+  if (gAddonSidePanels > 0) {
+    // Each side panel is a full-height plywood sheet (1 panel per half-sheet)
+    const panelSheets = Math.ceil(gAddonSidePanels / 2);
+    shopping_list.push({ name: "Plywood (Side Panels)", detail: `${gAddonSidePanels} panel${gAddonSidePanels > 1 ? "s" : ""}`, qty: panelSheets });
+  }
+  if (gAddonHingePairs > 0) {
+    shopping_list.push({ name: "Surface Hinges", detail: "Pair (2 hinges)", qty: gAddonHingePairs });
+  }
+  if (gAddonRailsRemoved > 0) {
+    shopping_list.push({ name: "Rails Removed", detail: "Slots opened up", qty: gAddonRailsRemoved });
   }
 
   // ── Financials ────────────────────────────────────────────────────────
