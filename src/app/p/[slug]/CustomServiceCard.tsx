@@ -5,7 +5,7 @@ import { Loader2, X, ChevronRight, Wrench } from "lucide-react";
 import { submitCustomServiceLead } from "@/app/actions/submit-custom-service-lead";
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
-import type { ServiceOffering } from "@/app/actions/profile";
+import type { ServiceOffering } from "@/config/services";
 
 interface CustomServiceCardProps {
   installerId: string;

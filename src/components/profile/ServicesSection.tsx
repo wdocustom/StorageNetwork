@@ -13,11 +13,9 @@ import {
   DollarSign,
 } from "lucide-react";
 import {
-  getServicesConfig,
   updateServicesConfig,
-  DEFAULT_SERVICES,
-  type ServiceOffering,
 } from "@/app/actions/profile";
+import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Services Section — Manage service offerings shown on portfolio page

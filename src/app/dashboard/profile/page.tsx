@@ -45,7 +45,8 @@ import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 import PortfolioSection from "@/components/profile/PortfolioSection";
 import ServicesSection from "@/components/profile/ServicesSection";
-import type { PortfolioPhoto, ServiceOffering } from "@/app/actions/profile";
+import type { PortfolioPhoto } from "@/app/actions/profile";
+import type { ServiceOffering } from "@/config/services";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
