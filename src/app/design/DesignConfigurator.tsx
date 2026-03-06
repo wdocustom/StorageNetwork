@@ -10,7 +10,7 @@ import {
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
-import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
@@ -242,6 +242,14 @@ export default function DesignConfigurator({
 
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
+
+  // ── Cleanout service add-on (booked with order, not emailed) ────────
+  const [selectedCleanout, setSelectedCleanout] = useState<string | null>(null);
+  const cleanoutPrice = useMemo(() => {
+    if (!selectedCleanout || !data?.servicesConfig) return 0;
+    const svc = data.servicesConfig.find((s) => s.id === selectedCleanout);
+    return svc?.price ?? 0;
+  }, [selectedCleanout, data?.servicesConfig]);
 
   // ── Booking form ──────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState("");
@@ -512,7 +520,7 @@ export default function DesignConfigurator({
 
   const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
-  const grandTotal = buildTotal + deliveryFeeAmount;
+  const grandTotal = buildTotal + deliveryFeeAmount + cleanoutPrice;
 
   // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [depositAmount, setDepositAmount] = useState(0);
@@ -901,7 +909,14 @@ export default function DesignConfigurator({
         customer_email: email.trim(),
         customer_phone: phone.trim() || undefined,
         customer_zip: zip,
-        quote_data: orderItems.length > 0 ? orderItems : undefined,
+        quote_data: orderItems.length > 0 ? (() => {
+          const items: unknown[] = [...orderItems];
+          if (selectedCleanout && cleanoutPrice > 0) {
+            const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+            items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
+          }
+          return items;
+        })() : undefined,
       });
       if (res.success) {
         setWaitlistSent(true);
@@ -951,7 +966,19 @@ export default function DesignConfigurator({
         address_state: addrState,
         address_zip: addrZip,
         delivery_address: deliveryAddress,
-        quote_data: orderItems,
+        quote_data: (() => {
+          const items: QuoteItem[] = [...orderItems];
+          if (selectedCleanout && cleanoutPrice > 0) {
+            const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+            items.push({
+              type: "cleanout_service",
+              serviceId: selectedCleanout,
+              name: svc?.name || selectedCleanout,
+              price: cleanoutPrice,
+            });
+          }
+          return items;
+        })(),
         grand_total: grandTotal,
         installer_id: installerId || undefined,
         referring_installer_id: referringInstallerId || undefined,
@@ -1220,8 +1247,10 @@ export default function DesignConfigurator({
           waitlistError={waitlistError}
           onWaitlist={handleWaitlist}
 
-          // Installer services (cleanout upsell)
+          // Installer services (cleanout — adds to order)
           servicesConfig={data?.servicesConfig}
+          selectedCleanout={selectedCleanout}
+          onCleanoutChange={setSelectedCleanout}
 
           // Contact installer
           installerId={installerId}

@@ -25,6 +25,15 @@ export interface QuoteUnit {
   desc: string;
 }
 
+export interface CleanoutServiceItem {
+  type: "cleanout_service";
+  serviceId: string;
+  name: string;
+  price: number;
+}
+
+export type QuoteItem = QuoteUnit | CleanoutServiceItem;
+
 export interface SubmitQuoteInput {
   customer_name: string;
   customer_email: string;
@@ -35,7 +44,7 @@ export interface SubmitQuoteInput {
   address_state?: string;
   address_zip?: string;
   delivery_address?: string;
-  quote_data: QuoteUnit[];
+  quote_data: QuoteItem[];
   grand_total: number;
   installer_id?: string;
   referring_installer_id?: string; // Network Bounty: original installer who drove the traffic
@@ -88,11 +97,15 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     // All installers are eligible for referral bounties
     const referralEligible = !!input.referring_installer_id;
 
+    // Separate organizer units from service add-ons (e.g. cleanout)
+    const unitItems = input.quote_data.filter((u): u is QuoteUnit => !("type" in u));
+    const serviceItems = input.quote_data.filter((u): u is CleanoutServiceItem => "type" in u && u.type === "cleanout_service");
+
     // Build a human-readable summary for the dimensions field (backward compat)
     const dimensionsSummary = {
-      unit_count: input.quote_data.length,
+      unit_count: unitItems.length,
       grand_total: input.grand_total,
-      units: input.quote_data.map((u, i) => ({
+      units: unitItems.map((u, i) => ({
         unit: i + 1,
         cols: u.cols,
         rows: u.rows,
@@ -104,6 +117,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         height_inches: u.totalH,
         unit_price: u.price,
       })),
+      ...(serviceItems.length > 0 ? {
+        services: serviceItems.map((s) => ({ name: s.name, price: s.price })),
+      } : {}),
     };
 
     // ── Scheduling Guard: blackout dates + 3 points/day max ─────────────
@@ -124,7 +140,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         };
       }
 
-      const maxCols = Math.max(...input.quote_data.map((u) => u.cols));
+      const maxCols = Math.max(...unitItems.map((u) => u.cols), 1);
       const newJobWeight = calculateWeight(maxCols);
 
       const { data: existingJobs } = await supabase
@@ -183,7 +199,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         // Bounty is only eligible if the referring installer is a Pro subscriber
         referring_installer_id: input.referring_installer_id || null,
         bounty_status: input.referring_installer_id && referralEligible ? "pending" : "none",
-        notes: `${input.quote_data.length} unit(s) — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📍 Installation Address: ${input.delivery_address}` : ""}`,
+        notes: `${unitItems.length} unit(s)${serviceItems.length > 0 ? ` + ${serviceItems.map((s) => s.name).join(", ")}` : ""} — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📍 Installation Address: ${input.delivery_address}` : ""}`,
       })
       .select("id")
       .single();

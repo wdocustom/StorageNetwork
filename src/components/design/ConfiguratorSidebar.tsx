@@ -219,7 +219,7 @@ export interface ConfiguratorSidebarProps {
   waitlistError: string;
   onWaitlist: () => void;
 
-  // Installer services (cleanout upsell)
+  // Installer services (cleanout upsell — adds to order)
   servicesConfig?: Array<{
     id: string;
     name: string;
@@ -228,6 +228,8 @@ export interface ConfiguratorSidebarProps {
     enabled: boolean;
     built_in: boolean;
   }>;
+  selectedCleanout: string | null;
+  onCleanoutChange: (serviceId: string | null) => void;
 
   // Contact installer
   installerId: string;
@@ -1165,46 +1167,49 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Cleanout Service Upsell */}
+                {/* Cleanout Service — Add to Order */}
                 {props.installerId && !props.submitted && (() => {
                   const cleanoutServices = (props.servicesConfig ?? []).filter(
                     (s) => s.id.startsWith("cleanout_") && s.enabled && s.price != null
                   );
                   if (cleanoutServices.length === 0) return null;
                   return (
-                    <section className="rounded-xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-zinc-900/60 p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
-                          Cleanout Service
-                        </h4>
-                      </div>
-                      <p className="mb-3 text-[11px] text-zinc-400">
-                        Start fresh. We&apos;ll clear out your space before installation.
-                      </p>
-                      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(cleanoutServices.length, 3)}, 1fr)` }}>
-                        {cleanoutServices.map((svc) => {
-                          const label = svc.id === "cleanout_1car" ? "1-Car" : svc.id === "cleanout_2car" ? "2-Car" : "3+";
-                          return (
-                            <button
-                              key={svc.id}
-                              type="button"
-                              onClick={() => {
-                                const msg = `I'm interested in your ${svc.name} service ($${svc.price}) along with my tote storage order.`;
-                                props.onContactMessageChange(msg);
-                                props.onShowContactFormChange(true);
-                              }}
-                              className="group flex flex-col items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2 py-2.5 transition-all hover:border-yellow-400/40 hover:bg-zinc-800"
-                            >
-                              <span className="text-[11px] font-bold text-zinc-200 group-hover:text-white">
-                                {label}
-                              </span>
-                              <span className="text-sm font-black text-yellow-400">
-                                ${svc.price}
-                              </span>
-                            </button>
-                          );
-                        })}
+                    <section className="rounded-xl border border-yellow-400/20 bg-zinc-900/60 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Sparkles className="h-3 w-3 shrink-0 text-yellow-400" />
+                          <div className="min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+                              Cleanout
+                            </span>
+                            <p className="text-[10px] leading-tight text-zinc-500 truncate">
+                              We&apos;ll clear your space first
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {cleanoutServices.map((svc) => {
+                            const label = svc.id === "cleanout_1car" ? "1-Car" : svc.id === "cleanout_2car" ? "2-Car" : "3+";
+                            const isSelected = props.selectedCleanout === svc.id;
+                            return (
+                              <button
+                                key={svc.id}
+                                type="button"
+                                onClick={() => props.onCleanoutChange(isSelected ? null : svc.id)}
+                                className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold transition-all ${
+                                  isSelected
+                                    ? "border-yellow-400 bg-yellow-400/15 text-yellow-400"
+                                    : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:border-yellow-400/40 hover:text-zinc-200"
+                                }`}
+                              >
+                                <span>{label}</span>
+                                <span className={`font-black ${isSelected ? "text-yellow-400" : "text-zinc-300"}`}>
+                                  ${svc.price}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </section>
                   );
@@ -1674,6 +1679,17 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 +${props.deliveryFeeAmount} delivery
               </div>
             )}
+            {props.selectedCleanout && (() => {
+              const svc = (props.servicesConfig ?? []).find((s) => s.id === props.selectedCleanout);
+              if (!svc || svc.price == null) return null;
+              const label = svc.id === "cleanout_1car" ? "1-Car" : svc.id === "cleanout_2car" ? "2-Car" : "3+";
+              return (
+                <div className="flex items-center gap-1 text-[10px] text-zinc-500">
+                  <Sparkles className="h-3 w-3 text-yellow-400" />
+                  +${svc.price} cleanout ({label})
+                </div>
+              );
+            })()}
             {props.stripeAccountId && props.orderItems.length > 0 && (
               <div className="text-[10px] text-zinc-500">
                 Deposit ({props.depositLabelText}):{" "}
