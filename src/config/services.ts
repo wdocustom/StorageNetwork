@@ -40,4 +40,12 @@ export const DEFAULT_SERVICES: ServiceOffering[] = [
     enabled: true,
     built_in: true,
   },
+  {
+    id: "cleanout_3car",
+    name: "3+ Car Garage Clean Out",
+    description: "Triple bay / oversized space",
+    price: 749,
+    enabled: true,
+    built_in: true,
+  },
 ];

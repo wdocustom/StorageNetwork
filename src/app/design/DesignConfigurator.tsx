@@ -184,6 +184,7 @@ export default function DesignConfigurator({
         installer_is_pro: false,
         installer_logo_url: null,
         installer_pricing: null,
+        installer_services_config: null,
         message: "Unable to check availability.",
       });
     } finally {
@@ -269,6 +270,16 @@ export default function DesignConfigurator({
   const [contactSending, setContactSending] = useState(false);
   const [contactSent, setContactSent] = useState(false);
   const [contactError, setContactError] = useState("");
+
+  // Auto-dismiss "Message Sent" after 5 seconds
+  useEffect(() => {
+    if (!contactSent) return;
+    const timer = setTimeout(() => {
+      setContactSent(false);
+      setShowContactForm(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [contactSent]);
 
   // ── Service area validation ─────────────────────────────────────────
   const [zipOutOfArea, setZipOutOfArea] = useState(false);
@@ -1208,6 +1219,9 @@ export default function DesignConfigurator({
           waitlistSent={waitlistSent}
           waitlistError={waitlistError}
           onWaitlist={handleWaitlist}
+
+          // Installer services (cleanout upsell)
+          servicesConfig={data?.servicesConfig}
 
           // Contact installer
           installerId={installerId}

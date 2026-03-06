@@ -50,6 +50,7 @@ export function mapToDesignViewModel(
       isVerified: hasCustomBranding,
     },
     pricing: installer.installer_pricing ?? undefined,
+    servicesConfig: installer.installer_services_config ?? undefined,
     available: true,
     message: installer.message,
   };

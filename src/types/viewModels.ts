@@ -67,6 +67,16 @@ export interface DesignPageViewModel {
   /** Installer custom pricing (Pro only). Undefined = use platform defaults. */
   pricing?: InstallerPricing;
 
+  /** Installer services config (cleanout pricing, enabled services, etc.) */
+  servicesConfig?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    price: number | null;
+    enabled: boolean;
+    built_in: boolean;
+  }>;
+
   /** Availability metadata */
   available: boolean;
   message: string;

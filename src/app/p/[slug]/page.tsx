@@ -62,7 +62,8 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
   const hasToteStorage = enabledServices.some((s) => s.id === "tote_storage");
   const cleanout1car = enabledServices.find((s) => s.id === "cleanout_1car");
   const cleanout2car = enabledServices.find((s) => s.id === "cleanout_2car");
-  const hasAnyCleanout = !!cleanout1car || !!cleanout2car;
+  const cleanout3car = enabledServices.find((s) => s.id === "cleanout_3car");
+  const hasAnyCleanout = !!cleanout1car || !!cleanout2car || !!cleanout3car;
   const customServices = enabledServices.filter((s) => !s.built_in);
 
   // ── Suspended installer — show inactive overlay ──────────────────────
@@ -423,8 +424,10 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
                 installerWorkingDays={profile.working_days as string[] ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
                 price1Car={cleanout1car?.price ?? undefined}
                 price2Car={cleanout2car?.price ?? undefined}
+                price3Car={cleanout3car?.price ?? undefined}
                 show1Car={!!cleanout1car}
                 show2Car={!!cleanout2car}
+                show3Car={!!cleanout3car}
               />
             )}
 

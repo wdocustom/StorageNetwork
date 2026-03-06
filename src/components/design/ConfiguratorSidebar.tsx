@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Calendar,
   Tag,
+  Sparkles,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 
@@ -217,6 +218,16 @@ export interface ConfiguratorSidebarProps {
   waitlistSent: boolean;
   waitlistError: string;
   onWaitlist: () => void;
+
+  // Installer services (cleanout upsell)
+  servicesConfig?: Array<{
+    id: string;
+    name: string;
+    description: string;
+    price: number | null;
+    enabled: boolean;
+    built_in: boolean;
+  }>;
 
   // Contact installer
   installerId: string;
@@ -1154,24 +1165,64 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Contact Installer */}
+                {/* Cleanout Service Upsell */}
+                {props.installerId && !props.submitted && (() => {
+                  const cleanoutServices = (props.servicesConfig ?? []).filter(
+                    (s) => s.id.startsWith("cleanout_") && s.enabled && s.price != null
+                  );
+                  if (cleanoutServices.length === 0) return null;
+                  return (
+                    <section className="rounded-xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-zinc-900/60 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
+                          Cleanout Service
+                        </h4>
+                      </div>
+                      <p className="mb-3 text-[11px] text-zinc-400">
+                        Start fresh. We&apos;ll clear out your space before installation.
+                      </p>
+                      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(cleanoutServices.length, 3)}, 1fr)` }}>
+                        {cleanoutServices.map((svc) => {
+                          const label = svc.id === "cleanout_1car" ? "1-Car" : svc.id === "cleanout_2car" ? "2-Car" : "3+";
+                          return (
+                            <button
+                              key={svc.id}
+                              type="button"
+                              onClick={() => {
+                                const msg = `I'm interested in your ${svc.name} service ($${svc.price}) along with my tote storage order.`;
+                                props.onContactMessageChange(msg);
+                                props.onShowContactFormChange(true);
+                              }}
+                              className="group flex flex-col items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2 py-2.5 transition-all hover:border-yellow-400/40 hover:bg-zinc-800"
+                            >
+                              <span className="text-[11px] font-bold text-zinc-200 group-hover:text-white">
+                                {label}
+                              </span>
+                              <span className="text-sm font-black text-yellow-400">
+                                ${svc.price}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })()}
+
+                {/* Contact Installer — Custom? */}
                 {props.installerId && !props.submitted && (
-                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
                     {!props.showContactForm && !props.contactSent ? (
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-yellow-400/80">
-                            Custom layouts, unique dimensions, special materials?
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-zinc-500">
-                            We build more than what&apos;s on screen.
-                          </p>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-yellow-400/80">
+                          Custom?
+                        </span>
                         <button
                           onClick={() => props.onShowContactFormChange(true)}
-                          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-[11px] font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+                          className="flex shrink-0 items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
                         >
-                          <Mail className="h-3.5 w-3.5" />
+                          <Mail className="h-3 w-3" />
                           Email
                         </button>
                       </div>
@@ -1179,6 +1230,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center"
                       >
                         <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-400" />

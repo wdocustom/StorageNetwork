@@ -104,6 +104,8 @@ export default function ServicesSection({ userId, initialServices }: ServicesSec
         return "1-Car Garage Clean Out";
       case "cleanout_2car":
         return "2-Car Garage Clean Out";
+      case "cleanout_3car":
+        return "3+ Car Garage Clean Out";
       default:
         return id;
     }

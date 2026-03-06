@@ -5,6 +5,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 const supabase = getServiceClient();
 
 import type { InstallerPricing } from "@/types/viewModels";
+import type { ServiceOffering } from "@/config/services";
 import { recordAnonymousDemand } from "@/app/actions/demand-signals";
 import { zipCache, installerCache } from "@/lib/cache";
 
@@ -20,11 +21,12 @@ export interface AvailabilityResult {
   installer_is_pro: boolean;
   installer_logo_url: string | null;
   installer_pricing: InstallerPricing | null;
+  installer_services_config: ServiceOffering[] | null;
   message: string;
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, is_suspended";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended";
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -43,6 +45,7 @@ function toResult(
       installer_is_pro: false,
       installer_logo_url: null,
       installer_pricing: null,
+      installer_services_config: null,
       message: fallbackMsg,
     };
   }
@@ -61,6 +64,7 @@ function toResult(
     installer_is_pro: !!(data.is_pro),
     installer_logo_url: (data.logo_url as string) ?? null,
     installer_pricing: (data.pricing_config as InstallerPricing) ?? null,
+    installer_services_config: (data.services_config as ServiceOffering[]) ?? null,
     message: `${name} serves your area.`,
   };
 }

@@ -10,30 +10,36 @@ export interface CleanOutInput {
   customer_email: string;
   customer_phone: string;
   installer_id: string;
-  service_type: "1_car" | "2_car";
+  service_type: "1_car" | "2_car" | "3_car";
   add_tote_organizer: boolean;
   source?: "platform" | "partner_link";
   /** Custom price for 1-car cleanout (from installer's services_config) */
   custom_price_1car?: number;
   /** Custom price for 2-car cleanout (from installer's services_config) */
   custom_price_2car?: number;
+  /** Custom price for 3+ car cleanout (from installer's services_config) */
+  custom_price_3car?: number;
 }
 
 const DEFAULT_PRICES = {
   "1_car": 349,
   "2_car": 549,
+  "3_car": 749,
   tote_organizer: 500,
 } as const;
 
 function getCleanOutTotal(
-  serviceType: "1_car" | "2_car",
+  serviceType: "1_car" | "2_car" | "3_car",
   addToteOrganizer: boolean,
   customPrice1Car?: number,
   customPrice2Car?: number,
+  customPrice3Car?: number,
 ): number {
   const price = serviceType === "1_car"
     ? (customPrice1Car ?? DEFAULT_PRICES["1_car"])
-    : (customPrice2Car ?? DEFAULT_PRICES["2_car"]);
+    : serviceType === "2_car"
+    ? (customPrice2Car ?? DEFAULT_PRICES["2_car"])
+    : (customPrice3Car ?? DEFAULT_PRICES["3_car"]);
   return price + (addToteOrganizer ? DEFAULT_PRICES.tote_organizer : 0);
 }
 
@@ -59,11 +65,14 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
     input.add_tote_organizer,
     input.custom_price_1car,
     input.custom_price_2car,
+    input.custom_price_3car,
   );
   const servicePrice = input.service_type === "1_car"
     ? (input.custom_price_1car ?? DEFAULT_PRICES["1_car"])
-    : (input.custom_price_2car ?? DEFAULT_PRICES["2_car"]);
-  const serviceLabel = input.service_type === "1_car" ? "1-Car Garage" : "2-Car Garage";
+    : input.service_type === "2_car"
+    ? (input.custom_price_2car ?? DEFAULT_PRICES["2_car"])
+    : (input.custom_price_3car ?? DEFAULT_PRICES["3_car"]);
+  const serviceLabel = input.service_type === "1_car" ? "1-Car Garage" : input.service_type === "2_car" ? "2-Car Garage" : "3+ Car Garage";
 
   try {
     const depositAmount = await getDepositAmount(totalPrice, input.installer_id);
