@@ -15,6 +15,7 @@ import {
   Package,
   Phone,
   Ruler,
+  Trash2,
   TrendingUp,
   Upload,
   X,
@@ -39,7 +40,7 @@ import { getNetProfit, type NetProfitResult } from "@/app/actions/fee-engine";
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
-import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual } from "@/app/actions/jobs";
+import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -104,6 +105,8 @@ export default function JobTicket({
   const [scheduling, setScheduling] = useState(false);
   const [manualPayMethod, setManualPayMethod] = useState("cash");
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Cut List Checkbox State (persisted to localStorage) ────────────────
@@ -411,6 +414,18 @@ export default function JobTicket({
     }
   }
 
+  // ── Delete unpaid quote ─────────────────────────────────────────────
+  async function handleDeleteQuote() {
+    setDeleting(true);
+    const result = await deleteUnpaidQuote(leadId);
+    setDeleting(false);
+    if (result.success) {
+      setShowDeleteConfirm(false);
+      // Navigate back to leads list
+      window.location.href = "/dashboard/leads";
+    }
+  }
+
   return (
     <section className="space-y-4">
       {/* ── Source + Fee Badge ────────────────────────────────────── */}
@@ -596,6 +611,22 @@ export default function JobTicket({
                   </p>
                 </div>
               </button>
+
+              {/* Delete Quote */}
+              <div className="border-t border-slate-700 pt-2">
+                <button
+                  onClick={() => { setShowGetPaidMenu(false); setShowDeleteConfirm(true); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-red-500/10"
+                >
+                  <Trash2 className="h-5 w-5 text-red-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-400">Delete Quote</p>
+                    <p className="text-[11px] text-stone-500">
+                      Permanently remove this unpaid quote
+                    </p>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1342,6 +1373,57 @@ export default function JobTicket({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ─────────────────────────────────── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-bold text-red-400">Delete Quote</h3>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5">
+              <p className="text-sm text-stone-300">
+                Are you sure you want to delete this quote for <span className="font-bold text-white">{customerName}</span>?
+              </p>
+              {totalPrice > 0 && (
+                <div className="rounded-lg bg-slate-800 px-3 py-2 text-center">
+                  <span className="text-xs text-stone-500">Quote total: </span>
+                  <span className="text-sm font-bold text-white">{fmt(totalPrice)}</span>
+                </div>
+              )}
+              <p className="text-xs text-stone-500">
+                This action cannot be undone. The quote will be permanently removed.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-stone-300 transition-colors hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteQuote}
+                  disabled={deleting}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-red-400 disabled:opacity-50"
+                >
+                  {deleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>

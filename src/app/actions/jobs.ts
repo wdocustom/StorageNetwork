@@ -309,3 +309,46 @@ export async function scheduleJob(
   console.log(`[ScheduleJob] Lead ${leadId} scheduled for ${date}`);
   return { success: true };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// deleteUnpaidQuote — Permanently delete an unpaid quote (pending_payment)
+// Only works on leads that have never had a deposit paid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function deleteUnpaidQuote(
+  leadId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  // Safety check: only delete leads that are pending_payment and never had deposit paid
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("status, deposit_paid")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) {
+    return { success: false, error: "Quote not found." };
+  }
+
+  if (lead.deposit_paid) {
+    return { success: false, error: "Cannot delete a quote that has a deposit paid." };
+  }
+
+  if (lead.status !== "pending_payment") {
+    return { success: false, error: "Can only delete unpaid quotes." };
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .delete()
+    .eq("id", leadId);
+
+  if (error) {
+    console.error("[DeleteUnpaidQuote] DB error:", error);
+    return { success: false, error: "Failed to delete quote." };
+  }
+
+  console.log(`[DeleteUnpaidQuote] Lead ${leadId} deleted`);
+  return { success: true };
+}

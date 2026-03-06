@@ -7,7 +7,10 @@ import {
   Briefcase,
   ChevronRight,
   Loader2,
+  Trash2,
+  X,
 } from "lucide-react";
+import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 // TODO: Re-enable calendar after fixing re-render issues
@@ -242,7 +245,7 @@ export default function LeadsListPage() {
           /* ── Flat list for unpaid quotes ────────────────────────────── */
           <ul className="space-y-3">
             {filtered.map((lead) => (
-              <JobCard key={lead.id} lead={lead} />
+              <JobCard key={lead.id} lead={lead} showDelete onDelete={fetchLeads} />
             ))}
           </ul>
         ) : tab === "active" && grouped ? (
@@ -290,55 +293,109 @@ export default function LeadsListPage() {
 // JobCard Component — Single lead row
 // ═══════════════════════════════════════════════════════════════════════════
 
-function JobCard({ lead }: { lead: LeadItem }) {
+function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: boolean; onDelete?: () => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    const result = await deleteUnpaidQuote(lead.id);
+    setDeleting(false);
+    if (result.success) {
+      setConfirmDelete(false);
+      onDelete?.();
+    }
+  }
+
   return (
-    <a
-      href={`/dashboard/leads/${lead.id}`}
-      className="group block rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-slate-700 active:scale-[0.99]"
-    >
-      {/* Top row: name + source badge */}
-      <div className="flex items-start justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold text-white">
-            {lead.customer_name}
-          </p>
-          {lead.address && (
-            <p className="mt-0.5 truncate text-sm text-stone-500">
-              {lead.address}
+    <li className="group relative rounded-xl border border-slate-800 bg-slate-900 transition-all hover:border-slate-700">
+      {/* Delete confirmation overlay */}
+      {confirmDelete && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-900/95 backdrop-blur-sm">
+          <div className="text-center">
+            <p className="mb-3 text-sm font-bold text-red-400">Delete this quote?</p>
+            <p className="mb-4 text-xs text-stone-400">
+              {lead.customer_name} — ${lead.estimated_price?.toLocaleString() ?? "0"}
             </p>
-          )}
-        </div>
-        <SourceBadge source={lead.source} />
-      </div>
-
-      {/* Bottom row: revenue + badge + date */}
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {lead.estimated_price ? (
-            <span className="text-lg font-bold text-yellow-400">
-              ${lead.estimated_price.toLocaleString()}
-            </span>
-          ) : (
-            <span className="text-sm text-stone-500">No quote</span>
-          )}
-          <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
-        </div>
-        <div className="flex items-center gap-1 text-xs text-stone-500">
-          {new Date(lead.created_at).toLocaleDateString()}
-          <ChevronRight className="h-3 w-3 transition-colors group-hover:text-yellow-400" />
-        </div>
-      </div>
-
-      {/* Collect amount hint */}
-      {lead.balance_due && lead.balance_due > 0 && (
-        <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
-          Collect on completion:{" "}
-          <span className="text-white">
-            ${lead.balance_due.toLocaleString()}
-          </span>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-400 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </a>
+
+      <a
+        href={`/dashboard/leads/${lead.id}`}
+        className="block p-4 active:scale-[0.99]"
+      >
+        {/* Top row: name + source badge */}
+        <div className="flex items-start justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-bold text-white">
+              {lead.customer_name}
+            </p>
+            {lead.address && (
+              <p className="mt-0.5 truncate text-sm text-stone-500">
+                {lead.address}
+              </p>
+            )}
+          </div>
+          <SourceBadge source={lead.source} />
+        </div>
+
+        {/* Bottom row: revenue + badge + date */}
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {lead.estimated_price ? (
+              <span className="text-lg font-bold text-yellow-400">
+                ${lead.estimated_price.toLocaleString()}
+              </span>
+            ) : (
+              <span className="text-sm text-stone-500">No quote</span>
+            )}
+            <StatusBadge status={lead.status} depositPaid={lead.deposit_paid} />
+          </div>
+          <div className="flex items-center gap-1 text-xs text-stone-500">
+            {new Date(lead.created_at).toLocaleDateString()}
+            <ChevronRight className="h-3 w-3 transition-colors group-hover:text-yellow-400" />
+          </div>
+        </div>
+
+        {/* Collect amount hint */}
+        {lead.balance_due && lead.balance_due > 0 && (
+          <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
+            Collect on completion:{" "}
+            <span className="text-white">
+              ${lead.balance_due.toLocaleString()}
+            </span>
+          </div>
+        )}
+      </a>
+
+      {/* Delete button for unpaid quotes */}
+      {showDelete && (
+        <button
+          onClick={(e) => { e.preventDefault(); setConfirmDelete(true); }}
+          className="absolute right-3 top-3 rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          title="Delete quote"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </li>
   );
 }
 
