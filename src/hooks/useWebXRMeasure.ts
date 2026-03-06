@@ -119,7 +119,7 @@ export function useWebXRMeasure(): UseWebXRMeasureReturn {
         const hitTestSource = await session.requestHitTestSource!({
           space: viewerSpace,
         });
-        hitTestSourceRef.current = hitTestSource;
+        hitTestSourceRef.current = hitTestSource ?? null;
 
         // Frame loop — keep the session alive and track hit results
         const onFrame = (_time: number, frame: XRFrame) => {

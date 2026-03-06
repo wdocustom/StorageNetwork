@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
-import { MeshStandardMaterial, Color, Group, Vector3 } from "three";
+import { Group, Vector3 } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
@@ -65,14 +65,6 @@ const MIN_FIRST_RAIL_Y = 13; // First rail at 13" from bottom of upright
 // ═══════════════════════════════════════════════════════════════════════════
 // MATERIALS
 // ═══════════════════════════════════════════════════════════════════════════
-
-function makeMat(color: string, roughness: number, metalness: number) {
-  return new MeshStandardMaterial({
-    color: new Color(color),
-    roughness,
-    metalness,
-  });
-}
 
 const PINE_MAT = createDougFirMaterial(42);
 const PLYWOOD_MAT = createPlywoodMaterial(137);

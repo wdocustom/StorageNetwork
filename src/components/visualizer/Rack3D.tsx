@@ -3,7 +3,7 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
-import { MeshStandardMaterial, Color, BufferGeometry, BufferAttribute, DoubleSide } from "three";
+import { BufferGeometry, BufferAttribute, DoubleSide } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial } from "./woodTextures";
 
