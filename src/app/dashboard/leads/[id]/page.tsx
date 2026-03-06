@@ -9,14 +9,19 @@ import {
   ArrowLeft,
   CheckCircle2,
   Loader2,
+  Mail,
   MapPin,
   Navigation,
   AlertCircle,
+  Pencil,
+  Phone,
+  X,
 } from "lucide-react";
 import JobTicket from "@/components/dashboard/JobTicket";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { startTripNotify } from "@/app/actions/sms";
+import { updateCustomerContact } from "@/app/actions/jobs";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -79,6 +84,12 @@ export default function JobTicketPage() {
   const [tripSending, setTripSending] = useState(false);
   const [tripSent, setTripSent] = useState(false);
   const [tripError, setTripError] = useState("");
+
+  // Customer contact editing popup
+  const [showContactEdit, setShowContactEdit] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [contactSaving, setContactSaving] = useState(false);
 
   const fetchLead = useCallback(async () => {
     // Check if user is logged in
@@ -153,6 +164,25 @@ export default function JobTicketPage() {
     setTripSending(false);
   }
 
+  function openContactEdit() {
+    setEditEmail(lead?.customer_email || "");
+    setEditPhone(lead?.customer_phone || "");
+    setShowContactEdit(true);
+  }
+
+  async function handleSaveContact() {
+    setContactSaving(true);
+    const result = await updateCustomerContact(leadId, {
+      email: editEmail || null,
+      phone: editPhone || null,
+    });
+    setContactSaving(false);
+    if (result.success) {
+      setShowContactEdit(false);
+      fetchLead(); // refresh data
+    }
+  }
+
   // ── Loading / Error ───────────────────────────────────────────────────
   if (loading) {
     return (
@@ -204,23 +234,46 @@ export default function JobTicketPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Customer Info ──────────────────────────────────────────── */}
-        <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-500">
-            Customer
-          </h2>
+        {/* ── Customer Info (clickable to edit contact) ────────────── */}
+        <section
+          onClick={openContactEdit}
+          className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900 p-4 transition-colors hover:border-yellow-400/40"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">
+              Customer
+            </h2>
+            <Pencil className="h-3.5 w-3.5 text-stone-600" />
+          </div>
           <p className="text-lg font-bold text-white">{lead.customer_name}</p>
-          {lead.customer_email && (
-            <p className="text-sm text-stone-400">{lead.customer_email}</p>
+          {lead.customer_email ? (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
+              <Mail className="h-3 w-3 text-stone-500" />
+              {lead.customer_email}
+            </p>
+          ) : (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
+              <Mail className="h-3 w-3" />
+              No email — tap to add
+            </p>
           )}
-          {lead.customer_phone && (
-            <p className="text-sm text-stone-400">{lead.customer_phone}</p>
+          {lead.customer_phone ? (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
+              <Phone className="h-3 w-3 text-stone-500" />
+              {lead.customer_phone}
+            </p>
+          ) : (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
+              <Phone className="h-3 w-3" />
+              No phone — tap to add
+            </p>
           )}
           {lead.address ? (
             <a
               href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-yellow-400 hover:text-yellow-300"
             >
               <MapPin className="h-3 w-3" />
@@ -250,6 +303,7 @@ export default function JobTicketPage() {
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-1 text-sm font-semibold text-white hover:text-emerald-300"
               >
                 <Navigation className="h-3 w-3 text-emerald-400" />
@@ -266,6 +320,80 @@ export default function JobTicketPage() {
             Submitted {new Date(lead.created_at).toLocaleDateString()}
           </p>
         </section>
+
+        {/* ── Customer Contact Edit Modal ─────────────────────────────── */}
+        {showContactEdit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                  Edit Contact Info
+                </h3>
+                <button
+                  onClick={() => setShowContactEdit(false)}
+                  className="rounded-lg p-1 text-stone-500 hover:bg-slate-800 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <p className="mb-4 text-sm font-semibold text-stone-300">
+                {lead.customer_name}
+              </p>
+
+              {/* Email */}
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">
+                Email
+              </label>
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
+                <Mail className="h-4 w-4 shrink-0 text-stone-500" />
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="customer@email.com"
+                  className="w-full bg-transparent text-sm text-white placeholder-stone-600 outline-none"
+                />
+              </div>
+
+              {/* Phone */}
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">
+                Phone
+              </label>
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
+                <Phone className="h-4 w-4 shrink-0 text-stone-500" />
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="w-full bg-transparent text-sm text-white placeholder-stone-600 outline-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowContactEdit(false)}
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveContact}
+                  disabled={contactSaving}
+                  className="flex-1 rounded-lg bg-yellow-400 py-2.5 text-xs font-black uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {contactSaving ? (
+                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Start Trip & Notify Customer — temporarily disabled ──────
         {lead.deposit_paid &&

@@ -352,3 +352,54 @@ export async function deleteUnpaidQuote(
   console.log(`[DeleteUnpaidQuote] Lead ${leadId} deleted`);
   return { success: true };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// updateCustomerContact — Update customer email/phone from the job ticket
+// Updates both the leads table and the linked customers record.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function updateCustomerContact(
+  leadId: string,
+  data: { email?: string | null; phone?: string | null }
+): Promise<{ success: boolean; error?: string }> {
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  const normalizedEmail = data.email?.trim().toLowerCase() || null;
+  const normalizedPhone = data.phone?.trim() || null;
+
+  // Update the lead record
+  const leadUpdate: Record<string, unknown> = {};
+  if (data.email !== undefined) leadUpdate.customer_email = normalizedEmail;
+  if (data.phone !== undefined) leadUpdate.customer_phone = normalizedPhone;
+
+  const { error: leadError } = await supabase
+    .from("leads")
+    .update(leadUpdate)
+    .eq("id", leadId);
+
+  if (leadError) {
+    console.error("[UpdateCustomerContact] Lead update error:", leadError);
+    return { success: false, error: "Failed to update contact info." };
+  }
+
+  // Also update the linked customers record if one exists
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("customer_id")
+    .eq("id", leadId)
+    .single();
+
+  if (lead?.customer_id) {
+    const customerUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (data.email !== undefined) customerUpdate.email = normalizedEmail;
+    if (data.phone !== undefined) customerUpdate.phone = normalizedPhone;
+
+    await supabase
+      .from("customers")
+      .update(customerUpdate)
+      .eq("id", lead.customer_id);
+  }
+
+  console.log(`[UpdateCustomerContact] Lead ${leadId} contact updated`);
+  return { success: true };
+}
