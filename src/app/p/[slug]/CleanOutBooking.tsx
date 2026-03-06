@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, X, ChevronRight, Check, Plus } from "lucide-react";
+import { Loader2, X, ChevronRight, Check, Plus, Info } from "lucide-react";
 import { submitCleanOutLead } from "@/app/actions/submit-cleanout-lead";
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
@@ -58,6 +58,9 @@ export default function CleanOutBooking({
   const [totalPrice, setTotalPrice] = useState(0);
   const [depositAmount, setDepositAmount] = useState(0);
   const [showBookingModal, setShowBookingModal] = useState(false);
+
+  // Service info panel state
+  const [showServiceInfo, setShowServiceInfo] = useState(false);
 
   function handleOpen() {
     setIsOpen(true);
@@ -136,25 +139,200 @@ export default function CleanOutBooking({
   return (
     <>
       {/* Trigger button */}
-      <button
-        onClick={handleOpen}
-        className="group flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-700/60 bg-[#0d1220] p-5 text-left transition-all hover:border-yellow-400/30 hover:bg-[#111827] sm:flex-row sm:items-start"
-      >
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
-          <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819" />
-          </svg>
-        </div>
-        <div className="flex-1 text-center sm:text-left">
-          <h3 className="text-sm font-black uppercase tracking-wide text-white">
-            Garage / Basement Clean Out
-          </h3>
-          <p className="mt-1 text-xs text-stone-400">
-            We come, haul it away. Starting at {formatCurrency(Math.min(show1Car ? price1Car : Infinity, show2Car ? price2Car : Infinity, show3Car ? price3Car : Infinity))}.
-          </p>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-0.5 group-hover:text-yellow-400" />
-      </button>
+      <div className="relative">
+        <button
+          onClick={handleOpen}
+          className="group flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-700/60 bg-[#0d1220] p-5 text-left transition-all hover:border-yellow-400/30 hover:bg-[#111827] sm:flex-row sm:items-start"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
+            <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819" />
+            </svg>
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <h3 className="text-sm font-black uppercase tracking-wide text-white">
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowServiceInfo(!showServiceInfo);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setShowServiceInfo(!showServiceInfo);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 border-b border-dashed border-stone-600 transition-colors hover:border-yellow-400 hover:text-yellow-400"
+              >
+                Garage / Basement Clean Out
+                <Info className="inline h-3.5 w-3.5 text-stone-500" />
+              </span>
+            </h3>
+            <p className="mt-1 text-xs text-stone-400">
+              We come, haul it away. Starting at {formatCurrency(Math.min(show1Car ? price1Car : Infinity, show2Car ? price2Car : Infinity, show3Car ? price3Car : Infinity))}.
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-stone-600 transition-transform group-hover:translate-x-0.5 group-hover:text-yellow-400" />
+        </button>
+
+        {/* Service Info Overlay */}
+        {showServiceInfo && (
+          <div
+            className="absolute left-0 right-0 top-full z-40 mt-2 rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-bold text-white">Cleanout Service Details</h3>
+              <button
+                onClick={() => setShowServiceInfo(false)}
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto scrollbar-dark px-5 py-5">
+              <div className="prose prose-invert prose-stone max-w-none">
+                {/* Overview */}
+                <section className="mb-6">
+                  <p className="text-sm text-stone-300 leading-relaxed">
+                    Our Garage &amp; Basement Clean Out service provides a professional crew to clear,
+                    sort, and haul away unwanted items from your space. Pricing is based on typical
+                    garage sizes and may vary based on on-site conditions.
+                  </p>
+                </section>
+
+                {/* Service Tiers */}
+                <section className="mb-6">
+                  <h4 className="mb-3 text-sm font-bold text-yellow-400">Service Tiers</h4>
+                  <div className="space-y-3">
+                    {show1Car && (
+                      <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-bold text-white">1-Car Garage</h5>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price1Car)}</span>
+                        </div>
+                        <ul className="mt-2 space-y-1 text-xs text-stone-400">
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Single-bay garage or small basement area
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Covers removal of standard household items and debris
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Typically up to approximately 200 sq ft of cluttered space
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {show2Car && (
+                      <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-bold text-white">2-Car Garage</h5>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price2Car)}</span>
+                        </div>
+                        <ul className="mt-2 space-y-1 text-xs text-stone-400">
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Double-bay garage or larger basement area
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Covers removal of standard household items and debris
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Typically up to approximately 400 sq ft of cluttered space
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {show3Car && (
+                      <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-bold text-white">3+ Car Garage</h5>
+                          <span className="text-sm font-black text-yellow-400">Starting at {formatCurrency(price3Car)}</span>
+                        </div>
+                        <ul className="mt-2 space-y-1 text-xs text-stone-400">
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Triple-bay garage or oversized storage space
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Covers removal of standard household items and debris
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-0.5 text-stone-600">&bull;</span>
+                            Spaces exceeding 400 sq ft; final scope confirmed on-site
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* What's Included */}
+                <section className="mb-6">
+                  <h4 className="mb-3 text-sm font-bold text-yellow-400">What&apos;s Included</h4>
+                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-stone-300">
+                    <li>Professional crew to clear and load items</li>
+                    <li>Hauling and disposal of standard household items</li>
+                    <li>Basic sweep of the cleared area</li>
+                    <li>Same-day service availability (subject to scheduling)</li>
+                  </ul>
+                </section>
+
+                {/* Important Notes */}
+                <section className="mb-6">
+                  <h4 className="mb-3 text-sm font-bold text-yellow-400">Important Notes</h4>
+                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-stone-300">
+                    <li>
+                      <strong className="text-white">Pricing is a starting estimate.</strong>{" "}
+                      Final cost may vary depending on volume, weight, and type of materials.
+                      Your installer will confirm final pricing on-site before work begins.
+                    </li>
+                    <li>
+                      <strong className="text-white">Hazardous materials</strong> (paint, chemicals,
+                      batteries, etc.) are not included and may require specialized disposal.
+                    </li>
+                    <li>
+                      <strong className="text-white">Heavy or specialty items</strong> (hot tubs,
+                      pianos, large appliances, concrete) may incur additional fees.
+                    </li>
+                    <li>
+                      Accessibility and site conditions (stairs, narrow pathways, etc.) may
+                      affect final pricing.
+                    </li>
+                  </ul>
+                </section>
+
+                {/* Deposit & Payment */}
+                <section>
+                  <h4 className="mb-3 text-sm font-bold text-yellow-400">Deposit &amp; Payment</h4>
+                  <ul className="list-disc pl-5 space-y-1.5 text-xs text-stone-300">
+                    <li>A 15% deposit is required to reserve your date.</li>
+                    <li>Remaining balance is due upon completion of the cleanout.</li>
+                    <li>
+                      Cancellations made more than 48 hours before the scheduled date are
+                      eligible for a full deposit refund.
+                    </li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Selection / Info Modal */}
       {isOpen && (
