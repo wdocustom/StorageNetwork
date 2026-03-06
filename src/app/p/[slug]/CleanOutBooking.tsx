@@ -402,6 +402,7 @@ export default function CleanOutBooking({
           installerLeadTime={installerLeadTime}
           installerWorkingDays={installerWorkingDays}
           totalCols={0}
+          taxableAmount={addOrganizer ? TOTE_ORGANIZER_PRICE : 0}
         />
       )}
     </>

@@ -250,6 +250,7 @@ export default function CustomServiceCard({
           installerLeadTime={installerLeadTime}
           installerWorkingDays={installerWorkingDays}
           totalCols={0}
+          taxableAmount={0}
         />
       )}
     </>

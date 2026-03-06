@@ -66,6 +66,10 @@ interface BookingModalProps {
   installerWorkingDays?: string[];
   hasWheels?: boolean;
   totalCols?: number;
+  /** The portion of totalPrice that is subject to sales tax.
+   *  Defaults to totalPrice (full tax). Pass 0 for tax-exempt services.
+   *  For cleanouts with a tote organizer, pass only the organizer price. */
+  taxableAmount?: number;
   initialAddress?: Partial<BookingAddress>;
   initialScheduledDate?: string | null;
   initialDiscount?: { code: string; amount: number } | null;
@@ -86,6 +90,7 @@ export default function BookingModal({
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
   hasWheels = false,
   totalCols = 1,
+  taxableAmount,
   initialAddress,
   initialScheduledDate,
   initialDiscount,
@@ -149,14 +154,23 @@ export default function BookingModal({
   }, [grandTotalWithDelivery, installerId]);
 
   // Sales tax — computed server-side (tax rates stay in the black box)
+  // taxableAmount controls what portion of the price is taxed:
+  //   - undefined → full totalPrice (default for tote builds)
+  //   - 0 → tax-exempt (cleanouts, custom services without organizer)
+  //   - specific amount → only that portion taxed (e.g. organizer add-on)
+  const effectiveTaxable = taxableAmount ?? totalPrice;
   const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
   useEffect(() => {
     if (!address.state || address.state.length !== 2) {
       setTaxInfo(null);
       return;
     }
-    getSalesTax(totalPrice, address.state).then(setTaxInfo);
-  }, [totalPrice, address.state]);
+    if (effectiveTaxable <= 0) {
+      setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: address.state });
+      return;
+    }
+    getSalesTax(effectiveTaxable, address.state).then(setTaxInfo);
+  }, [effectiveTaxable, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;

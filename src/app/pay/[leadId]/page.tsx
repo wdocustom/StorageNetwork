@@ -146,6 +146,23 @@ export default function ResumePaymentPage() {
     loadLead();
   }, [leadId]);
 
+  // Determine taxable amount from quote_data:
+  // - Cleanout / custom service items are tax-exempt (labor services)
+  // - Tote organizer add-ons ARE taxable (physical product)
+  // - Regular tote builds (no cleanout/custom_service toteType) are fully taxable
+  const taxableAmount = (() => {
+    if (!lead) return 0;
+    const units = Array.isArray(lead.quote_data) ? lead.quote_data : [];
+    const hasServiceItem = units.some(
+      (u: any) => u.toteType === "cleanout" || u.toteType === "custom_service"
+    );
+    if (!hasServiceItem) return lead.estimated_price; // regular tote build — fully taxable
+    // Service order: only tax tote organizer add-ons (physical product)
+    return units
+      .filter((u: any) => u.toteType !== "cleanout" && u.toteType !== "custom_service")
+      .reduce((sum: number, u: any) => sum + (u.price || 0), 0);
+  })();
+
   // Sales tax — computed server-side (tax rates stay in the black box)
   const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
   useEffect(() => {
@@ -153,8 +170,12 @@ export default function ResumePaymentPage() {
       setTaxInfo(null);
       return;
     }
-    getSalesTax(lead.estimated_price, address.state).then(setTaxInfo);
-  }, [lead, address.state]);
+    if (taxableAmount <= 0) {
+      setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: address.state });
+      return;
+    }
+    getSalesTax(taxableAmount, address.state).then(setTaxInfo);
+  }, [lead, taxableAmount, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;
