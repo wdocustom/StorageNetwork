@@ -50,15 +50,15 @@ export function createDougFirCanvas(
   const ctx = canvas.getContext("2d")!;
   const rand = seededRandom(seed);
 
-  // Base color — warm doug-fir heartwood (honey-amber)
-  ctx.fillStyle = "#C4985A";
+  // Base color — light doug-fir heartwood (pale honey)
+  ctx.fillStyle = "#D4B87A";
   ctx.fillRect(0, 0, width, height);
 
   // Subtle heartwood color variation (wider warm/cool bands)
   for (let i = 0; i < 6; i++) {
     const y = rand() * height;
     const bandH = 40 + rand() * 100;
-    const hue = rand() > 0.5 ? "rgba(180, 130, 60," : "rgba(210, 160, 90,";
+    const hue = rand() > 0.5 ? "rgba(190, 160, 100," : "rgba(215, 190, 130,";
     const grad = ctx.createLinearGradient(0, y, 0, y + bandH);
     grad.addColorStop(0, hue + "0)");
     grad.addColorStop(0.5, hue + "0.15)");
@@ -183,7 +183,7 @@ export function createPlywoodCanvas(
   const rand = seededRandom(seed);
 
   // Base — lighter birch/pine veneer typical of construction ply
-  ctx.fillStyle = "#BFA06A";
+  ctx.fillStyle = "#CCBA84";
   ctx.fillRect(0, 0, width, height);
 
   // Veneer sheet patches — plywood face has glued veneer sheets with
@@ -285,7 +285,7 @@ export function createPlywoodEdgeCanvas(
   const rand = seededRandom(seed);
 
   // Base
-  ctx.fillStyle = "#B89558";
+  ctx.fillStyle = "#C8AA72";
   ctx.fillRect(0, 0, width, height);
 
   // Alternating ply layers (typically 5-7 for 3/4" plywood)
@@ -365,7 +365,7 @@ export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
     ...(bumpTexture ? { bumpMap: bumpTexture, bumpScale: 0.3 } : {}),
     roughness: 0.78,
     metalness: 0.0,
-    color: new Color("#DDBC82"),
+    color: new Color("#E8D4A8"),
   });
 }
 
@@ -386,7 +386,7 @@ export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
     map: texture,
     roughness: 0.55,
     metalness: 0.0,
-    color: new Color("#D4B078"),
+    color: new Color("#E0C898"),
   });
 }
 
@@ -407,7 +407,7 @@ export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
     map: texture,
     roughness: 0.5,
     metalness: 0.0,
-    color: new Color("#E0C498"),
+    color: new Color("#EAD8B0"),
   });
 }
 
