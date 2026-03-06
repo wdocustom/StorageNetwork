@@ -631,10 +631,11 @@ function RackAssembly({
           {hasTop && (() => {
             const hasLeftPanel = addons?.some((a) => a.type === "side_panel" && a.target === "left");
             const hasRightPanel = addons?.some((a) => a.type === "side_panel" && a.target === "right");
-            const leftExt = hasLeftPanel ? RAIL_THICKNESS : 0;  // 3/4" extension
-            const rightExt = hasRightPanel ? RAIL_THICKNESS : 0; // 3/4" extension
-            const topW = totalW + leftExt + rightExt;
-            const topCenterX = totalW / 2 + (rightExt - leftExt) / 2;
+            // Left panel is at +X side, right panel at -X side (front-facing convention)
+            const posXExt = hasLeftPanel ? RAIL_THICKNESS : 0;   // +X extension for left panel
+            const negXExt = hasRightPanel ? RAIL_THICKNESS : 0;  // -X extension for right panel
+            const topW = totalW + posXExt + negXExt;
+            const topCenterX = totalW / 2 + (posXExt - negXExt) / 2;
 
             return (
               <mesh

@@ -689,7 +689,7 @@ function OrganizerCustomization({
                                   onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
                                 />
                               )}
-                              {showShelf && (
+                              {showShelf && activeCell.row < rows - 1 && (
                                 <AddonToggleBtn
                                   icon={<Layers className="h-3.5 w-3.5" />}
                                   label="Add Shelf"
