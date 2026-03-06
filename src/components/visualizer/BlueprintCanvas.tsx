@@ -223,27 +223,34 @@ export default function BlueprintCanvas({
           ctx.lineWidth = 2;
         }
 
-        // Door annotation — dashed rectangle at front of bay
-        const hasDoor = unitAddons?.some(
-          (a) => a.type === "plywood_door" && a.target === c && (a.row === undefined || a.row === r)
-        );
-        if (hasDoor) {
-          ctx.save();
-          ctx.strokeStyle = "#d97706";
-          ctx.lineWidth = 2;
-          ctx.setLineDash([4, 3]);
-          const doorW = pBay - 4;
-          const doorH = RENDER_TIER * scale * 0.8;
-          const doorX = bayLeftX + (pBay - doorW) / 2;
-          const doorY = railY - doorH * 0.1;
-          ctx.strokeRect(doorX, doorY, doorW, doorH);
-          // Small "D" label
-          ctx.fillStyle = "#d97706";
-          ctx.font = `bold ${Math.max(8, Math.round(scale * 3))}px Arial`;
-          ctx.textAlign = "center";
-          ctx.fillText("D", doorX + doorW / 2, doorY + doorH / 2 + 3);
-          ctx.setLineDash([]);
-          ctx.restore();
+        // Door annotation — only drawn once per column (r === 0) when doors_on is active
+        // Full-height column doors: one door per column spanning all rows
+        if (r === 0) {
+          const hasDoors = unitAddons?.some(
+            (a) => a.type === "plywood_door" && a.target === "doors_on"
+          );
+          if (hasDoors) {
+            ctx.save();
+            ctx.strokeStyle = "#d97706";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            const doorW = pBay + 2; // slightly larger than opening
+            const panelTop = isMini ? startY : startY + pPlate;
+            const panelBot = isMini ? startY + pFrameH - pPlate : startY + pFrameH - pPlate;
+            const doorH = panelBot - panelTop;
+            const doorX = bayLeftX + (pBay - doorW) / 2;
+            const doorY = panelTop;
+            ctx.fillStyle = "rgba(217, 119, 6, 0.08)";
+            ctx.fillRect(doorX, doorY, doorW, doorH);
+            ctx.strokeRect(doorX, doorY, doorW, doorH);
+            // "DOOR" label
+            ctx.fillStyle = "#d97706";
+            ctx.font = `bold ${Math.max(8, Math.round(scale * 3))}px Arial`;
+            ctx.textAlign = "center";
+            ctx.fillText("DOOR", doorX + doorW / 2, doorY + doorH / 2 + 3);
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
         }
       }
     }

@@ -242,7 +242,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [addonToggles, setAddonToggles] = useState<Record<string, boolean>>({
     plywood_door_enabled: true,
     side_panel_enabled: true,
-    hinge_surface_enabled: true,
+    hinge_concealed_enabled: true,
     rail_removal_enabled: true,
   });
 
@@ -263,7 +263,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       if (ap) {
         setAddonEnabled(ap.organizer_customization_enabled !== false);
         const loadedAddon: Record<string, string> = {};
-        for (const k of ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const) {
+        for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal"] as const) {
           const v = ap[k];
           loadedAddon[k] = v !== undefined && v !== null ? String(v) : "";
         }
@@ -271,7 +271,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         setAddonToggles({
           plywood_door_enabled: ap.plywood_door_enabled !== false,
           side_panel_enabled: ap.side_panel_enabled !== false,
-          hinge_surface_enabled: ap.hinge_surface_enabled !== false,
+          hinge_concealed_enabled: ap.hinge_concealed_enabled !== false,
           rail_removal_enabled: ap.rail_removal_enabled !== false,
         });
       }
@@ -316,7 +316,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       organizer_customization_enabled: addonEnabled,
       ...addonToggles,
     } as AddonPricing;
-    for (const k of ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const) {
+    for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal"] as const) {
       const v = addonValues[k];
       if (v !== undefined && v !== "") {
         (addonPricing as Record<string, unknown>)[k] = Number(v);
@@ -354,7 +354,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setAddonToggles({
         plywood_door_enabled: true,
         side_panel_enabled: true,
-        hinge_surface_enabled: true,
+        hinge_concealed_enabled: true,
         rail_removal_enabled: true,
       });
       setMessage("Pricing reset to platform defaults.");
@@ -559,11 +559,11 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
 
             {/* Per-addon items (greyed out when master is disabled) */}
             <div className={!addonEnabled ? "opacity-40 pointer-events-none" : ""}>
-              {/* Plywood Door */}
+              {/* Plywood Door — per-door price (installer-facing) */}
               <AddonPricingRow
                 icon={<DoorOpen className="h-4 w-4 text-amber-400" />}
                 label="Plywood Door"
-                description="Per door panel with hinges"
+                description="Per door (full-height column door w/ Blum concealed hinges)"
                 priceKey="plywood_door"
                 toggleKey="plywood_door_enabled"
                 defaultPrice={ADDON_PLATFORM_DEFAULTS.plywood_door}
@@ -587,18 +587,18 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 onToggle={() => setAddonToggles((prev) => ({ ...prev, side_panel_enabled: !prev.side_panel_enabled }))}
               />
 
-              {/* Surface Hinge Pair */}
+              {/* Blum Concealed Hinge Pair */}
               <AddonPricingRow
                 icon={<Wrench className="h-4 w-4 text-slate-400" />}
-                label="Surface Hinge Pair"
-                description="Per pair of surface-mounted hinges"
-                priceKey="surface_hinge_pair"
-                toggleKey="hinge_surface_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.surface_hinge_pair}
-                value={addonValues.surface_hinge_pair ?? ""}
-                enabled={addonToggles.hinge_surface_enabled}
-                onValueChange={(v) => handleAddonChange("surface_hinge_pair", v)}
-                onToggle={() => setAddonToggles((prev) => ({ ...prev, hinge_surface_enabled: !prev.hinge_surface_enabled }))}
+                label="Concealed Hinge Pair"
+                description="Per pair of Blum concealed hinges (included in door price for customers)"
+                priceKey="concealed_hinge_pair"
+                toggleKey="hinge_concealed_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.concealed_hinge_pair}
+                value={addonValues.concealed_hinge_pair ?? ""}
+                enabled={addonToggles.hinge_concealed_enabled}
+                onValueChange={(v) => handleAddonChange("concealed_hinge_pair", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, hinge_concealed_enabled: !prev.hinge_concealed_enabled }))}
               />
 
               {/* Rail Removal */}

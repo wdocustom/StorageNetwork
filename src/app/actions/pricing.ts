@@ -105,7 +105,7 @@ export async function updateInstallerPricing(
       const validatedAddon: Record<string, unknown> = {};
 
       // Validate numeric addon pricing fields
-      const addonNumericFields = ["plywood_door", "side_panel", "surface_hinge_pair", "rail_removal"] as const;
+      const addonNumericFields = ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal"] as const;
       for (const field of addonNumericFields) {
         const val = ap[field];
         if (val !== undefined && val !== null) {
@@ -122,7 +122,7 @@ export async function updateInstallerPricing(
         "organizer_customization_enabled",
         "plywood_door_enabled",
         "side_panel_enabled",
-        "hinge_surface_enabled",
+        "hinge_concealed_enabled",
         "rail_removal_enabled",
       ] as const;
       for (const field of addonToggleFields) {

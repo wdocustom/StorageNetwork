@@ -43,7 +43,7 @@ export interface QuoteUnit {
   desc: string;
   addons?: Array<{
     type: string;
-    target: number | "left" | "right";
+    target: number | "left" | "right" | "doors_on";
     row?: number;
     options?: Record<string, string>;
   }>;
@@ -390,9 +390,9 @@ export async function createQuote(
           const addonCounts: Record<string, number> = {};
           for (const a of addons) {
             const label =
-              a.type === "plywood_door" ? "Plywood Door" :
+              a.type === "plywood_door" ? (a.target === "doors_on" ? "Plywood Doors (All Columns)" : "Plywood Door") :
               a.type === "side_panel" ? "Side Panel" :
-              a.type === "hinge_surface" ? "Surface Hinge" :
+              a.type === "hinge_concealed" ? "Blum Concealed Hinge" :
               a.type === "rail_removed" ? "Rail Removed" : a.type;
             addonCounts[label] = (addonCounts[label] ?? 0) + 1;
           }

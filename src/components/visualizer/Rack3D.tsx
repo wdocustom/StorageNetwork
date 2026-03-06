@@ -411,30 +411,30 @@ function PlywoodDoor({ position, width, height }: {
   );
 }
 
-// ── SurfaceHinge — two bracket plates + cylindrical pin ─────────────────
-function SurfaceHinge({ position, height }: {
+// ── BlumConcealedHinge — Blum-style concealed cup hinge (invisible when closed)
+// Modeled as a small mortised cup in the door edge + arm recessed into the post.
+function BlumConcealedHinge({ position }: {
   position: [number, number, number];
-  height: number;
 }) {
-  const plateW = 0.75;
-  const plateH = Math.min(height * 0.3, 3);
-  const plateD = 0.15;
-  const pinR = 0.15;
-  const pinH = plateH;
+  const cupR = 0.5;      // 35mm cup radius (≈0.69" but scaled for visual)
+  const cupDepth = 0.45;
+  const armW = 0.4;
+  const armH = 0.35;
+  const armD = 1.2;
 
   return (
     <group position={position}>
-      {/* Post-side bracket */}
-      <mesh position={[-plateW / 2, 0, 0]} material={HINGE_MAT} castShadow>
-        <boxGeometry args={[plateW, plateH, plateD]} />
+      {/* Hinge cup (recessed into door) */}
+      <mesh position={[0, 0, -cupDepth / 2]} material={HINGE_MAT} castShadow>
+        <cylinderGeometry args={[cupR, cupR, cupDepth, 12]} />
       </mesh>
-      {/* Door-side bracket */}
-      <mesh position={[plateW / 2, 0, 0]} material={HINGE_MAT} castShadow>
-        <boxGeometry args={[plateW, plateH, plateD]} />
+      {/* Mounting arm (connects cup to post mounting plate) */}
+      <mesh position={[0, 0, cupDepth / 2 + armD / 2]} material={HINGE_MAT} castShadow>
+        <boxGeometry args={[armW, armH, armD]} />
       </mesh>
-      {/* Pin (cylinder) */}
-      <mesh position={[0, 0, 0]} material={HINGE_MAT} castShadow>
-        <cylinderGeometry args={[pinR, pinR, pinH, 8]} />
+      {/* Mounting plate (screws into post/frame) */}
+      <mesh position={[0, 0, cupDepth / 2 + armD + 0.1]} material={HINGE_MAT} castShadow>
+        <boxGeometry args={[0.8, 0.5, 0.2]} />
       </mesh>
     </group>
   );
@@ -600,94 +600,95 @@ function RackAssembly({
           })}
 
           {/* Plywood top — mandatory for Mini, optional for Standard */}
-          {hasTop && (
-            <mesh
-              position={[
-                totalW / 2,
-                // Mini: plywood sits directly on posts (postH + PLATE_H + half of plywood thickness)
-                // Standard: plywood sits on top of top 2x4 plate (frameH + half of plywood thickness)
-                isMini
-                  ? PLATE_H + postH + PLY_TOP_H / 2
-                  : frameH + PLY_TOP_H / 2,
-                unitDepth / 2
-              ]}
-              castShadow
-              receiveShadow
-            >
-              <boxGeometry args={[totalW, PLY_TOP_H, unitDepth]} />
-              <primitive object={PLYWOOD_TOP_MAT} attach="material" />
-            </mesh>
-          )}
+          {/* When side panels are present, the top extends an extra 3/4" on that side to cover the panel */}
+          {hasTop && (() => {
+            const hasLeftPanel = addons?.some((a) => a.type === "side_panel" && a.target === "left");
+            const hasRightPanel = addons?.some((a) => a.type === "side_panel" && a.target === "right");
+            const leftExt = hasLeftPanel ? RAIL_THICKNESS : 0;  // 3/4" extension
+            const rightExt = hasRightPanel ? RAIL_THICKNESS : 0; // 3/4" extension
+            const topW = totalW + leftExt + rightExt;
+            const topCenterX = totalW / 2 + (rightExt - leftExt) / 2;
+
+            return (
+              <mesh
+                position={[
+                  topCenterX,
+                  isMini
+                    ? PLATE_H + postH + PLY_TOP_H / 2
+                    : frameH + PLY_TOP_H / 2,
+                  unitDepth / 2
+                ]}
+                castShadow
+                receiveShadow
+              >
+                <boxGeometry args={[topW, PLY_TOP_H, unitDepth]} />
+                <primitive object={PLYWOOD_TOP_MAT} attach="material" />
+              </mesh>
+            );
+          })()}
 
           {/* ── Section Addons (Organizer Customization) ────────────── */}
           {addons && addons.length > 0 && (() => {
-            const doorAddons = addons.filter((a) => a.type === "plywood_door");
             const sidePanelAddons = addons.filter((a) => a.type === "side_panel");
-            const hingeAddons = addons.filter((a) => a.type === "hinge_surface");
+            const hasDoors = addons.some((a) => a.type === "plywood_door" && a.target === "doors_on");
+
+            const hasLeftPanel = sidePanelAddons.some((a) => a.target === "left");
+            const hasRightPanel = sidePanelAddons.some((a) => a.target === "right");
+
+            // Side panels extend from bottom plate top to underside of top
+            // For standard units: from PLATE_H to frameH - PLATE_H (underside of top 2x4 plate)
+            // For mini units: from PLATE_H to PLATE_H + postH (underside of plywood top)
+            const panelBottom = PLATE_H;
+            const panelTop = isMini
+              ? PLATE_H + postH
+              : frameH - PLATE_H; // underside of top 2x4 plates
+            const panelH = panelTop - panelBottom;
+            const panelCenterY = panelBottom + panelH / 2;
 
             return (
               <>
-                {/* Plywood Doors — at the front face of each bay opening */}
-                {doorAddons.map((addon, idx) => {
-                  if (typeof addon.target !== "number") return null;
-                  const col = addon.target;
-                  const row = addon.row ?? 0;
-                  if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
-
+                {/* Full-height column doors — one door per column, spanning bottom to top */}
+                {hasDoors && Array.from({ length: cols }).map((_, col) => {
                   const leftPostX = getPostX(col, bayW);
                   const rightPostX = getPostX(col + 1, bayW);
                   const bayCenterX = (leftPostX + rightPostX) / 2;
-                  const doorW = bayW - 0.5; // slight inset from posts
-                  const doorH = tierSpacing - 1; // slightly less than tier height
-                  const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-                  const doorCenterY = railCenterY + tierSpacing / 2;
-                  // Door sits at front face (z = 0 side, offset inward by post depth)
-                  const doorZ = POST_D + RAIL_THICKNESS / 2;
+
+                  // Door is slightly larger than the opening (overlaps posts by 0.25" each side)
+                  const doorW = bayW + 0.5;
+                  // Door spans from bottom plate to top plate (full column height)
+                  const doorH = panelH;
+                  const doorCenterY = panelCenterY;
+                  // Door sits in front of the organizer, touching the front vertical posts
+                  // Pull it forward: sits flush against the front face of the front posts
+                  const doorZ = -RAIL_THICKNESS / 2;
 
                   return (
-                    <PlywoodDoor
-                      key={`door-${idx}`}
-                      position={[bayCenterX, doorCenterY, doorZ]}
-                      width={doorW}
-                      height={doorH}
-                    />
+                    <group key={`door-col-${col}`}>
+                      <PlywoodDoor
+                        position={[bayCenterX, doorCenterY, doorZ]}
+                        width={doorW}
+                        height={doorH}
+                      />
+                      {/* Blum concealed hinges — 2 per door (top and bottom third) */}
+                      <BlumConcealedHinge
+                        position={[leftPostX + POST_W / 2, doorCenterY + doorH * 0.3, doorZ]}
+                      />
+                      <BlumConcealedHinge
+                        position={[leftPostX + POST_W / 2, doorCenterY - doorH * 0.3, doorZ]}
+                      />
+                    </group>
                   );
                 })}
 
-                {/* Surface Hinges — on the post face next to doors */}
-                {hingeAddons.map((addon, idx) => {
-                  if (typeof addon.target !== "number") return null;
-                  const col = addon.target;
-                  const row = addon.row ?? 0;
-                  if (col < 0 || col >= cols || row < 0 || row >= rows) return null;
-
-                  const leftPostX = getPostX(col, bayW);
-                  const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-                  const hingeCenterY = railCenterY + tierSpacing / 2;
-                  // Hinge sits on the left post, front face
-                  const hingeX = leftPostX + POST_W / 2;
-                  const hingeZ = POST_D + RAIL_THICKNESS / 2;
-
-                  return (
-                    <SurfaceHinge
-                      key={`hinge-${idx}`}
-                      position={[hingeX, hingeCenterY, hingeZ]}
-                      height={tierSpacing}
-                    />
-                  );
-                })}
-
-                {/* Side Panels — left and/or right side */}
+                {/* Side Panels — left and/or right side, extending to underside of top */}
                 {sidePanelAddons.map((addon, idx) => {
                   const isLeft = addon.target === "left";
                   const isRight = addon.target === "right";
                   if (!isLeft && !isRight) return null;
 
-                  const panelH = postH;
                   const panelX = isLeft
                     ? -RAIL_THICKNESS / 2
                     : totalW + RAIL_THICKNESS / 2;
-                  const panelCenterY = PLATE_H + panelH / 2;
 
                   return (
                     <SidePanel

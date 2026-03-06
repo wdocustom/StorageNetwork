@@ -25,7 +25,7 @@ export interface QuoteUnit {
   desc: string;
   addons?: Array<{
     type: string;
-    target: number | "left" | "right";
+    target: number | "left" | "right" | "doors_on";
     row?: number;
     options?: Record<string, string>;
   }>;

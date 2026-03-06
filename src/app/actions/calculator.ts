@@ -343,19 +343,25 @@ export async function calculateBuild(
     const ap = ip?.addon_pricing;
     const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
     const sidePanelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
-    const hingePairPrice = ap?.surface_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.surface_hinge_pair;
     const railRemovalPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
 
     for (const addon of sectionAddons) {
       switch (addon.type) {
         case "plywood_door":
-          addonPrice += doorPrice;
+          // "doors_on" = all columns get a door (retail-facing: total price for on/off)
+          if (addon.target === "doors_on") {
+            addonPrice += doorPrice * cols;
+          } else {
+            addonPrice += doorPrice;
+          }
           break;
         case "side_panel":
           addonPrice += sidePanelPrice;
           break;
-        case "hinge_surface":
-          addonPrice += hingePairPrice;
+        case "hinge_concealed":
+          // Concealed hinges are included in door price for retail customers
+          // Only charge separately if added individually
+          addonPrice += ap?.concealed_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.concealed_hinge_pair;
           break;
         case "rail_removed":
           addonPrice += railRemovalPrice;

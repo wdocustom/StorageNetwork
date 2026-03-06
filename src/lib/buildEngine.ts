@@ -360,12 +360,19 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     for (const addon of unitAddons) {
       switch (addon.type) {
         case "plywood_door":
-          gAddonDoors++;
+          // "doors_on" target means all columns get a door
+          if (addon.target === "doors_on") {
+            gAddonDoors += totalCols;
+            // Each door gets a pair of Blum concealed hinges
+            gAddonHingePairs += totalCols;
+          } else {
+            gAddonDoors++;
+          }
           break;
         case "side_panel":
           gAddonSidePanels++;
           break;
-        case "hinge_surface":
+        case "hinge_concealed":
           gAddonHingePairs++;
           break;
         case "rail_removed":
@@ -566,7 +573,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     shopping_list.push({ name: "Plywood (Side Panels)", detail: `${gAddonSidePanels} panel${gAddonSidePanels > 1 ? "s" : ""}`, qty: panelSheets });
   }
   if (gAddonHingePairs > 0) {
-    shopping_list.push({ name: "Surface Hinges", detail: "Pair (2 hinges)", qty: gAddonHingePairs });
+    shopping_list.push({ name: "Blum Concealed Hinges", detail: "Pair (2 hinges)", qty: gAddonHingePairs });
   }
   if (gAddonRailsRemoved > 0) {
     shopping_list.push({ name: "Rails Removed", detail: "Slots opened up", qty: gAddonRailsRemoved });

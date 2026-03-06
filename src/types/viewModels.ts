@@ -11,40 +11,40 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Types of addons that can be applied per-section */
-export type AddonType = "plywood_door" | "side_panel" | "rail_removed" | "hinge_surface";
+export type AddonType = "plywood_door" | "side_panel" | "rail_removed" | "hinge_concealed";
 
 /** A single addon applied to a specific bay/row/side of the unit */
 export interface SectionAddon {
   type: AddonType;
-  /** Which bay (column index) this applies to, or "left"/"right" for side panels */
-  target: number | "left" | "right";
+  /** Which bay (column index) this applies to, or "left"/"right" for side panels, or "doors_on" for full-unit door toggle */
+  target: number | "left" | "right" | "doors_on";
   /** Which row/tier, if applicable (e.g., doors per opening) */
   row?: number;
-  /** Optional configuration (e.g., { hingeStyle: "surface" }) */
+  /** Optional configuration (e.g., { hingeStyle: "concealed" }) */
   options?: Record<string, string>;
 }
 
 /** Installer-level addon pricing overrides (all optional, NULL = platform default) */
 export interface AddonPricing {
-  plywood_door?: number;          // per door
+  plywood_door?: number;          // per door (installer-facing: price per individual door)
   side_panel?: number;            // per side panel
-  surface_hinge_pair?: number;    // per hinge pair
+  concealed_hinge_pair?: number;  // per pair of Blum concealed hinges (included in door price for retail)
   rail_removal?: number;          // per rail removed (labor credit or charge)
   /** Master toggle: when false, the entire Organizer Customization section is hidden */
   organizer_customization_enabled?: boolean;
   /** Per-addon-type toggles: when false, that addon type is hidden */
   plywood_door_enabled?: boolean;
   side_panel_enabled?: boolean;
-  hinge_surface_enabled?: boolean;
+  hinge_concealed_enabled?: boolean;
   rail_removal_enabled?: boolean;
 }
 
 /** Platform default addon pricing */
-export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "surface_hinge_pair" | "rail_removal">> = {
-  plywood_door: 45,
+export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal">> = {
+  plywood_door: 45,               // per door (installer sees this as per-door price)
   side_panel: 55,
-  surface_hinge_pair: 12,
-  rail_removal: 0,     // no charge by default (it's a material subtraction)
+  concealed_hinge_pair: 15,       // per pair of Blum concealed hinges
+  rail_removal: 0,                // no charge by default (it's a material subtraction)
 };
 
 /** Installer-configurable pricing overrides (all optional, NULL = platform default) */

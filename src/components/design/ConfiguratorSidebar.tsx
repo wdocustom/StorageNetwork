@@ -457,13 +457,15 @@ function OrganizerCustomization({
 
   const doorPrice = addonPricing?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
   const sidePanelPrice = addonPricing?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
-  const hingePrice = addonPricing?.surface_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.surface_hinge_pair;
   const railRemovalPrice = addonPricing?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
 
   const showDoor = addonPricing?.plywood_door_enabled !== false;
   const showSidePanel = addonPricing?.side_panel_enabled !== false;
-  const showHinge = addonPricing?.hinge_surface_enabled !== false;
   const showRailRemoval = addonPricing?.rail_removal_enabled !== false;
+
+  // Doors: total price = per-door price × number of columns
+  const doorsTotalPrice = doorPrice * cols;
+  const doorsOn = addons.some((a) => a.type === "plywood_door" && a.target === "doors_on");
 
   // Helper: check if an addon exists for a given type/target/row
   function hasAddon(type: SectionAddon["type"], target: SectionAddon["target"], row?: number): boolean {
@@ -483,12 +485,23 @@ function OrganizerCustomization({
     }
   }
 
+  // Toggle doors on/off for the whole unit
+  function toggleDoors() {
+    if (doorsOn) {
+      // Remove the doors_on addon
+      onAddonsChange(addons.filter((a) => !(a.type === "plywood_door" && a.target === "doors_on")));
+    } else {
+      // Add the doors_on addon (single toggle for all doors)
+      onAddonsChange([...addons, { type: "plywood_door", target: "doors_on" }]);
+    }
+  }
+
   // Count addons for display
   const addonCount = addons.length;
 
-  // Get addons for a specific cell
+  // Get addons for a specific cell (only rail removal now)
   function getCellAddons(col: number, row: number) {
-    return addons.filter((a) => typeof a.target === "number" && a.target === col && (a.row === undefined || a.row === row));
+    return addons.filter((a) => a.type === "rail_removed" && typeof a.target === "number" && a.target === col && (a.row === undefined || a.row === row));
   }
 
   if (cols < 1 || rows < 1) return null;
@@ -525,89 +538,46 @@ function OrganizerCustomization({
             className="overflow-hidden"
           >
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3 space-y-3">
-              {/* Interactive Grid — cols × rows */}
-              <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                  Tap a slot to customize
-                </p>
-                <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
-                  {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
-                    Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
-                      const cellAddons = getCellAddons(c, r);
-                      const isActive = activeCell?.col === c && activeCell?.row === r;
-                      return (
-                        <button
-                          key={`cell-${c}-${r}`}
-                          type="button"
-                          onClick={() => setActiveCell(isActive ? null : { col: c, row: r })}
-                          className={`relative aspect-square rounded-md border text-[9px] font-bold transition-all ${
-                            isActive
-                              ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                              : cellAddons.length > 0
-                              ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                              : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
-                          }`}
-                        >
-                          {cellAddons.length > 0 ? cellAddons.length : `${c + 1},${r + 1}`}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* Active cell addon menu */}
-              <AnimatePresence>
-                {activeCell && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 space-y-2"
+              {/* Doors — single on/off toggle for the whole unit */}
+              {showDoor && (
+                <div>
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    Doors
+                  </p>
+                  <button
+                    type="button"
+                    onClick={toggleDoors}
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                      doorsOn
+                        ? "border-yellow-400/50 bg-yellow-400/10"
+                        : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-zinc-300">
-                        Bay {activeCell.col + 1}, Row {activeCell.row + 1}
+                    <motion.div
+                      className={`relative h-5 w-9 shrink-0 rounded-full ${doorsOn ? "bg-yellow-400" : "bg-zinc-700"}`}
+                      animate={{ backgroundColor: doorsOn ? "#facc15" : "#3f3f46" }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <motion.div
+                        className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"
+                        animate={{ left: doorsOn ? 18 : 2 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    </motion.div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <DoorOpen className={`h-3.5 w-3.5 ${doorsOn ? "text-yellow-400" : "text-zinc-500"}`} />
+                        <span className={`text-sm font-medium ${doorsOn ? "text-yellow-300" : "text-zinc-400"}`}>
+                          Plywood Doors
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500">
+                        {cols} door{cols !== 1 ? "s" : ""} with Blum concealed hinges &middot; +${doorsTotalPrice}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setActiveCell(null)}
-                        className="text-zinc-500 hover:text-zinc-300"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
                     </div>
-
-                    {showDoor && (
-                      <AddonToggleBtn
-                        icon={<DoorOpen className="h-3.5 w-3.5" />}
-                        label="Plywood Door"
-                        price={doorPrice}
-                        active={hasAddon("plywood_door", activeCell.col, activeCell.row)}
-                        onToggle={() => toggleAddon("plywood_door", activeCell.col, activeCell.row)}
-                      />
-                    )}
-                    {showHinge && (
-                      <AddonToggleBtn
-                        icon={<Wrench className="h-3.5 w-3.5" />}
-                        label="Surface Hinges"
-                        price={hingePrice}
-                        active={hasAddon("hinge_surface", activeCell.col, activeCell.row)}
-                        onToggle={() => toggleAddon("hinge_surface", activeCell.col, activeCell.row)}
-                      />
-                    )}
-                    {showRailRemoval && (
-                      <AddonToggleBtn
-                        icon={<Minus className="h-3.5 w-3.5" />}
-                        label="Remove Rails"
-                        price={railRemovalPrice}
-                        active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
-                        onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
-                      />
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </button>
+                </div>
+              )}
 
               {/* Side Panel Buttons */}
               {showSidePanel && (
@@ -629,6 +599,71 @@ function OrganizerCustomization({
                       onToggle={() => toggleAddon("side_panel", "right")}
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Rail Removal — per-cell grid */}
+              {showRailRemoval && (
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    Tap a slot to remove rails
+                  </p>
+                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(cols, 8)}, 1fr)` }}>
+                    {Array.from({ length: Math.min(rows, 10) }).map((_, r) =>
+                      Array.from({ length: Math.min(cols, 8) }).map((_, c) => {
+                        const cellAddons = getCellAddons(c, r);
+                        const isActive = activeCell?.col === c && activeCell?.row === r;
+                        return (
+                          <button
+                            key={`cell-${c}-${r}`}
+                            type="button"
+                            onClick={() => setActiveCell(isActive ? null : { col: c, row: r })}
+                            className={`relative aspect-square rounded-md border text-[9px] font-bold transition-all ${
+                              isActive
+                                ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                                : cellAddons.length > 0
+                                ? "border-red-500/40 bg-red-500/10 text-red-400"
+                                : "border-zinc-700 bg-zinc-800/50 text-zinc-600 hover:border-zinc-600"
+                            }`}
+                          >
+                            {cellAddons.length > 0 ? <Minus className="mx-auto h-3 w-3" /> : `${c + 1},${r + 1}`}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Active cell rail removal menu */}
+                  <AnimatePresence>
+                    {activeCell && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="mt-2 rounded-lg border border-zinc-700 bg-zinc-800/80 p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-zinc-300">
+                            Bay {activeCell.col + 1}, Row {activeCell.row + 1}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCell(null)}
+                            className="text-zinc-500 hover:text-zinc-300"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <AddonToggleBtn
+                          icon={<Minus className="h-3.5 w-3.5" />}
+                          label="Remove Rails"
+                          price={railRemovalPrice}
+                          active={hasAddon("rail_removed", activeCell.col, activeCell.row)}
+                          onToggle={() => toggleAddon("rail_removed", activeCell.col, activeCell.row)}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 
