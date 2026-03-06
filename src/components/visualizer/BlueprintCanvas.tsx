@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { create2DWoodPattern, create2DPlywoodPattern } from "./woodTextures";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BlueprintCanvas — 2D visual-only rendering (dimensions from server)
@@ -92,9 +93,11 @@ export default function BlueprintCanvas({
     startY: number,
     scale: number,
   ) => {
-    const woodFill = "#e2b686";
+    const woodPattern = create2DWoodPattern(ctx);
+    const plywoodPattern = create2DPlywoodPattern(ctx);
+    const woodFill = woodPattern || "#e2b686";
     const woodStroke = "#925f32";
-    const plywoodFill = "#f3d2a3";
+    const plywoodFill = plywoodPattern || "#f3d2a3";
 
     const unitFrameH = isMini
       ? (RENDER_PLATE + RENDER_FIRST_RAIL + (unitRows - 1) * RENDER_TIER + 2 + PLY_TOP_H)

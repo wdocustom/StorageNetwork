@@ -5,6 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
 import { MeshStandardMaterial, Color, BufferGeometry, BufferAttribute, DoubleSide } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial } from "./woodTextures";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Rack3D — Precise CAD Blueprint (Rim-Glider System)
@@ -146,24 +147,11 @@ function getFirstRailY(unitType: UnitType): number {
 const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
 
 // ── Materials ────────────────────────────────────────────────────────────
-// Uniform pine color — no canvas texture to avoid UV split artifacts.
+// Procedural doug-fir and plywood textures for realistic lumber appearance.
 
-const PINE_MAT = (() => {
-  const mat = new MeshStandardMaterial({
-    color: new Color("#C8A96E"),
-    roughness: 0.82,
-    metalness: 0.0,
-  });
-  return mat;
-})();
-
-const PLYWOOD_MAT = (() => {
-  return new MeshStandardMaterial({
-    color: new Color("#A8884E"),
-    roughness: 0.6,
-    metalness: 0.0,
-  });
-})();
+const PINE_MAT = createDougFirMaterial(42);
+const PLYWOOD_MAT = createPlywoodMaterial(137);
+const PLYWOOD_TOP_MAT = createPlywoodTopMaterial(250);
 
 function Lumber({ position, size }: {
   position: [number, number, number];
@@ -545,7 +533,7 @@ function RackAssembly({
               receiveShadow
             >
               <boxGeometry args={[totalW, PLY_TOP_H, unitDepth]} />
-              <meshStandardMaterial color="#D4B896" roughness={0.6} metalness={0.0} />
+              <primitive object={PLYWOOD_TOP_MAT} attach="material" />
             </mesh>
           )}
         </group>

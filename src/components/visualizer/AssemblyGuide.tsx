@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Html } from "@react-three/drei";
 import { MeshStandardMaterial, Color, Group, Vector3 } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
+import { createDougFirMaterial, createPlywoodMaterial } from "./woodTextures";
 import ConstructionScrew from "./ConstructionScrew";
 import {
   getStepsForConfig,
@@ -73,8 +74,8 @@ function makeMat(color: string, roughness: number, metalness: number) {
   });
 }
 
-const PINE_MAT = makeMat("#C8A96E", 0.82, 0.0);
-const PLYWOOD_MAT = makeMat("#A8884E", 0.6, 0.0);
+const PINE_MAT = createDougFirMaterial(42);
+const PLYWOOD_MAT = createPlywoodMaterial(137);
 
 // Ghosted variants (semi-transparent)
 const PINE_GHOST = (() => {
