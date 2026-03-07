@@ -24,6 +24,33 @@ export interface SectionAddon {
   options?: Record<string, string>;
 }
 
+/** Available paint color IDs */
+export type PaintColorId = "red" | "white" | "black";
+
+/** Paint color definition with hex value and display name */
+export interface PaintColorOption {
+  id: PaintColorId;
+  label: string;
+  hex: string;
+}
+
+/** The three available paint colors — Chiefs red, standard black, clean white */
+export const PAINT_COLORS: PaintColorOption[] = [
+  { id: "red",   label: "Red",   hex: "#C8102E" },
+  { id: "white", label: "White", hex: "#F5F5F0" },
+  { id: "black", label: "Black", hex: "#1C1C1C" },
+];
+
+/** Which part of the organizer paint applies to */
+export type PaintTarget = "all" | "frame" | "doors_panels";
+
+/** Current paint selection state on the design page */
+export interface PaintSelection {
+  frameColor: PaintColorId | null;
+  doorColor: PaintColorId | null;
+  sidePanelColor: PaintColorId | null;
+}
+
 /** Installer-level addon pricing overrides (all optional, NULL = platform default) */
 export interface AddonPricing {
   plywood_door?: number;          // per door (installer-facing: price per individual door)
@@ -39,15 +66,21 @@ export interface AddonPricing {
   hinge_concealed_enabled?: boolean;
   rail_removal_enabled?: boolean;
   shelf_enabled?: boolean;
+  /** Paint options — master toggle and per-color pricing */
+  paint_enabled?: boolean;
+  paint_frame_price?: number;          // price to paint the frame
+  paint_doors_panels_price?: number;   // price to paint doors & side panels
 }
 
 /** Platform default addon pricing */
-export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal" | "shelf">> = {
+export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal" | "shelf" | "paint_frame_price" | "paint_doors_panels_price">> = {
   plywood_door: 45,               // per door (installer sees this as per-door price)
   side_panel: 55,
   concealed_hinge_pair: 15,       // per pair of Blum concealed hinges
   rail_removal: 0,                // no charge by default (it's a material subtraction)
   shelf: 20,                      // per shelf (3/4" plywood on top of rails)
+  paint_frame_price: 75,          // default price to paint the frame
+  paint_doors_panels_price: 50,   // default price to paint doors & panels
 };
 
 /** Installer-configurable pricing overrides (all optional, NULL = platform default) */

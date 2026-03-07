@@ -38,7 +38,13 @@ export interface CleanoutServiceItem {
   price: number;
 }
 
-export type QuoteItem = QuoteUnit | CleanoutServiceItem;
+export interface PaintItem {
+  type: "paint";
+  name: string;
+  price: number;
+}
+
+export type QuoteItem = QuoteUnit | CleanoutServiceItem | PaintItem;
 
 export interface SubmitQuoteInput {
   customer_name: string;

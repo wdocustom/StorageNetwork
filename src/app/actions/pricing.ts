@@ -105,7 +105,7 @@ export async function updateInstallerPricing(
       const validatedAddon: Record<string, unknown> = {};
 
       // Validate numeric addon pricing fields
-      const addonNumericFields = ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf"] as const;
+      const addonNumericFields = ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf", "paint_frame_price", "paint_doors_panels_price"] as const;
       for (const field of addonNumericFields) {
         const val = ap[field];
         if (val !== undefined && val !== null) {
@@ -125,6 +125,7 @@ export async function updateInstallerPricing(
         "hinge_concealed_enabled",
         "rail_removal_enabled",
         "shelf_enabled",
+        "paint_enabled",
       ] as const;
       for (const field of addonToggleFields) {
         if (ap[field] !== undefined) {

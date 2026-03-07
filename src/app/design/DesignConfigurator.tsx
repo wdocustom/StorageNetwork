@@ -212,6 +212,11 @@ export default function DesignConfigurator({
   const [hasTop, setHasTop] = useState(true);
   const [addons, setAddons] = useState<SectionAddon[]>([]);
 
+  // ── Paint color state ──────────────────────────────────────────────────
+  const [paintFrameColor, setPaintFrameColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
+  const [paintDoorColor, setPaintDoorColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
+  const [paintSidePanelColor, setPaintSidePanelColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
+
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
     cols: 4, rows: 4, price: 0, totalW: 0, totalH: 0, depth: 30, slots: 0, unitType: "standard", orientation: "standard",
@@ -524,7 +529,15 @@ export default function DesignConfigurator({
 
   const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
-  const grandTotal = buildTotal + deliveryFeeAmount + cleanoutPrice;
+
+  // Paint pricing — calculated from installer's addon_pricing or platform defaults
+  const paintFramePrice = paintFrameColor ? (data?.pricing?.addon_pricing?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price) : 0;
+  const paintDoorsPanelsPrice = data?.pricing?.addon_pricing?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
+  const paintDoorCost = paintDoorColor ? paintDoorsPanelsPrice : 0;
+  const paintPanelCost = paintSidePanelColor ? paintDoorsPanelsPrice : 0;
+  const paintTotal = paintFramePrice + paintDoorCost + paintPanelCost;
+
+  const grandTotal = buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal;
 
   // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [depositAmount, setDepositAmount] = useState(0);
@@ -987,6 +1000,17 @@ export default function DesignConfigurator({
               price: cleanoutPrice,
             });
           }
+          if (paintTotal > 0) {
+            const paintParts: string[] = [];
+            if (paintFrameColor) paintParts.push(`Frame: ${paintFrameColor}`);
+            if (paintDoorColor) paintParts.push(`Doors: ${paintDoorColor}`);
+            if (paintSidePanelColor) paintParts.push(`Panels: ${paintSidePanelColor}`);
+            items.push({
+              type: "paint",
+              name: `Paint (${paintParts.join(", ")})`,
+              price: paintTotal,
+            });
+          }
           return items;
         })(),
         grand_total: grandTotal,
@@ -1295,6 +1319,14 @@ export default function DesignConfigurator({
           onAddonsChange={setAddons}
           addonPricing={data?.pricing?.addon_pricing}
 
+          // Paint options
+          paintFrameColor={paintFrameColor}
+          paintDoorColor={paintDoorColor}
+          paintSidePanelColor={paintSidePanelColor}
+          onPaintFrameColorChange={setPaintFrameColor}
+          onPaintDoorColorChange={setPaintDoorColor}
+          onPaintSidePanelColorChange={setPaintSidePanelColor}
+
           // UI Trigger bridge for 3D model animation
           onPulseVisualizerTrigger={() => {}}
         />
@@ -1316,6 +1348,9 @@ export default function DesignConfigurator({
               totalH={activePresetObj && compoundBuild ? compoundBuild.maxH : build.totalH}
               presetUnits={presetVisUnits}
               addons={activePresetObj ? undefined : addons}
+              paintFrameColor={activePresetObj ? null : paintFrameColor}
+              paintDoorColor={activePresetObj ? null : paintDoorColor}
+              paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
             />
           </div>
           {/* Dimensions bar */}

@@ -412,6 +412,29 @@ export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PAINTED MATERIAL — Solid color with subtle surface texture
+// ═══════════════════════════════════════════════════════════════════════════
+
+const paintMaterialCache = new Map<string, MeshStandardMaterial>();
+
+/**
+ * Creates a painted wood material — solid color with subtle roughness variation
+ * to look like a spray-painted or brush-painted wood surface.
+ */
+export function createPaintedMaterial(hexColor: string): MeshStandardMaterial {
+  const cached = paintMaterialCache.get(hexColor);
+  if (cached) return cached;
+
+  const mat = new MeshStandardMaterial({
+    color: new Color(hexColor),
+    roughness: 0.45,
+    metalness: 0.02,
+  });
+  paintMaterialCache.set(hexColor, mat);
+  return mat;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 2D CANVAS PATTERN GENERATORS (for BlueprintCanvas)
 // ═══════════════════════════════════════════════════════════════════════════
 

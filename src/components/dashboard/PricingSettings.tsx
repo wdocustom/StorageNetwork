@@ -16,6 +16,7 @@ import {
   Wrench,
   Minus,
   Layers,
+  Paintbrush,
 } from "lucide-react";
 import {
   getInstallerPricing,
@@ -246,6 +247,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     hinge_concealed_enabled: true,
     rail_removal_enabled: true,
     shelf_enabled: true,
+    paint_enabled: true,
   });
 
   const loadPricing = useCallback(async () => {
@@ -265,7 +267,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       if (ap) {
         setAddonEnabled(ap.organizer_customization_enabled !== false);
         const loadedAddon: Record<string, string> = {};
-        for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf"] as const) {
+        for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf", "paint_frame_price", "paint_doors_panels_price"] as const) {
           const v = ap[k];
           loadedAddon[k] = v !== undefined && v !== null ? String(v) : "";
         }
@@ -276,6 +278,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           hinge_concealed_enabled: ap.hinge_concealed_enabled !== false,
           rail_removal_enabled: ap.rail_removal_enabled !== false,
           shelf_enabled: ap.shelf_enabled !== false,
+          paint_enabled: ap.paint_enabled !== false,
         });
       }
     }
@@ -319,7 +322,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       organizer_customization_enabled: addonEnabled,
       ...addonToggles,
     } as AddonPricing;
-    for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf"] as const) {
+    for (const k of ["plywood_door", "side_panel", "concealed_hinge_pair", "rail_removal", "shelf", "paint_frame_price", "paint_doors_panels_price"] as const) {
       const v = addonValues[k];
       if (v !== undefined && v !== "") {
         (addonPricing as Record<string, unknown>)[k] = Number(v);
@@ -359,6 +362,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         side_panel_enabled: true,
         hinge_concealed_enabled: true,
         rail_removal_enabled: true,
+        shelf_enabled: true,
+        paint_enabled: true,
       });
       setMessage("Pricing reset to platform defaults.");
       setMessageType("success");
@@ -630,6 +635,57 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 enabled={addonToggles.shelf_enabled}
                 onValueChange={(v) => handleAddonChange("shelf", v)}
                 onToggle={() => setAddonToggles((prev) => ({ ...prev, shelf_enabled: !prev.shelf_enabled }))}
+              />
+
+              {/* ── Paint Options ─────────────────────────────── */}
+              <div className="mt-3 border-t border-slate-700/50 pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Paintbrush className="h-4 w-4 text-rose-400" />
+                  <p className="text-xs font-bold uppercase tracking-wider text-stone-400">Paint Options</p>
+                  <div className="ml-auto flex gap-1">
+                    {[
+                      { hex: "#C8102E", label: "Red" },
+                      { hex: "#F5F5F0", label: "White" },
+                      { hex: "#1C1C1C", label: "Black" },
+                    ].map((c) => (
+                      <div
+                        key={c.label}
+                        className="h-3.5 w-3.5 rounded-full border border-slate-600"
+                        style={{ backgroundColor: c.hex }}
+                        title={c.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-stone-600 mb-2">
+                  Let customers paint their organizer in Red, White, or Black. Separate pricing for frame vs. doors &amp; panels.
+                </p>
+              </div>
+
+              <AddonPricingRow
+                icon={<Paintbrush className="h-4 w-4 text-rose-400" />}
+                label="Paint — Frame"
+                description="Price to paint the 2×4 frame structure"
+                priceKey="paint_frame_price"
+                toggleKey="paint_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.paint_frame_price}
+                value={addonValues.paint_frame_price ?? ""}
+                enabled={addonToggles.paint_enabled}
+                onValueChange={(v) => handleAddonChange("paint_frame_price", v)}
+                onToggle={() => setAddonToggles((prev) => ({ ...prev, paint_enabled: !prev.paint_enabled }))}
+              />
+
+              <AddonPricingRow
+                icon={<Paintbrush className="h-4 w-4 text-blue-400" />}
+                label="Paint — Doors & Panels"
+                description="Price to paint plywood doors and side panels"
+                priceKey="paint_doors_panels_price"
+                toggleKey="paint_enabled"
+                defaultPrice={ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price}
+                value={addonValues.paint_doors_panels_price ?? ""}
+                enabled={addonToggles.paint_enabled}
+                onValueChange={(v) => handleAddonChange("paint_doors_panels_price", v)}
+                onToggle={() => {}}
               />
             </div>
           </div>

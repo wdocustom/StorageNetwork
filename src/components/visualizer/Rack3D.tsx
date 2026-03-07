@@ -5,7 +5,9 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
 import { BufferGeometry, BufferAttribute, DoubleSide } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial } from "./woodTextures";
+import type { PaintColorId } from "@/types/viewModels";
+import { PAINT_COLORS } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Rack3D — Precise CAD Blueprint (Rim-Glider System)
@@ -58,6 +60,12 @@ interface Rack3DProps {
   presetUnits?: SubUnit3D[];
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
+  /** Paint color for the 2×4 frame */
+  paintFrameColor?: PaintColorId | null;
+  /** Paint color for plywood doors */
+  paintDoorColor?: PaintColorId | null;
+  /** Paint color for side panels */
+  paintSidePanelColor?: PaintColorId | null;
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -157,25 +165,35 @@ const PINE_MAT = createDougFirMaterial(42);
 const PLYWOOD_MAT = createPlywoodMaterial(137);
 const PLYWOOD_TOP_MAT = createPlywoodTopMaterial(250);
 
-function Lumber({ position, size }: {
+/** Resolve paint color ID to hex and create/cache a painted material */
+function getPaintMaterial(colorId: PaintColorId | null | undefined): import("three").MeshStandardMaterial | null {
+  if (!colorId) return null;
+  const color = PAINT_COLORS.find((c) => c.id === colorId);
+  if (!color) return null;
+  return createPaintedMaterial(color.hex);
+}
+
+function Lumber({ position, size, material }: {
   position: [number, number, number];
   size: [number, number, number];
+  material?: import("three").MeshStandardMaterial;
 }) {
   return (
-    <mesh position={position} material={PINE_MAT} castShadow receiveShadow>
+    <mesh position={position} material={material ?? PINE_MAT} castShadow receiveShadow>
       <boxGeometry args={size} />
     </mesh>
   );
 }
 
-function PlywoodStrip({ position, length, railHeight }: {
+function PlywoodStrip({ position, length, railHeight, material }: {
   position: [number, number, number];
   length: number;
   railHeight?: number;
+  material?: import("three").MeshStandardMaterial;
 }) {
   const height = railHeight ?? RAIL_HEIGHT;
   return (
-    <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
+    <mesh position={position} material={material ?? PLYWOOD_MAT} castShadow receiveShadow>
       <boxGeometry args={[RAIL_THICKNESS, height, length]} />
     </mesh>
   );
@@ -399,13 +417,14 @@ const HINGE_MAT = new MeshStandardMaterial({
 });
 
 // ── PlywoodDoor — flat plywood panel at front face of a bay opening ─────
-function PlywoodDoor({ position, width, height }: {
+function PlywoodDoor({ position, width, height, material }: {
   position: [number, number, number];
   width: number;
   height: number;
+  material?: import("three").MeshStandardMaterial;
 }) {
   return (
-    <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
+    <mesh position={position} material={material ?? PLYWOOD_MAT} castShadow receiveShadow>
       <boxGeometry args={[width, height, RAIL_THICKNESS]} />
     </mesh>
   );
@@ -441,13 +460,14 @@ function BlumConcealedHinge({ position }: {
 }
 
 // ── SidePanel — full-height plywood sheet on left or right side ──────────
-function SidePanel({ position, height, depth }: {
+function SidePanel({ position, height, depth, material }: {
   position: [number, number, number];
   height: number;
   depth: number;
+  material?: import("three").MeshStandardMaterial;
 }) {
   return (
-    <mesh position={position} material={PLYWOOD_MAT} castShadow receiveShadow>
+    <mesh position={position} material={material ?? PLYWOOD_MAT} castShadow receiveShadow>
       <boxGeometry args={[RAIL_THICKNESS, height, depth]} />
     </mesh>
   );
@@ -457,8 +477,16 @@ function SidePanel({ position, height, depth }: {
 
 function RackAssembly({
   cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
+  paintFrameColor, paintDoorColor, paintSidePanelColor,
 }: Rack3DProps) {
   const isMini = unitType === "mini";
+
+  // Resolve paint materials (null = use default wood texture)
+  const frameMat = getPaintMaterial(paintFrameColor) ?? undefined;
+  const doorMat = getPaintMaterial(paintDoorColor) ?? undefined;
+  const sidePanelMat = getPaintMaterial(paintSidePanelColor) ?? undefined;
+  // Rails are part of the frame, so they get frame paint
+  const railMat = frameMat;
   const bayW = getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
 
@@ -508,14 +536,14 @@ function RackAssembly({
         <group position={[0, lift, 0]}>
 
           {/* Bottom plates (same for both unit types) */}
-          <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
-          <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+          <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
+          <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
 
           {/* Top plates — only for Standard units */}
           {!isMini && (
             <>
-              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
-              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
+              <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
             </>
           )}
 
@@ -525,8 +553,8 @@ function RackAssembly({
             return (
               <group key={`ladder-${i}`}>
                 {/* Front + Back posts */}
-                <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
-                <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
+                <Lumber position={[px, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} material={frameMat} />
+                <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} material={frameMat} />
 
                 {/* Right-face rails (serve bay i) — skip if rail_removed addon */}
                 {i < cols && Array.from({ length: rows }).map((_, r) => {
@@ -542,6 +570,7 @@ function RackAssembly({
                       position={[railX, railY, unitDepth / 2]}
                       length={railLen}
                       railHeight={railHeight}
+                      material={railMat}
                     />
                   );
                 })}
@@ -560,6 +589,7 @@ function RackAssembly({
                       position={[railX, railY, unitDepth / 2]}
                       length={railLen}
                       railHeight={railHeight}
+                      material={railMat}
                     />
                   );
                 })}
@@ -651,7 +681,7 @@ function RackAssembly({
                 receiveShadow
               >
                 <boxGeometry args={[topW, PLY_TOP_H, unitDepth]} />
-                <primitive object={PLYWOOD_TOP_MAT} attach="material" />
+                <primitive object={frameMat ? frameMat : PLYWOOD_TOP_MAT} attach="material" />
               </mesh>
             );
           })()}
@@ -697,6 +727,7 @@ function RackAssembly({
                         position={[bayCenterX, doorCenterY, doorZ]}
                         width={doorW}
                         height={doorH}
+                        material={doorMat}
                       />
                       {/* Blum concealed hinges — 2 per door (top and bottom third) */}
                       <BlumConcealedHinge
@@ -728,6 +759,7 @@ function RackAssembly({
                       position={[panelX, panelCenterY, unitDepth / 2]}
                       height={panelH}
                       depth={unitDepth}
+                      material={sidePanelMat}
                     />
                   );
                 })}

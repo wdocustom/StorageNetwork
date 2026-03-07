@@ -3,7 +3,7 @@
 import { Suspense, lazy, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BlueprintCanvas from "./BlueprintCanvas";
-import type { SectionAddon } from "@/types/viewModels";
+import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 
 // Lazy-load 3D (heavy Three.js bundle)
 const Rack3D = lazy(() => import("./Rack3D"));
@@ -45,6 +45,12 @@ interface RackVisualizerProps {
   presetUnits?: VisualizerSubUnit[];
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
+  /** Paint color for the 2×4 frame */
+  paintFrameColor?: PaintColorId | null;
+  /** Paint color for plywood doors */
+  paintDoorColor?: PaintColorId | null;
+  /** Paint color for side panels */
+  paintSidePanelColor?: PaintColorId | null;
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
@@ -134,6 +140,9 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               hasTop={props.hasTop}
               presetUnits={props.presetUnits}
               addons={props.addons}
+              paintFrameColor={props.paintFrameColor}
+              paintDoorColor={props.paintDoorColor}
+              paintSidePanelColor={props.paintSidePanelColor}
             />
           </Suspense>
         </div>

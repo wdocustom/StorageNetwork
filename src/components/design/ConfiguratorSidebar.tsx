@@ -34,10 +34,11 @@ import {
   Minus,
   Grid3X3,
   Layers,
+  Paintbrush,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
-import type { SectionAddon, AddonPricing } from "@/types/viewModels";
-import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
+import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
+import { ADDON_PLATFORM_DEFAULTS, PAINT_COLORS } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -276,6 +277,14 @@ export interface ConfiguratorSidebarProps {
   onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
 
+  // Paint options
+  paintFrameColor: PaintColorId | null;
+  paintDoorColor: PaintColorId | null;
+  paintSidePanelColor: PaintColorId | null;
+  onPaintFrameColorChange: (c: PaintColorId | null) => void;
+  onPaintDoorColorChange: (c: PaintColorId | null) => void;
+  onPaintSidePanelColorChange: (c: PaintColorId | null) => void;
+
   // Pulse trigger — called after "Find Max" updates inputs
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight
   // to draw attention to the updated configuration.
@@ -440,18 +449,96 @@ function StudioToggle({
 // Organizer Customization — Per-Section Addon Picker
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Small color circle swatch — toggles paint color for a target */
+function PaintSwatch({
+  colorId,
+  hex,
+  active,
+  onSelect,
+}: {
+  colorId: PaintColorId;
+  hex: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={colorId.charAt(0).toUpperCase() + colorId.slice(1)}
+      className={`relative h-6 w-6 rounded-full border-2 transition-all ${
+        active
+          ? "border-yellow-400 ring-2 ring-yellow-400/30 scale-110"
+          : "border-zinc-600 hover:border-zinc-400 hover:scale-105"
+      }`}
+      style={{ backgroundColor: hex }}
+    >
+      {active && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className={`text-[8px] font-black ${colorId === "white" ? "text-zinc-800" : "text-white"}`}>✓</span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Row of paint color swatches for a specific target */
+function PaintColorPicker({
+  label,
+  activeColor,
+  onColorChange,
+  price,
+}: {
+  label: string;
+  activeColor: PaintColorId | null;
+  onColorChange: (c: PaintColorId | null) => void;
+  price: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide min-w-[42px]">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {PAINT_COLORS.map((c) => (
+          <PaintSwatch
+            key={c.id}
+            colorId={c.id}
+            hex={c.hex}
+            active={activeColor === c.id}
+            onSelect={() => onColorChange(activeColor === c.id ? null : c.id)}
+          />
+        ))}
+      </div>
+      {activeColor && (
+        <span className="ml-auto text-[10px] font-medium text-yellow-400/80">+${price}</span>
+      )}
+    </div>
+  );
+}
+
 function OrganizerCustomization({
   cols,
   rows,
   addons,
   onAddonsChange,
   addonPricing,
+  paintFrameColor,
+  paintDoorColor,
+  paintSidePanelColor,
+  onPaintFrameColorChange,
+  onPaintDoorColorChange,
+  onPaintSidePanelColorChange,
 }: {
   cols: number;
   rows: number;
   addons: SectionAddon[];
   onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
+  paintFrameColor: PaintColorId | null;
+  paintDoorColor: PaintColorId | null;
+  paintSidePanelColor: PaintColorId | null;
+  onPaintFrameColorChange: (c: PaintColorId | null) => void;
+  onPaintDoorColorChange: (c: PaintColorId | null) => void;
+  onPaintSidePanelColorChange: (c: PaintColorId | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [railGridOpen, setRailGridOpen] = useState(false);
@@ -467,6 +554,9 @@ function OrganizerCustomization({
   const showRailRemoval = addonPricing?.rail_removal_enabled !== false;
   const showShelf = addonPricing?.shelf_enabled !== false;
   const showSlotGrid = showRailRemoval || showShelf;
+  const showPaint = addonPricing?.paint_enabled !== false;
+  const paintFramePrice = addonPricing?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price;
+  const paintDoorsPanelsPrice = addonPricing?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
 
   // Doors: total price = per-door price × number of columns
   const doorsTotalPrice = doorPrice * cols;
@@ -543,66 +633,167 @@ function OrganizerCustomization({
             className="overflow-hidden"
           >
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3 space-y-3">
-              {/* Doors — single on/off toggle for the whole unit */}
+              {/* Doors — toggle + paint color circles on the right */}
               {showDoor && (
                 <div>
                   <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                     Doors
                   </p>
-                  <button
-                    type="button"
-                    onClick={toggleDoors}
-                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
-                      doorsOn
-                        ? "border-yellow-400/50 bg-yellow-400/10"
-                        : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
-                    }`}
-                  >
-                    <motion.div
-                      className={`relative h-5 w-9 shrink-0 rounded-full ${doorsOn ? "bg-yellow-400" : "bg-zinc-700"}`}
-                      animate={{ backgroundColor: doorsOn ? "#facc15" : "#3f3f46" }}
-                      transition={{ duration: 0.2 }}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={toggleDoors}
+                      className={`flex flex-1 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${
+                        doorsOn
+                          ? "border-yellow-400/50 bg-yellow-400/10"
+                          : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
+                      }`}
                     >
                       <motion.div
-                        className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"
-                        animate={{ left: doorsOn ? 18 : 2 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      />
-                    </motion.div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <DoorOpen className={`h-3.5 w-3.5 ${doorsOn ? "text-yellow-400" : "text-zinc-500"}`} />
-                        <span className={`text-sm font-medium ${doorsOn ? "text-yellow-300" : "text-zinc-400"}`}>
-                          Plywood Doors
-                        </span>
+                        className={`relative h-5 w-9 shrink-0 rounded-full ${doorsOn ? "bg-yellow-400" : "bg-zinc-700"}`}
+                        animate={{ backgroundColor: doorsOn ? "#facc15" : "#3f3f46" }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <motion.div
+                          className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"
+                          animate={{ left: doorsOn ? 18 : 2 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        />
+                      </motion.div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <DoorOpen className={`h-3.5 w-3.5 ${doorsOn ? "text-yellow-400" : "text-zinc-500"}`} />
+                          <span className={`text-sm font-medium ${doorsOn ? "text-yellow-300" : "text-zinc-400"}`}>
+                            Plywood Doors
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-500">
+                          {cols} door{cols !== 1 ? "s" : ""} with Blum concealed hinges &middot; +${doorsTotalPrice}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-zinc-500">
-                        {cols} door{cols !== 1 ? "s" : ""} with Blum concealed hinges &middot; +${doorsTotalPrice}
-                      </p>
-                    </div>
-                  </button>
+                    </button>
+                    {/* Paint color circles for doors */}
+                    {showPaint && doorsOn && (
+                      <div className="flex flex-col items-center gap-1 pl-1">
+                        {PAINT_COLORS.map((c) => (
+                          <PaintSwatch
+                            key={c.id}
+                            colorId={c.id}
+                            hex={c.hex}
+                            active={paintDoorColor === c.id}
+                            onSelect={() => onPaintDoorColorChange(paintDoorColor === c.id ? null : c.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {showPaint && doorsOn && paintDoorColor && (
+                    <p className="mt-1 text-[10px] text-yellow-400/70 text-right">
+                      Paint doors: +${paintDoorsPanelsPrice}
+                    </p>
+                  )}
                 </div>
               )}
 
-              {/* Side Panel Buttons */}
+              {/* Side Panel Buttons + paint color circles */}
               {showSidePanel && (
                 <div>
                   <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                     Side Panels
                   </p>
-                  <div className="flex gap-2">
-                    <AddonToggleBtn
-                      icon={<PanelLeft className="h-3.5 w-3.5" />}
-                      label={`Left (+$${sidePanelPrice})`}
-                      active={hasAddon("side_panel", "left")}
-                      onToggle={() => toggleAddon("side_panel", "left")}
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-1 gap-2">
+                      <AddonToggleBtn
+                        icon={<PanelLeft className="h-3.5 w-3.5" />}
+                        label={`Left (+$${sidePanelPrice})`}
+                        active={hasAddon("side_panel", "left")}
+                        onToggle={() => toggleAddon("side_panel", "left")}
+                      />
+                      <AddonToggleBtn
+                        icon={<PanelLeft className="h-3.5 w-3.5 scale-x-[-1]" />}
+                        label={`Right (+$${sidePanelPrice})`}
+                        active={hasAddon("side_panel", "right")}
+                        onToggle={() => toggleAddon("side_panel", "right")}
+                      />
+                    </div>
+                    {/* Paint color circles for side panels */}
+                    {showPaint && (hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && (
+                      <div className="flex flex-col items-center gap-1 pl-1">
+                        {PAINT_COLORS.map((c) => (
+                          <PaintSwatch
+                            key={c.id}
+                            colorId={c.id}
+                            hex={c.hex}
+                            active={paintSidePanelColor === c.id}
+                            onSelect={() => onPaintSidePanelColorChange(paintSidePanelColor === c.id ? null : c.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {showPaint && (hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && paintSidePanelColor && (
+                    <p className="mt-1 text-[10px] text-yellow-400/70 text-right">
+                      Paint panels: +${paintDoorsPanelsPrice}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Paint — Frame color + Color All shortcut */}
+              {showPaint && (
+                <div className="border-t border-zinc-700/40 pt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Paintbrush className="h-3.5 w-3.5 text-rose-400" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                      Paint
+                    </p>
+                  </div>
+                  <div className="space-y-2.5">
+                    {/* Frame color */}
+                    <PaintColorPicker
+                      label="Frame"
+                      activeColor={paintFrameColor}
+                      onColorChange={onPaintFrameColorChange}
+                      price={paintFramePrice}
                     />
-                    <AddonToggleBtn
-                      icon={<PanelLeft className="h-3.5 w-3.5 scale-x-[-1]" />}
-                      label={`Right (+$${sidePanelPrice})`}
-                      active={hasAddon("side_panel", "right")}
-                      onToggle={() => toggleAddon("side_panel", "right")}
-                    />
+
+                    {/* Color All shortcut — sets frame, door, and panel to the same color */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wide min-w-[42px]">All</span>
+                      <div className="flex items-center gap-1.5">
+                        {PAINT_COLORS.map((c) => {
+                          const allMatch = paintFrameColor === c.id
+                            && (!doorsOn || paintDoorColor === c.id)
+                            && ((!hasAddon("side_panel", "left") && !hasAddon("side_panel", "right")) || paintSidePanelColor === c.id);
+                          return (
+                            <PaintSwatch
+                              key={c.id}
+                              colorId={c.id}
+                              hex={c.hex}
+                              active={allMatch}
+                              onSelect={() => {
+                                if (allMatch) {
+                                  // Clear all
+                                  onPaintFrameColorChange(null);
+                                  onPaintDoorColorChange(null);
+                                  onPaintSidePanelColorChange(null);
+                                } else {
+                                  // Set all to this color
+                                  onPaintFrameColorChange(c.id);
+                                  if (doorsOn) onPaintDoorColorChange(c.id);
+                                  if (hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) onPaintSidePanelColorChange(c.id);
+                                }
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                      {paintFrameColor && (
+                        <span className="ml-auto text-[10px] font-medium text-yellow-400/80">
+                          +${paintFramePrice + (doorsOn && paintDoorColor ? paintDoorsPanelsPrice : 0) + ((hasAddon("side_panel", "left") || hasAddon("side_panel", "right")) && paintSidePanelColor ? paintDoorsPanelsPrice : 0)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1406,6 +1597,12 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                     addons={props.addons}
                     onAddonsChange={props.onAddonsChange}
                     addonPricing={props.addonPricing}
+                    paintFrameColor={props.paintFrameColor}
+                    paintDoorColor={props.paintDoorColor}
+                    paintSidePanelColor={props.paintSidePanelColor}
+                    onPaintFrameColorChange={props.onPaintFrameColorChange}
+                    onPaintDoorColorChange={props.onPaintDoorColorChange}
+                    onPaintSidePanelColorChange={props.onPaintSidePanelColorChange}
                   />
                 )}
 
