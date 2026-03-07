@@ -1508,49 +1508,51 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
 
                 {/* Manual Columns / Rows — hidden when a bestseller is selected */}
                 {!props.activePreset && (
-                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 backdrop-blur-sm">
-                    <div className="flex items-center gap-4">
-                      <h3 className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                        Grid Size
-                      </h3>
-                      <div className="flex flex-1 items-center gap-3">
-                        <FocusFrame label="Columns" pulsing={dimensionPulsing}>
-                          <input
-                            type="number"
-                            min={1}
-                            max={12}
-                            value={props.cols}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              props.onColsChange(v === "" ? "" : parseInt(v) || "");
-                            }}
-                            onBlur={() => {
-                              const n = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string);
-                              props.onColsChange(Math.min(12, Math.max(1, n || 1)));
-                            }}
-                            className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
-                          />
-                        </FocusFrame>
-                        <FocusFrame label="Tiers High" pulsing={dimensionPulsing}>
-                          <input
-                            type="number"
-                            min={1}
-                            max={props.unitType === "mini" ? 4 : 10}
-                            value={props.rows}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              props.onRowsChange(v === "" ? "" : parseInt(v) || "");
-                            }}
-                            onBlur={() => {
-                              const n = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string);
-                              const maxT = props.unitType === "mini" ? 4 : 10;
-                              props.onRowsChange(Math.min(maxT, Math.max(1, n || 1)));
-                            }}
-                            className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
-                          />
-                        </FocusFrame>
+                  <section className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 backdrop-blur-sm">
+                    <Grid3X3 className="h-4 w-4 shrink-0 text-yellow-400" />
+                    <span className="shrink-0 text-sm font-medium text-zinc-300">
+                      Grid Size
+                    </span>
+                    <div className="ml-auto flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Col</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={12}
+                          value={props.cols}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            props.onColsChange(v === "" ? "" : parseInt(v) || "");
+                          }}
+                          onBlur={() => {
+                            const n = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string);
+                            props.onColsChange(Math.min(12, Math.max(1, n || 1)));
+                          }}
+                          className="w-12 rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-2 py-1 text-center text-sm font-bold text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+                        />
+                      </div>
+                      <span className="text-zinc-600">&times;</span>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Tier</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={props.unitType === "mini" ? 4 : 10}
+                          value={props.rows}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            props.onRowsChange(v === "" ? "" : parseInt(v) || "");
+                          }}
+                          onBlur={() => {
+                            const n = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string);
+                            const maxT = props.unitType === "mini" ? 4 : 10;
+                            props.onRowsChange(Math.min(maxT, Math.max(1, n || 1)));
+                          }}
+                          className="w-12 rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-2 py-1 text-center text-sm font-bold text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+                        />
                       </div>
                     </div>
                   </section>
