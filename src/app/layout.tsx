@@ -87,6 +87,8 @@ const jsonLdGraph = {
           containsPlace: [
             { "@type": "City", name: "Miami" },
             { "@type": "City", name: "Orlando" },
+            { "@type": "City", name: "Tampa" },
+            { "@type": "City", name: "Jacksonville" },
           ],
         },
         {
@@ -97,12 +99,18 @@ const jsonLdGraph = {
         {
           "@type": "State",
           name: "Colorado",
-          containsPlace: [{ "@type": "City", name: "Denver" }],
+          containsPlace: [
+            { "@type": "City", name: "Denver" },
+            { "@type": "City", name: "Colorado Springs" },
+          ],
         },
         {
           "@type": "State",
           name: "Utah",
-          containsPlace: [{ "@type": "City", name: "Salt Lake City" }],
+          containsPlace: [
+            { "@type": "City", name: "Salt Lake City" },
+            { "@type": "City", name: "Provo" },
+          ],
         },
         {
           "@type": "AdministrativeArea",
@@ -112,6 +120,180 @@ const jsonLdGraph = {
             { "@type": "State", name: "New Jersey" },
             { "@type": "State", name: "Pennsylvania" },
           ],
+        },
+        {
+          "@type": "State",
+          name: "Georgia",
+          containsPlace: [{ "@type": "City", name: "Atlanta" }],
+        },
+        {
+          "@type": "State",
+          name: "North Carolina",
+          containsPlace: [
+            { "@type": "City", name: "Charlotte" },
+            { "@type": "City", name: "Raleigh" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Tennessee",
+          containsPlace: [
+            { "@type": "City", name: "Nashville" },
+            { "@type": "City", name: "Memphis" },
+            { "@type": "City", name: "Knoxville" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Texas",
+          containsPlace: [
+            { "@type": "City", name: "Dallas" },
+            { "@type": "City", name: "Fort Worth" },
+            { "@type": "City", name: "Houston" },
+            { "@type": "City", name: "San Antonio" },
+            { "@type": "City", name: "Austin" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Arizona",
+          containsPlace: [
+            { "@type": "City", name: "Phoenix" },
+            { "@type": "City", name: "Scottsdale" },
+            { "@type": "City", name: "Tucson" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Indiana",
+          containsPlace: [{ "@type": "City", name: "Indianapolis" }],
+        },
+        {
+          "@type": "State",
+          name: "Ohio",
+          containsPlace: [
+            { "@type": "City", name: "Columbus" },
+            { "@type": "City", name: "Cincinnati" },
+            { "@type": "City", name: "Cleveland" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Minnesota",
+          containsPlace: [{ "@type": "City", name: "Minneapolis" }],
+        },
+        {
+          "@type": "State",
+          name: "Missouri",
+          containsPlace: [
+            { "@type": "City", name: "St. Louis" },
+            { "@type": "City", name: "Kansas City" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Wisconsin",
+          containsPlace: [{ "@type": "City", name: "Milwaukee" }],
+        },
+        {
+          "@type": "State",
+          name: "Michigan",
+          containsPlace: [
+            { "@type": "City", name: "Detroit" },
+            { "@type": "City", name: "Grand Rapids" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Kentucky",
+          containsPlace: [{ "@type": "City", name: "Louisville" }],
+        },
+        {
+          "@type": "State",
+          name: "Virginia",
+          containsPlace: [
+            { "@type": "City", name: "Richmond" },
+            { "@type": "City", name: "Virginia Beach" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "South Carolina",
+          containsPlace: [
+            { "@type": "City", name: "Charleston" },
+            { "@type": "City", name: "Greenville" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Idaho",
+          containsPlace: [{ "@type": "City", name: "Boise" }],
+        },
+        {
+          "@type": "State",
+          name: "Oregon",
+          containsPlace: [{ "@type": "City", name: "Portland" }],
+        },
+        {
+          "@type": "State",
+          name: "Washington",
+          containsPlace: [
+            { "@type": "City", name: "Seattle" },
+            { "@type": "City", name: "Spokane" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "California",
+          containsPlace: [
+            { "@type": "City", name: "Sacramento" },
+            { "@type": "City", name: "San Diego" },
+            { "@type": "City", name: "Bakersfield" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Nevada",
+          containsPlace: [
+            { "@type": "City", name: "Las Vegas" },
+            { "@type": "City", name: "Reno" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "New Mexico",
+          containsPlace: [{ "@type": "City", name: "Albuquerque" }],
+        },
+        {
+          "@type": "State",
+          name: "Oklahoma",
+          containsPlace: [
+            { "@type": "City", name: "Oklahoma City" },
+            { "@type": "City", name: "Tulsa" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Iowa",
+          containsPlace: [{ "@type": "City", name: "Des Moines" }],
+        },
+        {
+          "@type": "State",
+          name: "Alabama",
+          containsPlace: [
+            { "@type": "City", name: "Huntsville" },
+            { "@type": "City", name: "Birmingham" },
+          ],
+        },
+        {
+          "@type": "State",
+          name: "Kansas",
+          containsPlace: [{ "@type": "City", name: "Wichita" }],
+        },
+        {
+          "@type": "State",
+          name: "Arkansas",
+          containsPlace: [{ "@type": "City", name: "Little Rock" }],
         },
       ],
       hasOfferCatalog: {
@@ -198,12 +380,92 @@ const jsonLdGraph = {
       description:
         "Verified professional installers build custom 2×4 and 27-gallon tote storage systems on-site. Each installer uses the Storage Network app for consistent, professional-grade construction standards including automated scheduling and secure deposit collection.",
       areaServed: [
+        // Florida
         { "@type": "City", name: "Miami", containedInPlace: { "@type": "State", name: "Florida" } },
         { "@type": "City", name: "Orlando", containedInPlace: { "@type": "State", name: "Florida" } },
+        { "@type": "City", name: "Tampa", containedInPlace: { "@type": "State", name: "Florida" } },
+        { "@type": "City", name: "Jacksonville", containedInPlace: { "@type": "State", name: "Florida" } },
+        // Nebraska
         { "@type": "City", name: "Omaha", containedInPlace: { "@type": "State", name: "Nebraska" } },
+        // Colorado
         { "@type": "City", name: "Denver", containedInPlace: { "@type": "State", name: "Colorado" } },
+        { "@type": "City", name: "Colorado Springs", containedInPlace: { "@type": "State", name: "Colorado" } },
+        // Utah
         { "@type": "City", name: "Salt Lake City", containedInPlace: { "@type": "State", name: "Utah" } },
+        { "@type": "City", name: "Provo", containedInPlace: { "@type": "State", name: "Utah" } },
+        // Northeast
         { "@type": "AdministrativeArea", name: "New York–New Jersey–Pennsylvania Tri-State Area" },
+        // Georgia
+        { "@type": "City", name: "Atlanta", containedInPlace: { "@type": "State", name: "Georgia" } },
+        // North Carolina
+        { "@type": "City", name: "Charlotte", containedInPlace: { "@type": "State", name: "North Carolina" } },
+        { "@type": "City", name: "Raleigh", containedInPlace: { "@type": "State", name: "North Carolina" } },
+        // Tennessee
+        { "@type": "City", name: "Nashville", containedInPlace: { "@type": "State", name: "Tennessee" } },
+        { "@type": "City", name: "Memphis", containedInPlace: { "@type": "State", name: "Tennessee" } },
+        { "@type": "City", name: "Knoxville", containedInPlace: { "@type": "State", name: "Tennessee" } },
+        // Texas
+        { "@type": "City", name: "Dallas", containedInPlace: { "@type": "State", name: "Texas" } },
+        { "@type": "City", name: "Fort Worth", containedInPlace: { "@type": "State", name: "Texas" } },
+        { "@type": "City", name: "Houston", containedInPlace: { "@type": "State", name: "Texas" } },
+        { "@type": "City", name: "San Antonio", containedInPlace: { "@type": "State", name: "Texas" } },
+        { "@type": "City", name: "Austin", containedInPlace: { "@type": "State", name: "Texas" } },
+        // Arizona
+        { "@type": "City", name: "Phoenix", containedInPlace: { "@type": "State", name: "Arizona" } },
+        { "@type": "City", name: "Scottsdale", containedInPlace: { "@type": "State", name: "Arizona" } },
+        { "@type": "City", name: "Tucson", containedInPlace: { "@type": "State", name: "Arizona" } },
+        // Indiana
+        { "@type": "City", name: "Indianapolis", containedInPlace: { "@type": "State", name: "Indiana" } },
+        // Ohio
+        { "@type": "City", name: "Columbus", containedInPlace: { "@type": "State", name: "Ohio" } },
+        { "@type": "City", name: "Cincinnati", containedInPlace: { "@type": "State", name: "Ohio" } },
+        { "@type": "City", name: "Cleveland", containedInPlace: { "@type": "State", name: "Ohio" } },
+        // Minnesota
+        { "@type": "City", name: "Minneapolis", containedInPlace: { "@type": "State", name: "Minnesota" } },
+        // Missouri
+        { "@type": "City", name: "St. Louis", containedInPlace: { "@type": "State", name: "Missouri" } },
+        { "@type": "City", name: "Kansas City", containedInPlace: { "@type": "State", name: "Missouri" } },
+        // Wisconsin
+        { "@type": "City", name: "Milwaukee", containedInPlace: { "@type": "State", name: "Wisconsin" } },
+        // Michigan
+        { "@type": "City", name: "Detroit", containedInPlace: { "@type": "State", name: "Michigan" } },
+        { "@type": "City", name: "Grand Rapids", containedInPlace: { "@type": "State", name: "Michigan" } },
+        // Kentucky
+        { "@type": "City", name: "Louisville", containedInPlace: { "@type": "State", name: "Kentucky" } },
+        // Virginia
+        { "@type": "City", name: "Richmond", containedInPlace: { "@type": "State", name: "Virginia" } },
+        { "@type": "City", name: "Virginia Beach", containedInPlace: { "@type": "State", name: "Virginia" } },
+        // South Carolina
+        { "@type": "City", name: "Charleston", containedInPlace: { "@type": "State", name: "South Carolina" } },
+        { "@type": "City", name: "Greenville", containedInPlace: { "@type": "State", name: "South Carolina" } },
+        // Idaho
+        { "@type": "City", name: "Boise", containedInPlace: { "@type": "State", name: "Idaho" } },
+        // Oregon
+        { "@type": "City", name: "Portland", containedInPlace: { "@type": "State", name: "Oregon" } },
+        // Washington
+        { "@type": "City", name: "Seattle", containedInPlace: { "@type": "State", name: "Washington" } },
+        { "@type": "City", name: "Spokane", containedInPlace: { "@type": "State", name: "Washington" } },
+        // California
+        { "@type": "City", name: "Sacramento", containedInPlace: { "@type": "State", name: "California" } },
+        { "@type": "City", name: "San Diego", containedInPlace: { "@type": "State", name: "California" } },
+        { "@type": "City", name: "Bakersfield", containedInPlace: { "@type": "State", name: "California" } },
+        // Nevada
+        { "@type": "City", name: "Las Vegas", containedInPlace: { "@type": "State", name: "Nevada" } },
+        { "@type": "City", name: "Reno", containedInPlace: { "@type": "State", name: "Nevada" } },
+        // New Mexico
+        { "@type": "City", name: "Albuquerque", containedInPlace: { "@type": "State", name: "New Mexico" } },
+        // Oklahoma
+        { "@type": "City", name: "Oklahoma City", containedInPlace: { "@type": "State", name: "Oklahoma" } },
+        { "@type": "City", name: "Tulsa", containedInPlace: { "@type": "State", name: "Oklahoma" } },
+        // Iowa
+        { "@type": "City", name: "Des Moines", containedInPlace: { "@type": "State", name: "Iowa" } },
+        // Alabama
+        { "@type": "City", name: "Huntsville", containedInPlace: { "@type": "State", name: "Alabama" } },
+        { "@type": "City", name: "Birmingham", containedInPlace: { "@type": "State", name: "Alabama" } },
+        // Kansas
+        { "@type": "City", name: "Wichita", containedInPlace: { "@type": "State", name: "Kansas" } },
+        // Arkansas
+        { "@type": "City", name: "Little Rock", containedInPlace: { "@type": "State", name: "Arkansas" } },
       ],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
