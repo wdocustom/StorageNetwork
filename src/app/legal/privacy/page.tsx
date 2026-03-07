@@ -5,7 +5,12 @@ import { ArrowLeft } from "lucide-react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata = {
-  title: "Privacy Policy | The Storage-Network",
+  title: "Privacy Policy | Storage Network",
+  description:
+    "How Storage Network collects, uses, and protects your data. Covers installer accounts, customer booking information, payment processing via Stripe, and cookie usage.",
+  alternates: {
+    canonical: "/legal/privacy",
+  },
 };
 
 export default function PrivacyPage() {

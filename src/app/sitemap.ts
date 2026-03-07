@@ -107,6 +107,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
   );
 
+  // ── Become-installer landing pages (same metro regions) ────────────
+  const becomeInstallerPages: MetadataRoute.Sitemap = INSTALLER_REGIONS.map(
+    (region) => ({
+      url: `${BASE}/become-installer/${region.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })
+  );
+
   // ── Dynamic installer portfolio pages (/p/[slug]) ───────────────────
   let portfolioPages: MetadataRoute.Sitemap = [];
 
@@ -136,5 +146,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] Failed to fetch installer profiles:", err);
   }
 
-  return [...staticPages, ...installerPages, ...portfolioPages];
+  return [...staticPages, ...installerPages, ...becomeInstallerPages, ...portfolioPages];
 }

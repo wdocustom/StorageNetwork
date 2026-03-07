@@ -1,24 +1,51 @@
-# Storage Network — Crawler Policy
-# Allow indexing of public pages, block internal/admin routes
+# Storage Network — Crawler Policy (static fallback)
+# The dynamic /robots.txt from src/app/robots.ts takes precedence in production.
+# This file exists as a fallback for static hosting or build previews.
 
 User-agent: *
 Allow: /
-Allow: /design
+Allow: /technology
 Allow: /features
 Allow: /about
-Allow: /installers
+Allow: /about/*
+Allow: /join
+Allow: /partner/join
+Allow: /installers/
+Allow: /installers/*
+Allow: /become-installer/
+Allow: /become-installer/*
 Allow: /p/
+Allow: /p/*
+Allow: /legal/
+Allow: /legal/*
+Allow: /llms.txt
 
-# Block dashboard, API, admin, and internal routes
-Disallow: /dashboard
+# Block proprietary tools, dashboard, API, and internal routes
 Disallow: /api/
-Disallow: /login
-Disallow: /checkout
+Disallow: /dashboard/
+Disallow: /dashboard/*
+Disallow: /design
+Disallow: /design/*
+Disallow: /build
 Disallow: /pay/
-Disallow: /payment/
-Disallow: /partner/
-Disallow: /community
-Disallow: /_next/
+Disallow: /pay/*
+Disallow: /checkout/
+Disallow: /checkout/*
+Disallow: /upload/
+Disallow: /upload/*
+Disallow: /login
+Disallow: /reset-password
+Disallow: /auth/
+Disallow: /auth/*
+Disallow: /success/
 Disallow: /book/
+Disallow: /book/*
+Disallow: /payment/
+Disallow: /payment/*
+Disallow: /community
+Disallow: /community/*
+Disallow: /upgrade
+Disallow: /demo
+Disallow: /_next/
 
 Sitemap: https://storage-network.app/sitemap.xml

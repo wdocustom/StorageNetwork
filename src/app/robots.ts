@@ -15,6 +15,7 @@ import type { MetadataRoute } from "next";
 const BLOCKED_PATHS = [
   "/api/",
   "/dashboard/",
+  "/dashboard/*",
   "/design",
   "/design/*",
   "/build",
@@ -27,7 +28,17 @@ const BLOCKED_PATHS = [
   "/login",
   "/reset-password",
   "/auth/",
+  "/auth/*",
   "/success/",
+  "/book/",
+  "/book/*",
+  "/payment/",
+  "/payment/*",
+  "/community",
+  "/community/*",
+  "/upgrade",
+  "/demo",
+  "/_next/",
 ];
 
 const ALLOWED_PATHS = [
@@ -41,8 +52,11 @@ const ALLOWED_PATHS = [
   "/partner/join",
   "/installers/",
   "/installers/*",
+  "/become-installer/",
+  "/become-installer/*",
   "/legal/",
   "/legal/*",
+  "/llms.txt",
 ];
 
 // AI bot user agents that should be explicitly welcomed

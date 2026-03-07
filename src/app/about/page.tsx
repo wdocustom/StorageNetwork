@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 
 export const metadata: Metadata = {
   title: "About Storage Network | Builder-Founded Garage Storage OS",
   description:
     "Storage Network was built on the garage floor, not in a boardroom. Learn how builder-turned-founder Skyler Camacho created the industry-standard operating system for professional tote rack installers.",
+  alternates: {
+    canonical: "/about",
+  },
   openGraph: {
     title: "About Storage Network | Builder-Founded Garage Storage OS",
     description:
@@ -32,6 +36,14 @@ export default function AboutPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            generateBreadcrumbJsonLd([{ name: "About", path: "/about" }])
+          ),
+        }}
       />
 
       {/* Header */}

@@ -5,7 +5,12 @@ import { ArrowLeft } from "lucide-react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata = {
-  title: "Terms of Service | The Storage-Network",
+  title: "Terms of Service | Storage Network",
+  description:
+    "Terms of Service for Storage Network. Covers installer accounts, customer bookings, payment processing, platform usage, and dispute resolution for tote rack installation services.",
+  alternates: {
+    canonical: "/legal/terms",
+  },
 };
 
 export default function TermsPage() {

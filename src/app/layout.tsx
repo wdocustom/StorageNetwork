@@ -8,6 +8,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://storage-network.app"),
+  alternates: {
+    canonical: "/",
+  },
   title: "Storage Network | Custom Tote Storage Systems",
   description:
     "Design custom tote storage in 30 seconds. Free 3D configurator for garages, basements & sheds. Find certified installers or DIY with our cut lists.",

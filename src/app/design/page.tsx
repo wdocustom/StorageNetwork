@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     "HDX tote system",
     "basement storage design",
   ],
+  alternates: {
+    canonical: "/design",
+  },
   openGraph: {
     title: "Free 3D Tote Storage Designer",
     description:

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { generateBreadcrumbJsonLd } from "@/lib/schema/breadcrumb";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /technology — Glass Storefront
@@ -31,6 +32,9 @@ export const metadata: Metadata = {
     "installer platform",
     "React Three Fiber",
   ],
+  alternates: {
+    canonical: "/technology",
+  },
   openGraph: {
     title: "Technology | Storage Network",
     description:
@@ -86,6 +90,14 @@ export default function TechnologyPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(technologyJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            generateBreadcrumbJsonLd([{ name: "Technology", path: "/technology" }])
+          ),
+        }}
       />
 
       {/* ── Navigation ──────────────────────────────────────────────────── */}
