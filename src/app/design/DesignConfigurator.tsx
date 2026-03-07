@@ -19,7 +19,7 @@ import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
-import type { SectionAddon, AddonPricing } from "@/types/viewModels";
+import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
 import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
@@ -54,6 +54,9 @@ interface UnitConfig {
   depth: number;
   desc: string;
   addons: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
 }
 
 interface ServerBuild {
@@ -872,6 +875,9 @@ export default function DesignConfigurator({
         depth: build.depth,
         desc: `${unitLabel}: ${build.cols}W × ${build.rows}H${toteDesc}`,
         addons: [...addons],
+        paintFrameColor,
+        paintDoorColor,
+        paintSidePanelColor,
       },
     ]);
     // Clear addons after adding to quote

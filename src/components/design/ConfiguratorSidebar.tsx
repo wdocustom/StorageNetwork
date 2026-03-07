@@ -65,6 +65,9 @@ interface UnitConfig {
   depth: number;
   desc: string;
   addons: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
 }
 
 interface ServerBuild {
@@ -999,6 +1002,12 @@ function OrderItemCard({
   if (doorAddon) addOnItems.push("Plywood Doors");
   const sidePanelCount = item.addons?.filter((a) => a.type === "side_panel").length ?? 0;
   if (sidePanelCount > 0) addOnItems.push(`${sidePanelCount} Side Panel${sidePanelCount !== 1 ? "s" : ""}`);
+
+  // Paint details per component
+  const paintLabel = (colorId: PaintColorId) => PAINT_COLORS.find((c) => c.id === colorId)?.label ?? colorId;
+  if (item.paintFrameColor) addOnItems.push(`Paint Frame: ${paintLabel(item.paintFrameColor)}`);
+  if (item.paintDoorColor) addOnItems.push(`Paint Doors: ${paintLabel(item.paintDoorColor)}`);
+  if (item.paintSidePanelColor) addOnItems.push(`Paint Side Panels: ${paintLabel(item.paintSidePanelColor)}`);
 
   const hasAddOns = addOnItems.length > 0;
 

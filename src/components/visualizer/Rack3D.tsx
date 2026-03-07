@@ -677,11 +677,11 @@ function RackAssembly({
                     : frameH + PLY_TOP_H / 2,
                   unitDepth / 2
                 ]}
+                material={frameMat ?? PLYWOOD_TOP_MAT}
                 castShadow
                 receiveShadow
               >
                 <boxGeometry args={[topW, PLY_TOP_H, unitDepth]} />
-                <primitive object={frameMat ? frameMat : PLYWOOD_TOP_MAT} attach="material" />
               </mesh>
             );
           })()}
