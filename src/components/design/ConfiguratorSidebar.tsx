@@ -296,9 +296,9 @@ export interface ConfiguratorSidebarProps {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STEPS = [
-  { id: 1, label: "Dimensions", icon: Ruler },
-  { id: 2, label: "Configuration", icon: Settings2 },
-  { id: 3, label: "Style", icon: Palette },
+  { id: 1, label: "Size / Base", icon: Ruler },
+  { id: 2, label: "Tote Configuration", icon: Settings2 },
+  { id: 3, label: "Add-ons", icon: Palette },
   { id: 4, label: "Summary", icon: ShoppingCart },
 ] as const;
 
@@ -966,6 +966,309 @@ function AddonToggleBtn({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Order Item Card — expandable add-ons in Summary (Shopify cart style)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function OrderItemCard({
+  item,
+  index,
+  onRemove,
+}: {
+  item: UnitConfig;
+  index: number;
+  onRemove: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Build add-on list
+  const addOnItems: string[] = [];
+  if (item.hasTotes) {
+    if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
+      addOnItems.push("Clear Totes");
+    } else {
+      addOnItems.push("Totes");
+    }
+  }
+  if (item.hasWheels) addOnItems.push("Wheels");
+  if (item.hasTop) addOnItems.push("Plywood Top");
+  const shelfCount = item.addons?.filter((a) => a.type === "shelf").length ?? 0;
+  if (shelfCount > 0) addOnItems.push(`${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`);
+  const railRemovedCount = item.addons?.filter((a) => a.type === "rail_removed").length ?? 0;
+  if (railRemovedCount > 0) addOnItems.push(`${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`);
+  const doorAddon = item.addons?.some((a) => a.type === "plywood_door");
+  if (doorAddon) addOnItems.push("Plywood Doors");
+  const sidePanelCount = item.addons?.filter((a) => a.type === "side_panel").length ?? 0;
+  if (sidePanelCount > 0) addOnItems.push(`${sidePanelCount} Side Panel${sidePanelCount !== 1 ? "s" : ""}`);
+
+  const hasAddOns = addOnItems.length > 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -20, height: 0 }}
+      className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden"
+    >
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-zinc-200">
+              Unit #{index + 1}: {item.desc}
+            </p>
+            {hasAddOns && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-0.5 rounded-full bg-zinc-800 border border-zinc-700/50 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300"
+              >
+                {addOnItems.length} add-on{addOnItems.length !== 1 ? "s" : ""}
+                <motion.div
+                  animate={{ rotate: expanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ChevronDown className="h-2.5 w-2.5" />
+                </motion.div>
+              </button>
+            )}
+          </div>
+          {!hasAddOns && (
+            <p className="text-[11px] text-zinc-500">Frame Only</p>
+          )}
+          {hasAddOns && !expanded && (
+            <p className="text-[11px] text-zinc-500 truncate">
+              {addOnItems.join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0 ml-3">
+          <span className="text-sm font-bold text-white">
+            ${item.price.toLocaleString()}
+          </span>
+          <button
+            onClick={onRemove}
+            className="text-zinc-600 transition-colors hover:text-red-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Expandable add-ons list */}
+      <AnimatePresence initial={false}>
+        {expanded && hasAddOns && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-zinc-800/60 px-4 pb-3 pt-2">
+              <ul className="space-y-1">
+                {addOnItems.map((addon, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[11px] text-zinc-400">
+                    <span className="h-1 w-1 rounded-full bg-yellow-400/60 shrink-0" />
+                    {addon}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bestseller Dropdown — smooth animated expand/collapse (like Organizer Customization)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function BestsellerDropdown({
+  presetOptions,
+  activePreset,
+  onPresetChange,
+  compoundBuild,
+  presetLoading,
+  presetTotes,
+  onPresetTotesChange,
+  onAddPresetUnit,
+  wallW,
+  wallH,
+  hasWallDimensions,
+}: {
+  presetOptions: ConfiguratorSidebarProps["presetOptions"];
+  activePreset: string | null;
+  onPresetChange: (v: string | null) => void;
+  compoundBuild: ConfiguratorSidebarProps["compoundBuild"];
+  presetLoading: boolean;
+  presetTotes: boolean;
+  onPresetTotesChange: (v: boolean) => void;
+  onAddPresetUnit: () => void;
+  wallW: number;
+  wallH: number;
+  hasWallDimensions: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasSelection = !!activePreset;
+
+  // Auto-expand when a preset is active
+  useEffect(() => {
+    if (activePreset) setExpanded(true);
+  }, [activePreset]);
+
+  const selectedPresetName = activePreset
+    ? presetOptions.find((p) => p.id === activePreset)?.name ?? "Bestseller"
+    : null;
+
+  return (
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 backdrop-blur-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-4 py-3 transition-colors hover:bg-zinc-800/40"
+      >
+        <Star className="h-4 w-4 text-yellow-400" />
+        <span className="flex-1 text-left text-sm font-medium text-zinc-300">
+          Bestsellers
+        </span>
+        {hasSelection && !expanded && (
+          <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
+            {selectedPresetName}
+          </span>
+        )}
+        <motion.div
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+        >
+          <ChevronDown className="h-4 w-4 text-zinc-500" />
+        </motion.div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 px-4 pb-4">
+              {/* Custom Build option */}
+              <SelectionCard
+                selected={!activePreset}
+                onSelect={() => onPresetChange(null)}
+                className="w-full"
+              >
+                <div className="text-xs font-bold text-zinc-300">Custom Build</div>
+                <div className="mt-0.5 text-[10px] text-zinc-500">Configure your own layout</div>
+              </SelectionCard>
+
+              {/* Preset options with fit check */}
+              {presetOptions.map((p) => {
+                const presetCombinedW = compoundBuild && activePreset === p.id
+                  ? compoundBuild.subUnits.reduce((sum, su) => sum + su.totalW, 0)
+                  : null;
+                const presetMaxH = compoundBuild && activePreset === p.id
+                  ? Math.max(...compoundBuild.subUnits.map((su) => su.totalH))
+                  : null;
+                const estimatedW = p.units.reduce((sum, u) => sum + u.cols * 18, 0);
+                const estimatedH = Math.max(...p.units.map((u) => u.rows * 16));
+                const checkW = presetCombinedW ?? estimatedW;
+                const checkH = presetMaxH ?? estimatedH;
+                const doesntFit = hasWallDimensions && (checkW > wallW || checkH > wallH);
+
+                return (
+                  <SelectionCard
+                    key={p.id}
+                    selected={activePreset === p.id}
+                    onSelect={() => !doesntFit && onPresetChange(p.id)}
+                    className={`w-full ${doesntFit ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-zinc-300">{p.name}</div>
+                        <div className="mt-0.5 text-[10px] text-zinc-500">
+                          {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
+                        </div>
+                      </div>
+                      {doesntFit && (
+                        <span className="flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[9px] font-bold text-red-400">
+                          <AlertTriangle className="h-3 w-3" />
+                          Won&apos;t Fit
+                        </span>
+                      )}
+                    </div>
+                  </SelectionCard>
+                );
+              })}
+
+              {/* Active preset details — totes toggle + add to quote */}
+              {activePreset && compoundBuild && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.25 }}
+                  className="mt-1 space-y-3"
+                >
+                  <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/60 p-3">
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
+                      Preset Includes
+                    </div>
+                    <ul className="space-y-1">
+                      {compoundBuild.subUnits.map((su, i) => (
+                        <li key={i} className="flex items-center justify-between text-xs text-zinc-400">
+                          <span className="font-medium text-zinc-300">
+                            {su.cols}W &times; {su.rows}H ({su.slots} slots)
+                          </span>
+                          <span>{su.totalW.toFixed(1)}&quot; &times; {su.totalH.toFixed(1)}&quot;</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <StudioToggle
+                    checked={presetTotes}
+                    onChange={onPresetTotesChange}
+                    label={`Include Totes`}
+                  />
+                  <div className="flex items-center gap-3 border-t border-zinc-800 pt-3">
+                    <div className="flex-1 text-center">
+                      <div className="text-2xl font-black text-white">
+                        {presetLoading ? "..." : <RollingPrice value={compoundBuild.totalPrice} />}
+                      </div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
+                        {compoundBuild.presetName}
+                      </div>
+                    </div>
+                    <motion.button
+                      onClick={onAddPresetUnit}
+                      disabled={presetLoading}
+                      className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add to Quote
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+              {activePreset && !compoundBuild && presetLoading && (
+                <div className="flex items-center justify-center gap-2 py-4 text-xs font-semibold text-zinc-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Calculating preset...
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1081,7 +1384,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
             className="space-y-4 p-4"
           >
             {/* ════════════════════════════════════════════════════════════
-                STEP 1: DIMENSIONS
+                STEP 1: SIZE / BASE
             ════════════════════════════════════════════════════════════ */}
             {activeStep === 1 && (
               <>
@@ -1186,51 +1489,72 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   )}
                 </section>
 
-                {/* Manual Columns / Rows */}
-                <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 backdrop-blur-sm">
-                  <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                    Grid Size
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FocusFrame label="Columns" pulsing={dimensionPulsing}>
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        value={props.cols}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          props.onColsChange(v === "" ? "" : parseInt(v) || "");
-                        }}
-                        onBlur={() => {
-                          const n = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string);
-                          props.onColsChange(Math.min(12, Math.max(1, n || 1)));
-                        }}
-                        className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
-                      />
-                    </FocusFrame>
-                    <FocusFrame label="Tiers High" pulsing={dimensionPulsing}>
-                      <input
-                        type="number"
-                        min={1}
-                        max={props.unitType === "mini" ? 4 : 10}
-                        value={props.rows}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          props.onRowsChange(v === "" ? "" : parseInt(v) || "");
-                        }}
-                        onBlur={() => {
-                          const n = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string);
-                          const maxT = props.unitType === "mini" ? 4 : 10;
-                          props.onRowsChange(Math.min(maxT, Math.max(1, n || 1)));
-                        }}
-                        className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
-                      />
-                    </FocusFrame>
-                  </div>
-                </section>
+                {/* Bestsellers Dropdown — between Auto-fit and Grid Size */}
+                {props.presetOptions.length > 0 && (
+                  <BestsellerDropdown
+                    presetOptions={props.presetOptions}
+                    activePreset={props.activePreset}
+                    onPresetChange={props.onPresetChange}
+                    compoundBuild={props.compoundBuild}
+                    presetLoading={props.presetLoading}
+                    presetTotes={props.presetTotes}
+                    onPresetTotesChange={props.onPresetTotesChange}
+                    onAddPresetUnit={() => { props.onAddPresetUnit(); setActiveStep(4); }}
+                    wallW={wallW}
+                    wallH={wallH}
+                    hasWallDimensions={hasWallDimensions}
+                  />
+                )}
+
+                {/* Manual Columns / Rows — hidden when a bestseller is selected */}
+                {!props.activePreset && (
+                  <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 backdrop-blur-sm">
+                    <div className="flex items-center gap-4">
+                      <h3 className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Grid Size
+                      </h3>
+                      <div className="flex flex-1 items-center gap-3">
+                        <FocusFrame label="Columns" pulsing={dimensionPulsing}>
+                          <input
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={props.cols}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              props.onColsChange(v === "" ? "" : parseInt(v) || "");
+                            }}
+                            onBlur={() => {
+                              const n = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string);
+                              props.onColsChange(Math.min(12, Math.max(1, n || 1)));
+                            }}
+                            className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
+                          />
+                        </FocusFrame>
+                        <FocusFrame label="Tiers High" pulsing={dimensionPulsing}>
+                          <input
+                            type="number"
+                            min={1}
+                            max={props.unitType === "mini" ? 4 : 10}
+                            value={props.rows}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              props.onRowsChange(v === "" ? "" : parseInt(v) || "");
+                            }}
+                            onBlur={() => {
+                              const n = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string);
+                              const maxT = props.unitType === "mini" ? 4 : 10;
+                              props.onRowsChange(Math.min(maxT, Math.max(1, n || 1)));
+                            }}
+                            className="w-full bg-transparent text-lg font-bold text-white placeholder-zinc-600 focus:outline-none"
+                          />
+                        </FocusFrame>
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 {/* Continue Button */}
                 <motion.button
@@ -1246,7 +1570,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
             )}
 
             {/* ════════════════════════════════════════════════════════════
-                STEP 2: CONFIGURATION
+                STEP 2: TOTE CONFIGURATION
             ════════════════════════════════════════════════════════════ */}
             {activeStep === 2 && (
               <>
@@ -1280,124 +1604,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Bestseller Presets — shown BEFORE orientation */}
-                {props.presetOptions.length > 0 && (
-                  <section className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
-                    <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-400/80">
-                      <Star className="h-3.5 w-3.5" />
-                      Bestsellers
-                    </h3>
-                    <div className="space-y-2">
-                      {/* Custom Build option */}
-                      <SelectionCard
-                        selected={!props.activePreset}
-                        onSelect={() => props.onPresetChange(null)}
-                        className="w-full"
-                      >
-                        <div className="text-xs font-bold text-zinc-300">Custom Build</div>
-                        <div className="mt-0.5 text-[10px] text-zinc-500">Configure your own layout</div>
-                      </SelectionCard>
-
-                      {/* Preset options with fit check */}
-                      {props.presetOptions.map((p) => {
-                        // Check if preset fits within wall dimensions (if entered)
-                        const presetCombinedW = props.compoundBuild && props.activePreset === p.id
-                          ? props.compoundBuild.subUnits.reduce((sum, su) => sum + su.totalW, 0)
-                          : null;
-                        const presetMaxH = props.compoundBuild && props.activePreset === p.id
-                          ? Math.max(...props.compoundBuild.subUnits.map((su) => su.totalH))
-                          : null;
-                        // For non-active presets, estimate from grid size (rough: ~18" per col, ~16" per row for standard)
-                        const estimatedW = p.units.reduce((sum, u) => sum + u.cols * 18, 0);
-                        const estimatedH = Math.max(...p.units.map((u) => u.rows * 16));
-                        const checkW = presetCombinedW ?? estimatedW;
-                        const checkH = presetMaxH ?? estimatedH;
-                        const doesntFit = hasWallDimensions && (checkW > wallW || checkH > wallH);
-
-                        return (
-                          <SelectionCard
-                            key={p.id}
-                            selected={props.activePreset === p.id}
-                            onSelect={() => !doesntFit && props.onPresetChange(p.id)}
-                            className={`w-full ${doesntFit ? "opacity-50 cursor-not-allowed" : ""}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-xs font-bold text-zinc-300">{p.name}</div>
-                                <div className="mt-0.5 text-[10px] text-zinc-500">
-                                  {p.units.map((u) => `${u.cols}x${u.rows}`).join(" + ")}
-                                </div>
-                              </div>
-                              {doesntFit && (
-                                <span className="flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[9px] font-bold text-red-400">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  Won&apos;t Fit
-                                </span>
-                              )}
-                            </div>
-                          </SelectionCard>
-                        );
-                      })}
-                    </div>
-
-                    {/* Active preset details — totes toggle + add to quote */}
-                    {props.activePreset && props.compoundBuild && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        className="mt-3 space-y-3"
-                      >
-                        <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/60 p-3">
-                          <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
-                            Preset Includes
-                          </div>
-                          <ul className="space-y-1">
-                            {props.compoundBuild.subUnits.map((su, i) => (
-                              <li key={i} className="flex items-center justify-between text-xs text-zinc-400">
-                                <span className="font-medium text-zinc-300">
-                                  {su.cols}W &times; {su.rows}H ({su.slots} slots)
-                                </span>
-                                <span>{su.totalW.toFixed(1)}&quot; &times; {su.totalH.toFixed(1)}&quot;</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <StudioToggle
-                          checked={props.presetTotes}
-                          onChange={props.onPresetTotesChange}
-                          label={`Include Totes`}
-                        />
-                        <div className="flex items-center gap-3 border-t border-zinc-800 pt-3">
-                          <div className="flex-1 text-center">
-                            <div className="text-2xl font-black text-white">
-                              {props.presetLoading ? "..." : <RollingPrice value={props.compoundBuild.totalPrice} />}
-                            </div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
-                              {props.compoundBuild.presetName}
-                            </div>
-                          </div>
-                          <motion.button
-                            onClick={() => { props.onAddPresetUnit(); setActiveStep(4); }}
-                            disabled={props.presetLoading}
-                            className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.98 }}
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add to Quote
-                          </motion.button>
-                        </div>
-                      </motion.div>
-                    )}
-                    {props.activePreset && !props.compoundBuild && props.presetLoading && (
-                      <div className="mt-3 flex items-center justify-center gap-2 py-4 text-xs font-semibold text-zinc-500">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Calculating preset...
-                      </div>
-                    )}
-                  </section>
-                )}
-
                 {/* Orientation Cards — only shown for custom builds (no bestseller selected) */}
                 {!props.activePreset && props.unitType === "standard" && (
                   <div>
@@ -1423,36 +1629,8 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Navigation — bestseller skips Style, custom build continues to Style */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={goPrev}
-                    className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-                  >
-                    Back
-                  </button>
-                  {!props.activePreset && (
-                    <motion.button
-                      onClick={goNext}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Continue to Style
-                      <ChevronRight className="h-4 w-4" />
-                    </motion.button>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ════════════════════════════════════════════════════════════
-                STEP 3: STYLE (Tote Selection + Add-ons)
-            ════════════════════════════════════════════════════════════ */}
-            {activeStep === 3 && (
-              <>
-                {/* Tote Style Cards — only for standard units */}
-                {props.unitType === "standard" ? (
+                {/* Tote Size — moved here from Step 3 */}
+                {!props.activePreset && props.unitType === "standard" ? (
                   <div>
                     <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
                       Tote Size
@@ -1504,15 +1682,43 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                       </SelectionCard>
                     </div>
                   </div>
-                ) : (
+                ) : !props.activePreset && props.unitType !== "standard" ? (
                   <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Tote Type</div>
                     <div className="mt-1 text-sm font-medium text-zinc-300">
                       6.5 Quart Clear Totes (Yellow Lids)
                     </div>
                   </div>
-                )}
+                ) : null}
 
+                {/* Navigation */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={goPrev}
+                    className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+                  >
+                    Back
+                  </button>
+                  {!props.activePreset && (
+                    <motion.button
+                      onClick={goNext}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Continue to Add-ons
+                      <ChevronRight className="h-4 w-4" />
+                    </motion.button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ════════════════════════════════════════════════════════════
+                STEP 3: ADD-ONS (Tote Color + Toggles + Customization)
+            ════════════════════════════════════════════════════════════ */}
+            {activeStep === 3 && (
+              <>
                 {/* HDX Color Cards */}
                 {props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
                   <div>
@@ -1666,59 +1872,21 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
             ════════════════════════════════════════════════════════════ */}
             {activeStep === 4 && (
               <>
-                {/* Order Items */}
+                {/* Order Items — with expandable add-ons */}
                 {props.orderItems.length > 0 ? (
                   <section className="space-y-2">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
                       Your Quote
                     </h3>
                     <AnimatePresence>
-                      {props.orderItems.map((item, index) => {
-                        const extras: string[] = [];
-                        if (item.hasTotes) {
-                          if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
-                            extras.push("Clear Totes");
-                          } else {
-                            extras.push("Totes");
-                          }
-                        }
-                        if (item.hasWheels) extras.push("Wheels");
-                        if (item.hasTop) extras.push("Top");
-                        const shelfCount = item.addons?.filter((a) => a.type === "shelf").length ?? 0;
-                        if (shelfCount > 0) extras.push(`${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`);
-                        const railRemovedCount = item.addons?.filter((a) => a.type === "rail_removed").length ?? 0;
-                        if (railRemovedCount > 0) extras.push(`${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`);
-
-                        return (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20, height: 0 }}
-                            className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-zinc-200">
-                                Unit #{index + 1}: {item.desc}
-                              </p>
-                              <p className="text-[11px] text-zinc-500">
-                                {extras.length > 0 ? extras.join(", ") : "Frame Only"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-bold text-white">
-                                ${item.price.toLocaleString()}
-                              </span>
-                              <button
-                                onClick={() => props.onRemoveUnit(index)}
-                                className="text-zinc-600 transition-colors hover:text-red-400"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
+                      {props.orderItems.map((item, index) => (
+                        <OrderItemCard
+                          key={index}
+                          item={item}
+                          index={index}
+                          onRemove={() => props.onRemoveUnit(index)}
+                        />
+                      ))}
                     </AnimatePresence>
                   </section>
                 ) : (

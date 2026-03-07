@@ -251,8 +251,8 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   }
 
   // Color logic
-  const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#ef4444");
-  const rimDarkColor = isMini ? "#d4a017" : (toteType === "HDX" ? "#d4a017" : "#c0392b");
+  const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#fbbf24");
+  const rimDarkColor = isMini ? "#d4a017" : (toteType === "HDX" ? "#d4a017" : "#d4a017");
   const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a";
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
