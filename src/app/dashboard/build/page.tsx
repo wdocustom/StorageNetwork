@@ -940,22 +940,58 @@ export default function BuildConfiguratorPage() {
 
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-              Tote Model
+              Tote Size
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {(["HDX", "GM"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setToteType(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    toteType === t
-                      ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                      : "border-slate-700 text-stone-400 hover:border-stone-600"
-                  }`}
-                >
-                  {t === "HDX" ? 'HDX (19.75")' : 'Greenmade (20.75")'}
-                </button>
-              ))}
+              <button
+                onClick={() => setToteType("HDX")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  toteType === "HDX"
+                    ? "border-yellow-400 bg-yellow-400/10"
+                    : "border-slate-700 hover:border-stone-600"
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
+                  19-3/4&quot; Opening
+                </div>
+                <div className="text-sm font-bold text-stone-200">Standard</div>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
+                    HDX
+                  </span>
+                  <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
+                    Performax
+                  </span>
+                </div>
+                <div className="mt-1 text-[9px] text-stone-600">
+                  Home Depot &middot; Menards
+                </div>
+              </button>
+
+              <button
+                onClick={() => setToteType("GM")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  toteType === "GM"
+                    ? "border-yellow-400 bg-yellow-400/10"
+                    : "border-slate-700 hover:border-stone-600"
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
+                  20-3/4&quot; Opening
+                </div>
+                <div className="text-sm font-bold text-stone-200">Wide</div>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
+                    GreenMade
+                  </span>
+                  <span className="inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">
+                    Project Source
+                  </span>
+                </div>
+                <div className="mt-1 text-[9px] text-stone-600">
+                  Costco &middot; Lowe&apos;s &middot; Walmart
+                </div>
+              </button>
             </div>
           </div>
 
