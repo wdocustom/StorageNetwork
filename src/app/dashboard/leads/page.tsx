@@ -94,15 +94,16 @@ export default function LeadsListPage() {
       return;
     }
 
-    // Filter out: cancelled, archived, pending_payment (unpaid/abandoned), expired
-    // Also require deposit_paid: true (excludes unpaid quotes from /build)
+    // Fetch active + past jobs:
+    // deposit_paid = true (active/past), OR status is paid/completed (past jobs
+    // that may have skipped the deposit flow, e.g. unpaid quotes marked paid)
     const { data } = await supabase
       .from("leads")
       .select(
         "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
       )
       .eq("installer_id", user.id)
-      .eq("deposit_paid", true)
+      .or('deposit_paid.eq.true,status.in.("paid","completed")')
       .not("status", "in", '("cancelled","archived","pending_payment","expired")')
       .order("created_at", { ascending: false });
 

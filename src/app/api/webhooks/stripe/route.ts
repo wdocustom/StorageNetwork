@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
           .from("leads")
           .update({
             status: "paid",
+            deposit_paid: true,
             payout_status: "paid",
             paid_at: new Date().toISOString(),
             completed_at: new Date().toISOString(),
