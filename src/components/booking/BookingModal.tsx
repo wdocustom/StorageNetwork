@@ -72,7 +72,7 @@ interface BookingModalProps {
   taxableAmount?: number;
   initialAddress?: Partial<BookingAddress>;
   initialScheduledDate?: string | null;
-  initialDiscount?: { code: string; amount: number } | null;
+  initialDiscount?: { code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null;
   onSuccess?: (scheduledDate: string, address: BookingAddress) => void;
 }
 
@@ -116,7 +116,7 @@ export default function BookingModal({
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
   const [discountInput, setDiscountInput] = useState(initialDiscount?.code || "");
-  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(initialDiscount || null);
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(initialDiscount || null);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
@@ -186,7 +186,7 @@ export default function BookingModal({
     const result = await validateDiscountCode(discountInput.trim(), installerId, totalPrice);
     setDiscountLoading(false);
     if (result.valid) {
-      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
       setDiscountError("");
     } else {
       setDiscountApplied(null);
@@ -510,7 +510,7 @@ export default function BookingModal({
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                   <Tag className="h-4 w-4 text-emerald-400" />
                   <span className="flex-1 text-sm font-semibold text-emerald-400">
-                    {discountApplied.code} — {formatCurrency(discountApplied.amount)} off
+                    {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${formatCurrency(discountApplied.amount)} off`}
                   </span>
                   <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
                     <X className="h-4 w-4" />

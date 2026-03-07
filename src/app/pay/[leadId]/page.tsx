@@ -69,7 +69,7 @@ export default function ResumePaymentPage() {
 
   // Discount code state
   const [discountInput, setDiscountInput] = useState("");
-  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(null);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
@@ -135,7 +135,7 @@ export default function ResumePaymentPage() {
             result.lead.estimated_price
           );
           if (discountResult.valid) {
-            setDiscountApplied({ code: discountResult.code!, amount: discountResult.discountAmount });
+            setDiscountApplied({ code: discountResult.code!, amount: discountResult.discountAmount, discountType: discountResult.discountType, discountValue: discountResult.discountValue });
           }
         }
       }
@@ -207,7 +207,7 @@ export default function ResumePaymentPage() {
     const result = await validateDiscountCode(discountInput.trim(), lead.installer_id, lead.estimated_price);
     setDiscountLoading(false);
     if (result.valid) {
-      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
       setDiscountError("");
     } else {
       setDiscountApplied(null);
@@ -798,7 +798,7 @@ export default function ResumePaymentPage() {
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
                 <Tag className="h-4 w-4 text-emerald-400" />
                 <span className="flex-1 text-sm font-semibold text-emerald-400">
-                  {discountApplied.code} — {formatCurrency(discountApplied.amount)} off
+                  {discountApplied.code} — {discountApplied.discountType === "percentage" ? `${discountApplied.discountValue}% off` : `${formatCurrency(discountApplied.amount)} off`}
                 </span>
                 <button onClick={handleRemoveDiscount} className="text-stone-500 hover:text-red-400">
                   <X className="h-4 w-4" />

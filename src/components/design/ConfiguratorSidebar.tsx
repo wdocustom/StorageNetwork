@@ -265,7 +265,7 @@ export interface ConfiguratorSidebarProps {
   // Discount code (inline in sidebar)
   discountInput: string;
   onDiscountInputChange: (v: string) => void;
-  discountApplied: { code: string; amount: number } | null;
+  discountApplied: { code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null;
   discountLoading: boolean;
   discountError: string;
   onApplyDiscount: () => void;
@@ -1995,7 +1995,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                       <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
                         <Tag className="h-3.5 w-3.5 text-emerald-400" />
                         <span className="flex-1 text-xs font-semibold text-emerald-400">
-                          {props.discountApplied.code} — ${props.discountApplied.amount} off
+                          {props.discountApplied.code} — {props.discountApplied.discountType === "percentage" ? `${props.discountApplied.discountValue}% off` : `$${props.discountApplied.amount} off`}
                         </span>
                         <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
                           <X className="h-3.5 w-3.5" />

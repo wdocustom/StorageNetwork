@@ -569,7 +569,7 @@ export default function DesignConfigurator({
 
   // ── Discount code (inline in sidebar) ───────────────────────────────
   const [discountInput, setDiscountInput] = useState("");
-  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number } | null>(null);
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(null);
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
@@ -581,7 +581,7 @@ export default function DesignConfigurator({
     const result = await validateDiscountCode(discountInput.trim(), installerId, grandTotal);
     setDiscountLoading(false);
     if (result.valid) {
-      setDiscountApplied({ code: result.code!, amount: result.discountAmount });
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
       setDiscountError("");
     } else {
       setDiscountApplied(null);
