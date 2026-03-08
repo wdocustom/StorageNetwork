@@ -880,8 +880,16 @@ export default function DesignConfigurator({
         paintSidePanelColor,
       },
     ]);
-    // Clear addons after adding to quote
+    // Reset step 2/3 customization state so the configurator is fresh for a new unit
     setAddons([]);
+    setPaintFrameColor(null);
+    setPaintDoorColor(null);
+    setPaintSidePanelColor(null);
+    setHasWheels(true);
+    setHasTop(true);
+    setHasTotes(true);
+    setActivePreset(null);
+    setCompoundBuild(null);
   }
 
   function handleAddPresetUnit() {

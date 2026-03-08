@@ -1316,6 +1316,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   // Navigate to next step
   const goNext = () => setActiveStep((s) => Math.min(4, s + 1));
   const goPrev = () => setActiveStep((s) => Math.max(1, s - 1));
+  const hasQuoteItems = props.orderItems.length > 0;
 
   // Wall dimensions for bestseller fit check
   const wallW = parseFloat(props.wallWidth) || 0;
@@ -1339,12 +1340,18 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
             return (
               <div key={step.id} className="flex flex-1 items-center">
                 <button
-                  onClick={() => setActiveStep(step.id)}
+                  onClick={() => {
+                    // When items are in quote, only allow navigating to step 1 (add another) or step 4 (summary)
+                    if (hasQuoteItems && activeStep === 4 && step.id !== 1 && step.id !== 4) return;
+                    setActiveStep(step.id);
+                  }}
                   className="group flex flex-1 flex-col items-center gap-1"
                 >
                   <motion.div
                     className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-colors ${
-                      isActive
+                      hasQuoteItems && activeStep === 4 && step.id !== 1 && step.id !== 4
+                        ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
+                        : isActive
                         ? "bg-yellow-400 text-zinc-900"
                         : isComplete
                         ? "bg-yellow-400/20 text-yellow-400"
@@ -1913,6 +1920,19 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
+                {/* Add Another Unit */}
+                {props.orderItems.length > 0 && !props.submitted && (
+                  <motion.button
+                    onClick={() => setActiveStep(1)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-600 bg-zinc-900/40 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:border-yellow-400/40 hover:bg-zinc-900/60 hover:text-yellow-400"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Another Unit
+                  </motion.button>
+                )}
+
                 {/* Cleanout Service — Add to Order */}
                 {props.installerId && !props.submitted && (() => {
                   const cleanoutServices = (props.servicesConfig ?? []).filter(
@@ -2404,12 +2424,12 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </motion.div>
                 )}
 
-                {/* Back button */}
+                {/* Back button — go to step 1 when items in quote (to add another unit) */}
                 <button
-                  onClick={goPrev}
+                  onClick={hasQuoteItems ? () => setActiveStep(1) : goPrev}
                   className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
                 >
-                  Back
+                  {hasQuoteItems ? "Add Another Unit" : "Back"}
                 </button>
               </>
             )}
