@@ -1978,19 +1978,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   </div>
                 )}
 
-                {/* Add Another Unit */}
-                {props.orderItems.length > 0 && !props.submitted && (
-                  <motion.button
-                    onClick={() => setActiveStep(1)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-600 bg-zinc-900/40 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:border-yellow-400/40 hover:bg-zinc-900/60 hover:text-yellow-400"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Another Unit
-                  </motion.button>
-                )}
-
                 {/* Cleanout Service — Add to Order */}
                 {props.installerId && !props.submitted && (() => {
                   const cleanoutServices = (props.servicesConfig ?? []).filter(

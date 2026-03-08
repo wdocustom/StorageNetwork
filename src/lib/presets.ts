@@ -76,4 +76,20 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },
     ],
   },
+  {
+    id: "gas-station",
+    name: "The Gas Station",
+    label: "Bestseller",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    basePrice: 600,
+    withTotesPrice: 840,
+    units: [
+      { cols: 1, rows: 4, hasTop: true, hasWheels: false },
+      { cols: 4, rows: 2, hasTop: true, hasWheels: false },
+      { cols: 1, rows: 4, hasTop: true, hasWheels: false },
+    ],
+  },
 ];

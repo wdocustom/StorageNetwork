@@ -99,6 +99,7 @@ export interface InstallerPricing {
   bestseller_indiana_joe?: number;
   bestseller_cornhusker?: number;
   bestseller_long_ranger?: number;
+  bestseller_gas_station?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
@@ -106,7 +107,7 @@ export interface InstallerPricing {
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,
@@ -123,6 +124,7 @@ export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_indiana_joe: 950,
   bestseller_cornhusker: 660,
   bestseller_long_ranger: 715,
+  bestseller_gas_station: 840,
 };
 
 export interface DesignPageViewModel {
