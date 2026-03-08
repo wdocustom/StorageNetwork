@@ -976,38 +976,88 @@ function OrderItemCard({
   item,
   index,
   onRemove,
+  pricing,
+  platformDefaults,
+  addonPricing,
 }: {
   item: UnitConfig;
   index: number;
   onRemove: () => void;
+  pricing?: ConfiguratorSidebarProps["pricing"];
+  platformDefaults: ConfiguratorSidebarProps["platformDefaults"];
+  addonPricing?: AddonPricing;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Build add-on list
-  const addOnItems: string[] = [];
+  // Build add-on list with prices
+  const addOnItems: { label: string; price: number }[] = [];
+
+  const slots = item.cols * item.rows;
+
   if (item.hasTotes) {
+    let totePrice: number;
     if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
-      addOnItems.push("Clear Totes");
+      totePrice = pricing?.standard_tote_clear ?? platformDefaults.standard_tote_clear;
+    } else if (item.unitType === "mini") {
+      totePrice = pricing?.mini_tote ?? platformDefaults.mini_tote;
     } else {
-      addOnItems.push("Totes");
+      totePrice = pricing?.standard_tote ?? platformDefaults.standard_tote;
     }
+    const label = (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") ? "Clear Totes" : "Totes";
+    addOnItems.push({ label, price: slots * totePrice });
   }
-  if (item.hasWheels) addOnItems.push("Wheels");
-  if (item.hasTop) addOnItems.push("Plywood Top");
+  if (item.hasWheels) {
+    const wheelsPrice = item.unitType === "mini"
+      ? (pricing?.mini_wheels ?? platformDefaults.mini_wheels)
+      : (pricing?.standard_wheels ?? platformDefaults.standard_wheels);
+    addOnItems.push({ label: "Wheels", price: wheelsPrice });
+  }
+  if (item.hasTop) {
+    const topUnitPrice = pricing?.plywood_top ?? platformDefaults.plywood_top;
+    // Calculate top sheets same as calculator
+    let topSheets: number;
+    if (item.unitType === "mini") {
+      topSheets = 1; // mini units use calculated sq ft but approximate as 1 sheet for display
+    } else {
+      if (item.totalW > 192) topSheets = 3;
+      else if (item.totalW > 96) topSheets = 2;
+      else topSheets = 1;
+    }
+    addOnItems.push({ label: "Plywood Top", price: topSheets * topUnitPrice });
+  }
+
+  const ap = addonPricing;
   const shelfCount = item.addons?.filter((a) => a.type === "shelf").length ?? 0;
-  if (shelfCount > 0) addOnItems.push(`${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`);
+  if (shelfCount > 0) {
+    const shelfPrice = ap?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
+    addOnItems.push({ label: `${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`, price: shelfCount * shelfPrice });
+  }
   const railRemovedCount = item.addons?.filter((a) => a.type === "rail_removed").length ?? 0;
-  if (railRemovedCount > 0) addOnItems.push(`${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`);
-  const doorAddon = item.addons?.some((a) => a.type === "plywood_door");
-  if (doorAddon) addOnItems.push("Plywood Doors");
+  if (railRemovedCount > 0) {
+    const railPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+    addOnItems.push({ label: `${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`, price: railRemovedCount * railPrice });
+  }
+  const doorAddons = item.addons?.filter((a) => a.type === "plywood_door") ?? [];
+  if (doorAddons.length > 0) {
+    const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
+    // Check if "doors_on" (all columns) or individual doors
+    const allDoorsOn = doorAddons.some((a) => a.target === "doors_on");
+    const totalDoorPrice = allDoorsOn ? doorPrice * item.cols : doorPrice * doorAddons.length;
+    addOnItems.push({ label: "Plywood Doors", price: totalDoorPrice });
+  }
   const sidePanelCount = item.addons?.filter((a) => a.type === "side_panel").length ?? 0;
-  if (sidePanelCount > 0) addOnItems.push(`${sidePanelCount} Side Panel${sidePanelCount !== 1 ? "s" : ""}`);
+  if (sidePanelCount > 0) {
+    const panelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
+    addOnItems.push({ label: `${sidePanelCount} Side Panel${sidePanelCount !== 1 ? "s" : ""}`, price: sidePanelCount * panelPrice });
+  }
 
   // Paint details per component
   const paintLabel = (colorId: PaintColorId) => PAINT_COLORS.find((c) => c.id === colorId)?.label ?? colorId;
-  if (item.paintFrameColor) addOnItems.push(`Paint Frame: ${paintLabel(item.paintFrameColor)}`);
-  if (item.paintDoorColor) addOnItems.push(`Paint Doors: ${paintLabel(item.paintDoorColor)}`);
-  if (item.paintSidePanelColor) addOnItems.push(`Paint Side Panels: ${paintLabel(item.paintSidePanelColor)}`);
+  const paintFramePrice = ap?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price;
+  const paintDoorsPanelsPrice = ap?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
+  if (item.paintFrameColor) addOnItems.push({ label: `Paint Frame: ${paintLabel(item.paintFrameColor)}`, price: paintFramePrice });
+  if (item.paintDoorColor) addOnItems.push({ label: `Paint Doors: ${paintLabel(item.paintDoorColor)}`, price: paintDoorsPanelsPrice });
+  if (item.paintSidePanelColor) addOnItems.push({ label: `Paint Side Panels: ${paintLabel(item.paintSidePanelColor)}`, price: paintDoorsPanelsPrice });
 
   const hasAddOns = addOnItems.length > 0;
 
@@ -1045,7 +1095,7 @@ function OrderItemCard({
           )}
           {hasAddOns && !expanded && (
             <p className="text-[11px] text-zinc-500 truncate">
-              {addOnItems.join(", ")}
+              {addOnItems.map((a) => a.label).join(", ")}
             </p>
           )}
         </div>
@@ -1075,9 +1125,14 @@ function OrderItemCard({
             <div className="border-t border-zinc-800/60 px-4 pb-3 pt-2">
               <ul className="space-y-1">
                 {addOnItems.map((addon, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[11px] text-zinc-400">
-                    <span className="h-1 w-1 rounded-full bg-yellow-400/60 shrink-0" />
-                    {addon}
+                  <li key={i} className="flex items-center justify-between gap-2 text-[11px] text-zinc-400">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="h-1 w-1 rounded-full bg-yellow-400/60 shrink-0" />
+                      <span className="truncate">{addon.label}</span>
+                    </span>
+                    {addon.price > 0 && (
+                      <span className="shrink-0 text-zinc-500">${addon.price.toLocaleString()}</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1903,6 +1958,9 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                           item={item}
                           index={index}
                           onRemove={() => props.onRemoveUnit(index)}
+                          pricing={props.pricing}
+                          platformDefaults={props.platformDefaults}
+                          addonPricing={props.addonPricing}
                         />
                       ))}
                     </AnimatePresence>
