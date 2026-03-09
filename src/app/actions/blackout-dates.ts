@@ -1,7 +1,11 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -20,7 +24,7 @@ export async function getBlackoutDates(installerId: string): Promise<{
   error?: string;
 }> {
   try {
-    const { data, error } = await getServiceClient()
+    const { data, error } = await supabase
       .from("installer_blackout_dates")
       .select("id, start_date, end_date, reason")
       .eq("installer_id", installerId)
@@ -42,7 +46,7 @@ export async function addBlackoutDate(
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await getServiceClient()
+    const { error } = await supabase
       .from("installer_blackout_dates")
       .insert({
         installer_id: installerId,
@@ -65,7 +69,7 @@ export async function removeBlackoutDate(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await getServiceClient()
+    const { error } = await supabase
       .from("installer_blackout_dates")
       .delete()
       .eq("id", id)
@@ -85,7 +89,7 @@ export async function isDateBlackedOut(
   date: string
 ): Promise<boolean> {
   try {
-    const { data } = await getServiceClient()
+    const { data } = await supabase
       .from("installer_blackout_dates")
       .select("id")
       .eq("installer_id", installerId)

@@ -1,11 +1,15 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Discount Code Validation — Server Action
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -52,7 +56,7 @@ export async function validateDiscountCode(
 
   const normalizedCode = code.trim().toUpperCase();
 
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("discount_codes")
     .select("*")
     .eq("installer_id", installerId)
@@ -121,7 +125,7 @@ export async function incrementDiscountCodeUsage(
   const normalizedCode = code.trim().toUpperCase();
 
   // Fetch current count, then increment
-  const { data } = await getServiceClient()
+  const { data } = await supabase
     .from("discount_codes")
     .select("id, used_count, current_uses")
     .eq("installer_id", installerId)
@@ -129,7 +133,7 @@ export async function incrementDiscountCodeUsage(
     .single();
 
   if (data) {
-    await getServiceClient()
+    await supabase
       .from("discount_codes")
       .update({
         used_count: ((data.used_count || data.current_uses || 0) as number) + 1,
@@ -147,7 +151,7 @@ export async function incrementDiscountCodeUsage(
 export async function getInstallerDiscountCodes(
   installerId: string
 ): Promise<{ success: boolean; codes?: DiscountCode[]; error?: string }> {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("discount_codes")
     .select("*")
     .eq("installer_id", installerId)
@@ -182,7 +186,7 @@ export async function createDiscountCode(input: {
     return { success: false, error: "Percentage discount cannot exceed 100%." };
   }
 
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("discount_codes")
     .insert({
       installer_id: installerId,
@@ -210,7 +214,7 @@ export async function toggleDiscountCode(
   installerId: string,
   active: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("discount_codes")
     .update({ active })
     .eq("id", codeId)
@@ -227,7 +231,7 @@ export async function deleteDiscountCode(
   codeId: string,
   installerId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("discount_codes")
     .delete()
     .eq("id", codeId)

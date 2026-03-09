@@ -1,8 +1,12 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import { DEMO_TIME_SLOTS, OWNER_EMAIL } from "@/lib/demo-constants";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Demo Booking — Stores booking + creates Google Calendar event
@@ -37,7 +41,7 @@ export async function getAvailableSlots(
   }
 
   // Check which slots are already booked
-  const { data: booked, error } = await getServiceClient()
+  const { data: booked, error } = await supabase
     .from("demo_bookings")
     .select("time")
     .eq("date", date)
@@ -69,7 +73,7 @@ export async function bookDemo(input: BookDemoInput): Promise<BookDemoResult> {
   }
 
   // Store in database
-  const { error: insertError } = await getServiceClient()
+  const { error: insertError } = await supabase
     .from("demo_bookings")
     .insert({
       name: name.trim(),

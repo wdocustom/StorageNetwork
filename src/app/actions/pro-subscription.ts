@@ -1,9 +1,14 @@
 "use server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
 import { getAppUrl } from "@/lib/url-helper";
 import Stripe from "stripe";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -25,13 +30,13 @@ export async function createProCheckoutSession(
 
   try {
     // Get user email for Stripe
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("business_name, first_name, last_name")
       .eq("id", userId)
       .single();
 
-    const { data: authUser } = await getServiceClient().auth.admin.getUserById(userId);
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
     const email = authUser?.user?.email;
 
     if (!email) {
@@ -101,7 +106,7 @@ export async function activateProSubscription(
 ): Promise<{ success: boolean; slug?: string; error?: string }> {
   try {
     // Fetch the profile to get business_name
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("business_name, first_name, last_name, slug")
       .eq("id", userId)
@@ -113,7 +118,7 @@ export async function activateProSubscription(
 
     // If they already have a slug, keep it
     if (profile.slug) {
-      await getServiceClient()
+      await supabase
         .from("profiles")
         .update({
           is_pro: true,
@@ -134,7 +139,7 @@ export async function activateProSubscription(
     if (!slug) slug = userId.slice(0, 8);
 
     // Check uniqueness
-    const { data: existing } = await getServiceClient()
+    const { data: existing } = await supabase
       .from("profiles")
       .select("id")
       .eq("slug", slug)
@@ -146,7 +151,7 @@ export async function activateProSubscription(
     }
 
     // Double-check the fallback slug
-    const { data: existing2 } = await getServiceClient()
+    const { data: existing2 } = await supabase
       .from("profiles")
       .select("id")
       .eq("slug", slug)
@@ -158,7 +163,7 @@ export async function activateProSubscription(
     }
 
     // Save
-    const { error } = await getServiceClient()
+    const { error } = await supabase
       .from("profiles")
       .update({
         is_pro: true,
@@ -192,7 +197,7 @@ export async function activateProSubscription(
 export async function deactivateProSubscription(
   userId: string
 ): Promise<{ success: boolean }> {
-  await getServiceClient()
+  await supabase
     .from("profiles")
     .update({
       is_pro: false,
@@ -221,7 +226,7 @@ export async function getProSubscriptionStatus(
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id, is_pro")
       .eq("id", userId)
@@ -267,7 +272,7 @@ export async function cancelProSubscription(
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id")
       .eq("id", userId)
@@ -315,7 +320,7 @@ export async function reactivateProSubscription(
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id")
       .eq("id", userId)
@@ -355,7 +360,7 @@ export async function getPendingBountySummary(
   count: number;
   estimatedValue: number;
 }> {
-  const { data: pendingLeads } = await getServiceClient()
+  const { data: pendingLeads } = await supabase
     .from("leads")
     .select("deposit_amount, estimated_price")
     .eq("referring_installer_id", userId)
@@ -390,7 +395,7 @@ export async function createCustomerPortalSession(
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id")
       .eq("id", userId)
@@ -440,7 +445,7 @@ export async function getPaymentRecoveryUrl(
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_subscription_id, is_suspended, suspension_reason")
       .eq("id", userId)

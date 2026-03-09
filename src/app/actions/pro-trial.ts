@@ -1,6 +1,6 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +19,10 @@ import { slugify } from "@/lib/utils";
 // as a paid Pro subscriber.
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const TRIAL_JOB_LIMIT = 3;
 
@@ -51,7 +55,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
   if (!userId) return noTrial;
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("is_pro, pro_trial_ends_at, pro_trial_partner, stripe_subscription_id, slug, business_name, first_name")
       .eq("id", userId)
@@ -65,7 +69,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     // If they've subscribed to Pro via Stripe, the trial is irrelevant
     // Clear the trial fields and keep them as paid Pro
     if (profile.stripe_subscription_id) {
-      await getServiceClient()
+      await supabase
         .from("profiles")
         .update({
           pro_trial_ends_at: null,
@@ -76,7 +80,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     }
 
     // Count completed jobs for this installer
-    const { count: jobsCompleted } = await getServiceClient()
+    const { count: jobsCompleted } = await supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("installer_id", userId)
@@ -107,7 +111,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
           if (!trialSlug) trialSlug = userId.slice(0, 8);
 
           // Check uniqueness
-          const { data: existing } = await getServiceClient()
+          const { data: existing } = await supabase
             .from("profiles")
             .select("id")
             .eq("slug", trialSlug)
@@ -116,7 +120,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
 
           if (existing) {
             trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
-            const { data: existing2 } = await getServiceClient()
+            const { data: existing2 } = await supabase
               .from("profiles")
               .select("id")
               .eq("slug", trialSlug)
@@ -131,7 +135,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
         }
 
         if (Object.keys(updates).length > 0) {
-          await getServiceClient()
+          await supabase
             .from("profiles")
             .update(updates)
             .eq("id", userId);
@@ -151,7 +155,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     // ── Trial expired — suspend account ──────────────────────────────────
     // Slug is preserved so the portfolio URL still resolves
     // (shows an "inactive installer" overlay instead of 404)
-    await getServiceClient()
+    await supabase
       .from("profiles")
       .update({
         is_pro: false,

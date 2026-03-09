@@ -1,7 +1,7 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
 import { incrementDiscountCodeUsage } from "./discount-codes";
 
@@ -50,17 +50,14 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lazy singleton — only instantiated at runtime, not during build
-let _stripe: Stripe | null = null;
-function getStripeClient() {
-  if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2025-12-15.clover",
-    });
-  }
-  return _stripe;
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-12-15.clover",
+});
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ── Fee Constants ────────────────────────────────────────────────────────
 // Deposit rate is now installer-configurable (min 15%) via fee-engine.ts.
@@ -71,7 +68,7 @@ const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
 
 // ── Helper: Check if installer is Pro ────────────────────────────────────
 async function isInstallerPro(installerId: string): Promise<boolean> {
-  const { data } = await getServiceClient()
+  const { data } = await supabase
     .from("profiles")
     .select("is_pro")
     .eq("id", installerId)
@@ -81,7 +78,7 @@ async function isInstallerPro(installerId: string): Promise<boolean> {
 
 // ── Helper: Get installer profile with Stripe account ────────────────────
 async function getInstallerProfile(installerId: string) {
-  const { data } = await getServiceClient()
+  const { data } = await supabase
     .from("profiles")
     .select("stripe_account_id, is_pro, platform_fee_override")
     .eq("id", installerId)
@@ -132,7 +129,7 @@ export async function createPaymentSession(
 
     // ── Create Stripe Checkout Session with destination charge ──────────
     // 100% of payment transfers to installer (no application_fee_amount)
-    const session = await getStripeClient().checkout.sessions.create({
+    const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -168,7 +165,7 @@ export async function createPaymentSession(
     }
 
     // ── Update lead status to "payment_pending" ─────────────────────────
-    await getServiceClient()
+    await supabase
       .from("leads")
       .update({
         payout_status: "payment_link_sent",
@@ -271,7 +268,7 @@ export async function sendPaymentInvoice(
     }
 
     // Update lead status
-    await getServiceClient()
+    await supabase
       .from("leads")
       .update({
         payout_status: "invoice_sent",
@@ -295,7 +292,7 @@ export async function sendPaymentInvoice(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean; error?: string }> {
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("leads")
     .update({
       status: "paid",           // triggers fn_increment_job_score
@@ -315,7 +312,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   console.log("[MarkPaid] Firing booking confirmation for lead:", leadId);
   import("@/lib/email").then(async ({ sendBookingConfirmation }) => {
     try {
-      const { data: lead } = await getServiceClient()
+      const { data: lead } = await supabase
         .from("leads")
         .select("customer_name, customer_email, address, scheduled_at, estimated_price, deposit_amount, installer_id, notes")
         .eq("id", leadId)
@@ -324,7 +321,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
       console.log("[MarkPaid] Lead data:", lead?.customer_email || "NO EMAIL", lead?.installer_id || "NO INSTALLER");
       if (!lead?.customer_email || !lead.installer_id) return;
 
-      const { data: installer } = await getServiceClient()
+      const { data: installer } = await supabase
         .from("profiles")
         .select("business_name, phone, avatar_url")
         .eq("id", lead.installer_id)
@@ -465,7 +462,7 @@ export async function createDepositIntent(
       const platformFeeCents = Math.round(totalPriceCents * overrideRate);
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
-      paymentIntent = await getStripeClient().paymentIntents.create({
+      paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
@@ -507,7 +504,7 @@ export async function createDepositIntent(
       const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 3%
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
-      paymentIntent = await getStripeClient().paymentIntents.create({
+      paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
@@ -547,7 +544,7 @@ export async function createDepositIntent(
       // ── No Stripe connected: Full deposit to Platform ──────────────────────
       // Platform keeps entire deposit (15% of build) until installer connects Stripe
       // Installer collects balance + tax at installation (minus any discount)
-      paymentIntent = await getStripeClient().paymentIntents.create({
+      paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
         automatic_payment_methods: {
@@ -604,7 +601,7 @@ export async function createDepositIntent(
       leadUpdate.delivery_fee = (deliveryFeeCents / 100);
       leadUpdate.estimated_price = totalPrice; // totalPrice already includes delivery fee from BookingModal
     }
-    await getServiceClient()
+    await supabase
       .from("leads")
       .update(leadUpdate)
       .eq("id", leadId);
@@ -643,7 +640,7 @@ export async function verifyAndConfirmDeposit(
   console.log("[VerifyDeposit] Checking lead:", leadId);
 
   // 1. Check if already marked as paid
-  const { data: lead } = await getServiceClient()
+  const { data: lead } = await supabase
     .from("leads")
     .select("deposit_paid, customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, deposit_amount")
     .eq("id", leadId)
@@ -657,7 +654,7 @@ export async function verifyAndConfirmDeposit(
 
   // 2. Search Stripe for a succeeded PaymentIntent with this leadId
   try {
-    const paymentIntents = await getStripeClient().paymentIntents.search({
+    const paymentIntents = await stripe.paymentIntents.search({
       query: `metadata["leadId"]:"${leadId}" status:"succeeded"`,
     });
 
@@ -671,7 +668,7 @@ export async function verifyAndConfirmDeposit(
     console.log("[VerifyDeposit] Found succeeded PI:", pi.id, "| amount:", amountPaid);
 
     // 3. Update DB — same as webhook would do
-    const { error: updateError } = await getServiceClient()
+    const { error: updateError } = await supabase
       .from("leads")
       .update({
         deposit_paid: true,

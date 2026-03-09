@@ -1,6 +1,6 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -19,6 +19,10 @@ import { getServiceClient } from "@/lib/supabase-server";
 // The browser bundle contains zero knowledge of how any of these are derived.
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ── Fee Constants (server-only, never shipped to client) ─────────────────
 const DEPOSIT_RATE = 0.15;
@@ -96,7 +100,7 @@ export interface BuildFeeBreakdown {
  * Returns null if no custom config is set (use default 15%).
  */
 async function getInstallerDepositConfig(installerId: string): Promise<DepositConfig | null> {
-  const { data } = await getServiceClient()
+  const { data } = await supabase
     .from("profiles")
     .select("deposit_config")
     .eq("id", installerId)

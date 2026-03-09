@@ -1,8 +1,12 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Checkout — Financial logic for Platform vs Partner Link deposits
@@ -69,7 +73,7 @@ export async function processCheckout(
 
   if (source === "partner_link" && installer_id) {
     // Partner link: check installer's Pro status, Stripe connection, and fee override
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id, is_pro, platform_fee_override")
       .eq("id", installer_id)
@@ -100,7 +104,7 @@ export async function processCheckout(
   }
 
   // Update lead with deposit info
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("leads")
     .update({
       source,
@@ -141,7 +145,7 @@ export async function processCheckout(
  * Get checkout details for a lead (used to display payment info).
  */
 export async function getCheckoutDetails(leadId: string) {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("leads")
     .select(
       "id, estimated_price, deposit_amount, deposit_paid, balance_due, source, installer_id, payout_status"

@@ -1,10 +1,14 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export interface UpdateProfileInput {
   installer_id: string;
@@ -56,7 +60,7 @@ export async function updateInstallerProfile(
     updateData.business_name = input.business_name;
   }
 
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("profiles")
     .update(updateData)
     .eq("id", installer_id);
@@ -112,7 +116,7 @@ export async function validateServiceArea(
   }
 
   try {
-    const { data: installer, error } = await getServiceClient()
+    const { data: installer, error } = await supabase
       .from("profiles")
       .select("business_name, service_zip, service_radius_miles, service_zips")
       .eq("id", installerId)
@@ -176,7 +180,7 @@ export async function submitWaitlistRequest(input: WaitlistInput): Promise<{
 
   try {
     // Fetch installer info for the email
-    const { data: installer } = await getServiceClient()
+    const { data: installer } = await supabase
       .from("profiles")
       .select("email, business_name, service_radius_miles")
       .eq("id", input.installer_id)

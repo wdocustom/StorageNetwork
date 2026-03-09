@@ -1,6 +1,6 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import zipcodes from "zipcodes";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -16,6 +16,10 @@ import zipcodes from "zipcodes";
 //   - Only enabled tiers are considered
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export interface DeliveryFeeTier {
   max_miles: number;
@@ -56,7 +60,7 @@ export async function calculateDeliveryFee(
   if (!/^\d{5}$/.test(trimmedZip)) return noFee;
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("service_zip, delivery_fee_config")
       .eq("id", installerId)

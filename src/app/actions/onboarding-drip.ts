@@ -1,6 +1,6 @@
 "use server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 import {
   sendOnboardingEmail2_QRCode,
   sendOnboardingEmail3_FirstSale,
@@ -21,6 +21,10 @@ import {
 // Called by /api/cron/onboarding-drip
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface DripResult {
   processed: number;
@@ -42,7 +46,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-    const { data: installers, error } = await getServiceClient()
+    const { data: installers, error } = await supabase
       .from("profiles")
       .select("id, email, first_name, last_name, business_name, slug, onboarding_step, created_at")
       .lt("onboarding_step", 4)
@@ -84,7 +88,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
             slug: installer.slug,
           });
 
-          await getServiceClient()
+          await supabase
             .from("profiles")
             .update({ onboarding_step: 2 })
             .eq("id", installer.id);
@@ -101,7 +105,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
             slug: installer.slug,
           });
 
-          await getServiceClient()
+          await supabase
             .from("profiles")
             .update({ onboarding_step: 3 })
             .eq("id", installer.id);
@@ -114,7 +118,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
         // ── Step 3 → 4: Scarcity Reminder (Day 7+) ─────────────────
         if (currentStep === 3 && daysSinceSignup >= 7) {
           // Count completed jobs for this installer
-          const { count: jobsCompleted } = await getServiceClient()
+          const { count: jobsCompleted } = await supabase
             .from("leads")
             .select("id", { count: "exact", head: true })
             .eq("installer_id", installer.id)
@@ -125,7 +129,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
             jobsCompleted: jobsCompleted ?? 0,
           });
 
-          await getServiceClient()
+          await supabase
             .from("profiles")
             .update({ onboarding_step: 4 })
             .eq("id", installer.id);

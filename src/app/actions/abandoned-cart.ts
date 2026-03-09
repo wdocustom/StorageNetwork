@@ -1,8 +1,13 @@
 "use server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 import { sendAbandonedCartEmail } from "@/lib/email";
 import { siteConfig } from "@/config/site";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -44,7 +49,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
 
   try {
     // Fetch the lead
-    const { data: lead, error } = await getServiceClient()
+    const { data: lead, error } = await supabase
       .from("leads")
       .select(`
         id,
@@ -86,7 +91,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     const daysSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceCreation > 7) {
       // Mark as expired
-      await getServiceClient()
+      await supabase
         .from("leads")
         .update({ status: "expired" })
         .eq("id", leadId);
@@ -98,7 +103,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     let installerStripeId: string | null = null;
 
     if (lead.installer_id) {
-      const { data: installer } = await getServiceClient()
+      const { data: installer } = await supabase
         .from("profiles")
         .select("business_name, first_name, stripe_account_id")
         .eq("id", lead.installer_id)
@@ -147,7 +152,7 @@ export async function processAbandonedCarts(): Promise<{
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: abandonedLeads, error } = await getServiceClient()
+    const { data: abandonedLeads, error } = await supabase
       .from("leads")
       .select(`
         id,
@@ -185,7 +190,7 @@ export async function processAbandonedCarts(): Promise<{
         // Get installer name if assigned
         let installerName: string | null = null;
         if (lead.installer_id) {
-          const { data: installer } = await getServiceClient()
+          const { data: installer } = await supabase
             .from("profiles")
             .select("business_name, first_name")
             .eq("id", lead.installer_id)
@@ -206,7 +211,7 @@ export async function processAbandonedCarts(): Promise<{
         });
 
         // Mark as sent
-        await getServiceClient()
+        await supabase
           .from("leads")
           .update({ abandoned_email_sent: true })
           .eq("id", lead.id);
@@ -235,7 +240,7 @@ export async function cleanupExpiredLeads(): Promise<{ updated: number }> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await getServiceClient()
+    const { data, error } = await supabase
       .from("leads")
       .update({ status: "expired" })
       .eq("status", "pending_payment")

@@ -1,9 +1,13 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 
 // TODO: Implement Gemini automated moderation and quality scoring
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -94,7 +98,7 @@ const DEFAULT_COMMUNITIES = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function getCommunities(): Promise<Community[]> {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("communities")
     .select("*")
     .order("post_count", { ascending: false });
@@ -106,7 +110,7 @@ export async function getCommunities(): Promise<Community[]> {
 
   // Auto-seed default spaces if the table is empty
   if (!data || data.length === 0) {
-    const { error: seedError } = await getServiceClient()
+    const { error: seedError } = await supabase
       .from("communities")
       .upsert(DEFAULT_COMMUNITIES, { onConflict: "slug" });
 
@@ -115,7 +119,7 @@ export async function getCommunities(): Promise<Community[]> {
       return [];
     }
 
-    const { data: seeded } = await getServiceClient()
+    const { data: seeded } = await supabase
       .from("communities")
       .select("*")
       .order("post_count", { ascending: false });
@@ -129,7 +133,7 @@ export async function getCommunities(): Promise<Community[]> {
 export async function getCommunityBySlug(
   slug: string
 ): Promise<Community | null> {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("communities")
     .select("*")
     .eq("slug", slug)
@@ -154,7 +158,7 @@ export async function getPosts(options: {
 
   // Fetch posts WITHOUT the post_images join to avoid PostgREST schema
   // cache issues (same pattern used for comment_images — see getComments).
-  let query = getServiceClient()
+  let query = supabase
     .from("posts")
     .select(
       `
@@ -203,7 +207,7 @@ export async function getPosts(options: {
   if (posts.length > 0) {
     try {
       const postIds = posts.map((p) => p.id);
-      const { data: images } = await getServiceClient()
+      const { data: images } = await supabase
         .from("post_images")
         .select("id, post_id, image_url, storage_path, sort_order, caption, created_at")
         .in("post_id", postIds)
@@ -229,7 +233,7 @@ export async function getPosts(options: {
   // Attach current user's vote state
   if (userId && posts.length > 0) {
     const postIds = posts.map((p) => p.id);
-    const { data: votes } = await getServiceClient()
+    const { data: votes } = await supabase
       .from("votes")
       .select("post_id, vote_value")
       .eq("user_id", userId)
@@ -253,7 +257,7 @@ export async function getPostById(
   postId: string,
   userId?: string
 ): Promise<Post | null> {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("posts")
     .select(
       `
@@ -271,7 +275,7 @@ export async function getPostById(
 
   // Fetch post images separately to avoid PostgREST schema cache issues
   try {
-    const { data: images } = await getServiceClient()
+    const { data: images } = await supabase
       .from("post_images")
       .select("id, post_id, image_url, storage_path, sort_order, caption, created_at")
       .eq("post_id", postId)
@@ -286,7 +290,7 @@ export async function getPostById(
 
   // Attach current user's vote state
   if (userId) {
-    const { data: vote } = await getServiceClient()
+    const { data: vote } = await supabase
       .from("votes")
       .select("vote_value")
       .eq("user_id", userId)
@@ -308,7 +312,7 @@ export async function createPost(input: {
 }): Promise<{ success: boolean; postId?: string; error?: string }> {
   const { communityId, authorId, title, content, tags = [] } = input;
 
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("posts")
     .insert({
       community_id: communityId,
@@ -341,7 +345,7 @@ export async function editPost(input: {
   const { postId, authorId, title, content } = input;
 
   // Verify ownership
-  const { data: post } = await getServiceClient()
+  const { data: post } = await supabase
     .from("posts")
     .select("author_id")
     .eq("id", postId)
@@ -351,7 +355,7 @@ export async function editPost(input: {
     return { success: false, error: "You can only edit your own posts." };
   }
 
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("posts")
     .update({ title, content, updated_at: new Date().toISOString() })
     .eq("id", postId);
@@ -371,7 +375,7 @@ export async function deletePost(input: {
   const { postId, authorId } = input;
 
   // Verify ownership
-  const { data: post } = await getServiceClient()
+  const { data: post } = await supabase
     .from("posts")
     .select("author_id, community_id")
     .eq("id", postId)
@@ -382,19 +386,19 @@ export async function deletePost(input: {
   }
 
   // Delete post images from storage
-  const { data: images } = await getServiceClient()
+  const { data: images } = await supabase
     .from("post_images")
     .select("storage_path")
     .eq("post_id", postId);
 
   if (images && images.length > 0) {
-    await getServiceClient().storage
+    await supabase.storage
       .from(COMMUNITY_BUCKET)
       .remove(images.map((i) => i.storage_path));
   }
 
   // Delete post (cascades to comments, votes, post_images via FK)
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("posts")
     .delete()
     .eq("id", postId);
@@ -418,7 +422,7 @@ export async function getComments(
   // Fetch comments WITHOUT the comment_images join.
   // The images join was breaking the entire query when PostgREST
   // couldn't detect the FK (schema cache stale after migration 040).
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("comments")
     .select(
       `
@@ -443,7 +447,7 @@ export async function getComments(
   if (flatComments.length > 0) {
     try {
       const commentIds = flatComments.map((c) => c.id);
-      const { data: images } = await getServiceClient()
+      const { data: images } = await supabase
         .from("comment_images")
         .select("id, comment_id, image_url, storage_path, sort_order, created_at")
         .in("comment_id", commentIds)
@@ -469,7 +473,7 @@ export async function getComments(
   // Attach current user's vote state
   if (userId && flatComments.length > 0) {
     const commentIds = flatComments.map((c) => c.id);
-    const { data: votes } = await getServiceClient()
+    const { data: votes } = await supabase
       .from("votes")
       .select("comment_id, vote_value")
       .eq("user_id", userId)
@@ -523,7 +527,7 @@ export async function createComment(input: {
   // Calculate depth from parent
   let depth = 0;
   if (parentId) {
-    const { data: parent } = await getServiceClient()
+    const { data: parent } = await supabase
       .from("comments")
       .select("depth")
       .eq("id", parentId)
@@ -533,7 +537,7 @@ export async function createComment(input: {
     }
   }
 
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("comments")
     .insert({
       post_id: postId,
@@ -570,7 +574,7 @@ export async function vote(input: {
   }
 
   // Check for existing vote
-  let existingQuery = getServiceClient()
+  let existingQuery = supabase
     .from("votes")
     .select("id, vote_value")
     .eq("user_id", userId);
@@ -586,7 +590,7 @@ export async function vote(input: {
   if (existing) {
     if (existing.vote_value === value) {
       // Same vote direction → remove the vote (toggle off)
-      const { error: deleteError } = await getServiceClient()
+      const { error: deleteError } = await supabase
         .from("votes")
         .delete()
         .eq("id", existing.id);
@@ -601,7 +605,7 @@ export async function vote(input: {
       const column = value === 1 ? "upvotes" : "downvotes";
 
       // Decrement the denormalized count directly
-      const { data: currentRow } = await getServiceClient()
+      const { data: currentRow } = await supabase
         .from(table)
         .select("upvotes, downvotes")
         .eq("id", targetId)
@@ -609,7 +613,7 @@ export async function vote(input: {
 
       if (currentRow) {
         const row = currentRow as Record<string, number>;
-        await getServiceClient()
+        await supabase
           .from(table)
           .update({ [column]: Math.max(0, row[column] - 1) })
           .eq("id", targetId);
@@ -618,7 +622,7 @@ export async function vote(input: {
       return { success: true };
     } else {
       // Different direction → update the vote
-      const { error: updateError } = await getServiceClient()
+      const { error: updateError } = await supabase
         .from("votes")
         .update({ vote_value: value })
         .eq("id", existing.id);
@@ -634,7 +638,7 @@ export async function vote(input: {
       const newColumn = value === 1 ? "upvotes" : "downvotes";
 
       // Swap counts: decrement old column, increment new column
-      const { data: current } = await getServiceClient()
+      const { data: current } = await supabase
         .from(table)
         .select("upvotes, downvotes")
         .eq("id", targetId)
@@ -642,7 +646,7 @@ export async function vote(input: {
 
       if (current) {
         const row = current as Record<string, number>;
-        await getServiceClient()
+        await supabase
           .from(table)
           .update({
             [oldColumn]: Math.max(0, row[oldColumn] - 1),
@@ -656,7 +660,7 @@ export async function vote(input: {
   }
 
   // No existing vote → insert new
-  const { error: insertError } = await getServiceClient().from("votes").insert({
+  const { error: insertError } = await supabase.from("votes").insert({
     user_id: userId,
     post_id: postId || null,
     comment_id: commentId || null,
@@ -672,7 +676,7 @@ export async function vote(input: {
   const targetId = postId || commentId!;
   const column = value === 1 ? "upvotes" : "downvotes";
 
-  const { data: current } = await getServiceClient()
+  const { data: current } = await supabase
     .from(table)
     .select("upvotes, downvotes")
     .eq("id", targetId)
@@ -680,7 +684,7 @@ export async function vote(input: {
 
   if (current) {
     const row = current as Record<string, number>;
-    await getServiceClient()
+    await supabase
       .from(table)
       .update({ [column]: row[column] + 1 })
       .eq("id", targetId);
@@ -697,7 +701,7 @@ export async function saveAiSummary(
   postId: string,
   summary: string
 ): Promise<{ success: boolean }> {
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("posts")
     .update({ ai_summary: summary })
     .eq("id", postId);
@@ -712,9 +716,9 @@ export async function saveAiSummary(
 const COMMUNITY_BUCKET = "community-images";
 
 async function ensureCommunityBucket() {
-  const { data } = await getServiceClient().storage.getBucket(COMMUNITY_BUCKET);
+  const { data } = await supabase.storage.getBucket(COMMUNITY_BUCKET);
   if (!data) {
-    await getServiceClient().storage.createBucket(COMMUNITY_BUCKET, {
+    await supabase.storage.createBucket(COMMUNITY_BUCKET, {
       public: true,
       fileSizeLimit: 5 * 1024 * 1024, // 5MB
     });
@@ -745,7 +749,7 @@ export async function uploadPostImage(
     }
 
     // Verify user is pro and owns the post
-    const { data: post } = await getServiceClient()
+    const { data: post } = await supabase
       .from("posts")
       .select("author_id")
       .eq("id", postId)
@@ -763,7 +767,7 @@ export async function uploadPostImage(
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { error: uploadError } = await getServiceClient().storage
+    const { error: uploadError } = await supabase.storage
       .from(COMMUNITY_BUCKET)
       .upload(storagePath, buffer, {
         contentType: file.type,
@@ -775,17 +779,17 @@ export async function uploadPostImage(
       return { success: false, error: uploadError.message };
     }
 
-    const { data: urlData } = getServiceClient().storage
+    const { data: urlData } = supabase.storage
       .from(COMMUNITY_BUCKET)
       .getPublicUrl(storagePath);
 
     // Get current image count for sort_order
-    const { count } = await getServiceClient()
+    const { count } = await supabase
       .from("post_images")
       .select("id", { count: "exact", head: true })
       .eq("post_id", postId);
 
-    const { data: imageRow, error: insertError } = await getServiceClient()
+    const { data: imageRow, error: insertError } = await supabase
       .from("post_images")
       .insert({
         post_id: postId,
@@ -799,7 +803,7 @@ export async function uploadPostImage(
     if (insertError) {
       console.error("[PostImage] Insert error:", insertError);
       // Clean up uploaded file
-      await getServiceClient().storage.from(COMMUNITY_BUCKET).remove([storagePath]);
+      await supabase.storage.from(COMMUNITY_BUCKET).remove([storagePath]);
       return { success: false, error: insertError.message };
     }
 
@@ -818,7 +822,7 @@ export async function deletePostImage(
   authorId: string
 ): Promise<{ success: boolean; error?: string }> {
   // Get the image to verify ownership and get the storage path
-  const { data: image } = await getServiceClient()
+  const { data: image } = await supabase
     .from("post_images")
     .select("*, post:posts!post_images_post_id_fkey(author_id)")
     .eq("id", imageId)
@@ -834,12 +838,12 @@ export async function deletePostImage(
   }
 
   // Delete from storage
-  await getServiceClient().storage
+  await supabase.storage
     .from(COMMUNITY_BUCKET)
     .remove([image.storage_path]);
 
   // Delete from database
-  const { error } = await getServiceClient()
+  const { error } = await supabase
     .from("post_images")
     .delete()
     .eq("id", imageId);
@@ -852,7 +856,7 @@ export async function deletePostImage(
 }
 
 export async function getPostImages(postId: string): Promise<PostImage[]> {
-  const { data, error } = await getServiceClient()
+  const { data, error } = await supabase
     .from("post_images")
     .select("*")
     .eq("post_id", postId)
@@ -891,7 +895,7 @@ export async function uploadCommentImage(
     }
 
     // Verify user owns the comment
-    const { data: comment } = await getServiceClient()
+    const { data: comment } = await supabase
       .from("comments")
       .select("author_id")
       .eq("id", commentId)
@@ -909,7 +913,7 @@ export async function uploadCommentImage(
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { error: uploadError } = await getServiceClient().storage
+    const { error: uploadError } = await supabase.storage
       .from(COMMUNITY_BUCKET)
       .upload(storagePath, buffer, {
         contentType: file.type,
@@ -921,16 +925,16 @@ export async function uploadCommentImage(
       return { success: false, error: uploadError.message };
     }
 
-    const { data: urlData } = getServiceClient().storage
+    const { data: urlData } = supabase.storage
       .from(COMMUNITY_BUCKET)
       .getPublicUrl(storagePath);
 
-    const { count } = await getServiceClient()
+    const { count } = await supabase
       .from("comment_images")
       .select("id", { count: "exact", head: true })
       .eq("comment_id", commentId);
 
-    const { data: imageRow, error: insertError } = await getServiceClient()
+    const { data: imageRow, error: insertError } = await supabase
       .from("comment_images")
       .insert({
         comment_id: commentId,
@@ -943,7 +947,7 @@ export async function uploadCommentImage(
 
     if (insertError) {
       console.error("[CommentImage] Insert error:", insertError);
-      await getServiceClient().storage.from(COMMUNITY_BUCKET).remove([storagePath]);
+      await supabase.storage.from(COMMUNITY_BUCKET).remove([storagePath]);
       return { success: false, error: insertError.message };
     }
 
@@ -969,7 +973,7 @@ export async function linkQrImagesToPost(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Verify ownership
-    const { data: post } = await getServiceClient()
+    const { data: post } = await supabase
       .from("posts")
       .select("id, author_id")
       .eq("id", postId)
@@ -980,7 +984,7 @@ export async function linkQrImagesToPost(
     }
 
     // Get current image count for sort_order
-    const { count } = await getServiceClient()
+    const { count } = await supabase
       .from("post_images")
       .select("id", { count: "exact", head: true })
       .eq("post_id", postId);
@@ -992,7 +996,7 @@ export async function linkQrImagesToPost(
       sort_order: (count || 0) + i,
     }));
 
-    const { error: insertError } = await getServiceClient()
+    const { error: insertError } = await supabase
       .from("post_images")
       .insert(rows);
 

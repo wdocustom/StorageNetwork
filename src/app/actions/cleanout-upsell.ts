@@ -1,6 +1,6 @@
 "use server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import {
   sendCleanoutUpsellEmail,
@@ -26,16 +26,14 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lazy singleton — only instantiated at runtime, not during build
-let _stripe: Stripe | null = null;
-function getStripe() {
-  if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2025-12-15.clover",
-    });
-  }
-  return _stripe;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-12-15.clover",
+});
 
 // ── Fee Constants ────────────────────────────────────────────────────────
 const UPSELL_DEPOSIT_RATE = 0.50;     // 50% deposit
@@ -71,7 +69,6 @@ export async function processCleanoutUpsells(): Promise<{
     const windowEnd = new Date(threeDaysFromNow);
     windowEnd.setHours(23, 59, 59, 999);
 
-    const supabase = getServiceClient();
     const { data: eligibleLeads, error: fetchError } = await supabase
       .from("leads")
       .select(
@@ -236,7 +233,6 @@ export async function createCleanoutUpsellCheckout(
 
   try {
     // Fetch the lead to get installer info
-    const supabase = getServiceClient();
     const { data: lead, error: leadError } = await supabase
       .from("leads")
       .select("installer_id, customer_email, customer_name, scheduled_at")
@@ -281,7 +277,6 @@ export async function createCleanoutUpsellCheckout(
     const baseUrl = getAppUrl();
 
     // Create Stripe Checkout Session with fee split
-    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -354,7 +349,6 @@ export async function handleCleanoutUpsellPayment(
     const installerId = metadata.installer_id;
 
     // 1. Fetch current lead data
-    const supabase = getServiceClient();
     const { data: lead } = await supabase
       .from("leads")
       .select(

@@ -1,12 +1,16 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Connect — Onboarding & Account Management for Installers
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Initialize Stripe only if key is present
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -33,7 +37,7 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
 
   try {
     // 1. Check if user already has a Stripe account
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id, email")
       .eq("id", userId)
@@ -54,7 +58,7 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
       stripeAccountId = account.id;
 
       // Save to profiles
-      await getServiceClient()
+      await supabase
         .from("profiles")
         .update({
           stripe_account_id: stripeAccountId,
@@ -97,7 +101,7 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
         });
 
         // Update database with new account ID
-        await getServiceClient()
+        await supabase
           .from("profiles")
           .update({
             stripe_account_id: newAccount.id,
@@ -146,7 +150,7 @@ export async function getStripeStatus(userId: string) {
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id")
       .eq("id", userId)
@@ -164,7 +168,7 @@ export async function getStripeStatus(userId: string) {
 
     // Update our database with the latest status
     if (account.details_submitted) {
-      await getServiceClient()
+      await supabase
         .from("profiles")
         .update({ stripe_details_submitted: true })
         .eq("id", userId);
@@ -200,7 +204,7 @@ export async function getStripeDashboardLink(userId: string): Promise<ConnectRes
   }
 
   try {
-    const { data: profile } = await getServiceClient()
+    const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id")
       .eq("id", userId)

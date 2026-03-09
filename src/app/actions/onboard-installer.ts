@@ -1,6 +1,6 @@
 "use server";
-import { getServiceClient } from "@/lib/supabase-server";
 
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
@@ -11,6 +11,10 @@ import { sendInstallerOnboardingEmail } from "@/lib/email";
 // No Stripe friction at signup. They connect Stripe later from profile.
 // ═══════════════════════════════════════════════════════════════════════════
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Default service radius for new installers (miles)
 const DEFAULT_SERVICE_RADIUS = 25;
@@ -51,7 +55,7 @@ export async function onboardInstaller(
   try {
     // 1. Create auth user
     const { data: authData, error: authError } =
-      await getServiceClient().auth.admin.createUser({
+      await supabase.auth.admin.createUser({
         email: email.trim().toLowerCase(),
         password,
         email_confirm: true,
@@ -78,7 +82,7 @@ export async function onboardInstaller(
     const baseZip = zipCode.trim();
     const coveredZips = zipcodes.radius(baseZip, DEFAULT_SERVICE_RADIUS) ?? [baseZip];
 
-    await getServiceClient().from("profiles").upsert({
+    await supabase.from("profiles").upsert({
       id: userId,
       first_name: firstName,
       last_name: lastName,
@@ -98,7 +102,7 @@ export async function onboardInstaller(
       const affiliateSlug = cookieStore.get("sn_affiliate_slug")?.value;
 
       if (affiliateSlug) {
-        const { data: partner } = await getServiceClient()
+        const { data: partner } = await supabase
           .from("partners")
           .select("id, name, company")
           .eq("slug", affiliateSlug)
@@ -106,7 +110,7 @@ export async function onboardInstaller(
 
         if (partner) {
           // Create referral record
-          await getServiceClient().from("referrals").insert({
+          await supabase.from("referrals").insert({
             partner_id: partner.id,
             installer_id: userId,
             status: "pending", // Activates when they subscribe
@@ -123,7 +127,7 @@ export async function onboardInstaller(
           if (!trialSlug) trialSlug = userId.slice(0, 8);
 
           // Check slug uniqueness
-          const { data: existingSlug } = await getServiceClient()
+          const { data: existingSlug } = await supabase
             .from("profiles")
             .select("id")
             .eq("slug", trialSlug)
@@ -134,7 +138,7 @@ export async function onboardInstaller(
             trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
           }
 
-          await getServiceClient()
+          await supabase
             .from("profiles")
             .update({
               is_pro: true,
@@ -163,7 +167,7 @@ export async function onboardInstaller(
         let trialSlug = slugify(rawName);
         if (!trialSlug) trialSlug = userId.slice(0, 8);
 
-        const { data: existingSlug } = await getServiceClient()
+        const { data: existingSlug } = await supabase
           .from("profiles")
           .select("id")
           .eq("slug", trialSlug)
@@ -174,7 +178,7 @@ export async function onboardInstaller(
           trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
         }
 
-        await getServiceClient()
+        await supabase
           .from("profiles")
           .update({
             is_pro: true,
@@ -203,7 +207,7 @@ export async function onboardInstaller(
 
     // Mark onboarding step 1 (welcome email sent) for drip sequence
     try {
-      await getServiceClient()
+      await supabase
         .from("profiles")
         .update({ onboarding_step: 1 })
         .eq("id", userId);
