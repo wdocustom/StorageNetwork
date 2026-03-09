@@ -216,7 +216,7 @@ function testRateLimiter(requests: SimulatedRequest[]): {
       const isApi = c > 0; // First check is a page, rest are API
       const limit = isApi ? 30 : 60;
       const key = `${req.ip}:${isApi ? "api" : "page"}`;
-      const result = rateLimit(key, limit);
+      const result = await rateLimit(key, limit);
 
       if (result.allowed) {
         allowed++;
