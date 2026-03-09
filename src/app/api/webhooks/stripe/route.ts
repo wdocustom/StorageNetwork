@@ -400,6 +400,8 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error("[Webhook] CRITICAL: DB update failed!", JSON.stringify(updateError));
+        // Clear idempotency key so Stripe retries can re-process this event
+        if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
         return NextResponse.json({ error: "DB update failed" }, { status: 500 });
       }
 
@@ -410,6 +412,8 @@ export async function POST(request: NextRequest) {
       if (piId) processReferralBounty(leadId, piId);
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
+      // Clear idempotency key so Stripe retries can re-process this event
+      if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
       return NextResponse.json({ error: "DB update exception" }, { status: 500 });
     }
 
@@ -687,6 +691,8 @@ export async function POST(request: NextRequest) {
 
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
+            // Clear idempotency key so Stripe retries can re-process this event
+            if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
           } else {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
 
