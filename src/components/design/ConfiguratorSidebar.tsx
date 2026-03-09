@@ -2046,8 +2046,8 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                   />
                 )}
 
-                {/* Current Unit Price + Add */}
-                {!props.activePreset && (
+                {/* Current Unit Price + Add — hidden when shelving or preset is active */}
+                {!props.activePreset && !props.shelvingConfigId && (
                   <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
                     <div className="flex-1 text-center">
                       <div className="text-2xl font-black text-white">
@@ -2645,10 +2645,10 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
         <div className="mb-3 flex items-end justify-between">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-              {props.orderItems.length > 0 ? "Grand Total" : "Current Unit"}
+              {props.orderItems.length > 0 ? "Grand Total" : props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
             </div>
             <div className="text-3xl font-black text-white">
-              <RollingPrice value={props.orderItems.length > 0 ? props.grandTotal : props.build.price} />
+              <RollingPrice value={props.orderItems.length > 0 ? props.grandTotal : props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
             </div>
           </div>
           <div className="text-right">

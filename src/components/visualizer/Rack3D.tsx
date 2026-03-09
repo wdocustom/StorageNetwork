@@ -993,69 +993,98 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
 }
 
 // ── Open Shelving Assembly ─────────────────────────────────────────────────
-// Renders a simple shelving frame: 4 corner posts, bottom/top plates,
-// evenly-spaced plywood shelves, and a plywood top.
+// Matches real construction: 2×4 vertical corner posts, horizontal 2×4
+// supports (turned 3.5" up) running front-to-back at each shelf level,
+// with 3/4" plywood sheets sitting on top of each support pair.
+// No totes — just open plywood shelving.
 
 function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
   const { widthIn, frameH, depth, shelves } = config;
   const totalW = widthIn;
 
-  // Corner posts at four corners
-  const postH = frameH - PLATE_H * 2;
+  // 2×4 horizontal supports turned 3.5" up (POST_D tall, POST_W wide)
+  const SUPPORT_H = POST_D;  // 3.5" — the wide face is vertical
+  const SUPPORT_W = POST_W;  // 1.5" — narrow face along width direction
 
-  // Evenly distribute shelves between bottom plate top and top plate bottom
-  const shelfRegionBottom = PLATE_H;
-  const shelfRegionTop = frameH - PLATE_H;
-  const shelfRegionH = shelfRegionTop - shelfRegionBottom;
+  // Corner post height: full frame minus bottom plate
+  const postH = frameH - PLATE_H;
+
+  // Shelf levels: bottom shelf sits directly on bottom plate (at PLATE_H),
+  // remaining shelves + top are evenly distributed up to frameH
+  const shelfYPositions: number[] = [];
+  // Bottom shelf: support sits on the bottom plate
+  shelfYPositions.push(PLATE_H);
+  // Interior shelves + top: evenly spaced from first tier up to top
+  if (shelves > 0) {
+    const regionBottom = PLATE_H + SUPPORT_H + PLY_TOP_H; // above bottom shelf
+    const regionTop = frameH; // top of frame
+    for (let i = 0; i < shelves; i++) {
+      const y = regionBottom + ((i + 1) / (shelves + 1)) * (regionTop - regionBottom);
+      shelfYPositions.push(y);
+    }
+  }
+  // Top shelf at top of frame
+  shelfYPositions.push(frameH);
 
   const cx = totalW / 2;
-  const cy = frameH / 2;
+  const overallH = frameH + PLY_TOP_H; // include top plywood
+  const cy = overallH / 2;
   const cz = depth / 2;
+
+  // Left post centers
+  const leftPostX = POST_W / 2;
+  const rightPostX = totalW - POST_W / 2;
 
   return (
     <group scale={[S, S, S]}>
       <group position={[cx, -cy, -cz]} scale={[-1, 1, 1]}>
-        {/* Bottom plates (front + back) */}
+        {/* Bottom plates — 2×4s running along width (front + back) */}
         <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
         <Lumber position={[totalW / 2, PLATE_H / 2, depth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
 
-        {/* Top plates (front + back) */}
-        <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
-        <Lumber position={[totalW / 2, frameH - PLATE_H / 2, depth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+        {/* 4 corner posts — 2×4s running vertically */}
+        <Lumber position={[leftPostX, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
+        <Lumber position={[leftPostX, PLATE_H + postH / 2, depth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
+        <Lumber position={[rightPostX, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
+        <Lumber position={[rightPostX, PLATE_H + postH / 2, depth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
 
-        {/* 4 corner posts */}
-        {[0, totalW].map((px) => (
-          <group key={`post-x-${px}`}>
-            <Lumber position={[px === 0 ? POST_W / 2 : totalW - POST_W / 2, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
-            <Lumber position={[px === 0 ? POST_W / 2 : totalW - POST_W / 2, PLATE_H + postH / 2, depth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
-          </group>
-        ))}
+        {/* Shelf levels: horizontal 2×4 supports + plywood on top */}
+        {shelfYPositions.map((baseY, i) => {
+          // Horizontal 2×4 supports — turned 3.5" up, running front-to-back
+          // One on each side (left + right), screwed to the inner face of the posts
+          const supportCenterY = baseY + SUPPORT_H / 2;
+          const supportLeftX = leftPostX + POST_W / 2 + SUPPORT_W / 2;  // just inside left post
+          const supportRightX = rightPostX - POST_W / 2 - SUPPORT_W / 2; // just inside right post
 
-        {/* Plywood shelves — evenly spaced */}
-        {Array.from({ length: shelves }).map((_, i) => {
-          const shelfY = shelfRegionBottom + ((i + 1) / (shelves + 1)) * shelfRegionH;
+          // Plywood sits on top of supports
+          const plyY = baseY + SUPPORT_H + PLY_TOP_H / 2;
+          const plyW = totalW; // full width, extends over posts
+          const plyD = depth;  // full depth
+
           return (
-            <mesh
-              key={`shelf-${i}`}
-              position={[totalW / 2, shelfY, depth / 2]}
-              material={PLYWOOD_MAT}
-              castShadow
-              receiveShadow
-            >
-              <boxGeometry args={[totalW - POST_W * 2, PLY_TOP_H, depth]} />
-            </mesh>
+            <group key={`shelf-level-${i}`}>
+              {/* Left horizontal 2×4 support (runs front-to-back) */}
+              <Lumber
+                position={[supportLeftX, supportCenterY, depth / 2]}
+                size={[SUPPORT_W, SUPPORT_H, depth - POST_D * 2]}
+              />
+              {/* Right horizontal 2×4 support (runs front-to-back) */}
+              <Lumber
+                position={[supportRightX, supportCenterY, depth / 2]}
+                size={[SUPPORT_W, SUPPORT_H, depth - POST_D * 2]}
+              />
+              {/* Plywood shelf on top of supports */}
+              <mesh
+                position={[totalW / 2, plyY, depth / 2]}
+                material={i === shelfYPositions.length - 1 ? PLYWOOD_TOP_MAT : PLYWOOD_MAT}
+                castShadow
+                receiveShadow
+              >
+                <boxGeometry args={[plyW, PLY_TOP_H, plyD]} />
+              </mesh>
+            </group>
           );
         })}
-
-        {/* Plywood top */}
-        <mesh
-          position={[totalW / 2, frameH + PLY_TOP_H / 2, depth / 2]}
-          material={PLYWOOD_TOP_MAT}
-          castShadow
-          receiveShadow
-        >
-          <boxGeometry args={[totalW, PLY_TOP_H, depth]} />
-        </mesh>
       </group>
     </group>
   );
