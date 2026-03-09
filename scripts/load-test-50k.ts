@@ -235,12 +235,12 @@ async function testRateLimiter(requests: SimulatedRequest[]): Promise<{
   };
 }
 
-function testCacheSystem(requests: SimulatedRequest[]): {
+async function testCacheSystem(requests: SimulatedRequest[]): Promise<{
   hits: number;
   misses: number;
   maxSize: number;
   dbQueriesSaved: number;
-} {
+}> {
   // Simulate the zipCache and installerCache behavior
   const zipCache = new TtlCache<string>(60_000);
   const installerCache = new TtlCache<string>(60_000);
@@ -772,7 +772,7 @@ async function main() {
 
   // 3. Test Cache System
   console.log("⏳ Testing cache system (ZIP + installer caches)...");
-  const cacheResults = testCacheSystem(requests);
+  const cacheResults = await testCacheSystem(requests);
 
   // 4. Test Database Load
   console.log("⏳ Estimating database query volume...");
