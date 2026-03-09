@@ -1023,11 +1023,11 @@ function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
       shelfYPositions.push(y);
     }
   }
-  // Top shelf at top of frame
-  shelfYPositions.push(frameH);
+  // Top shelf: position so plywood top surface is flush with post tops
+  shelfYPositions.push(frameH - SUPPORT_H - PLY_TOP_H);
 
   const cx = totalW / 2;
-  const overallH = frameH + PLY_TOP_H; // include top plywood
+  const overallH = frameH; // top plywood now flush within frame
   const cy = overallH / 2;
   const cz = depth / 2;
 

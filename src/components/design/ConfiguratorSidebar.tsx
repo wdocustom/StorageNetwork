@@ -1223,7 +1223,7 @@ function ShelvingDropdown({
 
               {/* Width × Height options */}
               {SHELVING_CONFIGS.map((cfg) => {
-                const heightLabel = cfg.height === "tall" ? "Tall (5-tier height)" : "Short (2-tier height)";
+                const heightLabel = cfg.height === "tall" ? `Tall (${cfg.frameH}"H)` : `Short (${cfg.frameH}"H)`;
                 const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
                 return (
                   <SelectionCard

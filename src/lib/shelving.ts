@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type ShelvingWidth = 48 | 60 | 72;       // 4', 5', 6'
-export type ShelvingHeight = "short" | "tall";   // 2-tote-high vs 5-tote-high
+export type ShelvingHeight = "short" | "tall";   // 37.5" vs 85.5"
 
 export interface ShelvingConfig {
   id: string;
@@ -18,7 +18,7 @@ export interface ShelvingConfig {
   widthFt: number;         // 4, 5, or 6
   widthIn: ShelvingWidth;  // 48, 60, 72
   height: ShelvingHeight;
-  /** Total frame height in inches (matches tote organizer tier height) */
+  /** Total frame height in inches */
   frameH: number;
   /** Unit depth in inches (same as standard tote organizer) */
   depth: number;
@@ -30,13 +30,13 @@ export interface ShelvingConfig {
 
 // Heights derived from standard tote organizer calculator:
 //   frameH = rows × 16 (verticalSpacing) + 1.5 × 2 (plates) + 2.5 (topGap)
-//   2-tote-high → 37.5"   |   5-tote-high → 85.5"
+//   Short → 37.5"   |   Tall → 85.5"
 const SHORT_HEIGHT = 37.5;
 const TALL_HEIGHT = 85.5;
 const DEPTH = 30;
 
 export const SHELVING_CONFIGS: ShelvingConfig[] = [
-  // ── Short (2-tote-high) — 1 shelf + plywood top ─────────────────────
+  // ── Short — 1 shelf + plywood top ───────────────────────────────────
   {
     id: "shelf-4ft-short",
     label: "4' × Short",
@@ -70,7 +70,7 @@ export const SHELVING_CONFIGS: ShelvingConfig[] = [
     shelves: 1,
     platformPrice: 225,
   },
-  // ── Tall (5-tote-high) — 3 shelves + plywood top ────────────────────
+  // ── Tall — 1 shelf + plywood top (base + middle + top = 3 surfaces) ─
   {
     id: "shelf-4ft-tall",
     label: "4' × Tall",
@@ -79,7 +79,7 @@ export const SHELVING_CONFIGS: ShelvingConfig[] = [
     height: "tall",
     frameH: TALL_HEIGHT,
     depth: DEPTH,
-    shelves: 3,
+    shelves: 1,
     platformPrice: 325,
   },
   {
@@ -90,7 +90,7 @@ export const SHELVING_CONFIGS: ShelvingConfig[] = [
     height: "tall",
     frameH: TALL_HEIGHT,
     depth: DEPTH,
-    shelves: 3,
+    shelves: 1,
     platformPrice: 375,
   },
   {
@@ -101,7 +101,7 @@ export const SHELVING_CONFIGS: ShelvingConfig[] = [
     height: "tall",
     frameH: TALL_HEIGHT,
     depth: DEPTH,
-    shelves: 3,
+    shelves: 1,
     platformPrice: 425,
   },
 ];
