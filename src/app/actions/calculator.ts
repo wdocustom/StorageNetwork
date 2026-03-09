@@ -404,7 +404,6 @@ export type { PresetSubUnit, BestsellerPreset } from "@/lib/presets";
 
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 export type { ShelvingConfig, ShelvingWidth, ShelvingHeight } from "@/lib/shelving";
-export { SHELVING_CONFIGS } from "@/lib/shelving";
 
 export interface CompoundBuildResult {
   success: true;
