@@ -10,7 +10,7 @@ export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
 import type { InstallerPricing, SectionAddon, AddonPricing } from "@/types/viewModels";
-import { PLATFORM_BESTSELLER_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
+import { PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -590,9 +590,11 @@ export async function calculateShelvingUnit(input: {
   // Pricing key: shelving_<id_with_underscores> e.g. "shelving_shelf_4ft_short"
   const pricingKey = `shelving_${config.id.replace(/-/g, "_")}` as keyof InstallerPricing;
   const installerOverride = input.installerPricing?.[pricingKey] as number | undefined;
+  const pricingKeyForDefault = `shelving_${config.id.replace(/-/g, "_")}`;
+  const platformDefault = PLATFORM_SHELVING_DEFAULTS[pricingKeyForDefault] ?? 0;
   const price = (installerOverride !== undefined && installerOverride !== null)
     ? installerOverride
-    : config.platformPrice;
+    : platformDefault;
 
   return {
     success: true,

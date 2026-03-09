@@ -26,9 +26,10 @@ export async function middleware(request: NextRequest) {
 
   const isApi = pathname.startsWith("/api/");
   const limit = isApi ? API_LIMIT : PAGE_LIMIT;
-  const key = `${ip}:${isApi ? "api" : "page"}`;
+  const tier = isApi ? "api" as const : "page" as const;
+  const key = `${ip}:${tier}`;
 
-  const result = rateLimit(key, limit);
+  const result = await rateLimit(key, limit, 60_000, tier);
 
   if (!result.allowed) {
     return new NextResponse("Too many requests. Please try again shortly.", {

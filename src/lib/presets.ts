@@ -1,8 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Bestseller Presets — Shared between client (configurator UI) and server
+// Bestseller Presets — Structural Config Only (Client-Safe)
 //
-// This file is NOT a server action ("use server") so constants can be
-// imported directly by client components.
+// Contains unit configurations (cols, rows, options) needed by the 3D
+// configurator. Pricing is NOT included here — it lives server-side in:
+//   - PLATFORM_BESTSELLER_DEFAULTS (src/types/viewModels.ts)
+//   - Installer overrides (pricing_config in profiles table)
+//   - calculateCompoundBuild() (src/app/actions/calculator.ts)
+//
+// This prevents competitors from scraping exact preset price points
+// from the client bundle.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface PresetSubUnit {
@@ -21,10 +27,6 @@ export interface BestsellerPreset {
   toteColor: "black" | "clear";
   unitType: "standard" | "mini";
   orientation: "standard" | "sideways";
-  /** Fixed base price (frame + tops, no totes) */
-  basePrice: number;
-  /** Fixed price with totes included (ignored when dynamicTotePricing is true) */
-  withTotesPrice: number;
   /** When true, tote add-on price is calculated dynamically from the normal pricing engine */
   dynamicTotePricing?: boolean;
 }
@@ -38,8 +40,6 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     toteColor: "black",
     unitType: "standard",
     orientation: "standard",
-    basePrice: 710,
-    withTotesPrice: 950,
     units: [
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
       { cols: 2, rows: 2, hasTop: true, hasWheels: false },
@@ -54,8 +54,6 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     toteColor: "black",
     unitType: "standard",
     orientation: "standard",
-    basePrice: 450,
-    withTotesPrice: 0,
     dynamicTotePricing: true,
     units: [
       { cols: 4, rows: 4, hasTop: true, hasWheels: true },
@@ -69,8 +67,6 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     toteColor: "black",
     unitType: "standard",
     orientation: "standard",
-    basePrice: 500,
-    withTotesPrice: 715,
     units: [
       { cols: 2, rows: 4, hasTop: true, hasWheels: false },
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },
@@ -84,8 +80,6 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     toteColor: "black",
     unitType: "standard",
     orientation: "standard",
-    basePrice: 600,
-    withTotesPrice: 840,
     units: [
       { cols: 1, rows: 4, hasTop: true, hasWheels: false },
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },

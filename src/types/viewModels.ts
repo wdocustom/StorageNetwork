@@ -143,6 +143,17 @@ export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_gas_station: 840,
 };
 
+/** Platform default shelving prices (keyed by shelving config ID with underscores).
+ *  Used in PricingSettings for default display and in calculator.ts as fallback. */
+export const PLATFORM_SHELVING_DEFAULTS: Record<string, number> = {
+  shelving_shelf_4ft_short: 175,
+  shelving_shelf_5ft_short: 200,
+  shelving_shelf_6ft_short: 225,
+  shelving_shelf_4ft_tall: 325,
+  shelving_shelf_5ft_tall: 375,
+  shelving_shelf_6ft_tall: 425,
+};
+
 export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
   routing: {

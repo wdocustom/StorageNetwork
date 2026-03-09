@@ -23,7 +23,7 @@ import {
   updateInstallerPricing,
   resetInstallerPricing,
 } from "@/app/actions/pricing";
-import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
+import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
@@ -168,11 +168,12 @@ const PRICE_FIELDS: PriceField[] = [
     const key = `shelving_${cfg.id.replace(/-/g, "_")}` as PricingNumericKey;
     const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
     const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
+    const defaultPrice = PLATFORM_SHELVING_DEFAULTS[key] ?? 0;
     return {
       key,
       label: `${cfg.widthFt}' × ${heightLabel}`,
-      description: `${cfg.widthIn}" wide, ${shelfText} (platform default: $${cfg.platformPrice})`,
-      defaultValue: cfg.platformPrice,
+      description: `${cfg.widthIn}" wide, ${shelfText} (platform default: $${defaultPrice})`,
+      defaultValue: defaultPrice,
       category: "shelving" as const,
     };
   }),
