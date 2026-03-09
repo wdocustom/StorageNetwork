@@ -23,10 +23,8 @@ import {
 } from "lucide-react";
 import type { MaterialConfig, MaterialBreakdown } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
-import {
-  generateBuildManifest,
-  type BuildManifest,
-} from "@/lib/buildEngine";
+import type { BuildManifest } from "@/lib/buildEngine.types";
+import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import {
   calculateNetPurchaseList,
   normalizeInventory,
@@ -156,13 +154,12 @@ export default function JobTicket({
   }, [quoteData]);
 
   // ── Build manifest (shopping list + cut plans) ─────────────────────
-  const buildManifest: BuildManifest | null = useMemo(() => {
-    if (!quoteData || quoteData.length === 0) return null;
-    try {
-      return generateBuildManifest(quoteData as import("@/lib/buildEngine").QuoteUnit[]);
-    } catch {
-      return null;
-    }
+  const [buildManifest, setBuildManifest] = useState<BuildManifest | null>(null);
+  useEffect(() => {
+    if (!quoteData || quoteData.length === 0) { setBuildManifest(null); return; }
+    generateBuildManifestServer(quoteData as import("@/lib/buildEngine.types").QuoteUnit[])
+      .then(setBuildManifest)
+      .catch(() => setBuildManifest(null));
   }, [quoteData]);
 
   // ── Net purchase list (inventory-aware) ──────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { CutPlanModule } from "@/lib/buildEngine";
+import type { CutPlanModule } from "@/lib/buildEngine.types";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ModuleDiagram — 2D front-facing SVG diagram of the built storage unit

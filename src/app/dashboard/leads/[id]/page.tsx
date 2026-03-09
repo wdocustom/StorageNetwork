@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { useParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import type { QuoteUnit } from "@/lib/buildEngine";
+import type { QuoteUnit } from "@/lib/buildEngine.types";
 import {
   ArrowLeft,
   CheckCircle2,

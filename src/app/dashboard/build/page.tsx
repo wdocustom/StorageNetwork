@@ -5,10 +5,10 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
-import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
-import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
+import { generateBuildManifestServer } from "@/app/actions/build-manifest";
+import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import { DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { toFraction } from "@/lib/utils";
@@ -452,7 +452,7 @@ export default function BuildConfiguratorPage() {
         depth: res.dimensions.depth,
         desc: `${res.cols} Wide × ${res.rows} High`,
       };
-      setManifest(generateBuildManifest([unit]));
+      generateBuildManifestServer([unit]).then(setManifest).catch(() => {});
 
       // Calculate material cost for profit breakdown (server action)
       calculateMaterialCostServer({
@@ -521,8 +521,9 @@ export default function BuildConfiguratorPage() {
     calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
   }, [units, materialPrices]);
 
-  const aggregateManifest = useMemo(() => {
-    if (units.length === 0) return null;
+  const [aggregateManifest, setAggregateManifest] = useState<BuildManifest | null>(null);
+  useEffect(() => {
+    if (units.length === 0) { setAggregateManifest(null); return; }
     const quoteUnits: QuoteUnit[] = units.map((u) => ({
       cols: u.cols,
       rows: u.rows,
@@ -538,7 +539,7 @@ export default function BuildConfiguratorPage() {
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
     }));
-    return generateBuildManifest(quoteUnits);
+    generateBuildManifestServer(quoteUnits).then(setAggregateManifest).catch(() => {});
   }, [units]);
 
   // Use aggregate values when units exist, otherwise use single build values
