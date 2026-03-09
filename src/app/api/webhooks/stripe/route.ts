@@ -97,19 +97,27 @@ const BOUNTY_FLOOR_CENTS = 1500; // $15.00 minimum
 
 async function processReferralBounty(leadId: string, paymentIntentId: string) {
   try {
-    // 1. Check if this lead has a pending referral bounty
-    const { data: lead, error: leadErr } = await getDb()
+    // 1. Atomically claim this bounty: UPDATE only if still 'pending'.
+    //    This prevents the TOCTOU race where two different Stripe events
+    //    (checkout.session.completed + payment_intent.succeeded) both try
+    //    to pay the same bounty. Only the first UPDATE wins.
+    const { data: claimed, error: claimErr } = await getDb()
       .from("leads")
-      .select("referring_installer_id, bounty_status, address_city, address_state, deposit_amount")
+      .update({
+        bounty_status: "processing",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", leadId)
-      .single();
+      .eq("bounty_status", "pending")
+      .select("referring_installer_id, address_city, address_state, deposit_amount")
+      .maybeSingle();
 
-    if (leadErr || !lead?.referring_installer_id || lead.bounty_status !== "pending") {
-      return; // No bounty to process
+    if (claimErr || !claimed?.referring_installer_id) {
+      return; // No pending bounty, or already claimed by another event
     }
 
     // 2. Calculate bounty: 30% of deposit, minimum $15
-    const depositCents = Math.round((lead.deposit_amount || 0) * 100);
+    const depositCents = Math.round((claimed.deposit_amount || 0) * 100);
     const calculatedBountyCents = Math.round(depositCents * BOUNTY_RATE);
     const bountyAmountCents = Math.max(calculatedBountyCents, BOUNTY_FLOOR_CENTS);
 
@@ -119,11 +127,13 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     const { data: referrer, error: refErr } = await getDb()
       .from("profiles")
       .select("stripe_account_id, email, business_name, first_name")
-      .eq("id", lead.referring_installer_id)
+      .eq("id", claimed.referring_installer_id)
       .single();
 
     if (refErr || !referrer?.stripe_account_id) {
-      console.warn("[Bounty] Referring installer has no Stripe account:", lead.referring_installer_id);
+      console.warn("[Bounty] Referring installer has no Stripe account:", claimed.referring_installer_id);
+      // Revert to pending so it can be retried
+      await getDb().from("leads").update({ bounty_status: "pending" }).eq("id", leadId);
       return;
     }
 
@@ -157,8 +167,8 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
         const { sendBountyPaidEmail } = await import("@/lib/email");
         await sendBountyPaidEmail(referrer.email, {
           referrerName: referrer.business_name || referrer.first_name || "Installer",
-          customerCity: lead.address_city || null,
-          customerState: lead.address_state || null,
+          customerCity: claimed.address_city || null,
+          customerState: claimed.address_state || null,
           amount: bountyAmountCents / 100,
         });
       } catch (emailErr) {
@@ -167,6 +177,10 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     }
   } catch (bountyErr) {
     // Non-fatal: don't let bounty failure break the main webhook flow
+    // Revert to pending so it can be retried on next webhook
+    try {
+      await getDb().from("leads").update({ bounty_status: "pending" }).eq("id", leadId).eq("bounty_status", "processing");
+    } catch { /* best-effort revert */ }
     console.error("[Bounty] Transfer failed (non-fatal):", bountyErr);
   }
 }

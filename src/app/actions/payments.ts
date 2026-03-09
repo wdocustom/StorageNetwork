@@ -564,6 +564,8 @@ export async function createDepositIntent(
           discount_code_cents: String(promoCodeCents),
           delivery_fee_cents: String(deliveryFeeCents),
         },
+      }, {
+        idempotencyKey: `deposit-${leadId}`,
       });
 
       console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
@@ -606,6 +608,8 @@ export async function createDepositIntent(
           discount_code_cents: String(promoCodeCents),
           delivery_fee_cents: String(deliveryFeeCents),
         },
+      }, {
+        idempotencyKey: `deposit-${leadId}`,
       });
 
       console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (3%), Installer $${installerReceivesCents / 100} (12%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
@@ -641,6 +645,8 @@ export async function createDepositIntent(
           discount_code_cents: String(promoCodeCents),
           delivery_fee_cents: String(deliveryFeeCents),
         },
+      }, {
+        idempotencyKey: `deposit-${leadId}`,
       });
 
       console.log(`[Deposit] No Stripe: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
