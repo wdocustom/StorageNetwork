@@ -83,7 +83,13 @@ export async function processCheckout(
 
     if (hasFeeOverride && isPro && stripeAccountId) {
       // Founder / custom fee rate — platform takes override rate, rest to installer
-      const overrideRate = Number(feeOverride);
+      // Bounds-check: clamp override to [0, 0.25] to prevent negative fees
+      // or unreasonable platform takes from misconfigured DB values.
+      const rawRate = Number(feeOverride);
+      const overrideRate = Math.max(0, Math.min(rawRate, 0.25));
+      if (rawRate !== overrideRate) {
+        console.warn(`[Checkout] Fee override out of bounds: ${rawRate} → clamped to ${overrideRate}`);
+      }
       platformAmount = Math.round(grand_total * overrideRate * 100) / 100;
       installerAmount = depositAmount - platformAmount;
       payoutTo = "split";

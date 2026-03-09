@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { TtlCache } from "@/lib/cache";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 
@@ -10,6 +11,17 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = getServiceClient();
+
+/**
+ * Verify the authenticated caller matches the target user_id.
+ * Returns the user ID on success, or an error message.
+ */
+async function requireSelf(targetUserId: string): Promise<{ userId: string } | { error: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { error: "Not authenticated." };
+  if (user.id !== targetUserId) return { error: "Not authorized." };
+  return { userId: user.id };
+}
 
 /** Cache for public profile reads (60s TTL) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,6 +103,9 @@ export async function updateProfile(
   input: ProfileUpdateInput
 ): Promise<ProfileUpdateResult> {
   const { user_id, ...updates } = input;
+
+  const auth = await requireSelf(user_id);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   // Convert undefined values to null (Supabase rejects undefined)
   const cleanUpdates: Record<string, string | null> = {};
@@ -188,6 +203,9 @@ export async function updateSlug(
   userId: string,
   slug: string
 ): Promise<SlugUpdateResult> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // Normalize
   const normalized = slug
     .toLowerCase()
@@ -285,6 +303,9 @@ export async function updatePortfolioSettings(input: {
 }): Promise<{ success: boolean; error?: string }> {
   const { user_id, ...updates } = input;
 
+  const auth = await requireSelf(user_id);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const cleanUpdates: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(updates)) {
     if (value !== undefined) {
@@ -315,6 +336,9 @@ export async function uploadPortfolioPhoto(
   fileExt: string,
   caption?: string
 ): Promise<{ success: boolean; photo?: PortfolioPhoto; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
   if (!allowedExts.includes(fileExt)) {
     return { success: false, error: "Invalid file type. Use JPG, PNG, GIF, or WebP." };
@@ -377,6 +401,9 @@ export async function deletePortfolioPhoto(
   userId: string,
   photoUrl: string
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   try {
     // Extract storage path from URL
     const bucketUrl = supabase.storage.from("portfolio").getPublicUrl("").data.publicUrl;
@@ -422,6 +449,9 @@ export async function getAvatarUploadUrl(
   userId: string,
   fileName: string
 ): Promise<{ success: boolean; url?: string; path?: string; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const fileExt = fileName.split(".").pop()?.toLowerCase() || "jpg";
   const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
 
@@ -477,6 +507,9 @@ export async function uploadAvatarServerSide(
   base64Data: string,
   fileExt: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
   if (!allowedExts.includes(fileExt)) {
     return { success: false, error: "Invalid file type." };
@@ -556,6 +589,9 @@ export async function updateServicesConfig(
   userId: string,
   services: ServiceOffering[]
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const { error } = await supabase
     .from("profiles")
     .update({ services_config: services })

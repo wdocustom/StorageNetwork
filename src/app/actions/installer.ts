@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
@@ -29,6 +30,11 @@ export async function updateInstallerProfile(
   input: UpdateProfileInput
 ): Promise<UpdateProfileResult> {
   const { installer_id, service_zip, service_radius_miles } = input;
+
+  // Auth check: verify the caller is the installer being updated
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, zips_covered: 0, error: "Not authenticated." };
+  if (user.id !== installer_id) return { success: false, zips_covered: 0, error: "Not authorized." };
 
   // Validate the base zip
   if (!/^\d{5}$/.test(service_zip)) {
