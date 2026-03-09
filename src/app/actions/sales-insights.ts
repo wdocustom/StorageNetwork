@@ -1,15 +1,11 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import {
   calculateMaterialCost,
   type MaterialConfig,
 } from "@/utils/calculateMaterials";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — Aggregated sales data for the installer CRM
@@ -77,7 +73,7 @@ export async function getSalesInsights(
   const MAINTENANCE_FEE_RATE = 0.03;
 
   // Fetch all completed/paid jobs for this installer
-  const { data: leads, error } = await supabase
+  const { data: leads, error } = await getServiceClient()
     .from("leads")
     .select(
       "id, customer_name, customer_email, customer_phone, address, status, source, estimated_price, balance_due, quote_data, scheduled_at, completed_at, created_at, fee_status, deposit_amount, operational_status, delivery_address_line1, delivery_address_city, delivery_address_state, delivery_address_zip"

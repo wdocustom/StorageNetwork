@@ -1,16 +1,12 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing — Server actions for installer custom pricing
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface PricingResult {
   success: boolean;
@@ -30,7 +26,7 @@ export async function getInstallerPricing(
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getServiceClient()
       .from("profiles")
       .select("is_pro, pricing_config")
       .eq("id", installerId)
@@ -61,7 +57,7 @@ export async function updateInstallerPricing(
 
   try {
     // Verify Pro status
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await getServiceClient()
       .from("profiles")
       .select("is_pro")
       .eq("id", installerId)
@@ -157,7 +153,7 @@ export async function updateInstallerPricing(
 
     const pricingConfig = hasCustomValues ? validated : null;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getServiceClient()
       .from("profiles")
       .update({ pricing_config: pricingConfig })
       .eq("id", installerId);
@@ -184,7 +180,7 @@ export async function resetInstallerPricing(
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await getServiceClient()
       .from("profiles")
       .update({ pricing_config: null })
       .eq("id", installerId);

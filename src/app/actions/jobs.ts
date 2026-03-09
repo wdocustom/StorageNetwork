@@ -1,14 +1,10 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
 import { calculateMaterialCost, type MaterialConfig } from "@/utils/calculateMaterials";
 import { updateInventoryAfterJob } from "@/app/actions/inventory";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // updateOperationalStatus — Pipeline state toggle from CRM cards
@@ -28,7 +24,7 @@ export async function updateOperationalStatus(
     return { success: false, error: `Invalid status: ${status}` };
   }
 
-  const { error } = await supabase
+  const { error } = await getServiceClient()
     .from("leads")
     .update({
       operational_status: status,
@@ -51,7 +47,7 @@ export async function updateOperationalStatus(
  */
 async function syncInventoryForLead(leadId: string) {
   try {
-    const { data: lead } = await supabase
+    const { data: lead } = await getServiceClient()
       .from("leads")
       .select("installer_id, quote_data")
       .eq("id", leadId)
@@ -85,7 +81,7 @@ export async function completeJobWithProof(
   paymentUrl?: string
 ) {
   // 1. Update DB — mark proof uploaded, status = payment_pending
-  await supabase
+  await getServiceClient()
     .from("leads")
     .update({
       status: "payment_pending",
@@ -135,7 +131,7 @@ export async function completeJobWithProof(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function completeJob(leadId: string) {
-  const { error } = await supabase
+  const { error } = await getServiceClient()
     .from("leads")
     .update({
       status: "payment_pending",
@@ -164,7 +160,7 @@ export async function markJobPaidManual(
   leadId: string,
   method: string = "cash"
 ) {
-  const { error } = await supabase
+  const { error } = await getServiceClient()
     .from("leads")
     .update({
       status: "paid",
@@ -195,7 +191,7 @@ export async function rescheduleJob(
   customerName: string
 ) {
   // Update the lead with new date
-  await supabase
+  await getServiceClient()
     .from("leads")
     .update({ scheduled_at: newDate, updated_at: new Date().toISOString() })
     .eq("id", leadId);
@@ -203,7 +199,7 @@ export async function rescheduleJob(
   if (customerEmail) {
     try {
       // Fetch lead with installer profile to get installer's email
-      const { data: lead } = await supabase
+      const { data: lead } = await getServiceClient()
         .from("leads")
         .select("installer_id, installers(email)")
         .eq("id", leadId)
@@ -258,7 +254,7 @@ export async function scheduleJob(
   }
 
   // Update the lead with the scheduled date
-  const { error: updateError } = await supabase
+  const { error: updateError } = await getServiceClient()
     .from("leads")
     .update({ scheduled_at: date, updated_at: new Date().toISOString() })
     .eq("id", leadId);
@@ -271,7 +267,7 @@ export async function scheduleJob(
   // Send confirmation email to customer (non-blocking)
   if (customerEmail) {
     try {
-      const { data: lead } = await supabase
+      const { data: lead } = await getServiceClient()
         .from("leads")
         .select("installer_id, installers(email)")
         .eq("id", leadId)
@@ -321,7 +317,7 @@ export async function deleteUnpaidQuote(
   if (!leadId) return { success: false, error: "Lead ID is required." };
 
   // Safety check: only delete leads that are pending_payment and never had deposit paid
-  const { data: lead } = await supabase
+  const { data: lead } = await getServiceClient()
     .from("leads")
     .select("status, deposit_paid")
     .eq("id", leadId)
@@ -339,7 +335,7 @@ export async function deleteUnpaidQuote(
     return { success: false, error: "Can only delete unpaid quotes." };
   }
 
-  const { error } = await supabase
+  const { error } = await getServiceClient()
     .from("leads")
     .delete()
     .eq("id", leadId);
@@ -372,7 +368,7 @@ export async function updateCustomerContact(
   if (data.email !== undefined) leadUpdate.customer_email = normalizedEmail;
   if (data.phone !== undefined) leadUpdate.customer_phone = normalizedPhone;
 
-  const { error: leadError } = await supabase
+  const { error: leadError } = await getServiceClient()
     .from("leads")
     .update(leadUpdate)
     .eq("id", leadId);
@@ -383,7 +379,7 @@ export async function updateCustomerContact(
   }
 
   // Also update the linked customers record if one exists
-  const { data: lead } = await supabase
+  const { data: lead } = await getServiceClient()
     .from("leads")
     .select("customer_id")
     .eq("id", leadId)
@@ -394,7 +390,7 @@ export async function updateCustomerContact(
     if (data.email !== undefined) customerUpdate.email = normalizedEmail;
     if (data.phone !== undefined) customerUpdate.phone = normalizedPhone;
 
-    await supabase
+    await getServiceClient()
       .from("customers")
       .update(customerUpdate)
       .eq("id", lead.customer_id);

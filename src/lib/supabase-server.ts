@@ -12,17 +12,24 @@ let _client: SupabaseClient | null = null;
 
 export function getServiceClient(): SupabaseClient {
   if (!_client) {
-    _client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: { persistSession: false },
-        global: {
-          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-            fetch(input, { ...init, cache: "no-store" }),
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      // During build, env vars may not be available. Return a dummy client
+      // that will throw at runtime if actually used.
+      return new Proxy({} as SupabaseClient, {
+        get: () => {
+          throw new Error("Supabase client is not available — missing env vars");
         },
-      }
-    );
+      });
+    }
+    _client = createClient(url, key, {
+      auth: { persistSession: false },
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
+    });
   }
   return _client;
 }

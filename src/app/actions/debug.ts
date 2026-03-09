@@ -1,12 +1,8 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function sendTestEmail(toEmail: string): Promise<{ success: boolean; error?: string }> {
   console.log("[Debug] sendTestEmail called for:", toEmail);
@@ -36,7 +32,7 @@ export async function deactivateAccount(userId: string): Promise<{ success: bool
   console.log("[Debug] deactivateAccount called for:", userId);
 
   try {
-    const { error } = await supabase
+    const { error } = await getServiceClient()
       .from("profiles")
       .update({ active: false, updated_at: new Date().toISOString() })
       .eq("id", userId);

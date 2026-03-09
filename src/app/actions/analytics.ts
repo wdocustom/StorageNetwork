@@ -1,6 +1,6 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Analytics — Server actions for installer page view tracking & metrics
@@ -9,10 +9,6 @@ import { createClient } from "@supabase/supabase-js";
 // Uses `page_views` table for visit tracking, `leads` table for conversions.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // ── Track Page View ─────────────────────────────────────────────────────
 
@@ -28,7 +24,7 @@ export async function trackPageView(input: PageViewInput): Promise<{ success: bo
   if (!input.installerId) return { success: false };
 
   try {
-    await supabase.from("page_views").insert({
+    await getServiceClient().from("page_views").insert({
       installer_id: input.installerId,
       page: input.page,
       referrer: input.referrer || null,
@@ -159,7 +155,7 @@ export async function getInstallerAnalytics(
     // Fetch page views and orders in parallel
     const [viewsRes, ordersRes, recentViewsRes] = await Promise.all([
       // All page views in date range
-      supabase
+      getServiceClient()
         .from("page_views")
         .select("page, referrer, user_agent, created_at")
         .eq("installer_id", installerId)
@@ -167,7 +163,7 @@ export async function getInstallerAnalytics(
         .order("created_at", { ascending: true }),
 
       // All paid orders (deposit_paid = true) in date range
-      supabase
+      getServiceClient()
         .from("leads")
         .select("estimated_price, created_at, deposit_paid")
         .eq("installer_id", installerId)
@@ -176,7 +172,7 @@ export async function getInstallerAnalytics(
         .order("created_at", { ascending: true }),
 
       // Recent views for the activity feed (last 20)
-      supabase
+      getServiceClient()
         .from("page_views")
         .select("page, referrer, user_agent, created_at")
         .eq("installer_id", installerId)
@@ -319,7 +315,7 @@ export async function checkFirstOrderDiscount(
   }
 
   try {
-    const { count, error } = await supabase
+    const { count, error } = await getServiceClient()
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("customer_email", customerEmail.trim().toLowerCase())

@@ -1,15 +1,11 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Actions — Affiliate Dashboard Data
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export interface PlatformUser {
   id: string;
@@ -71,7 +67,7 @@ export async function getPartnerDashboard(
 ): Promise<PartnerDashboardData> {
   try {
     // 1. Verify is_partner flag + check admin
-    const { data: profile } = await supabase
+    const { data: profile } = await getServiceClient()
       .from("profiles")
       .select("is_partner, is_admin")
       .eq("id", userId)
@@ -84,7 +80,7 @@ export async function getPartnerDashboard(
     const isAdmin = profile.is_admin === true;
 
     // 2. Get partner record (linked by user_id)
-    let { data: partner } = await supabase
+    let { data: partner } = await getServiceClient()
       .from("partners")
       .select("id, name, company, slug")
       .eq("user_id", userId)
@@ -93,11 +89,11 @@ export async function getPartnerDashboard(
     // Auto-link: if is_partner=true but no partner record is linked yet,
     // try to find an unlinked partner by matching the profile's email
     if (!partner) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const { data: authUser } = await getServiceClient().auth.admin.getUserById(userId);
       const email = authUser?.user?.email;
 
       if (email) {
-        const { data: unlinked } = await supabase
+        const { data: unlinked } = await getServiceClient()
           .from("partners")
           .select("id, name, company, slug")
           .eq("email", email)
@@ -106,7 +102,7 @@ export async function getPartnerDashboard(
 
         if (unlinked) {
           // Auto-link this partner record to the logged-in user
-          await supabase
+          await getServiceClient()
             .from("partners")
             .update({ user_id: userId })
             .eq("id", unlinked.id);
@@ -118,7 +114,7 @@ export async function getPartnerDashboard(
 
     // Still no partner? Try matching by name from profile
     if (!partner) {
-      const { data: prof } = await supabase
+      const { data: prof } = await getServiceClient()
         .from("profiles")
         .select("first_name, last_name, business_name")
         .eq("id", userId)
@@ -131,7 +127,7 @@ export async function getPartnerDashboard(
         const candidates = [fullName, prof.business_name].filter(Boolean) as string[];
         for (const matchName of candidates) {
           // Match against partner name
-          const { data: byName } = await supabase
+          const { data: byName } = await getServiceClient()
             .from("partners")
             .select("id, name, company, slug")
             .is("user_id", null)
@@ -139,14 +135,14 @@ export async function getPartnerDashboard(
             .maybeSingle();
 
           if (byName) {
-            await supabase.from("partners").update({ user_id: userId }).eq("id", byName.id);
+            await getServiceClient().from("partners").update({ user_id: userId }).eq("id", byName.id);
             partner = byName;
             console.log(`✅ Auto-linked partner ${byName.id} to user ${userId} (name: ${matchName})`);
             break;
           }
 
           // Match against partner company
-          const { data: byCompany } = await supabase
+          const { data: byCompany } = await getServiceClient()
             .from("partners")
             .select("id, name, company, slug")
             .is("user_id", null)
@@ -154,7 +150,7 @@ export async function getPartnerDashboard(
             .maybeSingle();
 
           if (byCompany) {
-            await supabase.from("partners").update({ user_id: userId }).eq("id", byCompany.id);
+            await getServiceClient().from("partners").update({ user_id: userId }).eq("id", byCompany.id);
             partner = byCompany;
             console.log(`✅ Auto-linked partner ${byCompany.id} to user ${userId} (company: ${matchName})`);
             break;
@@ -171,7 +167,7 @@ export async function getPartnerDashboard(
     }
 
     // 3. Calculate commission via Postgres function
-    const { data: commissionRows } = await supabase.rpc(
+    const { data: commissionRows } = await getServiceClient().rpc(
       "calculate_partner_commission",
       { p_partner_id: partner.id }
     );
@@ -184,7 +180,7 @@ export async function getPartnerDashboard(
     };
 
     // 4. Get installer ledger (all referrals with profile details)
-    const { data: rawReferrals } = await supabase
+    const { data: rawReferrals } = await getServiceClient()
       .from("referrals")
       .select(
         "id, status, created_at, installer_id"
@@ -196,7 +192,7 @@ export async function getPartnerDashboard(
     const referrals: ReferralRow[] = [];
     if (rawReferrals) {
       const installerIds = rawReferrals.map((r) => r.installer_id);
-      const { data: profiles } = await supabase
+      const { data: profiles } = await getServiceClient()
         .from("profiles")
         .select("id, first_name, last_name, business_name")
         .in("id", installerIds);
@@ -282,7 +278,7 @@ export async function getAdminReferralBounties(
 ): Promise<{ success: boolean; referrers?: ReferrerSummary[]; totals?: { totalPaid: number; totalPending: number; totalReferrals: number }; error?: string }> {
   try {
     // Verify admin
-    const { data: profile } = await supabase
+    const { data: profile } = await getServiceClient()
       .from("profiles")
       .select("is_admin")
       .eq("id", userId)
@@ -293,7 +289,7 @@ export async function getAdminReferralBounties(
     }
 
     // Fetch all leads that have a referring installer
-    const { data: leads, error } = await supabase
+    const { data: leads, error } = await getServiceClient()
       .from("leads")
       .select(
         "id, referring_installer_id, installer_id, bounty_status, bounty_amount, deposit_amount, deposit_paid, estimated_price, address_city, address_state, created_at"
@@ -316,7 +312,7 @@ export async function getAdminReferralBounties(
       if (lead.installer_id) allInstallerIds.add(lead.installer_id);
     }
 
-    const { data: profiles } = await supabase
+    const { data: profiles } = await getServiceClient()
       .from("profiles")
       .select("id, first_name, last_name, business_name, is_pro")
       .in("id", Array.from(allInstallerIds));
@@ -414,7 +410,7 @@ export async function getAdminPlatformUsers(
 ): Promise<{ success: boolean; users?: PlatformUser[]; error?: string }> {
   try {
     // Verify admin
-    const { data: profile } = await supabase
+    const { data: profile } = await getServiceClient()
       .from("profiles")
       .select("is_admin")
       .eq("id", userId)
@@ -425,7 +421,7 @@ export async function getAdminPlatformUsers(
     }
 
     // Fetch all profiles
-    const { data: allProfiles, error } = await supabase
+    const { data: allProfiles, error } = await getServiceClient()
       .from("profiles")
       .select(
         "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason"
@@ -489,7 +485,7 @@ export async function toggleInstallerSuspension(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Verify caller is admin
-    const { data: adminProfile } = await supabase
+    const { data: adminProfile } = await getServiceClient()
       .from("profiles")
       .select("is_admin")
       .eq("id", adminUserId)
@@ -499,7 +495,7 @@ export async function toggleInstallerSuspension(
       return { success: false, error: "Not authorized." };
     }
 
-    const { error } = await supabase
+    const { error } = await getServiceClient()
       .from("profiles")
       .update({
         is_suspended: suspend,

@@ -1,4 +1,5 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Contact Installer — Black Box Server Action
@@ -12,7 +13,6 @@
 // confirmation email.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { createClient } from "@supabase/supabase-js";
 import {
   sendTransactionalEmail,
   buildCustomerInquiryTemplate,
@@ -20,10 +20,6 @@ import {
 } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export interface ContactInstallerInput {
   installerId: string;
@@ -77,7 +73,7 @@ export async function contactInstaller(
   try {
     // ── Look up installer's email (server-side only) ────────────────────
     // Join through auth.users to get the email
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await getServiceClient()
       .from("profiles")
       .select("id, business_name, first_name, phone")
       .eq("id", installerId)
@@ -89,7 +85,7 @@ export async function contactInstaller(
     }
 
     // Get email from auth.users (not stored in profiles)
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(installerId);
+    const { data: authUser, error: authError } = await getServiceClient().auth.admin.getUserById(installerId);
 
     if (authError || !authUser?.user?.email) {
       console.error("[ContactInstaller] Auth lookup failed:", authError);
@@ -129,7 +125,7 @@ export async function contactInstaller(
     // ── Log to communication_logs (if table exists) ─────────────────────
     // Fire-and-forget — logging should not block the response
     try {
-      await supabase
+      await getServiceClient()
         .from("communication_logs")
         .insert({
           lead_id: leadId || null,
@@ -150,7 +146,7 @@ export async function contactInstaller(
     // customer closes the tab while waiting for the installer's reply.
     if (quoteData && quoteData.length > 0 && customerEmail) {
       try {
-        const { data: signal } = await supabase
+        const { data: signal } = await getServiceClient()
           .from("demand_signals")
           .insert({
             zip: zip?.trim() || "00000",

@@ -1,16 +1,12 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import { smsCustomerEnRoute, smsNewBookingAlert } from "@/lib/twilio";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SMS Server Actions — Twilio-powered notifications
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // ─────────────────────────────────────────────────────────────────────────
 // Start Trip & Notify Customer
@@ -29,7 +25,7 @@ export async function startTripNotify(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // 1. Fetch lead details
-    const { data: lead, error: leadErr } = await supabase
+    const { data: lead, error: leadErr } = await getServiceClient()
       .from("leads")
       .select(
         "id, customer_name, customer_phone, estimated_price, deposit_amount, balance_due, address_zip, en_route_notified, installer_id"
@@ -60,7 +56,7 @@ export async function startTripNotify(
     }
 
     // 2. Fetch installer profile
-    const { data: installer } = await supabase
+    const { data: installer } = await getServiceClient()
       .from("profiles")
       .select("first_name, is_pro, service_zip")
       .eq("id", installerId)
@@ -101,7 +97,7 @@ export async function startTripNotify(
     }
 
     // 6. Update lead — mark as notified
-    await supabase
+    await getServiceClient()
       .from("leads")
       .update({
         en_route_notified: true,
@@ -139,7 +135,7 @@ export async function sendInstallerBookingSms(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Fetch installer profile
-    const { data: installer } = await supabase
+    const { data: installer } = await getServiceClient()
       .from("profiles")
       .select("phone, is_pro")
       .eq("id", installerId)
@@ -161,7 +157,7 @@ export async function sendInstallerBookingSms(
 
     if (result.success) {
       // Mark SMS as sent on the lead
-      await supabase
+      await getServiceClient()
         .from("leads")
         .update({ installer_sms_sent: true })
         .eq("id", leadId);

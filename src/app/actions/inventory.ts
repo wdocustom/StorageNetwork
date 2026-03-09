@@ -1,6 +1,6 @@
 "use server";
+import { getServiceClient } from "@/lib/supabase-server";
 
-import { createClient } from "@supabase/supabase-js";
 import {
   normalizeInventory,
   calculateInventoryAfterJob,
@@ -12,16 +12,12 @@ import {
 // Inventory — Server actions for reading and updating material inventory
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /** Fetch the installer's current material inventory. */
 export async function getInstallerInventory(
   installerId: string
 ): Promise<MaterialInventory> {
-  const { data } = await supabase
+  const { data } = await getServiceClient()
     .from("profiles")
     .select("material_inventory")
     .eq("id", installerId)
@@ -45,7 +41,7 @@ export async function updateInventoryAfterJob(
   const updated = calculateInventoryAfterJob(rawJobNeeds, current);
 
   // Persist
-  const { error } = await supabase
+  const { error } = await getServiceClient()
     .from("profiles")
     .update({ material_inventory: updated })
     .eq("id", installerId);
