@@ -255,6 +255,18 @@ export default function DesignConfigurator({
     }));
   }, [compoundBuild, activePresetObj]);
 
+  // ── Filtered presets & shelving visibility based on installer pricing ──
+  const filteredPresets = useMemo(() => {
+    const p = data?.pricing;
+    if (!p) return BESTSELLER_PRESETS;
+    return BESTSELLER_PRESETS.filter((preset) => {
+      const key = `bestseller_${preset.id.replace(/-/g, "_")}_disabled` as keyof typeof p;
+      return p[key] !== true;
+    });
+  }, [data?.pricing]);
+
+  const shelvingEnabled = data?.pricing?.open_shelving_disabled !== true;
+
   // ── Open Shelving add-on state ───────────────────────────────────────
   const [shelvingConfigId, setShelvingConfigId] = useState<string | null>(null);
   const [shelvingPrice, setShelvingPrice] = useState<number | null>(null);
@@ -1275,7 +1287,7 @@ export default function DesignConfigurator({
           // Presets
           activePreset={activePreset}
           onPresetChange={(v) => { setActivePreset(v); setCompoundBuild(null); }}
-          presetOptions={BESTSELLER_PRESETS}
+          presetOptions={filteredPresets}
           compoundBuild={compoundBuild}
           presetLoading={presetLoading}
           presetTotes={presetTotes}
@@ -1289,6 +1301,7 @@ export default function DesignConfigurator({
           shelvingPrice={shelvingPrice}
           shelvingLoading={shelvingLoading}
           onAddShelvingUnit={handleAddShelvingUnit}
+          shelvingHidden={!shelvingEnabled}
 
           // Summary
           orderItems={orderItems}

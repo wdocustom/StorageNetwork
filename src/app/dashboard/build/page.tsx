@@ -799,7 +799,10 @@ export default function BuildConfiguratorPage() {
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
           >
             <option value="">Choose a bestseller…</option>
-            {BESTSELLER_PRESETS.map((p) => {
+            {BESTSELLER_PRESETS.filter((p) => {
+              const key = `bestseller_${p.id.replace(/-/g, "_")}_disabled` as keyof InstallerPricing;
+              return installerPricing?.[key] !== true;
+            }).map((p) => {
               const subDesc = p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ");
               return (
                 <option key={p.id} value={p.id}>
@@ -875,7 +878,7 @@ export default function BuildConfiguratorPage() {
         </section>
 
         {/* ── Open Shelving ──────────────────────────────────────────── */}
-        <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+        {installerPricing?.open_shelving_disabled !== true && <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
           <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
             <Grid3X3 className="h-4 w-4 text-yellow-400" />
             Open Shelving
@@ -954,7 +957,7 @@ export default function BuildConfiguratorPage() {
               )}
             </div>
           )}
-        </section>
+        </section>}
 
         {/* ── Input Card ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">

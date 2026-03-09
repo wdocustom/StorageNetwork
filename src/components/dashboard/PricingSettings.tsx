@@ -36,7 +36,7 @@ interface PricingSettingsProps {
   userId: string;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -250,6 +250,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   // Each field can be: a custom number string, or empty (use default)
   const [values, setValues] = useState<Record<string, string>>({});
   const [miniDisabled, setMiniDisabled] = useState(false);
+  const [shelvingDisabled, setShelvingDisabled] = useState(false);
+  const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Organizer Customization (addon pricing) state ──────────────────
   const [addonExpanded, setAddonExpanded] = useState(false);
@@ -275,6 +277,13 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
       setValues(loaded);
       setMiniDisabled(result.pricing.mini_disabled === true);
+      setShelvingDisabled(result.pricing.open_shelving_disabled === true);
+      setPresetToggles({
+        indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
+        cornhusker: result.pricing.bestseller_cornhusker_disabled !== true,
+        long_ranger: result.pricing.bestseller_long_ranger_disabled !== true,
+        gas_station: result.pricing.bestseller_gas_station_disabled !== true,
+      });
 
       // Load addon pricing
       const ap = result.pricing.addon_pricing;
@@ -330,6 +339,11 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
     }
     if (miniDisabled) pricing.mini_disabled = true;
+    if (shelvingDisabled) pricing.open_shelving_disabled = true;
+    if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
+    if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
+    if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
+    if (presetToggles.gas_station === false) pricing.bestseller_gas_station_disabled = true;
 
     // Build addon_pricing
     const addonPricing: AddonPricing = {
@@ -369,6 +383,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
       setValues(cleared);
       setMiniDisabled(false);
+      setShelvingDisabled(false);
+      setPresetToggles({});
       setAddonEnabled(true);
       setAddonValues({});
       setAddonToggles({
@@ -391,6 +407,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
 
   function hasCustomValues(): boolean {
     return miniDisabled
+      || shelvingDisabled
+      || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
       || Object.values(addonToggles).some((v) => !v)
@@ -489,52 +507,110 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         </button>
       </div>
 
+      {/* Open Shelving Toggle */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setShelvingDisabled(!shelvingDisabled)}
+          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+            shelvingDisabled
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${shelvingDisabled ? "bg-red-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${shelvingDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <EyeOff className={`h-3.5 w-3.5 ${shelvingDisabled ? "text-red-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${shelvingDisabled ? "text-red-400" : "text-white"}`}>
+                {shelvingDisabled ? "Open Shelving Disabled" : "Disable Open Shelving"}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {shelvingDisabled
+                ? "Open shelving options are hidden from your design & build pages"
+                : "Toggle to hide open shelving options from customers"}
+            </p>
+          </div>
+        </button>
+      </div>
+
       {/* Pricing Categories */}
       <div className="space-y-5">
-        {categories.map((cat) => (
-          <div key={cat.key} className={cat.key === "mini" && miniDisabled ? "opacity-40 pointer-events-none" : ""}>
-            <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-              {cat.label}
-            </h3>
-            {cat.hint && (
-              <p className="mb-3 text-[11px] leading-relaxed text-stone-600">
-                {cat.hint}
-              </p>
-            )}
-            <div className="space-y-2">
-              {cat.fields.map((field) => (
-                <div
-                  key={field.key}
-                  className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/30 p-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">
-                      {field.label}
-                    </p>
-                    <p className="text-[11px] text-stone-500">
-                      {field.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">
-                        $
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={values[field.key] ?? ""}
-                        onChange={(e) => handleChange(field.key, e.target.value)}
-                        placeholder={field.dynamicDefault ? "Auto" : String(field.defaultValue)}
-                        className="w-24 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-                      />
+        {categories.map((cat) => {
+          const isCatDisabled =
+            (cat.key === "mini" && miniDisabled) ||
+            (cat.key === "shelving" && shelvingDisabled);
+
+          return (
+            <div key={cat.key} className={isCatDisabled ? "opacity-40 pointer-events-none" : ""}>
+              <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                {cat.label}
+              </h3>
+              {cat.hint && (
+                <p className="mb-3 text-[11px] leading-relaxed text-stone-600">
+                  {cat.hint}
+                </p>
+              )}
+              <div className="space-y-2">
+                {cat.fields.map((field) => {
+                  // For bestsellers, extract the preset id for toggle
+                  const presetId = cat.key === "bestsellers"
+                    ? field.key.replace("bestseller_", "")
+                    : null;
+                  const isPresetDisabled = presetId ? presetToggles[presetId] === false : false;
+
+                  return (
+                    <div
+                      key={field.key}
+                      className={`flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/30 p-3 transition-all ${isPresetDisabled ? "opacity-40" : ""}`}
+                    >
+                      {/* Per-bestseller toggle */}
+                      {presetId && (
+                        <button
+                          type="button"
+                          onClick={() => setPresetToggles((prev) => ({ ...prev, [presetId]: prev[presetId] === false ? true : false }))}
+                          className="shrink-0"
+                          title={isPresetDisabled ? `Enable ${field.label}` : `Disable ${field.label}`}
+                        >
+                          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${isPresetDisabled ? "bg-red-500" : "bg-emerald-500"}`}>
+                            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${isPresetDisabled ? "translate-x-0.5" : "translate-x-4"}`} />
+                          </div>
+                        </button>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white">
+                          {field.label}
+                        </p>
+                        <p className="text-[11px] text-stone-500">
+                          {field.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">
+                            $
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={values[field.key] ?? ""}
+                            onChange={(e) => handleChange(field.key, e.target.value)}
+                            placeholder={field.dynamicDefault ? "Auto" : String(field.defaultValue)}
+                            disabled={isPresetDisabled}
+                            className="w-24 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Organizer Customization (Section Addons) ──────────────── */}

@@ -73,7 +73,7 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "addon_pricing">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
@@ -97,9 +97,17 @@ export async function updateInstallerPricing(
       // undefined/null fields are omitted — they'll use platform defaults
     }
 
-    // Carry over the mini_disabled boolean if set
+    // Carry over boolean toggles if set
     if (pricing.mini_disabled === true) {
       (validated as Record<string, unknown>).mini_disabled = true;
+    }
+    if (pricing.open_shelving_disabled === true) {
+      (validated as Record<string, unknown>).open_shelving_disabled = true;
+    }
+    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled"] as const) {
+      if (pricing[bk] === true) {
+        (validated as Record<string, unknown>)[bk] = true;
+      }
     }
 
     // Carry over addon_pricing if provided

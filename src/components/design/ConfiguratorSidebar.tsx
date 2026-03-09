@@ -297,6 +297,8 @@ export interface ConfiguratorSidebarProps {
   shelvingPrice: number | null;
   shelvingLoading: boolean;
   onAddShelvingUnit: () => void;
+  /** When true, the open shelving section is hidden */
+  shelvingHidden?: boolean;
 
   // Pulse trigger — called after "Find Max" updates inputs
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight
@@ -1720,13 +1722,15 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 )}
 
                 {/* Open Shelving Dropdown — add standalone shelving units */}
-                <ShelvingDropdown
-                  shelvingConfigId={props.shelvingConfigId}
-                  onShelvingConfigChange={props.onShelvingConfigChange}
-                  shelvingPrice={props.shelvingPrice}
-                  shelvingLoading={props.shelvingLoading}
-                  onAddShelvingUnit={() => { props.onAddShelvingUnit(); setActiveStep(4); }}
-                />
+                {!props.shelvingHidden && (
+                  <ShelvingDropdown
+                    shelvingConfigId={props.shelvingConfigId}
+                    onShelvingConfigChange={props.onShelvingConfigChange}
+                    shelvingPrice={props.shelvingPrice}
+                    shelvingLoading={props.shelvingLoading}
+                    onAddShelvingUnit={() => { props.onAddShelvingUnit(); setActiveStep(4); }}
+                  />
+                )}
 
                 {/* Manual Columns / Rows — hidden when a bestseller is selected */}
                 {!props.activePreset && (

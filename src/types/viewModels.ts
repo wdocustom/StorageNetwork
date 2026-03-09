@@ -110,12 +110,20 @@ export interface InstallerPricing {
   shelving_shelf_6ft_tall?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
+  /** When true, the open shelving section is hidden from the installer's design/build pages */
+  open_shelving_disabled?: boolean;
+  /** Per-bestseller visibility toggles (false = hidden from design/build pages).
+   *  Key pattern: bestseller_<preset_id_with_underscores>_disabled */
+  bestseller_indiana_joe_disabled?: boolean;
+  bestseller_cornhusker_disabled?: boolean;
+  bestseller_long_ranger_disabled?: boolean;
+  bestseller_gas_station_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
   addon_pricing?: AddonPricing;
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "open_shelving_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,
