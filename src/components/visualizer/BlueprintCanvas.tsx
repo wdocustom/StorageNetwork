@@ -156,8 +156,8 @@ export default function BlueprintCanvas({
     }
 
     // Rails + Totes (with rail-skip for rail_removed addons)
-    const railH = (isMini ? 1.0 : 1.875) * scale;
-    const railW = 0.75 * scale;
+    const railH = 0.75 * scale;
+    const railW = (isMini ? 1.0 : 1.875) * scale;
     for (let c = 0; c < unitCols; c++) {
       const bayLeftX = startX + pStud + c * (pBay + pStud);
       const bayRightX = bayLeftX + pBay;
