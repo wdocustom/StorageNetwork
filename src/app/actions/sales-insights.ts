@@ -1,10 +1,8 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
-import {
-  calculateMaterialCost,
-  type MaterialConfig,
-} from "@/utils/calculateMaterials";
+import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
+import type { MaterialConfig } from "@/utils/calculateMaterials";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,7 +117,7 @@ export async function getSalesInsights(
     let materialCost = 0;
     if (quoteData.length > 0) {
       try {
-        const breakdown = calculateMaterialCost(quoteData);
+        const breakdown = await calculateMaterialCostServer(quoteData);
         materialCost = breakdown.totalCost;
         totalTotes += breakdown.rawCounts.totes;
       } catch {

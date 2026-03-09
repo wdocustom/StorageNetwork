@@ -3,6 +3,7 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { siteConfig } from "@/config/site";
+import { z } from "zod/v4";
 import { incrementDiscountCodeUsage } from "./discount-codes";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -50,6 +51,9 @@ import { incrementDiscountCodeUsage } from "./discount-codes";
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { getAuthenticatedUser } from "@/lib/auth";
+import { escapeHtml } from "@/utils/escapeHtml";
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
@@ -58,6 +62,24 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// ── Auth Helper: Verify caller owns the lead ────────────────────────────
+async function requireLeadOwnership(
+  leadId: string
+): Promise<{ userId: string } | { error: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("installer_id")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { error: "Lead not found." };
+  if (lead.installer_id !== user.id) return { error: "Not authorized." };
+  return { userId: user.id };
+}
 
 // ── Fee Constants ────────────────────────────────────────────────────────
 // Deposit rate is now installer-configurable (min 15%) via fee-engine.ts.
@@ -118,6 +140,9 @@ export async function createPaymentSession(
   if (amount <= 0) {
     return { success: false, error: "Payment amount must be positive." };
   }
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   try {
     // ── Balance Collection ───────────────────────────────────────────────
@@ -213,6 +238,10 @@ export async function sendPaymentInvoice(
     businessName,
   } = input;
 
+  // Auth: verify the caller owns this lead
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // First, create the payment session to get the URL
   const sessionResult = await createPaymentSession({
     leadId,
@@ -230,11 +259,13 @@ export async function sendPaymentInvoice(
   try {
     const { sendTransactionalEmail } = await import("@/lib/email");
 
+    const safeName = escapeHtml(customerName);
+    const safeBiz = escapeHtml(businessName);
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a1a; margin-bottom: 8px;">Balance Due</h2>
         <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
-          Hi ${customerName}, your installer <strong>${businessName}</strong> has
+          Hi ${safeName}, your installer <strong>${safeBiz}</strong> has
           requested payment for the remaining balance on your storage unit build.
         </p>
         <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
@@ -292,6 +323,9 @@ export async function sendPaymentInvoice(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const { error } = await supabase
     .from("leads")
     .update({
@@ -406,10 +440,32 @@ export interface DepositIntentResult {
   error?: string;
 }
 
+const depositIntentSchema = z.object({
+  leadId: z.string().uuid("Invalid lead ID"),
+  amount: z.number().positive("Deposit must be positive").max(100_000, "Amount too large"),
+  totalPrice: z.number().positive("Total price must be positive").max(1_000_000, "Price too large"),
+  installerId: z.string().uuid("Invalid installer ID").optional(),
+  source: z.enum(["platform", "partner_link", "installer_manual"]),
+  customerEmail: z.email("Invalid email").optional(),
+  customerName: z.string().max(200).optional(),
+  scheduledAt: z.string().max(30).optional(),
+  salesTaxAmount: z.number().min(0).max(100_000).optional(),
+  billingState: z.string().max(2).optional(),
+  discountCode: z.string().max(50).optional(),
+  discountCodeAmount: z.number().min(0).max(100_000).optional(),
+  deliveryFeeAmount: z.number().min(0).max(10_000).optional(),
+});
+
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = input;
+  // Validate all inputs before processing
+  const parsed = depositIntentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid input: " + parsed.error.issues[0]?.message };
+  }
+
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = parsed.data;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
 

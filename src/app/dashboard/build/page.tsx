@@ -9,7 +9,8 @@ import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
-import { calculateMaterialCost, DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
+import { DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
+import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -453,15 +454,15 @@ export default function BuildConfiguratorPage() {
       };
       setManifest(generateBuildManifest([unit]));
 
-      // Calculate material cost for profit breakdown
-      setMaterialBreakdown(calculateMaterialCost({
+      // Calculate material cost for profit breakdown (server action)
+      calculateMaterialCostServer({
         cols: res.cols,
         rows: res.rows,
         toteType,
         hasTotes,
         hasWheels,
         hasTop,
-      }, materialPrices));
+      }, materialPrices).then(setMaterialBreakdown).catch(() => {});
     } catch {
       setCalcError("Calculation failed. Please try again.");
     } finally {
@@ -506,8 +507,9 @@ export default function BuildConfiguratorPage() {
   const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0);
 
   // Calculate aggregate material breakdown and manifest for all units in Quote Builder
-  const aggregateMaterials = useMemo(() => {
-    if (units.length === 0) return null;
+  const [aggregateMaterials, setAggregateMaterials] = useState<MaterialBreakdown | null>(null);
+  useEffect(() => {
+    if (units.length === 0) { setAggregateMaterials(null); return; }
     const configs = units.map((u) => ({
       cols: u.cols,
       rows: u.rows,
@@ -516,7 +518,7 @@ export default function BuildConfiguratorPage() {
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
     }));
-    return calculateMaterialCost(configs, materialPrices);
+    calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
   }, [units, materialPrices]);
 
   const aggregateManifest = useMemo(() => {
@@ -1405,16 +1407,16 @@ export default function BuildConfiguratorPage() {
                           if (userId) {
                             try { localStorage.setItem(`sn_material_prices_${userId}`, JSON.stringify(p)); } catch {}
                           }
-                          // Recalculate if build exists
+                          // Recalculate if build exists (server action)
                           if (buildResult) {
-                            setMaterialBreakdown(calculateMaterialCost({
+                            calculateMaterialCostServer({
                               cols: buildResult.cols,
                               rows: buildResult.rows,
                               toteType,
                               hasTotes,
                               hasWheels,
                               hasTop,
-                            }, p));
+                            }, p).then(setMaterialBreakdown).catch(() => {});
                           }
                         }}
                       />

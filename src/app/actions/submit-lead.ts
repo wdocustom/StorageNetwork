@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod/v4";
 import { calculateWeight } from "@/utils/scheduling";
 import { validateServiceArea } from "@/app/actions/installer";
 import { getDepositAmount } from "@/app/actions/fee-engine";
@@ -68,6 +69,24 @@ export interface SubmitQuoteInput {
 // Server Action
 // ═══════════════════════════════════════════════════════════════════════════
 
+const submitLeadSchema = z.object({
+  customer_name: z.string().min(1, "Name is required").max(200),
+  customer_email: z.email("Invalid email address"),
+  customer_phone: z.string().max(30).optional().default(""),
+  address: z.string().max(500).optional().default(""),
+  address_line1: z.string().max(200).optional(),
+  address_city: z.string().max(100).optional(),
+  address_state: z.string().max(2).optional(),
+  address_zip: z.string().regex(/^\d{5}$/, "Invalid ZIP code").optional(),
+  delivery_address: z.string().max(500).optional(),
+  quote_data: z.array(z.record(z.string(), z.unknown())).min(1, "At least one unit is required"),
+  grand_total: z.number().positive("Total must be positive").max(1_000_000),
+  installer_id: z.string().uuid("Invalid installer ID").optional(),
+  referring_installer_id: z.string().uuid().optional(),
+  source: z.enum(["platform", "partner_link"]).optional(),
+  scheduled_at: z.string().max(30).optional(),
+});
+
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   success: boolean;
   id?: string;
@@ -81,16 +100,14 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     return { success: false, error: "Payment system not configured." };
   }
 
-  // 2. Validate inputs
-  if (!input.customer_name?.trim()) {
-    return { success: false, error: "Name is required." };
+  // 2. Validate inputs with Zod
+  const parsed = submitLeadSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid input." };
   }
-  if (!input.customer_email?.trim()) {
-    return { success: false, error: "Email is required." };
-  }
-  if (!input.quote_data || input.quote_data.length === 0) {
-    return { success: false, error: "At least one unit is required in the quote." };
-  }
+
+  // Re-assign validated input (downstream code uses input.*)
+  const validatedInput = { ...input, ...parsed.data };
 
   // 3. Service Area Validation — reject leads outside installer's coverage
   if (input.installer_id && input.address_zip) {

@@ -2,13 +2,34 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { sendTransactionalEmail } from "@/lib/email";
-import { calculateMaterialCost, type MaterialConfig } from "@/utils/calculateMaterials";
+import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
+import type { MaterialConfig } from "@/utils/calculateMaterials";
 import { updateInventoryAfterJob } from "@/app/actions/inventory";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { escapeHtml } from "@/utils/escapeHtml";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// ── Auth Helper: Verify caller owns the lead ────────────────────────────
+async function requireLeadOwnership(
+  leadId: string
+): Promise<{ userId: string } | { error: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { error: "Not authenticated." };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("installer_id")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { error: "Lead not found." };
+  if (lead.installer_id !== user.id) return { error: "Not authorized." };
+  return { userId: user.id };
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // updateOperationalStatus — Pipeline state toggle from CRM cards
@@ -27,6 +48,9 @@ export async function updateOperationalStatus(
   if (!VALID_OP_STATUSES.includes(status)) {
     return { success: false, error: `Invalid status: ${status}` };
   }
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   const { error } = await supabase
     .from("leads")
@@ -62,7 +86,7 @@ async function syncInventoryForLead(leadId: string) {
     const quoteData = lead.quote_data as MaterialConfig[];
     if (!Array.isArray(quoteData) || quoteData.length === 0) return;
 
-    const breakdown = calculateMaterialCost(quoteData);
+    const breakdown = await calculateMaterialCostServer(quoteData);
     await updateInventoryAfterJob(lead.installer_id, breakdown.rawCounts);
   } catch (err) {
     // Non-blocking: inventory sync failure should never block job completion
@@ -84,6 +108,9 @@ export async function completeJobWithProof(
   amountDue: number,
   paymentUrl?: string
 ) {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // 1. Update DB — mark proof uploaded, status = payment_pending
   await supabase
     .from("leads")
@@ -101,13 +128,14 @@ export async function completeJobWithProof(
         ? `<a href="${paymentUrl}" style="display:block;background:#facc15;color:#1a1a1a;text-align:center;padding:14px;border-radius:10px;font-weight:700;text-decoration:none;font-size:15px;">Pay $${amountDue.toLocaleString()} Now →</a>`
         : "";
 
+      const safeName = escapeHtml(customerName);
       await sendTransactionalEmail({
         to: customerEmail,
         toName: customerName,
         subject: `Balance Due — $${amountDue.toLocaleString()} for your storage installation`,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
           <h2 style="color:#1a1a1a;margin-bottom:8px;">Your Installation is Complete!</h2>
-          <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
+          <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
           <p style="color:#666;font-size:14px;">Great news — your storage unit build is finished. Here's your remaining balance:</p>
           <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
             <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Amount Due</p>
@@ -135,6 +163,9 @@ export async function completeJobWithProof(
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function completeJob(leadId: string) {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const { error } = await supabase
     .from("leads")
     .update({
@@ -164,6 +195,9 @@ export async function markJobPaidManual(
   leadId: string,
   method: string = "cash"
 ) {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const { error } = await supabase
     .from("leads")
     .update({
@@ -194,6 +228,9 @@ export async function rescheduleJob(
   customerEmail: string,
   customerName: string
 ) {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // Update the lead with new date
   await supabase
     .from("leads")
@@ -215,13 +252,14 @@ export async function rescheduleJob(
         "en-US",
         { weekday: "long", month: "long", day: "numeric", year: "numeric" }
       );
+      const safeName = escapeHtml(customerName);
       await sendTransactionalEmail({
         to: customerEmail,
         toName: customerName,
         subject: `Your installation has been rescheduled to ${formattedDate}`,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
           <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Rescheduled</h2>
-          <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
+          <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
           <p style="color:#666;font-size:14px;">Your installation has been rescheduled to:</p>
           <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
             <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
@@ -257,6 +295,9 @@ export async function scheduleJob(
     return { success: false, error: "Lead ID and date are required." };
   }
 
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // Update the lead with the scheduled date
   const { error: updateError } = await supabase
     .from("leads")
@@ -283,13 +324,14 @@ export async function scheduleJob(
         "en-US",
         { weekday: "long", month: "long", day: "numeric", year: "numeric" }
       );
+      const safeName = escapeHtml(customerName);
       await sendTransactionalEmail({
         to: customerEmail,
         toName: customerName,
         subject: `Your installation is scheduled for ${formattedDate}`,
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
           <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Scheduled</h2>
-          <p style="color:#666;font-size:14px;">Hi ${customerName},</p>
+          <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
           <p style="color:#666;font-size:14px;">Your storage unit installation has been scheduled for:</p>
           <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
             <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
@@ -319,6 +361,9 @@ export async function deleteUnpaidQuote(
   leadId: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   // Safety check: only delete leads that are pending_payment and never had deposit paid
   const { data: lead } = await supabase
@@ -363,6 +408,9 @@ export async function updateCustomerContact(
   data: { email?: string | null; phone?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
   if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   const normalizedEmail = data.email?.trim().toLowerCase() || null;
   const normalizedPhone = data.phone?.trim() || null;

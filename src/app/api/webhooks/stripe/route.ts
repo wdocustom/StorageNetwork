@@ -31,6 +31,19 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+// ── Idempotency Guard ────────────────────────────────────────────────────
+// Prevents duplicate processing when Stripe retries webhook delivery.
+// Uses a bounded LRU-style set to prevent unbounded memory growth.
+const MAX_TRACKED_EVENTS = 1000;
+const processedEvents = new Set<string>();
+function pruneProcessedEvents() {
+  if (processedEvents.size > MAX_TRACKED_EVENTS) {
+    const entries = Array.from(processedEvents);
+    const toRemove = entries.slice(0, entries.length - MAX_TRACKED_EVENTS);
+    toRemove.forEach((id) => processedEvents.delete(id));
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Network Referral Bounty — 30% of deposit (min $15) to referring installer
 //
@@ -127,19 +140,32 @@ export async function POST(request: NextRequest) {
   // ── Parse & verify event ──────────────────────────────────────────────
   let event: Stripe.Event;
   try {
+    if (!WEBHOOK_SECRET) {
+      console.error("[Webhook] CRITICAL: STRIPE_WEBHOOK_SECRET is not set. Refusing to process.");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+    }
+
     const body = await request.text();
     const signature = request.headers.get("stripe-signature");
 
-    if (WEBHOOK_SECRET && signature) {
-      event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
-    } else {
-      event = JSON.parse(body) as Stripe.Event;
-      console.warn("[Webhook] No STRIPE_WEBHOOK_SECRET — skipping signature verification");
+    if (!signature) {
+      return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
     }
+
+    event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
   } catch (parseErr) {
     console.error("[Webhook] Signature verification failed:", parseErr);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
+
+  // ── Idempotency: Reject duplicate events ────────────────────────────
+  // Stripe can resend events on timeout. Track processed event IDs in-memory
+  // to prevent duplicate DB writes and bounty transfers within this instance.
+  if (processedEvents.has(event.id)) {
+    console.log("[Webhook] Duplicate event ignored:", event.id);
+    return NextResponse.json({ received: true });
+  }
+  processedEvents.add(event.id);
 
   console.log("[Webhook] Event received:", event.type, "| ID:", event.id);
 
@@ -760,5 +786,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  pruneProcessedEvents();
   return NextResponse.json({ received: true });
 }

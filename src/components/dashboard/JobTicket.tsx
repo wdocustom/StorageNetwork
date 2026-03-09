@@ -21,10 +21,8 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import {
-  calculateMaterialCost,
-  type MaterialConfig,
-} from "@/utils/calculateMaterials";
+import type { MaterialConfig, MaterialBreakdown } from "@/utils/calculateMaterials";
+import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import {
   generateBuildManifest,
   type BuildManifest,
@@ -150,10 +148,11 @@ export default function JobTicket({
     });
   }
 
-  // ── Material calculation ─────────────────────────────────────────────
-  const materialBreakdown = useMemo(() => {
-    if (!quoteData || quoteData.length === 0) return null;
-    return calculateMaterialCost(quoteData);
+  // ── Material calculation (server action) ─────────────────────────────
+  const [materialBreakdown, setMaterialBreakdown] = useState<MaterialBreakdown | null>(null);
+  useEffect(() => {
+    if (!quoteData || quoteData.length === 0) { setMaterialBreakdown(null); return; }
+    calculateMaterialCostServer(quoteData).then(setMaterialBreakdown).catch(() => {});
   }, [quoteData]);
 
   // ── Build manifest (shopping list + cut plans) ─────────────────────
