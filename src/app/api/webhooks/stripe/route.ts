@@ -161,6 +161,20 @@ export async function POST(request: NextRequest) {
     console.log("[Webhook] Payment type:", paymentType, "| Amount:", amountPaid);
 
     // ═════════════════════════════════════════════════════════════════════
+    // CLEANOUT UPSELL — Customer added a cleanout/add-on service
+    // ═════════════════════════════════════════════════════════════════════
+    if (paymentType === "cleanout_upsell") {
+      try {
+        const { handleCleanoutUpsellPayment } = await import("@/app/actions/cleanout-upsell");
+        await handleCleanoutUpsellPayment(leadId, metadata, amountPaid);
+        console.log("[Webhook] Cleanout upsell processed for lead:", leadId);
+      } catch (err) {
+        console.error("[Webhook] Cleanout upsell handler failed:", err);
+      }
+      return NextResponse.json({ received: true });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     // FINAL PAYMENT — Customer paid the balance via payment link
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {

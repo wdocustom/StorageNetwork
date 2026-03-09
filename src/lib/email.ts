@@ -1614,3 +1614,423 @@ export async function sendDemoOwnerNotification(data: {
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Cleanout Upsell Email (Customer)
+// Trigger: 3 days before scheduled install — automated upsell
+//
+// Presents the installer's cleanout/add-on services as buttons.
+// Customer can add a service and pay the 50% deposit immediately.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CleanoutUpsellEmailData {
+  customerName: string;
+  customerEmail: string;
+  installerName: string;
+  installerPhone?: string;
+  installerAvatarUrl?: string;
+  scheduledDate: string;
+  address?: string;
+  leadId: string;
+  services: Array<{
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+  }>;
+}
+
+export async function sendCleanoutUpsellEmail(
+  data: CleanoutUpsellEmailData
+): Promise<SendEmailResult> {
+  const {
+    customerName,
+    customerEmail,
+    installerName,
+    installerPhone,
+    installerAvatarUrl,
+    scheduledDate,
+    address,
+    leadId,
+    services,
+  } = data;
+
+  const firstName = customerName.split(" ")[0] || "there";
+
+  // Format date
+  let formattedDate = scheduledDate || "TBD";
+  if (scheduledDate && scheduledDate !== "TBD") {
+    const parsed = new Date(scheduledDate + (scheduledDate.includes("T") ? "" : "T12:00:00"));
+    if (!isNaN(parsed.getTime())) {
+      formattedDate = parsed.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  }
+
+  const avatarHtml = installerAvatarUrl
+    ? `<img src="${installerAvatarUrl}" alt="${installerName}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #facc15;" />`
+    : `<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#facc15,#f59e0b);display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#1e293b;">${installerName.charAt(0).toUpperCase()}</div>`;
+
+  // Build service buttons
+  const serviceButtonsHtml = services
+    .map((s) => {
+      const depositAmount = Math.round(s.price * 0.50);
+      const upsellUrl = `${getAppUrl()}/upsell/${leadId}?service=${s.id}`;
+      return `
+      <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <p style="margin:0 0 4px;color:#e2e8f0;font-size:16px;font-weight:700;">${s.name}</p>
+            <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">${s.description}</p>
+            <p style="margin:0;color:#64748b;font-size:12px;">50% deposit today: <strong style="color:#16a34a;">$${depositAmount}</strong> &bull; Remaining at service</p>
+          </div>
+          <div style="text-align:right;white-space:nowrap;margin-left:16px;">
+            <p style="margin:0 0 8px;color:#facc15;font-size:22px;font-weight:900;">$${s.price}</p>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:16px;">
+          <a href="${upsellUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+            Add to My Service &rarr;
+          </a>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  const phoneHtml = installerPhone
+    ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${installerPhone}</p>`
+    : "";
+
+  const html = emailShell(
+    "Prepare for Your Installation",
+    `
+    <!-- Warm Greeting -->
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Your installation with <strong style="color:#e2e8f0;">${installerName}</strong> is coming up on
+      <strong style="color:#facc15;">${formattedDate}</strong>! Here are a few tips to get the most out of your appointment:
+    </p>
+
+    <!-- Preparation Tips -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Getting Ready</p>
+      <table style="width:100%;font-size:14px;color:#94a3b8;">
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Clear the area where your new unit will be installed</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Ensure your installer has access to the space</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Have your totes or bins nearby if you plan to load them right away</td>
+        </tr>
+        ${address ? `<tr>
+          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
+          <td style="padding:8px 0;">Confirm your install address: <strong style="color:#e2e8f0;">${address}</strong></td>
+        </tr>` : ""}
+      </table>
+    </div>
+
+    <!-- Installer Card -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <div style="margin-bottom:8px;">${avatarHtml}</div>
+      <p style="margin:0 0 2px;color:#facc15;font-size:16px;font-weight:800;">${installerName}</p>
+      <p style="margin:0;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Your Installer</p>
+      ${phoneHtml}
+    </div>
+
+    <!-- Upsell Section -->
+    <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:20px;margin-bottom:20px;">
+      <p style="margin:0 0 4px;color:#facc15;font-size:16px;font-weight:800;">Want to Maximize Your Space?</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.6;">
+        ${installerName} also offers professional organizing and cleanout services.
+        Add one to your appointment and let them handle the heavy lifting &mdash; just pick a service below!
+      </p>
+    </div>
+
+    <!-- Service Buttons -->
+    ${serviceButtonsHtml}
+
+    <p style="margin:16px 0 0;color:#64748b;font-size:12px;text-align:center;line-height:1.5;">
+      No obligation &mdash; if you&rsquo;d rather skip the add-on, your install is already confirmed and on the calendar.
+      Simply ignore this section and we&rsquo;ll see you on ${formattedDate}!
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: customerName,
+    subject: `${firstName}, your installation is in 3 days — get the most out of your appointment`,
+    html,
+    senderName: installerName,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Cleanout Upsell Installer Alert
+// Trigger: Customer adds a cleanout service via the upsell flow
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendCleanoutUpsellInstallerAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    serviceName: string;
+    servicePrice: number;
+    depositCollected: number;
+    remainingBalance: number;
+    scheduledDate?: string;
+    leadId: string;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
+
+  let dateHtml = "";
+  if (data.scheduledDate) {
+    const parsed = new Date(data.scheduledDate + (data.scheduledDate.includes("T") ? "" : "T12:00:00"));
+    if (!isNaN(parsed.getTime())) {
+      const formatted = parsed.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+      dateHtml = `<tr><td style="padding:8px 0;color:#94a3b8;">Scheduled</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formatted}</td></tr>`;
+    }
+  }
+
+  const html = emailShell(
+    "Add-On Service Booked!",
+    `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:#052e16;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#127881;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Great news! <strong style="color:#e2e8f0;">${data.customerName}</strong> just added a service to their upcoming appointment.
+    </p>
+
+    <!-- Service Details -->
+    <div style="background-color:#052e16;border:1px solid #166534;border-radius:16px;padding:24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;color:#16a34a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Add-On Service Booked</p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:20px;font-weight:800;">${data.serviceName}</p>
+
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:6px 0;color:#94a3b8;">Service Price</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#e2e8f0;">$${data.servicePrice.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 0;color:#94a3b8;">Deposit Collected (50%)</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#16a34a;">$${data.depositCollected.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 0;color:#94a3b8;">Your Payout (40%)</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#facc15;">$${Math.round(data.servicePrice * 0.40).toLocaleString()}</td></tr>
+        <tr style="border-top:1px solid #166534;"><td style="padding:10px 0 0;color:#94a3b8;">Remaining at Service</td><td style="padding:10px 0 0;font-weight:800;text-align:right;font-size:18px;color:#facc15;">$${data.remainingBalance.toLocaleString()}</td></tr>
+      </table>
+    </div>
+
+    <!-- Job Details -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:8px 0;color:#94a3b8;">Customer</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#e2e8f0;">${data.customerName}</td></tr>
+        ${dateHtml}
+      </table>
+    </div>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
+      This service has been added to the job ticket. The add-on remaining balance of
+      <strong style="color:#facc15;">$${data.remainingBalance.toLocaleString()}</strong> has been included
+      in the total balance due at service time.
+    </p>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View Job Ticket
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      The 40% payout has been transferred to your connected Stripe account.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: `Add-On Booked: ${data.serviceName} — $${data.servicePrice.toLocaleString()} from ${data.customerName}`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Cleanout Upsell Confirmation (Customer)
+// Trigger: After successful cleanout upsell payment
+//
+// Comprehensive confirmation with ALL services, dates, and pricing.
+// If no date is scheduled, no date verbiage is included.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface CleanoutUpsellConfirmationData {
+  customerName: string;
+  customerEmail: string;
+  installerName: string;
+  installerPhone?: string;
+  scheduledDate?: string;
+  address?: string;
+  existingServices: Array<{ name: string; price: number }>;
+  upsellService: {
+    name: string;
+    price: number;
+    depositPaid: number;
+    remaining: number;
+  };
+  totalPrice: number;
+  totalDeposit: number;
+  totalBalance: number;
+  leadId: string;
+}
+
+export async function sendCleanoutUpsellConfirmation(
+  data: CleanoutUpsellConfirmationData
+): Promise<SendEmailResult> {
+  const {
+    customerName,
+    customerEmail,
+    installerName,
+    installerPhone,
+    scheduledDate,
+    address,
+    existingServices,
+    upsellService,
+    totalPrice,
+    totalDeposit,
+    totalBalance,
+    leadId,
+  } = data;
+
+  const firstName = customerName.split(" ")[0] || "there";
+  const orderUrl = `${getAppUrl()}/success?jobId=${leadId}`;
+
+  // Format date only if available
+  let dateSection = "";
+  if (scheduledDate && scheduledDate !== "TBD") {
+    const parsed = new Date(scheduledDate + (scheduledDate.includes("T") ? "" : "T12:00:00"));
+    if (!isNaN(parsed.getTime())) {
+      const formattedDate = parsed.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      dateSection = `
+        <tr><td style="padding:8px 0;color:#94a3b8;">Appointment Date</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedDate}</td></tr>
+      `;
+    }
+  }
+
+  // Build services list
+  const existingServicesHtml = existingServices
+    .map(
+      (s) => `
+      <tr>
+        <td style="padding:6px 0;color:#cbd5e1;font-size:14px;">${s.name}</td>
+        <td style="padding:6px 0;font-weight:600;text-align:right;color:#e2e8f0;">$${s.price.toLocaleString()}</td>
+      </tr>`
+    )
+    .join("");
+
+  const phoneHtml = installerPhone
+    ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#1e293b;color:#facc15;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #facc15;">Call ${installerPhone}</a>`
+    : "";
+
+  const addressRow = address
+    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${address}</td></tr>`
+    : "";
+
+  const html = emailShell(
+    "Your Updated Order Confirmation",
+    `
+    <!-- Success Badge -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:#052e16;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
+        &#10003;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Your add-on service has been confirmed! Here&rsquo;s a complete summary of everything
+      that will be taken care of during your appointment with <strong style="color:#e2e8f0;">${installerName}</strong>.
+    </p>
+
+    <!-- All Services -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Services to Be Performed</p>
+      <table style="width:100%;border-collapse:collapse;">
+        ${existingServicesHtml}
+        <tr style="border-top:1px solid #334155;">
+          <td style="padding:10px 0 6px;color:#16a34a;font-size:14px;font-weight:700;">&#10003; ${upsellService.name} <span style="color:#94a3b8;font-weight:400;font-size:12px;">(just added)</span></td>
+          <td style="padding:10px 0 6px;font-weight:700;text-align:right;color:#16a34a;">$${upsellService.price.toLocaleString()}</td>
+        </tr>
+        <tr style="border-top:2px solid #334155;">
+          <td style="padding:12px 0 0;color:#94a3b8;font-size:14px;font-weight:700;">Grand Total</td>
+          <td style="padding:12px 0 0;font-weight:900;text-align:right;font-size:22px;color:#facc15;">$${totalPrice.toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Payment Summary -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Payment Summary</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:6px 0;color:#94a3b8;">Deposits Paid</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#16a34a;">$${totalDeposit.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 0;color:#94a3b8;">Add-on deposit (${upsellService.name})</td><td style="padding:6px 0;font-weight:600;text-align:right;color:#16a34a;">$${upsellService.depositPaid.toLocaleString()}</td></tr>
+        <tr style="border-top:1px solid #334155;">
+          <td style="padding:10px 0 0;color:#94a3b8;font-weight:700;">Remaining Balance</td>
+          <td style="padding:10px 0 0;font-weight:800;text-align:right;font-size:20px;color:#facc15;">$${totalBalance.toLocaleString()}*</td>
+        </tr>
+      </table>
+      <p style="margin:12px 0 0;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
+        *Plus applicable sales tax, collected by your installer at service time.
+      </p>
+    </div>
+
+    <!-- Appointment Details -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Appointment Details</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:8px 0;color:#94a3b8;">Installer</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${installerName}</td></tr>
+        ${dateSection}
+        ${addressRow}
+      </table>
+      ${phoneHtml ? `<div style="text-align:center;margin-top:12px;">${phoneHtml}</div>` : ""}
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${orderUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View Full Order
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
+      Questions? Reply to this email or contact your installer directly. We&rsquo;re here to help!
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: customerName,
+    subject: `Order Updated — ${upsellService.name} added to your appointment with ${installerName}`,
+    html,
+  });
+}
