@@ -7,6 +7,7 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
+import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
 import { calculateMaterialCost, DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { toFraction } from "@/lib/utils";
@@ -156,6 +157,9 @@ export default function BuildConfiguratorPage() {
   const [quoteCoveringName, setQuoteCoveringName] = useState("");
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Delivery fee state (calculated when ZIP is entered)
+  const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
+
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -248,10 +252,12 @@ export default function BuildConfiguratorPage() {
 
   // Real-time delivery ZIP check — debounced, fires when ZIP field changes.
   // Shows referral/waitlist status inline so the installer has immediate feedback.
+  // Also calculates delivery fee based on distance tiers.
   useEffect(() => {
     if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
     setZipCheckStatus("idle");
     setZipCoveringName("");
+    setDeliveryFeeResult(null);
 
     const zip = deliveryZip.trim();
     if (!userId || !zip || zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
@@ -259,14 +265,23 @@ export default function BuildConfiguratorPage() {
     setZipCheckStatus("checking");
     zipCheckRef.current = setTimeout(async () => {
       try {
-        const result = await checkDeliveryZip(userId, zip);
-        if (result.in_area) {
+        const [areaResult, feeResult] = await Promise.all([
+          checkDeliveryZip(userId, zip),
+          calculateDeliveryFee(userId, zip),
+        ]);
+
+        // Set delivery fee result (even if $0 — shows distance info)
+        if (feeResult.applicable) {
+          setDeliveryFeeResult(feeResult);
+        }
+
+        if (areaResult.in_area) {
           setZipCheckStatus("in_area");
-        } else if (result.waitlist) {
+        } else if (areaResult.waitlist) {
           setZipCheckStatus("waitlist");
         } else {
           setZipCheckStatus("referral");
-          setZipCoveringName(result.covering_installer_name || "a local installer");
+          setZipCoveringName(areaResult.covering_installer_name || "a local installer");
         }
       } catch {
         setZipCheckStatus("idle");
@@ -604,7 +619,9 @@ export default function BuildConfiguratorPage() {
     setQuoteSending(true);
 
     try {
-      const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const buildTotal = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const deliveryFee = deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0;
+      const totalPrice = buildTotal + deliveryFee;
 
       // Build delivery address object if fields are filled
       let delivery_address: DeliveryAddress | undefined;
@@ -631,6 +648,7 @@ export default function BuildConfiguratorPage() {
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
+        delivery_fee: deliveryFee,
       });
 
       if (!result.success) {
@@ -676,7 +694,9 @@ export default function BuildConfiguratorPage() {
     setQuoteSending(true);
 
     try {
-      const totalPrice = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const buildTotal = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const deliveryFee = deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0;
+      const totalPrice = buildTotal + deliveryFee;
 
       // Build delivery address object if fields are filled
       let delivery_address: DeliveryAddress | undefined;
@@ -703,6 +723,7 @@ export default function BuildConfiguratorPage() {
         grand_total: totalPrice,
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
+        delivery_fee: deliveryFee,
       });
 
       if (!result.success) {
@@ -749,6 +770,7 @@ export default function BuildConfiguratorPage() {
     setQuoteCoveringName("");
     setZipCheckStatus("idle");
     setZipCoveringName("");
+    setDeliveryFeeResult(null);
   }
 
   if (loading) {
@@ -1553,11 +1575,22 @@ export default function BuildConfiguratorPage() {
                         });
                       })()}
                     </div>
-                    <div className="mt-2 border-t border-slate-700 pt-2 flex justify-between">
-                      <span className="text-sm font-bold text-stone-400">Total</span>
-                      <span className="text-xl font-black text-yellow-400">
-                        ${units.reduce((sum, u) => sum + (u.price || 0), 0).toLocaleString()}
-                      </span>
+                    <div className="mt-2 border-t border-slate-700 pt-2 space-y-1">
+                      {deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-400">
+                            <MapPin className="mr-1 inline h-3 w-3 text-yellow-400" />
+                            Delivery Fee ({deliveryFeeResult.distance} mi)
+                          </span>
+                          <span className="font-semibold text-white">${deliveryFeeResult.fee.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-sm font-bold text-stone-400">Total</span>
+                        <span className="text-xl font-black text-yellow-400">
+                          ${(units.reduce((sum, u) => sum + (u.price || 0), 0) + (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0)).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : buildResult && (
@@ -1636,6 +1669,17 @@ export default function BuildConfiguratorPage() {
                       <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-400">
                         <MapPin className="h-3 w-3" />
                         This ZIP is in your service area.
+                      </div>
+                    )}
+                    {deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 && zipCheckStatus !== "checking" && (
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-yellow-400">
+                        <DollarSign className="h-3 w-3" />
+                        Delivery fee: ${deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} — {deliveryFeeResult.distance} mi)
+                      </div>
+                    )}
+                    {deliveryFeeResult?.applicable && deliveryFeeResult.fee === 0 && zipCheckStatus === "in_area" && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-stone-500">
+                        Free delivery ({deliveryFeeResult.distance} mi)
                       </div>
                     )}
                     {zipCheckStatus === "referral" && (

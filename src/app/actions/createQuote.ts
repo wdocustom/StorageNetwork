@@ -72,6 +72,7 @@ export interface CreateQuoteInput {
   project_title?: string;
   discount_code?: string;
   delivery_address?: DeliveryAddress;
+  delivery_fee?: number;          // Distance-based delivery fee (already included in grand_total)
 }
 
 export type ReferralStatus =
@@ -170,6 +171,7 @@ export async function createQuote(
     project_title,
     discount_code,
     delivery_address,
+    delivery_fee,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -358,6 +360,8 @@ export async function createQuote(
         delivery_address_city: delivery_address?.city || null,
         delivery_address_state: delivery_address?.state || null,
         delivery_address_zip: delivery_address?.zip || null,
+        // Distance-based delivery fee (tax-exempt, included in estimated_price)
+        delivery_fee: delivery_fee || 0,
         // Network Referral Bounty tracking
         referring_installer_id: referringInstallerId,
         bounty_status: referringInstallerId ? "pending" : "none",

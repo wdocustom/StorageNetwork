@@ -146,7 +146,14 @@ export default function ResumePaymentPage() {
     loadLead();
   }, [leadId]);
 
+  // Delivery fee from the lead (already included in estimated_price, tax-exempt)
+  const deliveryFee = lead?.delivery_fee || 0;
+
+  // Build-only price (estimated_price includes delivery fee)
+  const buildTotal = lead ? lead.estimated_price - deliveryFee : 0;
+
   // Determine taxable amount from quote_data:
+  // - Delivery fee is tax-exempt
   // - Cleanout / custom service items are tax-exempt (labor services)
   // - Tote organizer add-ons ARE taxable (physical product)
   // - Regular tote builds (no cleanout/custom_service toteType) are fully taxable
@@ -156,7 +163,7 @@ export default function ResumePaymentPage() {
     const hasServiceItem = units.some(
       (u: any) => u.toteType === "cleanout" || u.toteType === "custom_service"
     );
-    if (!hasServiceItem) return lead.estimated_price; // regular tote build — fully taxable
+    if (!hasServiceItem) return buildTotal; // regular tote build — fully taxable (excludes delivery fee)
     // Service order: only tax tote organizer add-ons (physical product)
     return units
       .filter((u: any) => u.toteType !== "cleanout" && u.toteType !== "custom_service")
@@ -466,9 +473,24 @@ export default function ResumePaymentPage() {
           {/* Totals */}
           <div className="border-t border-slate-700 pt-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-stone-400">Total ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
-              <span className="font-bold text-white">{formatCurrency(lead.estimated_price)}</span>
+              <span className="text-stone-400">{deliveryFee > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
+              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 ? buildTotal : lead.estimated_price)}</span>
             </div>
+            {deliveryFee > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1 text-stone-400">
+                    <MapPin className="h-3 w-3 text-yellow-400" />
+                    Delivery Fee
+                  </span>
+                  <span className="font-bold text-white">{formatCurrency(deliveryFee)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm border-t border-slate-700/50 pt-2">
+                  <span className="text-stone-400">Total</span>
+                  <span className="font-bold text-white">{formatCurrency(lead.estimated_price)}</span>
+                </div>
+              </>
+            )}
 
             {/* Due Today = Deposit only (never changes with discounts) */}
             <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
@@ -724,8 +746,17 @@ export default function ResumePaymentPage() {
             <div className="mb-4 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-stone-400">Build Total</span>
-                <span className="text-white">{formatCurrency(lead.estimated_price)}</span>
+                <span className="text-white">{formatCurrency(buildTotal)}</span>
               </div>
+              {deliveryFee > 0 && (
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="flex items-center gap-1 text-stone-400">
+                    <MapPin className="h-3 w-3 text-yellow-400" />
+                    Delivery Fee
+                  </span>
+                  <span className="text-white">{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
                 <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">

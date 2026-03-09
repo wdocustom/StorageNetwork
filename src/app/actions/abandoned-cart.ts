@@ -29,6 +29,7 @@ export interface PendingLeadDetails {
   created_at: string;
   status: string;
   discount_code: string | null;
+  delivery_fee: number;
 }
 
 export interface FetchPendingLeadResult {
@@ -63,7 +64,8 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         source,
         created_at,
         status,
-        discount_code
+        discount_code,
+        delivery_fee
       `)
       .eq("id", leadId)
       .single();
