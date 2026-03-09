@@ -183,13 +183,13 @@ function generateTraffic(): SimulatedRequest[] {
 
 // ── Simulate Each System Under Load ──────────────────────────────────────
 
-function testRateLimiter(requests: SimulatedRequest[]): {
+async function testRateLimiter(requests: SimulatedRequest[]): Promise<{
   checks: number;
   blocked: number;
   allowed: number;
   uniqueIps: number;
   storeSize: number;
-} {
+}> {
   let checks = 0;
   let blocked = 0;
   let allowed = 0;
@@ -768,7 +768,7 @@ async function main() {
 
   // 2. Test Rate Limiter
   console.log("\n⏳ Testing rate limiter under 50k visitor load...");
-  const rlResults = testRateLimiter(requests);
+  const rlResults = await testRateLimiter(requests);
 
   // 3. Test Cache System
   console.log("⏳ Testing cache system (ZIP + installer caches)...");
