@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GET /api/upsell/service?lead=<leadId>&service=<serviceId>
 // Returns service details (name, description, price) for the upsell page

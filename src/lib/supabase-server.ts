@@ -12,17 +12,25 @@ let _client: SupabaseClient | null = null;
 
 export function getServiceClient(): SupabaseClient {
   if (!_client) {
-    _client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: { persistSession: false },
-        global: {
-          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-            fetch(input, { ...init, cache: "no-store" }),
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      // Build-time: env vars aren't available. Return a proxy that defers
+      // the real client creation until the first actual DB call at runtime.
+      return new Proxy({} as SupabaseClient, {
+        get(_, prop) {
+          // Re-check env vars at call time (they'll be set at runtime)
+          return getServiceClient()[prop as keyof SupabaseClient];
         },
-      }
-    );
+      });
+    }
+    _client = createClient(url, key, {
+      auth: { persistSession: false },
+      global: {
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
+    });
   }
   return _client;
 }

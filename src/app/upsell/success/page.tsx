@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -7,7 +8,7 @@ import Link from "next/link";
 // Upsell Success Page — Shown after cleanout add-on payment completes
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function UpsellSuccessPage() {
+function UpsellSuccessContent() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
 
@@ -60,5 +61,13 @@ export default function UpsellSuccessPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function UpsellSuccessPage() {
+  return (
+    <Suspense>
+      <UpsellSuccessContent />
+    </Suspense>
   );
 }

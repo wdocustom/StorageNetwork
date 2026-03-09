@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+
+export const dynamic = "force-dynamic";
 import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail } from "@/lib/email";
 import {
   activateProSubscription,

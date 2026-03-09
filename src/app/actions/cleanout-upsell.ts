@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import {
   sendCleanoutUpsellEmail,
@@ -26,14 +26,19 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy init — deferred until first use to avoid build-time crash when
+// env vars aren't available (Next.js evaluates API route modules at build)
+let _db: SupabaseClient | null = null;
+function db(): SupabaseClient {
+  if (!_db) _db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return _db;
+}
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-12-15.clover",
-});
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-12-15.clover" });
+  return _stripe;
+}
 
 // ── Fee Constants ────────────────────────────────────────────────────────
 const UPSELL_DEPOSIT_RATE = 0.50;     // 50% deposit
@@ -69,7 +74,7 @@ export async function processCleanoutUpsells(): Promise<{
     const windowEnd = new Date(threeDaysFromNow);
     windowEnd.setHours(23, 59, 59, 999);
 
-    const { data: eligibleLeads, error: fetchError } = await supabase
+    const { data: eligibleLeads, error: fetchError } = await db()
       .from("leads")
       .select(
         "id, customer_name, customer_email, installer_id, scheduled_at, estimated_price, deposit_amount, balance_due, quote_data, notes, address"
@@ -113,7 +118,7 @@ export async function processCleanoutUpsells(): Promise<{
         }
 
         // Fetch installer profile with services_config and Stripe info
-        const { data: installer } = await supabase
+        const { data: installer } = await db()
           .from("profiles")
           .select(
             "id, business_name, first_name, last_name, phone, avatar_url, stripe_account_id, services_config, is_pro"
@@ -176,7 +181,7 @@ export async function processCleanoutUpsells(): Promise<{
 
         if (emailResult.success) {
           // Mark as sent
-          await supabase
+          await db()
             .from("leads")
             .update({
               cleanout_upsell_sent: new Date().toISOString(),
@@ -233,7 +238,7 @@ export async function createCleanoutUpsellCheckout(
 
   try {
     // Fetch the lead to get installer info
-    const { data: lead, error: leadError } = await supabase
+    const { data: lead, error: leadError } = await db()
       .from("leads")
       .select("installer_id, customer_email, customer_name, scheduled_at")
       .eq("id", leadId)
@@ -248,7 +253,7 @@ export async function createCleanoutUpsellCheckout(
     }
 
     // Fetch installer's Stripe account
-    const { data: installer } = await supabase
+    const { data: installer } = await db()
       .from("profiles")
       .select("stripe_account_id, business_name, services_config")
       .eq("id", lead.installer_id)
@@ -277,7 +282,7 @@ export async function createCleanoutUpsellCheckout(
     const baseUrl = getAppUrl();
 
     // Create Stripe Checkout Session with fee split
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -349,7 +354,7 @@ export async function handleCleanoutUpsellPayment(
     const installerId = metadata.installer_id;
 
     // 1. Fetch current lead data
-    const { data: lead } = await supabase
+    const { data: lead } = await db()
       .from("leads")
       .select(
         "customer_name, customer_email, balance_due, estimated_price, quote_data, scheduled_at, address, notes"
@@ -382,7 +387,7 @@ export async function handleCleanoutUpsellPayment(
     const currentNotes = lead.notes || "";
     const upsellNote = `\n+ Add-On: ${serviceName} ($${servicePrice}) — 50% deposit paid ($${depositAmount})`;
 
-    await supabase
+    await db()
       .from("leads")
       .update({
         cleanout_upsell_service: upsellService,
@@ -406,7 +411,7 @@ export async function handleCleanoutUpsellPayment(
     let installerPhone: string | undefined;
 
     if (installerId) {
-      const { data: profile } = await supabase
+      const { data: profile } = await db()
         .from("profiles")
         .select("business_name, first_name, last_name, phone")
         .eq("id", installerId)
@@ -421,7 +426,7 @@ export async function handleCleanoutUpsellPayment(
       }
 
       // Get installer's email from auth
-      const { data: authUser } = await supabase.auth.admin.getUserById(installerId);
+      const { data: authUser } = await db().auth.admin.getUserById(installerId);
       installerEmail = authUser?.user?.email || null;
     }
 

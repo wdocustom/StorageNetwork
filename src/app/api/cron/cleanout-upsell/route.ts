@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processCleanoutUpsells } from "@/app/actions/cleanout-upsell";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/cron/cleanout-upsell
 // Sends cleanout upsell emails 3 days before scheduled installs

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processOnboardingDrip } from "@/app/actions/onboarding-drip";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/cron/onboarding-drip
 // Processes the 4-email installer onboarding drip sequence.

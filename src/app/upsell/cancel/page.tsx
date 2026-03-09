@@ -1,12 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Upsell Cancel Page — Shown when customer cancels checkout
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function UpsellCancelPage() {
+function UpsellCancelContent() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job");
 
@@ -33,5 +34,13 @@ export default function UpsellCancelPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function UpsellCancelPage() {
+  return (
+    <Suspense>
+      <UpsellCancelContent />
+    </Suspense>
   );
 }
