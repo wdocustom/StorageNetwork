@@ -1006,28 +1006,26 @@ function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
   const SUPPORT_H = POST_D;  // 3.5" — the wide face is vertical
   const SUPPORT_W = POST_W;  // 1.5" — narrow face along width direction
 
-  // Corner post height: full frame minus bottom plate
-  const postH = frameH - PLATE_H;
+  // Posts end so that plywood cap on top reaches frameH
+  const postTopY = frameH - PLY_TOP_H;          // top of posts
+  const postH = postTopY - PLATE_H;              // post length
 
-  // Shelf levels: bottom shelf sits directly on bottom plate (at PLATE_H),
-  // remaining shelves + top are evenly distributed up to frameH
+  // Interior shelf positions (support base Y values — excludes top cap)
   const shelfYPositions: number[] = [];
   // Bottom shelf: support sits on the bottom plate
   shelfYPositions.push(PLATE_H);
-  // Interior shelves + top: evenly spaced from first tier up to top
+  // Middle shelves: evenly spaced between bottom shelf top and post tops
   if (shelves > 0) {
     const regionBottom = PLATE_H + SUPPORT_H + PLY_TOP_H; // above bottom shelf
-    const regionTop = frameH; // top of frame
+    const regionTop = postTopY;                             // up to post tops
     for (let i = 0; i < shelves; i++) {
       const y = regionBottom + ((i + 1) / (shelves + 1)) * (regionTop - regionBottom);
       shelfYPositions.push(y);
     }
   }
-  // Top shelf: position so plywood top surface is flush with post tops
-  shelfYPositions.push(frameH - SUPPORT_H - PLY_TOP_H);
 
   const cx = totalW / 2;
-  const overallH = frameH; // top plywood now flush within frame
+  const overallH = frameH; // total height including top plywood cap
   const cy = overallH / 2;
   const cz = depth / 2;
 
@@ -1048,43 +1046,44 @@ function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
         <Lumber position={[rightPostX, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
         <Lumber position={[rightPostX, PLATE_H + postH / 2, depth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
 
-        {/* Shelf levels: horizontal 2×4 supports + plywood on top */}
+        {/* Interior shelf levels: horizontal 2×4 supports + plywood */}
         {shelfYPositions.map((baseY, i) => {
-          // Horizontal 2×4 supports — turned 3.5" up, running front-to-back
-          // One on each side (left + right), screwed to the inner face of the posts
           const supportCenterY = baseY + SUPPORT_H / 2;
-          const supportLeftX = leftPostX + POST_W / 2 + SUPPORT_W / 2;  // just inside left post
-          const supportRightX = rightPostX - POST_W / 2 - SUPPORT_W / 2; // just inside right post
-
-          // Plywood sits on top of supports
+          const supportLeftX = leftPostX + POST_W / 2 + SUPPORT_W / 2;
+          const supportRightX = rightPostX - POST_W / 2 - SUPPORT_W / 2;
           const plyY = baseY + SUPPORT_H + PLY_TOP_H / 2;
-          const plyW = totalW; // full width, extends over posts
-          const plyD = depth;  // full depth
 
           return (
             <group key={`shelf-level-${i}`}>
-              {/* Left horizontal 2×4 support (runs front-to-back) */}
               <Lumber
                 position={[supportLeftX, supportCenterY, depth / 2]}
                 size={[SUPPORT_W, SUPPORT_H, depth - POST_D * 2]}
               />
-              {/* Right horizontal 2×4 support (runs front-to-back) */}
               <Lumber
                 position={[supportRightX, supportCenterY, depth / 2]}
                 size={[SUPPORT_W, SUPPORT_H, depth - POST_D * 2]}
               />
-              {/* Plywood shelf on top of supports */}
               <mesh
                 position={[totalW / 2, plyY, depth / 2]}
-                material={i === shelfYPositions.length - 1 ? PLYWOOD_TOP_MAT : PLYWOOD_MAT}
+                material={PLYWOOD_MAT}
                 castShadow
                 receiveShadow
               >
-                <boxGeometry args={[plyW, PLY_TOP_H, plyD]} />
+                <boxGeometry args={[totalW, PLY_TOP_H, depth]} />
               </mesh>
             </group>
           );
         })}
+
+        {/* Top plywood cap — sits directly on post tops, no supports */}
+        <mesh
+          position={[totalW / 2, postTopY + PLY_TOP_H / 2, depth / 2]}
+          material={PLYWOOD_TOP_MAT}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[totalW, PLY_TOP_H, depth]} />
+        </mesh>
       </group>
     </group>
   );
