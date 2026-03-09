@@ -24,6 +24,14 @@ interface SubUnit {
   hasWheels: boolean;
 }
 
+/** Open shelving config for 2D rendering */
+interface ShelvingConfig2D {
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+}
+
 interface BlueprintCanvasProps {
   cols: number;
   rows: number;
@@ -40,6 +48,8 @@ interface BlueprintCanvasProps {
   presetUnits?: SubUnit[];
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
+  /** When set, renders an open shelving unit instead of a tote organizer */
+  shelvingConfig?: ShelvingConfig2D;
 }
 
 // Wheel height constant (industrial casters)
@@ -59,6 +69,7 @@ export default function BlueprintCanvas({
   totalH,
   presetUnits,
   addons,
+  shelvingConfig,
 }: BlueprintCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -315,6 +326,135 @@ export default function BlueprintCanvas({
     }
   }, [isMini, opening, hasTotes, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
+  // ── Helper: draw an open shelving unit (front view) ────────────────
+  const drawShelvingUnit = useCallback((
+    ctx: CanvasRenderingContext2D,
+    config: ShelvingConfig2D,
+    canvasW: number,
+    canvasH: number,
+  ) => {
+    const { widthIn, frameH, depth, shelves } = config;
+    const woodPattern = create2DWoodPattern(ctx);
+    const plywoodPattern = create2DPlywoodPattern(ctx);
+    const woodFill = woodPattern || "#e2b686";
+    const woodStroke = "#925f32";
+    const plywoodFill = plywoodPattern || "#f3d2a3";
+
+    // Structural constants (matching 3D)
+    const POST_W = 1.5;    // 2×4 narrow face
+    const POST_D = 3.5;    // 2×4 wide face (support height on edge)
+    const PLATE_H = 1.5;   // bottom plate height
+    const PLY_H = 0.75;    // plywood thickness
+
+    const totalW = widthIn;
+    const totalH = frameH;
+
+    // Scale to fit canvas
+    const margin = 40;
+    const safeW = canvasW - margin * 2;
+    const safeH = canvasH - margin * 2;
+    const scale = Math.min(safeW / totalW, safeH / totalH);
+    if (scale <= 0 || !isFinite(scale)) return;
+
+    const startX = (canvasW - totalW * scale) / 2;
+    const startY = (canvasH - totalH * scale) / 2;
+
+    const pTotalW = totalW * scale;
+    const pTotalH = totalH * scale;
+    const pPostW = POST_W * scale;
+    const pPlateH = PLATE_H * scale;
+    const pSupportH = POST_D * scale;  // supports are 2×4 on edge
+    const pPlyH = PLY_H * scale;
+
+    ctx.lineWidth = 2;
+
+    // ── Bottom plates (front & back — we draw as one thick plate) ──
+    ctx.fillStyle = woodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.fillRect(startX, startY + pTotalH - pPlateH, pTotalW, pPlateH);
+    ctx.strokeRect(startX, startY + pTotalH - pPlateH, pTotalW, pPlateH);
+
+    // ── Corner posts ──────────────────────────────────────────────
+    const postTop = startY + pPlyH; // below top plywood cap
+    const postBot = startY + pTotalH - pPlateH;
+    const postH = postBot - postTop;
+
+    // Left post
+    ctx.fillStyle = woodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.fillRect(startX, postTop, pPostW, postH);
+    ctx.strokeRect(startX, postTop, pPostW, postH);
+
+    // Right post
+    ctx.fillRect(startX + pTotalW - pPostW, postTop, pPostW, postH);
+    ctx.strokeRect(startX + pTotalW - pPostW, postTop, pPostW, postH);
+
+    // ── Interior shelf levels ─────────────────────────────────────
+    // Same logic as 3D: bottom shelf sits on bottom plate, middle shelves evenly spaced
+    const shelfYPositions: number[] = [];
+    // Bottom shelf: support sits on the bottom plate
+    shelfYPositions.push(PLATE_H);
+    // Middle shelves: evenly spaced between bottom shelf top and post tops
+    if (shelves > 0) {
+      const regionBottom = PLATE_H + POST_D + PLY_H; // above bottom shelf
+      const regionTop = frameH - PLY_H;               // up to post tops
+      for (let i = 0; i < shelves; i++) {
+        const y = regionBottom + ((i + 1) / (shelves + 1)) * (regionTop - regionBottom);
+        shelfYPositions.push(y);
+      }
+    }
+
+    for (const shelfBaseY of shelfYPositions) {
+      // Convert from bottom-up inches to canvas top-down pixels
+      const supportTopPx = startY + pTotalH - (shelfBaseY + POST_D) * scale;
+      const supportLeftX = startX + pPostW;
+      const supportW = POST_W * scale; // support is 1.5" wide
+
+      // Left support
+      ctx.fillStyle = woodFill;
+      ctx.strokeStyle = woodStroke;
+      ctx.fillRect(supportLeftX, supportTopPx, supportW, pSupportH);
+      ctx.strokeRect(supportLeftX, supportTopPx, supportW, pSupportH);
+
+      // Right support
+      const rightSupportX = startX + pTotalW - pPostW - supportW;
+      ctx.fillRect(rightSupportX, supportTopPx, supportW, pSupportH);
+      ctx.strokeRect(rightSupportX, supportTopPx, supportW, pSupportH);
+
+      // Plywood shelf
+      const plyTopPx = supportTopPx - pPlyH;
+      ctx.fillStyle = plywoodFill;
+      ctx.strokeStyle = woodStroke;
+      ctx.fillRect(startX, plyTopPx, pTotalW, pPlyH);
+      ctx.strokeRect(startX, plyTopPx, pTotalW, pPlyH);
+    }
+
+    // ── Top plywood cap ───────────────────────────────────────────
+    ctx.fillStyle = plywoodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.fillRect(startX, startY, pTotalW, pPlyH);
+    ctx.strokeRect(startX, startY, pTotalW, pPlyH);
+
+    // ── "OPEN SHELVING" label in center ───────────────────────────
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.06)";
+    ctx.font = `bold ${Math.max(12, Math.round(scale * 4))}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("OPEN SHELVING", canvasW / 2, canvasH / 2);
+    ctx.restore();
+
+    // ── Watermark ─────────────────────────────────────────────────
+    ctx.save();
+    ctx.translate(canvasW / 2, canvasH / 2);
+    ctx.rotate(-Math.PI / 6);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0,0,0,0.03)";
+    ctx.font = `bold ${Math.round(canvasW * 0.08)}px Arial`;
+    ctx.fillText("WDO CUSTOM", 0, 0);
+    ctx.restore();
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -336,6 +476,12 @@ export default function BlueprintCanvas({
     const cW = rect.width;
     const cH = rect.height;
     ctx.clearRect(0, 0, cW, cH);
+
+    // ── Open Shelving rendering ──────────────────────────────────────
+    if (shelvingConfig) {
+      drawShelvingUnit(ctx, shelvingConfig, cW, cH);
+      return;
+    }
 
     const margin = 40;
     const safeW = cW - margin * 2;
@@ -412,7 +558,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
+  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, shelvingConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();

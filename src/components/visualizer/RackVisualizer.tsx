@@ -119,6 +119,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             totalH={props.totalH}
             presetUnits={props.presetUnits}
             addons={props.addons}
+            shelvingConfig={props.shelvingConfig}
           />
         </div>
       ) : (
