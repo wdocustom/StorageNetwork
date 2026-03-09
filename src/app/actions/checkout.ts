@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { getDepositAmount } from "@/app/actions/fee-engine";
+import { verifyLeadOwnership } from "@/lib/auth";
 
 const supabase = getServiceClient();
 
@@ -146,8 +147,12 @@ export async function processCheckout(
 
 /**
  * Get checkout details for a lead (used to display payment info).
+ * Requires authentication — caller must own the lead.
  */
 export async function getCheckoutDetails(leadId: string) {
+  const userId = await verifyLeadOwnership(leadId);
+  if (!userId) return null;
+
   const { data, error } = await supabase
     .from("leads")
     .select(

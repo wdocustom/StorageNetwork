@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, lazy, useState, useEffect } from "react";
+import { Component, Suspense, lazy, useState, useEffect } from "react";
+import type { ReactNode, ErrorInfo } from "react";
 import { Loader2 } from "lucide-react";
 import BlueprintCanvas from "./BlueprintCanvas";
 import type { SectionAddon, PaintColorId } from "@/types/viewModels";
@@ -11,6 +12,41 @@ const Rack3D = lazy(() => import("./Rack3D"));
 function getDefaultViewMode(): "2D" | "3D" {
   if (typeof window === "undefined") return "2D";
   return window.innerWidth < 768 ? "2D" : "3D";
+}
+
+// ── ErrorBoundary for WebGL / Three.js crashes ───────────────────────────
+// Falls back to 2D view if 3D rendering fails (WebGL unavailable, GPU
+// driver issue, context lost, etc.)
+
+interface ErrorBoundaryProps {
+  fallback: ReactNode;
+  onError?: () => void;
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class Render3DErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn("[RackVisualizer] 3D render failed, falling back to 2D:", error.message, info.componentStack);
+    this.props.onError?.();
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -133,41 +169,73 @@ export default function RackVisualizer(props: RackVisualizerProps) {
           />
         </div>
       ) : (
-        <div
-          className="absolute inset-0"
-          style={{ touchAction: "none" }}
+        <Render3DErrorBoundary
+          onError={() => setViewMode("2D")}
+          fallback={
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)",
+                backgroundSize: "20px 20px",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              <BlueprintCanvas
+                cols={props.cols}
+                rows={props.rows}
+                toteType={props.toteType}
+                toteColor={props.toteColor}
+                unitType={props.unitType}
+                orientation={props.orientation}
+                hasTotes={props.hasTotes}
+                hasWheels={props.hasWheels}
+                hasTop={props.hasTop}
+                totalW={props.totalW}
+                totalH={props.totalH}
+                presetUnits={props.presetUnits}
+                addons={props.addons}
+                shelvingConfig={props.shelvingConfig}
+              />
+            </div>
+          }
         >
-          <Suspense
-            fallback={
-              <div className="absolute inset-0 flex items-center justify-center bg-transparent">
-                <div className="text-center">
-                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-400" />
-                  <p className="mt-2 text-xs text-stone-500">
-                    Loading 3D Model...
-                  </p>
-                </div>
-              </div>
-            }
+          <div
+            className="absolute inset-0"
+            style={{ touchAction: "none" }}
           >
-            <Rack3D
-              cols={props.cols}
-              rows={props.rows}
-              toteType={props.toteType}
-              toteColor={props.toteColor}
-              unitType={props.unitType}
-              orientation={props.orientation}
-              hasTotes={props.hasTotes}
-              hasWheels={props.hasWheels}
-              hasTop={props.hasTop}
-              presetUnits={props.presetUnits}
-              addons={props.addons}
-              paintFrameColor={props.paintFrameColor}
-              paintDoorColor={props.paintDoorColor}
-              paintSidePanelColor={props.paintSidePanelColor}
-              shelvingConfig={props.shelvingConfig}
-            />
-          </Suspense>
-        </div>
+            <Suspense
+              fallback={
+                <div className="absolute inset-0 flex items-center justify-center bg-transparent">
+                  <div className="text-center">
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-yellow-400" />
+                    <p className="mt-2 text-xs text-stone-500">
+                      Loading 3D Model...
+                    </p>
+                  </div>
+                </div>
+              }
+            >
+              <Rack3D
+                cols={props.cols}
+                rows={props.rows}
+                toteType={props.toteType}
+                toteColor={props.toteColor}
+                unitType={props.unitType}
+                orientation={props.orientation}
+                hasTotes={props.hasTotes}
+                hasWheels={props.hasWheels}
+                hasTop={props.hasTop}
+                presetUnits={props.presetUnits}
+                addons={props.addons}
+                paintFrameColor={props.paintFrameColor}
+                paintDoorColor={props.paintDoorColor}
+                paintSidePanelColor={props.paintSidePanelColor}
+                shelvingConfig={props.shelvingConfig}
+              />
+            </Suspense>
+          </div>
+        </Render3DErrorBoundary>
       )}
     </div>
   );
