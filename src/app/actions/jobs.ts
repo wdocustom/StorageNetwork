@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { sendTransactionalEmail } from "@/lib/email";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { MaterialConfig } from "@/utils/calculateMaterials";
@@ -8,10 +8,7 @@ import { updateInventoryAfterJob } from "@/app/actions/inventory";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { escapeHtml } from "@/utils/escapeHtml";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ── Auth Helper: Verify caller owns the lead ────────────────────────────
 async function requireLeadOwnership(

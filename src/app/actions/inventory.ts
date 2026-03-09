@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import {
   normalizeInventory,
   calculateInventoryAfterJob,
@@ -12,10 +12,7 @@ import {
 // Inventory — Server actions for reading and updating material inventory
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 /** Fetch the installer's current material inventory. */
 export async function getInstallerInventory(

@@ -255,23 +255,23 @@ function testCacheSystem(requests: SimulatedRequest[]): {
 
     // ZIP availability check (cached per ZIP)
     const zipKey = `avail:${req.zip}`;
-    const cachedZip = zipCache.get(zipKey);
+    const cachedZip = await zipCache.get(zipKey);
     if (cachedZip !== undefined) {
       hits++;
     } else {
       misses++;
-      zipCache.set(zipKey, `installer-for-${req.zip}`);
+      await zipCache.set(zipKey, `installer-for-${req.zip}`);
     }
 
     // Installer profile lookup (for configurator journeys)
     if (["configuratorBrowse", "configuratorBuild", "quoteSubmit"].includes(req.journey)) {
       const instKey = `id:installer-${req.zip.slice(0, 3)}`;
-      const cachedInst = installerCache.get(instKey);
+      const cachedInst = await installerCache.get(instKey);
       if (cachedInst !== undefined) {
         hits++;
       } else {
         misses++;
-        installerCache.set(instKey, `profile-data-${req.zip}`);
+        await installerCache.set(instKey, `profile-data-${req.zip}`);
       }
     }
 

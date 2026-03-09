@@ -1,16 +1,11 @@
 "use server";
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
 import { getAppUrl } from "@/lib/url-helper";
 import Stripe from "stripe";
 
-// Lazy init — deferred until first use to avoid build-time crash
-let _db: SupabaseClient | null = null;
-function db(): SupabaseClient {
-  if (!_db) _db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  return _db;
-}
+const db = getServiceClient;
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)

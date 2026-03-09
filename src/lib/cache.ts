@@ -1,42 +1,94 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Lightweight TTL Cache — Zero Dependencies
+// TTL Cache — Upstash Redis with In-Memory Fallback
 //
-// Simple in-memory key→value cache with per-entry TTL.
-// Designed for server-side use in Next.js to reduce Supabase hits
-// during traffic spikes. Entries auto-expire, and GC runs lazily.
+// Uses Upstash Redis as the primary backing store so cached values survive
+// across Vercel serverless cold starts. Falls back to in-memory Map when
+// Redis env vars are missing (local dev).
+//
+// SETUP: Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN env vars.
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface CacheEntry<T> {
+import { Redis } from "@upstash/redis";
+
+// ── Redis Client (shared across cache instances) ─────────────────────────
+
+const hasRedis =
+  !!process.env.UPSTASH_REDIS_REST_URL &&
+  !!process.env.UPSTASH_REDIS_REST_TOKEN;
+
+const redis = hasRedis
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+  : null;
+
+let warnedOnce = false;
+
+// ── Cache Implementation ─────────────────────────────────────────────────
+
+interface MemEntry<T> {
   value: T;
   expiresAt: number;
 }
 
 export class TtlCache<T> {
-  private store = new Map<string, CacheEntry<T>>();
+  private memStore = new Map<string, MemEntry<T>>();
   private readonly defaultTtlMs: number;
+  private readonly prefix: string;
   private lastGc = Date.now();
-  private readonly gcIntervalMs = 30_000; // GC sweep every 30s
+  private readonly gcIntervalMs = 30_000;
 
-  constructor(defaultTtlMs = 60_000) {
+  constructor(defaultTtlMs = 60_000, prefix = "cache") {
     this.defaultTtlMs = defaultTtlMs;
+    this.prefix = prefix;
   }
 
-  get(key: string): T | undefined {
-    const entry = this.store.get(key);
+  private redisKey(key: string): string {
+    return `${this.prefix}:${key}`;
+  }
+
+  async get(key: string): Promise<T | undefined> {
+    if (redis) {
+      try {
+        const val = await redis.get<T>(this.redisKey(key));
+        return val ?? undefined;
+      } catch {
+        // Redis error — fall through to memory
+      }
+    }
+    // Fallback: in-memory
+    const entry = this.memStore.get(key);
     if (!entry) return undefined;
     if (Date.now() > entry.expiresAt) {
-      this.store.delete(key);
+      this.memStore.delete(key);
       return undefined;
     }
     return entry.value;
   }
 
-  set(key: string, value: T, ttlMs?: number): void {
+  async set(key: string, value: T, ttlMs?: number): Promise<void> {
+    const ttl = ttlMs ?? this.defaultTtlMs;
+    if (redis) {
+      try {
+        await redis.set(this.redisKey(key), value, {
+          ex: Math.ceil(ttl / 1000),
+        });
+        return;
+      } catch {
+        // Redis error — fall through to memory
+      }
+    }
+    // Fallback: in-memory
+    if (!warnedOnce) {
+      console.warn(
+        "[Cache] UPSTASH_REDIS_REST_URL not set — using in-memory fallback. " +
+        "This is fine for local dev but will NOT persist across Vercel cold starts."
+      );
+      warnedOnce = true;
+    }
     this.gc();
-    this.store.set(key, {
-      value,
-      expiresAt: Date.now() + (ttlMs ?? this.defaultTtlMs),
-    });
+    this.memStore.set(key, { value, expiresAt: Date.now() + ttl });
   }
 
   /** Get-or-fetch: returns cached value or calls factory, caches result. */
@@ -45,23 +97,31 @@ export class TtlCache<T> {
     factory: () => Promise<T>,
     ttlMs?: number
   ): Promise<T> {
-    const cached = this.get(key);
+    const cached = await this.get(key);
     if (cached !== undefined) return cached;
     const value = await factory();
-    this.set(key, value, ttlMs);
+    await this.set(key, value, ttlMs);
     return value;
   }
 
-  invalidate(key: string): void {
-    this.store.delete(key);
+  async invalidate(key: string): Promise<void> {
+    if (redis) {
+      try {
+        await redis.del(this.redisKey(key));
+      } catch {
+        // Redis error — fall through
+      }
+    }
+    this.memStore.delete(key);
   }
 
   clear(): void {
-    this.store.clear();
+    this.memStore.clear();
+    // Note: Redis keys expire via TTL; no bulk clear needed for safety
   }
 
   get size(): number {
-    return this.store.size;
+    return this.memStore.size;
   }
 
   private gc(): void {
@@ -69,17 +129,17 @@ export class TtlCache<T> {
     if (now - this.lastGc < this.gcIntervalMs) return;
     this.lastGc = now;
     const expired: string[] = [];
-    this.store.forEach((entry, key) => {
+    this.memStore.forEach((entry, key) => {
       if (now > entry.expiresAt) expired.push(key);
     });
-    expired.forEach((k) => this.store.delete(k));
+    expired.forEach((k) => this.memStore.delete(k));
   }
 }
 
 // ── Shared cache instances ──────────────────────────────────────────────
 
 /** Cache for ZIP → installer availability lookups (60s TTL) */
-export const zipCache = new TtlCache<unknown>(60_000);
+export const zipCache = new TtlCache<unknown>(60_000, "zip");
 
 /** Cache for installer profile lookups by ID/slug (60s TTL) */
-export const installerCache = new TtlCache<unknown>(60_000);
+export const installerCache = new TtlCache<unknown>(60_000, "inst");

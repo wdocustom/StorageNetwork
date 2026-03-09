@@ -1,14 +1,11 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 export interface UpdateProfileInput {
   installer_id: string;

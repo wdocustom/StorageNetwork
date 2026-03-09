@@ -1,16 +1,13 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { smsCustomerEnRoute, smsNewBookingAlert } from "@/lib/twilio";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SMS Server Actions — Twilio-powered notifications
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ─────────────────────────────────────────────────────────────────────────
 // Start Trip & Notify Customer

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
@@ -11,10 +11,7 @@ import { sendInstallerOnboardingEmail } from "@/lib/email";
 // No Stripe friction at signup. They connect Stripe later from profile.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // Default service radius for new installers (miles)
 const DEFAULT_SERVICE_RADIUS = 25;

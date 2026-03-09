@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -19,10 +19,7 @@ import { createClient } from "@supabase/supabase-js";
 // The browser bundle contains zero knowledge of how any of these are derived.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ── Fee Constants (server-only, never shipped to client) ─────────────────
 const DEPOSIT_RATE = 0.15;

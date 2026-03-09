@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import Stripe from "stripe";
 import {
   sendCleanoutUpsellEmail,
@@ -26,13 +26,7 @@ import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lazy init — deferred until first use to avoid build-time crash when
-// env vars aren't available (Next.js evaluates API route modules at build)
-let _db: SupabaseClient | null = null;
-function db(): SupabaseClient {
-  if (!_db) _db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  return _db;
-}
+const db = getServiceClient;
 
 let _stripe: Stripe | null = null;
 function getStripe() {

@@ -8,6 +8,7 @@ import {
   deactivateProSubscription,
 } from "@/app/actions/pro-subscription";
 import { getServiceClient } from "@/lib/supabase-server";
+import { Redis } from "@upstash/redis";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -43,18 +44,44 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
-// ── Idempotency Guard ────────────────────────────────────────────────────
+// ── Idempotency Guard (Redis-backed) ─────────────────────────────────────
 // Prevents duplicate processing when Stripe retries webhook delivery.
-// Uses a bounded LRU-style set to prevent unbounded memory growth.
-const MAX_TRACKED_EVENTS = 1000;
-const processedEvents = new Set<string>();
-function pruneProcessedEvents() {
-  if (processedEvents.size > MAX_TRACKED_EVENTS) {
-    const entries = Array.from(processedEvents);
-    const toRemove = entries.slice(0, entries.length - MAX_TRACKED_EVENTS);
-    toRemove.forEach((id) => processedEvents.delete(id));
+// Uses Upstash Redis SET NX with 48h TTL so it works across all Vercel
+// function instances. Falls back to in-memory Set if Redis is unavailable.
+const hasRedis =
+  !!process.env.UPSTASH_REDIS_REST_URL &&
+  !!process.env.UPSTASH_REDIS_REST_TOKEN;
+
+const redis = hasRedis
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+  : null;
+
+const IDEMPOTENCY_TTL_S = 48 * 60 * 60; // 48 hours
+
+/** Returns true if this event was already processed. Marks it as processed if not. */
+async function checkAndMarkProcessed(eventId: string): Promise<boolean> {
+  if (redis) {
+    // SET NX returns null if key already exists (event already processed)
+    const result = await redis.set(`webhook:evt:${eventId}`, "1", {
+      nx: true,
+      ex: IDEMPOTENCY_TTL_S,
+    });
+    return result === null; // null = key existed = already processed
   }
+  // Fallback: in-memory (single-instance only, best-effort)
+  if (fallbackSet.has(eventId)) return true;
+  fallbackSet.add(eventId);
+  if (fallbackSet.size > 1000) {
+    const entries = Array.from(fallbackSet);
+    entries.slice(0, entries.length - 1000).forEach((id) => fallbackSet.delete(id));
+  }
+  return false;
 }
+
+const fallbackSet = new Set<string>();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Network Referral Bounty — 30% of deposit (min $15) to referring installer
@@ -171,13 +198,13 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Idempotency: Reject duplicate events ────────────────────────────
-  // Stripe can resend events on timeout. Track processed event IDs in-memory
-  // to prevent duplicate DB writes and bounty transfers within this instance.
-  if (processedEvents.has(event.id)) {
+  // Stripe can resend events on timeout. Track processed event IDs in Redis
+  // to prevent duplicate DB writes and bounty transfers across all instances.
+  const alreadyProcessed = await checkAndMarkProcessed(event.id);
+  if (alreadyProcessed) {
     console.log("[Webhook] Duplicate event ignored:", event.id);
     return NextResponse.json({ received: true });
   }
-  processedEvents.add(event.id);
 
   console.log("[Webhook] Event received:", event.type, "| ID:", event.id);
 
@@ -742,6 +769,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  pruneProcessedEvents();
   return NextResponse.json({ received: true });
 }

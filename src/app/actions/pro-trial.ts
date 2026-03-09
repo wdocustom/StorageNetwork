@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19,10 +19,7 @@ import { slugify } from "@/lib/utils";
 // as a paid Pro subscriber.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 const TRIAL_JOB_LIMIT = 3;
 

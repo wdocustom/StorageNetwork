@@ -1,12 +1,9 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { DEMO_TIME_SLOTS, OWNER_EMAIL } from "@/lib/demo-constants";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Demo Booking — Stores booking + creates Google Calendar event

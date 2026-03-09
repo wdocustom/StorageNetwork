@@ -1,10 +1,11 @@
 "use server";
 
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
 import { z } from "zod/v4";
 import { incrementDiscountCodeUsage } from "./discount-codes";
+import { getDepositAmount } from "./fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Server Action — Black Box
@@ -58,10 +59,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ── Auth Helper: Verify caller owns the lead ────────────────────────────
 async function requireLeadOwnership(
@@ -479,6 +477,15 @@ export async function createDepositIntent(
     return { success: false, error: `Missing required parameters: ${missing}.` };
   }
 
+  // ── Server-side deposit re-derivation ─────────────────────────────────
+  // Re-derive the expected deposit from totalPrice + installer config to
+  // prevent a tampered client from submitting a reduced deposit amount.
+  const expectedDeposit = await getDepositAmount(totalPrice, installerId);
+  if (Math.abs(amount - expectedDeposit) > 0.01) {
+    console.warn(`[Deposit] Amount mismatch: client sent $${amount}, expected $${expectedDeposit} for $${totalPrice} build (installer ${installerId})`);
+    return { success: false, error: "Deposit amount mismatch. Please refresh and try again." };
+  }
+
   // Deposit is always charged WITHOUT tax. Tax is collected by installer at installation.
   // Deposit uses installer's custom rate (min 15%) — discount codes only affect the remaining balance.
   const depositAmountCents = Math.round(amount * 100);
@@ -514,7 +521,13 @@ export async function createDepositIntent(
     if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
       // ── Fee Override (Founder / special rate) + Stripe ───────────────────
       // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
-      const overrideRate = Number(feeOverride);
+      // Bounds-check: clamp override to [0, 0.25] to prevent negative fees
+      // or unreasonable platform takes from misconfigured DB values.
+      const rawRate = Number(feeOverride);
+      const overrideRate = Math.max(0, Math.min(rawRate, 0.25));
+      if (rawRate !== overrideRate) {
+        console.warn(`[Deposit] Fee override out of bounds: ${rawRate} → clamped to ${overrideRate} (installer ${installerId})`);
+      }
       const platformFeeCents = Math.round(totalPriceCents * overrideRate);
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
@@ -692,6 +705,10 @@ export async function verifyAndConfirmDeposit(
   leadId: string
 ): Promise<{ success: boolean; alreadyPaid?: boolean; error?: string }> {
   if (!leadId) return { success: false, error: "No lead ID" };
+
+  // Auth guard: only the installer who owns this lead can trigger verification
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   console.log("[VerifyDeposit] Checking lead:", leadId);
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Analytics — Server actions for installer page view tracking & metrics
@@ -9,10 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 // Uses `page_views` table for visit tracking, `leads` table for conversions.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // ── Track Page View ─────────────────────────────────────────────────────
 
