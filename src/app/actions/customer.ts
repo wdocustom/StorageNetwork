@@ -298,7 +298,7 @@ export async function getInstallerBySlug(
       const { data, error } = await supabase
         .from("profiles")
         .select(INSTALLER_SELECT)
-        .ilike("slug", slug.trim())
+        .eq("slug", slug.trim().toLowerCase())
         .maybeSingle();
 
       if (error || !data) {
@@ -332,7 +332,7 @@ export async function getInstallerByRef(
       const { data, error } = await supabase
         .from("profiles")
         .select(INSTALLER_SELECT)
-        .ilike("ref_slug", slug.trim())
+        .eq("ref_slug", slug.trim().toLowerCase())
         .maybeSingle();
 
       if (error || !data) {

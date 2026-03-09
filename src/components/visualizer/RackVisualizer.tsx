@@ -1,12 +1,17 @@
 "use client";
 
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import BlueprintCanvas from "./BlueprintCanvas";
 import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 
-// Lazy-load 3D (heavy Three.js bundle)
+// Lazy-load 3D (heavy Three.js bundle — only fetched when user switches to 3D)
 const Rack3D = lazy(() => import("./Rack3D"));
+
+function getDefaultViewMode(): "2D" | "3D" {
+  if (typeof window === "undefined") return "2D";
+  return window.innerWidth < 768 ? "2D" : "3D";
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RackVisualizer — 2D/3D Toggle Container
@@ -64,7 +69,12 @@ interface RackVisualizerProps {
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
-  const [viewMode, setViewMode] = useState<"2D" | "3D">("3D");
+  const [viewMode, setViewMode] = useState<"2D" | "3D">(getDefaultViewMode);
+
+  // Sync default on hydration (SSR always renders "2D", client may upgrade to "3D")
+  useEffect(() => {
+    setViewMode(getDefaultViewMode());
+  }, []);
 
   return (
     <div className="relative h-full w-full">
