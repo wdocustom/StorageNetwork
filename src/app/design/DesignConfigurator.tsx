@@ -12,7 +12,8 @@ import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
-import { calculateBuild, calculateCompoundBuild, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
+import { SHELVING_CONFIGS, type ShelvingConfig } from "@/lib/shelving";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
@@ -57,6 +58,8 @@ interface UnitConfig {
   paintFrameColor?: PaintColorId | null;
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
+  /** When set, this order item is an open shelving unit (not a tote organizer) */
+  shelvingConfigId?: string;
 }
 
 interface ServerBuild {
@@ -251,6 +254,50 @@ export default function DesignConfigurator({
       hasWheels: activePresetObj.units[i].hasWheels,
     }));
   }, [compoundBuild, activePresetObj]);
+
+  // ── Open Shelving add-on state ───────────────────────────────────────
+  const [shelvingConfigId, setShelvingConfigId] = useState<string | null>(null);
+  const [shelvingPrice, setShelvingPrice] = useState<number | null>(null);
+  const [shelvingLoading, setShelvingLoading] = useState(false);
+
+  // Calculate shelving price when selection changes
+  useEffect(() => {
+    if (!shelvingConfigId) { setShelvingPrice(null); return; }
+    setShelvingLoading(true);
+    calculateShelvingUnit({ configId: shelvingConfigId, installerPricing: data?.pricing })
+      .then((res) => { if (res.success) setShelvingPrice(res.price); })
+      .finally(() => setShelvingLoading(false));
+  }, [shelvingConfigId, data?.pricing]);
+
+  function handleAddShelvingUnit() {
+    if (!shelvingConfigId || shelvingPrice == null) return;
+    const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
+    if (!cfg) return;
+    const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: true,
+        price: shelvingPrice,
+        totalW: cfg.widthIn,
+        totalH: cfg.frameH,
+        depth: cfg.depth,
+        desc: `Open Shelving: ${cfg.widthFt}' × ${heightLabel} (${cfg.shelves} ${cfg.shelves === 1 ? "shelf" : "shelves"})`,
+        addons: [],
+        shelvingConfigId: cfg.id,
+      },
+    ]);
+    setShelvingConfigId(null);
+    setShelvingPrice(null);
+  }
 
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
@@ -1225,6 +1272,13 @@ export default function DesignConfigurator({
           onPresetTotesChange={setPresetTotes}
           onAddPresetUnit={handleAddPresetUnit}
           activePresetObj={activePresetObj}
+
+          // Shelving
+          shelvingConfigId={shelvingConfigId}
+          onShelvingConfigChange={setShelvingConfigId}
+          shelvingPrice={shelvingPrice}
+          shelvingLoading={shelvingLoading}
+          onAddShelvingUnit={handleAddShelvingUnit}
 
           // Summary
           orderItems={orderItems}

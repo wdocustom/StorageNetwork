@@ -2,8 +2,9 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { calculateBuild, calculateCompoundBuild, type CompoundBuildResult } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { generateBuildManifest } from "@/lib/buildEngine";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine";
@@ -75,6 +76,8 @@ interface UnitConfig {
   desc?: string;
   /** Groups multiple sub-units from the same preset together for display */
   presetGroup?: string;
+  /** When set, this unit is an open shelving unit (not a tote organizer) */
+  shelvingConfigId?: string;
 }
 
 export default function BuildConfiguratorPage() {
@@ -168,6 +171,12 @@ export default function BuildConfiguratorPage() {
   const [presetResult, setPresetResult] = useState<CompoundBuildResult | null>(null);
   const [presetAdded, setPresetAdded] = useState(false);
   const quoteBuilderRef = useRef<HTMLElement>(null);
+
+  // Open Shelving state
+  const [selectedShelving, setSelectedShelving] = useState<string>("");
+  const [shelvingPrice, setShelvingPrice] = useState<number | null>(null);
+  const [shelvingLoading, setShelvingLoading] = useState(false);
+  const [shelvingAdded, setShelvingAdded] = useState(false);
 
   // Custom material pricing (stored in localStorage)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
@@ -314,6 +323,44 @@ export default function BuildConfiguratorPage() {
     // Visual feedback + scroll to quote builder
     setPresetAdded(true);
     setTimeout(() => setPresetAdded(false), 2000);
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  // ── Open Shelving calculation ──────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedShelving) { setShelvingPrice(null); return; }
+    setShelvingLoading(true);
+    calculateShelvingUnit({ configId: selectedShelving, installerPricing })
+      .then((res) => { if (res.success) setShelvingPrice(res.price); else setShelvingPrice(null); })
+      .finally(() => setShelvingLoading(false));
+  }, [selectedShelving, installerPricing]);
+
+  function handleAddShelving() {
+    if (!selectedShelving || shelvingPrice == null) return;
+    const cfg = SHELVING_CONFIGS.find((c) => c.id === selectedShelving);
+    if (!cfg) return;
+    const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
+    const newUnit: UnitConfig = {
+      id: `shelving-${Date.now()}`,
+      cols: 0,
+      rows: 0,
+      toteType: "HDX",
+      hasTotes: false,
+      hasWheels: false,
+      hasTop: true,
+      price: shelvingPrice,
+      totalW: cfg.widthIn,
+      totalH: cfg.frameH,
+      depth: cfg.depth,
+      slots: 0,
+      desc: `Open Shelving: ${cfg.widthFt}' × ${heightLabel} (${cfg.shelves} ${cfg.shelves === 1 ? "shelf" : "shelves"})`,
+      shelvingConfigId: cfg.id,
+    };
+    setUnits((prev) => [...prev, newUnit]);
+    setShelvingAdded(true);
+    setTimeout(() => setShelvingAdded(false), 2000);
     setTimeout(() => {
       quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
@@ -810,6 +857,88 @@ export default function BuildConfiguratorPage() {
                     }`}
                   >
                     {presetAdded ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Added to Quote
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Add to Quote
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ── Open Shelving ──────────────────────────────────────────── */}
+        <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+            <Grid3X3 className="h-4 w-4 text-yellow-400" />
+            Open Shelving
+          </h2>
+
+          <select
+            value={selectedShelving}
+            onChange={(e) => {
+              setSelectedShelving(e.target.value);
+              setShelvingAdded(false);
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+          >
+            <option value="">Choose a shelving unit…</option>
+            {SHELVING_CONFIGS.map((cfg) => {
+              const heightLabel = cfg.height === "tall" ? "Tall (5-tier height)" : "Short (2-tier height)";
+              const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
+              return (
+                <option key={cfg.id} value={cfg.id}>
+                  {cfg.widthFt}&apos; Wide × {heightLabel} — {shelfText}
+                </option>
+              );
+            })}
+          </select>
+
+          {selectedShelving && (
+            <div className="mt-3 space-y-3">
+              {shelvingLoading && (
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Calculating…
+                </div>
+              )}
+
+              {shelvingPrice != null && !shelvingLoading && (
+                <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="rounded-lg bg-slate-800 p-2">
+                      <p className="text-lg font-black text-white">
+                        {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.widthFt}&apos; × {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.height === "tall" ? "Tall" : "Short"}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase text-stone-500">
+                        {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.widthIn}&quot; × {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.frameH}&quot; × 30&quot;
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-slate-800 p-2">
+                      <p className="text-lg font-black text-yellow-400">
+                        ${shelvingPrice.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] font-bold uppercase text-stone-500">
+                        Open Shelving
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddShelving}
+                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                      shelvingAdded
+                        ? "bg-emerald-500 text-white"
+                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                    }`}
+                  >
+                    {shelvingAdded ? (
                       <>
                         <Check className="h-4 w-4" />
                         Added to Quote

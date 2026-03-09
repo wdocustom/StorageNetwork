@@ -100,6 +100,14 @@ export interface InstallerPricing {
   bestseller_cornhusker?: number;
   bestseller_long_ranger?: number;
   bestseller_gas_station?: number;
+  /** Per-shelving-unit total-price overrides.
+   *  Key pattern: shelving_shelf_<width>ft_<height> */
+  shelving_shelf_4ft_short?: number;
+  shelving_shelf_5ft_short?: number;
+  shelving_shelf_6ft_short?: number;
+  shelving_shelf_4ft_tall?: number;
+  shelving_shelf_5ft_tall?: number;
+  shelving_shelf_6ft_tall?: number;
   /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
   mini_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
@@ -107,7 +115,7 @@ export interface InstallerPricing {
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,

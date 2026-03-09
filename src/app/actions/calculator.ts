@@ -402,6 +402,10 @@ export async function calculateBuild(
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 export type { PresetSubUnit, BestsellerPreset } from "@/lib/presets";
 
+import { SHELVING_CONFIGS } from "@/lib/shelving";
+export type { ShelvingConfig, ShelvingWidth, ShelvingHeight } from "@/lib/shelving";
+export { SHELVING_CONFIGS } from "@/lib/shelving";
+
 export interface CompoundBuildResult {
   success: true;
   presetId: string;
@@ -548,5 +552,57 @@ export async function calculateCompoundBuild(input: {
     maxH,
     depth,
     totalSlots,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Open Shelving Unit Calculator
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ShelvingBuildResult {
+  success: true;
+  configId: string;
+  label: string;
+  price: number;
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+}
+
+export interface ShelvingBuildError {
+  success: false;
+  error: string;
+}
+
+/**
+ * Calculate pricing for an open shelving unit.
+ * Uses installer override if set, otherwise falls back to the platform default.
+ */
+export async function calculateShelvingUnit(input: {
+  configId: string;
+  installerPricing?: InstallerPricing;
+}): Promise<ShelvingBuildResult | ShelvingBuildError> {
+  const config = SHELVING_CONFIGS.find((c) => c.id === input.configId);
+  if (!config) {
+    return { success: false, error: "Unknown shelving configuration." };
+  }
+
+  // Pricing key: shelving_<id_with_underscores> e.g. "shelving_shelf_4ft_short"
+  const pricingKey = `shelving_${config.id.replace(/-/g, "_")}` as keyof InstallerPricing;
+  const installerOverride = input.installerPricing?.[pricingKey] as number | undefined;
+  const price = (installerOverride !== undefined && installerOverride !== null)
+    ? installerOverride
+    : config.platformPrice;
+
+  return {
+    success: true,
+    configId: config.id,
+    label: config.label,
+    price,
+    widthIn: config.widthIn,
+    frameH: config.frameH,
+    depth: config.depth,
+    shelves: config.shelves,
   };
 }

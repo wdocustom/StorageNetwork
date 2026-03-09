@@ -26,6 +26,7 @@ import {
 import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { SHELVING_CONFIGS } from "@/lib/shelving";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -45,7 +46,7 @@ interface PriceField {
   /** When true, the default is computed dynamically from the installer's
    *  slot/plywood pricing and shown as "Auto" when empty. */
   dynamicDefault?: boolean;
-  category: "standard" | "mini" | "addons" | "bestsellers";
+  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving";
 }
 
 /**
@@ -160,6 +161,19 @@ const PRICE_FIELDS: PriceField[] = [
       description: `Total price with ${totalSlots} totes (platform default: $${PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id)})`,
       defaultValue: PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id),
       category: "bestsellers" as const,
+    };
+  }),
+  // Open Shelving unit price overrides
+  ...SHELVING_CONFIGS.map((cfg) => {
+    const key = `shelving_${cfg.id.replace(/-/g, "_")}` as PricingNumericKey;
+    const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
+    const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
+    return {
+      key,
+      label: `${cfg.widthFt}' × ${heightLabel}`,
+      description: `${cfg.widthIn}" wide, ${shelfText} (platform default: $${cfg.platformPrice})`,
+      defaultValue: cfg.platformPrice,
+      category: "shelving" as const,
     };
   }),
 ];
@@ -414,6 +428,12 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       label: "Bestseller Presets",
       hint: "Set a total price for each bestseller (totes included). Customers can remove totes — your tote rate is subtracted. Leave empty to use the platform default price.",
       fields: PRICE_FIELDS.filter((f) => f.category === "bestsellers"),
+    },
+    {
+      key: "shelving",
+      label: "Open Shelving Units",
+      hint: "Set a total price for each shelving configuration (plywood shelves + top included). Leave empty to use the platform default.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "shelving"),
     },
   ];
 

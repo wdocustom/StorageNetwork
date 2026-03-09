@@ -78,7 +78,7 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
   },
   {
     id: "gas-station",
-    name: "The Gas Station",
+    name: "The Gass Station",
     label: "Bestseller",
     toteModel: "HDX",
     toteColor: "black",
