@@ -204,7 +204,7 @@ function PlywoodStrip({ position, length, railHeight, material }: {
   const height = railHeight ?? RAIL_HEIGHT;
   return (
     <mesh position={position} material={material ?? PLYWOOD_MAT} castShadow receiveShadow>
-      <boxGeometry args={[height, RAIL_THICKNESS, length]} />
+      <boxGeometry args={[RAIL_THICKNESS, height, length]} />
     </mesh>
   );
 }
@@ -573,7 +573,7 @@ function RackAssembly({
                   );
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
-                  const railX = px + POST_W / 2 + railHeight / 2;
+                  const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
                   return (
                     <PlywoodStrip
                       key={`rr-${i}-${r}`}
@@ -592,7 +592,7 @@ function RackAssembly({
                   );
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
-                  const railX = px - POST_W / 2 - railHeight / 2;
+                  const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
                   return (
                     <PlywoodStrip
                       key={`rl-${i}-${r}`}
@@ -624,7 +624,7 @@ function RackAssembly({
               if (isRailRemoved || hasShelfAddon) return null;
 
               const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
-              const railTop = railCenterY + RAIL_THICKNESS / 2;
+              const railTop = railCenterY + railHeight / 2;
               // Rim bottom = rail top → body bottom = rail top - toteBodyH
               const toteGroupY = railTop - toteBodyH;
 
@@ -651,9 +651,9 @@ function RackAssembly({
             const rightPostX = getPostX(col + 1, bayW);
             const shelfCenterX = (leftPostX + rightPostX) / 2;
             const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-            const railTop = railCenterY + RAIL_THICKNESS / 2;
+            const railTop = railCenterY + railHeight / 2;
             const shelfY = railTop + PLY_TOP_H / 2; // sits on top of rails
-            const shelfW = bayW - railHeight; // fits between the two rail strips
+            const shelfW = bayW - RAIL_THICKNESS; // fits between the two rail strips
             return (
               <mesh
                 key={`shelf-${col}-${row}`}
