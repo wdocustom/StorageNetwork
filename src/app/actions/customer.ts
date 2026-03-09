@@ -103,18 +103,27 @@ export async function checkAvailability(
         .order("current_month_leads", { ascending: true, nullsFirst: true });
 
       if (!error && matches && matches.length > 0) {
+        // Batch reset stale lead counters in one query (avoids N+1)
+        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+        const staleIds = matches
+          .filter((inst) => inst.leads_reset_at && new Date(inst.leads_reset_at as string) < new Date(monthStart))
+          .map((inst) => inst.id as string);
+
+        if (staleIds.length > 0) {
+          await supabase
+            .from("profiles")
+            .update({ current_month_leads: 0, leads_reset_at: monthStart })
+            .in("id", staleIds);
+          // Reflect reset in local objects
+          for (const inst of matches) {
+            if (staleIds.includes(inst.id as string)) {
+              (inst as Record<string, unknown>).current_month_leads = 0;
+            }
+          }
+        }
+
         // Find the first installer who isn't at capacity
         for (const installer of matches) {
-          // Lead cap check: reset if needed
-          const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-          if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
-            await supabase
-              .from("profiles")
-              .update({ current_month_leads: 0, leads_reset_at: monthStart })
-              .eq("id", installer.id);
-            (installer as Record<string, unknown>).current_month_leads = 0;
-          }
-
           const currentLeads = (installer.current_month_leads as number) ?? 0;
           const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 
@@ -188,16 +197,25 @@ export async function rerouteToLocalInstaller(
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
-      for (const installer of matches) {
-        const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-        if (installer.leads_reset_at && new Date(installer.leads_reset_at as string) < new Date(monthStart)) {
-          await supabase
-            .from("profiles")
-            .update({ current_month_leads: 0, leads_reset_at: monthStart })
-            .eq("id", installer.id);
-          (installer as Record<string, unknown>).current_month_leads = 0;
-        }
+      // Batch reset stale lead counters in one query (avoids N+1)
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const staleIds = matches
+        .filter((inst) => inst.leads_reset_at && new Date(inst.leads_reset_at as string) < new Date(monthStart))
+        .map((inst) => inst.id as string);
 
+      if (staleIds.length > 0) {
+        await supabase
+          .from("profiles")
+          .update({ current_month_leads: 0, leads_reset_at: monthStart })
+          .in("id", staleIds);
+        for (const inst of matches) {
+          if (staleIds.includes(inst.id as string)) {
+            (inst as Record<string, unknown>).current_month_leads = 0;
+          }
+        }
+      }
+
+      for (const installer of matches) {
         const currentLeads = (installer.current_month_leads as number) ?? 0;
         const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 

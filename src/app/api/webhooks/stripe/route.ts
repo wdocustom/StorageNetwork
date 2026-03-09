@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +7,7 @@ import {
   activateProSubscription,
   deactivateProSubscription,
 } from "@/app/actions/pro-subscription";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -19,10 +19,22 @@ import {
 //
 // ARCHITECTURE: DB-first, email-second. Each step is isolated.
 // If email crashes, the DB update is ALREADY committed.
+//
+// PERFORMANCE: Uses singleton Supabase client (connection reuse).
+// Non-critical work (emails, bounties) is fire-and-forget so the 200
+// response reaches Stripe well within the 20-second timeout window.
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Reuse singleton — avoids creating a new HTTP client on every DB call */
 function getDb() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return getServiceClient();
+}
+
+// ── Fire-and-forget helper ───────────────────────────────────────────────
+// Runs async work without blocking the webhook response. Errors are logged
+// but never propagated — the critical DB write has already succeeded.
+function fireAndForget(label: string, fn: () => Promise<void>) {
+  fn().catch((err) => console.error(`[Webhook] ${label} failed (non-fatal):`, err));
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -228,8 +240,8 @@ export async function POST(request: NextRequest) {
         console.error("[Webhook] Final payment update threw:", err);
       }
 
-      // Send emails: receipt to customer, payment alert to installer
-      try {
+      // Fire-and-forget: emails are non-critical — return 200 to Stripe immediately
+      fireAndForget("final_payment_emails", async () => {
         const { data: lead } = await getDb()
           .from("leads")
           .select("customer_name, customer_email, estimated_price, deposit_amount, quote_data, installer_id")
@@ -249,7 +261,6 @@ export async function POST(request: NextRequest) {
           if (profile) {
             installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
           }
-          // Get installer's email from auth
           const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
           installerEmail = authUser?.user?.email || null;
         }
@@ -257,7 +268,6 @@ export async function POST(request: NextRequest) {
         const unitCount = Array.isArray(lead?.quote_data) ? lead.quote_data.length : 1;
         const customerName = lead?.customer_name ?? "Customer";
 
-        // Send receipt to customer
         if (lead?.customer_email) {
           await sendJobReceipt(lead.customer_email, {
             customerName,
@@ -271,7 +281,6 @@ export async function POST(request: NextRequest) {
           console.log("[Webhook] Receipt email sent to customer");
         }
 
-        // Send payment alert to installer
         if (installerEmail) {
           await sendPaymentReceivedAlert(installerEmail, {
             installerName,
@@ -282,9 +291,7 @@ export async function POST(request: NextRequest) {
           });
           console.log("[Webhook] Payment alert sent to installer:", installerEmail);
         }
-      } catch (emailErr: any) {
-        console.error("[Webhook] Final payment email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
-      }
+      });
 
       return NextResponse.json({ received: true });
     }
@@ -366,95 +373,69 @@ export async function POST(request: NextRequest) {
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // STEP 2: ATTEMPT EMAILS (Non-critical — swallow all errors)
+    // STEP 2: EMAILS (fire-and-forget — DB is already saved)
+    // Return 200 to Stripe immediately, emails run in background.
     // ═════════════════════════════════════════════════════════════════════
-
-    // Fetch lead details for email (isolated — if this fails, DB is saved)
-    let lead: any = null;
-    try {
-      const { data } = await getDb()
+    fireAndForget("booking_emails", async () => {
+      const { data: lead } = await getDb()
         .from("leads")
         .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
         .eq("id", leadId)
         .single();
-      lead = data;
-    } catch (fetchErr) {
-      console.error("[Webhook] Lead fetch failed (non-fatal):", fetchErr);
-    }
 
-    if (!lead) {
-      console.warn("[Webhook] Lead not found after update — skipping emails");
-      return NextResponse.json({ received: true });
-    }
-
-    const resolvedInstallerId = installerId || lead.installer_id;
-    const customerEmail = lead.customer_email || stripeEmail;
-    const customerName = lead.customer_name || session.customer_details?.name || metadata.customer_name || "Customer";
-
-    // ── Send booking confirmation to customer ─────────────────────────
-    if (customerEmail) {
-      try {
-        let installerName = "Your Installer";
-        let installerPhone: string | undefined;
-        let installerAvatar: string | undefined;
-
-        if (resolvedInstallerId) {
-          const { data: profile } = await getDb()
-            .from("profiles")
-            .select("first_name, last_name, business_name, phone, avatar_url")
-            .eq("id", resolvedInstallerId)
-            .single();
-          if (profile) {
-            installerName =
-              profile.business_name ||
-              [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-              "Your Installer";
-            installerPhone = profile.phone || undefined;
-            installerAvatar = profile.avatar_url || undefined;
-          }
-        }
-
-        const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-
-        console.log("[Webhook] Attempting booking confirmation to:", customerEmail);
-        console.log("[Webhook] Email args:", JSON.stringify({
-          customerName,
-          customerEmail,
-          installerName,
-          scheduledDate: lead.scheduled_at ?? "TBD",
-          address: lead.address ?? fullAddress ?? "Address Pending",
-          depositAmount: amountPaid,
-          totalPrice: lead.estimated_price ?? amountPaid,
-          unitCount,
-        }));
-
-        const emailResult = await sendBookingConfirmation({
-          customerName,
-          customerEmail,
-          installerName,
-          installerPhone,
-          installerAvatarUrl: installerAvatar,
-          scheduledDate: lead.scheduled_at ?? "TBD",
-          address: lead.address ?? fullAddress ?? "Address Pending",
-          depositAmount: amountPaid,
-          totalPrice: lead.estimated_price ?? amountPaid,
-          jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
-          leadId,
-        });
-        console.log("[Webhook] Booking confirmation result:", JSON.stringify(emailResult));
-      } catch (emailErr: any) {
-        console.error("[Webhook] EMAIL FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
-        console.error("[Webhook] Email stack:", emailErr?.stack);
-        // DO NOT THROW. DB is already saved.
+      if (!lead) {
+        console.warn("[Webhook] Lead not found after update — skipping emails");
+        return;
       }
-    } else {
-      console.warn("[Webhook] No customer email — skipping booking confirmation");
-    }
 
-    // NOTE: Installer new booking alert is sent from payment_intent.succeeded handler.
-    // This prevents double-emailing since checkout sessions also trigger payment_intent.succeeded.
+      const resolvedInstallerId = installerId || lead.installer_id;
+      const customerEmail = lead.customer_email || stripeEmail;
+      const customerName = lead.customer_name || session.customer_details?.name || metadata.customer_name || "Customer";
 
-    console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
+      if (!customerEmail) {
+        console.warn("[Webhook] No customer email — skipping booking confirmation");
+        return;
+      }
+
+      let installerName = "Your Installer";
+      let installerPhone: string | undefined;
+      let installerAvatar: string | undefined;
+
+      if (resolvedInstallerId) {
+        const { data: profile } = await getDb()
+          .from("profiles")
+          .select("first_name, last_name, business_name, phone, avatar_url")
+          .eq("id", resolvedInstallerId)
+          .single();
+        if (profile) {
+          installerName =
+            profile.business_name ||
+            [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+            "Your Installer";
+          installerPhone = profile.phone || undefined;
+          installerAvatar = profile.avatar_url || undefined;
+        }
+      }
+
+      const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+
+      await sendBookingConfirmation({
+        customerName,
+        customerEmail,
+        installerName,
+        installerPhone,
+        installerAvatarUrl: installerAvatar,
+        scheduledDate: lead.scheduled_at ?? "TBD",
+        address: lead.address ?? fullAddress ?? "Address Pending",
+        depositAmount: amountPaid,
+        totalPrice: lead.estimated_price ?? amountPaid,
+        jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+        leadId,
+      });
+      console.log("[Webhook] Booking confirmation sent for lead:", leadId);
+    });
+
+    console.log(`[Webhook] checkout.session.completed processed (DB saved) for lead ${leadId}`);
   }
 
   // ── Handle Pro subscription events ──────────────────────────────────────
@@ -468,8 +449,8 @@ export async function POST(request: NextRequest) {
       if (result.success && result.slug) {
         console.log("[Webhook] Pro activated, slug:", result.slug);
 
-        // Send Pro welcome email
-        try {
+        // Fire-and-forget: Pro welcome email + referral activation
+        fireAndForget("pro_welcome", async () => {
           const { data: profile } = await getDb()
             .from("profiles")
             .select("first_name, last_name, business_name")
@@ -484,15 +465,11 @@ export async function POST(request: NextRequest) {
               [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
               "Partner";
 
-            await sendProWelcomeEmail(email, { name, slug: result.slug });
+            await sendProWelcomeEmail(email, { name, slug: result.slug! });
             console.log("[Webhook] Pro welcome email sent to:", email);
           }
-        } catch (emailErr) {
-          console.error("[Webhook] Pro welcome email failed:", emailErr);
-        }
 
-        // ── Activate affiliate referral if one exists ──────────────────
-        try {
+          // Activate affiliate referral if one exists
           const { data: pendingRef } = await getDb()
             .from("referrals")
             .select("id")
@@ -507,9 +484,7 @@ export async function POST(request: NextRequest) {
               .eq("id", pendingRef.id);
             console.log("[Webhook] Referral activated for installer:", userId);
           }
-        } catch (refErr) {
-          console.error("[Webhook] Referral activation failed (non-fatal):", refErr);
-        }
+        });
       } else {
         console.error("[Webhook] Pro activation failed:", result.error);
       }
@@ -681,15 +656,14 @@ export async function POST(request: NextRequest) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);
         }
 
-        // ── Send booking confirmation email ───────────────────────────
-        try {
+        // Fire-and-forget: booking confirmation + installer alert emails
+        fireAndForget("pi_booking_emails", async () => {
           const { data: lead } = await getDb()
             .from("leads")
             .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
             .eq("id", leadId)
             .single();
 
-          // Resolve email: DB > PaymentIntent metadata > receipt_email
           const piEmail = lead?.customer_email || metadata.customer_email || paymentIntent.receipt_email;
           const piName = lead?.customer_name || metadata.customer_name || "Customer";
 
@@ -697,7 +671,7 @@ export async function POST(request: NextRequest) {
             let installerName = "Your Installer";
             let installerPhone: string | undefined;
             let installerAvatar: string | undefined;
-            const instId = metadata.installer_stripe_id ? lead.installer_id : lead.installer_id;
+            const instId = lead.installer_id;
 
             if (instId) {
               const { data: profile } = await getDb()
@@ -714,7 +688,6 @@ export async function POST(request: NextRequest) {
 
             const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
 
-            console.log("[Webhook] Sending booking confirmation (PI) to:", piEmail);
             await sendBookingConfirmation({
               customerName: piName,
               customerEmail: piEmail,
@@ -729,43 +702,26 @@ export async function POST(request: NextRequest) {
               leadId,
             });
             console.log("[Webhook] Booking confirmation sent (PI flow)");
-          } else {
-            console.warn("[Webhook] No email found for PI booking — skipping confirmation");
-          }
 
-          // ── Send installer alert ────────────────────────────────────
-          if (lead?.installer_id) {
-            const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
-            const installerEmail = authUser?.user?.email;
-            if (installerEmail) {
-              const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-              const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
-              await sendNewBookingAlert(installerEmail, city, {
-                customerName: piName,
-                customerEmail: piEmail || undefined,
-                address: lead.address || undefined,
-                unitCount,
-                totalPrice: lead.estimated_price ?? amountPaidPI,
-                leadId,
-              });
-              console.log("[Webhook] Installer alert sent (PI flow)");
-
-              // ── SMS alert to installer (temporarily disabled) ──────────
-              // try {
-              //   const { sendInstallerBookingSms } = await import("@/app/actions/sms");
-              //   const customerZip = lead.address
-              //     ? lead.address.split(",").pop()?.trim() || "your area"
-              //     : "your area";
-              //   const profit = Math.round((lead.estimated_price ?? amountPaidPI) * 0.85);
-              //   await sendInstallerBookingSms(lead.installer_id, leadId, customerZip, profit);
-              // } catch (smsErr) {
-              //   console.error("[Webhook] Installer SMS failed (non-fatal):", smsErr);
-              // }
+            // Send installer alert
+            if (lead.installer_id) {
+              const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
+              const installerEmail = authUser?.user?.email;
+              if (installerEmail) {
+                const city = lead.address ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address : "Unknown";
+                await sendNewBookingAlert(installerEmail, city, {
+                  customerName: piName,
+                  customerEmail: piEmail || undefined,
+                  address: lead.address || undefined,
+                  unitCount,
+                  totalPrice: lead.estimated_price ?? amountPaidPI,
+                  leadId,
+                });
+                console.log("[Webhook] Installer alert sent (PI flow)");
+              }
             }
           }
-        } catch (emailErr: any) {
-          console.error("[Webhook] PI booking email FAILED (Non-Fatal):", emailErr?.message ?? emailErr);
-        }
+        });
       } else {
         // ── FINAL PAYMENT (balance collection) ─────────────────────────
         try {
