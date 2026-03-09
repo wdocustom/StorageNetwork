@@ -1174,7 +1174,7 @@ export default function Rack3D(props: Rack3DProps) {
         {isShelving ? (
           <>
             <ShelvingCameraRig config={props.shelvingConfig!} />
-            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <ShelvingAssembly config={props.shelvingConfig!} />
             </Stage>
           </>
@@ -1186,7 +1186,7 @@ export default function Rack3D(props: Rack3DProps) {
               unitType={props.unitType}
               orientation={props.orientation}
             />
-            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <CompoundRackAssembly
                 presetUnits={props.presetUnits!}
                 toteType={props.toteType}
@@ -1207,7 +1207,7 @@ export default function Rack3D(props: Rack3DProps) {
               orientation={props.orientation}
               hasWheels={props.hasWheels}
             />
-            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <RackAssembly {...props} />
             </Stage>
           </>

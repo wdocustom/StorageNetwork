@@ -40,7 +40,9 @@ class Render3DErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryS
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.warn("[RackVisualizer] 3D render failed, falling back to 2D:", error.message, info.componentStack);
-    this.props.onError?.();
+    // Defer parent state update to avoid React #310 ("Cannot update a component
+    // while rendering a different component") when Three.js context-loss cascades.
+    queueMicrotask(() => this.props.onError?.());
   }
 
   render() {
