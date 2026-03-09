@@ -46,6 +46,14 @@ interface SubUnit3D {
   hasWheels: boolean;
 }
 
+/** Open shelving config passed from the configurator */
+interface ShelvingConfig3D {
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+}
+
 interface Rack3DProps {
   cols: number;
   rows: number;
@@ -66,6 +74,8 @@ interface Rack3DProps {
   paintDoorColor?: PaintColorId | null;
   /** Paint color for side panels */
   paintSidePanelColor?: PaintColorId | null;
+  /** When set, renders an open shelving unit instead of a tote organizer */
+  shelvingConfig?: ShelvingConfig3D;
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -982,12 +992,122 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
   );
 }
 
+// ── Open Shelving Assembly ─────────────────────────────────────────────────
+// Renders a simple shelving frame: 4 corner posts, bottom/top plates,
+// evenly-spaced plywood shelves, and a plywood top.
+
+function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
+  const { widthIn, frameH, depth, shelves } = config;
+  const totalW = widthIn;
+
+  // Corner posts at four corners
+  const postH = frameH - PLATE_H * 2;
+
+  // Evenly distribute shelves between bottom plate top and top plate bottom
+  const shelfRegionBottom = PLATE_H;
+  const shelfRegionTop = frameH - PLATE_H;
+  const shelfRegionH = shelfRegionTop - shelfRegionBottom;
+
+  const cx = totalW / 2;
+  const cy = frameH / 2;
+  const cz = depth / 2;
+
+  return (
+    <group scale={[S, S, S]}>
+      <group position={[cx, -cy, -cz]} scale={[-1, 1, 1]}>
+        {/* Bottom plates (front + back) */}
+        <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+        <Lumber position={[totalW / 2, PLATE_H / 2, depth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+
+        {/* Top plates (front + back) */}
+        <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+        <Lumber position={[totalW / 2, frameH - PLATE_H / 2, depth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} />
+
+        {/* 4 corner posts */}
+        {[0, totalW].map((px) => (
+          <group key={`post-x-${px}`}>
+            <Lumber position={[px === 0 ? POST_W / 2 : totalW - POST_W / 2, PLATE_H + postH / 2, POST_D / 2]} size={[POST_W, postH, POST_D]} />
+            <Lumber position={[px === 0 ? POST_W / 2 : totalW - POST_W / 2, PLATE_H + postH / 2, depth - POST_D / 2]} size={[POST_W, postH, POST_D]} />
+          </group>
+        ))}
+
+        {/* Plywood shelves — evenly spaced */}
+        {Array.from({ length: shelves }).map((_, i) => {
+          const shelfY = shelfRegionBottom + ((i + 1) / (shelves + 1)) * shelfRegionH;
+          return (
+            <mesh
+              key={`shelf-${i}`}
+              position={[totalW / 2, shelfY, depth / 2]}
+              material={PLYWOOD_MAT}
+              castShadow
+              receiveShadow
+            >
+              <boxGeometry args={[totalW - POST_W * 2, PLY_TOP_H, depth]} />
+            </mesh>
+          );
+        })}
+
+        {/* Plywood top */}
+        <mesh
+          position={[totalW / 2, frameH + PLY_TOP_H / 2, depth / 2]}
+          material={PLYWOOD_TOP_MAT}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[totalW, PLY_TOP_H, depth]} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+
+  const sw = config.widthIn * S;
+  const sh = config.frameH * S;
+  const sd = config.depth * S;
+  const maxDim = Math.max(sw, sh, sd);
+  const dist = maxDim * 2.2;
+
+  useEffect(() => {
+    camera.position.set(dist * 0.6, dist * 0.6, -dist * 0.6);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, dist]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      autoRotate
+      autoRotateSpeed={0.5}
+      enablePan
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.1}
+      maxPolarAngle={Math.PI / 1.5}
+      minDistance={0.2}
+      maxDistance={dist * 5}
+      target={[0, 0, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function Rack3D(props: Rack3DProps) {
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
+  const isShelving = !!props.shelvingConfig;
 
   return (
     <div className="absolute inset-0" style={{ touchAction: "none" }}>
@@ -1023,7 +1143,14 @@ export default function Rack3D(props: Rack3DProps) {
           color="#444444"
         />
 
-        {isCompound ? (
+        {isShelving ? (
+          <>
+            <ShelvingCameraRig config={props.shelvingConfig!} />
+            <Stage intensity={0.6} environment="city" adjustCamera={false}>
+              <ShelvingAssembly config={props.shelvingConfig!} />
+            </Stage>
+          </>
+        ) : isCompound ? (
           <>
             <CompoundCameraRig
               presetUnits={props.presetUnits!}

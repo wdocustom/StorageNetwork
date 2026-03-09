@@ -29,6 +29,14 @@ export interface VisualizerSubUnit {
   hasWheels: boolean;
 }
 
+/** Open shelving config for 3D rendering */
+export interface ShelvingConfig3D {
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+}
+
 interface RackVisualizerProps {
   cols: number;
   rows: number;
@@ -51,6 +59,8 @@ interface RackVisualizerProps {
   paintDoorColor?: PaintColorId | null;
   /** Paint color for side panels */
   paintSidePanelColor?: PaintColorId | null;
+  /** When set, renders an open shelving unit instead of a tote organizer */
+  shelvingConfig?: ShelvingConfig3D;
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
@@ -143,6 +153,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               paintFrameColor={props.paintFrameColor}
               paintDoorColor={props.paintDoorColor}
               paintSidePanelColor={props.paintSidePanelColor}
+              shelvingConfig={props.shelvingConfig}
             />
           </Suspense>
         </div>

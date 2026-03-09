@@ -19,7 +19,7 @@ import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
-import type { VisualizerSubUnit } from "@/components/visualizer/RackVisualizer";
+import type { VisualizerSubUnit, ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
 import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
 import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import BookingModal from "@/components/booking/BookingModal";
@@ -269,13 +269,21 @@ export default function DesignConfigurator({
       .finally(() => setShelvingLoading(false));
   }, [shelvingConfigId, data?.pricing]);
 
+  // Derive a ShelvingConfig3D for the visualizer when a shelving option is selected
+  const activeShelvingConfig: ShelvingConfig3D | undefined = useMemo(() => {
+    if (!shelvingConfigId) return undefined;
+    const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
+    if (!cfg) return undefined;
+    return { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves };
+  }, [shelvingConfigId]);
+
   function handleAddShelvingUnit() {
     if (!shelvingConfigId || shelvingPrice == null) return;
     const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
     if (!cfg) return;
     const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
-    setOrderItems((prev) => [
-      ...prev,
+    // Replace any existing items — shelving and tote organizers can't be mixed
+    setOrderItems([
       {
         cols: 0,
         rows: 0,
@@ -904,8 +912,9 @@ export default function DesignConfigurator({
     if (hasTotes && toteType === "HDX" && unitType === "standard" && effectiveToteColor === "clear") {
       toteDesc = " (Clear Totes)";
     }
+    // Remove any shelving items — tote organizers and shelving can't be mixed
     setOrderItems((prev) => [
-      ...prev,
+      ...prev.filter((it) => !it.shelvingConfigId),
       {
         cols: build.cols,
         rows: build.rows,
@@ -943,8 +952,9 @@ export default function DesignConfigurator({
     if (!compoundBuild || !activePresetObj) return;
 
     const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
+    // Replace any shelving items — bestsellers and shelving can't be mixed
     setOrderItems((prev) => [
-      ...prev,
+      ...prev.filter((it) => !it.shelvingConfigId),
       {
         cols: compoundBuild.subUnits.reduce((s, u) => s + u.cols, 0),
         rows: Math.max(...compoundBuild.subUnits.map((u) => u.rows)),
@@ -1419,11 +1429,24 @@ export default function DesignConfigurator({
               paintFrameColor={activePresetObj ? null : paintFrameColor}
               paintDoorColor={activePresetObj ? null : paintDoorColor}
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
+              shelvingConfig={activeShelvingConfig}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {activePresetObj && compoundBuild ? (
+            {activeShelvingConfig ? (
+              <>
+                {activeShelvingConfig.widthIn}&quot; W &times;{" "}
+                {activeShelvingConfig.frameH}&quot; H &times;{" "}
+                {activeShelvingConfig.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {activeShelvingConfig.shelves} {activeShelvingConfig.shelves === 1 ? "shelf" : "shelves"} + top
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Open Shelving
+                </span>
+              </>
+            ) : activePresetObj && compoundBuild ? (
               <>
                 {compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
                 {compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
