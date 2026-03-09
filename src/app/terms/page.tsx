@@ -81,6 +81,37 @@ export default function TermsPage() {
             </ul>
           </section>
 
+          {/* Section 2b — Upsell Services */}
+          <section className="mb-8">
+            <h2 className="mb-4 text-xl font-bold text-yellow-400">
+              2b. Upsell Services &amp; Network Lead Fees
+            </h2>
+            <p className="mb-4 text-stone-300 leading-relaxed">
+              The Platform may offer optional add-on services (&quot;Upsell Services&quot;) in
+              connection with your scheduled installation, such as garage cleanout services
+              performed prior to your installation date.
+            </p>
+            <ul className="list-disc pl-6 space-y-2 text-stone-300">
+              <li>
+                <strong className="text-white">Network Lead Fee:</strong> A{" "}
+                <strong className="text-white">10% network lead fee</strong> is applied to all
+                Upsell Services facilitated through the Platform. This fee is included in the
+                quoted price of the upsell item.
+              </li>
+              <li>
+                <strong className="text-white">Upsell Deposit:</strong> A 50% deposit may be
+                required at the time of confirming an Upsell Service. The remaining balance is
+                collected at the time the service is performed.
+              </li>
+              <li>
+                <strong className="text-white">Applicable Services:</strong> This fee applies to
+                all Platform-facilitated upsell items including, but not limited to: garage cleanout
+                services, organizational add-ons, and any additional services offered through the
+                Platform&apos;s automated upsell system.
+              </li>
+            </ul>
+          </section>
+
           {/* Section 3 */}
           <section className="mb-8">
             <h2 className="mb-4 text-xl font-bold text-yellow-400">3. Cancellation and Refunds</h2>

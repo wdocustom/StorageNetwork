@@ -71,6 +71,39 @@ export default function TermsPage() {
               based on site conditions.</li>
           </ul>
 
+          <h2 className="mt-8 text-lg font-bold text-white">
+            3b. Upsell Services &amp; Network Lead Fees
+          </h2>
+          <p>
+            The Platform may offer optional add-on services (&quot;Upsell Services&quot;) to Customers
+            in connection with a scheduled installation. These include, but are not limited to,
+            garage cleanout services offered prior to an installation date.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Network Lead Fee:</strong> A <strong>10% network lead fee</strong> is applied
+              to all Upsell Services facilitated through the Platform. This fee is calculated on the
+              total price of the upsell item and is deducted from the transaction before installer
+              payout.
+            </li>
+            <li>
+              <strong>Upsell Deposit:</strong> Customers may be required to pay a 50% deposit at
+              the time of confirming an Upsell Service. The remaining balance is collected at the
+              time of service.
+            </li>
+            <li>
+              <strong>Installer Payout:</strong> After the 10% network lead fee is deducted, the
+              installer receives their share of the upsell payment according to the Platform&apos;s
+              standard payout schedule.
+            </li>
+            <li>
+              <strong>Applicable Services:</strong> The 10% network lead fee applies to all
+              Platform-facilitated upsell items including, but not limited to: garage cleanout
+              services, organizational add-ons, and any additional services offered through the
+              Platform&apos;s automated upsell system.
+            </li>
+          </ul>
+
           <h2 className="mt-8 text-lg font-bold text-white">4. Cancellation &amp; Refund Policy</h2>
           <p>
             Customers may cancel a booking with a full deposit refund if cancellation is made
