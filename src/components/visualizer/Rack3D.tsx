@@ -994,7 +994,7 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
 
 // ── Open Shelving Assembly ─────────────────────────────────────────────────
 // Matches real construction: 2×4 vertical corner posts, horizontal 2×4
-// supports (laid flat) running front-to-back at each shelf level,
+// supports (on edge, 3.5" tall) running front-to-back at each shelf level,
 // with 3/4" plywood sheets sitting on top of each support pair.
 // No totes — just open plywood shelving.
 
@@ -1002,9 +1002,9 @@ function ShelvingAssembly({ config }: { config: ShelvingConfig3D }) {
   const { widthIn, frameH, depth, shelves } = config;
   const totalW = widthIn;
 
-  // 2×4 horizontal supports laid flat (POST_W tall, POST_D wide)
-  const SUPPORT_H = POST_W;  // 1.5" — laid flat, narrow face up
-  const SUPPORT_W = POST_D;  // 3.5" — wide face along width direction
+  // 2×4 horizontal supports on edge (POST_D tall, POST_W wide)
+  const SUPPORT_H = POST_D;  // 3.5" — on edge, wide face vertical
+  const SUPPORT_W = POST_W;  // 1.5" — narrow face along width direction
 
   // Posts end so that plywood cap on top reaches frameH
   const postTopY = frameH - PLY_TOP_H;          // top of posts
