@@ -7,9 +7,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 // to avoid creating new HTTP connections on every request. This is critical
 // during traffic spikes — Supabase has a limited connection pool.
 //
-// Connection pooling: When SUPABASE_POOLER_URL is set (Supabase's PgBouncer
-// endpoint), the client routes through the connection pooler to prevent
-// exhausting direct Postgres connections under high concurrency.
+// Note: The Supabase JS client uses PostgREST (HTTP), not direct Postgres
+// connections. Supabase handles connection pooling server-side via PgBouncer.
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _client: SupabaseClient | null = null;
@@ -35,9 +34,7 @@ function resilientFetch(
 
 export function getServiceClient(): SupabaseClient {
   if (!_client) {
-    // Prefer the pooler URL (PgBouncer) for production scalability
-    const url =
-      process.env.SUPABASE_POOLER_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) {
       // Build-time: env vars aren't available. Return a proxy that defers
