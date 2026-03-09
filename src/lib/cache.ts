@@ -138,8 +138,8 @@ export class TtlCache<T> {
 
 // ── Shared cache instances ──────────────────────────────────────────────
 
-/** Cache for ZIP → installer availability lookups (60s TTL) */
-export const zipCache = new TtlCache<unknown>(60_000, "zip");
+/** Cache for ZIP → installer availability lookups (5 min TTL) */
+export const zipCache = new TtlCache<unknown>(300_000, "zip");
 
-/** Cache for installer profile lookups by ID/slug (60s TTL) */
-export const installerCache = new TtlCache<unknown>(60_000, "inst");
+/** Cache for installer profile lookups by ID/slug (5 min TTL) */
+export const installerCache = new TtlCache<unknown>(300_000, "inst");

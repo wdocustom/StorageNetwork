@@ -9,8 +9,8 @@ import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Rate limit tiers (requests per 60-second window)
-const API_LIMIT = 30; // API routes — tighter
-const PAGE_LIMIT = 60; // Page requests — generous
+const API_LIMIT = 100; // API routes — tuned for 2.5M subscriber base
+const PAGE_LIMIT = 200; // Page requests — generous for viral traffic
 
 // Paths whose Cache-Control is driven by Edge Config
 const EDGE_CACHED_PATHS = new Set(["/design", "/join"]);
