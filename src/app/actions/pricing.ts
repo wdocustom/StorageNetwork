@@ -73,12 +73,15 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
       "plywood_top",
       "bestseller_indiana_joe", "bestseller_cornhusker", "bestseller_long_ranger",
+      "bestseller_gas_station",
+      "shelving_shelf_4ft_short", "shelving_shelf_5ft_short", "shelving_shelf_6ft_short",
+      "shelving_shelf_4ft_tall", "shelving_shelf_5ft_tall", "shelving_shelf_6ft_tall",
     ];
 
     for (const field of fields) {
