@@ -53,6 +53,7 @@ export interface MaterialBreakdown {
     screws_1: number;
     plywood_strips: number;
     plywood_top_sheets: number;
+    plywood_shelving_sheets: number;
     lumber_boards: number;
     totes: number;
     wheel_kits: number;

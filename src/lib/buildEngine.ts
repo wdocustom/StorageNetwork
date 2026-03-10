@@ -161,8 +161,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   // ── Shelving accumulators ──────────────────────────────────────────────
   const shelvingCutPlans: ShelvingCutPlanModule[] = [];
   let shelvingPlywoodSheets = 0;
-  const shelvingParts: (CutPart & { unitIdx: number; shelvingKey: string })[] = [];
-  const shelvingMeta: { unitIdx: number; shelvingKey: string; label: string; config: ReturnType<typeof getShelvingConfig> }[] = [];
+  const shelvingModuleMeta: {
+    unitIdx: number;
+    modKey: string;
+    label: string;
+    config: NonNullable<ReturnType<typeof getShelvingConfig>>;
+  }[] = [];
 
   const cutPlans: CutPlanModule[] = [];
 
@@ -199,22 +203,24 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     } = unit;
 
     // ── Shelving unit path ──────────────────────────────────────────────
+    // Shelving parts go into the SAME allParts pool as tote organizer parts
+    // so the FFD bin packer can share boards and carry offcuts across both.
     if (unit.shelvingConfigId) {
       const cfg = getShelvingConfig(unit.shelvingConfigId);
       if (!cfg) return;
 
       const m = cfg.materials;
-      const key = `shelving-${unitIdx}`;
+      const modKey = `shelving-${unitIdx}`;
 
-      // Collect lumber parts for global bin packing
+      // Collect lumber parts into the UNIFIED allParts array
       for (let i = 0; i < m.uprights; i++) {
-        shelvingParts.push({ len: m.uprightLen, name: "Post", type: "upright", unitIdx, shelvingKey: key });
+        allParts.push({ len: m.uprightLen, name: "Post", type: "upright", unitIdx, modKey });
       }
       for (let i = 0; i < m.rails; i++) {
-        shelvingParts.push({ len: m.railLen, name: "Rail", type: "rail", unitIdx, shelvingKey: key });
+        allParts.push({ len: m.railLen, name: "Rail", type: "rail", unitIdx, modKey });
       }
       for (let i = 0; i < m.depthBraces; i++) {
-        shelvingParts.push({ len: m.depthBraceLen, name: "Brace", type: "rail", unitIdx, shelvingKey: key });
+        allParts.push({ len: m.depthBraceLen, name: "Brace", type: "rail", unitIdx, modKey });
       }
 
       // Plywood: each surface = widthIn × depth. A 4×8 sheet = 32 sq ft.
@@ -229,7 +235,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       // Retail price
       gRetail += unit.price;
 
-      shelvingMeta.push({ unitIdx, shelvingKey: key, label: cfg.label, config: cfg });
+      shelvingModuleMeta.push({ unitIdx, modKey, label: cfg.label, config: cfg });
       return;
     }
 
@@ -378,7 +384,10 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     }
   });
 
-  // ── PHASE 2: Global Bin Packing — sort ALL parts longest-first ────────
+  // ── PHASE 2: Unified Global Bin Packing — ALL parts (tote + shelving) ──
+  // Both tote organizer and shelving lumber parts are in allParts.
+  // FFD sorts longest-first so tall uprights fill boards first, then shorter
+  // rails/braces/plates fill the remaining offcuts — across unit types.
   allParts.sort((a, b) => b.len - a.len);
   const globalBoards: Board[] = [];
 
@@ -399,28 +408,51 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
   gBoards = globalBoards.length;
 
-  // ── PHASE 3: Build per-module cut plans with offcut carry-forward ─────
-  // Process modules in BUILD ORDER (bottom tiers first L→R) so offcuts
-  // from earlier modules are available to later ones — just like the real
-  // build sequence.  Each module tries to place cuts on carry-forward
-  // boards before opening fresh stock.
+  // ── PHASE 3: Unified per-module cut plans with offcut carry-forward ────
+  // Process ALL modules (tote + shelving) in BUILD ORDER so offcuts from
+  // earlier modules are available to later ones — just like the real build
+  // sequence. A tote module's post waste can fill a shelving rail, and vice
+  // versa. Each module tries to place cuts on carry-forward boards before
+  // opening fresh stock.
 
   interface VisualCut extends CutPart { modKey: string }
 
-  // Sort modules by build order: unit → bottom tier first → left first
-  const buildOrderMeta = [...moduleMetadata].sort((a, b) => {
+  // Build a unified ordered list of all module keys (tote + shelving)
+  // Tote modules: sorted by unit → bottom tier → left-to-right
+  // Shelving modules: sorted by unitIdx, placed after tote modules of the same unit
+  const allBuildOrderKeys: { modKey: string; unitIdx: number; sortOrder: number }[] = [];
+
+  // Add tote modules
+  const sortedToteMeta = [...moduleMetadata].sort((a, b) => {
     if (a.unitIdx !== b.unitIdx) return a.unitIdx - b.unitIdx;
     if (a.heightTierIndex !== b.heightTierIndex) return a.heightTierIndex - b.heightTierIndex;
     return a.widthModIndex - b.widthModIndex;
   });
+  for (const meta of sortedToteMeta) {
+    allBuildOrderKeys.push({ modKey: meta.modKey, unitIdx: meta.unitIdx, sortOrder: meta.unitIdx * 1000 + meta.heightTierIndex * 10 + meta.widthModIndex });
+  }
 
-  // Single FFD pass, processing one module at a time in build order
+  // Add shelving modules (after tote modules at same unitIdx)
+  for (const sm of shelvingModuleMeta) {
+    allBuildOrderKeys.push({ modKey: sm.modKey, unitIdx: sm.unitIdx, sortOrder: sm.unitIdx * 1000 + 999 });
+  }
+
+  // Final sort: by sortOrder so tote tiers come before shelving at the same unit index
+  allBuildOrderKeys.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Build-order index map — UNIFIED across tote and shelving modules
+  const buildOrderMap = new Map<string, number>();
+  allBuildOrderKeys.forEach((entry, idx) => {
+    buildOrderMap.set(entry.modKey, idx);
+  });
+
+  // Single FFD visual pass, processing one module at a time in build order
   const visualBoards: { cuts: VisualCut[]; rem: number }[] = [];
 
-  for (const meta of buildOrderMeta) {
+  for (const entry of allBuildOrderKeys) {
     const moduleParts: VisualCut[] = allParts
-      .filter((p) => p.unitIdx === meta.unitIdx && p.modKey === meta.modKey)
-      .map((p) => ({ len: p.len, name: p.name, type: p.type, modKey: meta.modKey }));
+      .filter((p) => p.modKey === entry.modKey)
+      .map((p) => ({ len: p.len, name: p.name, type: p.type, modKey: entry.modKey }));
 
     moduleParts.sort((a, b) => b.len - a.len);
 
@@ -440,24 +472,21 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     }
   }
 
-  // Build-order index map so we can distinguish prior vs later modules
-  const buildOrderMap = new Map<string, number>();
-  buildOrderMeta.forEach((meta, idx) => {
-    buildOrderMap.set(meta.modKey, idx);
-  });
-
-  // Helper: human-readable module label
+  // Helper: human-readable module label (handles both tote and shelving)
   function modLabel(mk: string): string {
+    if (mk.startsWith("shelving-")) {
+      const sm = shelvingModuleMeta.find((m) => m.modKey === mk);
+      return sm ? `Shelf` : "?";
+    }
     const m = moduleMetadata.find((mm) => mm.modKey === mk);
     if (!m) return "?";
     return `Mod ${m.widthModIndex + 1}`;
   }
 
-  // Extract per-module boards (in engine order for cutPlans array)
-  for (const meta of moduleMetadata) {
-    const modKey = meta.modKey;
+  // Shared board extraction logic — used for both tote modules and shelving
+  function extractModuleBoards(modKey: string): Board[] {
     const myOrder = buildOrderMap.get(modKey)!;
-    const moduleBoards: Board[] = [];
+    const boards: Board[] = [];
 
     for (const vb of visualBoards) {
       const myCuts = vb.cuts.filter((c) => c.modKey === modKey);
@@ -480,7 +509,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         laterLbl = `→ ${names.join(", ")}`;
       }
 
-      moduleBoards.push({
+      boards.push({
         cuts: myCuts.map((c) => ({ len: c.len, name: c.name, type: c.type })),
         rem: vb.rem,
         ...(priorLen > 0 ? { priorUsed: priorLen } : {}),
@@ -488,12 +517,17 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       });
     }
 
+    return boards;
+  }
+
+  // Extract tote module cut plans
+  for (const meta of moduleMetadata) {
     cutPlans.push({
       unitIndex: meta.unitIdx + 1,
       moduleIndex: meta.widthModIndex + 1,
       cols: meta.cols,
       rows: meta.rows,
-      boards: moduleBoards,
+      boards: extractModuleBoards(meta.modKey),
       stripCount: meta.stripCount,
       railStrips: meta.railStrips,
       backSupports: meta.backSupports,
@@ -504,61 +538,19 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     });
   }
 
-  // ── PHASE 4: Shelving Bin Packing & Cut Plans ───────────────────────────
-  if (shelvingParts.length > 0) {
-    shelvingParts.sort((a, b) => b.len - a.len);
-    const shelvingBoards: { cuts: (CutPart & { shelvingKey: string })[]; rem: number }[] = [];
-
-    for (const p of shelvingParts) {
-      let placed = false;
-      for (const b of shelvingBoards) {
-        if (b.rem >= p.len + KERF) {
-          b.cuts.push(p);
-          b.rem -= p.len + KERF;
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        shelvingBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
-      }
-    }
-
-    gBoards += shelvingBoards.length;
-
-    // Build per-unit shelving cut plans
-    for (const meta of shelvingMeta) {
-      const cfg = meta.config;
-      if (!cfg) continue;
-
-      const unitBoards: Board[] = [];
-      for (const sb of shelvingBoards) {
-        const myCuts = sb.cuts.filter((c) => c.shelvingKey === meta.shelvingKey);
-        if (myCuts.length === 0) continue;
-
-        const otherUsed = sb.cuts
-          .filter((c) => c.shelvingKey !== meta.shelvingKey)
-          .reduce((sum, c) => sum + c.len + KERF, 0);
-
-        unitBoards.push({
-          cuts: myCuts.map((c) => ({ len: c.len, name: c.name, type: c.type })),
-          rem: sb.rem,
-          ...(otherUsed > 0 ? { priorUsed: otherUsed } : {}),
-        });
-      }
-
-      shelvingCutPlans.push({
-        unitIndex: meta.unitIdx + 1,
-        shelvingLabel: cfg.label,
-        widthIn: cfg.widthIn,
-        frameH: cfg.frameH,
-        depth: cfg.depth,
-        shelves: cfg.shelves,
-        boards: unitBoards,
-        plywoodSurfaces: cfg.materials.plywoodSurfaces,
-        plywoodSqFtPerSurface: cfg.materials.plywoodSqFtPerSurface,
-      });
-    }
+  // Extract shelving cut plans (same board pool, same offcut tracking)
+  for (const sm of shelvingModuleMeta) {
+    shelvingCutPlans.push({
+      unitIndex: sm.unitIdx + 1,
+      shelvingLabel: sm.config.label,
+      widthIn: sm.config.widthIn,
+      frameH: sm.config.frameH,
+      depth: sm.config.depth,
+      shelves: sm.config.shelves,
+      boards: extractModuleBoards(sm.modKey),
+      plywoodSurfaces: sm.config.materials.plywoodSurfaces,
+      plywoodSqFtPerSurface: sm.config.materials.plywoodSqFtPerSurface,
+    });
   }
 
   // ── Final Plywood Calculation ──────────────────────────────────────────

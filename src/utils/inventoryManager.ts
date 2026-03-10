@@ -56,6 +56,7 @@ export interface RawJobNeeds {
   screws_1: number;
   plywood_strips: number;
   plywood_top_sheets: number;
+  plywood_shelving_sheets: number;
   lumber_boards: number;
   totes: number;
   wheel_kits: number;
@@ -109,12 +110,14 @@ export function calculateNetPurchaseList(
 
   // ── Plywood ──────────────────────────────────────────────────────────
   // Top sheets are always purchased fresh (cut to unit width)
+  // Shelving sheets are always purchased fresh (cut to shelf dimensions)
   // Strips: use inventory offcuts + this job's top offcuts first
   const stripsFromTops = raw.plywood_top_sheets * BOX_SIZES.plywood_strips_per_top_offcut;
   const availableStrips = inventory.plywood_strips + stripsFromTops;
   const netStripNeed = Math.max(0, raw.plywood_strips - availableStrips);
   const structSheetsToBuy = Math.ceil(netStripNeed / BOX_SIZES.plywood_strips_per_struct_sheet);
-  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy;
+  const shelvingSheets = raw.plywood_shelving_sheets || 0;
+  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + shelvingSheets;
 
   // Remaining strips after this job
   const stripsAfter =
@@ -123,11 +126,16 @@ export function calculateNetPurchaseList(
     raw.plywood_strips;
 
   if (totalPlywoodSheets > 0) {
-    let detail = "Total Sheets";
-    if (raw.plywood_top_sheets > 0 && structSheetsToBuy > 0) {
-      detail = `${raw.plywood_top_sheets} Top + ${structSheetsToBuy} Structural`;
-    } else if (raw.plywood_top_sheets > 0) {
-      detail = `${raw.plywood_top_sheets} Top (strips from offcuts)`;
+    const parts: string[] = [];
+    if (raw.plywood_top_sheets > 0) parts.push(`${raw.plywood_top_sheets} Top`);
+    if (structSheetsToBuy > 0) parts.push(`${structSheetsToBuy} Structural`);
+    if (shelvingSheets > 0) parts.push(`${shelvingSheets} Shelving`);
+
+    let detail = parts.length > 1 ? parts.join(" + ") : "Total Sheets";
+
+    // If no structural sheets needed but we have strips, note savings
+    if (raw.plywood_strips > 0 && structSheetsToBuy === 0 && parts.length > 0) {
+      detail += " (strips from offcuts)";
     }
 
     // Plywood is partially covered if we saved on structural sheets

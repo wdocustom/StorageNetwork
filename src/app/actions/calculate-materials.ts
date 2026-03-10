@@ -205,6 +205,7 @@ export async function calculateMaterialCostServer(
       screws_1: totalScrew1,
       plywood_strips: globalStripCount,
       plywood_top_sheets: globalTopSheets,
+      plywood_shelving_sheets: shelvingPlywoodSheets,
       lumber_boards: totalBoards,
       totes: totalTotes,
       wheel_kits: totalWheelKits,
