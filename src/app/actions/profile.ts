@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { TtlCache } from "@/lib/cache";
+import { TtlCache, invalidateInstallerCacheForUser } from "@/lib/cache";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,16 +27,17 @@ async function requireSelf(targetUserId: string): Promise<{ userId: string } | {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const profileCache = new TtlCache<any>(60_000);
 
-/** Revalidate the public portfolio page so Next.js serves fresh data. */
+/** Revalidate the public portfolio page and bust installer cache. */
 async function revalidatePortfolio(userId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("slug")
+    .select("slug, ref_slug")
     .eq("id", userId)
     .single();
   if (data?.slug) {
     revalidatePath(`/p/${data.slug}`);
   }
+  await invalidateInstallerCacheForUser(userId, data?.slug, data?.ref_slug);
 }
 
 export interface ProfileUpdateInput {

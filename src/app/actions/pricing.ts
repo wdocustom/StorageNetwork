@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import type { InstallerPricing } from "@/types/viewModels";
+import { invalidateInstallerCacheForUser } from "@/lib/cache";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing — Server actions for installer custom pricing
@@ -57,10 +58,10 @@ export async function updateInstallerPricing(
   }
 
   try {
-    // Verify Pro status
+    // Verify Pro status and fetch slug for cache invalidation
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("is_pro")
+      .select("is_pro, slug, ref_slug")
       .eq("id", installerId)
       .single();
 
@@ -147,10 +148,16 @@ export async function updateInstallerPricing(
     }
 
     // If all values match platform defaults, store null (use defaults)
+    const v = validated as Record<string, unknown>;
     const hasCustomValues = fields.some(
       (f) => validated[f] !== undefined
-    ) || (validated as Record<string, unknown>).mini_disabled === true
-      || (validated as Record<string, unknown>).addon_pricing !== undefined;
+    ) || v.mini_disabled === true
+      || v.open_shelving_disabled === true
+      || v.bestseller_indiana_joe_disabled === true
+      || v.bestseller_cornhusker_disabled === true
+      || v.bestseller_long_ranger_disabled === true
+      || v.bestseller_gas_station_disabled === true
+      || v.addon_pricing !== undefined;
 
     const pricingConfig = hasCustomValues ? validated : null;
 
@@ -163,6 +170,11 @@ export async function updateInstallerPricing(
       console.error("[Pricing Update] Error:", updateError);
       return { success: false, error: "Failed to save pricing." };
     }
+
+    // Invalidate installer cache so /design pages pick up changes immediately
+    const slug = (profile as Record<string, unknown>).slug as string | null;
+    const refSlug = (profile as Record<string, unknown>).ref_slug as string | null;
+    await invalidateInstallerCacheForUser(installerId, slug, refSlug);
 
     return { success: true, pricing: validated };
   } catch {

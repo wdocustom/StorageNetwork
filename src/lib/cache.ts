@@ -143,3 +143,18 @@ export const zipCache = new TtlCache<unknown>(300_000, "zip");
 
 /** Cache for installer profile lookups by ID/slug (5 min TTL) */
 export const installerCache = new TtlCache<unknown>(300_000, "inst");
+
+/**
+ * Invalidate all installer cache entries for a given user.
+ * Call after updating profile, pricing, or services config so
+ * the /design page picks up changes immediately.
+ */
+export async function invalidateInstallerCacheForUser(
+  userId: string,
+  slug?: string | null,
+  refSlug?: string | null,
+): Promise<void> {
+  await installerCache.invalidate(`id:${userId}`);
+  if (slug) await installerCache.invalidate(`slug:${slug}`);
+  if (refSlug) await installerCache.invalidate(`ref:${refSlug}`);
+}
