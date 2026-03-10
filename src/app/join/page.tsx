@@ -109,7 +109,7 @@ export default function JoinPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── TOP: Hero — two-col on desktop ───────────────────────── */}
-      <div className="relative flex min-h-screen flex-col lg:flex-row">
+      <div className="relative flex flex-col lg:min-h-screen lg:flex-row">
         {/* ── LEFT: Value Prop ──────────────────────────────────────── */}
         <div className="hidden w-1/2 flex-col justify-center px-16 lg:flex">
           <div className="max-w-lg">
@@ -168,7 +168,7 @@ export default function JoinPage() {
         </div>
 
         {/* ── RIGHT: Signup Form ───────────────────────────────────── */}
-        <div className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-1/2 lg:bg-slate-900/50 lg:py-0">
+        <div className="flex w-full flex-col items-center px-6 py-12 lg:w-1/2 lg:justify-center lg:bg-slate-900/50 lg:py-0">
           <div className="w-full max-w-sm">
             {/* Mobile header */}
             <div className="mb-8 text-center lg:hidden">
