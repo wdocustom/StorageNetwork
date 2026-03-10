@@ -224,7 +224,7 @@ export default function ServicesSection({ userId, initialServices }: ServicesSec
                 : "border-slate-800 bg-slate-800/20 opacity-60"
             }`}
           >
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
               {/* Toggle */}
               <button
                 type="button"
@@ -245,11 +245,11 @@ export default function ServicesSection({ userId, initialServices }: ServicesSec
                 value={service.name}
                 onChange={(e) => updateServiceField(service.id, "name", e.target.value)}
                 placeholder="Service name"
-                className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-bold text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-bold text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
               />
 
-              {/* Price */}
-              <div className="flex items-center gap-1">
+              {/* Price + Delete */}
+              <div className="flex shrink-0 items-center gap-1">
                 <DollarSign className="h-3.5 w-3.5 text-stone-500" />
                 <input
                   type="number"
@@ -260,17 +260,15 @@ export default function ServicesSection({ userId, initialServices }: ServicesSec
                   placeholder="0"
                   className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-sm font-bold text-yellow-400 placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => removeCustomService(service.id)}
+                  className="shrink-0 rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                  title="Remove service"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-
-              {/* Delete */}
-              <button
-                type="button"
-                onClick={() => removeCustomService(service.id)}
-                className="shrink-0 rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                title="Remove service"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
             </div>
 
             {/* Description */}
