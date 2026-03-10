@@ -1322,6 +1322,124 @@ export default function JobTicket({
         </details>
       )}
 
+      {/* ── Shelving Cut Plan (open shelving units) ────────────────────── */}
+      {buildManifest && buildManifest.shelving_cut_plans && buildManifest.shelving_cut_plans.length > 0 && (
+        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+          <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
+            Shelving Cut Plan
+          </summary>
+          <div className="border-t border-slate-800 p-4 space-y-6">
+            {buildManifest.shelving_cut_plans.map((mod, mi) => (
+              <div key={mi} className="rounded-lg border-l-[3px] border-l-emerald-500 pl-3">
+                <h3 className="mb-1 text-sm font-bold text-emerald-400">
+                  Open Shelving — {mod.shelvingLabel}
+                </h3>
+                <p className="mb-3 text-[11px] text-stone-500">
+                  {mod.widthIn}&quot;W × {mod.frameH}&quot;H × {mod.depth}&quot;D — {mod.shelves} {mod.shelves === 1 ? "shelf" : "shelves"} + top — {mod.plywoodSurfaces} plywood surface{mod.plywoodSurfaces > 1 ? "s" : ""} ({mod.plywoodSqFtPerSurface.toFixed(1)} sq ft each)
+                </p>
+
+                {/* Board cut visuals */}
+                <div className="space-y-2.5">
+                  {mod.boards.map((board, bi) => (
+                    <div
+                      key={bi}
+                      className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
+                    >
+                      <div className="mb-1 flex justify-between text-[10px]">
+                        <span className="font-semibold text-stone-400">
+                          Board {bi + 1}
+                          <span className="ml-1.5 text-stone-600">{board.priorUsed ? "offcut" : "96\" stock"}</span>
+                        </span>
+                        <span className="font-mono font-bold text-red-400/70">
+                          {toFraction(board.rem)}&quot; waste
+                        </span>
+                      </div>
+                      <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
+                        {board.priorUsed != null && board.priorUsed > 0 && (
+                          <div
+                            className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-stone-500"
+                            style={{
+                              width: `${(board.priorUsed / 96) * 100}%`,
+                              background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.25), rgba(100,116,139,0.25) 3px, rgba(71,85,105,0.15) 3px, rgba(71,85,105,0.15) 6px)",
+                              minWidth: "30px",
+                            }}
+                            title={`Other unit — ${toFraction(board.priorUsed)}"`}
+                          >
+                            {toFraction(board.priorUsed)}&quot; used
+                          </div>
+                        )}
+                        {board.cuts.map((cut, ci) => {
+                          const pct = (cut.len / 96) * 100;
+                          const color =
+                            cut.type === "rail" ? "#10b981" : "#3b82f6";
+                          return (
+                            <div
+                              key={ci}
+                              className="flex items-center justify-center border-r border-slate-900/60 text-[10px] font-extrabold text-white"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: color,
+                                minWidth: "24px",
+                                textShadow: "0 1px 2px rgba(0,0,0,0.4)",
+                              }}
+                              title={`${cut.name} — ${toFraction(cut.len)}"`}
+                            >
+                              <span className="font-semibold opacity-80 mr-1">{cut.name}</span>
+                              <span className="font-mono">{toFraction(cut.len)}&quot;</span>
+                            </div>
+                          );
+                        })}
+                        {board.rem > 0 && (
+                          <div
+                            className="flex-1"
+                            style={{
+                              background:
+                                "repeating-linear-gradient(45deg, rgba(239,68,68,0.18), rgba(239,68,68,0.18) 4px, rgba(220,38,38,0.08) 4px, rgba(220,38,38,0.08) 8px)",
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Shelving dimensions summary */}
+                <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                    Frame
+                  </p>
+                  <p className="text-xs text-stone-400">
+                    4 corner posts @ <span className="font-bold text-blue-400">{toFraction(mod.frameH)}&quot;</span> — rails @ <span className="font-bold text-emerald-400">{mod.widthIn}&quot;</span> — depth braces @ <span className="font-bold text-emerald-400">{mod.depth}&quot;</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded-sm bg-blue-500" />
+                Vertical Posts
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded-sm bg-emerald-500" />
+                Rails / Braces
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div
+                  className="h-3 w-3 rounded-sm"
+                  style={{
+                    background:
+                      "repeating-linear-gradient(45deg, rgba(239,68,68,0.3), rgba(239,68,68,0.3) 2px, rgba(220,38,38,0.1) 2px, rgba(220,38,38,0.1) 4px)",
+                  }}
+                />
+                Scrap
+              </div>
+            </div>
+          </div>
+        </details>
+      )}
+
       {/* ── Photo Completion Modal ───────────────────────────────────── */}
       {showCompletionModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">

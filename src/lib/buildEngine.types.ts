@@ -25,6 +25,8 @@ export interface QuoteUnit {
   depth: number;
   desc: string;
   addons?: SectionAddon[]; // Per-section addons (Organizer Customization)
+  /** When set, this unit is an open shelving unit — routed to shelving cut plan handler */
+  shelvingConfigId?: string;
 }
 
 export interface CutPart {
@@ -55,6 +57,18 @@ export interface CutPlanModule {
   heightTierTotal?: number; // total number of height tiers for this width module
 }
 
+export interface ShelvingCutPlanModule {
+  unitIndex: number;
+  shelvingLabel: string;
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+  boards: Board[];
+  plywoodSurfaces: number;
+  plywoodSqFtPerSurface: number;
+}
+
 export interface ShoppingItem {
   name: string;
   detail: string;
@@ -71,6 +85,7 @@ export interface Financials {
 export interface BuildManifest {
   shopping_list: ShoppingItem[];
   cut_plan_visuals: CutPlanModule[];
+  shelving_cut_plans?: ShelvingCutPlanModule[];
   financials: Financials;
   totals: {
     boards: number;

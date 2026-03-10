@@ -517,6 +517,7 @@ export default function BuildConfiguratorPage() {
       hasTotes: u.hasTotes,
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
+      shelvingConfigId: u.shelvingConfigId,
     }));
     calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
   }, [units, materialPrices]);
@@ -538,6 +539,7 @@ export default function BuildConfiguratorPage() {
       totalH: u.totalH || 0,
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
+      shelvingConfigId: u.shelvingConfigId,
     }));
     generateBuildManifestServer(quoteUnits).then(setAggregateManifest).catch(() => {});
   }, [units]);
@@ -571,6 +573,7 @@ export default function BuildConfiguratorPage() {
       totalH: u.totalH || 0,
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
+      shelvingConfigId: u.shelvingConfigId,
     }));
 
     if (buildResult && units.length === 0) {

@@ -18,6 +18,7 @@ export type {
   CutPart,
   Board,
   CutPlanModule,
+  ShelvingCutPlanModule,
   ShoppingItem,
   Financials,
   BuildManifest,
@@ -32,10 +33,13 @@ import type {
   CutPart,
   Board,
   CutPlanModule,
+  ShelvingCutPlanModule,
   ShoppingItem,
   Financials,
   BuildManifest,
 } from "@/lib/buildEngine.types";
+
+import { getShelvingConfig } from "@/lib/shelving";
 
 // ── Constants (PROPRIETARY — never exposed to client) ────────────────────
 
@@ -154,6 +158,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   let gAddonHingePairs = 0;
   let gAddonRailsRemoved = 0;
 
+  // ── Shelving accumulators ──────────────────────────────────────────────
+  const shelvingCutPlans: ShelvingCutPlanModule[] = [];
+  let shelvingPlywoodSheets = 0;
+  const shelvingParts: (CutPart & { unitIdx: number; shelvingKey: string })[] = [];
+  const shelvingMeta: { unitIdx: number; shelvingKey: string; label: string; config: ReturnType<typeof getShelvingConfig> }[] = [];
+
   const cutPlans: CutPlanModule[] = [];
 
   // modKey encodes: unitIdx, widthModIndex, heightTierIndex
@@ -187,6 +197,41 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       hasWheels,
       hasTop
     } = unit;
+
+    // ── Shelving unit path ──────────────────────────────────────────────
+    if (unit.shelvingConfigId) {
+      const cfg = getShelvingConfig(unit.shelvingConfigId);
+      if (!cfg) return;
+
+      const m = cfg.materials;
+      const key = `shelving-${unitIdx}`;
+
+      // Collect lumber parts for global bin packing
+      for (let i = 0; i < m.uprights; i++) {
+        shelvingParts.push({ len: m.uprightLen, name: "Post", type: "upright", unitIdx, shelvingKey: key });
+      }
+      for (let i = 0; i < m.rails; i++) {
+        shelvingParts.push({ len: m.railLen, name: "Rail", type: "rail", unitIdx, shelvingKey: key });
+      }
+      for (let i = 0; i < m.depthBraces; i++) {
+        shelvingParts.push({ len: m.depthBraceLen, name: "Brace", type: "rail", unitIdx, shelvingKey: key });
+      }
+
+      // Plywood: each surface = widthIn × depth. A 4×8 sheet = 32 sq ft.
+      const totalSqFt = m.plywoodSurfaces * m.plywoodSqFtPerSurface;
+      const sheetsNeeded = Math.ceil(totalSqFt / 32);
+      shelvingPlywoodSheets += sheetsNeeded;
+
+      // Screws
+      gScrew3 += m.screws3;
+      gScrew16 += m.screws16;
+
+      // Retail price
+      gRetail += unit.price;
+
+      shelvingMeta.push({ unitIdx, shelvingKey: key, label: cfg.label, config: cfg });
+      return;
+    }
 
     if (totalCols < 1 || totalRows < 1) return;
 
@@ -459,13 +504,70 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     });
   }
 
+  // ── PHASE 4: Shelving Bin Packing & Cut Plans ───────────────────────────
+  if (shelvingParts.length > 0) {
+    shelvingParts.sort((a, b) => b.len - a.len);
+    const shelvingBoards: { cuts: (CutPart & { shelvingKey: string })[]; rem: number }[] = [];
+
+    for (const p of shelvingParts) {
+      let placed = false;
+      for (const b of shelvingBoards) {
+        if (b.rem >= p.len + KERF) {
+          b.cuts.push(p);
+          b.rem -= p.len + KERF;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        shelvingBoards.push({ cuts: [p], rem: STOCK_LENGTH - p.len });
+      }
+    }
+
+    gBoards += shelvingBoards.length;
+
+    // Build per-unit shelving cut plans
+    for (const meta of shelvingMeta) {
+      const cfg = meta.config;
+      if (!cfg) continue;
+
+      const unitBoards: Board[] = [];
+      for (const sb of shelvingBoards) {
+        const myCuts = sb.cuts.filter((c) => c.shelvingKey === meta.shelvingKey);
+        if (myCuts.length === 0) continue;
+
+        const otherUsed = sb.cuts
+          .filter((c) => c.shelvingKey !== meta.shelvingKey)
+          .reduce((sum, c) => sum + c.len + KERF, 0);
+
+        unitBoards.push({
+          cuts: myCuts.map((c) => ({ len: c.len, name: c.name, type: c.type })),
+          rem: sb.rem,
+          ...(otherUsed > 0 ? { priorUsed: otherUsed } : {}),
+        });
+      }
+
+      shelvingCutPlans.push({
+        unitIndex: meta.unitIdx + 1,
+        shelvingLabel: cfg.label,
+        widthIn: cfg.widthIn,
+        frameH: cfg.frameH,
+        depth: cfg.depth,
+        shelves: cfg.shelves,
+        boards: unitBoards,
+        plywoodSurfaces: cfg.materials.plywoodSurfaces,
+        plywoodSqFtPerSurface: cfg.materials.plywoodSqFtPerSurface,
+      });
+    }
+  }
+
   // ── Final Plywood Calculation ──────────────────────────────────────────
   const stripCredit = globalTopSheets * 27;
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
 
   const structSheets = Math.ceil(netStrips / 72);
-  const gSheets = structSheets + globalTopSheets;
+  const gSheets = structSheets + globalTopSheets + shelvingPlywoodSheets;
 
   // ── Screw Box Math ────────────────────────────────────────────────────
   const boxes16 = Math.ceil(gScrew16 / 158);
@@ -478,7 +580,11 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   ];
 
   let plyDetail = "Total Sheets";
-  if (globalTopSheets > 0) {
+  if (shelvingPlywoodSheets > 0 && globalTopSheets > 0) {
+    plyDetail = `${globalTopSheets} Top + ${structSheets} Struct + ${shelvingPlywoodSheets} Shelving`;
+  } else if (shelvingPlywoodSheets > 0) {
+    plyDetail = `${shelvingPlywoodSheets} Shelving${structSheets > 0 ? ` + ${structSheets} Struct` : ""}`;
+  } else if (globalTopSheets > 0) {
     plyDetail = `${globalTopSheets} Top + ${structSheets} Struct (Offcuts Used)`;
   }
   shopping_list.push({ name: "Plywood", detail: plyDetail, qty: gSheets });
@@ -538,6 +644,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   return {
     shopping_list,
     cut_plan_visuals: cutPlans,
+    ...(shelvingCutPlans.length > 0 ? { shelving_cut_plans: shelvingCutPlans } : {}),
     financials: {
       retailTotal: gRetail,
       depositRate: effectiveRate,

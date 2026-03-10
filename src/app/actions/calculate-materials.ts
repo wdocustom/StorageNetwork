@@ -14,6 +14,7 @@
 
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
+import { getShelvingConfig } from "@/lib/shelving";
 
 // ── Constants (protected — never sent to browser) ────────────────────────
 
@@ -62,7 +63,32 @@ export async function calculateMaterialCostServer(
   let totalScrew3 = 0;
   let totalScrew1 = 0;
 
+  let shelvingPlywoodSheets = 0;
+
   for (const unit of units) {
+    // ── Shelving unit path ────────────────────────────────────────────────
+    if (unit.shelvingConfigId) {
+      const cfg = getShelvingConfig(unit.shelvingConfigId);
+      if (!cfg) continue;
+
+      const m = cfg.materials;
+
+      // Lumber parts for bin packing
+      for (let i = 0; i < m.uprights; i++) allParts.push(m.uprightLen);
+      for (let i = 0; i < m.rails; i++) allParts.push(m.railLen);
+      for (let i = 0; i < m.depthBraces; i++) allParts.push(m.depthBraceLen);
+
+      // Plywood sheets
+      const totalSqFt = m.plywoodSurfaces * m.plywoodSqFtPerSurface;
+      shelvingPlywoodSheets += Math.ceil(totalSqFt / 32);
+
+      // Screws
+      totalScrew3 += m.screws3;
+      totalScrew16 += m.screws16;
+
+      continue;
+    }
+
     const { cols: totalCols, rows: totalRows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
     if (totalCols < 1 || totalRows < 1) continue;
 
@@ -150,7 +176,7 @@ export async function calculateMaterialCostServer(
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
   const structSheets = Math.ceil(netStrips / 72);
-  totalSheets = structSheets + globalTopSheets;
+  totalSheets = structSheets + globalTopSheets + shelvingPlywoodSheets;
 
   const items: MaterialBreakdown["items"] = [];
 

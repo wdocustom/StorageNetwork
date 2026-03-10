@@ -34,6 +34,8 @@ export interface MaterialConfig {
   hasTotes?: boolean;
   hasWheels?: boolean;
   hasTop?: boolean;
+  /** When set, unit is open shelving — uses shelving material calculation */
+  shelvingConfigId?: string;
 }
 
 export interface MaterialBreakdown {
