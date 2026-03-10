@@ -65,6 +65,11 @@ export async function calculateMaterialCostServer(
 
   let shelvingPlywoodSheets = 0;
 
+  // Addon accumulators
+  let addonDoors = 0;
+  let addonPanels = 0;
+  let addonShelves = 0;
+
   for (const unit of units) {
     // ── Shelving unit path ────────────────────────────────────────────────
     if (unit.shelvingConfigId) {
@@ -148,7 +153,44 @@ export async function calculateMaterialCostServer(
       else sheetsForUnit = 1;
       globalTopSheets += sheetsForUnit;
     }
+
+    // ── Section Addons (material impact) ──────────────────────────────
+    const unitAddons = unit.addons ?? [];
+    for (const addon of unitAddons) {
+      switch (addon.type) {
+        case "rail_removed":
+          // Saves 2 plywood strips and 8 screws (1⅝")
+          globalStripCount -= 2;
+          totalScrew16 -= 8;
+          break;
+        case "shelf":
+          addonShelves++;
+          // Adds 4 screws (1⅝") to mount the shelf insert
+          totalScrew16 += 4;
+          break;
+        case "plywood_door":
+          if (addon.target === "doors_on") {
+            addonDoors += totalCols;
+          } else {
+            addonDoors++;
+          }
+          break;
+        case "side_panel":
+          addonPanels++;
+          break;
+      }
+    }
   }
+
+  // Clamp after addon adjustments
+  if (globalStripCount < 0) globalStripCount = 0;
+  if (totalScrew16 < 0) totalScrew16 = 0;
+
+  // Addon plywood sheets: doors (~4/sheet), panels (~2/sheet), shelves (~4/sheet)
+  const addonDoorSheets = addonDoors > 0 ? Math.ceil(addonDoors / 4) : 0;
+  const addonPanelSheets = addonPanels > 0 ? Math.ceil(addonPanels / 2) : 0;
+  const addonShelfSheets = addonShelves > 0 ? Math.ceil(addonShelves / 4) : 0;
+  const totalAddonSheets = addonDoorSheets + addonPanelSheets + addonShelfSheets;
 
   // Global Bin Packing (FFD)
   allParts.sort((a, b) => b - a);
@@ -176,7 +218,7 @@ export async function calculateMaterialCostServer(
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
   const structSheets = Math.ceil(netStrips / 72);
-  totalSheets = structSheets + globalTopSheets + shelvingPlywoodSheets;
+  totalSheets = structSheets + globalTopSheets + shelvingPlywoodSheets + totalAddonSheets;
 
   const items: MaterialBreakdown["items"] = [];
 
@@ -206,6 +248,7 @@ export async function calculateMaterialCostServer(
       plywood_strips: globalStripCount,
       plywood_top_sheets: globalTopSheets,
       plywood_shelving_sheets: shelvingPlywoodSheets,
+      plywood_addon_sheets: totalAddonSheets,
       lumber_boards: totalBoards,
       totes: totalTotes,
       wheel_kits: totalWheelKits,

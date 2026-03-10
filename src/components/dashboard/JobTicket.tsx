@@ -1011,12 +1011,28 @@ export default function JobTicket({
           </h2>
           <div className="space-y-2">
             {quoteData.map((unit, i) => {
-              const u = unit as MaterialConfig & { desc?: string; price?: number };
-              const addonsList: string[] = [
-                u.hasTotes ? "Yes Totes" : "No Totes",
-                u.hasWheels ? "Yes Wheels" : "No Wheels",
-                u.hasTop ? "Yes Top" : "No Top",
+              const u = unit as MaterialConfig & { desc?: string; price?: number; addons?: import("@/types/viewModels").SectionAddon[]; paintFrameColor?: string | null; paintDoorColor?: string | null; paintSidePanelColor?: string | null };
+              const featureList: string[] = [
+                u.hasTotes ? "Totes" : "No Totes",
+                u.hasWheels ? "Wheels" : "No Wheels",
+                u.hasTop ? "Top" : "No Top",
               ];
+              // Addon summary
+              const unitAddons = u.addons ?? [];
+              const doorCount = unitAddons.filter((a) => a.type === "plywood_door").reduce((n, a) => n + (a.target === "doors_on" ? (u.cols || 1) : 1), 0);
+              const panelCount = unitAddons.filter((a) => a.type === "side_panel").length;
+              const railRemovedCount = unitAddons.filter((a) => a.type === "rail_removed").length;
+              const shelfCount = unitAddons.filter((a) => a.type === "shelf").length;
+              if (doorCount > 0) featureList.push(`${doorCount} Door${doorCount > 1 ? "s" : ""}`);
+              if (panelCount > 0) featureList.push(`${panelCount} Panel${panelCount > 1 ? "s" : ""}`);
+              if (railRemovedCount > 0) featureList.push(`${railRemovedCount} Rail${railRemovedCount > 1 ? "s" : ""} Removed`);
+              if (shelfCount > 0) featureList.push(`${shelfCount} Shelf Insert${shelfCount > 1 ? "s" : ""}`);
+              // Paint summary
+              const paintParts: string[] = [];
+              if (u.paintFrameColor) paintParts.push(`Frame: ${u.paintFrameColor}`);
+              if (u.paintDoorColor) paintParts.push(`Doors: ${u.paintDoorColor}`);
+              if (u.paintSidePanelColor) paintParts.push(`Panels: ${u.paintSidePanelColor}`);
+              if (paintParts.length > 0) featureList.push(`Paint (${paintParts.join(", ")})`);
               return (
                 <div
                   key={i}
@@ -1027,7 +1043,7 @@ export default function JobTicket({
                       Unit {i + 1}: {u.desc || `${u.cols}x${u.rows}`}
                     </p>
                     <p className="text-[11px] text-stone-500">
-                      {u.toteType || "HDX"} &bull; {addonsList.join(", ")}
+                      {u.toteType || "HDX"} &bull; {featureList.join(", ")}
                     </p>
                   </div>
                   {u.price != null && (

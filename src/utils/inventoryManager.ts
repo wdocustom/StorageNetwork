@@ -57,6 +57,7 @@ export interface RawJobNeeds {
   plywood_strips: number;
   plywood_top_sheets: number;
   plywood_shelving_sheets: number;
+  plywood_addon_sheets: number;
   lumber_boards: number;
   totes: number;
   wheel_kits: number;
@@ -117,7 +118,8 @@ export function calculateNetPurchaseList(
   const netStripNeed = Math.max(0, raw.plywood_strips - availableStrips);
   const structSheetsToBuy = Math.ceil(netStripNeed / BOX_SIZES.plywood_strips_per_struct_sheet);
   const shelvingSheets = raw.plywood_shelving_sheets || 0;
-  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + shelvingSheets;
+  const addonSheets = raw.plywood_addon_sheets || 0;
+  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + shelvingSheets + addonSheets;
 
   // Remaining strips after this job
   const stripsAfter =
@@ -130,6 +132,7 @@ export function calculateNetPurchaseList(
     if (raw.plywood_top_sheets > 0) parts.push(`${raw.plywood_top_sheets} Top`);
     if (structSheetsToBuy > 0) parts.push(`${structSheetsToBuy} Structural`);
     if (shelvingSheets > 0) parts.push(`${shelvingSheets} Shelving`);
+    if (addonSheets > 0) parts.push(`${addonSheets} Addon`);
 
     let detail = parts.length > 1 ? parts.join(" + ") : "Total Sheets";
 

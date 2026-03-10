@@ -80,6 +80,12 @@ interface UnitConfig {
   presetGroup?: string;
   /** When set, this unit is an open shelving unit (not a tote organizer) */
   shelvingConfigId?: string;
+  /** Per-section addons (doors, panels, rail removal, shelves) */
+  addons?: import("@/types/viewModels").SectionAddon[];
+  /** Paint color selections */
+  paintFrameColor?: import("@/types/viewModels").PaintColorId | null;
+  paintDoorColor?: import("@/types/viewModels").PaintColorId | null;
+  paintSidePanelColor?: import("@/types/viewModels").PaintColorId | null;
 }
 
 export default function BuildConfiguratorPage() {
@@ -518,6 +524,7 @@ export default function BuildConfiguratorPage() {
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
       shelvingConfigId: u.shelvingConfigId,
+      addons: u.addons,
     }));
     calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
   }, [units, materialPrices]);
@@ -540,6 +547,10 @@ export default function BuildConfiguratorPage() {
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
       shelvingConfigId: u.shelvingConfigId,
+      addons: u.addons,
+      paintFrameColor: u.paintFrameColor,
+      paintDoorColor: u.paintDoorColor,
+      paintSidePanelColor: u.paintSidePanelColor,
     }));
     generateBuildManifestServer(quoteUnits).then(setAggregateManifest).catch(() => {});
   }, [units]);
@@ -574,6 +585,10 @@ export default function BuildConfiguratorPage() {
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
       shelvingConfigId: u.shelvingConfigId,
+      addons: u.addons,
+      paintFrameColor: u.paintFrameColor,
+      paintDoorColor: u.paintDoorColor,
+      paintSidePanelColor: u.paintSidePanelColor,
     }));
 
     if (buildResult && units.length === 0) {

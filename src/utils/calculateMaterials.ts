@@ -36,6 +36,8 @@ export interface MaterialConfig {
   hasTop?: boolean;
   /** When set, unit is open shelving — uses shelving material calculation */
   shelvingConfigId?: string;
+  /** Per-section addons (doors, panels, rail removal, shelves) */
+  addons?: import("@/types/viewModels").SectionAddon[];
 }
 
 export interface MaterialBreakdown {
@@ -54,6 +56,7 @@ export interface MaterialBreakdown {
     plywood_strips: number;
     plywood_top_sheets: number;
     plywood_shelving_sheets: number;
+    plywood_addon_sheets: number;
     lumber_boards: number;
     totes: number;
     wheel_kits: number;

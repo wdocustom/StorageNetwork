@@ -157,6 +157,12 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   let gAddonSidePanels = 0;
   let gAddonHingePairs = 0;
   let gAddonRailsRemoved = 0;
+  let gAddonShelves = 0;
+
+  // Paint accumulators
+  let gPaintFrameUnits = 0;
+  let gPaintDoorUnits = 0;
+  let gPaintPanelUnits = 0;
 
   // ── Shelving accumulators ──────────────────────────────────────────────
   const shelvingCutPlans: ShelvingCutPlanModule[] = [];
@@ -379,9 +385,24 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
           break;
         case "rail_removed":
           gAddonRailsRemoved++;
+          // Rail removal saves 2 plywood strips (the pair of rails for that slot)
+          // and saves 8 screws (4 per rail × 2 rails)
+          globalStripCount -= 2;
+          gScrew16 -= 8;
+          break;
+        case "shelf":
+          gAddonShelves++;
+          // A shelf insert adds 1 plywood surface (cut from sheet stock)
+          // and 4 screws to mount it (1⅝" screws)
+          gScrew16 += 4;
           break;
       }
     }
+
+    // ── Paint ──────────────────────────────────────────────────────
+    if (unit.paintFrameColor) gPaintFrameUnits++;
+    if (unit.paintDoorColor) gPaintDoorUnits++;
+    if (unit.paintSidePanelColor) gPaintPanelUnits++;
   });
 
   // ── PHASE 2: Unified Global Bin Packing — ALL parts (tote + shelving) ──
@@ -554,6 +575,11 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   }
 
   // ── Final Plywood Calculation ──────────────────────────────────────────
+  // Ensure strip count doesn't go negative from rail removals
+  if (globalStripCount < 0) globalStripCount = 0;
+  // Ensure screw counts don't go negative from rail removals
+  if (gScrew16 < 0) gScrew16 = 0;
+
   const stripCredit = globalTopSheets * 27;
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
@@ -611,21 +637,35 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   }
 
   // ── Section Addon Materials ─────────────────────────────────────────
+  // Addon plywood: doors (~4 per sheet), side panels (~2 per sheet), shelves (~4 per sheet)
+  const addonDoorSheets = gAddonDoors > 0 ? Math.ceil(gAddonDoors / 4) : 0;
+  const addonPanelSheets = gAddonSidePanels > 0 ? Math.ceil(gAddonSidePanels / 2) : 0;
+  const addonShelfSheets = gAddonShelves > 0 ? Math.ceil(gAddonShelves / 4) : 0;
+
   if (gAddonDoors > 0) {
-    // Each plywood door is cut from a 3/4" plywood sheet (~2 doors per half-sheet)
-    const doorSheets = Math.ceil(gAddonDoors / 4);
-    shopping_list.push({ name: "Plywood (Doors)", detail: `${gAddonDoors} door panel${gAddonDoors > 1 ? "s" : ""}`, qty: doorSheets });
+    shopping_list.push({ name: "Plywood (Doors)", detail: `${gAddonDoors} door panel${gAddonDoors > 1 ? "s" : ""}`, qty: addonDoorSheets });
   }
   if (gAddonSidePanels > 0) {
-    // Each side panel is a full-height plywood sheet (1 panel per half-sheet)
-    const panelSheets = Math.ceil(gAddonSidePanels / 2);
-    shopping_list.push({ name: "Plywood (Side Panels)", detail: `${gAddonSidePanels} panel${gAddonSidePanels > 1 ? "s" : ""}`, qty: panelSheets });
+    shopping_list.push({ name: "Plywood (Side Panels)", detail: `${gAddonSidePanels} panel${gAddonSidePanels > 1 ? "s" : ""}`, qty: addonPanelSheets });
+  }
+  if (gAddonShelves > 0) {
+    shopping_list.push({ name: "Plywood (Shelves)", detail: `${gAddonShelves} shelf insert${gAddonShelves > 1 ? "s" : ""}`, qty: addonShelfSheets });
   }
   if (gAddonHingePairs > 0) {
     shopping_list.push({ name: "Blum Concealed Hinges", detail: "Pair (2 hinges)", qty: gAddonHingePairs });
   }
   if (gAddonRailsRemoved > 0) {
-    shopping_list.push({ name: "Rails Removed", detail: "Slots opened up", qty: gAddonRailsRemoved });
+    shopping_list.push({ name: "Rails Removed", detail: `${gAddonRailsRemoved} slot${gAddonRailsRemoved > 1 ? "s" : ""} opened up (−${gAddonRailsRemoved * 2} strips, −${gAddonRailsRemoved * 8} screws)`, qty: gAddonRailsRemoved });
+  }
+
+  // ── Paint Materials ─────────────────────────────────────────────────
+  // Paint is a service addon — listed in the shopping list for installer awareness
+  const paintItems: string[] = [];
+  if (gPaintFrameUnits > 0) paintItems.push(`${gPaintFrameUnits} frame${gPaintFrameUnits > 1 ? "s" : ""}`);
+  if (gPaintDoorUnits > 0) paintItems.push(`${gPaintDoorUnits} door set${gPaintDoorUnits > 1 ? "s" : ""}`);
+  if (gPaintPanelUnits > 0) paintItems.push(`${gPaintPanelUnits} panel set${gPaintPanelUnits > 1 ? "s" : ""}`);
+  if (paintItems.length > 0) {
+    shopping_list.push({ name: "Paint", detail: paintItems.join(" + "), qty: paintItems.length > 1 ? `${paintItems.length} items` : "1 item" });
   }
 
   // ── Financials ────────────────────────────────────────────────────────
@@ -645,7 +685,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     },
     totals: {
       boards: gBoards,
-      sheets: gSheets,
+      sheets: gSheets + addonDoorSheets + addonPanelSheets + addonShelfSheets,
       totes: gTotes,
       wheelKits: gWheels,
       screwBoxes_1_5_8: boxes16,

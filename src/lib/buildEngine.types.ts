@@ -3,7 +3,7 @@
 // Safe to import from both client and server components.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import type { SectionAddon } from "@/types/viewModels";
+import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
@@ -25,6 +25,10 @@ export interface QuoteUnit {
   depth: number;
   desc: string;
   addons?: SectionAddon[]; // Per-section addons (Organizer Customization)
+  /** Paint color selections */
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
   /** When set, this unit is an open shelving unit — routed to shelving cut plan handler */
   shelvingConfigId?: string;
 }
