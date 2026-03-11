@@ -190,15 +190,22 @@ export default function FeaturesPage() {
             Everything, One Plan
           </h2>
           <p className="mx-auto mb-12 max-w-xl text-center text-sm text-stone-400">
-            $49/mo gets you the full platform — every tool, every feature, no upsells.
+            Full platform access — every tool, every feature, no upsells.
             3% maintenance fee on direct leads, 15% on network leads.
           </p>
 
           {/* Pricing card */}
           <div className="mx-auto mb-10 max-w-sm rounded-2xl border-2 border-yellow-400/30 bg-yellow-400/[0.03] p-6 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">Pro</p>
-            <p className="mt-1 text-4xl font-black text-yellow-400">$49</p>
+            <div className="mt-1 flex items-center justify-center gap-3">
+              <span className="text-2xl font-black text-stone-600 line-through decoration-red-500/70 decoration-2">$99</span>
+              <span className="text-4xl font-black text-yellow-400">$49</span>
+            </div>
             <p className="text-sm text-yellow-400/60">/month</p>
+            <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2">
+              <p className="text-xs font-bold text-amber-400">Limited Time — Next 50 Installers Only</p>
+              <p className="text-[10px] text-amber-400/60 mt-0.5">Lock in $49/mo before it goes back to $99</p>
+            </div>
             <p className="mt-3 text-xs text-stone-500">3% maintenance fee on direct leads &middot; 15% on network leads</p>
           </div>
 
