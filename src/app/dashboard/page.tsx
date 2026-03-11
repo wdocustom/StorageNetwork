@@ -23,6 +23,7 @@ import {
   BarChart3,
   Users,
   Zap,
+  Activity,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
@@ -40,6 +41,7 @@ interface Profile {
   first_name: string | null;
   business_name: string | null;
   is_pro: boolean;
+  is_admin?: boolean;
   subscription_tier?: string;
   stripe_account_id?: string | null;
   slug?: string | null;
@@ -85,7 +87,7 @@ export default function DashboardPage() {
     });
 
     const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
-      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
+      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
       // Only count leads with deposit paid (exclude unpaid quotes)
       supabase
         .from("leads")
@@ -105,7 +107,7 @@ export default function DashboardPage() {
       // Retry once after refreshing session
       const { error: refreshErr } = await supabase.auth.refreshSession();
       if (!refreshErr) {
-        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
+        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
         if (retry.data) {
           console.log("[Dashboard] Retry succeeded after session refresh");
           setProfile(retry.data as Profile);
@@ -440,6 +442,26 @@ export default function DashboardPage() {
             </div>
             <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-yellow-400" />
           </a>
+
+          {/* PLATFORM ANALYTICS Tile — Admin Only */}
+          {profile?.is_admin && (
+            <a
+              href="/dashboard/platform-analytics"
+              className="group relative flex items-center gap-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-slate-900 to-slate-900 p-6 transition-all hover:border-cyan-400/50 hover:from-cyan-500/10 active:scale-[0.98]"
+            >
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 transition-colors group-hover:bg-cyan-500/20">
+                <Activity className="h-8 w-8" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-bold text-white">Platform Analytics</h2>
+                <p className="text-sm text-stone-500">All pages, devices, geo &amp; live feed</p>
+              </div>
+              <span className="rounded bg-cyan-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
+                Admin
+              </span>
+              <ChevronRight className="h-5 w-5 text-stone-600 transition-colors group-hover:text-cyan-400" />
+            </a>
+          )}
 
           {/* Schedule Settings */}
           <a

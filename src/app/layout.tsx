@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
+import PlatformTracker from "@/components/tracking/PlatformTracker";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -617,7 +619,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdGraph) }}
         />
       </head>
-      <body className="antialiased" style={{ backgroundColor: "#020617" }}>{children}</body>
+      <body className="antialiased" style={{ backgroundColor: "#020617" }}>
+        <Suspense fallback={null}><PlatformTracker /></Suspense>
+        {children}
+      </body>
     </html>
   );
 }
