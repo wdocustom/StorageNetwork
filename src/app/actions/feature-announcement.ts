@@ -74,28 +74,52 @@ export async function processFeatureAnnouncement(): Promise<AnnouncementResult> 
         "there";
 
       try {
-        const emailResult = await sendFeatureAnnouncement(email, {
-          installerName: name,
-          dashboardUrl,
-          guidesUrl,
-        });
+        let sent = false;
+        let lastError = "";
 
-        if (emailResult.success) {
-          result.sent++;
-          console.log(`[FeatureAnnouncement] Sent to ${email} (${name})`);
-        } else {
-          result.errors.push(`${email}: ${emailResult.error}`);
-          console.error(`[FeatureAnnouncement] Failed for ${email}:`, emailResult.error);
+        // Retry up to 3 times for rate-limit errors
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const emailResult = await sendFeatureAnnouncement(email, {
+            installerName: name,
+            dashboardUrl,
+            guidesUrl,
+          });
+
+          if (emailResult.success) {
+            sent = true;
+            result.sent++;
+            console.log(`[FeatureAnnouncement] Sent to ${email} (${name})`);
+            break;
+          }
+
+          lastError = emailResult.error || "Unknown error";
+
+          // Retry on rate limit, otherwise break
+          if (lastError.includes("Too many requests") && attempt < 2) {
+            const backoff = 1000 * (attempt + 1); // 1s, 2s
+            console.log(`[FeatureAnnouncement] Rate limited for ${email}, retrying in ${backoff}ms...`);
+            await new Promise((r) => setTimeout(r, backoff));
+            continue;
+          }
+
+          break;
         }
 
-        // Mark as sent regardless of success/failure to prevent re-sending
-        await db()
-          .from("profiles")
-          .update({ feature_email_mar2026_sent: true })
-          .eq("id", installer.id);
+        if (!sent) {
+          result.errors.push(`${email}: ${lastError}`);
+          console.error(`[FeatureAnnouncement] Failed for ${email}:`, lastError);
+        }
 
-        // Small delay between sends to respect rate limits
-        await new Promise((r) => setTimeout(r, 200));
+        // Only mark as sent if the email was actually delivered
+        if (sent) {
+          await db()
+            .from("profiles")
+            .update({ feature_email_mar2026_sent: true })
+            .eq("id", installer.id);
+        }
+
+        // 600ms delay between sends to stay under Resend's 2 req/sec limit
+        await new Promise((r) => setTimeout(r, 600));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         result.errors.push(`${email}: ${msg}`);
