@@ -2140,3 +2140,244 @@ export async function sendFeatureAnnouncement(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Bounty System Announcement
+// Trigger: One-time cron blast educating installers about the passive
+//          income referral/bounty system.
+// Called by /api/cron/bounty-announcement
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BountyAnnouncementData {
+  installerName: string;
+  dashboardUrl: string;
+  referralsUrl: string;
+}
+
+export async function sendBountyAnnouncementEmail(
+  email: string,
+  data: BountyAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, dashboardUrl, referralsUrl } = data;
+
+  const html = emailShell(
+    "Earn Money While You Sleep",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Did you know you can <strong style="color:#facc15;">earn passive income</strong> just by sharing your
+      Storage Network link? Every installer on the platform has a built-in referral system that pays you
+      real money &mdash; even when the customer is nowhere near your service area.
+    </p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Here&rsquo;s the short version: <strong style="color:#e2e8f0;">share your link, and if someone outside
+      your area books a job, you get paid.</strong> That&rsquo;s it. Zero extra work on your end.
+    </p>
+
+    <!-- How It Works -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">How It Works &mdash; 3 Simple Steps</p>
+
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:32px;">
+            <div style="background:#422006;color:#facc15;width:28px;height:28px;border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:800;">1</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;font-weight:700;">Share your link anywhere</p>
+            <p style="margin:4px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
+              Post it on Facebook, TikTok, Instagram, your website, even text it to friends. Your link
+              works <strong>nationwide</strong> &mdash; not just in your service area. Think of it like
+              dropping a fishing line that covers the whole country.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:32px;">
+            <div style="background:#422006;color:#facc15;width:28px;height:28px;border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:800;">2</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;font-weight:700;">Customer configures &amp; books</p>
+            <p style="margin:4px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
+              Someone clicks your link and designs their garage storage. If they&rsquo;re outside your
+              area, we automatically connect them with a local installer near them. You don&rsquo;t
+              have to do anything &mdash; the handoff is instant and seamless.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:32px;">
+            <div style="background:#422006;color:#facc15;width:28px;height:28px;border-radius:50%;text-align:center;line-height:28px;font-size:13px;font-weight:800;">3</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;font-weight:700;">You get paid automatically</p>
+            <p style="margin:4px 0 0;color:#94a3b8;font-size:13px;line-height:1.6;">
+              When the customer pays their deposit, <strong style="color:#facc15;">30% of that deposit
+              goes straight to your Stripe account</strong>. Minimum payout is $15 per referral.
+              No invoicing, no chasing payments &mdash; it just shows up in your account.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Sample Earnings -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">What Could You Earn?</p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;line-height:1.6;">
+        Here&rsquo;s what real referral bounties look like. These are based on typical deposit amounts:
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+        <tr style="border-bottom:1px solid #334155;">
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Job Type</td>
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:center;">Deposit</td>
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Your Bounty</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">Small build</td>
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;text-align:center;">$50</td>
+          <td style="padding:10px 8px;color:#16a34a;font-size:14px;font-weight:800;text-align:right;">$15.00</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">Mid-size garage</td>
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;text-align:center;">$150</td>
+          <td style="padding:10px 8px;color:#16a34a;font-size:14px;font-weight:800;text-align:right;">$45.00</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">Full garage build</td>
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;text-align:center;">$300</td>
+          <td style="padding:10px 8px;color:#16a34a;font-size:14px;font-weight:800;text-align:right;">$90.00</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">Premium custom job</td>
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;text-align:center;">$500</td>
+          <td style="padding:10px 8px;color:#facc15;font-size:14px;font-weight:800;text-align:right;">$150.00</td>
+        </tr>
+      </table>
+
+      <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">
+        Just <strong>5 referrals a month</strong> at an average deposit of $200 = <strong style="color:#facc15;">$300/month in passive income</strong>.
+        That&rsquo;s money you earn while you&rsquo;re on the job, eating dinner, or sleeping.
+      </p>
+    </div>
+
+    <!-- Dashboard Snapshot -->
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+      <div style="background:#0f172a;padding:12px 16px;border-bottom:1px solid #334155;">
+        <p style="margin:0;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#128200; Your Referral Dashboard</p>
+      </div>
+      <div style="padding:16px;">
+        <!-- Stats row -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+          <tr>
+            <td style="text-align:center;padding:8px;background:#1e293b;border-radius:8px;border:1px solid #334155;width:33%;">
+              <p style="margin:0;color:#facc15;font-size:20px;font-weight:900;">$360</p>
+              <p style="margin:4px 0 0;color:#64748b;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Earned</p>
+            </td>
+            <td style="width:8px;"></td>
+            <td style="text-align:center;padding:8px;background:#1e293b;border-radius:8px;border:1px solid #334155;width:33%;">
+              <p style="margin:0;color:#10b981;font-size:20px;font-weight:900;">6</p>
+              <p style="margin:4px 0 0;color:#64748b;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Paid</p>
+            </td>
+            <td style="width:8px;"></td>
+            <td style="text-align:center;padding:8px;background:#1e293b;border-radius:8px;border:1px solid #334155;width:33%;">
+              <p style="margin:0;color:#f59e0b;font-size:20px;font-weight:900;">2</p>
+              <p style="margin:4px 0 0;color:#64748b;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Pending</p>
+            </td>
+          </tr>
+        </table>
+        <!-- Sample referral rows -->
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:middle;">
+                <p style="margin:0;color:#e2e8f0;font-size:12px;font-weight:600;">Austin, TX</p>
+                <p style="margin:2px 0 0;color:#64748b;font-size:10px;">Mar 8 &bull; $1,200 job</p>
+              </td>
+              <td style="text-align:right;vertical-align:middle;">
+                <span style="background:#052e16;color:#10b981;font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;">&#10003; +$45</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:middle;">
+                <p style="margin:0;color:#e2e8f0;font-size:12px;font-weight:600;">Denver, CO</p>
+                <p style="margin:2px 0 0;color:#64748b;font-size:10px;">Mar 6 &bull; $2,400 job</p>
+              </td>
+              <td style="text-align:right;vertical-align:middle;">
+                <span style="background:#052e16;color:#10b981;font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;">&#10003; +$90</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 12px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:middle;">
+                <p style="margin:0;color:#e2e8f0;font-size:12px;font-weight:600;">Phoenix, AZ</p>
+                <p style="margin:2px 0 0;color:#64748b;font-size:10px;">Mar 10 &bull; $1,800 job</p>
+              </td>
+              <td style="text-align:right;vertical-align:middle;">
+                <span style="background:#422006;color:#f59e0b;font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px;">&#9719; ~$54</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div style="background:#0f172a;padding:8px 16px;border-top:1px solid #334155;text-align:center;">
+        <p style="margin:0;color:#64748b;font-size:9px;font-style:italic;">Sample data &mdash; this is what your referral dashboard looks like</p>
+      </div>
+    </div>
+
+    <!-- The Real Value -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Why This Matters</p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Between jobs, during slow weeks, or even on vacation &mdash; your link is always working for you.
+        Every post you make, every video you upload, every link you share has the potential to earn you money
+        from anywhere in the country.
+      </p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        You&rsquo;re already an expert at garage storage. Now that expertise pays you twice &mdash;
+        once for your own jobs, and again for every customer your content reaches nationwide.
+      </p>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${referralsUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        View My Referrals &rarr;
+      </a>
+    </div>
+
+    <!-- Auto-Marketing Teaser -->
+    <div style="background:linear-gradient(135deg,#0f172a,#1a1a2e);border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">&#9889; Coming Soon &mdash; Auto-Marketing Agent</p>
+      <p style="margin:0;color:#94a3b8;font-size:14px;line-height:1.7;">
+        We&rsquo;re building an <strong style="color:#e2e8f0;">AI-powered marketing system</strong> exclusively for
+        Pro subscribers. It will automatically create SEO-optimized pages showcasing your portfolio,
+        services, and service area &mdash; driving traffic and leads to your profile with zero effort
+        on your end. Pair that with the referral system and your passive income potential goes through the roof.
+        More details coming soon.
+      </p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:14px;">
+      Start sharing your link today. The more people who see it, the more you earn.
+    </p>
+    <p style="margin:12px 0 0;color:#64748b;font-size:13px;">
+      &mdash; The Storage Network Team
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "You're Leaving Money on the Table — Here's How Referrals Pay You",
+    html,
+  });
+}
