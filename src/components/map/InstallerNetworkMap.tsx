@@ -101,9 +101,9 @@ export default function InstallerNetworkMap({ installers }: Props) {
       {/* ── SVG Map ──────────────────────────────────────────────────── */}
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
+        viewBox="100 140 775 400"
         className="h-auto w-full"
-        style={{ maxHeight: "70vh" }}
+        style={{ maxHeight: "65vh" }}
       >
         <defs>
           {/* Gradient for service radius circles */}
@@ -358,41 +358,67 @@ export default function InstallerNetworkMap({ installers }: Props) {
         </span>
       </div>
 
-      {/* ── Installer List (mobile-friendly, below map) ──────────── */}
+      {/* ── Installer List (grouped by state, alphabetical) ────────── */}
       {pins.length > 0 && (
-        <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {pins.map((pin) => (
-            <a
-              key={`card-${pin.id}`}
-              href={pin.slug ? `/p/${pin.slug}` : undefined}
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 transition-all hover:border-yellow-400/30 hover:bg-slate-800/60"
-              onMouseEnter={() => setHoveredId(pin.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 ring-1 ring-slate-700">
-                {pin.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={pin.avatarUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
-                ) : (
-                  <MapPin className="h-3.5 w-3.5 text-yellow-400" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <p className="truncate text-xs font-bold text-white">{pin.name}</p>
-                  {pin.isPro && <Shield className="h-2.5 w-2.5 shrink-0 text-yellow-400" />}
+        <div className="mt-6 space-y-5">
+          {(() => {
+            // Group by state, sort states alphabetically, sort installers within each state
+            const byState = new Map<string, typeof pins>();
+            for (const pin of pins) {
+              const st = pin.state || "Other";
+              if (!byState.has(st)) byState.set(st, []);
+              byState.get(st)!.push(pin);
+            }
+            const sortedStates = Array.from(byState.entries()).sort(([a], [b]) => a.localeCompare(b));
+            for (const entry of sortedStates) {
+              entry[1].sort((a: typeof pins[number], b: typeof pins[number]) => a.name.localeCompare(b.name));
+            }
+
+            return sortedStates.map(([state, group]) => (
+              <div key={state}>
+                <h3 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                  <span className="h-px flex-1 bg-slate-800" />
+                  {state}
+                  <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] text-stone-600">
+                    {group.length}
+                  </span>
+                  <span className="h-px flex-1 bg-slate-800" />
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((pin) => (
+                    <a
+                      key={`card-${pin.id}`}
+                      href={pin.slug ? `/p/${pin.slug}` : undefined}
+                      className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 transition-all hover:border-yellow-400/30 hover:bg-slate-800/60"
+                      onMouseEnter={() => setHoveredId(pin.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 ring-1 ring-slate-700">
+                        {pin.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={pin.avatarUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        ) : (
+                          <MapPin className="h-3.5 w-3.5 text-yellow-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <p className="truncate text-xs font-bold text-white">{pin.name}</p>
+                          {pin.isPro && <Shield className="h-2.5 w-2.5 shrink-0 text-yellow-400" />}
+                        </div>
+                        <p className="text-[10px] text-stone-500">
+                          {pin.city}{" · "}{pin.radiusMiles} mi radius
+                        </p>
+                      </div>
+                      {pin.slug && (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-stone-600 transition-colors group-hover:text-yellow-400" />
+                      )}
+                    </a>
+                  ))}
                 </div>
-                <p className="text-[10px] text-stone-500">
-                  {[pin.city, pin.state].filter(Boolean).join(", ")}
-                  {" · "}
-                  {pin.radiusMiles} mi
-                </p>
               </div>
-              {pin.slug && (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-stone-600 transition-colors group-hover:text-yellow-400" />
-              )}
-            </a>
-          ))}
+            ));
+          })()}
         </div>
       )}
     </div>
