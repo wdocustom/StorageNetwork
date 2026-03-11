@@ -2034,3 +2034,109 @@ export async function sendCleanoutUpsellConfirmation(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Feature Announcement — March 2026 Platform Update
+// Trigger: One-time cron to all installers
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface FeatureAnnouncementData {
+  installerName: string;
+  dashboardUrl: string;
+  guidesUrl: string;
+}
+
+export async function sendFeatureAnnouncement(
+  email: string,
+  data: FeatureAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, dashboardUrl, guidesUrl } = data;
+
+  const html = emailShell(
+    "New Platform Features",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
+      We&rsquo;ve been building. Here&rsquo;s a quick rundown of everything new on your Storage Network platform &mdash;
+      all designed to help you close more jobs and deliver a better experience to your customers.
+    </p>
+
+    <!-- Feature 1: Open Shelving -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">New &mdash; Open Shelving Units</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Your customers can now add <strong>standalone open shelving units</strong> directly in the 3D configurator.
+        Available in 4&rsquo;, 5&rsquo;, and 6&rsquo; widths with short and tall height options &mdash; same 30&quot; depth
+        as tote organizers so they sit flush on the wall. Plywood top and shelves included in every unit.
+      </p>
+    </div>
+
+    <!-- Feature 2: Organizer Customization -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">New &mdash; Organizer Customization</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Customers can now customize individual tote organizer bays with <strong>plywood shelves</strong>,
+        <strong>plywood doors</strong> with concealed Blum hinges, <strong>side panels</strong>, and
+        <strong>rail removal</strong> &mdash; all priced per-addon. Plus a full <strong>paint system</strong>
+        for frames, doors, and panels. Every addon flows through to the shopping list and cut plans.
+      </p>
+    </div>
+
+    <!-- Feature 3: Toggle Controls -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Full Control &mdash; Your Settings</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Every new feature can be <strong>toggled on or off</strong> from your Profile &amp; Settings page.
+        Don&rsquo;t want to offer open shelving? Disable it. Want to set your own addon pricing? Override
+        every line item. You control exactly what your customers see on your branded design page.
+      </p>
+      <div style="margin-top:16px;">
+        <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">
+          Open Settings &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- Feature 4: Tutorial Videos -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Guides &amp; Training Videos</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        The <strong>Guides page</strong> now has step-by-step tutorial videos, installation checklists,
+        and a social media playbook to help you market your builds. Whether you&rsquo;re a first-time
+        installer or scaling your crew, everything you need is in one place.
+      </p>
+      <div style="margin-top:16px;">
+        <a href="${guidesUrl}" style="display:inline-block;background-color:transparent;color:#facc15;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #facc15;">
+          View Guides &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- Coming Soon: Auto-Marketing -->
+    <div style="background:linear-gradient(135deg,#0f172a,#1a1a2e);border-radius:12px;padding:20px 24px;margin-bottom:24px;border:1px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">&#9889; Coming Soon &mdash; Pro Subscribers</p>
+      <p style="margin:0 0 8px;color:#e2e8f0;font-size:16px;font-weight:700;">Auto-Marketing Agent</p>
+      <p style="margin:0;color:#94a3b8;font-size:14px;line-height:1.7;">
+        We&rsquo;re rolling out a <strong style="color:#e2e8f0;">state-of-the-art AI marketing agent</strong> exclusively
+        for Pro subscribers. This system will automatically generate informative pages showcasing your
+        portfolio, services, and service area &mdash; complete with SEO optimization and rich content.
+        No effort on your end. The agent handles everything, creating professional marketing pages that
+        drive traffic and leads directly to your profile. Stay tuned.
+      </p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:14px;">
+      Thanks for being part of the network. We&rsquo;re building this for you.
+    </p>
+    <p style="margin:12px 0 0;color:#64748b;font-size:13px;">
+      &mdash; The Storage Network Team
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "New Features: Open Shelving, Organizer Customization & More",
+    html,
+  });
+}
