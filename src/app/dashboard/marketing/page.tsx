@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
+import IGSalesImages from "@/components/dashboard/IGSalesImages";
 import MyFacebookGroups from "@/components/dashboard/MyFacebookGroups";
 import ProPill from "@/components/dashboard/ProPill";
 
@@ -27,6 +28,7 @@ interface UserProfile {
   id: string;
   slug: string | null;
   is_pro: boolean;
+  is_admin?: boolean;
   city: string | null;
   state: string | null;
   service_zip: string | null;
@@ -57,14 +59,14 @@ export default function MarketingPage() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("id, slug, is_pro, city, state, service_zip, business_name")
+        .select("id, slug, is_pro, is_admin, city, state, service_zip, business_name")
         .eq("id", user.id)
         .single();
 
       setProfile(
         data
-          ? { id: data.id, slug: data.slug ?? null, is_pro: true, city: data.city ?? null, state: data.state ?? null, service_zip: data.service_zip ?? null, business_name: data.business_name ?? null }
-          : { id: user.id, slug: null, is_pro: true, city: null, state: null, service_zip: null, business_name: null }
+          ? { id: data.id, slug: data.slug ?? null, is_pro: true, is_admin: data.is_admin ?? false, city: data.city ?? null, state: data.state ?? null, service_zip: data.service_zip ?? null, business_name: data.business_name ?? null }
+          : { id: user.id, slug: null, is_pro: true, is_admin: false, city: null, state: null, service_zip: null, business_name: null }
       );
       setLoading(false);
     }
@@ -244,6 +246,9 @@ export default function MarketingPage() {
             bookingLink={bookingLink}
           />
         </section>
+
+        {/* ── Section 5: IG Sales Images — Admin Only ────────────── */}
+        {profile.is_admin && <IGSalesImages />}
       </main>
 
     </div>
