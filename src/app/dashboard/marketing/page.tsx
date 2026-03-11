@@ -17,6 +17,7 @@ import {
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import GroupFinder from "@/components/dashboard/GroupFinder";
 import IGSalesImages from "@/components/dashboard/IGSalesImages";
+import InstallerPostTemplates from "@/components/dashboard/InstallerPostTemplates";
 import MyFacebookGroups from "@/components/dashboard/MyFacebookGroups";
 import ProPill from "@/components/dashboard/ProPill";
 
@@ -247,7 +248,17 @@ export default function MarketingPage() {
           />
         </section>
 
-        {/* ── Section 5: IG Sales Images — Admin Only ────────────── */}
+        {/* ── Section 5: Installer Customer Posts — Admin Only ─────── */}
+        {profile.is_admin && (
+          <InstallerPostTemplates
+            businessName={profile.business_name}
+            city={profile.city}
+            state={profile.state}
+            bookingLink={bookingLink}
+          />
+        )}
+
+        {/* ── Section 6: IG Sales Images — Admin Only ────────────── */}
         {profile.is_admin && <IGSalesImages />}
       </main>
 
