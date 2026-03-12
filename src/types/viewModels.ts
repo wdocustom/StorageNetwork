@@ -108,10 +108,14 @@ export interface InstallerPricing {
   shelving_shelf_4ft_tall?: number;
   shelving_shelf_5ft_tall?: number;
   shelving_shelf_6ft_tall?: number;
-  /** When true, the mini (6.5 qt) unit option is hidden from the installer's design page */
+  /** @deprecated Use mini_enabled instead */
   mini_disabled?: boolean;
-  /** When true, the open shelving section is hidden from the installer's design/build pages */
+  /** When true, the mini (6.5 qt) unit option is shown on the installer's design page (default: off) */
+  mini_enabled?: boolean;
+  /** @deprecated Use open_shelving_enabled instead */
   open_shelving_disabled?: boolean;
+  /** When true, the open shelving section is shown on the installer's design/build pages (default: off) */
+  open_shelving_enabled?: boolean;
   /** Per-bestseller visibility toggles (false = hidden from design/build pages).
    *  Key pattern: bestseller_<preset_id_with_underscores>_disabled */
   bestseller_indiana_joe_disabled?: boolean;
@@ -120,8 +124,6 @@ export interface InstallerPricing {
   bestseller_gas_station_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
   addon_pricing?: AddonPricing;
-  /** @deprecated Use overhead_storage_enabled instead */
-  overhead_storage_disabled?: boolean;
   /** When true, the overhead ceiling storage section is shown on the installer's design page (default: off) */
   overhead_storage_enabled?: boolean;
   /** Per-overhead-size total-price overrides (base price before drop/deck adjustments).
@@ -135,7 +137,7 @@ export interface InstallerPricing {
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall" | "overhead_4x8" | "overhead_4x6" | "overhead_4x4" | "overhead_3x8" | "overhead_3x6" | "overhead_2x8"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall" | "overhead_4x8" | "overhead_4x6" | "overhead_4x4" | "overhead_3x8" | "overhead_3x6" | "overhead_2x8"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,

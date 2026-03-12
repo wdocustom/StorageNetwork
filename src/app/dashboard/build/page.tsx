@@ -921,7 +921,7 @@ export default function BuildConfiguratorPage() {
         </section>
 
         {/* ── Open Shelving ──────────────────────────────────────────── */}
-        {installerPricing?.open_shelving_disabled !== true && <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+        {installerPricing?.open_shelving_enabled === true && <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
           <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
             <Grid3X3 className="h-4 w-4 text-yellow-400" />
             Open Shelving

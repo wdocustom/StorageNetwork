@@ -38,7 +38,7 @@ interface PricingSettingsProps {
   userId: string;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -265,8 +265,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
 
   // Each field can be: a custom number string, or empty (use default)
   const [values, setValues] = useState<Record<string, string>>({});
-  const [miniDisabled, setMiniDisabled] = useState(false);
-  const [shelvingDisabled, setShelvingDisabled] = useState(false);
+  const [miniEnabled, setMiniEnabled] = useState(false);
+  const [shelvingEnabled, setShelvingEnabled] = useState(false);
   const [overheadEnabled, setOverheadEnabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
@@ -293,8 +293,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         loaded[field.key] = val !== undefined && val !== null ? String(val) : "";
       }
       setValues(loaded);
-      setMiniDisabled(result.pricing.mini_disabled === true);
-      setShelvingDisabled(result.pricing.open_shelving_disabled === true);
+      setMiniEnabled(result.pricing.mini_enabled === true);
+      setShelvingEnabled(result.pricing.open_shelving_enabled === true);
       setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
@@ -356,8 +356,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         (pricing as Record<string, number>)[field.key] = Number(val);
       }
     }
-    if (miniDisabled) pricing.mini_disabled = true;
-    if (shelvingDisabled) pricing.open_shelving_disabled = true;
+    if (miniEnabled) pricing.mini_enabled = true;
+    if (shelvingEnabled) pricing.open_shelving_enabled = true;
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
     if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
@@ -401,8 +401,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         cleared[field.key] = "";
       }
       setValues(cleared);
-      setMiniDisabled(false);
-      setShelvingDisabled(false);
+      setMiniEnabled(false);
+      setShelvingEnabled(false);
       setOverheadEnabled(false);
       setPresetToggles({});
       setAddonEnabled(true);
@@ -426,8 +426,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   }
 
   function hasCustomValues(): boolean {
-    return miniDisabled
-      || shelvingDisabled
+    return miniEnabled
+      || shelvingEnabled
       || overheadEnabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
@@ -508,27 +508,27 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       <div className="mb-5">
         <button
           type="button"
-          onClick={() => setMiniDisabled(!miniDisabled)}
+          onClick={() => setMiniEnabled(!miniEnabled)}
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
-            miniDisabled
-              ? "border-red-500/30 bg-red-500/5"
+            miniEnabled
+              ? "border-yellow-500/30 bg-yellow-500/5"
               : "border-slate-700 bg-slate-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${miniDisabled ? "bg-red-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${miniDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${miniEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${miniEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <EyeOff className={`h-3.5 w-3.5 ${miniDisabled ? "text-red-400" : "text-stone-500"}`} />
-              <p className={`text-sm font-medium ${miniDisabled ? "text-red-400" : "text-white"}`}>
-                {miniDisabled ? "Mini Units Disabled" : "Disable Mini Units"}
+              <Eye className={`h-3.5 w-3.5 ${miniEnabled ? "text-yellow-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${miniEnabled ? "text-yellow-400" : "text-white"}`}>
+                {miniEnabled ? "Mini Units Enabled" : "Enable Mini Units"}
               </p>
             </div>
             <p className="text-[11px] text-stone-500">
-              {miniDisabled
-                ? "6.5 qt mini tote option is hidden from your design page"
-                : "Toggle to hide the mini (6.5 qt) tote option from customers"}
+              {miniEnabled
+                ? "6.5 qt mini tote option is visible on your design page"
+                : "Toggle to offer the mini (6.5 qt) tote option to customers"}
             </p>
           </div>
         </button>
@@ -538,27 +538,27 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       <div className="mb-5">
         <button
           type="button"
-          onClick={() => setShelvingDisabled(!shelvingDisabled)}
+          onClick={() => setShelvingEnabled(!shelvingEnabled)}
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
-            shelvingDisabled
-              ? "border-red-500/30 bg-red-500/5"
+            shelvingEnabled
+              ? "border-yellow-500/30 bg-yellow-500/5"
               : "border-slate-700 bg-slate-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${shelvingDisabled ? "bg-red-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${shelvingDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${shelvingEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${shelvingEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <EyeOff className={`h-3.5 w-3.5 ${shelvingDisabled ? "text-red-400" : "text-stone-500"}`} />
-              <p className={`text-sm font-medium ${shelvingDisabled ? "text-red-400" : "text-white"}`}>
-                {shelvingDisabled ? "Open Shelving Disabled" : "Disable Open Shelving"}
+              <Eye className={`h-3.5 w-3.5 ${shelvingEnabled ? "text-yellow-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${shelvingEnabled ? "text-yellow-400" : "text-white"}`}>
+                {shelvingEnabled ? "Open Shelving Enabled" : "Enable Open Shelving"}
               </p>
             </div>
             <p className="text-[11px] text-stone-500">
-              {shelvingDisabled
-                ? "Open shelving options are hidden from your design & build pages"
-                : "Toggle to hide open shelving options from customers"}
+              {shelvingEnabled
+                ? "Open shelving options are visible on your design & build pages"
+                : "Toggle to offer open shelving options to customers"}
             </p>
           </div>
         </button>
@@ -598,8 +598,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       <div className="space-y-5">
         {categories.map((cat) => {
           const isCatDisabled =
-            (cat.key === "mini" && miniDisabled) ||
-            (cat.key === "shelving" && shelvingDisabled) ||
+            (cat.key === "mini" && !miniEnabled) ||
+            (cat.key === "shelving" && !shelvingEnabled) ||
             (cat.key === "overhead" && !overheadEnabled);
 
           return (

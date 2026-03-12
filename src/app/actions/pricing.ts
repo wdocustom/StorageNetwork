@@ -71,7 +71,7 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
@@ -97,12 +97,12 @@ export async function updateInstallerPricing(
       // undefined/null fields are omitted — they'll use platform defaults
     }
 
-    // Carry over boolean toggles if set
-    if (pricing.mini_disabled === true) {
-      (validated as Record<string, unknown>).mini_disabled = true;
+    // Carry over boolean toggles if set (opt-in: features are OFF by default)
+    if (pricing.mini_enabled === true) {
+      (validated as Record<string, unknown>).mini_enabled = true;
     }
-    if (pricing.open_shelving_disabled === true) {
-      (validated as Record<string, unknown>).open_shelving_disabled = true;
+    if (pricing.open_shelving_enabled === true) {
+      (validated as Record<string, unknown>).open_shelving_enabled = true;
     }
     if (pricing.overhead_storage_enabled === true) {
       (validated as Record<string, unknown>).overhead_storage_enabled = true;

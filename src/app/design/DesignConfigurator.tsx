@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   checkAvailability,
-  getInstallerById,
   rerouteToLocalInstaller,
   type AvailabilityResult,
 } from "@/app/actions/customer";
@@ -132,25 +131,11 @@ export default function DesignConfigurator({
   const [installerLoading] = useState(false);
 
   // Set cookie on mount if installer was resolved server-side
+  // Do NOT restore from cookie when landing fresh (no installer params) —
+  // the customer should start with a clean configurator showing only basic options.
   useEffect(() => {
     if (initialData?.routing.installerId) {
       setInstallerCookie(initialData.routing.installerId);
-    } else {
-      // No installer from server — check cookie fallback
-      const cookieId = getInstallerCookie();
-      if (cookieId) {
-        setInstallerId(cookieId);
-        // Also fetch installer data so pricing overrides are loaded
-        getInstallerById(cookieId).then((res) => {
-          if (res.available) {
-            const vm = mapAvailabilityToViewModel(res);
-            if (vm) {
-              setData(vm);
-              setInstallerId(vm.routing.installerId);
-            }
-          }
-        }).catch(() => {});
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -267,7 +252,7 @@ export default function DesignConfigurator({
     });
   }, [data?.pricing]);
 
-  const shelvingEnabled = data?.pricing?.open_shelving_disabled !== true;
+  const shelvingEnabled = data?.pricing?.open_shelving_enabled === true;
 
   // ── Open Shelving add-on state ───────────────────────────────────────
   const [shelvingConfigId, setShelvingConfigId] = useState<string | null>(null);
@@ -1347,7 +1332,7 @@ export default function DesignConfigurator({
           onHasWheelsChange={setHasWheels}
           onHasTopChange={setHasTop}
           effectiveHasTop={effectiveHasTop}
-          miniDisabled={!!data?.pricing?.mini_disabled}
+          miniDisabled={data?.pricing?.mini_enabled !== true}
 
           // Pricing
           pricing={data?.pricing}

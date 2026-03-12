@@ -110,7 +110,7 @@ export default function StepAddons({
       </div>
 
       {/* Organizer Customization (per-section addons) */}
-      {!props.activePreset && (props.addonPricing?.organizer_customization_enabled !== false) && (
+      {!props.activePreset && props.installerId && (props.addonPricing?.organizer_customization_enabled !== false) && (
         <OrganizerCustomization
           cols={numCols}
           rows={numRows}
