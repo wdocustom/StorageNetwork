@@ -74,6 +74,8 @@ interface MultiUnit3DItem {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, this item is an overhead storage unit */
   overheadConfig?: OverheadConfig3D;
+  /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
+  presetUnits?: SubUnit3D[];
 }
 
 /** Overhead ceiling storage config for 3D rendering */
@@ -1308,13 +1310,40 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Compute the overall height (in inches) of a multi-unit item for positioning */
+function computeItemOverallH(item: MultiUnit3DItem): number {
+  // Compound preset — use the tallest sub-unit
+  if (item.presetUnits && item.presetUnits.length > 0) {
+    const isMini = item.unitType === "mini";
+    const tierSpacing = getTierSpacing(item.unitType);
+    const firstRailY = getFirstRailY(item.unitType);
+    return Math.max(...item.presetUnits.map((unit) => {
+      const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
+      const frameH = isMini
+        ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+        : PLATE_H + lastRailY + 3 + PLATE_H;
+      const lift = unit.hasWheels ? CASTER_HEIGHT : 0;
+      return frameH + lift;
+    }));
+  }
+  // Simple unit
+  const isMini = item.unitType === "mini";
+  const tierSpacing = getTierSpacing(item.unitType);
+  const firstRailY = getFirstRailY(item.unitType);
+  const lastRailY = firstRailY + (item.rows - 1) * tierSpacing;
+  const frameH = isMini
+    ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+    : PLATE_H + lastRailY + 3 + PLATE_H;
+  const lift = item.hasWheels ? CASTER_HEIGHT : 0;
+  return frameH + lift;
+}
+
 /** Multi-unit camera rig — positions camera to see all units */
 function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
-  const SCALE = 1 / 30;
   const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * 6; // 6" gap
-  const maxH = Math.max(...items.map((it) => it.rows * (it.unitType === "mini" ? 8.25 : 15.25)));
-  const w = totalW * SCALE;
-  const h = maxH * SCALE;
+  const maxH = Math.max(...items.map((it) => computeItemOverallH(it)));
+  const w = totalW * S;
+  const h = maxH * S;
   const dist = Math.max(w, h) * 1.8 + 1;
 
   return (
@@ -1338,8 +1367,11 @@ function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
 
 /** Multi-unit assembly — renders each visible unit side-by-side */
 function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
-  const SCALE = 1 / 30;
   const GAP = 6; // 6" gap between units
+
+  // Compute height for each item and find the tallest
+  const heights = items.map((it) => computeItemOverallH(it));
+  const maxH = Math.max(...heights);
 
   // Calculate total width to center the group
   const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * GAP;
@@ -1348,12 +1380,24 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
   return (
     <group>
       {items.map((item, i) => {
-        const x = (offsetX + item.totalW / 2) * SCALE;
+        const x = (offsetX + item.totalW / 2) * S;
+        // Align bottoms: each RackAssembly centers at y=0, so shorter units
+        // need to shift DOWN so their bottom matches the tallest unit's bottom.
+        const y = (heights[i] - maxH) / 2 * S;
         offsetX += item.totalW + GAP;
         return (
-          <group key={i} position={[x, 0, 0]}>
+          <group key={i} position={[x, y, 0]}>
             {item.overheadConfig ? (
               <OverheadAssembly config={item.overheadConfig} />
+            ) : item.presetUnits && item.presetUnits.length > 0 ? (
+              <CompoundRackAssembly
+                presetUnits={item.presetUnits}
+                toteType={item.toteType}
+                toteColor={item.toteColor}
+                unitType={item.unitType}
+                orientation={item.orientation}
+                hasTotes={item.hasTotes}
+              />
             ) : (
               <RackAssembly
                 cols={item.cols}

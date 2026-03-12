@@ -130,6 +130,7 @@ export interface MultiUnitItem {
   paintSidePanelColor?: PaintColorId | null;
   shelvingConfigId?: string;
   overheadStorageConfig?: { widthIn: number; depthIn: number; dropHeightIn: number };
+  presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   visible: boolean;
   desc: string;
 }
@@ -281,6 +282,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   paintDoorColor: u.paintDoorColor,
                   paintSidePanelColor: u.paintSidePanelColor,
                   overheadConfig: u.overheadStorageConfig,
+                  presetUnits: u.presetUnits,
                 }))}
               />
             </Suspense>

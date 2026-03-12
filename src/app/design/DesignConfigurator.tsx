@@ -61,6 +61,8 @@ interface UnitConfig {
   shelvingConfigId?: string;
   /** When set, this order item is an overhead ceiling storage unit */
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
+  /** When set, this order item is a compound preset with sub-units (e.g. Indiana Joe) */
+  presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
 }
 
 interface ServerBuild {
@@ -375,6 +377,7 @@ export default function DesignConfigurator({
         overheadStorageConfig: item.overheadStorageConfig
           ? { widthIn: item.totalW, depthIn: item.depth, dropHeightIn: item.totalH }
           : undefined,
+        presetUnits: item.presetUnits,
         visible: unitVisibility[i] !== false, // default visible
         desc: item.desc,
       }));
@@ -1041,6 +1044,14 @@ export default function DesignConfigurator({
         depth: compoundBuild.depth,
         desc: `${activePresetObj.name} (${subDesc})`,
         addons: [],
+        presetUnits: compoundBuild.subUnits.map((su, idx) => ({
+          cols: su.cols,
+          rows: su.rows,
+          totalW: su.totalW,
+          totalH: su.totalH,
+          hasTop: activePresetObj.units[idx]?.hasTop ?? false,
+          hasWheels: activePresetObj.units[idx]?.hasWheels ?? false,
+        })),
       },
     ]);
   }
