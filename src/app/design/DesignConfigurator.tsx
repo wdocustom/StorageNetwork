@@ -368,7 +368,7 @@ export default function DesignConfigurator({
   const multiUnitItems = useMemo(() => {
     if (!showMultiUnit3D || orderItems.length === 0) return undefined;
     return orderItems
-      .filter((item) => !item.shelvingConfigId && !item.overheadStorageConfig) // Only render tote organizers in 3D for now
+      .filter((item) => !item.shelvingConfigId) // Shelving has separate 3D; tote organizers + overhead supported
       .map((item, i) => ({
         cols: item.cols,
         rows: item.rows,
@@ -381,11 +381,15 @@ export default function DesignConfigurator({
         hasTop: item.hasTop,
         totalW: item.totalW,
         totalH: item.totalH,
+        depth: item.depth,
         addons: item.addons,
         paintFrameColor: item.paintFrameColor,
         paintDoorColor: item.paintDoorColor,
         paintSidePanelColor: item.paintSidePanelColor,
         shelvingConfigId: item.shelvingConfigId,
+        overheadStorageConfig: item.overheadStorageConfig
+          ? { widthIn: item.totalW, depthIn: item.depth, dropHeightIn: item.totalH }
+          : undefined,
         visible: unitVisibility[i] !== false, // default visible
         desc: item.desc,
       }));

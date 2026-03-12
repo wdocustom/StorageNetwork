@@ -123,11 +123,13 @@ export interface MultiUnitItem {
   hasTop: boolean;
   totalW: number;
   totalH: number;
+  depth?: number;
   addons?: SectionAddon[];
   paintFrameColor?: PaintColorId | null;
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
   shelvingConfigId?: string;
+  overheadStorageConfig?: { widthIn: number; depthIn: number; dropHeightIn: number };
   visible: boolean;
   desc: string;
 }
@@ -272,10 +274,13 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   hasWheels: u.hasWheels,
                   hasTop: u.hasTop,
                   totalW: u.totalW,
+                  totalH: u.totalH,
+                  depth: u.depth,
                   addons: u.addons,
                   paintFrameColor: u.paintFrameColor,
                   paintDoorColor: u.paintDoorColor,
                   paintSidePanelColor: u.paintSidePanelColor,
+                  overheadConfig: u.overheadStorageConfig,
                 }))}
               />
             </Suspense>

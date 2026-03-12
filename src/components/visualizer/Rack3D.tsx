@@ -66,10 +66,14 @@ interface MultiUnit3DItem {
   hasWheels: boolean;
   hasTop: boolean;
   totalW: number;
+  totalH?: number;
+  depth?: number;
   addons?: SectionAddon[];
   paintFrameColor?: PaintColorId | null;
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
+  /** When set, this item is an overhead storage unit */
+  overheadConfig?: OverheadConfig3D;
 }
 
 /** Overhead ceiling storage config for 3D rendering */
@@ -1348,21 +1352,25 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
         offsetX += item.totalW + GAP;
         return (
           <group key={i} position={[x, 0, 0]}>
-            <RackAssembly
-              cols={item.cols}
-              rows={item.rows}
-              toteType={item.toteType}
-              toteColor={item.toteColor}
-              unitType={item.unitType}
-              orientation={item.orientation}
-              hasTotes={item.hasTotes}
-              hasWheels={item.hasWheels}
-              hasTop={item.hasTop}
-              addons={item.addons}
-              paintFrameColor={item.paintFrameColor}
-              paintDoorColor={item.paintDoorColor}
-              paintSidePanelColor={item.paintSidePanelColor}
-            />
+            {item.overheadConfig ? (
+              <OverheadAssembly config={item.overheadConfig} />
+            ) : (
+              <RackAssembly
+                cols={item.cols}
+                rows={item.rows}
+                toteType={item.toteType}
+                toteColor={item.toteColor}
+                unitType={item.unitType}
+                orientation={item.orientation}
+                hasTotes={item.hasTotes}
+                hasWheels={item.hasWheels}
+                hasTop={item.hasTop}
+                addons={item.addons}
+                paintFrameColor={item.paintFrameColor}
+                paintDoorColor={item.paintDoorColor}
+                paintSidePanelColor={item.paintSidePanelColor}
+              />
+            )}
           </group>
         );
       })}
