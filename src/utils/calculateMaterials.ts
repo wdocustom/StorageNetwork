@@ -8,7 +8,7 @@
 // from "@/app/actions/calculate-materials" instead.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── V1 Default Costs (public retail prices — not proprietary) ────────────
+// ── V1 Default Costs (actual wholesale/material costs) ───────────────────
 
 export const DEFAULT_MATERIAL_PRICES = {
   lumber_2x4_8ft: 3.75,
@@ -17,7 +17,7 @@ export const DEFAULT_MATERIAL_PRICES = {
   screw_1in_90ct: 10.99,
   screw_1_5_8in_158ct: 8.97,
   screw_3in_137ct: 8.97,
-  wheels_4pk: 60.0,
+  wheels_4pk: 30.0,
 } as const;
 
 /** Custom material pricing — all fields optional, falls back to defaults */
