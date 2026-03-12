@@ -359,6 +359,17 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
       else sheetsForUnit = 1;
 
+      // ── Single-sheet optimization for ≤5×2 units with top ──────────
+      // Both top pieces, all rails, and back supports (from offcuts) fit on
+      // ONE 4×8 sheet when the unit is ≤5 cols and ≤2 rows.
+      // Back supports are cut from waste strips and the extra rail — no
+      // dedicated strips needed. Saves one full plywood sheet.
+      if (sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2) {
+        sheetsForUnit = 1;
+        const unitBackSupports = widthModules.reduce((sum, c) => sum + (c <= 4 ? 4 : 6), 0) * heightTiers.length;
+        globalStripCount -= unitBackSupports;
+      }
+
       globalTopSheets += sheetsForUnit;
       gRetail += sheetsForUnit * PLYWOOD_TOP_PRICE;
     }

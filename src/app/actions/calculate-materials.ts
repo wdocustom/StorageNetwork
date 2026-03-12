@@ -151,6 +151,23 @@ export async function calculateMaterialCostServer(
       if (unitTotalWidth > 192) sheetsForUnit = 3;
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
       else sheetsForUnit = 1;
+
+      // ── Single-sheet optimization for ≤5×2 units with top ──────────
+      // When the unit is small enough (≤5 cols, ≤2 rows), both top pieces,
+      // all rails, and back supports (from offcuts) fit on ONE 4×8 sheet:
+      //   - 30"×96" rip → Top #1 (full width top)
+      //   - 18"×96" rip → Top #2 (11-3/4"×30") + 21 rails (1-7/8"×30")
+      //   - Offcuts yield enough back supports (≥12" pieces from waste strips
+      //     and the extra rail split): no dedicated strips needed for back supports.
+      // This saves one full plywood sheet for 5×2 and 5×1 configurations.
+      if (sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2) {
+        sheetsForUnit = 1;
+        // Back supports come from offcuts — remove them from the strip count
+        // so they don't inflate the structural sheet requirement.
+        const unitBackSupports = widthModules.reduce((sum, c) => sum + (c <= 4 ? 4 : 6), 0) * heightTiers.length;
+        globalStripCount -= unitBackSupports;
+      }
+
       globalTopSheets += sheetsForUnit;
     }
 
