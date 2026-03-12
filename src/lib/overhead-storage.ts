@@ -26,8 +26,8 @@ export interface OverheadJoistSpacing {
   inches: number;
 }
 
-/** Deck type for the overhead platform */
-export type OverheadDeckType = "wire" | "plywood";
+/** Deck type for the overhead platform (always plywood) */
+export type OverheadDeckType = "plywood";
 
 /** Full overhead storage configuration */
 export interface OverheadStorageConfig {

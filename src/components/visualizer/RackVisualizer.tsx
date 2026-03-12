@@ -104,6 +104,8 @@ interface RackVisualizerProps {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
+  /** When set, renders an overhead ceiling storage unit */
+  overheadConfig?: { widthIn: number; depthIn: number; dropHeightIn: number };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
 }
@@ -258,6 +260,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 paintDoorColor={props.paintDoorColor}
                 paintSidePanelColor={props.paintSidePanelColor}
                 shelvingConfig={props.shelvingConfig}
+                overheadConfig={props.overheadConfig}
                 multiUnitItems={props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
                   cols: u.cols,
                   rows: u.rows,

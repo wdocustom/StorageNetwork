@@ -323,6 +323,7 @@ export default function DesignConfigurator({
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
   const overheadStorageEnabled = data?.pricing?.overhead_storage_disabled !== true;
+  const [overheadPreview, setOverheadPreview] = useState<{ widthIn: number; depthIn: number; dropHeightIn: number } | null>(null);
 
   function handleAddOverheadUnit(
     result: import("@/lib/overhead-storage").OverheadStorageResult,
@@ -331,8 +332,7 @@ export default function DesignConfigurator({
     const sizeLabel = config.sizePresetId
       ? `${result.widthIn / 12}'×${result.depthIn / 12}'`
       : `${result.widthIn}"×${result.depthIn}"`;
-    const deckLabel = result.deckType === "plywood" ? "Plywood" : "Wire";
-    const desc = `Overhead Storage: ${sizeLabel} — ${result.dropHeightIn}" drop, ${deckLabel} deck`;
+    const desc = `Overhead Storage: ${sizeLabel} — ${result.dropHeightIn}" drop`;
 
     setOrderItems((prev) => [
       ...prev,
@@ -1375,6 +1375,7 @@ export default function DesignConfigurator({
           // Overhead ceiling storage
           overheadStorageHidden={!overheadStorageEnabled}
           onAddOverheadUnit={handleAddOverheadUnit}
+          onOverheadConfigPreview={setOverheadPreview}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={showMultiUnit3D}
@@ -1527,12 +1528,22 @@ export default function DesignConfigurator({
               paintDoorColor={activePresetObj ? null : paintDoorColor}
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
+              overheadConfig={overheadPreview ?? undefined}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
             />
           </div>
           {/* Dimensions bar */}
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {activeShelvingConfig ? (
+            {overheadPreview ? (
+              <>
+                {overheadPreview.widthIn}&quot; W &times;{" "}
+                {overheadPreview.depthIn}&quot; D &times;{" "}
+                {overheadPreview.dropHeightIn}&quot; drop
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Overhead Storage
+                </span>
+              </>
+            ) : activeShelvingConfig ? (
               <>
                 {activeShelvingConfig.widthIn}&quot; W &times;{" "}
                 {activeShelvingConfig.frameH}&quot; H &times;{" "}

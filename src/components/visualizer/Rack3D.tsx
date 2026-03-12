@@ -72,6 +72,13 @@ interface MultiUnit3DItem {
   paintSidePanelColor?: PaintColorId | null;
 }
 
+/** Overhead ceiling storage config for 3D rendering */
+interface OverheadConfig3D {
+  widthIn: number;
+  depthIn: number;
+  dropHeightIn: number;
+}
+
 interface Rack3DProps {
   cols: number;
   rows: number;
@@ -94,6 +101,8 @@ interface Rack3DProps {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
+  /** When set, renders an overhead ceiling storage unit */
+  overheadConfig?: OverheadConfig3D;
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
 }
@@ -1150,6 +1159,148 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Overhead Ceiling Storage — 2×4 frame hanging from ceiling with plywood deck
+// ═══════════════════════════════════════════════════════════════════════════
+
+function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
+  const { widthIn, depthIn, dropHeightIn } = config;
+
+  // Vertical supports (2×4) — one at each corner
+  const supportH = dropHeightIn;
+
+  // Cross beams (2×4) — run along the width at front and back
+  // Side rails (2×4) — run along the depth on left and right
+
+  // The deck sits at the bottom of the drop (i.e. at y = 0)
+  // Supports go from y = 0 up to y = dropHeight (toward ceiling)
+  // We'll model it inverted: deck at bottom, supports going up
+
+  const cx = widthIn / 2;
+  const cy = (supportH + PLY_TOP_H) / 2;
+  const cz = depthIn / 2;
+
+  // Corner post positions
+  const corners: [number, number][] = [
+    [POST_W / 2, POST_D / 2],
+    [widthIn - POST_W / 2, POST_D / 2],
+    [POST_W / 2, depthIn - POST_D / 2],
+    [widthIn - POST_W / 2, depthIn - POST_D / 2],
+  ];
+
+  // If the depth is long (> 48"), add mid-span supports
+  const midSupports: [number, number][] = [];
+  if (depthIn > 48) {
+    const midZ = depthIn / 2;
+    midSupports.push([POST_W / 2, midZ], [widthIn - POST_W / 2, midZ]);
+  }
+
+  const allSupports = [...corners, ...midSupports];
+
+  return (
+    <group scale={[S, S, S]}>
+      <group position={[cx, -cy, -cz]} scale={[-1, 1, 1]}>
+        {/* Plywood deck at the bottom */}
+        <mesh
+          position={[widthIn / 2, PLY_TOP_H / 2, depthIn / 2]}
+          material={PLYWOOD_TOP_MAT}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[widthIn, PLY_TOP_H, depthIn]} />
+        </mesh>
+
+        {/* Cross beams (2×4 on-edge) — span width at front and back, sitting on top of deck */}
+        <Lumber
+          position={[widthIn / 2, PLY_TOP_H + POST_D / 2, POST_D / 2]}
+          size={[widthIn, POST_D, POST_W]}
+        />
+        <Lumber
+          position={[widthIn / 2, PLY_TOP_H + POST_D / 2, depthIn - POST_D / 2]}
+          size={[widthIn, POST_D, POST_W]}
+        />
+        {/* Mid-span cross beam if depth > 48" */}
+        {depthIn > 48 && (
+          <Lumber
+            position={[widthIn / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
+            size={[widthIn, POST_D, POST_W]}
+          />
+        )}
+
+        {/* Side rails (2×4 on-edge) — run along depth on left and right */}
+        <Lumber
+          position={[POST_W / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
+          size={[POST_W, POST_D, depthIn]}
+        />
+        <Lumber
+          position={[widthIn - POST_W / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
+          size={[POST_W, POST_D, depthIn]}
+        />
+
+        {/* Vertical supports (2×4) — go from frame up toward ceiling */}
+        {allSupports.map(([sx, sz], i) => (
+          <Lumber
+            key={`support-${i}`}
+            position={[sx, PLY_TOP_H + POST_D + supportH / 2, sz]}
+            size={[POST_W, supportH, POST_D]}
+          />
+        ))}
+
+        {/* Top plate (2×4 flat) at ceiling level — front and back */}
+        <Lumber
+          position={[widthIn / 2, PLY_TOP_H + POST_D + supportH + PLATE_H / 2, POST_D / 2]}
+          size={[widthIn, PLATE_H, POST_D]}
+        />
+        <Lumber
+          position={[widthIn / 2, PLY_TOP_H + POST_D + supportH + PLATE_H / 2, depthIn - POST_D / 2]}
+          size={[widthIn, PLATE_H, POST_D]}
+        />
+      </group>
+    </group>
+  );
+}
+
+function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+
+  const sw = config.widthIn * S;
+  const sh = (config.dropHeightIn + 5) * S;
+  const sd = config.depthIn * S;
+  const maxDim = Math.max(sw, sh, sd);
+  const dist = maxDim * 2.4;
+
+  useEffect(() => {
+    // View from slightly below to see the hanging structure
+    camera.position.set(dist * 0.7, -dist * 0.3, -dist * 0.7);
+    camera.lookAt(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, dist]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      autoRotate
+      autoRotateSpeed={0.5}
+      enablePan
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.1}
+      maxPolarAngle={Math.PI / 1.5}
+      minDistance={0.2}
+      maxDistance={dist * 5}
+      target={[0, 0, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1221,6 +1372,7 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
 
 export default function Rack3D(props: Rack3DProps) {
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
+  const isOverhead = !!props.overheadConfig;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
   const isShelving = !!props.shelvingConfig;
 
@@ -1263,6 +1415,13 @@ export default function Rack3D(props: Rack3DProps) {
             <MultiUnitCameraRig items={props.multiUnitItems!} />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <MultiUnitAssembly items={props.multiUnitItems!} />
+            </Stage>
+          </>
+        ) : isOverhead ? (
+          <>
+            <OverheadCameraRig config={props.overheadConfig!} />
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+              <OverheadAssembly config={props.overheadConfig!} />
             </Stage>
           </>
         ) : isShelving ? (

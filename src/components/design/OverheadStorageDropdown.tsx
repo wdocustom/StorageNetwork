@@ -17,11 +17,13 @@ import type { InstallerPricing } from "@/types/viewModels";
 
 interface OverheadStorageDropdownProps {
   onAddOverheadUnit: (result: OverheadStorageResult, config: OverheadStorageConfig) => void;
+  onConfigPreview?: (preview: { widthIn: number; depthIn: number; dropHeightIn: number } | null) => void;
   installerPricing?: InstallerPricing;
 }
 
 export default function OverheadStorageDropdown({
   onAddOverheadUnit,
+  onConfigPreview,
   installerPricing,
 }: OverheadStorageDropdownProps) {
   const [expanded, setExpanded] = useState(false);
@@ -30,7 +32,7 @@ export default function OverheadStorageDropdown({
   const [sizePresetId, setSizePresetId] = useState<string | null>(null);
   const [dropHeightId, setDropHeightId] = useState("24");
   const [joistSpacingId, setJoistSpacingId] = useState("16");
-  const [deckType, setDeckType] = useState<OverheadDeckType>("wire");
+  const [deckType, setDeckType] = useState<OverheadDeckType>("plywood");
 
   // Calculation state
   const [result, setResult] = useState<OverheadStorageResult | null>(null);
@@ -61,6 +63,22 @@ export default function OverheadStorageDropdown({
   useEffect(() => {
     calculate();
   }, [calculate]);
+
+  // Notify parent of live config for 3D preview
+  useEffect(() => {
+    if (!sizePresetId || !expanded) {
+      onConfigPreview?.(null);
+      return;
+    }
+    const preset = OVERHEAD_SIZE_PRESETS.find((p) => p.id === sizePresetId);
+    if (!preset) { onConfigPreview?.(null); return; }
+    const dh = OVERHEAD_DROP_HEIGHTS.find((d) => d.id === dropHeightId);
+    onConfigPreview?.({
+      widthIn: preset.widthIn,
+      depthIn: preset.depthIn,
+      dropHeightIn: dh?.inches ?? 24,
+    });
+  }, [sizePresetId, dropHeightId, expanded, onConfigPreview]);
 
   function handleAdd() {
     if (!result || !sizePresetId) return;
@@ -212,41 +230,6 @@ export default function OverheadStorageDropdown({
                 </motion.div>
               )}
 
-              {/* Deck Type */}
-              {sizePresetId && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, delay: 0.1 }}
-                >
-                  <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                    Deck Type
-                  </label>
-                  <div className="flex gap-1.5">
-                    <SelectionCard
-                      selected={deckType === "wire"}
-                      onSelect={() => setDeckType("wire")}
-                      className="flex-1"
-                    >
-                      <div className="text-center">
-                        <div className="text-xs font-bold text-zinc-300">Wire Deck</div>
-                        <div className="text-[10px] text-zinc-500">Lighter, ventilated</div>
-                      </div>
-                    </SelectionCard>
-                    <SelectionCard
-                      selected={deckType === "plywood"}
-                      onSelect={() => setDeckType("plywood")}
-                      className="flex-1"
-                    >
-                      <div className="text-center">
-                        <div className="text-xs font-bold text-zinc-300">Plywood Deck</div>
-                        <div className="text-[10px] text-zinc-500">Solid, heavier duty</div>
-                      </div>
-                    </SelectionCard>
-                  </div>
-                </motion.div>
-              )}
-
               {/* Price & Add Button */}
               {sizePresetId && result && !loading && (
                 <motion.div
@@ -255,24 +238,7 @@ export default function OverheadStorageDropdown({
                   transition={{ delay: 0.1, duration: 0.25 }}
                   className="mt-1"
                 >
-                  {/* Materials Preview */}
-                  <div className="mb-3 rounded-lg border border-zinc-800 bg-zinc-900/80 p-2.5">
-                    <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                      Materials
-                    </p>
-                    <div className="space-y-0.5">
-                      {result.materials.map((m, i) => (
-                        <div key={i} className="flex items-center justify-between text-[10px]">
-                          <span className="text-zinc-400">{m.name}</span>
-                          <span className="font-semibold text-zinc-300">
-                            {m.qty} {m.unit}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 border-t border-zinc-800 pt-3">
+                  <div className="flex items-center gap-3">
                     <div className="flex-1 text-center">
                       <div className="text-2xl font-black text-white">
                         <RollingPrice value={result.price} />

@@ -267,6 +267,7 @@ export interface ConfiguratorSidebarProps {
   /** When true, the overhead storage section is hidden */
   overheadStorageHidden?: boolean;
   onAddOverheadUnit: (result: import("@/lib/overhead-storage").OverheadStorageResult, config: import("@/lib/overhead-storage").OverheadStorageConfig) => void;
+  onOverheadConfigPreview?: (preview: { widthIn: number; depthIn: number; dropHeightIn: number } | null) => void;
 
   // Multi-unit 3D visualization
   showMultiUnit3D: boolean;

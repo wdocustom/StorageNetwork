@@ -171,6 +171,7 @@ export default function StepSize({
             props.onAddOverheadUnit(result, config);
             setActiveStep(4);
           }}
+          onConfigPreview={props.onOverheadConfigPreview}
           installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
         />
       )}
