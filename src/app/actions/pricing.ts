@@ -71,7 +71,7 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
@@ -104,8 +104,8 @@ export async function updateInstallerPricing(
     if (pricing.open_shelving_disabled === true) {
       (validated as Record<string, unknown>).open_shelving_disabled = true;
     }
-    if (pricing.overhead_storage_disabled === true) {
-      (validated as Record<string, unknown>).overhead_storage_disabled = true;
+    if (pricing.overhead_storage_enabled === true) {
+      (validated as Record<string, unknown>).overhead_storage_enabled = true;
     }
     for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled"] as const) {
       if (pricing[bk] === true) {

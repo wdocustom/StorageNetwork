@@ -8,6 +8,7 @@ import {
   Save,
   CheckCircle2,
   Info,
+  Eye,
   EyeOff,
   ChevronDown,
   ChevronUp,
@@ -266,7 +267,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [miniDisabled, setMiniDisabled] = useState(false);
   const [shelvingDisabled, setShelvingDisabled] = useState(false);
-  const [overheadDisabled, setOverheadDisabled] = useState(false);
+  const [overheadEnabled, setOverheadEnabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Organizer Customization (addon pricing) state ──────────────────
@@ -294,7 +295,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setValues(loaded);
       setMiniDisabled(result.pricing.mini_disabled === true);
       setShelvingDisabled(result.pricing.open_shelving_disabled === true);
-      setOverheadDisabled(result.pricing.overhead_storage_disabled === true);
+      setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
         cornhusker: result.pricing.bestseller_cornhusker_disabled !== true,
@@ -352,12 +353,12 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     for (const field of PRICE_FIELDS) {
       const val = values[field.key];
       if (val !== undefined && val !== "") {
-        pricing[field.key] = Number(val);
+        (pricing as Record<string, number>)[field.key] = Number(val);
       }
     }
     if (miniDisabled) pricing.mini_disabled = true;
     if (shelvingDisabled) pricing.open_shelving_disabled = true;
-    if (overheadDisabled) pricing.overhead_storage_disabled = true;
+    if (overheadEnabled) pricing.overhead_storage_enabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
     if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
     if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
@@ -402,7 +403,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setValues(cleared);
       setMiniDisabled(false);
       setShelvingDisabled(false);
-      setOverheadDisabled(false);
+      setOverheadEnabled(false);
       setPresetToggles({});
       setAddonEnabled(true);
       setAddonValues({});
@@ -427,7 +428,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   function hasCustomValues(): boolean {
     return miniDisabled
       || shelvingDisabled
-      || overheadDisabled
+      || overheadEnabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
@@ -567,27 +568,27 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       <div className="mb-5">
         <button
           type="button"
-          onClick={() => setOverheadDisabled(!overheadDisabled)}
+          onClick={() => setOverheadEnabled(!overheadEnabled)}
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
-            overheadDisabled
-              ? "border-red-500/30 bg-red-500/5"
+            overheadEnabled
+              ? "border-yellow-500/30 bg-yellow-500/5"
               : "border-slate-700 bg-slate-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${overheadDisabled ? "bg-red-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${overheadDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${overheadEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${overheadEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <EyeOff className={`h-3.5 w-3.5 ${overheadDisabled ? "text-red-400" : "text-stone-500"}`} />
-              <p className={`text-sm font-medium ${overheadDisabled ? "text-red-400" : "text-white"}`}>
-                {overheadDisabled ? "Overhead Storage Disabled" : "Disable Overhead Storage"}
+              <Eye className={`h-3.5 w-3.5 ${overheadEnabled ? "text-yellow-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${overheadEnabled ? "text-yellow-400" : "text-white"}`}>
+                {overheadEnabled ? "Overhead Storage Enabled" : "Enable Overhead Storage"}
               </p>
             </div>
             <p className="text-[11px] text-stone-500">
-              {overheadDisabled
-                ? "Ceiling-mounted storage options are hidden from your design page"
-                : "Toggle to hide overhead ceiling storage from customers"}
+              {overheadEnabled
+                ? "Ceiling-mounted storage options are visible on your design page"
+                : "Toggle to offer overhead ceiling storage to customers"}
             </p>
           </div>
         </button>
@@ -599,7 +600,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           const isCatDisabled =
             (cat.key === "mini" && miniDisabled) ||
             (cat.key === "shelving" && shelvingDisabled) ||
-            (cat.key === "overhead" && overheadDisabled);
+            (cat.key === "overhead" && !overheadEnabled);
 
           return (
             <div key={cat.key} className={isCatDisabled ? "opacity-40 pointer-events-none" : ""}>

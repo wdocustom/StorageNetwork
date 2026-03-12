@@ -322,7 +322,7 @@ export default function DesignConfigurator({
   }
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
-  const overheadStorageEnabled = data?.pricing?.overhead_storage_disabled !== true;
+  const overheadStorageEnabled = data?.pricing?.overhead_storage_enabled === true;
   const [overheadPreview, setOverheadPreview] = useState<{ widthIn: number; depthIn: number; dropHeightIn: number } | null>(null);
 
   function handleAddOverheadUnit(
