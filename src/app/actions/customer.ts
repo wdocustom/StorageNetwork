@@ -26,7 +26,7 @@ export interface AvailabilityResult {
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs";
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -92,7 +92,7 @@ export async function checkAvailability(
   return zipCache.getOrFetch(`avail:${trimmed}`, async () => {
     try {
       // Primary: search the service_zips array (covers radius)
-      // Sort by lowest lead count first (round-robin fairness)
+      // Grade by completed_jobs DESC (experience wins), then current_month_leads ASC (fair monthly balance)
       // Only include active installers
       const { data: matches, error } = await supabase
         .from("profiles")
@@ -100,6 +100,7 @@ export async function checkAvailability(
         .contains("service_zips", [trimmed])
         .neq("active", false)  // Exclude deactivated accounts
         .neq("is_suspended", true)  // Exclude suspended accounts
+        .order("completed_jobs", { ascending: false, nullsFirst: false })
         .order("current_month_leads", { ascending: true, nullsFirst: true });
 
       if (!error && matches && matches.length > 0) {
@@ -141,6 +142,7 @@ export async function checkAvailability(
         .select(INSTALLER_SELECT)
         .eq("service_zip", trimmed)
         .neq("is_suspended", true)
+        .order("completed_jobs", { ascending: false, nullsFirst: false })
         .order("current_month_leads", { ascending: true, nullsFirst: true });
 
       if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
@@ -194,6 +196,7 @@ export async function rerouteToLocalInstaller(
       .neq("id", originalInstallerId)
       .neq("active", false)
       .neq("is_suspended", true)
+      .order("completed_jobs", { ascending: false, nullsFirst: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!error && matches && matches.length > 0) {
@@ -233,6 +236,7 @@ export async function rerouteToLocalInstaller(
       .eq("service_zip", trimmed)
       .neq("id", originalInstallerId)
       .neq("is_suspended", true)
+      .order("completed_jobs", { ascending: false, nullsFirst: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
