@@ -39,6 +39,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
+import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
@@ -691,14 +692,11 @@ function ProfilePageInner() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A: Personal & Business Info
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <User className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Personal & Business Info
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          icon={User}
+          title="Personal & Business Info"
+          description="Business name, contact details, address, and photo"
+        >
           {/* Avatar with Upload */}
           <div className="mb-5 flex items-center gap-4">
             <div className="relative">
@@ -909,7 +907,7 @@ function ProfilePageInner() {
               {saveMessage}
             </p>
           )}
-        </section>
+        </CollapsibleSection>
 
         {/* ── Group: Coverage ─────────────────────────────────────────── */}
         <div className="flex items-center gap-3 pt-2">
@@ -921,14 +919,11 @@ function ProfilePageInner() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A.5: Service Area Radius
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Target className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Service Area
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          icon={Target}
+          title="Service Area"
+          description={`${serviceRadius} mile radius from ZIP ${serviceZip || "—"}${zipsCovered ? ` (${zipsCovered.toLocaleString()} ZIPs)` : ""}`}
+        >
           {/* Current ZIP Display */}
           <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between">
@@ -1057,20 +1052,19 @@ function ProfilePageInner() {
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
-        </section>
+        </CollapsibleSection>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A.6: Delivery Fee Tiers
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <CollapsibleSection
+          icon={Truck}
+          title="Delivery Fees"
+          description={deliveryFeeEnabled ? `${deliveryTiers.length} distance tier${deliveryTiers.length !== 1 ? "s" : ""} configured` : "Disabled — no delivery fees charged"}
+        >
+          {/* Master Toggle */}
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-yellow-400" />
-              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                Delivery Fees
-              </h2>
-            </div>
-            {/* Master Toggle */}
+            <span className="text-xs font-semibold text-stone-400">Charge Delivery Fees</span>
             <button
               onClick={() => setDeliveryFeeEnabled(!deliveryFeeEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -1212,7 +1206,7 @@ function ProfilePageInner() {
               {deliveryFeeMessage}
             </p>
           )}
-        </section>
+        </CollapsibleSection>
 
         {/* ── Group: Payments ─────────────────────────────────────────── */}
         <div className="flex items-center gap-3 pt-2">
@@ -1224,14 +1218,11 @@ function ProfilePageInner() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION B: Stripe Connect (Payouts)
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Payouts (Stripe Connect)
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          icon={CreditCard}
+          title="Payouts (Stripe Connect)"
+          description={stripeStatus?.charges_enabled ? "Connected — deposits go to your bank" : "Not connected — set up to receive payments"}
+        >
           {/* Status Card */}
           <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between">
@@ -1305,7 +1296,7 @@ function ProfilePageInner() {
               Contractor Agreement
             </a>.
           </p>
-        </section>
+        </CollapsibleSection>
 
         {/* Pro Upgrade Success/Cancel Message */}
         {proMessage && (
@@ -1396,14 +1387,11 @@ function ProfilePageInner() {
             <PricingSettings userId={profile.id} />
 
             {/* SECTION D.5: Custom Deposit */}
-            <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <div className="mb-4 flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-yellow-400" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-                  Customer Deposit
-                </h2>
-              </div>
-
+            <CollapsibleSection
+              icon={DollarSign}
+              title="Customer Deposit"
+              description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
+            >
               <p className="mb-4 text-xs text-stone-500">
                 Set how much your customers pay upfront when booking. Minimum is <span className="font-semibold text-stone-400">15%</span> to cover
                 the network lead fee. You can require a higher percentage or a flat dollar amount.
@@ -1502,7 +1490,7 @@ function ProfilePageInner() {
                   {depositMessage}
                 </p>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* SECTION E: Discount Codes */}
             <DiscountCodesCard userId={profile.id} />

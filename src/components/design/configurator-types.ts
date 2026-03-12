@@ -32,6 +32,8 @@ export interface UnitConfig {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, this order item is an open shelving unit (not a tote organizer) */
   shelvingConfigId?: string;
+  /** When set, this order item is an overhead ceiling storage unit */
+  overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
 }
 
 export interface ServerBuild {
@@ -260,6 +262,18 @@ export interface ConfiguratorSidebarProps {
   onAddShelvingUnit: () => void;
   /** When true, the open shelving section is hidden */
   shelvingHidden?: boolean;
+
+  // Overhead Ceiling Storage
+  /** When true, the overhead storage section is hidden */
+  overheadStorageHidden?: boolean;
+  onAddOverheadUnit: (result: import("@/lib/overhead-storage").OverheadStorageResult, config: import("@/lib/overhead-storage").OverheadStorageConfig) => void;
+
+  // Multi-unit 3D visualization
+  showMultiUnit3D: boolean;
+  onShowMultiUnit3DChange: (v: boolean) => void;
+  unitVisibility: Record<number, boolean>;
+  onUnitVisibilityChange: (index: number, visible: boolean) => void;
+  onToggleAllUnits: (visible: boolean) => void;
 
   // Pulse trigger — called after "Find Max" updates inputs
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight

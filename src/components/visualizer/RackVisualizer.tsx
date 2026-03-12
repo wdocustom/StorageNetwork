@@ -104,6 +104,30 @@ interface RackVisualizerProps {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
+  /** Multi-unit mode: renders multiple finished units side-by-side */
+  multiUnitItems?: MultiUnitItem[];
+}
+
+/** A completed order item for multi-unit 3D rendering */
+export interface MultiUnitItem {
+  cols: number;
+  rows: number;
+  toteType: ToteType;
+  toteColor: ToteColor;
+  unitType: UnitType;
+  orientation: Orientation;
+  hasTotes: boolean;
+  hasWheels: boolean;
+  hasTop: boolean;
+  totalW: number;
+  totalH: number;
+  addons?: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
+  shelvingConfigId?: string;
+  visible: boolean;
+  desc: string;
 }
 
 export default function RackVisualizer(props: RackVisualizerProps) {
@@ -234,6 +258,22 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 paintDoorColor={props.paintDoorColor}
                 paintSidePanelColor={props.paintSidePanelColor}
                 shelvingConfig={props.shelvingConfig}
+                multiUnitItems={props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
+                  cols: u.cols,
+                  rows: u.rows,
+                  toteType: u.toteType,
+                  toteColor: u.toteColor,
+                  unitType: u.unitType,
+                  orientation: u.orientation,
+                  hasTotes: u.hasTotes,
+                  hasWheels: u.hasWheels,
+                  hasTop: u.hasTop,
+                  totalW: u.totalW,
+                  addons: u.addons,
+                  paintFrameColor: u.paintFrameColor,
+                  paintDoorColor: u.paintDoorColor,
+                  paintSidePanelColor: u.paintSidePanelColor,
+                }))}
               />
             </Suspense>
           </div>

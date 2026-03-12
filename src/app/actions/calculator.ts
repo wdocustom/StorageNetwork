@@ -607,3 +607,27 @@ export async function calculateShelvingUnit(input: {
     shelves: config.shelves,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Overhead Ceiling Storage Calculator
+// ═══════════════════════════════════════════════════════════════════════════
+
+import {
+  calculateOverheadStorage as calcOverhead,
+  type OverheadStorageConfig,
+  type OverheadStorageResult,
+} from "@/lib/overhead-storage";
+
+export type { OverheadStorageConfig, OverheadStorageResult };
+
+export async function calculateOverheadStorageUnit(input: {
+  config: OverheadStorageConfig;
+  installerPricing?: InstallerPricing;
+}): Promise<{ success: true; result: OverheadStorageResult } | { success: false; error: string }> {
+  try {
+    const result = calcOverhead(input.config, input.installerPricing as Record<string, number | boolean | undefined>);
+    return { success: true, result };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Calculation failed" };
+  }
+}

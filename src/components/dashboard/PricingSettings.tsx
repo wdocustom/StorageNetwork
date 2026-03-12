@@ -27,6 +27,7 @@ import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFA
 import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
+import { OVERHEAD_SIZE_PRESETS, PLATFORM_OVERHEAD_DEFAULTS } from "@/lib/overhead-storage";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -36,7 +37,7 @@ interface PricingSettingsProps {
   userId: string;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "open_shelving_disabled" | "overhead_storage_disabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -46,7 +47,7 @@ interface PriceField {
   /** When true, the default is computed dynamically from the installer's
    *  slot/plywood pricing and shown as "Auto" when empty. */
   dynamicDefault?: boolean;
-  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving";
+  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving" | "overhead";
 }
 
 /**
@@ -177,6 +178,19 @@ const PRICE_FIELDS: PriceField[] = [
       category: "shelving" as const,
     };
   }),
+  // Overhead Ceiling Storage price overrides
+  ...OVERHEAD_SIZE_PRESETS.map((preset) => {
+    const key = `overhead_${preset.id}` as PricingNumericKey;
+    const sqft = Math.round((preset.widthIn * preset.depthIn) / 144);
+    const defaultPrice = PLATFORM_OVERHEAD_DEFAULTS[key] ?? 0;
+    return {
+      key,
+      label: preset.label,
+      description: `${sqft} sq ft base (platform default: $${defaultPrice})`,
+      defaultValue: defaultPrice,
+      category: "overhead" as const,
+    };
+  }),
 ];
 
 /** Row component for each addon type — toggle + price input */
@@ -252,6 +266,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [miniDisabled, setMiniDisabled] = useState(false);
   const [shelvingDisabled, setShelvingDisabled] = useState(false);
+  const [overheadDisabled, setOverheadDisabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Organizer Customization (addon pricing) state ──────────────────
@@ -279,6 +294,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setValues(loaded);
       setMiniDisabled(result.pricing.mini_disabled === true);
       setShelvingDisabled(result.pricing.open_shelving_disabled === true);
+      setOverheadDisabled(result.pricing.overhead_storage_disabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
         cornhusker: result.pricing.bestseller_cornhusker_disabled !== true,
@@ -341,6 +357,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     }
     if (miniDisabled) pricing.mini_disabled = true;
     if (shelvingDisabled) pricing.open_shelving_disabled = true;
+    if (overheadDisabled) pricing.overhead_storage_disabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
     if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
     if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
@@ -385,6 +402,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setValues(cleared);
       setMiniDisabled(false);
       setShelvingDisabled(false);
+      setOverheadDisabled(false);
       setPresetToggles({});
       setAddonEnabled(true);
       setAddonValues({});
@@ -409,6 +427,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   function hasCustomValues(): boolean {
     return miniDisabled
       || shelvingDisabled
+      || overheadDisabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
@@ -453,6 +472,12 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       label: "Open Shelving Units",
       hint: "Set a total price for each shelving configuration (plywood shelves + top included). Leave empty to use the platform default.",
       fields: PRICE_FIELDS.filter((f) => f.category === "shelving"),
+    },
+    {
+      key: "overhead",
+      label: "Overhead Ceiling Storage",
+      hint: "Set a base price for each overhead storage size. Drop height and deck type adjustments are applied on top. Leave empty for platform default.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "overhead"),
     },
   ];
 
@@ -538,12 +563,43 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         </button>
       </div>
 
+      {/* Overhead Storage Toggle */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setOverheadDisabled(!overheadDisabled)}
+          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+            overheadDisabled
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${overheadDisabled ? "bg-red-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${overheadDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <EyeOff className={`h-3.5 w-3.5 ${overheadDisabled ? "text-red-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${overheadDisabled ? "text-red-400" : "text-white"}`}>
+                {overheadDisabled ? "Overhead Storage Disabled" : "Disable Overhead Storage"}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {overheadDisabled
+                ? "Ceiling-mounted storage options are hidden from your design page"
+                : "Toggle to hide overhead ceiling storage from customers"}
+            </p>
+          </div>
+        </button>
+      </div>
+
       {/* Pricing Categories */}
       <div className="space-y-5">
         {categories.map((cat) => {
           const isCatDisabled =
             (cat.key === "mini" && miniDisabled) ||
-            (cat.key === "shelving" && shelvingDisabled);
+            (cat.key === "shelving" && shelvingDisabled) ||
+            (cat.key === "overhead" && overheadDisabled);
 
           return (
             <div key={cat.key} className={isCatDisabled ? "opacity-40 pointer-events-none" : ""}>

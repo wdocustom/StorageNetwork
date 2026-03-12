@@ -60,6 +60,8 @@ interface UnitConfig {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, this order item is an open shelving unit (not a tote organizer) */
   shelvingConfigId?: string;
+  /** When set, this order item is an overhead ceiling storage unit */
+  overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
 }
 
 interface ServerBuild {
@@ -319,8 +321,75 @@ export default function DesignConfigurator({
     setShelvingPrice(null);
   }
 
+  // ── Overhead Ceiling Storage ──────────────────────────────────────────
+  const overheadStorageEnabled = data?.pricing?.overhead_storage_disabled !== true;
+
+  function handleAddOverheadUnit(
+    result: import("@/lib/overhead-storage").OverheadStorageResult,
+    config: import("@/lib/overhead-storage").OverheadStorageConfig,
+  ) {
+    const sizeLabel = config.sizePresetId
+      ? `${result.widthIn / 12}'×${result.depthIn / 12}'`
+      : `${result.widthIn}"×${result.depthIn}"`;
+    const deckLabel = result.deckType === "plywood" ? "Plywood" : "Wire";
+    const desc = `Overhead Storage: ${sizeLabel} — ${result.dropHeightIn}" drop, ${deckLabel} deck`;
+
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: false,
+        price: result.price,
+        totalW: result.widthIn,
+        totalH: result.dropHeightIn,
+        depth: result.depthIn,
+        desc,
+        addons: [],
+        overheadStorageConfig: config,
+      } as UnitConfig,
+    ]);
+  }
+
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
+
+  // ── Multi-unit 3D visualization toggles ─────────────────────────────
+  const [unitVisibility, setUnitVisibility] = useState<Record<number, boolean>>({});
+  const [showMultiUnit3D, setShowMultiUnit3D] = useState(false);
+
+  // Build multi-unit items for the visualizer
+  const multiUnitItems = useMemo(() => {
+    if (!showMultiUnit3D || orderItems.length === 0) return undefined;
+    return orderItems
+      .filter((item) => !item.shelvingConfigId && !item.overheadStorageConfig) // Only render tote organizers in 3D for now
+      .map((item, i) => ({
+        cols: item.cols,
+        rows: item.rows,
+        toteType: item.toteType,
+        toteColor: item.toteColor,
+        unitType: item.unitType,
+        orientation: item.orientation,
+        hasTotes: item.hasTotes,
+        hasWheels: item.hasWheels,
+        hasTop: item.hasTop,
+        totalW: item.totalW,
+        totalH: item.totalH,
+        addons: item.addons,
+        paintFrameColor: item.paintFrameColor,
+        paintDoorColor: item.paintDoorColor,
+        paintSidePanelColor: item.paintSidePanelColor,
+        shelvingConfigId: item.shelvingConfigId,
+        visible: unitVisibility[i] !== false, // default visible
+        desc: item.desc,
+      }));
+  }, [showMultiUnit3D, orderItems, unitVisibility]);
 
   // ── Cleanout service add-on (booked with order, not emailed) ────────
   const [selectedCleanout, setSelectedCleanout] = useState<string | null>(null);
@@ -1303,6 +1372,21 @@ export default function DesignConfigurator({
           onAddShelvingUnit={handleAddShelvingUnit}
           shelvingHidden={!shelvingEnabled}
 
+          // Overhead ceiling storage
+          overheadStorageHidden={!overheadStorageEnabled}
+          onAddOverheadUnit={handleAddOverheadUnit}
+
+          // Multi-unit 3D visualization
+          showMultiUnit3D={showMultiUnit3D}
+          onShowMultiUnit3DChange={setShowMultiUnit3D}
+          unitVisibility={unitVisibility}
+          onUnitVisibilityChange={(index, visible) => setUnitVisibility((prev) => ({ ...prev, [index]: visible }))}
+          onToggleAllUnits={(visible) => {
+            const newVis: Record<number, boolean> = {};
+            orderItems.forEach((_, i) => { newVis[i] = visible; });
+            setUnitVisibility(newVis);
+          }}
+
           // Summary
           orderItems={orderItems}
           onRemoveUnit={handleRemoveUnit}
@@ -1443,6 +1527,7 @@ export default function DesignConfigurator({
               paintDoorColor={activePresetObj ? null : paintDoorColor}
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
+              multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
             />
           </div>
           {/* Dimensions bar */}

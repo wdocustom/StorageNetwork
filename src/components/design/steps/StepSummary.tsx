@@ -16,6 +16,9 @@ import {
   Tag,
   AlertTriangle,
   Clock,
+  Eye,
+  EyeOff,
+  Box,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
@@ -71,6 +74,86 @@ export default function StepSummary({
             Go configure a unit
           </button>
         </div>
+      )}
+
+      {/* Multi-Unit 3D Visualization Controls */}
+      {props.orderItems.length > 1 && (
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Box className="h-3.5 w-3.5 text-yellow-400" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                3D Multi-Unit View
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => props.onShowMultiUnit3DChange(!props.showMultiUnit3D)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                props.showMultiUnit3D ? "bg-yellow-400" : "bg-zinc-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  props.showMultiUnit3D ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {props.showMultiUnit3D && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1.5"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-zinc-500">Toggle units in 3D view</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => props.onToggleAllUnits(true)}
+                    className="rounded px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                  >
+                    All On
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => props.onToggleAllUnits(false)}
+                    className="rounded px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                  >
+                    All Off
+                  </button>
+                </div>
+              </div>
+              {props.orderItems.map((item, index) => {
+                const isVisible = props.unitVisibility[index] !== false;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => props.onUnitVisibilityChange(index, !isVisible)}
+                    className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
+                      isVisible
+                        ? "border-yellow-400/30 bg-yellow-400/5"
+                        : "border-zinc-800 bg-zinc-900/30 opacity-50"
+                    }`}
+                  >
+                    {isVisible ? (
+                      <Eye className="h-3 w-3 shrink-0 text-yellow-400" />
+                    ) : (
+                      <EyeOff className="h-3 w-3 shrink-0 text-zinc-600" />
+                    )}
+                    <span className={`flex-1 truncate text-[11px] font-medium ${isVisible ? "text-zinc-300" : "text-zinc-600"}`}>
+                      {item.desc || `Unit ${index + 1}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </section>
       )}
 
       {/* Cleanout Service */}

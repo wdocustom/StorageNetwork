@@ -54,6 +54,24 @@ interface ShelvingConfig3D {
   shelves: number;
 }
 
+/** A multi-unit item for rendering multiple finished units */
+interface MultiUnit3DItem {
+  cols: number;
+  rows: number;
+  toteType: ToteType;
+  toteColor: ToteColor;
+  unitType: UnitType;
+  orientation: Orientation;
+  hasTotes: boolean;
+  hasWheels: boolean;
+  hasTop: boolean;
+  totalW: number;
+  addons?: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
+}
+
 interface Rack3DProps {
   cols: number;
   rows: number;
@@ -76,6 +94,8 @@ interface Rack3DProps {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
+  /** Multi-unit mode: renders multiple finished units side-by-side */
+  multiUnitItems?: MultiUnit3DItem[];
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -1133,7 +1153,74 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Multi-unit camera rig — positions camera to see all units */
+function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
+  const SCALE = 1 / 30;
+  const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * 6; // 6" gap
+  const maxH = Math.max(...items.map((it) => it.rows * (it.unitType === "mini" ? 8.25 : 15.25)));
+  const w = totalW * SCALE;
+  const h = maxH * SCALE;
+  const dist = Math.max(w, h) * 1.8 + 1;
+
+  return (
+    <OrbitControls
+      autoRotate
+      autoRotateSpeed={0.5}
+      enablePan
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.1}
+      maxPolarAngle={Math.PI / 1.5}
+      minDistance={0.2}
+      maxDistance={dist * 5}
+      target={[0, 0, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
+/** Multi-unit assembly — renders each visible unit side-by-side */
+function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
+  const SCALE = 1 / 30;
+  const GAP = 6; // 6" gap between units
+
+  // Calculate total width to center the group
+  const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * GAP;
+  let offsetX = -totalW / 2;
+
+  return (
+    <group>
+      {items.map((item, i) => {
+        const x = (offsetX + item.totalW / 2) * SCALE;
+        offsetX += item.totalW + GAP;
+        return (
+          <group key={i} position={[x, 0, 0]}>
+            <RackAssembly
+              cols={item.cols}
+              rows={item.rows}
+              toteType={item.toteType}
+              toteColor={item.toteColor}
+              unitType={item.unitType}
+              orientation={item.orientation}
+              hasTotes={item.hasTotes}
+              hasWheels={item.hasWheels}
+              hasTop={item.hasTop}
+              addons={item.addons}
+              paintFrameColor={item.paintFrameColor}
+              paintDoorColor={item.paintDoorColor}
+              paintSidePanelColor={item.paintSidePanelColor}
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 export default function Rack3D(props: Rack3DProps) {
+  const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
   const isShelving = !!props.shelvingConfig;
 
@@ -1171,7 +1258,14 @@ export default function Rack3D(props: Rack3DProps) {
           color="#444444"
         />
 
-        {isShelving ? (
+        {isMultiUnit ? (
+          <>
+            <MultiUnitCameraRig items={props.multiUnitItems!} />
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+              <MultiUnitAssembly items={props.multiUnitItems!} />
+            </Stage>
+          </>
+        ) : isShelving ? (
           <>
             <ShelvingCameraRig config={props.shelvingConfig!} />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>

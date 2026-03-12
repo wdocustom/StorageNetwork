@@ -14,6 +14,7 @@ import type { ConfiguratorSidebarProps } from "../configurator-types";
 import { FocusFrame } from "../configurator-primitives";
 import BestsellerDropdown from "../BestsellerDropdown";
 import ShelvingDropdown from "../ShelvingDropdown";
+import OverheadStorageDropdown from "../OverheadStorageDropdown";
 
 export default function StepSize({
   props,
@@ -160,6 +161,17 @@ export default function StepSize({
           shelvingPrice={props.shelvingPrice}
           shelvingLoading={props.shelvingLoading}
           onAddShelvingUnit={() => { props.onAddShelvingUnit(); setActiveStep(4); }}
+        />
+      )}
+
+      {/* Overhead Ceiling Storage Dropdown */}
+      {!props.overheadStorageHidden && (
+        <OverheadStorageDropdown
+          onAddOverheadUnit={(result, config) => {
+            props.onAddOverheadUnit(result, config);
+            setActiveStep(4);
+          }}
+          installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
         />
       )}
 
