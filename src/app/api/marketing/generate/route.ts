@@ -65,8 +65,11 @@ Facebook algorithmically suppresses posts and comments that contain links. The O
     const userMessage = `Write a social media post AS THE INSTALLER (first person — "I", "my") for the following business:
 
 THE INSTALLER'S BUSINESS:
-${businessName ? `Business Name: ${businessName}` : "They are a professional tote storage system installer"}
-What they build: Custom heavy-duty tote storage racks made from 2x4 lumber and plywood. These systems store 27-gallon totes in organized rows and columns. Built to last, hold 1000+ lbs per unit, and keep garages, basements, and sheds organized.
+${businessName ? `Business Name: ${businessName}` : "They are a professional custom storage system installer"}
+What they build — THREE product lines:
+1. **Wall-Mounted Tote Storage Racks:** Custom heavy-duty racks made from 2x4 lumber and plywood. Store 27-gallon HDX totes in organized rows and columns — every bin slides out like a drawer. Hold 1,000+ lbs per unit. Bolted to wall studs. Optional locking casters.
+2. **Overhead Ceiling Storage:** A 3-layer system lagged to ceiling joists. Turns dead space above your head into organized tote storage. Perfect for seasonal items, holiday decorations, camping gear. Uses the same 27-gallon HDX totes.
+3. **Open Shelving (Bonus Add-On):** Custom heavy-duty open shelves for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding.
 Their Booking Link (for internal reference only — DO NOT put this URL in the post): ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
 ${ctaReminder}

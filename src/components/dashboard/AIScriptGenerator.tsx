@@ -74,6 +74,17 @@ const TONES: { value: Tone; label: string; desc: string }[] = [
   { value: "reverse-psychology", label: "Reverse Psych", desc: "\"Don't buy this...\"" },
 ];
 
+// ── Topic Presets (chip shortcuts for the custom angle field) ──────────
+
+const TOPIC_PRESETS = [
+  { label: "Tote Racks", value: "Focus on the wall-mounted sliding tote rack system — the core product." },
+  { label: "Overhead Storage", value: "Focus on overhead ceiling storage. Hook: Is there usable space above your head in the garage? Most people never look up — let's capitalize on that dead space to organize your home. Totes mounted to the ceiling joists, out of the way but easy to grab." },
+  { label: "Open Shelving", value: "Focus on custom open shelving as a bonus add-on. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding." },
+  { label: "Full Garage System", value: "Pitch the complete garage organization system — wall racks + overhead ceiling storage + open shelving. Top to bottom, wall to wall. One installer, one visit, total transformation." },
+  { label: "Spring Cleaning", value: "Seasonal spring cleaning angle — time to get organized before summer." },
+  { label: "Holiday Prep", value: "Holiday season angle — get decorations organized and accessible with overhead ceiling storage." },
+];
+
 // ── Quick Post Templates ────────────────────────────────────────────────
 
 interface PostTemplate {
@@ -112,6 +123,20 @@ function buildTemplates(): PostTemplate[] {
       hook: "Seasonal urgency — post during cleanup season",
       getText: (link, _name, location) =>
         `Spring cleaning time! If you need your garage organized, I build custom tote storage racks${location ? ` in ${location}` : ""}. Use my free 3D designer to see what fits your wall — takes 30 seconds:\n\n${link}`,
+    },
+    {
+      id: "overhead",
+      label: "Overhead Storage",
+      hook: "Look up — that ceiling space is going to waste",
+      getText: (link, _name, location) =>
+        `Ever look up in your garage and think "that's a lot of wasted space"? I build overhead ceiling storage systems${location ? ` right here in ${location}` : ""} — your totes mount directly to the joists, completely out of the way. Holiday decorations, camping gear, seasonal stuff — organized and off your floor. Design yours in 30 seconds:\n\n${link}`,
+    },
+    {
+      id: "shelving",
+      label: "Open Shelving",
+      hook: "Not everything fits in a tote — custom shelves for the rest",
+      getText: (link, _name, location) =>
+        `Not everything fits in a tote. I build custom heavy-duty open shelving${location ? ` in ${location}` : ""} for toolboxes, paint cans, coolers, sports gear — all the odd-shaped stuff cluttering your garage. Wall-mounted or freestanding, built to last. See what I can build for your space:\n\n${link}`,
     },
   ];
 }
@@ -439,11 +464,30 @@ export default function AIScriptGenerator({
             <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
               Custom Angle <span className="font-normal text-stone-600">(optional)</span>
             </label>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {TOPIC_PRESETS.map((preset) => {
+                const active = customTopic === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => setCustomTopic(active ? "" : preset.value)}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                      active
+                        ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                        : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
             <input
               type="text"
               value={customTopic}
               onChange={(e) => setCustomTopic(e.target.value)}
-              placeholder="e.g. Spring cleaning season, recent install I did, holiday prep..."
+              placeholder="e.g. Spring cleaning season, recent install I did, overhead ceiling storage..."
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
             />
           </div>

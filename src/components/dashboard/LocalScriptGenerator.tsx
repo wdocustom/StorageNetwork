@@ -49,6 +49,14 @@ export default function LocalScriptGenerator({
           label: 'The "Value" Approach',
           text: `Attention ${city} area! Tired of flimsy shelves that sag and break? My professional-grade storage systems are built to last and transform any room. Design your custom unit free — no pressure, just results: ${bookingLink}`,
         },
+        {
+          label: 'The "Look Up" Approach',
+          text: `${city} homeowners — look up in your garage. See all that wasted space above your head? I build overhead ceiling storage systems that mount right to your joists. Holiday decorations, camping gear, seasonal stuff — organized and completely out of the way. Let's put that dead space to work: ${bookingLink}`,
+        },
+        {
+          label: 'The "Complete Garage" Approach',
+          text: `I do it all for ${city} garages — wall-mounted tote racks, overhead ceiling storage, and custom open shelving. One installer, one visit, and your garage goes from chaos to completely organized. Design your setup in 30 seconds: ${bookingLink}`,
+        },
       ]
     : [];
 

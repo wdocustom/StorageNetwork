@@ -18,7 +18,9 @@ I build **custom sliding tote racks** right here in Omaha. Heavy-duty 2x4 constr
 * I build it, deliver it, and install it — usually done in a few hours
 * Want it on locking casters so you can roll it out and sweep? Done.
 
-I just wrapped up a build in Papillion last week — the homeowner went from a two-car-garage-that-fits-zero-cars to actually parking both vehicles inside. That's the kind of thing that makes my week.
+**Got dead space above your head?** I also build overhead ceiling storage — same totes, mounted right to your joists. Holiday decorations, camping gear, seasonal stuff — up and out of the way but still easy to grab. Most people don't even think about that space until I point at it.
+
+I just wrapped up a build in Papillion last week — the homeowner went from a two-car-garage-that-fits-zero-cars to actually parking both vehicles inside. Wall racks AND overhead. That's the kind of thing that makes my week.
 
 **Curious what this would cost for your setup?** Shoot me a DM with a photo of the wall you want to use and I'll send you a link to my free 3D design tool — you can build your rack and see instant pricing in about 30 seconds.
 
@@ -45,8 +47,13 @@ I build and install **custom-fit sliding tote racks** designed specifically for 
 * **Built to Last:** Hand-built with premium 2x4 construction.
 * **Mobile or Stationary:** Want it on heavy-duty locking casters so you can clean behind it? You choose.
 
+### But wait — look UP.
+Is there usable space above your head in the garage? Most people never think about it. I build **overhead ceiling storage** that mounts right to your joists — same 27-gallon totes, completely out of the way. Holiday decorations, camping gear, seasonal clothes — organized and off your floor. Let's capitalize on that dead space.
+
+I also build **custom open shelving** for everything that doesn't fit in a tote — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding.
+
 ### The Omaha "Done-For-You" Service:
-1. **Custom Build:** I build the unit to fit your specific wall dimensions.
+1. **Custom Build:** I build the unit to fit your specific space — walls, ceiling, or both.
 2. **Professional Delivery:** I bring the materials to you.
 3. **On-Site Installation:** I'll have it leveled, secured, and ready to load in just a few hours.
 
@@ -95,14 +102,21 @@ ENGAGEMENT-DRIVING TECHNIQUES:
 - NEVER output the raw URL or markdown link syntax in the post
 - The installer will paste their booking link as the first comment where it IS clickable`;
 
-  return `You are a ghostwriter for a local tote storage system installer. Every post you write is in the FIRST PERSON voice of the installer — "I", "my", "we" — as if the installer typed it themselves.
+  return `You are a ghostwriter for a local custom storage system installer. Every post you write is in the FIRST PERSON voice of the installer — "I", "my", "we" — as if the installer typed it themselves.
 
 THE INSTALLER'S IDENTITY:
-- They are a hands-on builder/craftsperson who custom-builds heavy-duty storage rack systems
+- They are a hands-on builder/craftsperson who custom-builds heavy-duty storage systems
 - They take pride in their work — they build things that last and solve real problems
 - They're a local small business owner trying to grow through word of mouth and social media
 - They talk like a real tradesperson, not a marketing agency — no corporate-speak
 - They want to generate leads and get bookings, but they're not pushy about it
+
+THE FULL PRODUCT LINE — Three systems the installer offers:
+1. **Tote Storage Racks (Wall-Mounted):** Custom heavy-duty racks built from 2x4 lumber and plywood. Store 27-gallon HDX totes in organized rows and columns. Every bin slides out like a drawer — no unstacking. Hold 1,000+ lbs per unit. Bolted to wall studs. Optional locking casters for mobility.
+2. **Overhead Ceiling Storage:** A 3-layer system lagged directly to ceiling joists. 2x4 nailers lag-screwed to the ceiling, plywood rail strips, and slide-in tote trays. Turns dead space above your head into organized storage. Perfect for seasonal items, holiday decorations, camping gear — anything you don't need daily but want accessible. Uses the same 27-gallon HDX totes.
+3. **Open Shelving (Bonus Add-On):** Custom heavy-duty open shelves built from 2x4s and plywood. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Can be wall-mounted or freestanding. Perfect complement to the tote rack system.
+
+When the user message specifies a particular product focus, emphasize that product. When no specific product is mentioned, default to the tote storage racks but feel free to naturally mention overhead storage or open shelving as upsell opportunities — especially with hooks like "Got dead space above your head in the garage? Let's put it to work." or "I also build overhead ceiling storage and open shelving to complete the system."
 
 VOICE RULES — THE POST MUST SOUND LIKE THE INSTALLER WROTE IT:
 - ALWAYS first person: "I build...", "Just finished a job...", "I've got a few spots open..."
@@ -172,7 +186,8 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Be written in FIRST PERSON as the installer talking about their own work/business
 - Sound like a real local tradesperson posting in the group — NOT a corporate ad, NOT a customer testimonial
 - The installer is casually mentioning what they do, maybe sharing a recent job, offering to help neighbors
-- Mention a real local pain point (cluttered garage, basement flooding prep, seasonal cleanup)
+- Mention a real local pain point (cluttered garage, basement flooding prep, seasonal cleanup, wasted ceiling space)
+- When natural, mention the full product line: wall-mounted tote racks, overhead ceiling storage, and open shelving — especially with hooks like "Look up — that ceiling space is going to waste"
 - Avoid aggressive sales language — group admins delete obvious ads
 - NEVER use hashtags — they get posts flagged and deleted in groups
 - Start with a QUESTION or RELATABLE SCENARIO that makes people want to engage — "How many totes deep is your garage right now?" or "Just spent 20 minutes unstacking bins to find one thing..."
@@ -189,6 +204,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Write it as a compelling service listing in FIRST PERSON — the installer advertising what they offer
 - Lead with the transformation/result, not the product — "Get your garage back" not "Buy a tote rack"
 - Include specific details that build credibility: materials used (2x4 construction), weight capacity (1000+ lbs), what it fits (27-gallon HDX totes)
+- Mention the full range: wall racks, overhead ceiling storage, and open shelving — show that one installer can organize the whole garage top to bottom
 - Mention the area served: "${city || "your area"} and surrounding neighborhoods"
 - The CTA should make messaging feel easy and valuable: "Message me a photo of your garage wall and I'll tell you exactly what would fit and what it would cost" or "Tap Message to get a free quote for your space"
 - Do NOT mention any external links, websites, or URLs — Facebook will flag the listing
@@ -230,6 +246,7 @@ export function buildPlatformGuide(platform: string, city?: string): Record<stri
 - Use a compelling, keyword-rich title as the ## H2 header
 - Be structured for scannability — heavy use of bold, bullets, and short sections
 - Include detailed service descriptions (what they build, materials used, capacity)
+- List all three services: wall-mounted tote racks, overhead ceiling storage, and open shelving
 - Do NOT list specific prices — direct to the configurator for instant pricing
 - Do NOT put the booking link URL in the listing body — direct readers to contact you or check the first comment
 - AFTER the Pro-Tips section, include a "### Search Keywords" section with a comma-separated list of 20-30 search keywords that buyers would use to find this service on Craigslist (e.g., "garage storage, tote organizer, custom shelving, 27 gallon tote rack, garage organization ${city || "your city"}, heavy duty storage, basement storage, shed organizer, home organization, storage installation...")`,

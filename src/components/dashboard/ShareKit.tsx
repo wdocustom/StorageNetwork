@@ -62,6 +62,20 @@ function buildTemplates(): PostTemplate[] {
       getText: (link, _name, location) =>
         `Spring cleaning time! If you need your garage organized, I build custom tote storage racks${location ? ` in ${location}` : ""}. Use my free 3D designer to see what fits your wall — takes 30 seconds:\n\n${link}`,
     },
+    {
+      id: "overhead",
+      label: "Overhead Storage",
+      hook: "Capitalize on dead ceiling space",
+      getText: (link, _name, location) =>
+        `Ever look up in your garage and think "that's a lot of wasted space"? I build overhead ceiling storage systems${location ? ` right here in ${location}` : ""} — totes mount directly to the joists, completely out of the way. Design yours in 30 seconds:\n\n${link}`,
+    },
+    {
+      id: "shelving",
+      label: "Open Shelving",
+      hook: "Custom shelves for stuff that doesn't fit in totes",
+      getText: (link, _name, location) =>
+        `Not everything fits in a tote. I build custom heavy-duty open shelving${location ? ` in ${location}` : ""} for toolboxes, paint cans, coolers, sports gear — all the odd-shaped stuff. Wall-mounted or freestanding, built to last:\n\n${link}`,
+    },
   ];
 }
 
