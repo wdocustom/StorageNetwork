@@ -1530,6 +1530,13 @@ export default function DesignConfigurator({
               shelvingConfig={activeShelvingConfig}
               overheadConfig={overheadPreview ?? undefined}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
+              multiUnitControls={orderItems.length > 1 ? {
+                showMultiUnit3D,
+                onShowMultiUnit3DChange: setShowMultiUnit3D,
+                unitVisibility,
+                onUnitVisibilityChange: (index: number, visible: boolean) => setUnitVisibility((prev) => ({ ...prev, [index]: visible })),
+                orderItems: orderItems.map((item) => ({ desc: item.desc })),
+              } : undefined}
             />
           </div>
           {/* Dimensions bar */}

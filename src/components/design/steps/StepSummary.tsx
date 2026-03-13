@@ -5,10 +5,8 @@ import {
   ShoppingCart,
   Sparkles,
   Info,
-  Mail,
   X,
   CheckCircle2,
-  Send,
   Loader2,
   User,
   ChevronRight,
@@ -16,9 +14,6 @@ import {
   Tag,
   AlertTriangle,
   Clock,
-  Eye,
-  EyeOff,
-  Box,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
@@ -76,84 +71,53 @@ export default function StepSummary({
         </div>
       )}
 
-      {/* Multi-Unit 3D Visualization Controls */}
-      {props.orderItems.length > 1 && (
-        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Box className="h-3.5 w-3.5 text-yellow-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                3D Multi-Unit View
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => props.onShowMultiUnit3DChange(!props.showMultiUnit3D)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                props.showMultiUnit3D ? "bg-yellow-400" : "bg-zinc-700"
-              }`}
-            >
-              <span
-                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                  props.showMultiUnit3D ? "translate-x-5" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
+      {/* Add Another Unit + Discount Code (inline row) */}
+      {props.orderItems.length > 0 && !props.submitted && (
+        <div className="flex gap-2">
+          {/* Add Another Unit — 1/3 width */}
+          <button
+            onClick={() => setActiveStep(1)}
+            className="w-1/3 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+          >
+            + Add Unit
+          </button>
 
-          {props.showMultiUnit3D && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-1.5"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-zinc-500">Toggle units in 3D view</span>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => props.onToggleAllUnits(true)}
-                    className="rounded px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                  >
-                    All On
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => props.onToggleAllUnits(false)}
-                    className="rounded px-1.5 py-0.5 text-[9px] font-bold text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                  >
-                    All Off
-                  </button>
-                </div>
+          {/* Discount Code — 2/3 width */}
+          <div className="flex-1">
+            {!props.discountApplied ? (
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={props.discountInput}
+                  onChange={(e) => props.onDiscountInputChange(e.target.value.toUpperCase())}
+                  placeholder="Discount code"
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-2 text-[11px] text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  onKeyDown={(e) => { if (e.key === "Enter") props.onApplyDiscount(); }}
+                />
+                <button
+                  onClick={props.onApplyDiscount}
+                  disabled={!props.discountInput.trim() || props.discountLoading}
+                  className="shrink-0 rounded-lg bg-zinc-700 px-3 py-2 text-[10px] font-bold text-white transition-colors hover:bg-zinc-600 disabled:opacity-40"
+                >
+                  {props.discountLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Apply"}
+                </button>
               </div>
-              {props.orderItems.map((item, index) => {
-                const isVisible = props.unitVisibility[index] !== false;
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => props.onUnitVisibilityChange(index, !isVisible)}
-                    className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
-                      isVisible
-                        ? "border-yellow-400/30 bg-yellow-400/5"
-                        : "border-zinc-800 bg-zinc-900/30 opacity-50"
-                    }`}
-                  >
-                    {isVisible ? (
-                      <Eye className="h-3 w-3 shrink-0 text-yellow-400" />
-                    ) : (
-                      <EyeOff className="h-3 w-3 shrink-0 text-zinc-600" />
-                    )}
-                    <span className={`flex-1 truncate text-[11px] font-medium ${isVisible ? "text-zinc-300" : "text-zinc-600"}`}>
-                      {item.desc || `Unit ${index + 1}`}
-                    </span>
-                  </button>
-                );
-              })}
-            </motion.div>
-          )}
-        </section>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2">
+                <Tag className="h-3 w-3 shrink-0 text-emerald-400" />
+                <span className="flex-1 truncate text-[10px] font-semibold text-emerald-400">
+                  {props.discountApplied.code} — {props.discountApplied.discountType === "percentage" ? `${props.discountApplied.discountValue}% off` : `$${props.discountApplied.amount} off`}
+                </span>
+                <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            {props.discountError && (
+              <p className="mt-0.5 text-[10px] text-red-400">{props.discountError}</p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Cleanout Service */}
@@ -219,107 +183,6 @@ export default function StepSummary({
           </section>
         );
       })()}
-
-      {/* Contact Installer */}
-      {props.installerId && !props.submitted && (
-        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-          {!props.showContactForm && !props.contactSent ? (
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-yellow-400/80">
-                Custom?
-              </span>
-              <button
-                onClick={() => props.onShowContactFormChange(true)}
-                className="flex shrink-0 items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1 text-[10px] font-semibold text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-              >
-                <Mail className="h-3 w-3" />
-                Email
-              </button>
-            </div>
-          ) : props.contactSent ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-center"
-            >
-              <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
-              <p className="text-xs font-semibold text-zinc-200">Message Sent!</p>
-              <p className="text-[11px] text-zinc-500">
-                {props.brandingTitle || "The installer"} will get back to you shortly.
-              </p>
-            </motion.div>
-          ) : (
-            <div>
-              <div className="mb-2.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-                  <Mail className="h-3.5 w-3.5 text-yellow-400" />
-                  Email {props.brandingTitle || "Installer"}
-                </span>
-                <button
-                  onClick={() => props.onShowContactFormChange(false)}
-                  className="text-zinc-500 hover:text-zinc-300"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="First Name"
-                    value={props.firstName}
-                    onChange={(e) => props.onFirstNameChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Last Name"
-                    value={props.lastName}
-                    onChange={(e) => props.onLastNameChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="email"
-                    placeholder="Your Email"
-                    value={props.email}
-                    onChange={(e) => props.onEmailChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone (optional)"
-                    value={props.phone}
-                    onChange={(e) => props.onPhoneChange(e.target.value)}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <textarea
-                  value={props.contactMessage}
-                  onChange={(e) => props.onContactMessageChange(e.target.value)}
-                  placeholder="Describe your custom project..."
-                  rows={3}
-                  maxLength={2000}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                />
-              </div>
-              {props.contactError && (
-                <p className="mt-1 text-xs font-medium text-red-400">{props.contactError}</p>
-              )}
-              <button
-                onClick={props.onContactInstaller}
-                disabled={props.contactSending || !props.contactMessage.trim()}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-              >
-                {props.contactSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                {props.contactSending ? "Sending..." : "Send Message"}
-              </button>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* Booking Form — collapsible */}
       {props.orderItems.length > 0 && !props.submitted && (
@@ -590,49 +453,6 @@ export default function StepSummary({
         </section>
       )}
 
-      {/* Discount Code */}
-      {props.orderItems.length > 0 && !props.submitted && props.installerId && (
-        <section>
-          {!props.discountApplied ? (
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                Discount Code
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={props.discountInput}
-                  onChange={(e) => props.onDiscountInputChange(e.target.value.toUpperCase())}
-                  placeholder="Enter code"
-                  className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                  onKeyDown={(e) => { if (e.key === "Enter") props.onApplyDiscount(); }}
-                />
-                <button
-                  onClick={props.onApplyDiscount}
-                  disabled={!props.discountInput.trim() || props.discountLoading}
-                  className="rounded-lg bg-zinc-700 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-600 disabled:opacity-40"
-                >
-                  {props.discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
-                </button>
-              </div>
-              {props.discountError && (
-                <p className="mt-1 text-xs text-red-400">{props.discountError}</p>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
-              <Tag className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="flex-1 text-xs font-semibold text-emerald-400">
-                {props.discountApplied.code} — {props.discountApplied.discountType === "percentage" ? `${props.discountApplied.discountValue}% off` : `$${props.discountApplied.amount} off`}
-              </span>
-              <button onClick={props.onRemoveDiscount} className="text-zinc-500 hover:text-red-400">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-
       {/* Submitted confirmation */}
       {props.submitted && (
         <motion.div
@@ -648,10 +468,10 @@ export default function StepSummary({
 
       {/* Back button */}
       <button
-        onClick={hasQuoteItems ? () => setActiveStep(1) : goPrev}
+        onClick={goPrev}
         className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
       >
-        {hasQuoteItems ? "Add Another Unit" : "Back"}
+        Back
       </button>
     </>
   );
