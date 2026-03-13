@@ -2381,3 +2381,227 @@ export async function sendBountyAnnouncementEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Overhead Storage Launch Announcement
+// Trigger: One-time cron blast educating installers about the new overhead
+//          ceiling storage system — maximize profit per customer by upselling
+//          overhead + open shelving on top of tote racks.
+// Called by /api/cron/overhead-announcement
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface OverheadAnnouncementData {
+  installerName: string;
+  dashboardUrl: string;
+  marketingUrl: string;
+  configuratorSlug?: string;
+}
+
+export async function sendOverheadAnnouncementEmail(
+  email: string,
+  data: OverheadAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, dashboardUrl, marketingUrl, configuratorSlug } = data;
+  const baseUrl = getAppUrl();
+  const img1 = `${baseUrl}/images/Overhead-Storage-1.png`;
+  const img2 = `${baseUrl}/images/Overhead-Storage-2.png`;
+  const configuratorUrl = configuratorSlug ? `${baseUrl}/design/${configuratorSlug}` : dashboardUrl;
+
+  const html = emailShell(
+    "Overhead Ceiling Storage Is Live",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Quick question &mdash; when you&rsquo;re in a customer&rsquo;s garage, do you ever look up and think
+      <strong style="color:#e2e8f0;">&ldquo;that&rsquo;s a lot of wasted space&rdquo;</strong>?
+    </p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Your customers are thinking the same thing. Now you can capitalize on it.
+    </p>
+
+    <!-- Hero: Overhead Storage -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Now Live &mdash; Overhead Ceiling Storage</p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:18px;font-weight:700;line-height:1.4;">
+        Turn dead ceiling space into organized, accessible storage.
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        The overhead system is a <strong style="color:#e2e8f0;">3-layer build</strong> that lags directly to ceiling joists:
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">1</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>2&times;4 Nailers</strong> &mdash; lag-screwed to joists with washers</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">2</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Plywood rail strips</strong> &mdash; screwed to the nailers</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">3</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Slide-in tote trays</strong> &mdash; same 27-gallon HDX totes your customers already know</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
+        It&rsquo;s a dead-simple build. Lumber, plywood, lag bolts. No fancy hardware, no expensive brackets.
+        If you can build the tote racks, you can build this. The material cost is low and the perceived
+        value to the customer is <strong style="color:#e2e8f0;">massive</strong> &mdash; they&rsquo;re literally
+        getting storage space that didn&rsquo;t exist before.
+      </p>
+    </div>
+
+    <!-- 3D Snapshots -->
+    <div style="margin-bottom:16px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="width:49%;padding:0 4px 0 0;">
+            <img src="${img1}" alt="Overhead storage 3D view" style="width:100%;border-radius:10px;border:1px solid #334155;display:block;" />
+          </td>
+          <td style="width:49%;padding:0 0 0 4px;">
+            <img src="${img2}" alt="Overhead storage installed view" style="width:100%;border-radius:10px;border:1px solid #334155;display:block;" />
+          </td>
+        </tr>
+      </table>
+      <p style="margin:8px 0 0;color:#64748b;font-size:11px;text-align:center;font-style:italic;">
+        3D configurator previews &mdash; customers can design their overhead system in seconds
+      </p>
+    </div>
+
+    <!-- Maximize Profit -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #10b981;">
+      <p style="margin:0 0 6px;color:#10b981;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Maximize Profit Per Customer</p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Every customer who books tote racks is a warm lead for overhead storage. You&rsquo;re already
+        in the garage. You already have the tools. One conversation turns a $500 job into a $800&ndash;$1,200 job.
+      </p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #334155;">
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Build</td>
+          <td style="padding:10px 8px;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Typical Add-On Revenue</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">Tote racks only</td>
+          <td style="padding:10px 8px;color:#94a3b8;font-size:14px;text-align:right;">&mdash;</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">+ Overhead ceiling storage</td>
+          <td style="padding:10px 8px;color:#10b981;font-size:14px;font-weight:800;text-align:right;">+$200&ndash;$500</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e293b;">
+          <td style="padding:10px 8px;color:#e2e8f0;font-size:14px;">+ Open shelving unit</td>
+          <td style="padding:10px 8px;color:#10b981;font-size:14px;font-weight:800;text-align:right;">+$150&ndash;$350</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 8px;color:#facc15;font-size:14px;font-weight:700;">Complete garage system</td>
+          <td style="padding:10px 8px;color:#facc15;font-size:14px;font-weight:800;text-align:right;">+$350&ndash;$850</td>
+        </tr>
+      </table>
+      <p style="margin:12px 0 0;color:#94a3b8;font-size:12px;line-height:1.5;">
+        That&rsquo;s real money from the same customer, the same appointment, and the same
+        trip. The complete garage approach &mdash; walls, ceiling, and shelving &mdash; is your
+        highest-margin upsell.
+      </p>
+    </div>
+
+    <!-- The Complete Garage Pitch -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">The &ldquo;Complete Garage&rdquo; Pitch</p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Here&rsquo;s the play: <strong>start simple.</strong> You can be production-ready with just
+        the tote rack offerings &mdash; that&rsquo;s the bread and butter, and it&rsquo;s all most
+        customers need to get started.
+      </p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        But when a customer wants the full custom treatment &mdash; walls, ceiling, and shelving &mdash;
+        you&rsquo;re now <strong>fully equipped to handle it.</strong> One installer, one visit, total
+        garage transformation. That&rsquo;s the value proposition that sets you apart from every
+        big-box shelving kit on the market.
+      </p>
+      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
+        The configurator handles all the pricing and material lists automatically. Your customer
+        designs their system, sees the price, and books &mdash; whether it&rsquo;s one tote rack
+        or a floor-to-ceiling buildout.
+      </p>
+    </div>
+
+    <!-- AI Script Generator Update -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Updated &mdash; AI Script Generator</p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        Your <strong>Marketing tab</strong> is updated. The AI script generator now knows about
+        all three product lines &mdash; tote racks, overhead ceiling storage, and open shelving.
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        New topic presets let you generate targeted posts in one tap:
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+        <tr>
+          <td style="padding:6px 8px;vertical-align:middle;">
+            <span style="display:inline-block;background:#422006;color:#facc15;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">Overhead Storage</span>
+          </td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:13px;">&ldquo;Look up &mdash; that ceiling space is going to waste&rdquo;</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;vertical-align:middle;">
+            <span style="display:inline-block;background:#422006;color:#facc15;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">Open Shelving</span>
+          </td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:13px;">&ldquo;Not everything fits in a tote&rdquo;</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;vertical-align:middle;">
+            <span style="display:inline-block;background:#422006;color:#facc15;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">Full Garage System</span>
+          </td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:13px;">&ldquo;Walls + ceiling + shelving. One visit.&rdquo;</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;vertical-align:middle;">
+            <span style="display:inline-block;background:#422006;color:#facc15;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;">Holiday Prep</span>
+          </td>
+          <td style="padding:6px 8px;color:#94a3b8;font-size:13px;">&ldquo;Get decorations organized with overhead storage&rdquo;</td>
+        </tr>
+      </table>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;line-height:1.6;">
+        Quick post templates for overhead and shelving are ready to copy &amp; paste, too. No AI needed &mdash;
+        just tap, copy, and post.
+      </p>
+      <div style="text-align:center;">
+        <a href="${marketingUrl}" style="display:inline-block;background-color:transparent;color:#facc15;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #facc15;">
+          Open Marketing Tab &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${configuratorUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+        Open My Configurator &rarr;
+      </a>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:14px;">
+      Every garage has a ceiling. Start looking up &mdash; that&rsquo;s where the money is.
+    </p>
+    <p style="margin:12px 0 0;color:#64748b;font-size:13px;">
+      &mdash; The Storage Network Team
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "Look Up \u2014 Overhead Ceiling Storage Is Live (Maximize Every Job)",
+    html,
+  });
+}
