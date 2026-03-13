@@ -31,6 +31,7 @@ import {
   Globe,
   ArrowRight,
   Wrench,
+  Video,
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
@@ -160,7 +161,18 @@ export default function JoinPage() {
               ))}
             </div>
 
-            <div className="mt-12 border-t border-slate-800 pt-6">
+            <div className="mt-10">
+              <a
+                href="/demo"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-xs font-semibold text-stone-300 transition-all hover:border-yellow-400/30 hover:bg-slate-800 hover:text-white"
+              >
+                <Video className="h-3.5 w-3.5 text-yellow-400" />
+                Not ready to commit? Book a free demo call
+                <ArrowRight className="h-3 w-3 text-stone-500" />
+              </a>
+            </div>
+
+            <div className="mt-6 border-t border-slate-800 pt-6">
               <p className="text-xs text-stone-600">
                 Already have an account?{" "}
                 <a
@@ -457,6 +469,30 @@ export default function JoinPage() {
         </div>
       </section>
 
+      {/* ── Demo CTA — after 3D Visualizer ────────────────────────────── */}
+      <section className="border-t border-slate-800 bg-slate-950 px-6 py-8">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-6 sm:flex-row sm:gap-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+            <Video className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="text-center sm:text-left">
+            <p className="text-sm font-bold text-white">
+              Want to see the configurator live?
+            </p>
+            <p className="mt-0.5 text-xs text-stone-500">
+              We&apos;ll walk you through the 3D design tool, the build engine, and how jobs land in your dashboard. 15 minutes, no pressure.
+            </p>
+          </div>
+          <a
+            href="/demo"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+          >
+            Book a Demo
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
+      </section>
+
       {/* ══════════════════════════════════════════════════════════════════
           BUILD ENGINE — MATERIAL LISTS, CUT PLANS & SMART INVENTORY
       ══════════════════════════════════════════════════════════════════ */}
@@ -681,6 +717,35 @@ export default function JoinPage() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Demo CTA — midpage strip ──────────────────────────────────── */}
+      <section className="border-t border-slate-800 bg-slate-950 px-6 py-10">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">
+            Still have questions?
+          </p>
+          <p className="mb-4 text-lg font-bold text-white">
+            See the entire platform in action &mdash; live, in 15 minutes.
+          </p>
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <a
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-6 py-3 text-sm font-bold text-yellow-400 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/20"
+            >
+              <Video className="h-4 w-4" />
+              Book a Free Demo Call
+            </a>
+            <span className="text-xs text-stone-600">or</span>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="inline-flex items-center gap-2 text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300"
+            >
+              Create your account now
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </section>
@@ -1121,12 +1186,22 @@ export default function JoinPage() {
           <p className="mb-6 text-sm text-stone-400">
             Create your account in 60 seconds. No credit card. No commitment.
           </p>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
-          >
-            Create Account Now
-          </button>
+          <div className="flex flex-col items-center gap-4">
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+            >
+              Create Account Now
+            </button>
+            <a
+              href="/demo"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-stone-400 transition-colors hover:text-yellow-400"
+            >
+              <Video className="h-4 w-4" />
+              Prefer a walkthrough first? Book a free demo call
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          </div>
         </div>
       </section>
     </div>
