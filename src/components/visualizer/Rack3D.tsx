@@ -1262,12 +1262,13 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
           return Array.from({ length: slotsDeep }).map((_, row) => {
             const toteZ = CEIL_TOTE_SLOT_LEN / 2 + row * CEIL_TOTE_SLOT_LEN;
             // Tote hangs below the rail: rim/lip rests on the plywood ledge
-            const rimTopY = CEIL_RAIL_H; // Top of plywood rail
+            // Rim top sits just below the bottom of the plywood rail
+            const rimTopY = 0; // Bottom of plywood rail
             const rimH = TOTE_RIM_H;
             const bodyH = TOTE_BODY_H;
             return (
               <group key={`tote-${col}-${row}`} position={[slotCenterX, rimTopY, toteZ]}>
-                {/* Rim/lip seated on rails — top edge flush with rail top */}
+                {/* Rim/lip seated on rail ledges — top edge at bottom of plywood */}
                 <mesh position={[0, -rimH / 2, 0]} castShadow>
                   <boxGeometry args={[toteW, rimH, TOTE_DEPTH * 0.95]} />
                   <meshStandardMaterial color="#fbbf24" roughness={0.3} />
@@ -1315,8 +1316,6 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
     <OrbitControls
       ref={controlsRef}
       makeDefault
-      autoRotate
-      autoRotateSpeed={0.5}
       enablePan
       panSpeed={0.5}
       rotateSpeed={0.6}
@@ -1326,8 +1325,6 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
       minDistance={0.2}
       maxDistance={dist * 5}
       target={[0, 0, 0]}
-      enableDamping
-      dampingFactor={0.08}
     />
   );
 }
