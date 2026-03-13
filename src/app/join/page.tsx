@@ -14,6 +14,7 @@ import {
   Banknote,
   ChevronRight,
   ChevronDown,
+  CheckCircle2,
   Sparkles,
   DollarSign,
   BarChart3,
@@ -22,7 +23,10 @@ import {
   Box,
   TrendingUp,
   Link2,
+  Rocket,
+  Rows3,
   Wallet,
+  Warehouse,
   Globe,
 } from "lucide-react";
 import Image from "next/image";
@@ -701,6 +705,220 @@ export default function JoinPage() {
                   Connect Stripe from your dashboard in 2 minutes and referral
                   payouts hit your bank automatically.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          NEW PRODUCT LINES — OPEN SHELVING & OVERHEAD STORAGE
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-slate-950 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute right-0 top-0">
+          <div className="h-[400px] w-[400px] rounded-full bg-yellow-400/[0.03] blur-[100px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+            New Product Lines
+          </p>
+          <h2 className="mb-4 text-center text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+            More Products.{" "}
+            <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              More Revenue Per Job.
+            </span>
+          </h2>
+          <p className="mx-auto mb-12 max-w-2xl text-center text-base leading-relaxed text-stone-400">
+            Tote organizers are just the start. Now offer open shelving and overhead ceiling
+            storage &mdash; all designed, quoted, and planned through the same platform.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Open Shelving */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Rows3 className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                    New
+                  </span>
+                  <p className="text-lg font-bold text-white">Open Shelving</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Versatile open shelving for tools, bins, and everything that doesn&apos;t fit in a tote.
+                Multiple width and height configurations, full 3D preview, and auto-generated material
+                lists. Customers can add shelving alongside tote organizers in the same order.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "Multiple size configurations",
+                  "3D configurator support",
+                  "Auto-generated cut plans",
+                  "Combine with tote units",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Overhead Ceiling Storage */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Warehouse className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                    New
+                  </span>
+                  <p className="text-lg font-bold text-white">Overhead Ceiling Storage</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Maximize dead space above vehicles and walkways. Customers configure width, depth, and
+                drop height in the design tool. Full 3D visualization, auto-calculated materials
+                including lag bolts, and a high-ticket upsell that customers love.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "Custom width, depth & drop height",
+                  "Ceiling-mounted 3D preview",
+                  "Full material & hardware lists",
+                  "High-margin upsell opportunity",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          AUTO-MARKETING ENGINE — COMING SOON
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-gray-900 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute left-0 bottom-0">
+          <div className="h-[500px] w-[600px] rounded-full bg-yellow-400/[0.04] blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <div className="flex flex-col items-center gap-12 lg:flex-row lg:items-start lg:gap-16">
+            {/* Left: Copy */}
+            <div className="lg:w-[55%]">
+              <div className="mb-3 flex items-center gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                  Auto-Marketing
+                </p>
+                <span className="rounded bg-yellow-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-400 ring-1 ring-yellow-400/30">
+                  Coming Soon
+                </span>
+              </div>
+              <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+                The Platform{" "}
+                <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+                  Markets For You.
+                </span>
+              </h2>
+              <p className="mb-6 max-w-md text-base leading-relaxed text-stone-400">
+                We&apos;re building a full-scale automated marketing engine so you never have to
+                think about where your next customer comes from. The platform handles everything
+                from SEO to social media content &mdash; all you do is build.
+              </p>
+
+              {/* Already Live */}
+              <div className="mb-6 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.03] p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-400">Already Live</span>
+                </div>
+                <p className="text-sm font-bold text-white">Auto-Generated City Pages</p>
+                <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                  Thousands of SEO-optimized landing pages are already live across the country,
+                  funneling homeowners searching for garage storage directly to local installers
+                  on the platform.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {[
+                  {
+                    icon: Megaphone,
+                    title: "Instagram Post Generator",
+                    desc: "Auto-generates complete Instagram posts with captions, hashtags, and content direction. Just copy, post, and grow.",
+                  },
+                  {
+                    icon: BarChart3,
+                    title: "Full Marketing Strategy",
+                    desc: "A planned-out content calendar with topics, timing, and platform-specific strategies tailored to your local market.",
+                  },
+                  {
+                    icon: Globe,
+                    title: "Nationwide SEO Pages",
+                    desc: "Auto-generated city and service area pages that rank in Google and drive organic traffic — already live and growing.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="flex gap-3">
+                    <div className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                      <item.icon className="h-4 w-4 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{item.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-stone-500">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Visual card */}
+            <div className="lg:w-[45%]">
+              <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-8 shadow-2xl shadow-yellow-400/5">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/15 ring-1 ring-yellow-400/30">
+                    <Rocket className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-yellow-400/60">
+                      Auto-Marketing
+                    </p>
+                    <p className="text-xl font-black text-white">
+                      Zero Effort Growth
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { step: "1", text: "Platform auto-generates city pages that rank in Google search results" },
+                    { step: "2", text: "Homeowners find their local area page and design their storage system" },
+                    { step: "3", text: "They get matched with you — a confirmed job with deposit paid" },
+                    { step: "4", text: "AI generates your social media posts so you can grow even faster" },
+                  ].map((item) => (
+                    <div key={item.step} className="flex items-start gap-3 rounded-lg border border-slate-700/50 bg-slate-800/50 p-3">
+                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-xs font-black text-gray-950">
+                        {item.step}
+                      </div>
+                      <p className="text-sm leading-relaxed text-stone-300">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-3 text-center">
+                  <p className="text-xs font-bold text-yellow-400">
+                    You build. The platform brings the customers.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

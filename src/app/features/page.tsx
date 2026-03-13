@@ -19,10 +19,13 @@ import {
   Layout,
   Megaphone,
   Package,
+  Rocket,
+  Rows3,
   Star,
   Target,
   TrendingUp,
   Users,
+  Warehouse,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -62,6 +65,9 @@ const FEATURES: FeatureRow[] = [
   { name: "Referral Bounty Program", included: true, id: "referrals", icon: Banknote, highlight: true },
   { name: "Analytics Dashboard", included: true, id: "analytics", icon: BarChart3 },
   { name: "Custom Pricing Controls", included: true, id: "pricing", icon: Calculator },
+  { name: "Open Shelving Systems", included: true, id: "shelving", icon: Rows3, highlight: true },
+  { name: "Overhead Ceiling Storage", included: true, id: "overhead", icon: Warehouse, highlight: true },
+  { name: "Auto-Marketing Engine", included: "Coming Soon", id: "auto-marketing", icon: Rocket, highlight: true },
 ];
 
 export default function FeaturesPage() {
@@ -838,6 +844,233 @@ export default function FeaturesPage() {
             how your marketing efforts translate into actual bookings and revenue. Data
             drives decisions — know what&apos;s working and double down.
           </p>
+        </div>
+      </section>
+
+      {/* ── Open Shelving Systems ────────────────────────────────────────── */}
+      <section id="shelving" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Rows3 className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  New Feature
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Open Shelving Systems</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Not every garage needs totes. Open shelving gives your customers a clean, versatile
+                storage option for tools, bins, paint cans, and everything in between. The platform
+                now supports full open shelving configurations &mdash; designed, quoted, and planned
+                just like tote organizers.
+              </p>
+              <ul className="space-y-2">
+                {[
+                  "Multiple width and height configurations",
+                  "Auto-generated material lists and cut plans",
+                  "Full 3D preview in the configurator",
+                  "Seamless quoting — same workflow as tote units",
+                  "Combine with tote organizers in multi-unit orders",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                Why Offer Open Shelving
+              </p>
+              <div className="space-y-3">
+                {[
+                  { title: "Upsell Opportunity", desc: "Customers designing a tote organizer often want shelving for the rest of the wall. Now they can add it in the same order." },
+                  { title: "Faster Builds", desc: "Open shelving is quicker to build than tote systems. More jobs per day, higher throughput." },
+                  { title: "Broader Market", desc: "Not every customer needs totes. Open shelving captures the segment that just wants clean, sturdy garage shelves." },
+                ].map((s) => (
+                  <div key={s.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{s.title}</p>
+                      <p className="text-xs leading-relaxed text-stone-500">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Overhead Ceiling Storage ──────────────────────────────────────── */}
+      <section id="overhead" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="order-2 md:order-1">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                  How It Works
+                </p>
+                <div className="space-y-3">
+                  {[
+                    { step: "1", title: "Customer selects dimensions", desc: "Width, depth, and drop height — all configurable in the design tool" },
+                    { step: "2", title: "3D preview renders instantly", desc: "See the overhead unit mounted to the ceiling in the configurator" },
+                    { step: "3", title: "Material list auto-generates", desc: "Lumber, hardware, lag bolts — everything calculated for a ceiling mount" },
+                    { step: "4", title: "You install and get paid", desc: "Same workflow — accept the job, build it, tap complete" },
+                  ].map((s) => (
+                    <div key={s.step} className="flex gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-xs font-black text-yellow-400 ring-1 ring-yellow-400/20">
+                        {s.step}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{s.title}</p>
+                        <p className="text-xs leading-relaxed text-stone-500">{s.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="order-1 md:order-2">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Warehouse className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  New Feature
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Overhead Ceiling Storage</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Maximize every inch of the garage. Overhead ceiling storage uses the dead space above
+                vehicles and walkways to create heavy-duty storage platforms mounted directly to the
+                ceiling joists. Customers configure width, depth, and drop height &mdash; and the
+                platform handles the rest.
+              </p>
+              <ul className="space-y-2">
+                {[
+                  "Customizable width, depth, and ceiling drop height",
+                  "Full 3D visualization mounted to ceiling",
+                  "Auto-calculated material lists including lag bolts and hardware",
+                  "Combine with wall-mounted tote organizers and shelving",
+                  "High-ticket upsell — customers love reclaiming ceiling space",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Auto-Marketing Engine (Coming Soon) ──────────────────────────── */}
+      <section id="auto-marketing" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
+              <Rocket className="h-4 w-4 text-yellow-400" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-yellow-400">
+                Coming Soon
+              </span>
+            </div>
+            <h3 className="mb-3 text-3xl font-black text-white md:text-4xl">
+              Auto-Marketing Engine
+            </h3>
+            <p className="mx-auto max-w-2xl text-sm leading-relaxed text-stone-400">
+              The platform is building a full-scale automated marketing system designed
+              to drive customers directly to installers &mdash; without you spending a
+              dime on ads or writing a single post.
+            </p>
+          </div>
+
+          {/* Already Live */}
+          <div className="mb-6 rounded-2xl border-2 border-emerald-400/30 bg-emerald-400/[0.03] p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400/15">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Already Live
+              </span>
+            </div>
+            <h4 className="mb-2 text-lg font-bold text-white">
+              Auto-Generated City &amp; Service Pages
+            </h4>
+            <p className="mb-4 text-sm leading-relaxed text-stone-400">
+              The platform automatically generates SEO-optimized landing pages for cities and
+              metro areas across the country. When a homeowner searches for garage storage
+              solutions in their area, these pages rank in search results and funnel them
+              directly into the configurator &mdash; where they get matched with a local
+              installer. This is already running and driving organic traffic to the network.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { title: "Nationwide Coverage", desc: "Pages generated for thousands of cities and zip codes across the US" },
+                { title: "SEO-Optimized", desc: "Built for search engines — title tags, meta descriptions, structured data, local keywords" },
+                { title: "Auto-Updated", desc: "Pages refresh automatically as new installers join and coverage areas expand" },
+              ].map((item) => (
+                <div key={item.title} className="rounded-xl border border-emerald-400/10 bg-emerald-400/[0.02] p-3">
+                  <p className="text-xs font-bold text-emerald-400">{item.title}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-stone-500">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Coming Soon */}
+          <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.03] p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-400/15">
+                <Rocket className="h-4 w-4 text-yellow-400" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                Coming Soon
+              </span>
+            </div>
+            <h4 className="mb-2 text-lg font-bold text-white">
+              AI-Powered Social Media &amp; Marketing Strategy
+            </h4>
+            <p className="mb-4 text-sm leading-relaxed text-stone-400">
+              We&apos;re building a system that auto-generates complete marketing plans for installers &mdash;
+              ready-to-post Instagram content with captions, hashtags, and visual direction, plus a
+              full strategic calendar so you always know what to post and when. No marketing
+              experience needed. The platform does the thinking for you.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                {
+                  title: "Instagram Post Generator",
+                  desc: "Auto-generates lists of Instagram posts complete with copy, captions, hashtags, and content direction. Just post and go.",
+                },
+                {
+                  title: "Full Marketing Strategy",
+                  desc: "A planned-out content calendar with post topics, timing recommendations, and platform-specific strategies tailored to your market.",
+                },
+                {
+                  title: "Multi-Platform Ready",
+                  desc: "Content formatted for Instagram, Facebook, TikTok, and Nextdoor — one generation, every platform covered.",
+                },
+                {
+                  title: "Localized to Your Area",
+                  desc: "Posts reference your service area, local neighborhoods, and regional trends. Not generic — built for your market.",
+                },
+              ].map((item) => (
+                <div key={item.title} className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
