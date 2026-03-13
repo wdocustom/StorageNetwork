@@ -1335,6 +1335,11 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
 
 /** Compute the overall height (in inches) of a multi-unit item for positioning */
 function computeItemOverallH(item: MultiUnit3DItem): number {
+  // Overhead ceiling rail — total drop is small; height is the assembly drop
+  if (item.overheadConfig) {
+    const totalDrop = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
+    return totalDrop;
+  }
   // Compound preset — use the tallest sub-unit
   if (item.presetUnits && item.presetUnits.length > 0) {
     const isMini = item.unitType === "mini";
@@ -1364,9 +1369,14 @@ function computeItemOverallH(item: MultiUnit3DItem): number {
 /** Multi-unit camera rig — positions camera to see all units */
 function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
   const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * 6; // 6" gap
-  const maxH = Math.max(...items.map((it) => computeItemOverallH(it)));
+  const heights = items.map((it) => computeItemOverallH(it));
+  const hasOverhead = items.some((it) => !!it.overheadConfig);
+  const maxGroundH = Math.max(...items.map((it, i) => it.overheadConfig ? 0 : heights[i]), 1);
+  // If overhead present, total scene height includes ceiling gap + overhead assembly
+  const overheadH = hasOverhead ? Math.max(...items.map((it, i) => it.overheadConfig ? heights[i] : 0)) : 0;
+  const sceneH = hasOverhead ? maxGroundH + 24 + overheadH : maxGroundH;
   const w = totalW * S;
-  const h = maxH * S;
+  const h = sceneH * S;
   const dist = Math.max(w, h) * 1.8 + 1;
 
   return (
@@ -1392,9 +1402,14 @@ function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
 function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
   const GAP = 6; // 6" gap between units
 
-  // Compute height for each item and find the tallest
+  // Compute height for each item and find the tallest ground-level unit
   const heights = items.map((it) => computeItemOverallH(it));
-  const maxH = Math.max(...heights);
+  const groundHeights = items.map((it, i) => it.overheadConfig ? 0 : heights[i]);
+  const maxGroundH = Math.max(...groundHeights, 1);
+
+  // Ceiling height: tallest ground unit + 24" gap above it
+  const CEILING_GAP = 24; // gap between top of tallest unit and ceiling rail bottom
+  const ceilingBaseY = maxGroundH + CEILING_GAP;
 
   // Calculate total width to center the group
   const totalW = items.reduce((sum, it) => sum + it.totalW, 0) + (items.length - 1) * GAP;
@@ -1404,9 +1419,14 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
     <group>
       {items.map((item, i) => {
         const x = (offsetX + item.totalW / 2) * S;
-        // Align bottoms: each RackAssembly centers at y=0, so shorter units
-        // need to shift DOWN so their bottom matches the tallest unit's bottom.
-        const y = (heights[i] - maxH) / 2 * S;
+        let y: number;
+        if (item.overheadConfig) {
+          // Overhead unit: position at ceiling level (above all ground units)
+          y = (ceilingBaseY + heights[i] / 2) * S;
+        } else {
+          // Ground units: align bottoms to the tallest ground unit
+          y = (heights[i] - maxGroundH) / 2 * S;
+        }
         offsetX += item.totalW + GAP;
         return (
           <group key={i} position={[x, y, 0]}>
