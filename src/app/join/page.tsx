@@ -23,11 +23,14 @@ import {
   Box,
   TrendingUp,
   Link2,
+  Package,
   Rocket,
   Rows3,
   Wallet,
   Warehouse,
   Globe,
+  ArrowRight,
+  Wrench,
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
@@ -455,6 +458,169 @@ export default function JoinPage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
+          BUILD ENGINE — MATERIAL LISTS, CUT PLANS & SMART INVENTORY
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden border-t border-slate-800 bg-gray-900 px-6 py-20 lg:py-28">
+        <div className="pointer-events-none absolute left-0 bottom-0">
+          <div className="h-[500px] w-[600px] rounded-full bg-yellow-400/[0.04] blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+            Build Engine
+          </p>
+          <h2 className="mb-4 text-center text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
+            Material Lists. Cut Plans.{" "}
+            <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              Smart Inventory.
+            </span>
+          </h2>
+          <p className="mx-auto mb-12 max-w-2xl text-center text-base leading-relaxed text-stone-400">
+            Every job comes with a pre-calculated shopping list, a board-by-board cut plan with
+            fractional measurements, and an inventory system that tracks every screw and offcut
+            across jobs &mdash; so you never overbuy again.
+          </p>
+
+          {/* Two-col: Material Lists + Cut Plans */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Material Lists */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <ClipboardList className="h-5 w-5 text-yellow-400" />
+                </div>
+                <p className="text-lg font-bold text-white">Auto Material Lists</p>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Walk into the lumber yard knowing exactly what to grab. The platform calculates
+                every board, sheet, tote, wheel kit, and screw count &mdash; down to the individual
+                fastener. No spreadsheets. No guessing.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "2x4 studs with exact qty (bin-packed)",
+                  "Plywood sheets by type (top, structural, shelving)",
+                  "Tote count by type and color",
+                  "Screw counts: 1\", 1-5/8\", 3\" with 5% error buffer",
+                  "Wheel kits per unit",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Cut Plans */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Wrench className="h-5 w-5 text-yellow-400" />
+                </div>
+                <p className="text-lg font-bold text-white">Board-by-Board Cut Plans</p>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                No more measuring and math on the job site. Every job generates a visual cut
+                plan showing exactly which parts go on which board, with fractional measurements
+                and offcut tracking so nothing gets wasted.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "Color-coded cut diagrams with fraction labels",
+                  "FFD bin packing minimizes lumber waste",
+                  "Kerf (blade width) accounted for on every cut",
+                  "Offcut carry-forward between modules",
+                  "Plywood rail strips + back supports per module",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Inventory Manager */}
+          <div className="mt-8 rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.03] p-6 lg:p-8">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+              <div className="lg:w-3/5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                    <Package className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <p className="text-lg font-bold text-white">Smart Inventory Manager</p>
+                </div>
+                <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                  This is the feature that turns a side hustle into a real business. The inventory
+                  manager tracks every screw, every plywood strip, every leftover from every
+                  job &mdash; so your purchase list only shows what you actually need to buy.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    {
+                      title: "Screw Tracking",
+                      desc: "Individual counts for 1\", 1-5/8\", and 3\" screws across jobs. Includes a 5% human error buffer for drops and miscounts.",
+                    },
+                    {
+                      title: "Offcut Recycling",
+                      desc: "Plywood strip offcuts from top sheets carry forward as free rail material for future builds. One job\u2019s waste = next job\u2019s savings.",
+                    },
+                    {
+                      title: "Smart Purchase Lists",
+                      desc: "Items covered by existing inventory are hidden. You see a clean shopping list \u2014 only what you actually need to buy.",
+                    },
+                  ].map((item) => (
+                    <div key={item.title} className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                      <p className="mb-1 text-xs font-bold text-yellow-400">{item.title}</p>
+                      <p className="text-[11px] leading-relaxed text-stone-500">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* How it works steps */}
+              <div className="lg:w-2/5">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                  How It Works
+                </p>
+                <div className="space-y-3">
+                  {[
+                    { step: "1", title: "Complete a job", desc: "Leftover screws and strips are logged automatically" },
+                    { step: "2", title: "Next job comes in", desc: "Platform checks your stock before building the purchase list" },
+                    { step: "3", title: "Buy only what\u2019s needed", desc: "Items in stock are hidden \u2014 clean shopping list, no noise" },
+                    { step: "4", title: "Repeat", desc: "Every job makes the next one cheaper" },
+                  ].map((s) => (
+                    <div key={s.step} className="flex gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-xs font-black text-yellow-400 ring-1 ring-yellow-400/20">
+                        {s.step}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{s.title}</p>
+                        <p className="text-[11px] leading-relaxed text-stone-500">{s.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* CTA to /features */}
+            <div className="mt-6 border-t border-yellow-400/10 pt-5 text-center">
+              <a
+                href="/features#inventory"
+                className="inline-flex items-center gap-2 text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300"
+              >
+                See the full breakdown on our Features page
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
           AI SCRIPT GENERATOR
       ══════════════════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden border-t border-slate-800 bg-gray-900 px-6 py-20 lg:py-28">
@@ -585,6 +751,27 @@ export default function JoinPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Features Page CTA Strip ───────────────────────────────────── */}
+      <section className="border-t border-slate-800 bg-slate-950 px-6 py-10">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-white">
+              Want the full picture?
+            </p>
+            <p className="text-xs text-stone-500">
+              Pricing, feature breakdown, inventory deep-dive, and everything included in your plan.
+            </p>
+          </div>
+          <a
+            href="/features"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/20"
+          >
+            View All Features
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
         </div>
       </section>
 
