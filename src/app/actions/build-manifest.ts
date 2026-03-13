@@ -12,9 +12,10 @@ import type { QuoteUnit, BuildManifest } from "@/lib/buildEngine.types";
 /**
  * Validate that a quote doesn't mix tote organizers with open shelving.
  * Shelving and totes require different frame structures and can't share a build.
+ * Overhead ceiling storage CAN be mixed with tote organizers (different system).
  */
 function validateQuoteUnits(units: QuoteUnit[]): void {
-  const hasTotes = units.some((u) => !u.shelvingConfigId && u.cols > 0 && u.rows > 0);
+  const hasTotes = units.some((u) => !u.shelvingConfigId && !u.overheadGridPresetId && u.cols > 0 && u.rows > 0);
   const hasShelving = units.some((u) => !!u.shelvingConfigId);
 
   if (hasTotes && hasShelving) {

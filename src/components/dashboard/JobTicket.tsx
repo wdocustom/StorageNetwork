@@ -1456,6 +1456,40 @@ export default function JobTicket({
         </details>
       )}
 
+      {/* ── Overhead Cut Plan (ceiling storage units) ─────────────────── */}
+      {buildManifest && buildManifest.overhead_cut_plans && buildManifest.overhead_cut_plans.length > 0 && (
+        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+          <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
+            Overhead Ceiling Storage — Purchase List
+          </summary>
+          <div className="border-t border-slate-800 p-4 space-y-6">
+            {buildManifest.overhead_cut_plans.map((mod, mi) => (
+              <div key={mi} className="rounded-lg border-l-[3px] border-l-yellow-500 pl-3">
+                <h3 className="mb-1 text-sm font-bold text-yellow-400">
+                  {mod.overheadLabel}
+                </h3>
+                <p className="mb-3 text-[11px] text-stone-500">
+                  {mod.slotsWide} wide × {mod.slotsDeep} deep — {mod.toteCount} totes — {mod.toteType} — {Math.round(mod.systemWidthIn)}&quot;W × {Math.round(mod.systemDepthIn)}&quot;D
+                </p>
+
+                {/* Materials list */}
+                <div className="space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                    Materials
+                  </p>
+                  {mod.materials.map((mat, matIdx) => (
+                    <div key={matIdx} className="flex justify-between text-xs text-stone-400">
+                      <span>{mat.name}</span>
+                      <span className="font-mono font-bold text-yellow-400">{mat.qty} {mat.unit}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       {/* ── Photo Completion Modal ───────────────────────────────────── */}
       {showCompletionModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">

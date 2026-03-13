@@ -2,9 +2,10 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type CompoundBuildResult } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
+import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
@@ -39,6 +40,8 @@ import {
   AlertTriangle,
   MapPin,
   Clock,
+  ArrowUpFromLine,
+  ChevronUp,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -80,6 +83,8 @@ interface UnitConfig {
   presetGroup?: string;
   /** When set, this unit is an open shelving unit (not a tote organizer) */
   shelvingConfigId?: string;
+  /** When set, this unit is an overhead ceiling storage unit */
+  overheadGridPresetId?: string;
   /** Per-section addons (doors, panels, rail removal, shelves) */
   addons?: import("@/types/viewModels").SectionAddon[];
   /** Paint color selections */
@@ -188,6 +193,15 @@ export default function BuildConfiguratorPage() {
   const [shelvingPrice, setShelvingPrice] = useState<number | null>(null);
   const [shelvingLoading, setShelvingLoading] = useState(false);
   const [shelvingAdded, setShelvingAdded] = useState(false);
+
+  // Overhead Ceiling Storage state
+  const [overheadPresetId, setOverheadPresetId] = useState<string>("");
+  const [overheadToteType, setOverheadToteType] = useState<ToteType>("HDX");
+  const [overheadHasTotes, setOverheadHasTotes] = useState(true);
+  const [overheadPrice, setOverheadPrice] = useState<number | null>(null);
+  const [overheadLoading, setOverheadLoading] = useState(false);
+  const [overheadAdded, setOverheadAdded] = useState(false);
+  const [overheadCollapsed, setOverheadCollapsed] = useState(false);
 
   // Custom material pricing (stored in localStorage)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
@@ -359,6 +373,47 @@ export default function BuildConfiguratorPage() {
       .finally(() => setShelvingLoading(false));
   }, [selectedShelving, installerPricing]);
 
+  // ── Overhead Ceiling Storage calculation ──────────────────────────────
+  useEffect(() => {
+    if (!overheadPresetId) { setOverheadPrice(null); return; }
+    setOverheadLoading(true);
+    calculateOverheadStorageUnit({
+      config: { gridPresetId: overheadPresetId, toteType: overheadToteType, hasTotes: overheadHasTotes },
+      installerPricing,
+    })
+      .then((res) => { if (res.success) setOverheadPrice(res.result.price); else setOverheadPrice(null); })
+      .finally(() => setOverheadLoading(false));
+  }, [overheadPresetId, overheadToteType, overheadHasTotes, installerPricing]);
+
+  function handleAddOverhead() {
+    if (!overheadPresetId || overheadPrice == null) return;
+    const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId);
+    if (!preset) return;
+    const newUnit: UnitConfig = {
+      id: `overhead-${Date.now()}`,
+      cols: preset.slotsWide,
+      rows: preset.slotsDeep,
+      toteType: overheadToteType,
+      hasTotes: overheadHasTotes,
+      hasWheels: false,
+      hasTop: false,
+      price: overheadPrice,
+      totalW: 0,
+      totalH: 0,
+      depth: 0,
+      slots: preset.toteCount,
+      desc: `Overhead Ceiling Storage: ${preset.label} (${preset.toteCount} totes)`,
+      overheadGridPresetId: preset.id,
+    };
+    setUnits((prev) => [...prev, newUnit]);
+    setOverheadAdded(true);
+    setOverheadCollapsed(true);
+    setTimeout(() => setOverheadAdded(false), 2000);
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
   function handleAddShelving() {
     if (!selectedShelving || shelvingPrice == null) return;
     const cfg = SHELVING_CONFIGS.find((c) => c.id === selectedShelving);
@@ -524,6 +579,7 @@ export default function BuildConfiguratorPage() {
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
       shelvingConfigId: u.shelvingConfigId,
+      overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
     }));
     calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
@@ -547,6 +603,7 @@ export default function BuildConfiguratorPage() {
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
       shelvingConfigId: u.shelvingConfigId,
+      overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
       paintFrameColor: u.paintFrameColor,
       paintDoorColor: u.paintDoorColor,
@@ -585,6 +642,7 @@ export default function BuildConfiguratorPage() {
       depth: u.depth || 30,
       desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
       shelvingConfigId: u.shelvingConfigId,
+      overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
       paintFrameColor: u.paintFrameColor,
       paintDoorColor: u.paintDoorColor,
@@ -1002,6 +1060,157 @@ export default function BuildConfiguratorPage() {
           )}
         </section>}
 
+        {/* ── Overhead Ceiling Storage ─────────────────────────────────── */}
+        {installerPricing?.overhead_storage_enabled === true && (
+          <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+            <button
+              onClick={() => setOverheadCollapsed(!overheadCollapsed)}
+              className="flex w-full items-center justify-between"
+            >
+              <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+                <ArrowUpFromLine className="h-4 w-4 text-yellow-400" />
+                Overhead Ceiling Storage
+              </h2>
+              <div className="flex items-center gap-2">
+                {overheadCollapsed && overheadPresetId && (
+                  <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
+                    {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.label} • {overheadToteType}
+                    {overheadHasTotes ? " • Totes" : ""}
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 text-stone-500 transition-transform ${overheadCollapsed ? "" : "rotate-180"}`} />
+              </div>
+            </button>
+
+            {!overheadCollapsed && (
+              <div className="mt-3 space-y-3">
+                {/* Grid preset buttons */}
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase text-stone-500">
+                    Grid Size
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {OVERHEAD_GRID_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          setOverheadPresetId(overheadPresetId === preset.id ? "" : preset.id);
+                          setOverheadAdded(false);
+                        }}
+                        className={`rounded-lg border px-3 py-2.5 text-center transition-colors ${
+                          overheadPresetId === preset.id
+                            ? "border-yellow-400 bg-yellow-400/10"
+                            : "border-slate-700 hover:border-stone-600"
+                        }`}
+                      >
+                        <div className="text-sm font-bold text-white">{preset.label}</div>
+                        <div className="text-[10px] text-stone-500">{preset.toteCount} totes</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tote type toggle */}
+                {overheadPresetId && (
+                  <>
+                    <div>
+                      <label className="mb-2 block text-[10px] font-bold uppercase text-stone-500">
+                        Tote Size
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setOverheadToteType("HDX")}
+                          className={`rounded-lg border px-3 py-2 text-center transition-colors ${
+                            overheadToteType === "HDX"
+                              ? "border-yellow-400 bg-yellow-400/10"
+                              : "border-slate-700 hover:border-stone-600"
+                          }`}
+                        >
+                          <div className="text-xs font-bold text-stone-200">Standard (HDX)</div>
+                          <div className="text-[9px] text-stone-500">19-3/4&quot; slot</div>
+                        </button>
+                        <button
+                          onClick={() => setOverheadToteType("GM")}
+                          className={`rounded-lg border px-3 py-2 text-center transition-colors ${
+                            overheadToteType === "GM"
+                              ? "border-yellow-400 bg-yellow-400/10"
+                              : "border-slate-700 hover:border-stone-600"
+                          }`}
+                        >
+                          <div className="text-xs font-bold text-stone-200">Wide (GM)</div>
+                          <div className="text-[9px] text-stone-500">20-3/4&quot; slot</div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Include totes toggle */}
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={overheadHasTotes}
+                        onChange={(e) => setOverheadHasTotes(e.target.checked)}
+                        className="h-4 w-4 accent-yellow-400"
+                      />
+                      <span className="text-sm text-stone-300">Include Totes</span>
+                    </label>
+
+                    {/* Loading / Result */}
+                    {overheadLoading && (
+                      <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Calculating…
+                      </div>
+                    )}
+
+                    {overheadPrice != null && !overheadLoading && (
+                      <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
+                        <div className="grid grid-cols-2 gap-3 text-center">
+                          <div className="rounded-lg bg-slate-800 p-2">
+                            <p className="text-lg font-black text-white">
+                              {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.label}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase text-stone-500">
+                              {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.toteCount} totes • {overheadToteType}
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-slate-800 p-2">
+                            <p className="text-lg font-black text-yellow-400">
+                              ${overheadPrice.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase text-stone-500">
+                              Overhead Storage
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleAddOverhead}
+                          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                            overheadAdded
+                              ? "bg-emerald-500 text-white"
+                              : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                          }`}
+                        >
+                          {overheadAdded ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Added to Quote
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-4 w-4" />
+                              Add to Quote
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* ── Input Card ─────────────────────────────────────────────── */}
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
           {/* Mode Toggle */}
@@ -1323,17 +1532,36 @@ export default function BuildConfiguratorPage() {
                   return (
                     <div
                       key={unit.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 p-3"
+                      className={`flex items-center justify-between rounded-lg border p-3 ${
+                        unit.overheadGridPresetId
+                          ? "border-yellow-400/20 bg-slate-800"
+                          : "border-slate-700 bg-slate-800"
+                      }`}
                     >
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          Unit {index + 1}: {unit.cols} × {unit.rows}
+                          {unit.overheadGridPresetId ? (
+                            <>
+                              <ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />
+                              {unit.desc}
+                            </>
+                          ) : unit.shelvingConfigId ? (
+                            unit.desc
+                          ) : (
+                            <>Unit {index + 1}: {unit.cols} × {unit.rows}</>
+                          )}
                         </p>
                         <p className="text-[11px] text-stone-500">
-                          {unit.toteType} • {unit.slots} slots
-                          {unit.hasTotes && " • Totes"}
-                          {unit.hasWheels && " • Wheels"}
-                          {unit.hasTop && " • Top"}
+                          {unit.overheadGridPresetId ? (
+                            <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
+                          ) : (
+                            <>
+                              {unit.toteType} • {unit.slots} slots
+                              {unit.hasTotes && " • Totes"}
+                              {unit.hasWheels && " • Wheels"}
+                              {unit.hasTop && " • Top"}
+                            </>
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">

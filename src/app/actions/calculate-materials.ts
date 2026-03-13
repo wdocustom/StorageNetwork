@@ -15,6 +15,11 @@
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
 import { getShelvingConfig } from "@/lib/shelving";
+import {
+  OVERHEAD_GRID_PRESETS,
+  calculateOverheadStorage,
+  type OverheadStorageConfig,
+} from "@/lib/overhead-storage";
 
 // ── Constants (protected — never sent to browser) ────────────────────────
 
@@ -66,6 +71,13 @@ export async function calculateMaterialCostServer(
 
   let shelvingPlywoodSheets = 0;
 
+  // Overhead accumulators
+  let overheadLagBolts = 0;
+  let overheadStructuralScrews = 0;
+  let overheadPlywoodSheets = 0;
+  let overheadNailers = 0;  // 2×4 lumber count for nailers + padding beams
+  let overheadTotes = 0;
+
   // Addon accumulators
   let addonDoors = 0;
   let addonPanels = 0;
@@ -91,6 +103,38 @@ export async function calculateMaterialCostServer(
       // Screws
       totalScrew3 += m.screws3;
       totalScrew16 += m.screws16;
+
+      continue;
+    }
+
+    // ── Overhead ceiling storage unit path ─────────────────────────────────
+    if (unit.overheadGridPresetId) {
+      const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === unit.overheadGridPresetId);
+      if (!preset) continue;
+
+      const config: OverheadStorageConfig = {
+        gridPresetId: unit.overheadGridPresetId,
+        toteType: unit.toteType || "HDX",
+        hasTotes: unit.hasTotes ?? false,
+      };
+      const result = calculateOverheadStorage(config);
+
+      // Overhead uses its own hardware — separate from tote organizer screws.
+      // We track overhead materials independently so the profit calculator
+      // shows accurate line items.
+      for (const mat of result.materials) {
+        if (mat.name.includes("Nailer") || mat.name.includes("Padding")) {
+          overheadNailers += mat.qty;
+        } else if (mat.name.includes("Plywood Sheets")) {
+          overheadPlywoodSheets += mat.qty;
+        } else if (mat.name.includes("Lag Bolt")) {
+          overheadLagBolts += mat.qty;
+        } else if (mat.name.includes("Structural Screw")) {
+          overheadStructuralScrews += mat.qty;
+        } else if (mat.name.includes("Tote")) {
+          overheadTotes += mat.qty;
+        }
+      }
 
       continue;
     }
@@ -260,6 +304,16 @@ export async function calculateMaterialCostServer(
   addItem('3" Screws (137ct)', totalScrewBoxes3, prices.screw_3in_137ct);
   addItem('1" Screws (90ct)', totalScrewBoxes1, prices.screw_1in_90ct);
 
+  // ── Overhead ceiling storage materials ────────────────────────────────
+  // Overhead uses 2×4s (nailers + padding beams), plywood, lag bolts, and
+  // structural screws — all separate from the tote organizer system.
+  addItem("Overhead: 2×4 Lumber (8ft)", overheadNailers, prices.lumber_2x4_8ft);
+  addItem("Overhead: Plywood Sheet (4×8)", overheadPlywoodSheets, prices.plywood_sheet);
+  addItem("Overhead: Totes", overheadTotes, prices.tote);
+  // Lag bolts & structural screws — estimate $0.30/bolt, $0.10/screw
+  addItem("Overhead: 5/16\" Lag Bolts + Washers", overheadLagBolts, 0.30);
+  addItem("Overhead: 3\" Structural Screws", overheadStructuralScrews, 0.10);
+
   const totalCost = items.reduce((sum, i) => sum + i.subtotal, 0);
 
   return {
@@ -276,6 +330,9 @@ export async function calculateMaterialCostServer(
       lumber_boards: totalBoards,
       totes: totalTotes,
       wheel_kits: totalWheelKits,
+      overhead_lag_bolts: overheadLagBolts,
+      overhead_structural_screws: overheadStructuralScrews,
+      overhead_plywood_sheets: overheadPlywoodSheets,
     },
   };
 }

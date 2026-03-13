@@ -31,6 +31,8 @@ export interface QuoteUnit {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, this unit is an open shelving unit — routed to shelving cut plan handler */
   shelvingConfigId?: string;
+  /** When set, this unit is an overhead ceiling storage unit — routed to overhead handler */
+  overheadGridPresetId?: string;
 }
 
 export interface CutPart {
@@ -73,6 +75,18 @@ export interface ShelvingCutPlanModule {
   plywoodSqFtPerSurface: number;
 }
 
+export interface OverheadCutPlanModule {
+  unitIndex: number;
+  overheadLabel: string;
+  slotsWide: number;
+  slotsDeep: number;
+  toteCount: number;
+  toteType: "HDX" | "GM";
+  systemWidthIn: number;
+  systemDepthIn: number;
+  materials: { name: string; qty: number; unit: string }[];
+}
+
 export interface ShoppingItem {
   name: string;
   detail: string;
@@ -90,6 +104,7 @@ export interface BuildManifest {
   shopping_list: ShoppingItem[];
   cut_plan_visuals: CutPlanModule[];
   shelving_cut_plans?: ShelvingCutPlanModule[];
+  overhead_cut_plans?: OverheadCutPlanModule[];
   financials: Financials;
   totals: {
     boards: number;

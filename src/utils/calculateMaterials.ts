@@ -36,6 +36,8 @@ export interface MaterialConfig {
   hasTop?: boolean;
   /** When set, unit is open shelving — uses shelving material calculation */
   shelvingConfigId?: string;
+  /** When set, unit is overhead ceiling storage — uses overhead material calculation */
+  overheadGridPresetId?: string;
   /** Per-section addons (doors, panels, rail removal, shelves) */
   addons?: import("@/types/viewModels").SectionAddon[];
 }
@@ -60,5 +62,8 @@ export interface MaterialBreakdown {
     lumber_boards: number;
     totes: number;
     wheel_kits: number;
+    overhead_lag_bolts?: number;
+    overhead_structural_screws?: number;
+    overhead_plywood_sheets?: number;
   };
 }

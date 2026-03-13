@@ -19,6 +19,7 @@ export type {
   Board,
   CutPlanModule,
   ShelvingCutPlanModule,
+  OverheadCutPlanModule,
   ShoppingItem,
   Financials,
   BuildManifest,
@@ -34,12 +35,18 @@ import type {
   Board,
   CutPlanModule,
   ShelvingCutPlanModule,
+  OverheadCutPlanModule,
   ShoppingItem,
   Financials,
   BuildManifest,
 } from "@/lib/buildEngine.types";
 
 import { getShelvingConfig } from "@/lib/shelving";
+import {
+  OVERHEAD_GRID_PRESETS,
+  calculateOverheadStorage,
+  type OverheadStorageConfig,
+} from "@/lib/overhead-storage";
 
 // ── Constants (PROPRIETARY — never exposed to client) ────────────────────
 
@@ -164,6 +171,14 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   let gPaintDoorUnits = 0;
   let gPaintPanelUnits = 0;
 
+  // ── Overhead accumulators ─────────────────────────────────────────────
+  const overheadCutPlans: OverheadCutPlanModule[] = [];
+  let overheadPlywoodSheets = 0;
+  let overheadLagBolts = 0;
+  let overheadStructuralScrews = 0;
+  let overheadNailers = 0;  // 2×4 pieces for nailers + padding beams
+  let overheadTotes = 0;
+
   // ── Shelving accumulators ──────────────────────────────────────────────
   const shelvingCutPlans: ShelvingCutPlanModule[] = [];
   let shelvingPlywoodSheets = 0;
@@ -207,6 +222,51 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       hasWheels,
       hasTop
     } = unit;
+
+    // ── Overhead ceiling storage unit path ────────────────────────────────
+    // Overhead units have their own hardware (lag bolts, structural screws)
+    // and don't share lumber with tote organizers, so we track them separately.
+    if (unit.overheadGridPresetId) {
+      const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === unit.overheadGridPresetId);
+      if (!preset) return;
+
+      const config: OverheadStorageConfig = {
+        gridPresetId: unit.overheadGridPresetId,
+        toteType: toteType as "HDX" | "GM",
+        hasTotes,
+      };
+      const result = calculateOverheadStorage(config);
+
+      // Accumulate overhead materials
+      for (const mat of result.materials) {
+        if (mat.name.includes("Nailer") || mat.name.includes("Padding")) {
+          overheadNailers += mat.qty;
+        } else if (mat.name.includes("Plywood Sheets")) {
+          overheadPlywoodSheets += mat.qty;
+        } else if (mat.name.includes("Lag Bolt")) {
+          overheadLagBolts += mat.qty;
+        } else if (mat.name.includes("Structural Screw")) {
+          overheadStructuralScrews += mat.qty;
+        } else if (mat.name.includes("Tote")) {
+          overheadTotes += mat.qty;
+        }
+      }
+
+      gRetail += unit.price;
+
+      overheadCutPlans.push({
+        unitIndex: unitIdx + 1,
+        overheadLabel: `Overhead ${preset.label} (${preset.toteCount} totes)`,
+        slotsWide: preset.slotsWide,
+        slotsDeep: preset.slotsDeep,
+        toteCount: preset.toteCount,
+        toteType: toteType as "HDX" | "GM",
+        systemWidthIn: result.systemWidthIn,
+        systemDepthIn: result.systemDepthIn,
+        materials: result.materials,
+      });
+      return;
+    }
 
     // ── Shelving unit path ──────────────────────────────────────────────
     // Shelving parts go into the SAME allParts pool as tote organizer parts
@@ -679,6 +739,23 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     shopping_list.push({ name: "Paint", detail: paintItems.join(" + "), qty: paintItems.length > 1 ? `${paintItems.length} items` : "1 item" });
   }
 
+  // ── Overhead Ceiling Storage Materials ────────────────────────────────
+  if (overheadNailers > 0) {
+    shopping_list.push({ name: "Overhead: 2x4 Lumber", detail: "Nailers + Padding (8ft)", qty: overheadNailers });
+  }
+  if (overheadPlywoodSheets > 0) {
+    shopping_list.push({ name: "Overhead: Plywood", detail: "4×8 Sheets (rail strips)", qty: overheadPlywoodSheets });
+  }
+  if (overheadLagBolts > 0) {
+    shopping_list.push({ name: "Overhead: Lag Bolts", detail: '5/16" × 3" + Washers', qty: overheadLagBolts });
+  }
+  if (overheadStructuralScrews > 0) {
+    shopping_list.push({ name: "Overhead: Structural Screws", detail: '3" for padding & rails', qty: overheadStructuralScrews });
+  }
+  if (overheadTotes > 0) {
+    shopping_list.push({ name: "Overhead: Totes", detail: "Ceiling-mounted units", qty: overheadTotes });
+  }
+
   // ── Financials ────────────────────────────────────────────────────────
   const effectiveRate = customDepositRate ?? DEPOSIT_RATE;
   const depositAmount = Math.round(gRetail * effectiveRate * 100) / 100;
@@ -688,6 +765,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     shopping_list,
     cut_plan_visuals: cutPlans,
     ...(shelvingCutPlans.length > 0 ? { shelving_cut_plans: shelvingCutPlans } : {}),
+    ...(overheadCutPlans.length > 0 ? { overhead_cut_plans: overheadCutPlans } : {}),
     financials: {
       retailTotal: gRetail,
       depositRate: effectiveRate,
@@ -695,9 +773,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       balanceDue,
     },
     totals: {
-      boards: gBoards,
-      sheets: gSheets + addonDoorSheets + addonPanelSheets + addonShelfSheets,
-      totes: gTotes,
+      boards: gBoards + overheadNailers,
+      sheets: gSheets + addonDoorSheets + addonPanelSheets + addonShelfSheets + overheadPlywoodSheets,
+      totes: gTotes + overheadTotes,
       wheelKits: gWheels,
       screwBoxes_1_5_8: boxes16,
       screwBoxes_3: boxes3,
