@@ -1599,7 +1599,7 @@ export default function BuildConfiguratorPage() {
           </section>
         )}
 
-        {buildResult && (
+        {(buildResult || units.length > 0) && (
           <>
             {/* ── Profit Calculator ────────────────────────────────────── */}
             <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
