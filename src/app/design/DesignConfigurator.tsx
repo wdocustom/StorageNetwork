@@ -306,6 +306,8 @@ export default function DesignConfigurator({
     ]);
     setShelvingConfigId(null);
     setShelvingPrice(null);
+    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
+    setShowMultiUnit3D(true);
   }
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
@@ -342,6 +344,8 @@ export default function DesignConfigurator({
         overheadStorageConfig: config,
       } as UnitConfig,
     ]);
+    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
+    setShowMultiUnit3D(true);
   }
 
   // ── Multi-unit quote list ─────────────────────────────────────────────
@@ -1018,6 +1022,8 @@ export default function DesignConfigurator({
     setHasTotes(true);
     setActivePreset(null);
     setCompoundBuild(null);
+    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
+    setShowMultiUnit3D(true);
   }
 
   function handleAddPresetUnit() {
@@ -1052,6 +1058,8 @@ export default function DesignConfigurator({
         })),
       },
     ]);
+    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
+    setShowMultiUnit3D(true);
   }
 
   function handleRemoveUnit(index: number) {
@@ -1528,7 +1536,7 @@ export default function DesignConfigurator({
               shelvingConfig={activeShelvingConfig}
               overheadConfig={overheadPreview ?? undefined}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
-              multiUnitControls={orderItems.length > 1 ? {
+              multiUnitControls={orderItems.length >= 1 ? {
                 showMultiUnit3D,
                 onShowMultiUnit3DChange: setShowMultiUnit3D,
                 unitVisibility,

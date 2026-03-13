@@ -271,7 +271,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
     setViewMode(getDefaultViewMode());
   }, []);
 
-  const showMultiUnitOverlay = viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length > 1;
+  const showMultiUnitOverlay = viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length >= 1;
 
   return (
     <div className="relative h-full w-full">
