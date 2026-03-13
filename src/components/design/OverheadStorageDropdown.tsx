@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ArrowUpFromLine, Loader2, Plus } from "lucide-react";
 import {
   OVERHEAD_GRID_PRESETS,
-  OVERHEAD_JOIST_SPACINGS,
   type OverheadStorageConfig,
   type OverheadStorageResult,
   type OverheadToteType,
@@ -30,7 +29,6 @@ export default function OverheadStorageDropdown({
   // Configuration state
   const [gridPresetId, setGridPresetId] = useState<string | null>(null);
   const [toteType, setToteType] = useState<OverheadToteType>("HDX");
-  const [joistSpacingId, setJoistSpacingId] = useState("16");
   const [hasTotes, setHasTotes] = useState(true);
 
   // Calculation state
@@ -47,7 +45,6 @@ export default function OverheadStorageDropdown({
     const config: OverheadStorageConfig = {
       gridPresetId,
       toteType,
-      joistSpacingId,
       hasTotes,
     };
     const res = await calculateOverheadStorageUnit({ config, installerPricing });
@@ -55,7 +52,7 @@ export default function OverheadStorageDropdown({
       setResult(res.result);
     }
     setLoading(false);
-  }, [gridPresetId, toteType, joistSpacingId, hasTotes, installerPricing]);
+  }, [gridPresetId, toteType, hasTotes, installerPricing]);
 
   useEffect(() => {
     calculate();
@@ -81,7 +78,6 @@ export default function OverheadStorageDropdown({
     const config: OverheadStorageConfig = {
       gridPresetId,
       toteType,
-      joistSpacingId,
       hasTotes,
     };
     onAddOverheadUnit(result, config);
@@ -185,38 +181,6 @@ export default function OverheadStorageDropdown({
                   ))}
                 </div>
               </div>
-
-              {/* Joist Spacing */}
-              {gridPresetId && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, delay: 0.05 }}
-                >
-                  <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                    Joist Spacing
-                  </label>
-                  <div className="flex gap-1.5">
-                    {OVERHEAD_JOIST_SPACINGS.map((js) => (
-                      <button
-                        key={js.id}
-                        type="button"
-                        onClick={() => setJoistSpacingId(js.id)}
-                        className={`flex-1 rounded-lg border px-3 py-2 text-center text-xs font-bold transition-all ${
-                          joistSpacingId === js.id
-                            ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                            : "border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-600"
-                        }`}
-                      >
-                        {js.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-[10px] text-zinc-600">
-                    Standard residential is 16&quot; on center
-                  </p>
-                </motion.div>
-              )}
 
               {/* Include Totes Toggle */}
               {gridPresetId && (

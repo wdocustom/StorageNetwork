@@ -68,24 +68,11 @@ export const OVERHEAD_GRID_PRESETS: OverheadGridPreset[] = [
   { id: "4x4", label: "4 × 4", slotsWide: 4, slotsDeep: 4, toteCount: 16 },
 ];
 
-/** Joist spacing options */
-export interface OverheadJoistSpacing {
-  id: string;
-  label: string;
-  inches: number;
-}
-
-export const OVERHEAD_JOIST_SPACINGS: OverheadJoistSpacing[] = [
-  { id: "16", label: "16\" OC", inches: 16 },
-  { id: "24", label: "24\" OC", inches: 24 },
-];
-
 // ── Configuration ────────────────────────────────────────────────────────
 
 export interface OverheadStorageConfig {
   gridPresetId: string | null;
   toteType: OverheadToteType;
-  joistSpacingId: string;
   hasTotes: boolean;
 }
 
@@ -162,8 +149,8 @@ export function calculateOverheadStorage(
   const systemWidthIn = getSystemWidth(slotsWide, toteType);
   const systemDepthIn = getSystemDepth(slotsDeep);
 
-  const joistSpacing = OVERHEAD_JOIST_SPACINGS.find((j) => j.id === config.joistSpacingId);
-  const joistSpacingIn = joistSpacing?.inches ?? 16;
+  // Lag bolt estimation uses 16" OC (standard residential) as default
+  const joistSpacingIn = 16;
 
   // Price — check installer override first
   let price: number;
