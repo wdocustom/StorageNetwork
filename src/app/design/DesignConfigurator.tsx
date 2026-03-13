@@ -283,8 +283,8 @@ export default function DesignConfigurator({
     const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
     if (!cfg) return;
     const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
-    // Replace any existing items — shelving and tote organizers can't be mixed
-    setOrderItems([
+    setOrderItems((prev) => [
+      ...prev,
       {
         cols: 0,
         rows: 0,
@@ -985,9 +985,8 @@ export default function DesignConfigurator({
     if (hasTotes && toteType === "HDX" && unitType === "standard" && effectiveToteColor === "clear") {
       toteDesc = " (Clear Totes)";
     }
-    // Remove any shelving items — tote organizers and shelving can't be mixed
     setOrderItems((prev) => [
-      ...prev.filter((it) => !it.shelvingConfigId),
+      ...prev,
       {
         cols: build.cols,
         rows: build.rows,
@@ -1025,9 +1024,8 @@ export default function DesignConfigurator({
     if (!compoundBuild || !activePresetObj) return;
 
     const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
-    // Replace any shelving items — bestsellers and shelving can't be mixed
     setOrderItems((prev) => [
-      ...prev.filter((it) => !it.shelvingConfigId),
+      ...prev,
       {
         cols: compoundBuild.subUnits.reduce((s, u) => s + u.cols, 0),
         rows: Math.max(...compoundBuild.subUnits.map((u) => u.rows)),
