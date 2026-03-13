@@ -330,7 +330,7 @@ export default function DesignConfigurator({
         toteColor: "black" as ToteColor,
         unitType: "standard",
         orientation: "standard",
-        hasTotes: false,
+        hasTotes: config.hasTotes,
         hasWheels: false,
         hasTop: false,
         price: result.price,

@@ -6,6 +6,7 @@ import { ChevronDown, X } from "lucide-react";
 import type { UnitConfig, ConfiguratorSidebarProps } from "./configurator-types";
 import type { AddonPricing, PaintColorId } from "@/types/viewModels";
 import { ADDON_PLATFORM_DEFAULTS, PAINT_COLORS } from "@/types/viewModels";
+import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 
 export default function OrderItemCard({
   item,
@@ -27,19 +28,29 @@ export default function OrderItemCard({
   // Build add-on list with prices
   const addOnItems: { label: string; price: number }[] = [];
 
-  const slots = item.cols * item.rows;
+  const isOverhead = !!item.overheadStorageConfig;
+  const slots = isOverhead ? 0 : item.cols * item.rows;
 
   if (item.hasTotes) {
-    let totePrice: number;
-    if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
-      totePrice = pricing?.standard_tote_clear ?? platformDefaults.standard_tote_clear;
-    } else if (item.unitType === "mini") {
-      totePrice = pricing?.mini_tote ?? platformDefaults.mini_tote;
+    if (isOverhead) {
+      // Overhead tote pricing — use grid preset tote count
+      const cfg = item.overheadStorageConfig!;
+      const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
+      const toteCount = preset?.toteCount ?? 0;
+      const totePrice = pricing?.standard_tote ?? platformDefaults.standard_tote;
+      addOnItems.push({ label: "Totes", price: toteCount * totePrice });
     } else {
-      totePrice = pricing?.standard_tote ?? platformDefaults.standard_tote;
+      let totePrice: number;
+      if (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") {
+        totePrice = pricing?.standard_tote_clear ?? platformDefaults.standard_tote_clear;
+      } else if (item.unitType === "mini") {
+        totePrice = pricing?.mini_tote ?? platformDefaults.mini_tote;
+      } else {
+        totePrice = pricing?.standard_tote ?? platformDefaults.standard_tote;
+      }
+      const label = (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") ? "Clear Totes" : "Totes";
+      addOnItems.push({ label, price: slots * totePrice });
     }
-    const label = (item.toteType === "HDX" && item.unitType === "standard" && item.toteColor === "clear") ? "Clear Totes" : "Totes";
-    addOnItems.push({ label, price: slots * totePrice });
   }
   if (item.hasWheels) {
     const wheelsPrice = item.unitType === "mini"

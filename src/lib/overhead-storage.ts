@@ -86,6 +86,7 @@ export interface OverheadStorageConfig {
   gridPresetId: string | null;
   toteType: OverheadToteType;
   joistSpacingId: string;
+  hasTotes: boolean;
 }
 
 // ── Result ───────────────────────────────────────────────────────────────
@@ -95,9 +96,11 @@ export interface OverheadStorageResult {
   slotsDeep: number;
   toteCount: number;
   toteType: OverheadToteType;
+  hasTotes: boolean;
   systemWidthIn: number;
   systemDepthIn: number;
   price: number;
+  totePrice: number;
   materials: OverheadMaterial[];
 }
 
@@ -173,6 +176,14 @@ export function calculateOverheadStorage(
     price = PLATFORM_OVERHEAD_DEFAULTS[presetKey] ?? toteCount * OVERHEAD_BASE_PRICE_PER_SLOT;
   }
 
+  // Tote pricing — use installer override or platform default ($12/ea standard)
+  const OVERHEAD_TOTE_PRICE_DEFAULT = 12;
+  const totePricePerUnit = (typeof installerPricing?.standard_tote === "number")
+    ? installerPricing.standard_tote
+    : OVERHEAD_TOTE_PRICE_DEFAULT;
+  const totePrice = config.hasTotes ? toteCount * totePricePerUnit : 0;
+  price += totePrice;
+
   // Materials
   const materials = computeOverheadMaterials(
     slotsWide, slotsDeep, toteType, systemWidthIn, systemDepthIn, joistSpacingIn,
@@ -183,9 +194,11 @@ export function calculateOverheadStorage(
     slotsDeep,
     toteCount,
     toteType,
+    hasTotes: config.hasTotes,
     systemWidthIn: Math.round(systemWidthIn * 100) / 100,
     systemDepthIn: Math.round(systemDepthIn * 100) / 100,
     price,
+    totePrice,
     materials,
   };
 }

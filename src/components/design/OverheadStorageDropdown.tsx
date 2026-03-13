@@ -11,7 +11,7 @@ import {
   type OverheadToteType,
 } from "@/lib/overhead-storage";
 import { calculateOverheadStorageUnit } from "@/app/actions/calculator";
-import { SelectionCard, RollingPrice } from "./configurator-primitives";
+import { SelectionCard, StudioToggle, RollingPrice } from "./configurator-primitives";
 import type { InstallerPricing } from "@/types/viewModels";
 
 interface OverheadStorageDropdownProps {
@@ -31,6 +31,7 @@ export default function OverheadStorageDropdown({
   const [gridPresetId, setGridPresetId] = useState<string | null>(null);
   const [toteType, setToteType] = useState<OverheadToteType>("HDX");
   const [joistSpacingId, setJoistSpacingId] = useState("16");
+  const [hasTotes, setHasTotes] = useState(true);
 
   // Calculation state
   const [result, setResult] = useState<OverheadStorageResult | null>(null);
@@ -47,13 +48,14 @@ export default function OverheadStorageDropdown({
       gridPresetId,
       toteType,
       joistSpacingId,
+      hasTotes,
     };
     const res = await calculateOverheadStorageUnit({ config, installerPricing });
     if (res.success) {
       setResult(res.result);
     }
     setLoading(false);
-  }, [gridPresetId, toteType, joistSpacingId, installerPricing]);
+  }, [gridPresetId, toteType, joistSpacingId, hasTotes, installerPricing]);
 
   useEffect(() => {
     calculate();
@@ -80,6 +82,7 @@ export default function OverheadStorageDropdown({
       gridPresetId,
       toteType,
       joistSpacingId,
+      hasTotes,
     };
     onAddOverheadUnit(result, config);
     // Reset
@@ -212,6 +215,21 @@ export default function OverheadStorageDropdown({
                   <p className="mt-1 text-[10px] text-zinc-600">
                     Standard residential is 16&quot; on center
                   </p>
+                </motion.div>
+              )}
+
+              {/* Include Totes Toggle */}
+              {gridPresetId && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0.08 }}
+                >
+                  <StudioToggle
+                    checked={hasTotes}
+                    onChange={setHasTotes}
+                    label="Include Totes"
+                  />
                 </motion.div>
               )}
 
