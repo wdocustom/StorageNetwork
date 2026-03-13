@@ -3,7 +3,7 @@
 //
 // 3-layer system lagged to ceiling joists:
 //   Layer 1 — Nailer/Ledger (2×4) lag-screwed to joists with washers
-//   Layer 2 — Spacer (2×3 block) for lid clearance
+//   Layer 2 — Padding (2×4 on-edge) for lid clearance
 //   Layer 3 — Rail strip (3/4" plywood, 2.5" wider than nailer, centered
 //             for 1-1/4" ledges on each side where tote rims rest)
 //
@@ -33,16 +33,16 @@ export function getSlotWidth(toteType: OverheadToteType): number {
 
 // ── Rail Assembly Dimensions ─────────────────────────────────────────────
 
-export const NAILER_WIDTH = 1.5;      // 2×4 actual width
-export const NAILER_HEIGHT = 3.5;     // 2×4 actual height
+export const NAILER_WIDTH = 3.5;      // 2×4 wide face against ceiling
+export const NAILER_HEIGHT = 1.5;     // 2×4 mounted flat, 1.5" drop
+export const SPACER_HEIGHT = 3.5;     // 2×4 on-edge, 3.5" drop
+export const SPACER_WIDTH = 1.5;      // 2×4 on-edge, narrow face
 export const RAIL_OVERHANG = 1.25;    // Plywood ledge per side
-export const RAIL_STRIP_WIDTH = NAILER_WIDTH + 2 * RAIL_OVERHANG; // 4.0"
+export const RAIL_STRIP_WIDTH = SPACER_WIDTH + 2 * RAIL_OVERHANG; // 4.0"
 export const RAIL_THICKNESS = 0.75;   // 3/4" plywood
-export const SPACER_HEIGHT = 2.5;     // 2×3 lumber (actual 2.5" dim)
-export const SPACER_WIDTH = 1.5;      // 2×3 lumber (actual 1.5" dim)
 
-/** Total assembly drop from ceiling = nailer + spacer + rail */
-export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 6.75"
+/** Total assembly drop from ceiling = nailer + padding + rail */
+export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 5.75"
 
 /** Center-to-center distance between adjacent rail assemblies */
 export function getRailSpacing(toteType: OverheadToteType): number {
@@ -219,11 +219,11 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // ── Layer 2: Spacer blocks (2×3 lumber) ───────────────────────────────
-  // One spacer block at each nailer–rail intersection
+  // ── Layer 2: Padding blocks (2×4 on-edge) ─────────────────────────────
+  // One padding block at each nailer–rail intersection
   const spacerBlocks = nailerCount * railAssemblies;
   materials.push({
-    name: "2×3 Spacer Blocks (4\" ea)",
+    name: "2×4 Padding Blocks (4\" ea)",
     qty: spacerBlocks,
     unit: "pcs",
   });
@@ -258,7 +258,7 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // 3" structural screws: spacer-to-nailer (2 per block) + rail-to-spacer (2 per block)
+  // 3" structural screws: padding-to-nailer (2 per block) + rail-to-padding (2 per block)
   const structuralScrews = spacerBlocks * 4;
   materials.push({
     name: "3\" Structural Screws",

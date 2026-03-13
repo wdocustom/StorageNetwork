@@ -1165,19 +1165,19 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Ceiling Tote Rail System — 3-layer: nailer → spacer → plywood rail
+// Ceiling Tote Rail System — 3-layer: nailer → padding → plywood rail
 //
 // Totes hang between adjacent rail assemblies by their rim/lip.
-// Layer 1 (top): 2×4 nailer — lagged to ceiling joists
-// Layer 2 (mid): 2×3 spacer block — creates clearance for tote lid
+// Layer 1 (top): 2×4 nailer mounted flat — lagged to ceiling joists (1.5" drop)
+// Layer 2 (mid): 2×4 padding block on-edge — creates clearance for tote lid (3.5" drop)
 // Layer 3 (bot): 3/4" plywood rail strip — 4" wide, 1.25" ledge per side
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Ceiling rail assembly constants
-const CEIL_NAILER_W = 1.5;    // 2×4 actual width
-const CEIL_NAILER_H = 3.5;    // 2×4 actual height
-const CEIL_SPACER_H = 2.5;    // 2×3 spacer height (actual dim)
-const CEIL_SPACER_W = 1.5;    // 2×3 spacer width
+const CEIL_NAILER_W = 3.5;    // 2×4 wide face against ceiling
+const CEIL_NAILER_H = 1.5;    // 2×4 mounted flat, 1.5" drop
+const CEIL_SPACER_H = 3.5;    // 2×4 on-edge padding, 3.5" drop
+const CEIL_SPACER_W = 1.5;    // 2×4 on-edge, narrow face
 const CEIL_RAIL_W = 4.0;      // Plywood rail strip width (nailer + 2×1.25" ledge)
 const CEIL_RAIL_H = 0.75;     // 3/4" plywood
 const CEIL_TOTE_SLOT_LEN = 30.5; // ~30" per tote position along the rail
@@ -1234,7 +1234,7 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
           />
         ))}
 
-        {/* ── Layer 2: Spacer blocks (2×3) — at each nailer/rail intersection ── */}
+        {/* ── Layer 2: Padding blocks (2×4 on-edge) — at each nailer/rail intersection ── */}
         {nailerPositions.map((nz, ni) =>
           railXPositions.map((rx, ri) => (
             <Lumber
