@@ -332,6 +332,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             presetUnits={props.presetUnits}
             addons={props.addons}
             shelvingConfig={props.shelvingConfig}
+            overheadConfig={props.overheadConfig}
           />
         </div>
       ) : (
@@ -362,6 +363,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 presetUnits={props.presetUnits}
                 addons={props.addons}
                 shelvingConfig={props.shelvingConfig}
+                overheadConfig={props.overheadConfig}
               />
             </div>
           }

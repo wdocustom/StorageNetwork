@@ -32,6 +32,13 @@ interface ShelvingConfig2D {
   shelves: number;
 }
 
+/** Overhead ceiling tote rail config for 2D rendering (top-down / bottom-up view) */
+interface OverheadConfig2D {
+  slotsWide: number;
+  slotsDeep: number;
+  toteType: "HDX" | "GM";
+}
+
 interface BlueprintCanvasProps {
   cols: number;
   rows: number;
@@ -50,6 +57,8 @@ interface BlueprintCanvasProps {
   addons?: SectionAddon[];
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig2D;
+  /** When set, renders a ceiling tote rail system (top-down view from below) */
+  overheadConfig?: OverheadConfig2D;
 }
 
 // Wheel height constant (industrial casters)
@@ -70,6 +79,7 @@ export default function BlueprintCanvas({
   presetUnits,
   addons,
   shelvingConfig,
+  overheadConfig,
 }: BlueprintCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -455,6 +465,147 @@ export default function BlueprintCanvas({
     ctx.restore();
   }, []);
 
+  // ── Helper: draw ceiling tote rail system (bottom-up view) ──────────
+  const drawOverheadUnit = useCallback((
+    ctx: CanvasRenderingContext2D,
+    config: OverheadConfig2D,
+    canvasW: number,
+    canvasH: number,
+  ) => {
+    const { slotsWide, slotsDeep, toteType: tt } = config;
+    const woodPattern = create2DWoodPattern(ctx);
+    const plywoodPattern = create2DPlywoodPattern(ctx);
+    const woodFill = woodPattern || "#e2b686";
+    const woodStroke = "#925f32";
+    const plywoodFill = plywoodPattern || "#f3d2a3";
+
+    // Dimensions (inches) — matching overhead-storage.ts & Rack3D.tsx
+    const NAILER_W = 3.5;       // 2×4 nailer depth (visible width in top-down)
+    const PADDING_W = 3.5;      // 2×4 padding width
+    const RAIL_W = 6.0;         // plywood rail strip = padding + 2×1.25" ledge
+    const TOTE_W = tt === "HDX" ? 19.75 : 20.75;
+    const TOTE_D = 28.6;        // tote depth along rail
+    const SLOT_LEN = 30.5;      // slot length along rail (tote + gap)
+    const SLOT_CLR = 0.25;
+    const LIP_HANG = 1.0;
+    const SLOT_W = TOTE_W - 2 * LIP_HANG + 2 * SLOT_CLR;
+    const RAIL_SPACING = SLOT_W + RAIL_W;
+
+    // System overall dimensions
+    const systemW = (slotsWide + 1) * RAIL_W + slotsWide * SLOT_W;
+    const systemD = slotsDeep * SLOT_LEN;
+
+    // Nailer positions along depth
+    const nailerCount = Math.max(2, Math.ceil(systemD / 30) + 1);
+    const nailerPositions: number[] = [];
+    for (let i = 0; i < nailerCount; i++) {
+      nailerPositions.push(i * (systemD / (nailerCount - 1)));
+    }
+
+    // Rail X positions
+    const railXPositions: number[] = [];
+    for (let i = 0; i <= slotsWide; i++) {
+      railXPositions.push(i * RAIL_SPACING);
+    }
+
+    // Scale to fit canvas
+    const margin = 40;
+    const safeW = canvasW - margin * 2;
+    const safeH = canvasH - margin * 2;
+    const scale = Math.min(safeW / systemW, safeH / systemD);
+    if (scale <= 0 || !isFinite(scale)) return;
+
+    const startX = (canvasW - systemW * scale) / 2;
+    const startY = (canvasH - systemD * scale) / 2;
+
+    // ── Layer 3 (bottom-most, drawn first): Plywood rail strips ──
+    // Rails run vertically (along depth / Y axis)
+    ctx.fillStyle = plywoodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.lineWidth = 2;
+    for (const rx of railXPositions) {
+      const px = startX + rx * scale;
+      const pw = RAIL_W * scale;
+      ctx.fillRect(px, startY, pw, systemD * scale);
+      ctx.strokeRect(px, startY, pw, systemD * scale);
+    }
+
+    // ── Layer 2: Padding beams (2×4 flat) ──
+    // Run along depth under each rail strip (same X as rails, slightly narrower)
+    ctx.fillStyle = woodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.lineWidth = 1.5;
+    for (const rx of railXPositions) {
+      const ledge = ((RAIL_W - PADDING_W) / 2) * scale;
+      const px = startX + rx * scale + ledge;
+      const pw = PADDING_W * scale;
+      ctx.fillRect(px, startY, pw, systemD * scale);
+      ctx.strokeRect(px, startY, pw, systemD * scale);
+    }
+
+    // ── Layer 1 (top-most): Nailers ──
+    // Run horizontally (along width / X axis), crossing over rails
+    ctx.fillStyle = woodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.lineWidth = 2;
+    for (const nz of nailerPositions) {
+      const py = startY + (nz - NAILER_W / 2) * scale;
+      const ph = NAILER_W * scale;
+      ctx.fillRect(startX, py, systemW * scale, ph);
+      ctx.strokeRect(startX, py, systemW * scale, ph);
+    }
+
+    // ── Totes (visible between rail strips) ──
+    for (let col = 0; col < slotsWide; col++) {
+      const slotLeftX = railXPositions[col] + RAIL_W;
+      for (let row = 0; row < slotsDeep; row++) {
+        const slotTopZ = row * SLOT_LEN + (SLOT_LEN - TOTE_D) / 2;
+
+        // Yellow rim/lid (full tote width, visible on the ledges)
+        const rimX = startX + (slotLeftX - LIP_HANG) * scale;
+        const rimY = startY + slotTopZ * scale;
+        const rimW = (TOTE_W) * scale;
+        const rimD = TOTE_D * scale;
+        ctx.fillStyle = "#fbbf24";
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(rimX, rimY, rimW, rimD);
+        ctx.strokeRect(rimX, rimY, rimW, rimD);
+
+        // Dark tote body (slightly inset — tapered)
+        const bodyInset = TOTE_W * 0.05;
+        const bodyX = rimX + bodyInset * scale;
+        const bodyY = rimY + bodyInset * scale;
+        const bodyW = (TOTE_W - 2 * bodyInset) * scale;
+        const bodyD = (TOTE_D - 2 * bodyInset) * scale;
+        ctx.fillStyle = "#1e293b";
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(bodyX, bodyY, bodyW, bodyD);
+        ctx.strokeRect(bodyX, bodyY, bodyW, bodyD);
+      }
+    }
+
+    // ── Label ──
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.font = `bold ${Math.max(10, Math.round(scale * 3))}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CEILING TOTE RAIL · BOTTOM VIEW", canvasW / 2, canvasH / 2);
+    ctx.restore();
+
+    // ── Watermark ──
+    ctx.save();
+    ctx.translate(canvasW / 2, canvasH / 2);
+    ctx.rotate(-Math.PI / 6);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0,0,0,0.03)";
+    ctx.font = `bold ${Math.round(canvasW * 0.08)}px Arial`;
+    ctx.fillText("WDO CUSTOM", 0, 0);
+    ctx.restore();
+  }, []);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -480,6 +631,12 @@ export default function BlueprintCanvas({
     // ── Open Shelving rendering ──────────────────────────────────────
     if (shelvingConfig) {
       drawShelvingUnit(ctx, shelvingConfig, cW, cH);
+      return;
+    }
+
+    // ── Overhead Ceiling Tote Rail rendering ──────────────────────────
+    if (overheadConfig) {
+      drawOverheadUnit(ctx, overheadConfig, cW, cH);
       return;
     }
 
@@ -558,7 +715,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText("WDO CUSTOM", 0, 0);
     ctx.restore();
-  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, shelvingConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
+  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, drawOverheadUnit, shelvingConfig, overheadConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
 
   useEffect(() => {
     draw();
