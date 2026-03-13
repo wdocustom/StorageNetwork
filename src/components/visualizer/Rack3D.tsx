@@ -1261,20 +1261,20 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
           const slotCenterX = railXPositions[col] + railSpacing / 2;
           return Array.from({ length: slotsDeep }).map((_, row) => {
             const toteZ = CEIL_TOTE_SLOT_LEN / 2 + row * CEIL_TOTE_SLOT_LEN;
-            // Tote hangs below the rail: rim/lip rests on the plywood ledge
-            // Rim top sits just below the bottom of the plywood rail
-            const rimTopY = 0; // Bottom of plywood rail
+            // Tote hangs from the rail: rim/lip rests ON TOP of plywood ledge
             const rimH = TOTE_RIM_H;
             const bodyH = TOTE_BODY_H;
+            // Rim bottom sits on top of rail (Y = CEIL_RAIL_H)
+            const rimCenterY = CEIL_RAIL_H + rimH / 2;
             return (
-              <group key={`tote-${col}-${row}`} position={[slotCenterX, rimTopY, toteZ]}>
-                {/* Rim/lip seated on rail ledges — top edge at bottom of plywood */}
-                <mesh position={[0, -rimH / 2, 0]} castShadow>
+              <group key={`tote-${col}-${row}`} position={[slotCenterX, rimCenterY, toteZ]}>
+                {/* Rim/lip resting on top of rail ledges */}
+                <mesh position={[0, 0, 0]} castShadow>
                   <boxGeometry args={[toteW, rimH, TOTE_DEPTH * 0.95]} />
                   <meshStandardMaterial color="#fbbf24" roughness={0.3} />
                 </mesh>
-                {/* Tote body hanging below */}
-                <mesh position={[0, -rimH - bodyH / 2, 0]} castShadow>
+                {/* Tote body hanging below rim */}
+                <mesh position={[0, -rimH / 2 - bodyH / 2, 0]} castShadow>
                   <boxGeometry args={[toteW * TOTE_BODY_TAPER, bodyH, TOTE_DEPTH * 0.9]} />
                   <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
                 </mesh>
