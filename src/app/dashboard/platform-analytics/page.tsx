@@ -183,7 +183,7 @@ export default function PlatformAnalyticsPage() {
             {/* Views by Day Chart */}
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
               <h3 className="text-sm font-bold text-white mb-4">Views Over Time</h3>
-              <div className="flex items-end gap-[2px] h-32">
+              <div className="flex items-stretch gap-[2px] h-32">
                 {data.viewsByDay.slice(-Math.min(data.viewsByDay.length, range)).map((d) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center justify-end group relative">
                     <div
@@ -210,7 +210,7 @@ export default function PlatformAnalyticsPage() {
               {/* Hourly Pattern */}
               <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
                 <h3 className="text-sm font-bold text-white mb-4">Hourly Traffic Pattern</h3>
-                <div className="flex items-end gap-[1px] h-24">
+                <div className="flex items-stretch gap-[1px] h-24">
                   {data.viewsByHour.map((h) => (
                     <div key={h.hour} className="flex-1 flex flex-col items-center justify-end group relative">
                       <div
