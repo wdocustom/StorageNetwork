@@ -3,7 +3,7 @@
 //
 // 3-layer system lagged to ceiling joists:
 //   Layer 1 — Nailer/Ledger (2×4) lag-screwed to joists with washers
-//   Layer 2 — Padding (2×4 on-edge) for lid clearance
+//   Layer 2 — Padding (2×4 flat) for lid clearance
 //   Layer 3 — Rail strip (3/4" plywood, 2.5" wider than nailer, centered
 //             for 1-1/4" ledges on each side where tote rims rest)
 //
@@ -35,14 +35,14 @@ export function getSlotWidth(toteType: OverheadToteType): number {
 
 export const NAILER_WIDTH = 3.5;      // 2×4 wide face against ceiling
 export const NAILER_HEIGHT = 1.5;     // 2×4 mounted flat, 1.5" drop
-export const SPACER_HEIGHT = 3.5;     // 2×4 on-edge, 3.5" drop
-export const SPACER_WIDTH = 1.5;      // 2×4 on-edge, narrow face
+export const SPACER_HEIGHT = 1.5;     // 2×4 flat, 1.5" drop
+export const SPACER_WIDTH = 3.5;      // 2×4 flat, wide face down
 export const RAIL_OVERHANG = 1.25;    // Plywood ledge per side
-export const RAIL_STRIP_WIDTH = SPACER_WIDTH + 2 * RAIL_OVERHANG; // 4.0"
+export const RAIL_STRIP_WIDTH = SPACER_WIDTH + 2 * RAIL_OVERHANG; // 6.0"
 export const RAIL_THICKNESS = 0.75;   // 3/4" plywood
 
 /** Total assembly drop from ceiling = nailer + padding + rail */
-export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 5.75"
+export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 3.75"
 
 /** Center-to-center distance between adjacent rail assemblies */
 export function getRailSpacing(toteType: OverheadToteType): number {
@@ -219,12 +219,12 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // ── Layer 2: Padding blocks (2×4 on-edge) ─────────────────────────────
-  // One padding block at each nailer–rail intersection
-  const spacerBlocks = nailerCount * railAssemblies;
+  // ── Layer 2: Padding beams (2×4 flat) ─────────────────────────────────
+  // Continuous beams running the full system depth, one per rail position
+  const paddingLengthFt = Math.ceil(systemDepthIn / 12);
   materials.push({
-    name: "2×4 Padding Blocks (4\" ea)",
-    qty: spacerBlocks,
+    name: `2×4 Padding Beams (${paddingLengthFt}' ea)`,
+    qty: railAssemblies,
     unit: "pcs",
   });
 
@@ -258,8 +258,9 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // 3" structural screws: padding-to-nailer (2 per block) + rail-to-padding (2 per block)
-  const structuralScrews = spacerBlocks * 4;
+  // 3" structural screws: padding-to-nailer (2 per crossing) + rail-to-padding (2 per crossing)
+  const paddingNailerCrossings = railAssemblies * nailerCount;
+  const structuralScrews = paddingNailerCrossings * 4;
   materials.push({
     name: "3\" Structural Screws",
     qty: Math.ceil(structuralScrews * 1.05), // 5% error buffer

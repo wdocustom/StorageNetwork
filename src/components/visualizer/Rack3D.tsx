@@ -1176,9 +1176,9 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 // Ceiling rail assembly constants
 const CEIL_NAILER_W = 3.5;    // 2×4 wide face against ceiling
 const CEIL_NAILER_H = 1.5;    // 2×4 mounted flat, 1.5" drop
-const CEIL_SPACER_H = 3.5;    // 2×4 on-edge padding, 3.5" drop
-const CEIL_SPACER_W = 1.5;    // 2×4 on-edge, narrow face
-const CEIL_RAIL_W = 4.0;      // Plywood rail strip width (nailer + 2×1.25" ledge)
+const CEIL_SPACER_H = 1.5;    // 2×4 flat padding, 1.5" drop
+const CEIL_SPACER_W = 3.5;    // 2×4 flat, wide face down
+const CEIL_RAIL_W = 6.0;      // Plywood rail strip width (3.5" padding + 2×1.25" ledge)
 const CEIL_RAIL_H = 0.75;     // 3/4" plywood
 const CEIL_TOTE_SLOT_LEN = 30.5; // ~30" per tote position along the rail
 const CEIL_SLOT_CLEARANCE = 0.25;
@@ -1197,7 +1197,7 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
   const systemW = (slotsWide + 1) * CEIL_RAIL_W + slotsWide * slotW;
   const systemD = slotsDeep * CEIL_TOTE_SLOT_LEN;
 
-  // Total assembly height: nailer + spacer + rail
+  // Total assembly height: nailer + padding + rail
   const totalH = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H;
 
   // Nailers run along the depth (Z axis), perpendicular to rail strips (X axis)
@@ -1234,16 +1234,14 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
           />
         ))}
 
-        {/* ── Layer 2: Padding blocks (2×4 on-edge) — at each nailer/rail intersection ── */}
-        {nailerPositions.map((nz, ni) =>
-          railXPositions.map((rx, ri) => (
-            <Lumber
-              key={`spacer-${ni}-${ri}`}
-              position={[rx, totalH - CEIL_NAILER_H - CEIL_SPACER_H / 2, nz]}
-              size={[CEIL_SPACER_W, CEIL_SPACER_H, CEIL_SPACER_W]}
-            />
-          ))
-        )}
+        {/* ── Layer 2: Padding beams (2×4 flat) — continuous, full system depth ── */}
+        {railXPositions.map((rx, ri) => (
+          <Lumber
+            key={`padding-${ri}`}
+            position={[rx, totalH - CEIL_NAILER_H - CEIL_SPACER_H / 2, systemD / 2]}
+            size={[CEIL_SPACER_W, CEIL_SPACER_H, systemD]}
+          />
+        ))}
 
         {/* ── Layer 3: Rail strips (plywood) — run along Z (system depth) ── */}
         {railXPositions.map((rx, ri) => (
