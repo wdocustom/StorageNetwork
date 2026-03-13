@@ -177,6 +177,8 @@ export function calculateNetPurchaseList(
   }
 
   // ── Screws (inventory-tracked) ────────────────────────────────────────
+  // NOTE: raw screw counts already include a 5% human error factor
+  // (applied in calculate-materials.ts) for dropped/miscounted/damaged screws.
   const screwTypes: {
     key: keyof Pick<MaterialInventory, "screws_1_5_8" | "screws_3" | "screws_1">;
     name: string;

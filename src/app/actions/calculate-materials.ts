@@ -20,6 +20,7 @@ import { getShelvingConfig } from "@/lib/shelving";
 
 const STOCK_LENGTH = 96; // 8ft board
 const KERF = 0.125;
+const FASTENER_ERROR_FACTOR = 0.05; // 5% overage for dropped/miscount/damaged screws
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 const GAP = 1.5; // post width (2x4)
@@ -227,6 +228,11 @@ export async function calculateMaterialCostServer(
     }
   }
   totalBoards = bins.length;
+
+  // Apply human error factor to fastener counts (dropped, miscounted, damaged)
+  totalScrew16 = Math.ceil(totalScrew16 * (1 + FASTENER_ERROR_FACTOR));
+  totalScrew3 = Math.ceil(totalScrew3 * (1 + FASTENER_ERROR_FACTOR));
+  totalScrew1 = Math.ceil(totalScrew1 * (1 + FASTENER_ERROR_FACTOR));
 
   totalScrewBoxes16 = Math.ceil(totalScrew16 / 158);
   totalScrewBoxes3 = Math.ceil(totalScrew3 / 137);
