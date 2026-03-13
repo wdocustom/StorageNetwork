@@ -78,11 +78,11 @@ interface MultiUnit3DItem {
   presetUnits?: SubUnit3D[];
 }
 
-/** Overhead ceiling storage config for 3D rendering */
+/** Overhead ceiling tote rail config for 3D rendering */
 interface OverheadConfig3D {
-  widthIn: number;
-  depthIn: number;
-  dropHeightIn: number;
+  slotsWide: number;
+  slotsDeep: number;
+  toteType: "HDX" | "GM";
 }
 
 interface Rack3DProps {
@@ -1165,101 +1165,124 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Overhead Ceiling Storage — 2×4 frame hanging from ceiling with plywood deck
+// Ceiling Tote Rail System — 3-layer: nailer → spacer → plywood rail
+//
+// Totes hang between adjacent rail assemblies by their rim/lip.
+// Layer 1 (top): 2×4 nailer — lagged to ceiling joists
+// Layer 2 (mid): 2×3 spacer block — creates clearance for tote lid
+// Layer 3 (bot): 3/4" plywood rail strip — 4" wide, 1.25" ledge per side
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Ceiling rail assembly constants
+const CEIL_NAILER_W = 1.5;    // 2×4 actual width
+const CEIL_NAILER_H = 3.5;    // 2×4 actual height
+const CEIL_SPACER_H = 2.5;    // 2×3 spacer height (actual dim)
+const CEIL_SPACER_W = 1.5;    // 2×3 spacer width
+const CEIL_RAIL_W = 4.0;      // Plywood rail strip width (nailer + 2×1.25" ledge)
+const CEIL_RAIL_H = 0.75;     // 3/4" plywood
+const CEIL_TOTE_SLOT_LEN = 30.5; // ~30" per tote position along the rail
+const CEIL_SLOT_CLEARANCE = 0.25;
+const CEIL_LIP_OVERHANG = 1.0;
+
+function getCeilSlotWidth(toteType: "HDX" | "GM"): number {
+  const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
+  return toteW - 2 * CEIL_LIP_OVERHANG + 2 * CEIL_SLOT_CLEARANCE;
+}
+
 function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
-  const { widthIn, depthIn, dropHeightIn } = config;
+  const { slotsWide, slotsDeep, toteType } = config;
 
-  // Vertical supports (2×4) — one at each corner
-  const supportH = dropHeightIn;
+  const slotW = getCeilSlotWidth(toteType);
+  const railSpacing = slotW + CEIL_RAIL_W; // center-to-center of adjacent rail assemblies
+  const systemW = (slotsWide + 1) * CEIL_RAIL_W + slotsWide * slotW;
+  const systemD = slotsDeep * CEIL_TOTE_SLOT_LEN;
 
-  // Cross beams (2×4) — run along the width at front and back
-  // Side rails (2×4) — run along the depth on left and right
+  // Total assembly height: nailer + spacer + rail
+  const totalH = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H;
 
-  // The deck sits at the bottom of the drop (i.e. at y = 0)
-  // Supports go from y = 0 up to y = dropHeight (toward ceiling)
-  // We'll model it inverted: deck at bottom, supports going up
-
-  const cx = widthIn / 2;
-  const cy = (supportH + PLY_TOP_H) / 2;
-  const cz = depthIn / 2;
-
-  // Corner post positions
-  const corners: [number, number][] = [
-    [POST_W / 2, POST_D / 2],
-    [widthIn - POST_W / 2, POST_D / 2],
-    [POST_W / 2, depthIn - POST_D / 2],
-    [widthIn - POST_W / 2, depthIn - POST_D / 2],
-  ];
-
-  // If the depth is long (> 48"), add mid-span supports
-  const midSupports: [number, number][] = [];
-  if (depthIn > 48) {
-    const midZ = depthIn / 2;
-    midSupports.push([POST_W / 2, midZ], [widthIn - POST_W / 2, midZ]);
+  // Nailers run along the depth (Z axis), perpendicular to rail strips (X axis)
+  // Need nailers at front, back, and intermediate for support
+  const nailerCount = Math.max(2, Math.ceil(systemD / 30) + 1);
+  const nailerPositions: number[] = [];
+  for (let i = 0; i < nailerCount; i++) {
+    nailerPositions.push(i * (systemD / (nailerCount - 1)));
   }
 
-  const allSupports = [...corners, ...midSupports];
+  // Rail assembly X positions (center of each rail strip)
+  const railXPositions: number[] = [];
+  for (let i = 0; i <= slotsWide; i++) {
+    railXPositions.push(CEIL_RAIL_W / 2 + i * railSpacing);
+  }
+
+  // Center the assembly
+  const cx = systemW / 2;
+  const cy = totalH / 2;
+  const cz = systemD / 2;
+
+  // Tote dimensions for hanging totes
+  const toteW = toteType === "HDX" ? TOTE_FULL_W_HDX : TOTE_FULL_W_GM;
 
   return (
     <group scale={[S, S, S]}>
       <group position={[cx, -cy, -cz]} scale={[-1, 1, 1]}>
-        {/* Plywood deck at the bottom */}
-        <mesh
-          position={[widthIn / 2, PLY_TOP_H / 2, depthIn / 2]}
-          material={PLYWOOD_TOP_MAT}
-          castShadow
-          receiveShadow
-        >
-          <boxGeometry args={[widthIn, PLY_TOP_H, depthIn]} />
-        </mesh>
-
-        {/* Cross beams (2×4 on-edge) — span width at front and back, sitting on top of deck */}
-        <Lumber
-          position={[widthIn / 2, PLY_TOP_H + POST_D / 2, POST_D / 2]}
-          size={[widthIn, POST_D, POST_W]}
-        />
-        <Lumber
-          position={[widthIn / 2, PLY_TOP_H + POST_D / 2, depthIn - POST_D / 2]}
-          size={[widthIn, POST_D, POST_W]}
-        />
-        {/* Mid-span cross beam if depth > 48" */}
-        {depthIn > 48 && (
+        {/* ── Layer 1: Nailers (2×4) — at the top, run along X (system width) ── */}
+        {nailerPositions.map((nz, ni) => (
           <Lumber
-            position={[widthIn / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
-            size={[widthIn, POST_D, POST_W]}
-          />
-        )}
-
-        {/* Side rails (2×4 on-edge) — run along depth on left and right */}
-        <Lumber
-          position={[POST_W / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
-          size={[POST_W, POST_D, depthIn]}
-        />
-        <Lumber
-          position={[widthIn - POST_W / 2, PLY_TOP_H + POST_D / 2, depthIn / 2]}
-          size={[POST_W, POST_D, depthIn]}
-        />
-
-        {/* Vertical supports (2×4) — go from frame up toward ceiling */}
-        {allSupports.map(([sx, sz], i) => (
-          <Lumber
-            key={`support-${i}`}
-            position={[sx, PLY_TOP_H + POST_D + supportH / 2, sz]}
-            size={[POST_W, supportH, POST_D]}
+            key={`nailer-${ni}`}
+            position={[systemW / 2, totalH - CEIL_NAILER_H / 2, nz]}
+            size={[systemW, CEIL_NAILER_H, CEIL_NAILER_W]}
           />
         ))}
 
-        {/* Top plate (2×4 flat) at ceiling level — front and back */}
-        <Lumber
-          position={[widthIn / 2, PLY_TOP_H + POST_D + supportH + PLATE_H / 2, POST_D / 2]}
-          size={[widthIn, PLATE_H, POST_D]}
-        />
-        <Lumber
-          position={[widthIn / 2, PLY_TOP_H + POST_D + supportH + PLATE_H / 2, depthIn - POST_D / 2]}
-          size={[widthIn, PLATE_H, POST_D]}
-        />
+        {/* ── Layer 2: Spacer blocks (2×3) — at each nailer/rail intersection ── */}
+        {nailerPositions.map((nz, ni) =>
+          railXPositions.map((rx, ri) => (
+            <Lumber
+              key={`spacer-${ni}-${ri}`}
+              position={[rx, totalH - CEIL_NAILER_H - CEIL_SPACER_H / 2, nz]}
+              size={[CEIL_SPACER_W, CEIL_SPACER_H, CEIL_SPACER_W]}
+            />
+          ))
+        )}
+
+        {/* ── Layer 3: Rail strips (plywood) — run along Z (system depth) ── */}
+        {railXPositions.map((rx, ri) => (
+          <mesh
+            key={`rail-${ri}`}
+            position={[rx, CEIL_RAIL_H / 2, systemD / 2]}
+            material={PLYWOOD_TOP_MAT}
+            castShadow
+            receiveShadow
+          >
+            <boxGeometry args={[CEIL_RAIL_W, CEIL_RAIL_H, systemD]} />
+          </mesh>
+        ))}
+
+        {/* ── Totes hanging between rail strips ── */}
+        {Array.from({ length: slotsWide }).map((_, col) => {
+          const slotCenterX = railXPositions[col] + railSpacing / 2;
+          return Array.from({ length: slotsDeep }).map((_, row) => {
+            const toteZ = CEIL_TOTE_SLOT_LEN / 2 + row * CEIL_TOTE_SLOT_LEN;
+            // Tote hangs below the rail: rim on the rail ledge, body below
+            const rimTopY = CEIL_RAIL_H; // Top of rail
+            const rimH = TOTE_RIM_H;
+            const bodyH = TOTE_BODY_H;
+            return (
+              <group key={`tote-${col}-${row}`} position={[slotCenterX, rimTopY - rimH / 2, toteZ]}>
+                {/* Rim/lip resting on rails */}
+                <mesh position={[0, 0, 0]} castShadow>
+                  <boxGeometry args={[toteW, rimH, TOTE_DEPTH * 0.95]} />
+                  <meshStandardMaterial color="#fbbf24" roughness={0.3} />
+                </mesh>
+                {/* Tote body hanging below */}
+                <mesh position={[0, -rimH / 2 - bodyH / 2, 0]} castShadow>
+                  <boxGeometry args={[toteW * TOTE_BODY_TAPER, bodyH, TOTE_DEPTH * 0.9]} />
+                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                </mesh>
+              </group>
+            );
+          });
+        })}
       </group>
     </group>
   );
@@ -1269,15 +1292,20 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
-  const sw = config.widthIn * S;
-  const sh = (config.dropHeightIn + 5) * S;
-  const sd = config.depthIn * S;
+  const slotW = getCeilSlotWidth(config.toteType);
+  const systemW = (config.slotsWide + 1) * CEIL_RAIL_W + config.slotsWide * slotW;
+  const systemD = config.slotsDeep * CEIL_TOTE_SLOT_LEN;
+  const totalH = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
+
+  const sw = systemW * S;
+  const sh = totalH * S;
+  const sd = systemD * S;
   const maxDim = Math.max(sw, sh, sd);
   const dist = maxDim * 2.4;
 
   useEffect(() => {
-    // View from slightly below to see the hanging structure
-    camera.position.set(dist * 0.7, -dist * 0.3, -dist * 0.7);
+    // View from slightly below to see the hanging totes
+    camera.position.set(dist * 0.7, -dist * 0.4, -dist * 0.7);
     camera.lookAt(0, 0, 0);
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);

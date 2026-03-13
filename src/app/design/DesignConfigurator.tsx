@@ -17,6 +17,7 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit, ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
 import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
@@ -312,23 +313,20 @@ export default function DesignConfigurator({
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
   const overheadStorageEnabled = data?.pricing?.overhead_storage_enabled === true;
-  const [overheadPreview, setOverheadPreview] = useState<{ widthIn: number; depthIn: number; dropHeightIn: number } | null>(null);
+  const [overheadPreview, setOverheadPreview] = useState<{ slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" } | null>(null);
 
   function handleAddOverheadUnit(
     result: import("@/lib/overhead-storage").OverheadStorageResult,
     config: import("@/lib/overhead-storage").OverheadStorageConfig,
   ) {
-    const sizeLabel = config.sizePresetId
-      ? `${result.widthIn / 12}'×${result.depthIn / 12}'`
-      : `${result.widthIn}"×${result.depthIn}"`;
-    const desc = `Overhead Storage: ${sizeLabel} — ${result.dropHeightIn}" drop`;
+    const desc = `Ceiling Tote Rail: ${result.slotsWide}×${result.slotsDeep} (${result.toteCount} totes, ${result.toteType})`;
 
     setOrderItems((prev) => [
       ...prev,
       {
         cols: 0,
         rows: 0,
-        toteType: "HDX" as ToteType,
+        toteType: result.toteType as ToteType,
         toteColor: "black" as ToteColor,
         unitType: "standard",
         orientation: "standard",
@@ -336,9 +334,9 @@ export default function DesignConfigurator({
         hasWheels: false,
         hasTop: false,
         price: result.price,
-        totalW: result.widthIn,
-        totalH: result.dropHeightIn,
-        depth: result.depthIn,
+        totalW: result.systemWidthIn,
+        totalH: 10, // Approximate visual height for the rail system
+        depth: result.systemDepthIn,
         desc,
         addons: [],
         overheadStorageConfig: config,
@@ -379,7 +377,11 @@ export default function DesignConfigurator({
         paintSidePanelColor: item.paintSidePanelColor,
         shelvingConfigId: item.shelvingConfigId,
         overheadStorageConfig: item.overheadStorageConfig
-          ? { widthIn: item.totalW, depthIn: item.depth, dropHeightIn: item.totalH }
+          ? (() => {
+              const cfg = item.overheadStorageConfig;
+              const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
+              return preset ? { slotsWide: preset.slotsWide, slotsDeep: preset.slotsDeep, toteType: cfg.toteType } : undefined;
+            })()
           : undefined,
         presetUnits: item.presetUnits,
         visible: unitVisibility[i] !== false, // default visible
@@ -1534,7 +1536,7 @@ export default function DesignConfigurator({
               paintDoorColor={activePresetObj ? null : paintDoorColor}
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
-              overheadConfig={overheadPreview ?? undefined}
+              overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType } : undefined}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
               multiUnitControls={orderItems.length >= 1 ? {
                 showMultiUnit3D,
@@ -1549,11 +1551,9 @@ export default function DesignConfigurator({
           <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
             {overheadPreview ? (
               <>
-                {overheadPreview.widthIn}&quot; W &times;{" "}
-                {overheadPreview.depthIn}&quot; D &times;{" "}
-                {overheadPreview.dropHeightIn}&quot; drop
+                {overheadPreview.slotsWide} &times; {overheadPreview.slotsDeep} grid · {overheadPreview.toteType}
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                  Overhead Storage
+                  Ceiling Tote Rail
                 </span>
               </>
             ) : activeShelvingConfig ? (

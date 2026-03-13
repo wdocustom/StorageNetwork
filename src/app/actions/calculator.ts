@@ -616,9 +616,10 @@ import {
   calculateOverheadStorage as calcOverhead,
   type OverheadStorageConfig,
   type OverheadStorageResult,
+  type OverheadToteType,
 } from "@/lib/overhead-storage";
 
-export type { OverheadStorageConfig, OverheadStorageResult };
+export type { OverheadStorageConfig, OverheadStorageResult, OverheadToteType };
 
 export async function calculateOverheadStorageUnit(input: {
   config: OverheadStorageConfig;

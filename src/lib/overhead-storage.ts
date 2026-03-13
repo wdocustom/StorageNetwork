@@ -1,23 +1,72 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Overhead Ceiling Storage — Configuration & Pricing Engine
+// Overhead Ceiling Tote Rail System — Configuration & Pricing Engine
+//
+// 3-layer system lagged to ceiling joists:
+//   Layer 1 — Nailer/Ledger (2×4) lag-screwed to joists with washers
+//   Layer 2 — Spacer (2×3 block) for lid clearance
+//   Layer 3 — Rail strip (3/4" plywood, 2.5" wider than nailer, centered
+//             for 1-1/4" ledges on each side where tote rims rest)
+//
+// Rails run perpendicular to nailers. Totes hang between adjacent rail
+// assemblies by their rim/lip. Slot spacing matches the standard tote
+// widths (HDX 19-3/4", Greenmade 20-3/4") used in the wall units.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Preset sizes for overhead ceiling storage platforms */
-export interface OverheadStoragePreset {
-  id: string;
-  label: string;
-  widthFt: number;
-  depthFt: number;
-  widthIn: number;
-  depthIn: number;
+// ── Tote & Slot Dimensions (shared with wall-unit system) ────────────────
+
+export type OverheadToteType = "HDX" | "GM";
+
+/** Full tote width including lip/rim */
+const TOTE_FULL_W: Record<OverheadToteType, number> = {
+  HDX: 19.75,
+  GM: 20.75,
+};
+
+const TOTE_LIP_OVERHANG = 1.0;   // Lip extends 1" past body per side
+const SLOT_CLEARANCE = 0.25;     // Tolerance per side
+const TOTE_SLOT_LENGTH = 30.5;   // ~30" per tote position along the rail + gap
+
+/** Clear opening between adjacent rail ledges (tote body drops through) */
+export function getSlotWidth(toteType: OverheadToteType): number {
+  return TOTE_FULL_W[toteType] - 2 * TOTE_LIP_OVERHANG + 2 * SLOT_CLEARANCE;
 }
 
-/** Drop height from ceiling (distance the platform hangs down) */
-export interface OverheadDropHeight {
+// ── Rail Assembly Dimensions ─────────────────────────────────────────────
+
+export const NAILER_WIDTH = 1.5;      // 2×4 actual width
+export const NAILER_HEIGHT = 3.5;     // 2×4 actual height
+export const RAIL_OVERHANG = 1.25;    // Plywood ledge per side
+export const RAIL_STRIP_WIDTH = NAILER_WIDTH + 2 * RAIL_OVERHANG; // 4.0"
+export const RAIL_THICKNESS = 0.75;   // 3/4" plywood
+export const SPACER_HEIGHT = 2.5;     // 2×3 lumber (actual 2.5" dim)
+export const SPACER_WIDTH = 1.5;      // 2×3 lumber (actual 1.5" dim)
+
+/** Total assembly drop from ceiling = nailer + spacer + rail */
+export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 6.75"
+
+/** Center-to-center distance between adjacent rail assemblies */
+export function getRailSpacing(toteType: OverheadToteType): number {
+  return getSlotWidth(toteType) + RAIL_STRIP_WIDTH;
+}
+
+// ── Grid Presets ─────────────────────────────────────────────────────────
+
+export interface OverheadGridPreset {
   id: string;
   label: string;
-  inches: number;
+  slotsWide: number;
+  slotsDeep: number;
+  toteCount: number;
 }
+
+export const OVERHEAD_GRID_PRESETS: OverheadGridPreset[] = [
+  { id: "2x2", label: "2 × 2", slotsWide: 2, slotsDeep: 2, toteCount: 4 },
+  { id: "2x3", label: "2 × 3", slotsWide: 2, slotsDeep: 3, toteCount: 6 },
+  { id: "3x2", label: "3 × 2", slotsWide: 3, slotsDeep: 2, toteCount: 6 },
+  { id: "3x3", label: "3 × 3", slotsWide: 3, slotsDeep: 3, toteCount: 9 },
+  { id: "3x4", label: "3 × 4", slotsWide: 3, slotsDeep: 4, toteCount: 12 },
+  { id: "4x4", label: "4 × 4", slotsWide: 4, slotsDeep: 4, toteCount: 16 },
+];
 
 /** Joist spacing options */
 export interface OverheadJoistSpacing {
@@ -26,29 +75,30 @@ export interface OverheadJoistSpacing {
   inches: number;
 }
 
-/** Deck type for the overhead platform (always plywood) */
-export type OverheadDeckType = "plywood";
+export const OVERHEAD_JOIST_SPACINGS: OverheadJoistSpacing[] = [
+  { id: "16", label: "16\" OC", inches: 16 },
+  { id: "24", label: "24\" OC", inches: 24 },
+];
 
-/** Full overhead storage configuration */
+// ── Configuration ────────────────────────────────────────────────────────
+
 export interface OverheadStorageConfig {
-  sizePresetId: string | null;
-  customWidthIn: number | null;
-  customDepthIn: number | null;
-  dropHeightId: string;
+  gridPresetId: string | null;
+  toteType: OverheadToteType;
   joistSpacingId: string;
-  deckType: OverheadDeckType;
 }
 
-/** Computed result from the overhead storage calculator */
+// ── Result ───────────────────────────────────────────────────────────────
+
 export interface OverheadStorageResult {
-  widthIn: number;
-  depthIn: number;
-  dropHeightIn: number;
-  joistSpacingIn: number;
-  deckType: OverheadDeckType;
+  slotsWide: number;
+  slotsDeep: number;
+  toteCount: number;
+  toteType: OverheadToteType;
+  systemWidthIn: number;
+  systemDepthIn: number;
   price: number;
   materials: OverheadMaterial[];
-  sqft: number;
 }
 
 export interface OverheadMaterial {
@@ -57,205 +107,172 @@ export interface OverheadMaterial {
   unit: string;
 }
 
-// ── Presets ─────────────────────────────────────────────────────────────
+// ── Pricing ──────────────────────────────────────────────────────────────
 
-export const OVERHEAD_SIZE_PRESETS: OverheadStoragePreset[] = [
-  { id: "4x8",  label: "4' × 8'",  widthFt: 4, depthFt: 8, widthIn: 48,  depthIn: 96 },
-  { id: "4x6",  label: "4' × 6'",  widthFt: 4, depthFt: 6, widthIn: 48,  depthIn: 72 },
-  { id: "4x4",  label: "4' × 4'",  widthFt: 4, depthFt: 4, widthIn: 48,  depthIn: 48 },
-  { id: "3x8",  label: "3' × 8'",  widthFt: 3, depthFt: 8, widthIn: 36,  depthIn: 96 },
-  { id: "3x6",  label: "3' × 6'",  widthFt: 3, depthFt: 6, widthIn: 36,  depthIn: 72 },
-  { id: "2x8",  label: "2' × 8'",  widthFt: 2, depthFt: 8, widthIn: 24,  depthIn: 96 },
-];
+/** Base price per tote slot for overhead ceiling rail system */
+export const OVERHEAD_BASE_PRICE_PER_SLOT = 28;
 
-export const OVERHEAD_DROP_HEIGHTS: OverheadDropHeight[] = [
-  { id: "12",  label: "12\"",  inches: 12 },
-  { id: "24",  label: "24\"",  inches: 24 },
-  { id: "36",  label: "36\"",  inches: 36 },
-  { id: "45",  label: "45\"",  inches: 45 },
-];
-
-export const OVERHEAD_JOIST_SPACINGS: OverheadJoistSpacing[] = [
-  { id: "16", label: "16\" OC", inches: 16 },
-  { id: "24", label: "24\" OC", inches: 24 },
-];
-
-// ── Platform Default Pricing ────────────────────────────────────────────
-
-/** Base price per square foot for overhead storage */
-export const OVERHEAD_BASE_PRICE_PER_SQFT = 6;
-
-/** Price premium for plywood deck vs wire deck */
-export const OVERHEAD_PLYWOOD_PREMIUM_PER_SQFT = 2;
-
-/** Additional cost per drop-height tier above 12" */
-export const OVERHEAD_DROP_HEIGHT_PREMIUM: Record<string, number> = {
-  "12": 0,
-  "24": 15,
-  "36": 30,
-  "45": 45,
-};
-
-/** InstallerPricing keys for overhead storage */
+/** InstallerPricing keys for overhead grid presets */
 export const OVERHEAD_PRICING_KEYS = [
-  "overhead_4x8",
-  "overhead_4x6",
+  "overhead_2x2",
+  "overhead_2x3",
+  "overhead_3x2",
+  "overhead_3x3",
+  "overhead_3x4",
   "overhead_4x4",
-  "overhead_3x8",
-  "overhead_3x6",
-  "overhead_2x8",
 ] as const;
 
-// ── Calculator ──────────────────────────────────────────────────────────
+export const PLATFORM_OVERHEAD_DEFAULTS: Record<string, number> = {
+  overhead_2x2: 4 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $112
+  overhead_2x3: 6 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $168
+  overhead_3x2: 6 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $168
+  overhead_3x3: 9 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $252
+  overhead_3x4: 12 * OVERHEAD_BASE_PRICE_PER_SLOT,  // $336
+  overhead_4x4: 16 * OVERHEAD_BASE_PRICE_PER_SLOT,  // $448
+};
+
+// ── System Dimension Helpers ─────────────────────────────────────────────
+
+/** Compute overall system width in inches */
+export function getSystemWidth(slotsWide: number, toteType: OverheadToteType): number {
+  // (slotsWide + 1) rail assemblies + slotsWide slot gaps
+  return (slotsWide + 1) * RAIL_STRIP_WIDTH + slotsWide * getSlotWidth(toteType);
+}
+
+/** Compute overall system depth in inches (along the rail direction) */
+export function getSystemDepth(slotsDeep: number): number {
+  return slotsDeep * TOTE_SLOT_LENGTH;
+}
+
+// ── Calculator ───────────────────────────────────────────────────────────
 
 export function calculateOverheadStorage(
   config: OverheadStorageConfig,
   installerPricing?: Record<string, number | boolean | undefined>,
 ): OverheadStorageResult {
-  // Resolve dimensions
-  let widthIn: number;
-  let depthIn: number;
+  const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === config.gridPresetId);
+  if (!preset) throw new Error(`Unknown overhead grid preset: ${config.gridPresetId}`);
 
-  if (config.sizePresetId) {
-    const preset = OVERHEAD_SIZE_PRESETS.find((p) => p.id === config.sizePresetId);
-    if (!preset) throw new Error(`Unknown overhead preset: ${config.sizePresetId}`);
-    widthIn = preset.widthIn;
-    depthIn = preset.depthIn;
-  } else {
-    widthIn = config.customWidthIn ?? 48;
-    depthIn = config.customDepthIn ?? 96;
-  }
+  const { slotsWide, slotsDeep, toteCount } = preset;
+  const { toteType } = config;
 
-  // Clamp to reasonable bounds
-  widthIn = Math.max(24, Math.min(96, widthIn));
-  depthIn = Math.max(24, Math.min(192, depthIn));
-
-  const dropHeight = OVERHEAD_DROP_HEIGHTS.find((d) => d.id === config.dropHeightId);
-  const dropHeightIn = dropHeight?.inches ?? 24;
+  const systemWidthIn = getSystemWidth(slotsWide, toteType);
+  const systemDepthIn = getSystemDepth(slotsDeep);
 
   const joistSpacing = OVERHEAD_JOIST_SPACINGS.find((j) => j.id === config.joistSpacingId);
   const joistSpacingIn = joistSpacing?.inches ?? 16;
 
-  const sqft = (widthIn * depthIn) / 144;
-
-  // Check for installer price override first
+  // Price — check installer override first
   let price: number;
-  const presetKey = config.sizePresetId ? `overhead_${config.sizePresetId.replace("x", "x")}` : null;
-  const overridePrice = presetKey && installerPricing?.[presetKey];
+  const presetKey = `overhead_${preset.id}`;
+  const overridePrice = installerPricing?.[presetKey];
 
   if (typeof overridePrice === "number" && overridePrice > 0) {
     price = overridePrice;
-    // Apply deck & drop height adjustments on top of override
-    if (config.deckType === "plywood") {
-      price += Math.round(sqft * OVERHEAD_PLYWOOD_PREMIUM_PER_SQFT);
-    }
-    price += OVERHEAD_DROP_HEIGHT_PREMIUM[config.dropHeightId] ?? 0;
   } else {
-    // Platform default pricing
-    price = Math.round(sqft * OVERHEAD_BASE_PRICE_PER_SQFT);
-    if (config.deckType === "plywood") {
-      price += Math.round(sqft * OVERHEAD_PLYWOOD_PREMIUM_PER_SQFT);
-    }
-    price += OVERHEAD_DROP_HEIGHT_PREMIUM[config.dropHeightId] ?? 0;
+    price = PLATFORM_OVERHEAD_DEFAULTS[presetKey] ?? toteCount * OVERHEAD_BASE_PRICE_PER_SLOT;
   }
 
-  // ── Materials list ──────────────────────────────────────────────────
-  const materials = computeOverheadMaterials(widthIn, depthIn, dropHeightIn, joistSpacingIn, config.deckType);
+  // Materials
+  const materials = computeOverheadMaterials(
+    slotsWide, slotsDeep, toteType, systemWidthIn, systemDepthIn, joistSpacingIn,
+  );
 
   return {
-    widthIn,
-    depthIn,
-    dropHeightIn,
-    joistSpacingIn,
-    deckType: config.deckType,
+    slotsWide,
+    slotsDeep,
+    toteCount,
+    toteType,
+    systemWidthIn: Math.round(systemWidthIn * 100) / 100,
+    systemDepthIn: Math.round(systemDepthIn * 100) / 100,
     price,
     materials,
-    sqft: Math.round(sqft * 10) / 10,
   };
 }
 
+// ── Material Calculator ──────────────────────────────────────────────────
+
 function computeOverheadMaterials(
-  widthIn: number,
-  depthIn: number,
-  dropHeightIn: number,
+  slotsWide: number,
+  slotsDeep: number,
+  toteType: OverheadToteType,
+  systemWidthIn: number,
+  systemDepthIn: number,
   joistSpacingIn: number,
-  deckType: OverheadDeckType,
 ): OverheadMaterial[] {
   const materials: OverheadMaterial[] = [];
 
-  // Vertical supports (2×4) — one at each corner + one per joist spacing along the long side
-  const supportsAlongDepth = Math.ceil(depthIn / joistSpacingIn) + 1;
-  const supportsAlongWidth = Math.ceil(widthIn / joistSpacingIn) + 1;
-  // Supports hang from ceiling joists on both width-side rails
-  const verticalSupports = (supportsAlongDepth * 2);
+  // Number of rail assemblies (each assembly = nailer + spacer + rail strip)
+  const railAssemblies = slotsWide + 1;
 
-  // Each vertical support is dropHeight + ~6" for lag bolt penetration
-  const supportLengthIn = dropHeightIn + 6;
-  const supportBoardFt = Math.ceil((supportLengthIn * verticalSupports) / 12);
+  // Nailer count & spacing:
+  // Nailers run perpendicular to rail strips, crossing ceiling joists.
+  // Need nailers at front, back, and intermediate for support (every ~30" along depth).
+  const nailerCount = Math.max(2, Math.ceil(systemDepthIn / 30) + 1);
+  const nailerLengthIn = systemWidthIn;
+  const nailerLengthFt = Math.ceil(nailerLengthIn / 12);
 
+  // ── Layer 1: Nailers (2×4) ────────────────────────────────────────────
   materials.push({
-    name: "2×4 Vertical Supports",
-    qty: verticalSupports,
+    name: `2×4 Nailers (${nailerLengthFt}' ea)`,
+    qty: nailerCount,
     unit: "pcs",
   });
 
-  // Cross beams (2×4) — span the width, one at each support point
-  const crossBeams = supportsAlongDepth;
+  // ── Layer 2: Spacer blocks (2×3 lumber) ───────────────────────────────
+  // One spacer block at each nailer–rail intersection
+  const spacerBlocks = nailerCount * railAssemblies;
   materials.push({
-    name: `2×4 Cross Beams (${Math.ceil(widthIn / 12)}'ea)`,
-    qty: crossBeams,
+    name: "2×3 Spacer Blocks (4\" ea)",
+    qty: spacerBlocks,
     unit: "pcs",
   });
 
-  // Side rails (2×4) — run along the depth on both sides
+  // ── Layer 3: Rail strips (3/4" plywood, 4" wide) ─────────────────────
+  // Each rail strip runs the full system depth, attached across all nailers
+  const railStripLengthFt = Math.ceil(systemDepthIn / 12);
   materials.push({
-    name: `2×4 Side Rails (${Math.ceil(depthIn / 12)}'ea)`,
-    qty: 2,
+    name: `3/4" Plywood Rail Strips (4" × ${railStripLengthFt}')`,
+    qty: railAssemblies,
+    unit: "strips",
+  });
+
+  // Plywood sheets needed to rip the strips
+  // One 4'×8' sheet yields 12 strips at 4" wide, each up to 96" long
+  const stripsPerSheet = 12;
+  const railSegments = railAssemblies * Math.ceil(systemDepthIn / 96);
+  const plywoodSheets = Math.ceil(railSegments / stripsPerSheet);
+  materials.push({
+    name: "3/4\" Plywood Sheets (4×8) for rails",
+    qty: plywoodSheets,
+    unit: "sheets",
+  });
+
+  // ── Hardware ──────────────────────────────────────────────────────────
+  // Lag bolts: nailer to joist. Each nailer crosses joists along the system width.
+  const joistCrossingsPerNailer = Math.ceil(nailerLengthIn / joistSpacingIn) + 1;
+  const totalLagBolts = nailerCount * joistCrossingsPerNailer * 2; // 2 per crossing
+  materials.push({
+    name: "5/16\" × 3\" Lag Bolts + Washers",
+    qty: totalLagBolts,
     unit: "pcs",
   });
 
-  // Deck material
-  if (deckType === "plywood") {
-    // 4×8 sheets needed
-    const sheetsNeeded = Math.ceil((widthIn * depthIn) / (48 * 96));
-    materials.push({
-      name: "3/4\" Plywood Sheets (4×8)",
-      qty: sheetsNeeded,
-      unit: "sheets",
-    });
-  } else {
-    // Wire deck panels — typically 24"×48" panels
-    const panelsNeeded = Math.ceil((widthIn * depthIn) / (24 * 48));
-    materials.push({
-      name: "Wire Deck Panels (24×48)",
-      qty: panelsNeeded,
-      unit: "panels",
-    });
-  }
-
-  // Hardware
-  materials.push({
-    name: "5/16\" × 3\" Lag Bolts",
-    qty: verticalSupports * 2,  // 2 per support into joist
-    unit: "pcs",
-  });
-
+  // 3" structural screws: spacer-to-nailer (2 per block) + rail-to-spacer (2 per block)
+  const structuralScrews = spacerBlocks * 4;
   materials.push({
     name: "3\" Structural Screws",
-    qty: crossBeams * 4 + 8,  // 4 per cross beam connection + rail connections
+    qty: Math.ceil(structuralScrews * 1.05), // 5% error buffer
     unit: "pcs",
+  });
+
+  // Tote count (informational — for purchase list)
+  const toteLabel = toteType === "HDX" ? "HDX 27-Gal Totes (Yellow Lid)" : "Greenmade 27-Gal Totes";
+  materials.push({
+    name: toteLabel,
+    qty: slotsWide * slotsDeep,
+    unit: "totes",
   });
 
   return materials;
 }
-
-// ── Platform defaults for pricing settings ──────────────────────────────
-
-export const PLATFORM_OVERHEAD_DEFAULTS: Record<string, number> = {
-  overhead_4x8: Math.round((48 * 96 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 32 sqft × $6 = $192
-  overhead_4x6: Math.round((48 * 72 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 24 sqft × $6 = $144
-  overhead_4x4: Math.round((48 * 48 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 16 sqft × $6 = $96
-  overhead_3x8: Math.round((36 * 96 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 24 sqft × $6 = $144
-  overhead_3x6: Math.round((36 * 72 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 18 sqft × $6 = $108
-  overhead_2x8: Math.round((24 * 96 / 144) * OVERHEAD_BASE_PRICE_PER_SQFT),  // 16 sqft × $6 = $96
-};

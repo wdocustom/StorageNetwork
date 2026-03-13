@@ -28,7 +28,7 @@ import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFA
 import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
-import { OVERHEAD_SIZE_PRESETS, PLATFORM_OVERHEAD_DEFAULTS } from "@/lib/overhead-storage";
+import { OVERHEAD_GRID_PRESETS, PLATFORM_OVERHEAD_DEFAULTS } from "@/lib/overhead-storage";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -179,15 +179,14 @@ const PRICE_FIELDS: PriceField[] = [
       category: "shelving" as const,
     };
   }),
-  // Overhead Ceiling Storage price overrides
-  ...OVERHEAD_SIZE_PRESETS.map((preset) => {
+  // Overhead Ceiling Tote Rail price overrides
+  ...OVERHEAD_GRID_PRESETS.map((preset) => {
     const key = `overhead_${preset.id}` as PricingNumericKey;
-    const sqft = Math.round((preset.widthIn * preset.depthIn) / 144);
     const defaultPrice = PLATFORM_OVERHEAD_DEFAULTS[key] ?? 0;
     return {
       key,
-      label: preset.label,
-      description: `${sqft} sq ft base (platform default: $${defaultPrice})`,
+      label: `${preset.label} grid`,
+      description: `${preset.toteCount} totes (platform default: $${defaultPrice})`,
       defaultValue: defaultPrice,
       category: "overhead" as const,
     };

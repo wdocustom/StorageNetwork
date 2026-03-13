@@ -80,8 +80,8 @@ export async function updateInstallerPricing(
       "bestseller_gas_station",
       "shelving_shelf_4ft_short", "shelving_shelf_5ft_short", "shelving_shelf_6ft_short",
       "shelving_shelf_4ft_tall", "shelving_shelf_5ft_tall", "shelving_shelf_6ft_tall",
-      "overhead_4x8", "overhead_4x6", "overhead_4x4",
-      "overhead_3x8", "overhead_3x6", "overhead_2x8",
+      "overhead_2x2", "overhead_2x3", "overhead_3x2",
+      "overhead_3x3", "overhead_3x4", "overhead_4x4",
     ];
 
     for (const field of fields) {

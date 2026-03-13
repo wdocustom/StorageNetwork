@@ -104,8 +104,8 @@ interface RackVisualizerProps {
   paintSidePanelColor?: PaintColorId | null;
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
-  /** When set, renders an overhead ceiling storage unit */
-  overheadConfig?: { widthIn: number; depthIn: number; dropHeightIn: number };
+  /** When set, renders a ceiling tote rail system */
+  overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
   /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
@@ -137,7 +137,7 @@ export interface MultiUnitItem {
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
   shelvingConfigId?: string;
-  overheadStorageConfig?: { widthIn: number; depthIn: number; dropHeightIn: number };
+  overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   visible: boolean;
   desc: string;
@@ -416,7 +416,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   paintFrameColor: u.paintFrameColor,
                   paintDoorColor: u.paintDoorColor,
                   paintSidePanelColor: u.paintSidePanelColor,
-                  overheadConfig: u.overheadStorageConfig,
+                  overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
                   presetUnits: u.presetUnits,
                 }))}
               />
