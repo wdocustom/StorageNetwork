@@ -173,7 +173,7 @@ export function calculateOverheadStorage(
 
   // Materials
   const materials = computeOverheadMaterials(
-    slotsWide, slotsDeep, toteType, systemWidthIn, systemDepthIn, joistSpacingIn,
+    slotsWide, slotsDeep, toteType, systemWidthIn, systemDepthIn, joistSpacingIn, config.hasTotes,
   );
 
   return {
@@ -199,6 +199,7 @@ function computeOverheadMaterials(
   systemWidthIn: number,
   systemDepthIn: number,
   joistSpacingIn: number,
+  hasTotes: boolean = true,
 ): OverheadMaterial[] {
   const materials: OverheadMaterial[] = [];
 
@@ -268,12 +269,14 @@ function computeOverheadMaterials(
   });
 
   // Tote count (informational — for purchase list)
-  const toteLabel = toteType === "HDX" ? "HDX 27-Gal Totes (Yellow Lid)" : "Greenmade 27-Gal Totes";
-  materials.push({
-    name: toteLabel,
-    qty: slotsWide * slotsDeep,
-    unit: "totes",
-  });
+  if (hasTotes) {
+    const toteLabel = toteType === "HDX" ? "HDX 27-Gal Totes (Yellow Lid)" : "Greenmade 27-Gal Totes";
+    materials.push({
+      name: toteLabel,
+      qty: slotsWide * slotsDeep,
+      unit: "totes",
+    });
+  }
 
   return materials;
 }
