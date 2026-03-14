@@ -1,11 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Overhead Ceiling Tote Rail System — Configuration & Pricing Engine
 //
-// 3-layer system lagged to ceiling joists:
-//   Layer 1 — Nailer/Ledger (2×4) lag-screwed to joists with washers
-//   Layer 2 — Padding (2×4 flat) for lid clearance
-//   Layer 3 — Rail strip (3/4" plywood, 2.5" wider than nailer, centered
+// 4-layer system lagged to ceiling joists:
+//   Layer 1 — Nailer/Ledger (2×4 belly-flat) lag-screwed to joists
+//   Layer 2 — Padding 1 (2×4 perpendicular to nailer) for lid clearance
+//   Layer 3 — Padding 2 (2×4 perpendicular to nailer) doubles clearance
+//   Layer 4 — Rail strip (3/4" plywood, 6" wide, centered on padding
 //             for 1-1/4" ledges on each side where tote rims rest)
+//
+// Double padding gives 3" clearance (1.5" × 2) above the rail strip,
+// enough for the tote lid/lip to pass (~2" from lip to top of lid).
 //
 // Rails run perpendicular to nailers. Totes hang between adjacent rail
 // assemblies by their rim/lip. Slot spacing matches the standard tote
@@ -34,15 +38,19 @@ export function getSlotWidth(toteType: OverheadToteType): number {
 // ── Rail Assembly Dimensions ─────────────────────────────────────────────
 
 export const NAILER_WIDTH = 3.5;      // 2×4 wide face against ceiling
-export const NAILER_HEIGHT = 1.5;     // 2×4 mounted flat, 1.5" drop
-export const SPACER_HEIGHT = 1.5;     // 2×4 flat, 1.5" drop
-export const SPACER_WIDTH = 3.5;      // 2×4 flat, wide face down
+export const NAILER_HEIGHT = 1.5;     // 2×4 mounted belly-flat, 1.5" drop
+export const PADDING_LAYERS = 2;      // Two 2×4 padding layers for lid clearance
+export const PADDING_HEIGHT = 1.5;    // Each 2×4 padding layer, 1.5" drop
+export const PADDING_WIDTH = 3.5;     // 2×4 wide face down
 export const RAIL_OVERHANG = 1.25;    // Plywood ledge per side
-export const RAIL_STRIP_WIDTH = SPACER_WIDTH + 2 * RAIL_OVERHANG; // 6.0"
+export const RAIL_STRIP_WIDTH = PADDING_WIDTH + 2 * RAIL_OVERHANG; // 6.0"
 export const RAIL_THICKNESS = 0.75;   // 3/4" plywood
 
-/** Total assembly drop from ceiling = nailer + padding + rail */
-export const TOTAL_DROP = NAILER_HEIGHT + SPACER_HEIGHT + RAIL_THICKNESS; // 3.75"
+/** Total assembly drop from ceiling = nailer + (2 × padding) + rail */
+export const TOTAL_DROP = NAILER_HEIGHT + PADDING_LAYERS * PADDING_HEIGHT + RAIL_THICKNESS; // 5.25"
+
+/** Clearance above rail strip for tote lid/lip = 2 × padding height */
+export const LID_CLEARANCE = PADDING_LAYERS * PADDING_HEIGHT; // 3.0"
 
 /** Center-to-center distance between adjacent rail assemblies */
 export function getRailSpacing(toteType: OverheadToteType): number {
@@ -220,16 +228,18 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // ── Layer 2: Padding beams (2×4 flat) ─────────────────────────────────
-  // Continuous beams running the full system depth, one per rail position
+  // ── Layers 2 & 3: Double padding beams (2×4 perpendicular to nailers) ─
+  // Two stacked 2×4s per rail position give 3" clearance for tote lid/lip.
+  // Each beam runs the full system depth.
   const paddingLengthFt = Math.ceil(systemDepthIn / 12);
+  const paddingPerRail = PADDING_LAYERS; // 2 layers stacked
   materials.push({
     name: `2×4 Padding Beams (${paddingLengthFt}' ea)`,
-    qty: railAssemblies,
+    qty: railAssemblies * paddingPerRail,
     unit: "pcs",
   });
 
-  // ── Layer 3: Rail strips (3/4" plywood, 4" wide) ─────────────────────
+  // ── Layer 4: Rail strips (3/4" plywood, 6" wide) ─────────────────────
   // Each rail strip runs the full system depth, attached across all nailers
   const railStripLengthFt = Math.ceil(systemDepthIn / 12);
   materials.push({
@@ -259,10 +269,11 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // 3" structural screws: padding-to-nailer, 2 per crossing.
-  // (Rail strips attach to padding with shorter 1-5/8" screws, not structural.)
+  // 3" structural screws: padding-to-nailer at each crossing, 2 per layer.
+  // With double padding: layer 1→nailer (2 screws) + layer 2→layer 1 (2 screws) = 4 per crossing.
+  // (Rail strips attach to top padding with shorter 1-5/8" screws, not structural.)
   const paddingNailerCrossings = railAssemblies * nailerCount;
-  const structuralScrews = paddingNailerCrossings * 2;
+  const structuralScrews = paddingNailerCrossings * 2 * PADDING_LAYERS;
   materials.push({
     name: "3\" Structural Screws",
     qty: structuralScrews,
