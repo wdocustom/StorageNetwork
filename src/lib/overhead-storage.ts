@@ -208,8 +208,8 @@ function computeOverheadMaterials(
 
   // Nailer count & spacing:
   // Nailers run perpendicular to rail strips, crossing ceiling joists.
-  // Need nailers at front, back, and intermediate for support (every ~30" along depth).
-  const nailerCount = Math.max(2, Math.ceil(systemDepthIn / 30) + 1);
+  // Need nailers at front, back, and intermediate for support (every ~48" along depth).
+  const nailerCount = Math.max(2, Math.ceil(systemDepthIn / 48) + 1);
   const nailerLengthIn = systemWidthIn;
   const nailerLengthFt = Math.ceil(nailerLengthIn / 12);
 
@@ -259,12 +259,13 @@ function computeOverheadMaterials(
     unit: "pcs",
   });
 
-  // 3" structural screws: padding-to-nailer (2 per crossing) + rail-to-padding (2 per crossing)
+  // 3" structural screws: padding-to-nailer, 2 per crossing.
+  // (Rail strips attach to padding with shorter 1-5/8" screws, not structural.)
   const paddingNailerCrossings = railAssemblies * nailerCount;
-  const structuralScrews = paddingNailerCrossings * 4;
+  const structuralScrews = paddingNailerCrossings * 2;
   materials.push({
     name: "3\" Structural Screws",
-    qty: Math.ceil(structuralScrews * 1.05), // 5% error buffer
+    qty: structuralScrews,
     unit: "pcs",
   });
 
