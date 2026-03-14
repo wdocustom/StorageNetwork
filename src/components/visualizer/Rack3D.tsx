@@ -72,6 +72,8 @@ interface MultiUnit3DItem {
   paintFrameColor?: PaintColorId | null;
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
+  /** When set, this item is an open shelving unit */
+  shelvingConfig?: ShelvingConfig3D;
   /** When set, this item is an overhead storage unit */
   overheadConfig?: OverheadConfig3D;
   /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
@@ -1343,6 +1345,10 @@ function computeItemOverallH(item: MultiUnit3DItem): number {
     const totalDrop = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
     return totalDrop;
   }
+  // Open shelving unit — use its frameH directly
+  if (item.shelvingConfig) {
+    return item.shelvingConfig.frameH;
+  }
   // Compound preset — use the tallest sub-unit
   if (item.presetUnits && item.presetUnits.length > 0) {
     const isMini = item.unitType === "mini";
@@ -1435,6 +1441,8 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
           <group key={i} position={[x, y, 0]}>
             {item.overheadConfig ? (
               <OverheadAssembly config={item.overheadConfig} />
+            ) : item.shelvingConfig ? (
+              <ShelvingAssembly config={item.shelvingConfig} />
             ) : item.presetUnits && item.presetUnits.length > 0 ? (
               <CompoundRackAssembly
                 presetUnits={item.presetUnits}

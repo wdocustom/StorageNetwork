@@ -137,6 +137,7 @@ export interface MultiUnitItem {
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
   shelvingConfigId?: string;
+  shelvingConfig?: { widthIn: number; frameH: number; depth: number; shelves: number };
   overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   visible: boolean;
@@ -418,6 +419,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   paintFrameColor: u.paintFrameColor,
                   paintDoorColor: u.paintDoorColor,
                   paintSidePanelColor: u.paintSidePanelColor,
+                  shelvingConfig: u.shelvingConfig,
                   overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
                   presetUnits: u.presetUnits,
                 }))}

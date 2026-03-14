@@ -356,9 +356,15 @@ export default function DesignConfigurator({
   // Build multi-unit items for the visualizer
   const multiUnitItems = useMemo(() => {
     if (!showMultiUnit3D || orderItems.length === 0) return undefined;
-    return orderItems
-      .filter((item) => !item.shelvingConfigId) // Shelving has separate 3D; tote organizers + overhead supported
-      .map((item, i) => ({
+    return orderItems.map((item, i) => {
+      // Resolve shelving config for 3D rendering
+      const shelvingConfig3D = item.shelvingConfigId
+        ? (() => {
+            const cfg = SHELVING_CONFIGS.find((c) => c.id === item.shelvingConfigId);
+            return cfg ? { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves } : undefined;
+          })()
+        : undefined;
+      return {
         cols: item.cols,
         rows: item.rows,
         toteType: item.toteType,
@@ -376,6 +382,7 @@ export default function DesignConfigurator({
         paintDoorColor: item.paintDoorColor,
         paintSidePanelColor: item.paintSidePanelColor,
         shelvingConfigId: item.shelvingConfigId,
+        shelvingConfig: shelvingConfig3D,
         overheadStorageConfig: item.overheadStorageConfig
           ? (() => {
               const cfg = item.overheadStorageConfig;
@@ -384,9 +391,10 @@ export default function DesignConfigurator({
             })()
           : undefined,
         presetUnits: item.presetUnits,
-        visible: unitVisibility[i] !== false, // default visible
+        visible: unitVisibility[i] !== false, // default visible — i is the original orderItems index
         desc: item.desc,
-      }));
+      };
+    });
   }, [showMultiUnit3D, orderItems, unitVisibility]);
 
   // ── Cleanout service add-on (booked with order, not emailed) ────────
