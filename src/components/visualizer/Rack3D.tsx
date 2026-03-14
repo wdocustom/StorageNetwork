@@ -1173,10 +1173,11 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 // Layer 3 (bot): 3/4" plywood rail strip — 4" wide, 1.25" ledge per side
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Ceiling rail assembly constants
+// Ceiling rail assembly constants (4-layer: nailer + 2× padding + rail)
 const CEIL_NAILER_W = 3.5;    // 2×4 wide face against ceiling
-const CEIL_NAILER_H = 1.5;    // 2×4 mounted flat, 1.5" drop
-const CEIL_SPACER_H = 1.5;    // 2×4 flat padding, 1.5" drop
+const CEIL_NAILER_H = 1.5;    // 2×4 mounted belly-flat, 1.5" drop
+const CEIL_PADDING_LAYERS = 2; // Two stacked 2×4 padding layers for lid clearance
+const CEIL_SPACER_H = 1.5;    // Each 2×4 padding layer, 1.5" drop
 const CEIL_SPACER_W = 3.5;    // 2×4 flat, wide face down
 const CEIL_RAIL_W = 6.0;      // Plywood rail strip width (3.5" padding + 2×1.25" ledge)
 const CEIL_RAIL_H = 0.75;     // 3/4" plywood
@@ -1197,12 +1198,12 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
   const systemW = (slotsWide + 1) * CEIL_RAIL_W + slotsWide * slotW;
   const systemD = slotsDeep * CEIL_TOTE_SLOT_LEN;
 
-  // Total assembly height: nailer + padding + rail
-  const totalH = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H;
+  // Total assembly height: nailer + (2 × padding) + rail
+  const totalH = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H;
 
   // Nailers run along the depth (Z axis), perpendicular to rail strips (X axis)
-  // Need nailers at front, back, and intermediate for support
-  const nailerCount = Math.max(2, Math.ceil(systemD / 30) + 1);
+  // Need nailers at front, back, and intermediate for support (~48" spacing)
+  const nailerCount = Math.max(2, Math.ceil(systemD / 48) + 1);
   const nailerPositions: number[] = [];
   for (let i = 0; i < nailerCount; i++) {
     nailerPositions.push(i * (systemD / (nailerCount - 1)));
@@ -1234,16 +1235,18 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
           />
         ))}
 
-        {/* ── Layer 2: Padding beams (2×4 flat) — continuous, full system depth ── */}
-        {railXPositions.map((rx, ri) => (
-          <Lumber
-            key={`padding-${ri}`}
-            position={[rx, totalH - CEIL_NAILER_H - CEIL_SPACER_H / 2, systemD / 2]}
-            size={[CEIL_SPACER_W, CEIL_SPACER_H, systemD]}
-          />
-        ))}
+        {/* ── Layers 2 & 3: Double padding beams (2×4 perpendicular to nailers) ── */}
+        {railXPositions.map((rx, ri) =>
+          Array.from({ length: CEIL_PADDING_LAYERS }).map((_, li) => (
+            <Lumber
+              key={`padding-${ri}-${li}`}
+              position={[rx, totalH - CEIL_NAILER_H - li * CEIL_SPACER_H - CEIL_SPACER_H / 2, systemD / 2]}
+              size={[CEIL_SPACER_W, CEIL_SPACER_H, systemD]}
+            />
+          ))
+        )}
 
-        {/* ── Layer 3: Rail strips (plywood) — run along Z (system depth) ── */}
+        {/* ── Layer 4: Rail strips (plywood) — run along Z (system depth) ── */}
         {railXPositions.map((rx, ri) => (
           <mesh
             key={`rail-${ri}`}
@@ -1294,7 +1297,7 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
   const slotW = getCeilSlotWidth(config.toteType);
   const systemW = (config.slotsWide + 1) * CEIL_RAIL_W + config.slotsWide * slotW;
   const systemD = config.slotsDeep * CEIL_TOTE_SLOT_LEN;
-  const totalH = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
+  const totalH = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
 
   const sw = systemW * S;
   const sh = totalH * S;
@@ -1337,7 +1340,7 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
 function computeItemOverallH(item: MultiUnit3DItem): number {
   // Overhead ceiling rail — total drop is small; height is the assembly drop
   if (item.overheadConfig) {
-    const totalDrop = CEIL_NAILER_H + CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
+    const totalDrop = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
     return totalDrop;
   }
   // Compound preset — use the tallest sub-unit
