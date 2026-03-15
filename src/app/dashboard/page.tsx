@@ -27,6 +27,7 @@ import {
   Activity,
 } from "lucide-react";
 import MissionBriefing from "@/components/dashboard/MissionBriefing";
+import LiveLeaderboard from "@/components/dashboard/LiveLeaderboard";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
@@ -330,6 +331,9 @@ export default function DashboardPage() {
           {completedCount === 0 && profile && (
             <MissionBriefing userId={profile.id} slug={profile.slug} isPro={profile.is_pro} />
           )}
+
+          {/* ── Live Leaderboard ──────────────────────────────────── */}
+          {profile && <LiveLeaderboard userId={profile.id} />}
 
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
