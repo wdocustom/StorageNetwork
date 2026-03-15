@@ -31,6 +31,7 @@ export interface LeaderboardData {
   currentUserRank: number | null;
   monthLabel: string;
   daysLeft: number;
+  totalDays: number;
 }
 
 /**
@@ -42,18 +43,40 @@ export async function getLeaderboard(
 ): Promise<LeaderboardData> {
   const supabase = getServiceClient();
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth(); // 0-indexed
 
-  // Current month boundaries
-  const monthStart = new Date(year, month, 1).toISOString();
-  const monthEnd = new Date(year, month + 1, 1).toISOString();
+  // Platform launch date — the leaderboard tracks from this date.
+  // Inaugural period: Feb 8 2026 → Mar 31 2026.
+  // Standard monthly cycles begin April 1, 2026.
+  const LAUNCH_DATE = new Date("2026-02-08T00:00:00Z");
+  const FIRST_CYCLE_END = new Date("2026-04-01T00:00:00Z");
 
-  // Days remaining
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const daysLeft = lastDay - now.getDate();
+  let periodStart: Date;
+  let periodEnd: Date;
+  let periodLabel: string;
 
-  const monthLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+  if (now < FIRST_CYCLE_END) {
+    // Inaugural period
+    periodStart = LAUNCH_DATE;
+    periodEnd = FIRST_CYCLE_END;
+    periodLabel = "Feb 8 – Mar 31, 2026";
+  } else {
+    // Standard monthly cycles starting April 1 2026
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    periodStart = new Date(year, month, 1);
+    periodEnd = new Date(year, month + 1, 1);
+    periodLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+  }
+
+  const monthStart = periodStart.toISOString();
+  const monthEnd = periodEnd.toISOString();
+
+  // Days remaining and total days in the current period
+  const msLeft = periodEnd.getTime() - now.getTime();
+  const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+  const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+
+  const monthLabel = periodLabel;
 
   // Fetch all paid leads this month with installer info
   const { data: paidLeads, error } = await supabase
@@ -65,7 +88,7 @@ export async function getLeaderboard(
 
   if (error || !paidLeads) {
     console.error("[Leaderboard]", error?.message);
-    return { entries: [], currentUserRank: null, monthLabel, daysLeft };
+    return { entries: [], currentUserRank: null, monthLabel, daysLeft, totalDays };
   }
 
   // Aggregate per installer
@@ -85,10 +108,23 @@ export async function getLeaderboard(
     return b[1].revenue - a[1].revenue;
   });
 
-  // Collect installer IDs we need profiles for (top 10 + current user)
+  // Collect installer IDs we need profiles for (top 10 monthly + current user)
   const top10Ids = sorted.slice(0, 10).map(([id]) => id);
   const needIds = new Set(top10Ids);
   needIds.add(currentUserId);
+
+  // Also fetch top installers by ALL-TIME completed jobs so the board
+  // is populated even when few people have jobs this specific month.
+  const { data: topAllTime } = await supabase
+    .from("profiles")
+    .select("id")
+    .gt("completed_jobs", 0)
+    .order("completed_jobs", { ascending: false })
+    .limit(20);
+
+  for (const p of topAllTime || []) {
+    needIds.add(p.id as string);
+  }
 
   // Fetch profiles + all-time completed_jobs
   const { data: profiles } = await supabase
@@ -102,7 +138,9 @@ export async function getLeaderboard(
 
   // Compute streaks: fetch last 12 months of paid leads in one query,
   // then compute consecutive monthly activity per installer in JS.
-  const twelveMonthsAgo = new Date(year, month - 12, 1).toISOString();
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth();
+  const twelveMonthsAgo = new Date(nowYear, nowMonth - 12, 1).toISOString();
   const streakIds = Array.from(needIds);
   const streaks = new Map<string, number>();
 
@@ -129,7 +167,7 @@ export async function getLeaderboard(
     const activity = monthlyActivity.get(id);
     if (activity) {
       for (let m = 1; m <= 12; m++) {
-        const d = new Date(year, month - m, 1);
+        const d = new Date(nowYear, nowMonth - m, 1);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         if (activity.has(key)) {
           streak++;
@@ -167,29 +205,48 @@ export async function getLeaderboard(
     };
   }
 
+  // Build a combined ranking: monthly jobs first, then all-time jobs as tiebreaker.
+  // Include all known installers (those with monthly jobs + those with all-time jobs).
+  const allInstallerIds = new Set<string>();
+  for (const [id] of sorted) allInstallerIds.add(id);
+  for (const p of profiles || []) allInstallerIds.add(p.id as string);
+
+  const combined = Array.from(allInstallerIds).map((id) => {
+    const monthlyStats = agg.get(id) || { jobs: 0, revenue: 0 };
+    const prof = profileMap.get(id);
+    const allTime = (prof?.completed_jobs as number) || 0;
+    return { id, monthlyJobs: monthlyStats.jobs, monthlyRevenue: monthlyStats.revenue, allTime };
+  });
+
+  // Sort: monthly jobs desc → all-time jobs desc → revenue desc
+  combined.sort((a, b) => {
+    if (b.monthlyJobs !== a.monthlyJobs) return b.monthlyJobs - a.monthlyJobs;
+    if (b.allTime !== a.allTime) return b.allTime - a.allTime;
+    return b.monthlyRevenue - a.monthlyRevenue;
+  });
+
   const entries: LeaderboardEntry[] = [];
   let currentUserRank: number | null = null;
 
-  // Full ranking to find current user's position
-  const fullRank = sorted.map(([id]) => id);
-  const userIdx = fullRank.indexOf(currentUserId);
+  // Find current user's rank
+  const userIdx = combined.findIndex((c) => c.id === currentUserId);
   if (userIdx >= 0) currentUserRank = userIdx + 1;
 
   // Top 10
-  for (let i = 0; i < Math.min(sorted.length, 10); i++) {
-    const [id] = sorted[i];
-    entries.push(buildEntry(id, i + 1, id === currentUserId));
+  for (let i = 0; i < Math.min(combined.length, 10); i++) {
+    const c = combined[i];
+    entries.push(buildEntry(c.id, i + 1, c.id === currentUserId));
   }
 
   // If current user is not in top 10, append them
   if (currentUserRank && currentUserRank > 10) {
     entries.push(buildEntry(currentUserId, currentUserRank, true));
   } else if (!currentUserRank) {
-    // User has 0 jobs this month — show them at the bottom
-    const rank = sorted.length + 1;
+    // User has 0 jobs ever — show them at the bottom
+    const rank = combined.length + 1;
     entries.push(buildEntry(currentUserId, rank, true));
     currentUserRank = rank;
   }
 
-  return { entries, currentUserRank, monthLabel, daysLeft };
+  return { entries, currentUserRank, monthLabel, daysLeft, totalDays };
 }

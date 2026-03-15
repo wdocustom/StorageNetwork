@@ -7,6 +7,7 @@ import {
   Crown,
   Medal,
   ChevronUp,
+  ChevronDown,
   Loader2,
   Gift,
   Zap,
@@ -31,6 +32,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pulse, setPulse] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -69,7 +71,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
 
   if (!data) return null;
 
-  const { entries, currentUserRank, monthLabel, daysLeft } = data;
+  const { entries, currentUserRank, monthLabel, daysLeft, totalDays } = data;
   const top3 = entries.filter((e) => e.rank <= 3);
   const rest = entries.filter((e) => e.rank > 3);
   const leader = entries[0];
@@ -81,30 +83,50 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
         <div className="h-48 w-96 rounded-full bg-yellow-400/8 blur-3xl" />
       </div>
 
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <div className="relative border-b border-slate-800 px-5 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10">
-              <Trophy className="h-4 w-4 text-yellow-400" />
-            </div>
-            <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                Live Leaderboard
-              </h2>
-              <p className="text-[10px] font-semibold text-stone-500">{monthLabel}</p>
-            </div>
+      {/* ── Header (clickable toggle) ─────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="relative flex w-full items-center justify-between border-b border-slate-800 px-5 py-4 text-left transition-colors hover:bg-slate-800/30"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10">
+            <Trophy className="h-4 w-4 text-yellow-400" />
           </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full bg-emerald-400 ${pulse ? "animate-ping" : "animate-pulse"}`}
-            />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-              Live
-            </span>
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-white">
+              Live Leaderboard
+            </h2>
+            <p className="text-[10px] font-semibold text-stone-500">
+              {monthLabel}
+              {!expanded && currentUserRank && (
+                <span className="ml-2 text-yellow-400">· You&apos;re #{currentUserRank}</span>
+              )}
+            </p>
           </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          <div
+            className={`h-2 w-2 rounded-full bg-emerald-400 ${pulse ? "animate-ping" : "animate-pulse"}`}
+          />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+            Live
+          </span>
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-stone-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-stone-500" />
+          )}
+        </div>
+      </button>
+
+      {/* ── Collapsible Body ─────────────────────────────────────────── */}
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
 
       {/* ── Podium — Top 3 ────────────────────────────────────────────── */}
       {top3.length > 0 && (
@@ -187,7 +209,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
             <div
               className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-amber-400 transition-all"
               style={{
-                width: `${Math.max(5, ((new Date().getDate()) / (new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate())) * 100)}%`,
+                width: `${Math.max(5, ((totalDays - daysLeft) / totalDays) * 100)}%`,
               }}
             />
           </div>
@@ -212,6 +234,9 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
           </div>
         </div>
       </div>
+
+        </div>{/* end overflow-hidden */}
+      </div>{/* end collapsible body */}
     </div>
   );
 }
