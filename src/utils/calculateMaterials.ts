@@ -65,5 +65,7 @@ export interface MaterialBreakdown {
     overhead_lag_bolts?: number;
     overhead_structural_screws?: number;
     overhead_plywood_sheets?: number;
+    /** Individual 2x4 part lengths for offcut-aware inventory. */
+    lumber_part_lengths?: number[];
   };
 }

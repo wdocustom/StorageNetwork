@@ -12,6 +12,7 @@ import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import { DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
+import { type MaterialInventory, normalizeInventory } from "@/utils/inventoryManager";
 import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -184,6 +185,9 @@ export default function BuildConfiguratorPage() {
   // Installer pricing from profile
   const [installerPricing, setInstallerPricing] = useState<InstallerPricing | undefined>();
 
+  // Smart inventory (offcuts, screws, plywood strips)
+  const [installerInventory, setInstallerInventory] = useState<MaterialInventory | null>(null);
+
   // Bestseller preset state
   const [selectedPreset, setSelectedPreset] = useState<string>("");
   const [presetHasTotes, setPresetHasTotes] = useState(true);
@@ -263,7 +267,7 @@ export default function BuildConfiguratorPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config")
+      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config, material_inventory")
       .eq("id", user.id)
       .single();
 
@@ -274,6 +278,9 @@ export default function BuildConfiguratorPage() {
       if (data.stripe_account_id) setInstallerStripeId(data.stripe_account_id);
       if (data.pricing_config) {
         setInstallerPricing(data.pricing_config as InstallerPricing);
+      }
+      if (data.material_inventory) {
+        setInstallerInventory(normalizeInventory(data.material_inventory));
       }
       // Load custom material prices from localStorage
       try {
@@ -569,7 +576,7 @@ export default function BuildConfiguratorPage() {
         hasTotes,
         hasWheels,
         hasTop,
-      }, materialPrices).then(setMaterialBreakdown).catch(() => {});
+      }, materialPrices, installerInventory).then(setMaterialBreakdown).catch(() => {});
     } catch {
       setCalcError("Calculation failed. Please try again.");
     } finally {
@@ -629,8 +636,8 @@ export default function BuildConfiguratorPage() {
       overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
     }));
-    calculateMaterialCostServer(configs, materialPrices).then(setAggregateMaterials).catch(() => {});
-  }, [units, materialPrices]);
+    calculateMaterialCostServer(configs, materialPrices, installerInventory).then(setAggregateMaterials).catch(() => {});
+  }, [units, materialPrices, installerInventory]);
 
   const [aggregateManifest, setAggregateManifest] = useState<BuildManifest | null>(null);
   useEffect(() => {
@@ -1888,7 +1895,7 @@ export default function BuildConfiguratorPage() {
                               hasTotes,
                               hasWheels,
                               hasTop,
-                            }, p).then(setMaterialBreakdown).catch(() => {});
+                            }, p, installerInventory).then(setMaterialBreakdown).catch(() => {});
                           }
                         }}
                       />

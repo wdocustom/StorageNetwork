@@ -20,6 +20,10 @@ import {
   calculateOverheadStorage,
   type OverheadStorageConfig,
 } from "@/lib/overhead-storage";
+import {
+  type MaterialInventory,
+  fillPartsFromOffcuts,
+} from "@/utils/inventoryManager";
 
 // ── Constants (protected — never sent to browser) ────────────────────────
 
@@ -48,7 +52,8 @@ function splitHeightTiers(totalRows: number): number[] {
 
 export async function calculateMaterialCostServer(
   configs: MaterialConfig | MaterialConfig[],
-  customPrices?: MaterialPrices
+  customPrices?: MaterialPrices,
+  inventory?: MaterialInventory | null,
 ): Promise<MaterialBreakdown> {
   const units = Array.isArray(configs) ? configs : [configs];
   const prices = { ...DEFAULT_MATERIAL_PRICES, ...customPrices };
@@ -255,10 +260,23 @@ export async function calculateMaterialCostServer(
   const addonShelfSheets = addonShelves > 0 ? Math.ceil(addonShelves / 4) : 0;
   const totalAddonSheets = addonDoorSheets + addonPanelSheets + addonShelfSheets;
 
-  // Global Bin Packing (FFD)
-  allParts.sort((a, b) => b - a);
+  // ── Inventory-aware bin packing ──────────────────────────────────────────
+  // If the installer has lumber offcuts in inventory, try to fill parts from
+  // those first (vertical posts and plates for mini units often fit in offcuts
+  // from previous standard builds). Only buy fresh 2x4s for what remains.
+  let partsForFreshStock = allParts;
+  let offcutsUsedCount = 0;
+
+  if (inventory?.lumber_offcuts && inventory.lumber_offcuts.length > 0) {
+    const result = fillPartsFromOffcuts(allParts, inventory.lumber_offcuts);
+    offcutsUsedCount = result.placedCount;
+    partsForFreshStock = result.remainingParts;
+  }
+
+  // Global Bin Packing (FFD) — only for parts not covered by offcuts
+  partsForFreshStock.sort((a, b) => b - a);
   const bins: number[] = [];
-  for (const len of allParts) {
+  for (const len of partsForFreshStock) {
     let placed = false;
     for (let b = 0; b < bins.length; b++) {
       if (bins[b] >= len + KERF) {
@@ -296,7 +314,26 @@ export async function calculateMaterialCostServer(
     }
   }
 
-  addItem("2×4 Lumber (8ft)", totalBoards, prices.lumber_2x4_8ft);
+  if (offcutsUsedCount > 0 && totalBoards > 0) {
+    addItem(`2×4 Lumber (8ft)`, totalBoards, prices.lumber_2x4_8ft);
+    // Show offcut savings as a zero-cost info line
+    items.push({
+      name: `2×4 from offcuts`,
+      qty: offcutsUsedCount,
+      unitCost: 0,
+      subtotal: 0,
+    });
+  } else if (offcutsUsedCount > 0 && totalBoards === 0) {
+    // All lumber covered by offcuts
+    items.push({
+      name: `2×4 from offcuts`,
+      qty: offcutsUsedCount,
+      unitCost: 0,
+      subtotal: 0,
+    });
+  } else {
+    addItem("2×4 Lumber (8ft)", totalBoards, prices.lumber_2x4_8ft);
+  }
   addItem("Plywood Sheet", totalSheets, prices.plywood_sheet);
   addItem("Totes", totalTotes, prices.tote);
   addItem("Wheels (4pk)", totalWheelKits, prices.wheels_4pk);
@@ -330,6 +367,7 @@ export async function calculateMaterialCostServer(
       lumber_boards: totalBoards,
       totes: totalTotes,
       wheel_kits: totalWheelKits,
+      lumber_part_lengths: allParts,
       overhead_lag_bolts: overheadLagBolts,
       overhead_structural_screws: overheadStructuralScrews,
       overhead_plywood_sheets: overheadPlywoodSheets,
