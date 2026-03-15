@@ -1671,7 +1671,7 @@ export default function BuildConfiguratorPage() {
               </div>
               <div className="mt-3 text-center text-xs text-stone-500">
                 {toFraction(buildResult.totalW)}&quot; W × {toFraction(buildResult.totalH)}
-                &quot; H × 30&quot; D — {buildResult.slots} slots
+                &quot; H × {toFraction(buildResult.depth)}&quot; D — {buildResult.slots} slots
               </div>
 
               {/* ACTION BUTTONS */}
