@@ -18,6 +18,7 @@ export interface LeaderboardEntry {
   city: string | null;
   state: string | null;
   avatarUrl: string | null;
+  slug: string | null;
   isPro: boolean;
   jobsThisMonth: number;
   revenueThisMonth: number;
@@ -129,7 +130,7 @@ export async function getLeaderboard(
   // Fetch profiles + all-time completed_jobs
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, business_name, city, state, avatar_url, is_pro, completed_jobs")
+    .select("id, business_name, city, state, avatar_url, slug, is_pro, completed_jobs")
     .in("id", Array.from(needIds));
 
   const profileMap = new Map(
@@ -196,6 +197,7 @@ export async function getLeaderboard(
       city: (p?.city as string) || null,
       state: (p?.state as string) || null,
       avatarUrl: (p?.avatar_url as string) || null,
+      slug: (p?.slug as string) || null,
       isPro: !!(p?.is_pro),
       jobsThisMonth: stats.jobs,
       revenueThisMonth: Math.round(stats.revenue),

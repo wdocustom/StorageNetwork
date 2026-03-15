@@ -241,6 +241,13 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
   );
 }
 
+// ── Profile link helper ───────────────────────────────────────────────────
+
+function getProfileHref(entry: LeaderboardEntry): string | null {
+  if (entry.slug) return `/p/${encodeURIComponent(entry.slug)}`;
+  return null;
+}
+
 // ── Podium Slot (Top 3) ──────────────────────────────────────────────────
 
 function PodiumSlot({
@@ -272,6 +279,12 @@ function PodiumSlot({
     .slice(0, 2)
     .toUpperCase();
 
+  const profileHref = getProfileHref(entry);
+  const LinkOrDiv = profileHref ? "a" : "div";
+  const linkProps = profileHref
+    ? { href: profileHref, target: "_blank" as const, rel: "noopener noreferrer" }
+    : {};
+
   return (
     <div className={`flex flex-col items-center ${position === 1 ? "order-2 -mt-2" : position === 2 ? "order-1" : "order-3"}`}>
       {/* Crown for #1 */}
@@ -279,18 +292,18 @@ function PodiumSlot({
         <Crown className="mb-1 h-5 w-5 text-yellow-400 drop-shadow-[0_0_6px_rgba(250,204,21,0.5)]" />
       )}
 
-      {/* Avatar */}
-      <div className="relative">
+      {/* Avatar — clickable to portfolio */}
+      <LinkOrDiv {...linkProps} className="group/avatar relative cursor-pointer">
         {entry.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={entry.avatarUrl}
             alt={entry.businessName}
-            className={`${avatarSizes[position]} rounded-full object-cover ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""}`}
+            className={`${avatarSizes[position]} rounded-full object-cover ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""} transition-transform group-hover/avatar:scale-110`}
           />
         ) : (
           <div
-            className={`${avatarSizes[position]} flex items-center justify-center rounded-full bg-slate-800 ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""}`}
+            className={`${avatarSizes[position]} flex items-center justify-center rounded-full bg-slate-800 ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""} transition-transform group-hover/avatar:scale-110`}
           >
             <span className={`font-black text-stone-400 ${position === 1 ? "text-base" : "text-xs"}`}>
               {initials}
@@ -312,17 +325,31 @@ function PodiumSlot({
             <span className="text-[8px] font-black text-orange-400">{entry.streak}</span>
           </div>
         )}
-      </div>
+      </LinkOrDiv>
 
-      {/* Name */}
-      <p
-        className={`mt-2.5 max-w-[90px] truncate text-center text-[10px] font-bold leading-tight ${
-          isCurrentUser ? "text-yellow-400" : "text-white"
-        }`}
-        title={entry.businessName}
-      >
-        {isCurrentUser ? "You" : entry.businessName}
-      </p>
+      {/* Name — clickable to portfolio */}
+      {profileHref ? (
+        <a
+          href={profileHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`mt-2.5 max-w-[90px] truncate text-center text-[10px] font-bold leading-tight hover:underline ${
+            isCurrentUser ? "text-yellow-400" : "text-white"
+          }`}
+          title={`View ${entry.businessName}'s portfolio`}
+        >
+          {isCurrentUser ? "You" : entry.businessName}
+        </a>
+      ) : (
+        <p
+          className={`mt-2.5 max-w-[90px] truncate text-center text-[10px] font-bold leading-tight ${
+            isCurrentUser ? "text-yellow-400" : "text-white"
+          }`}
+          title={entry.businessName}
+        >
+          {isCurrentUser ? "You" : entry.businessName}
+        </p>
+      )}
 
       {/* Location */}
       {entry.state && (
@@ -367,6 +394,8 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
     .slice(0, 2)
     .toUpperCase();
 
+  const profileHref = getProfileHref(entry);
+
   return (
     <div
       className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
@@ -384,8 +413,23 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
         {entry.rank}
       </span>
 
-      {/* Avatar */}
-      {entry.avatarUrl ? (
+      {/* Avatar — clickable to portfolio */}
+      {profileHref ? (
+        <a href={profileHref} target="_blank" rel="noopener noreferrer" className="shrink-0 transition-transform hover:scale-110">
+          {entry.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={entry.avatarUrl}
+              alt={entry.businessName}
+              className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-700"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 ring-1 ring-slate-700">
+              <span className="text-[10px] font-bold text-stone-500">{initials}</span>
+            </div>
+          )}
+        </a>
+      ) : entry.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={entry.avatarUrl}
@@ -400,13 +444,26 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <p
-          className={`truncate text-xs font-bold ${
-            entry.isCurrentUser ? "text-yellow-400" : "text-white"
-          }`}
-        >
-          {entry.isCurrentUser ? `${entry.businessName} (You)` : entry.businessName}
-        </p>
+        {profileHref ? (
+          <a
+            href={profileHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`block truncate text-xs font-bold hover:underline ${
+              entry.isCurrentUser ? "text-yellow-400" : "text-white"
+            }`}
+          >
+            {entry.isCurrentUser ? `${entry.businessName} (You)` : entry.businessName}
+          </a>
+        ) : (
+          <p
+            className={`truncate text-xs font-bold ${
+              entry.isCurrentUser ? "text-yellow-400" : "text-white"
+            }`}
+          >
+            {entry.isCurrentUser ? `${entry.businessName} (You)` : entry.businessName}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           {entry.state && (
             <span className="text-[9px] text-stone-600">
