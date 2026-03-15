@@ -497,10 +497,13 @@ export default function BlueprintCanvas({
     const SLOT_W = TOTE_W - 2 * LIP_HANG + 2 * SLOT_CLR;
     const RAIL_SPACING = SLOT_W + RAIL_W;
 
-    // Structural drop from ceiling — rim sits ON plywood so body hangs below plywood bottom
+    // Structural drop from ceiling
     const structH = NAILER_H + SPACER_H * PADDING_LAYERS + RAIL_H;
-    // Total system height (front view): struct + tote body below plywood
-    const totalH = structH + (showTotes ? TOTE_BODY_H : 0);
+    // Total height: struct + rim extending below plywood + body below rim
+    // Rim is TOTE_RIM_H tall starting at plywood top; plywood is RAIL_H tall.
+    // Rim extends (TOTE_RIM_H - RAIL_H) below the plywood bottom, then body follows.
+    const toteBelow = showTotes ? (TOTE_RIM_H - RAIL_H) + TOTE_BODY_H : 0;
+    const totalH = structH + toteBelow;
     // System width
     const systemW = (slotsWide + 1) * RAIL_W + slotsWide * SLOT_W;
 
@@ -608,8 +611,8 @@ export default function BlueprintCanvas({
         ctx.strokeRect(rimX, rimY, toteFullW, rimPH);
 
         // Dark tote body (tapered — narrower at bottom)
-        // Body starts below the plywood strip bottom
-        const bodyTopY = railY + railPH;
+        // Body starts at the bottom of the rim (connects directly to rim)
+        const bodyTopY = rimY + rimPH;
         const bodyTopW = (TOTE_W - 2 * LIP_HANG) * scale; // Body is narrower than rim
         const bodyBotW = bodyTopW * TOTE_BODY_TAPER;
         const bodyPH = TOTE_BODY_H * scale;
