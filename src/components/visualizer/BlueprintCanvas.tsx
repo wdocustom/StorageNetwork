@@ -499,9 +499,11 @@ export default function BlueprintCanvas({
 
     // ── Layout calculation ──
     // From front: ceiling → nailer → padding → plywood rail → tote body hangs below
+    // When totes are shown, body starts at railY (plywood top), so body overlaps rail height.
     const structH = NAILER_H + SPACER_H * PADDING_LAYERS + RAIL_H;
-    const toteHangH = showTotes ? TOTE_BODY_H : 0;
-    const totalH = structH + toteHangH;
+    const totalH = showTotes
+      ? NAILER_H + SPACER_H * PADDING_LAYERS + TOTE_BODY_H  // body from railY down
+      : structH;
     const systemW = (slotsWide + 1) * RAIL_W + slotsWide * SLOT_W;
 
     // Scale to fit canvas
@@ -582,44 +584,29 @@ export default function BlueprintCanvas({
       ctx.lineWidth = 1.5;
     }
 
-    // ── Totes (drawn BEFORE plywood so rails render in front) ──
-    // From the front, the tote body is visible between/behind the rails.
-    // The rim sits on the plywood ledge and is mostly hidden behind the rail.
-    // The body hangs directly below the plywood bottom.
+    // ── STEP 1: Tote BODIES (drawn BEFORE plywood — bodies hang behind/below rails) ──
     if (showTotes) {
       for (let col = 0; col < slotsWide; col++) {
         const slotLeftX = railXPositions[col] + RAIL_W;
+        const slotCenterX = startX + (slotLeftX + SLOT_W / 2) * scale;
 
-        // ── Yellow rim (sits ON TOP of the plywood ledge, extending upward) ──
-        // The rim's bottom edge rests on the plywood top surface.
-        // From the front, only the slot-width portion is visible (lip behind rails).
-        const rimVisibleX = startX + slotLeftX * scale;
-        const rimVisibleW = SLOT_W * scale;
-        const rimPH = TOTE_RIM_H * scale;
-        const rimY = railY - rimPH; // Rim extends upward from plywood top
-        ctx.fillStyle = "#fbbf24";
-        ctx.strokeStyle = "#d97706";
-        ctx.lineWidth = 1;
-        ctx.fillRect(rimVisibleX, rimY, rimVisibleW, rimPH);
-        ctx.strokeRect(rimVisibleX, rimY, rimVisibleW, rimPH);
-
-        // ── Tote body (hangs below plywood bottom) ──
+        // Body width = tote body (without lip overhang), fits through slot
         const bodyTopW = (TOTE_W - 2 * LIP_HANG) * scale;
         const bodyBotW = bodyTopW * TOTE_BODY_TAPER;
         const bodyPH = TOTE_BODY_H * scale;
-        // Center the body in the slot opening
-        const bodyCenterX = rimVisibleX + rimVisibleW / 2;
-        const bodyTopX = bodyCenterX - bodyTopW / 2;
-        const bodyBotX = bodyCenterX - bodyBotW / 2;
+        // Body top connects to the rim bottom at railY (plywood covers the overlap)
+        const bodyTopY = railY;
+        const bodyTopX = slotCenterX - bodyTopW / 2;
+        const bodyBotX = slotCenterX - bodyBotW / 2;
 
         ctx.fillStyle = "#1e293b";
         ctx.strokeStyle = "#0f172a";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(bodyTopX, railBottomY);
-        ctx.lineTo(bodyTopX + bodyTopW, railBottomY);
-        ctx.lineTo(bodyBotX + bodyBotW, railBottomY + bodyPH);
-        ctx.lineTo(bodyBotX, railBottomY + bodyPH);
+        ctx.moveTo(bodyTopX, bodyTopY);
+        ctx.lineTo(bodyTopX + bodyTopW, bodyTopY);
+        ctx.lineTo(bodyBotX + bodyBotW, bodyTopY + bodyPH);
+        ctx.lineTo(bodyBotX, bodyTopY + bodyPH);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -631,7 +618,7 @@ export default function BlueprintCanvas({
           ctx.font = `bold ${Math.max(9, Math.round(scale * 1.8))}px Arial`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(`×${slotsDeep}`, bodyCenterX, railBottomY + bodyPH / 2);
+          ctx.fillText(`×${slotsDeep}`, slotCenterX, bodyTopY + RAIL_H * scale + bodyPH / 2);
           ctx.restore();
         }
       }
@@ -650,7 +637,7 @@ export default function BlueprintCanvas({
       }
     }
 
-    // ── Layer 4: Plywood rail strips (drawn LAST — in front of totes from this view) ──
+    // ── STEP 2: Plywood rail strips (drawn OVER tote bodies, UNDER rims) ──
     // 6" wide with visible ledges extending past the 3.5" padding on each side
     ctx.fillStyle = plywoodFill;
     ctx.strokeStyle = woodStroke;
@@ -660,6 +647,26 @@ export default function BlueprintCanvas({
       const pw = RAIL_W * scale;
       ctx.fillRect(px, railY, pw, RAIL_H * scale);
       ctx.strokeRect(px, railY, pw, RAIL_H * scale);
+    }
+
+    // ── STEP 3: Tote RIMS (drawn LAST — rim sits ON TOP of plywood rails) ──
+    // The rim is wider than the slot opening (full TOTE_W) so it overlaps the
+    // plywood rails on each side by LIP_HANG, visually resting on the ledges.
+    if (showTotes) {
+      const rimPH = TOTE_RIM_H * scale;
+      const rimFullW = TOTE_W * scale;
+      for (let col = 0; col < slotsWide; col++) {
+        const slotLeftX = railXPositions[col] + RAIL_W;
+        const slotCenterX = startX + (slotLeftX + SLOT_W / 2) * scale;
+        const rimX = slotCenterX - rimFullW / 2;
+        const rimY2 = railY - rimPH; // Rim bottom sits on plywood top surface
+
+        ctx.fillStyle = "#fbbf24";
+        ctx.strokeStyle = "#d97706";
+        ctx.lineWidth = 1;
+        ctx.fillRect(rimX, rimY2, rimFullW, rimPH);
+        ctx.strokeRect(rimX, rimY2, rimFullW, rimPH);
+      }
     }
 
     // ── Watermark ──
