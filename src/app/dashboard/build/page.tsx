@@ -42,6 +42,7 @@ import {
   Clock,
   ArrowUpFromLine,
   ChevronUp,
+  PenLine,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -187,6 +188,43 @@ export default function BuildConfiguratorPage() {
   const [presetResult, setPresetResult] = useState<CompoundBuildResult | null>(null);
   const [presetAdded, setPresetAdded] = useState(false);
   const quoteBuilderRef = useRef<HTMLElement>(null);
+
+  // Bestseller / Custom Quote tab state
+  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "custom">("bestsellers");
+
+  // Custom Quote state
+  const [customQuoteDesc, setCustomQuoteDesc] = useState("");
+  const [customQuotePrice, setCustomQuotePrice] = useState("");
+  const [customQuoteAdded, setCustomQuoteAdded] = useState(false);
+
+  function handleAddCustomQuote() {
+    const desc = customQuoteDesc.trim();
+    const price = parseFloat(customQuotePrice);
+    if (!desc || isNaN(price) || price <= 0) return;
+    const newUnit: UnitConfig = {
+      id: `custom-${Date.now()}`,
+      cols: 0,
+      rows: 0,
+      toteType: "HDX",
+      hasTotes: false,
+      hasWheels: false,
+      hasTop: false,
+      price,
+      totalW: 0,
+      totalH: 0,
+      depth: 0,
+      desc,
+    };
+    setUnits((prev) => [...prev, newUnit]);
+    setCustomQuoteAdded(true);
+    setTimeout(() => setCustomQuoteAdded(false), 2000);
+    setCustomQuoteDesc("");
+    setCustomQuotePrice("");
+    // Scroll to quote builder
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
 
   // Open Shelving state
   const [selectedShelving, setSelectedShelving] = useState<string>("");
@@ -884,96 +922,182 @@ export default function BuildConfiguratorPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Bestseller Presets ─────────────────────────────────────── */}
+        {/* ── Bestsellers / Custom Quote ────────────────────────────── */}
         <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-            <Star className="h-4 w-4 text-yellow-400" />
-            Bestsellers
-          </h2>
+          {/* Two-column tab header */}
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setTopSectionTab("bestsellers")}
+              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                topSectionTab === "bestsellers"
+                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
+                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
+              }`}
+            >
+              <Star className="h-4 w-4" />
+              Bestsellers
+            </button>
+            <button
+              onClick={() => setTopSectionTab("custom")}
+              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                topSectionTab === "custom"
+                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
+                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
+              }`}
+            >
+              <PenLine className="h-4 w-4" />
+              Custom Quote
+            </button>
+          </div>
 
-          <select
-            value={selectedPreset}
-            onChange={(e) => {
-              setSelectedPreset(e.target.value);
-              setPresetHasTotes(true);
-            }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
-          >
-            <option value="">Choose a bestseller…</option>
-            {BESTSELLER_PRESETS.filter((p) => {
-              const key = `bestseller_${p.id.replace(/-/g, "_")}_disabled` as keyof InstallerPricing;
-              return installerPricing?.[key] !== true;
-            }).map((p) => {
-              const subDesc = p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ");
-              return (
-                <option key={p.id} value={p.id}>
-                  {p.name} — {subDesc} ({p.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)
-                </option>
-              );
-            })}
-          </select>
+          {/* ── Bestsellers tab content ── */}
+          {topSectionTab === "bestsellers" && (
+            <>
+              <select
+                value={selectedPreset}
+                onChange={(e) => {
+                  setSelectedPreset(e.target.value);
+                  setPresetHasTotes(true);
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+              >
+                <option value="">Choose a bestseller…</option>
+                {BESTSELLER_PRESETS.filter((p) => {
+                  const key = `bestseller_${p.id.replace(/-/g, "_")}_disabled` as keyof InstallerPricing;
+                  return installerPricing?.[key] !== true;
+                }).map((p) => {
+                  const subDesc = p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ");
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {subDesc} ({p.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)
+                    </option>
+                  );
+                })}
+              </select>
 
-          {selectedPreset && (
-            <div className="mt-3 space-y-3">
-              {/* Totes toggle */}
-              <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={presetHasTotes}
-                  onChange={(e) => setPresetHasTotes(e.target.checked)}
-                  className="h-4 w-4 accent-yellow-400"
+              {selectedPreset && (
+                <div className="mt-3 space-y-3">
+                  {/* Totes toggle */}
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={presetHasTotes}
+                      onChange={(e) => setPresetHasTotes(e.target.checked)}
+                      className="h-4 w-4 accent-yellow-400"
+                    />
+                    <span className="text-sm text-stone-300">Include Totes</span>
+                  </label>
+
+                  {/* Result */}
+                  {presetLoading && (
+                    <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Calculating…
+                    </div>
+                  )}
+
+                  {presetResult && !presetLoading && (
+                    <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
+                      <div className="grid grid-cols-2 gap-3 text-center">
+                        <div className="rounded-lg bg-slate-800 p-2">
+                          <p className="text-lg font-black text-white">{presetResult.totalSlots} slots</p>
+                          <p className="text-[10px] font-bold uppercase text-stone-500">
+                            {presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")}
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-slate-800 p-2">
+                          <p className="text-lg font-black text-yellow-400">
+                            ${presetResult.totalPrice.toLocaleString()}
+                          </p>
+                          <p className="text-[10px] font-bold uppercase text-stone-500">
+                            {presetResult.presetName}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleAddPreset}
+                        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                          presetAdded
+                            ? "bg-emerald-500 text-white"
+                            : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                        }`}
+                      >
+                        {presetAdded ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Added to Quote
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4" />
+                            Add to Quote
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Custom Quote tab content ── */}
+          {topSectionTab === "custom" && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Item Description
+                </label>
+                <textarea
+                  value={customQuoteDesc}
+                  onChange={(e) => setCustomQuoteDesc(e.target.value)}
+                  placeholder="e.g. Custom 6×3 tote organizer with doors, painted white…"
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
                 />
-                <span className="text-sm text-stone-300">Include Totes</span>
-              </label>
+              </div>
 
-              {/* Result */}
-              {presetLoading && (
-                <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Calculating…
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Price ($)
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={customQuotePrice}
+                    onChange={(e) => setCustomQuotePrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
+                  />
                 </div>
-              )}
+              </div>
 
-              {presetResult && !presetLoading && (
-                <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="rounded-lg bg-slate-800 p-2">
-                      <p className="text-lg font-black text-white">{presetResult.totalSlots} slots</p>
-                      <p className="text-[10px] font-bold uppercase text-stone-500">
-                        {presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-slate-800 p-2">
-                      <p className="text-lg font-black text-yellow-400">
-                        ${presetResult.totalPrice.toLocaleString()}
-                      </p>
-                      <p className="text-[10px] font-bold uppercase text-stone-500">
-                        {presetResult.presetName}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleAddPreset}
-                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                      presetAdded
-                        ? "bg-emerald-500 text-white"
-                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                    }`}
-                  >
-                    {presetAdded ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Added to Quote
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4" />
-                        Add to Quote
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={handleAddCustomQuote}
+                disabled={!customQuoteDesc.trim() || !customQuotePrice || parseFloat(customQuotePrice) <= 0}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                  customQuoteAdded
+                    ? "bg-emerald-500 text-white"
+                    : customQuoteDesc.trim() && customQuotePrice && parseFloat(customQuotePrice) > 0
+                      ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                      : "cursor-not-allowed bg-slate-700 text-stone-500"
+                }`}
+              >
+                {customQuoteAdded ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Added to Quote
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Add to Quote
+                  </>
+                )}
+              </button>
             </div>
           )}
         </section>
@@ -1540,7 +1664,12 @@ export default function BuildConfiguratorPage() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          {unit.overheadGridPresetId ? (
+                          {unit.id.startsWith("custom-") ? (
+                            <>
+                              <PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />
+                              {unit.desc}
+                            </>
+                          ) : unit.overheadGridPresetId ? (
                             <>
                               <ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />
                               {unit.desc}
@@ -1552,7 +1681,9 @@ export default function BuildConfiguratorPage() {
                           )}
                         </p>
                         <p className="text-[11px] text-stone-500">
-                          {unit.overheadGridPresetId ? (
+                          {unit.id.startsWith("custom-") ? (
+                            "Custom item"
+                          ) : unit.overheadGridPresetId ? (
                             <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
                           ) : (
                             <>
