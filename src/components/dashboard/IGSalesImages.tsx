@@ -53,23 +53,23 @@ Stop chasing leads. Start building.
 
 #garagestorage #sidehustle #passiveincome #contractor #installer #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
         {/* Logo */}
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-1 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
-        <p className="mb-6 text-[11px] font-bold uppercase tracking-[0.3em] text-yellow-400/60">Pro Plan — Limited Time Offer</p>
+        <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.3em] text-yellow-400/60">Pro Plan — Limited Time Offer</p>
 
         {/* Price */}
-        <div className="mb-6">
-          <p className="text-lg font-bold text-stone-500">WAS: <span className="line-through decoration-red-500 decoration-2">$99</span></p>
-          <p className="text-6xl font-black text-yellow-400">NOW: $49</p>
-          <p className="text-xl font-black text-emerald-400">(Save 50%!)</p>
+        <div className="mb-4">
+          <p className="text-base font-bold text-stone-500">WAS: <span className="line-through decoration-red-500 decoration-2">$99</span></p>
+          <p className="text-5xl font-black text-yellow-400">NOW: $49</p>
+          <p className="text-lg font-black text-emerald-400">(Save 50%!)</p>
         </div>
 
         {/* Bullets */}
-        <div className="mb-6 space-y-2">
+        <div className="mb-4 space-y-1.5">
           {[
             "FULL AI SCRIPT GENERATOR ACCESS",
             "EXCLUSIVE PASSIVE INCOME BOUNTIES",
@@ -79,13 +79,13 @@ Stop chasing leads. Start building.
             "AUTO MATERIAL LISTS & CUT PLANS",
           ].map((item) => (
             <div key={item} className="flex items-center gap-2">
-              <span className="text-emerald-400 text-sm">✓</span>
-              <span className="text-xs font-bold text-white">{item}</span>
+              <span className="text-emerald-400 text-xs">✓</span>
+              <span className="text-[11px] font-bold text-white">{item}</span>
             </div>
           ))}
         </div>
 
-        <div className="mt-auto border-t border-slate-700 pt-4">
+        <div className="mt-auto border-t border-slate-700 pt-3">
           <p className="text-center text-sm font-black uppercase tracking-wider text-yellow-400">
             Upgrade now at our site
           </p>
@@ -115,7 +115,7 @@ The platform handles the sales so you can focus on what you do best — building
 🔗 storage-network.app
 #garagestorage #contractor #sidehustle #passiveincome #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
         <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
@@ -137,7 +137,7 @@ The platform handles the sales so you can focus on what you do best — building
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -170,7 +170,7 @@ Sample earnings:
 🔗 storage-network.app
 #passiveincome #sidehustle #garagestorage #referral #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
         <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
@@ -186,7 +186,7 @@ Sample earnings:
           </p>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -215,30 +215,30 @@ The customer sells themselves. You just build.
 🔗 storage-network.app
 #garagestorage #3Dconfigurator #contractor #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-4 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-3 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
 
-        <p className="mb-6 text-3xl font-black leading-tight text-white">
+        <p className="mb-4 text-2xl font-black leading-tight text-white">
           Your Customers <span className="text-yellow-400">See It Before They Buy It.</span>
         </p>
 
-        <p className="mb-6 text-xs text-stone-400 leading-relaxed">
+        <p className="mb-4 text-[11px] text-stone-400 leading-relaxed">
           No more &quot;can you describe what it looks like?&quot; Our interactive 3D configurator
           lets homeowners design their exact system — size, layout, tote count — in
           real time. When they hit &quot;Order,&quot; you&apos;ve got a confirmed job with zero scope creep.
         </p>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
             <p className="text-xs font-black text-yellow-400">Eliminates Miscommunication</p>
             <p className="text-[11px] text-stone-500">Customers see exactly what they&apos;re getting. No callbacks. No change orders.</p>
           </div>
           <div>
             <p className="text-xs font-black text-yellow-400">Closes Sales Faster</p>
-            <p className="text-[11px] text-stone-500">Visual confidence turns browsers into buyers. Average design-to-order time under 3 minutes.</p>
+            <p className="text-[11px] text-stone-500">Visual confidence turns browsers into buyers. Average design-to-order under 3 min.</p>
           </div>
           <div>
             <p className="text-xs font-black text-yellow-400">Pre-Calculated Everything</p>
@@ -246,7 +246,7 @@ The customer sells themselves. You just build.
           </div>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">3D Visualizer</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -275,8 +275,8 @@ Stop staring at a blank screen. Start posting and getting leads.
 🔗 storage-network.app/dashboard/marketing
 #marketing #AItools #garagestorage #smallbusiness #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
@@ -300,7 +300,7 @@ Stop staring at a blank screen. Start posting and getting leads.
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -327,8 +327,8 @@ Pro members only. No spam. No noise.
 🔗 storage-network.app/community
 #community #garagestorage #contractor #networking #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
@@ -342,7 +342,7 @@ Pro members only. No spam. No noise.
           </p>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -376,13 +376,13 @@ It's that simple.
 🔗 storage-network.app
 #contractor #garagestorage #presold #sidehustle #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
 
-        <div className="flex flex-1 flex-col justify-center space-y-6">
+        <div className="flex flex-1 flex-col justify-center space-y-5">
           {[
             {
               label: "SALES",
@@ -402,12 +402,12 @@ It's that simple.
           ].map((block) => (
             <div key={block.label}>
               <p className="text-xs font-black text-yellow-400">{block.label} <span className="text-white">{block.title}</span></p>
-              <p className="mt-1 text-xs text-stone-400 leading-relaxed">{block.desc}</p>
+              <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">{block.desc}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -438,8 +438,8 @@ $49/mo. Everything included. No upsells.
 🔗 storage-network.app
 #garagestorage #platform #contractor #sidehustle #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
@@ -448,7 +448,7 @@ $49/mo. Everything included. No upsells.
           <span className="text-yellow-400">One Network.</span> Unlimited Opportunities.
         </p>
 
-        <div className="my-6 grid grid-cols-2 gap-3">
+        <div className="my-4 grid grid-cols-2 gap-2">
           {[
             { icon: "🎯", label: "Pre-Sold Leads" },
             { icon: "📐", label: "3D Configurator" },
@@ -459,9 +459,9 @@ $49/mo. Everything included. No upsells.
             { icon: "👥", label: "Community" },
             { icon: "📊", label: "Analytics" },
           ].map((f) => (
-            <div key={f.label} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
-              <span className="text-lg">{f.icon}</span>
-              <span className="text-xs font-bold text-stone-300">{f.label}</span>
+            <div key={f.label} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
+              <span className="text-base">{f.icon}</span>
+              <span className="text-[11px] font-bold text-stone-300">{f.label}</span>
             </div>
           ))}
         </div>
@@ -471,7 +471,7 @@ $49/mo. Everything included. No upsells.
           <p className="text-[10px] text-yellow-400/60">Was $99 · Limited time for next 50 installers</p>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">The Platform</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -504,29 +504,29 @@ No spreadsheets. No math. Just build.
 🔗 storage-network.app
 #garagestorage #cutplan #materiallist #contractor #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
 
-        <p className="mb-6 text-3xl font-black leading-tight text-white">
-          Show Up. Cut.<br />Assemble.<br />
+        <p className="mb-4 text-2xl font-black leading-tight text-white">
+          Show Up. Cut. Assemble.<br />
           <span className="text-yellow-400">Everything Pre-Calculated.</span>
         </p>
 
-        <div className="space-y-4 flex-1">
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
-            <p className="text-xs font-black text-yellow-400 mb-2">📦 MATERIAL LIST</p>
-            <ul className="space-y-1 text-[11px] text-stone-400">
+        <div className="space-y-3 flex-1">
+          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+            <p className="text-xs font-black text-yellow-400 mb-1.5">📦 MATERIAL LIST</p>
+            <ul className="space-y-0.5 text-[11px] text-stone-400">
               <li>• Exact quantities — 2x4s, plywood, screws, totes</li>
               <li>• No guessing at the lumber yard</li>
               <li>• Accounts for existing inventory</li>
             </ul>
           </div>
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
-            <p className="text-xs font-black text-yellow-400 mb-2">✂️ CUT PLAN</p>
-            <ul className="space-y-1 text-[11px] text-stone-400">
+          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+            <p className="text-xs font-black text-yellow-400 mb-1.5">✂️ CUT PLAN</p>
+            <ul className="space-y-0.5 text-[11px] text-stone-400">
               <li>• Board-by-board with fractional measurements</li>
               <li>• Color-coded cuts per module</li>
               <li>• Waste tracking to minimize scrap</li>
@@ -534,7 +534,7 @@ No spreadsheets. No math. Just build.
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -565,8 +565,8 @@ Stay tuned. 👀
 🔗 storage-network.app
 #AI #marketing #garagestorage #automation #storageNetwork`,
     render: () => (
-      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-10">
-        <div className="mb-6 flex items-center gap-2">
+      <div className="flex h-full w-full flex-col bg-[#0a0e17] p-7">
+        <div className="mb-4 flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-yellow-400" />
           <span className="text-sm font-black tracking-wider text-yellow-400">STORAGE<span className="text-white">NETWORK</span>.APP</span>
         </div>
@@ -596,7 +596,7 @@ Stay tuned. 👀
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Pro Subscribers</span>
           <span className="text-yellow-400">→</span>
         </div>
