@@ -44,8 +44,8 @@ import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobP
 // JobTicket — Hybrid POS Payment Flow
 //
 // Flow:
-//   1. COMPLETE JOB → Snap Photo → triggers invoice email → PAYMENT_PENDING
-//   2. Payment Collection: Enter Card / Resend Invoice / Mark Paid (Manual)
+//   1. COMPLETE JOB → Snap Photo → PAYMENT_PENDING (no auto-email)
+//   2. Payment Collection: Enter Card / Email Customer / Copy Link / Mark Paid (Manual)
 //   3. Job moves to "Past Jobs" ONLY when paid
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -380,25 +380,6 @@ export default function JobTicket({
     onRefresh();
   }
 
-  // ── Send payment link via SMS ─────────────────────────────────────────
-  async function handleSendToPhone() {
-    if (!customerPhone || !installerStripeId) return;
-    setPayLoading(true);
-    const result = await createPaymentSession({
-      leadId,
-      amount: collectFromCustomer,
-      installerStripeId,
-      customerEmail: customerEmail || undefined,
-    });
-    setPayLoading(false);
-    if (result.success && result.url) {
-      const smsBody = encodeURIComponent(
-        `Your payment of ${fmt(collectFromCustomer)} is ready: ${result.url}`
-      );
-      window.open(`sms:${customerPhone}?body=${smsBody}`, "_self");
-    }
-  }
-
   // ── Payment Collection: Copy Payment Link ────────────────────────────────
   async function handleCopyPaymentLink() {
     if (!installerStripeId) return;
@@ -725,23 +706,6 @@ export default function JobTicket({
                 </button>
               )}
 
-              {/* Send to Phone */}
-              {customerPhone && (
-                <button
-                  onClick={handleSendToPhone}
-                  disabled={payLoading}
-                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-                >
-                  <Phone className="h-5 w-5 text-emerald-400" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">Send Payment Link to Phone</p>
-                    <p className="text-[11px] text-stone-500">
-                      SMS payment link to customer
-                    </p>
-                  </div>
-                </button>
-              )}
-
               {/* Copy Payment Link */}
               <button
                 onClick={handleCopyPaymentLink}
@@ -799,11 +763,11 @@ export default function JobTicket({
       ) : isPaymentPending ? (
         /* ── PAYMENT PENDING — GET PAID button + dropdown ─────────── */
         <div className="relative space-y-3">
-          {/* Invoice sent badge */}
+          {/* Awaiting payment badge */}
           <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2">
-            <Mail className="h-3.5 w-3.5 text-amber-400" />
+            <DollarSign className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-              Invoice Sent — Awaiting Payment
+              Awaiting Payment
             </span>
           </div>
 
@@ -839,33 +803,18 @@ export default function JobTicket({
                 </div>
               </button>
 
-              {/* Resend Invoice Email */}
-              <button
-                onClick={handleResendInvoice}
-                disabled={payLoading || !customerEmail}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
-              >
-                <Mail className="h-5 w-5 text-blue-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Resend Invoice Email</p>
-                  <p className="text-[11px] text-stone-500">
-                    Re-send payment link to {customerEmail || "customer"}
-                  </p>
-                </div>
-              </button>
-
-              {/* Send to Phone */}
-              {customerPhone && (
+              {/* Email Customer for Payment — only if email is on file */}
+              {customerEmail && (
                 <button
-                  onClick={handleSendToPhone}
+                  onClick={handleResendInvoice}
                   disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
                 >
-                  <Phone className="h-5 w-5 text-emerald-400" />
+                  <Mail className="h-5 w-5 text-blue-400" />
                   <div>
-                    <p className="text-sm font-semibold text-white">Send to Phone</p>
+                    <p className="text-sm font-semibold text-white">Email Customer for Payment</p>
                     <p className="text-[11px] text-stone-500">
-                      SMS payment link to customer
+                      Send payment link to {customerEmail}
                     </p>
                   </div>
                 </button>

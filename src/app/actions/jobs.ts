@@ -94,7 +94,7 @@ async function syncInventoryForLead(leadId: string) {
 // ═══════════════════════════════════════════════════════════════════════════
 // completeJobWithProof — Upload proof sets status to payment_pending
 // Does NOT set completed_at. Job stays "active" until paid.
-// Sends invoice email to customer.
+// No auto-email — installer chooses how to collect payment.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function completeJobWithProof(
@@ -118,37 +118,7 @@ export async function completeJobWithProof(
     })
     .eq("id", leadId);
 
-  // 2. Send invoice email to customer (non-blocking)
-  if (customerEmail && amountDue > 0) {
-    try {
-      const payLink = paymentUrl
-        ? `<a href="${paymentUrl}" style="display:block;background:#facc15;color:#1a1a1a;text-align:center;padding:14px;border-radius:10px;font-weight:700;text-decoration:none;font-size:15px;">Pay $${amountDue.toLocaleString()} Now →</a>`
-        : "";
-
-      const safeName = escapeHtml(customerName);
-      await sendTransactionalEmail({
-        to: customerEmail,
-        toName: customerName,
-        subject: `Balance Due — $${amountDue.toLocaleString()} for your storage installation`,
-        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#1a1a1a;margin-bottom:8px;">Your Installation is Complete!</h2>
-          <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
-          <p style="color:#666;font-size:14px;">Great news — your storage unit build is finished. Here's your remaining balance:</p>
-          <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-            <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Amount Due</p>
-            <p style="color:#1a1a1a;font-size:36px;font-weight:900;margin:0;">$${amountDue.toLocaleString()}</p>
-          </div>
-          ${payLink}
-          <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Payments processed securely via Stripe.</p>
-        </div>`,
-      });
-      console.log("[CompleteJob] Invoice email sent to:", customerEmail);
-    } catch (err) {
-      console.error("[CompleteJob] Invoice email failed:", err);
-    }
-  }
-
-  // Update material inventory (non-blocking)
+  // 2. Update material inventory (non-blocking)
   syncInventoryForLead(leadId);
 
   return { success: true };
