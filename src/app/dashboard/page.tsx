@@ -5,6 +5,7 @@ import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { siteConfig } from "@/config/site";
 import { checkProTrial, type TrialStatus } from "@/app/actions/pro-trial";
+import { stampLastLogin } from "@/app/actions/profile";
 import {
   Briefcase,
   HardHat,
@@ -71,6 +72,10 @@ export default function DashboardPage() {
       window.location.href = "/login";
       return;
     }
+
+    // Stamp login on every dashboard load — catches all auth paths
+    // (direct login, signup, email confirm, magic link, password recovery)
+    stampLastLogin(user.id);
 
     // Check and enforce Pro trial expiry (runs on every dashboard load)
     checkProTrial(user.id).then((status) => {
