@@ -30,22 +30,51 @@ import {
 const STOCK_LENGTH = 96; // 8ft board
 const KERF = 0.125;
 const FASTENER_ERROR_FACTOR = 0.05; // 5% overage for dropped/miscount/damaged screws
+
+// ── Standard Unit Constants ─────────────────────────────────────────────
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 const GAP = 1.5; // post width (2x4)
 const TIER_HEIGHT = 16;
 const MAX_ROWS_PER_TIER = Math.floor(STOCK_LENGTH / TIER_HEIGHT); // 6
 
-function splitHeightTiers(totalRows: number): number[] {
-  if (totalRows <= MAX_ROWS_PER_TIER) return [totalRows];
+// ── Mini Unit Constants ─────────────────────────────────────────────────
+const MINI_OPENING = 8.25;
+const MINI_GAP = 1.5;
+const MINI_TIER_HEIGHT = 7;
+const MINI_FIRST_RAIL_HEIGHT = 5.25;
+const MINI_MAX_ROWS_PER_TIER = 13; // but mini is capped at 4 anyway
+
+// ── Plywood Strip Yields ─────────────────────────────────────────────────
+// Standard: 1-7/8" wide × 30" long strips
+const STANDARD_STRIPS_PER_STRUCT_SHEET = 72;  // 24 rips × 3 pieces
+const STANDARD_STRIPS_PER_TOP_OFFCUT = 27;
+
+// Mini: 1" wide × 12.75" long strips (from NEW plywood only)
+//   48" / (1" + 0.125" kerf) = 42 rips × floor(96" / 12.875") = 7 pieces = 294
+const MINI_STRIPS_PER_STRUCT_SHEET = 294;
+// Mini top offcut: top is small (~40.5"×12.75"), leaves most of 4×8 for 1" strips
+//   Conservative: 42 rips × 4 pieces from remainder ≈ 200+
+const MINI_STRIPS_PER_TOP_OFFCUT = 200;
+
+function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "standard"): number[] {
+  const maxRows = unitType === "mini" ? MINI_MAX_ROWS_PER_TIER : MAX_ROWS_PER_TIER;
+  if (totalRows <= maxRows) return [totalRows];
   const tiers: number[] = [];
   let remaining = totalRows;
-  while (remaining > MAX_ROWS_PER_TIER) {
-    tiers.push(MAX_ROWS_PER_TIER);
-    remaining -= MAX_ROWS_PER_TIER;
+  while (remaining > maxRows) {
+    tiers.push(maxRows);
+    remaining -= maxRows;
   }
   if (remaining > 0) tiers.push(remaining);
   return tiers;
+}
+
+function calcUprightHeight(rows: number, unitType: "standard" | "mini"): number {
+  if (unitType === "mini") {
+    return MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
+  }
+  return rows * TIER_HEIGHT;
 }
 
 // ── Server Action ────────────────────────────────────────────────────────
@@ -66,8 +95,10 @@ export async function calculateMaterialCostServer(
   let totalScrewBoxes16 = 0;
   let totalScrewBoxes3 = 0;
 
-  let globalStripCount = 0;
+  let globalStripCount = 0;      // standard-width strips (1-7/8")
+  let globalMiniStripCount = 0;  // mini-width strips (1")
   let globalTopSheets = 0;
+  let globalMiniTopSheets = 0;
 
   const allParts: number[] = [];
   let totalScrew16 = 0;
@@ -145,6 +176,8 @@ export async function calculateMaterialCostServer(
     }
 
     const { cols: totalCols, rows: totalRows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
+    const unitType = unit.unitType ?? "standard";
+    const isMini = unitType === "mini";
     if (totalCols < 1 || totalRows < 1) continue;
 
     const widthModules: number[] = [];
@@ -155,7 +188,7 @@ export async function calculateMaterialCostServer(
     }
     if (remainingCols > 0) widthModules.push(remainingCols);
 
-    const heightTiers = splitHeightTiers(totalRows);
+    const heightTiers = splitHeightTiers(totalRows, unitType);
 
     if (hasWheels) {
       totalWheelKits++;
@@ -166,60 +199,69 @@ export async function calculateMaterialCostServer(
 
     for (let modIdx = 0; modIdx < widthModules.length; modIdx++) {
       const cols = widthModules[modIdx];
-      const opening = toteType === "HDX" ? OPENING_HDX : OPENING_GM;
-      const modWidth = cols * opening + (cols + 1) * GAP;
+      const opening = isMini ? MINI_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM);
+      const gap = isMini ? MINI_GAP : GAP;
+      const modWidth = cols * opening + (cols + 1) * gap;
       unitTotalWidth += modWidth;
 
       for (let tierIdx = 0; tierIdx < heightTiers.length; tierIdx++) {
         const tierRows = heightTiers[tierIdx];
         const slots = cols * tierRows;
-        const uprightHeight = tierRows * TIER_HEIGHT;
+        const uprightHeight = calcUprightHeight(tierRows, unitType);
 
-        const postCount = modIdx === 0 ? (cols + 1) * 2 : cols * 2;
+        // Posts: every module has posts on both ends
+        const postCount = (cols + 1) * 2;
         for (let i = 0; i < postCount; i++) {
           allParts.push(uprightHeight);
         }
 
-        for (let k = 0; k < 4; k++) {
+        // Top & bottom plates: mini has 2 (no 2x4 top plate), standard has 4
+        const numPlates = isMini ? 2 : 4;
+        for (let k = 0; k < numPlates; k++) {
           allParts.push(modWidth);
         }
 
+        // Plywood strips: rails + back supports
         const numRails = slots * 2;
         const backSupports = cols <= 4 ? 4 : 6;
-        globalStripCount += numRails + backSupports;
+        if (isMini) {
+          globalMiniStripCount += numRails + backSupports;
+        } else {
+          globalStripCount += numRails + backSupports;
+        }
 
         totalScrew16 += numRails * 4;
-        const screwPostCount = modIdx === 0 ? cols + 1 : cols;
-        totalScrew3 += screwPostCount * 20;
+        totalScrew3 += (cols + 1) * 20;
 
         if (hasTotes) totalTotes += slots;
       }
     }
 
-    if (hasTop) {
+    // ── Top / Plywood Sheets ─────────────────────────────────────────
+    const effectiveHasTop = isMini || hasTop; // mini always has plywood top
+    if (effectiveHasTop) {
       let sheetsForUnit = 0;
       if (unitTotalWidth > 192) sheetsForUnit = 3;
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
       else sheetsForUnit = 1;
 
-      // ── Single-sheet optimization for ≤5×2 HDX units with top ─────
-      // When the unit is small enough (≤5 cols, ≤2 rows, HDX totes), both
-      // top pieces, all rails, and back supports fit on ONE 4×8 sheet:
-      //   - 30"×96" rip → Top #1 (full width top)
-      //   - 18"×96" rip → Top #2 (11-3/4"×30") + 21 rails (1-7/8"×30")
-      //   - Offcuts yield enough back supports (≥12" pieces from waste strips
-      //     and the extra rail split): no dedicated strips needed for back supports.
-      // HDX only: Greenmade's wider opening (20.75") makes Top #2 = 18.25",
-      // which exceeds the 18" remainder strip after the 30" rip.
-      if (sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2 && toteType === "HDX") {
-        sheetsForUnit = 1;
-        // Back supports come from offcuts — remove them from the strip count
-        // so they don't inflate the structural sheet requirement.
-        const unitBackSupports = widthModules.reduce((sum, c) => sum + (c <= 4 ? 4 : 6), 0) * heightTiers.length;
-        globalStripCount -= unitBackSupports;
-      }
+      if (isMini) {
+        // Mini top sheets — the top is small so one sheet covers the top
+        // AND produces enough 1" strips for all rails (typically 200+ strips
+        // from the offcut vs ~36 needed). Track separately from standard.
+        globalMiniTopSheets += sheetsForUnit;
+      } else {
+        // ── Single-sheet optimization for ≤5×2 HDX units with top ─────
+        // When the unit is small enough (≤5 cols, ≤2 rows, HDX totes), both
+        // top pieces, all rails, and back supports fit on ONE 4×8 sheet.
+        if (sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2 && toteType === "HDX") {
+          sheetsForUnit = 1;
+          const unitBackSupports = widthModules.reduce((sum, c) => sum + (c <= 4 ? 4 : 6), 0) * heightTiers.length;
+          globalStripCount -= unitBackSupports;
+        }
 
-      globalTopSheets += sheetsForUnit;
+        globalTopSheets += sheetsForUnit;
+      }
     }
 
     // ── Section Addons (material impact) ──────────────────────────────
@@ -300,11 +342,29 @@ export async function calculateMaterialCostServer(
   totalScrewBoxes3 = Math.ceil(totalScrew3 / 137);
   totalScrewBoxes1 = Math.ceil(totalScrew1 / 90);
 
-  const stripCredit = globalTopSheets * 27;
+  // ── Standard strip calculation ────────────────────────────────────────
+  const stripCredit = globalTopSheets * STANDARD_STRIPS_PER_TOP_OFFCUT;
   let netStrips = globalStripCount - stripCredit;
   if (netStrips < 0) netStrips = 0;
-  const structSheets = Math.ceil(netStrips / 72);
-  totalSheets = structSheets + globalTopSheets + shelvingPlywoodSheets + totalAddonSheets;
+  const structSheets = Math.ceil(netStrips / STANDARD_STRIPS_PER_STRUCT_SHEET);
+
+  // ── Mini strip calculation ──────────────────────────────────────────
+  // Mini strips (1" wide) are separate from standard (1-7/8") strips.
+  // When buying NEW plywood for mini: 294 strips per structural sheet.
+  // But first, use any inventory plywood strips (standard 1-7/8" or mini 1"
+  // — wider strips from standard builds work fine as mini rails).
+  const inventoryStrips = inventory?.plywood_strips ?? 0;
+  const inventoryMiniStrips = inventory?.plywood_strips_mini ?? 0;
+
+  // Mini strips from this job's top sheet offcuts (cut at 1")
+  const miniStripCredit = globalMiniTopSheets * MINI_STRIPS_PER_TOP_OFFCUT;
+  // Available mini strips: inventory (mini + standard) + this job's top offcuts
+  const availableMiniStrips = inventoryMiniStrips + inventoryStrips + miniStripCredit;
+  let netMiniStrips = globalMiniStripCount - availableMiniStrips;
+  if (netMiniStrips < 0) netMiniStrips = 0;
+  const miniStructSheets = Math.ceil(netMiniStrips / MINI_STRIPS_PER_STRUCT_SHEET);
+
+  totalSheets = structSheets + globalTopSheets + miniStructSheets + globalMiniTopSheets + shelvingPlywoodSheets + totalAddonSheets;
 
   const items: MaterialBreakdown["items"] = [];
 
@@ -361,7 +421,8 @@ export async function calculateMaterialCostServer(
       screws_3: totalScrew3,
       screws_1: totalScrew1,
       plywood_strips: globalStripCount,
-      plywood_top_sheets: globalTopSheets,
+      plywood_strips_mini: globalMiniStripCount,
+      plywood_top_sheets: globalTopSheets + globalMiniTopSheets,
       plywood_shelving_sheets: shelvingPlywoodSheets,
       plywood_addon_sheets: totalAddonSheets,
       lumber_boards: totalBoards,

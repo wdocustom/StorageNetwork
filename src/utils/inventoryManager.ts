@@ -15,8 +15,9 @@ export const BOX_SIZES = {
   screws_1_5_8: 158,
   screws_3: 137,
   screws_1: 90,
-  plywood_strips_per_struct_sheet: 72,
-  plywood_strips_per_top_offcut: 27,
+  plywood_strips_per_struct_sheet: 72,     // standard 1-7/8" × 30" strips
+  plywood_strips_per_top_offcut: 27,       // from standard top sheet offcuts
+  plywood_mini_strips_per_struct_sheet: 294, // mini 1" × 12.75" strips: 42 rips × 7 pieces
 } as const;
 
 // ── Lumber offcut constants ──────────────────────────────────────────────
@@ -34,7 +35,8 @@ export interface MaterialInventory {
   screws_1_5_8: number; // individual count
   screws_3: number; // individual count
   screws_1: number; // individual count
-  plywood_strips: number; // rail strips from offcuts
+  plywood_strips: number; // standard-width rail strips (1-7/8") from offcuts
+  plywood_strips_mini: number; // mini-width rail strips (1") from offcuts
   lumber_offcuts: LumberOffcut[]; // 2x4 offcuts from previous builds
 }
 
@@ -43,6 +45,7 @@ export const EMPTY_INVENTORY: MaterialInventory = {
   screws_3: 0,
   screws_1: 0,
   plywood_strips: 0,
+  plywood_strips_mini: 0,
   lumber_offcuts: [],
 };
 
@@ -67,6 +70,7 @@ export function normalizeInventory(raw: unknown): MaterialInventory {
     screws_3: Math.max(0, Number(inv.screws_3) || 0),
     screws_1: Math.max(0, Number(inv.screws_1) || 0),
     plywood_strips: Math.max(0, Number(inv.plywood_strips) || 0),
+    plywood_strips_mini: Math.max(0, Number(inv.plywood_strips_mini) || 0),
     lumber_offcuts: offcuts,
   };
 }
@@ -150,6 +154,7 @@ export interface RawJobNeeds {
   screws_3: number;
   screws_1: number;
   plywood_strips: number;
+  plywood_strips_mini: number;
   plywood_top_sheets: number;
   plywood_shelving_sheets: number;
   plywood_addon_sheets: number;
@@ -262,15 +267,28 @@ export function calculateNetPurchaseList(
 
   // ── Plywood ──────────────────────────────────────────────────────────
   // Top sheets are always purchased fresh (cut to unit width)
-  // Shelving sheets are always purchased fresh (cut to shelf dimensions)
-  // Strips: use inventory offcuts + this job's top offcuts first
+  // Shelving sheets are always purchased fresh
+  //
+  // Standard strips (1-7/8"): use inventory + top offcuts first
   const stripsFromTops = raw.plywood_top_sheets * BOX_SIZES.plywood_strips_per_top_offcut;
   const availableStrips = inventory.plywood_strips + stripsFromTops;
   const netStripNeed = Math.max(0, raw.plywood_strips - availableStrips);
   const structSheetsToBuy = Math.ceil(netStripNeed / BOX_SIZES.plywood_strips_per_struct_sheet);
+
+  // Mini strips (1"): use inventory strips (any width works) + mini top offcuts first
+  // Standard 1-7/8" strips from inventory can serve as 1" mini rails — wider is fine.
+  // But only use standard inventory for mini AFTER standard needs are met.
+  const standardInventoryAfterStandard = Math.max(0,
+    inventory.plywood_strips + stripsFromTops + structSheetsToBuy * BOX_SIZES.plywood_strips_per_struct_sheet - raw.plywood_strips
+  );
+  const miniStripsFromTops = raw.plywood_top_sheets > 0 ? 0 : 0; // mini top offcuts handled by calculate-materials
+  const availableMiniStrips = inventory.plywood_strips_mini + standardInventoryAfterStandard + miniStripsFromTops;
+  const netMiniStripNeed = Math.max(0, (raw.plywood_strips_mini ?? 0) - availableMiniStrips);
+  const miniStructSheetsToBuy = Math.ceil(netMiniStripNeed / BOX_SIZES.plywood_mini_strips_per_struct_sheet);
+
   const shelvingSheets = raw.plywood_shelving_sheets || 0;
   const addonSheets = raw.plywood_addon_sheets || 0;
-  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + shelvingSheets + addonSheets;
+  const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + miniStructSheetsToBuy + shelvingSheets + addonSheets;
 
   // Remaining strips after this job
   const stripsAfter =
@@ -278,21 +296,28 @@ export function calculateNetPurchaseList(
     structSheetsToBuy * BOX_SIZES.plywood_strips_per_struct_sheet -
     raw.plywood_strips;
 
+  const miniStripsAfter =
+    availableMiniStrips +
+    miniStructSheetsToBuy * BOX_SIZES.plywood_mini_strips_per_struct_sheet -
+    (raw.plywood_strips_mini ?? 0);
+
   if (totalPlywoodSheets > 0) {
     const parts: string[] = [];
     if (raw.plywood_top_sheets > 0) parts.push(`${raw.plywood_top_sheets} Top`);
     if (structSheetsToBuy > 0) parts.push(`${structSheetsToBuy} Structural`);
+    if (miniStructSheetsToBuy > 0) parts.push(`${miniStructSheetsToBuy} Mini Rail`);
     if (shelvingSheets > 0) parts.push(`${shelvingSheets} Shelving`);
     if (addonSheets > 0) parts.push(`${addonSheets} Addon`);
 
     let detail = parts.length > 1 ? parts.join(" + ") : "Total Sheets";
 
-    // If no structural sheets needed but we have strips, note savings
-    if (raw.plywood_strips > 0 && structSheetsToBuy === 0 && parts.length > 0) {
+    // If strips fully covered by inventory/offcuts, note savings
+    const totalStripsNeeded = raw.plywood_strips + (raw.plywood_strips_mini ?? 0);
+    if (totalStripsNeeded > 0 && structSheetsToBuy === 0 && miniStructSheetsToBuy === 0 && parts.length > 0) {
       detail += " (strips from offcuts)";
     }
 
-    // Plywood is partially covered if we saved on structural sheets
+    // Show savings from inventory
     const fullStructSheets = Math.ceil(
       Math.max(0, raw.plywood_strips - stripsFromTops) /
         BOX_SIZES.plywood_strips_per_struct_sheet
@@ -400,6 +425,7 @@ export function calculateNetPurchaseList(
       screws_3: screwsAfter.screws_3,
       screws_1: screwsAfter.screws_1,
       plywood_strips: Math.max(0, stripsAfter),
+      plywood_strips_mini: Math.max(0, miniStripsAfter),
       lumber_offcuts: combinedOffcuts,
     },
   };

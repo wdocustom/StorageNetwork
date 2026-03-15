@@ -573,9 +573,10 @@ export default function BuildConfiguratorPage() {
         cols: res.cols,
         rows: res.rows,
         toteType,
+        unitType,
         hasTotes,
         hasWheels,
-        hasTop,
+        hasTop: unitType === "mini" ? true : hasTop,
       }, materialPrices, installerInventory).then(setMaterialBreakdown).catch(() => {});
     } catch {
       setCalcError("Calculation failed. Please try again.");
@@ -629,9 +630,10 @@ export default function BuildConfiguratorPage() {
       cols: u.cols,
       rows: u.rows,
       toteType: u.toteType,
+      unitType: u.unitType as "standard" | "mini" | undefined,
       hasTotes: u.hasTotes,
       hasWheels: u.hasWheels,
-      hasTop: u.hasTop,
+      hasTop: u.unitType === "mini" ? true : u.hasTop,
       shelvingConfigId: u.shelvingConfigId,
       overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
@@ -1892,9 +1894,10 @@ export default function BuildConfiguratorPage() {
                               cols: buildResult.cols,
                               rows: buildResult.rows,
                               toteType,
+                              unitType,
                               hasTotes,
                               hasWheels,
-                              hasTop,
+                              hasTop: unitType === "mini" ? true : hasTop,
                             }, p, installerInventory).then(setMaterialBreakdown).catch(() => {});
                           }
                         }}

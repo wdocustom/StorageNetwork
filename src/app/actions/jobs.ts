@@ -4,7 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { sendTransactionalEmail } from "@/lib/email";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { MaterialConfig } from "@/utils/calculateMaterials";
-import { updateInventoryAfterJob } from "@/app/actions/inventory";
+import { updateInventoryAfterJob, getInstallerInventory } from "@/app/actions/inventory";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { escapeHtml } from "@/utils/escapeHtml";
 
@@ -83,7 +83,9 @@ async function syncInventoryForLead(leadId: string) {
     const quoteData = lead.quote_data as MaterialConfig[];
     if (!Array.isArray(quoteData) || quoteData.length === 0) return;
 
-    const breakdown = await calculateMaterialCostServer(quoteData);
+    // Fetch current inventory so the calculator can account for offcuts
+    const currentInventory = await getInstallerInventory(lead.installer_id);
+    const breakdown = await calculateMaterialCostServer(quoteData, undefined, currentInventory);
     await updateInventoryAfterJob(lead.installer_id, breakdown.rawCounts);
   } catch (err) {
     // Non-blocking: inventory sync failure should never block job completion

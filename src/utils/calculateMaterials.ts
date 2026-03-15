@@ -31,6 +31,7 @@ export interface MaterialConfig {
   cols: number;
   rows: number;
   toteType?: "HDX" | "GM";
+  unitType?: "standard" | "mini";
   hasTotes?: boolean;
   hasWheels?: boolean;
   hasTop?: boolean;
@@ -56,6 +57,7 @@ export interface MaterialBreakdown {
     screws_3: number;
     screws_1: number;
     plywood_strips: number;
+    plywood_strips_mini: number;
     plywood_top_sheets: number;
     plywood_shelving_sheets: number;
     plywood_addon_sheets: number;
