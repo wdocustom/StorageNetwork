@@ -15,7 +15,7 @@ import type { InstallerPricing } from "@/types/viewModels";
 
 interface OverheadStorageDropdownProps {
   onAddOverheadUnit: (result: OverheadStorageResult, config: OverheadStorageConfig) => void;
-  onConfigPreview?: (preview: { slotsWide: number; slotsDeep: number; toteType: OverheadToteType } | null) => void;
+  onConfigPreview?: (preview: { slotsWide: number; slotsDeep: number; toteType: OverheadToteType; hasTotes: boolean } | null) => void;
   installerPricing?: InstallerPricing;
 }
 
@@ -70,8 +70,9 @@ export default function OverheadStorageDropdown({
       slotsWide: preset.slotsWide,
       slotsDeep: preset.slotsDeep,
       toteType,
+      hasTotes,
     });
-  }, [gridPresetId, toteType, expanded, onConfigPreview]);
+  }, [gridPresetId, toteType, hasTotes, expanded, onConfigPreview]);
 
   function handleAdd() {
     if (!result || !gridPresetId) return;

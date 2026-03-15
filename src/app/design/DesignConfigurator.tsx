@@ -313,7 +313,7 @@ export default function DesignConfigurator({
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
   const overheadStorageEnabled = data?.pricing?.overhead_storage_enabled === true;
-  const [overheadPreview, setOverheadPreview] = useState<{ slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" } | null>(null);
+  const [overheadPreview, setOverheadPreview] = useState<{ slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes: boolean } | null>(null);
 
   function handleAddOverheadUnit(
     result: import("@/lib/overhead-storage").OverheadStorageResult,
@@ -1544,7 +1544,7 @@ export default function DesignConfigurator({
               paintDoorColor={activePresetObj ? null : paintDoorColor}
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
-              overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType } : undefined}
+              overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
               multiUnitControls={orderItems.length >= 1 ? {
                 showMultiUnit3D,

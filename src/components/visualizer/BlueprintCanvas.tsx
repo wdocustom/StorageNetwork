@@ -32,11 +32,12 @@ interface ShelvingConfig2D {
   shelves: number;
 }
 
-/** Overhead ceiling tote rail config for 2D rendering (top-down / bottom-up view) */
+/** Overhead ceiling tote rail config for 2D front-view rendering */
 interface OverheadConfig2D {
   slotsWide: number;
   slotsDeep: number;
   toteType: "HDX" | "GM";
+  hasTotes?: boolean;
 }
 
 interface BlueprintCanvasProps {
@@ -472,117 +473,188 @@ export default function BlueprintCanvas({
     canvasW: number,
     canvasH: number,
   ) => {
-    const { slotsWide, slotsDeep, toteType: tt } = config;
+    const { slotsWide, slotsDeep, toteType: tt, hasTotes: showTotes = true } = config;
     const woodPattern = create2DWoodPattern(ctx);
     const plywoodPattern = create2DPlywoodPattern(ctx);
     const woodFill = woodPattern || "#e2b686";
     const woodStroke = "#925f32";
     const plywoodFill = plywoodPattern || "#f3d2a3";
 
-    // Dimensions (inches) — matching overhead-storage.ts & Rack3D.tsx
-    const NAILER_W = 3.5;       // 2×4 nailer depth (visible width in top-down)
-    const PADDING_W = 3.5;      // 2×4 padding width
-    const RAIL_W = 6.0;         // plywood rail strip = padding + 2×1.25" ledge
+    // Dimensions (inches) — matching Rack3D.tsx constants
+    const NAILER_H = 1.5;       // 2×4 nailer height (flat against ceiling)
+    const SPACER_H = 1.5;       // 2×4 padding per layer
+    const PADDING_LAYERS = 2;   // Double padding for lid clearance
+    const RAIL_H = 0.75;        // 3/4" plywood strip thickness
+    const RAIL_W = 6.0;         // plywood rail width (3.5" center + 1.25" ledge × 2)
     const TOTE_W = tt === "HDX" ? 19.75 : 20.75;
-    const TOTE_D = 28.6;        // tote depth along rail
-    const SLOT_LEN = 30.5;      // slot length along rail (tote + gap)
-    const SLOT_CLR = 0.25;
+    const TOTE_RIM_H = 1.0;     // Rim/lip height
+    const TOTE_BODY_H = 11.0;   // Body hangs below rim
+    const TOTE_BODY_TAPER = 0.85;
     const LIP_HANG = 1.0;
+    const SLOT_CLR = 0.25;
     const SLOT_W = TOTE_W - 2 * LIP_HANG + 2 * SLOT_CLR;
     const RAIL_SPACING = SLOT_W + RAIL_W;
 
-    // System overall dimensions
+    // Structural drop from ceiling
+    const structH = NAILER_H + SPACER_H * PADDING_LAYERS + RAIL_H;
+    // Total system height (front view)
+    const totalH = structH + (showTotes ? TOTE_RIM_H + TOTE_BODY_H : 0);
+    // System width
     const systemW = (slotsWide + 1) * RAIL_W + slotsWide * SLOT_W;
-    const systemD = slotsDeep * SLOT_LEN;
-
-    // Nailer positions along depth
-    const nailerCount = Math.max(2, Math.ceil(systemD / 30) + 1);
-    const nailerPositions: number[] = [];
-    for (let i = 0; i < nailerCount; i++) {
-      nailerPositions.push(i * (systemD / (nailerCount - 1)));
-    }
-
-    // Rail X positions
-    const railXPositions: number[] = [];
-    for (let i = 0; i <= slotsWide; i++) {
-      railXPositions.push(i * RAIL_SPACING);
-    }
 
     // Scale to fit canvas
     const margin = 40;
     const safeW = canvasW - margin * 2;
     const safeH = canvasH - margin * 2;
-    const scale = Math.min(safeW / systemW, safeH / systemD);
+    const scale = Math.min(safeW / systemW, safeH / totalH);
     if (scale <= 0 || !isFinite(scale)) return;
 
     const startX = (canvasW - systemW * scale) / 2;
-    const startY = (canvasH - systemD * scale) / 2;
+    const startY = (canvasH - totalH * scale) / 2;
 
-    // ── Layer 3 (bottom-most, drawn first): Plywood rail strips ──
-    // Rails run vertically (along depth / Y axis)
-    ctx.fillStyle = plywoodFill;
-    ctx.strokeStyle = woodStroke;
-    ctx.lineWidth = 2;
-    for (const rx of railXPositions) {
-      const px = startX + rx * scale;
-      const pw = RAIL_W * scale;
-      ctx.fillRect(px, startY, pw, systemD * scale);
-      ctx.strokeRect(px, startY, pw, systemD * scale);
+    // Rail X positions (left edge of each rail strip)
+    const railXPositions: number[] = [];
+    for (let i = 0; i <= slotsWide; i++) {
+      railXPositions.push(i * RAIL_SPACING);
     }
 
-    // ── Layer 2: Padding beams (2×4 flat) ──
-    // Run along depth under each rail strip (same X as rails, slightly narrower)
+    // ── Ceiling line ──
+    ctx.strokeStyle = "#64748b";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.moveTo(startX - 15, startY);
+    ctx.lineTo(startX + systemW * scale + 15, startY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Ceiling label
+    ctx.save();
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = `${Math.max(9, Math.round(scale * 1.5))}px Arial`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("CEILING", startX - 20, startY - 2);
+    ctx.restore();
+
+    // ── Layer 1: Nailer (2×4 across full width) ──
+    const nailerY = startY;
+    const nailerPH = NAILER_H * scale;
+    ctx.fillStyle = woodFill;
+    ctx.strokeStyle = woodStroke;
+    ctx.lineWidth = 2;
+    ctx.fillRect(startX, nailerY, systemW * scale, nailerPH);
+    ctx.strokeRect(startX, nailerY, systemW * scale, nailerPH);
+    // Wood grain lines
+    ctx.strokeStyle = "#c9956a";
+    ctx.lineWidth = 0.5;
+    for (let g = 0.25; g < 1; g += 0.35) {
+      const gy = nailerY + nailerPH * g;
+      ctx.beginPath();
+      ctx.moveTo(startX + 2, gy);
+      ctx.lineTo(startX + systemW * scale - 2, gy);
+      ctx.stroke();
+    }
+
+    // ── Layer 2 & 3: Double padding (2×4 beams, run perpendicular — visible as cross-sections) ──
+    const paddingY = nailerY + nailerPH;
+    const paddingTotalH = SPACER_H * PADDING_LAYERS * scale;
+    // Draw one padding block per rail position (they sit under each rail)
     ctx.fillStyle = woodFill;
     ctx.strokeStyle = woodStroke;
     ctx.lineWidth = 1.5;
     for (const rx of railXPositions) {
-      const ledge = ((RAIL_W - PADDING_W) / 2) * scale;
-      const px = startX + rx * scale + ledge;
-      const pw = PADDING_W * scale;
-      ctx.fillRect(px, startY, pw, systemD * scale);
-      ctx.strokeRect(px, startY, pw, systemD * scale);
+      const px = startX + rx * scale;
+      const pw = RAIL_W * scale; // Padding is same width as rail
+      ctx.fillRect(px, paddingY, pw, paddingTotalH);
+      ctx.strokeRect(px, paddingY, pw, paddingTotalH);
+      // Divider between the two padding layers
+      ctx.strokeStyle = "#c9956a";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(px, paddingY + SPACER_H * scale);
+      ctx.lineTo(px + pw, paddingY + SPACER_H * scale);
+      ctx.stroke();
+      ctx.strokeStyle = woodStroke;
+      ctx.lineWidth = 1.5;
     }
 
-    // ── Layer 1 (top-most): Nailers ──
-    // Run horizontally (along width / X axis), crossing over rails
-    ctx.fillStyle = woodFill;
+    // ── Layer 4: Plywood rail strips ──
+    const railY = paddingY + paddingTotalH;
+    const railPH = RAIL_H * scale;
+    ctx.fillStyle = plywoodFill;
     ctx.strokeStyle = woodStroke;
-    ctx.lineWidth = 2;
-    for (const nz of nailerPositions) {
-      const py = startY + (nz - NAILER_W / 2) * scale;
-      const ph = NAILER_W * scale;
-      ctx.fillRect(startX, py, systemW * scale, ph);
-      ctx.strokeRect(startX, py, systemW * scale, ph);
+    ctx.lineWidth = 1.5;
+    for (const rx of railXPositions) {
+      const px = startX + rx * scale;
+      const pw = RAIL_W * scale;
+      ctx.fillRect(px, railY, pw, railPH);
+      ctx.strokeRect(px, railY, pw, railPH);
     }
 
-    // ── Totes (visible between rail strips) ──
-    for (let col = 0; col < slotsWide; col++) {
-      const slotLeftX = railXPositions[col] + RAIL_W;
-      for (let row = 0; row < slotsDeep; row++) {
-        const slotTopZ = row * SLOT_LEN + (SLOT_LEN - TOTE_D) / 2;
+    // ── Totes (hanging from rails) ──
+    if (showTotes) {
+      const toteTopY = railY + railPH;
+      for (let col = 0; col < slotsWide; col++) {
+        const slotLeftX = railXPositions[col] + RAIL_W;
+        const toteX = startX + (slotLeftX - LIP_HANG) * scale;
+        const toteFullW = TOTE_W * scale;
 
-        // Yellow rim/lid (full tote width, visible on the ledges)
-        const rimX = startX + (slotLeftX - LIP_HANG) * scale;
-        const rimY = startY + slotTopZ * scale;
-        const rimW = (TOTE_W) * scale;
-        const rimD = TOTE_D * scale;
+        // Only draw front row of totes (front view shows slotsDeep as depth,
+        // but from front we see one row — show depth count label instead)
+
+        // Yellow rim (rests on the rail ledges)
+        const rimPH = TOTE_RIM_H * scale;
         ctx.fillStyle = "#fbbf24";
         ctx.strokeStyle = "#d97706";
         ctx.lineWidth = 1.5;
-        ctx.fillRect(rimX, rimY, rimW, rimD);
-        ctx.strokeRect(rimX, rimY, rimW, rimD);
+        ctx.fillRect(toteX, toteTopY, toteFullW, rimPH);
+        ctx.strokeRect(toteX, toteTopY, toteFullW, rimPH);
 
-        // Dark tote body (slightly inset — tapered)
-        const bodyInset = TOTE_W * 0.05;
-        const bodyX = rimX + bodyInset * scale;
-        const bodyY = rimY + bodyInset * scale;
-        const bodyW = (TOTE_W - 2 * bodyInset) * scale;
-        const bodyD = (TOTE_D - 2 * bodyInset) * scale;
+        // Dark tote body (tapered — narrower at bottom)
+        const bodyTopW = toteFullW;
+        const bodyBotW = toteFullW * TOTE_BODY_TAPER;
+        const bodyPH = TOTE_BODY_H * scale;
+        const bodyTopX = toteX;
+        const bodyBotX = toteX + (bodyTopW - bodyBotW) / 2;
+        const bodyTopY = toteTopY + rimPH;
+
         ctx.fillStyle = "#1e293b";
         ctx.strokeStyle = "#0f172a";
         ctx.lineWidth = 1.5;
-        ctx.fillRect(bodyX, bodyY, bodyW, bodyD);
-        ctx.strokeRect(bodyX, bodyY, bodyW, bodyD);
+        ctx.beginPath();
+        ctx.moveTo(bodyTopX, bodyTopY);
+        ctx.lineTo(bodyTopX + bodyTopW, bodyTopY);
+        ctx.lineTo(bodyBotX + bodyBotW, bodyTopY + bodyPH);
+        ctx.lineTo(bodyBotX, bodyTopY + bodyPH);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Depth indicator (if more than 1 row deep)
+        if (slotsDeep > 1) {
+          ctx.save();
+          ctx.fillStyle = "rgba(255,255,255,0.5)";
+          ctx.font = `bold ${Math.max(9, Math.round(scale * 1.8))}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`×${slotsDeep}`, toteX + toteFullW / 2, bodyTopY + bodyPH / 2);
+          ctx.restore();
+        }
+      }
+    } else {
+      // No totes — show empty slot openings between rails
+      const slotTopY = railY + railPH;
+      const emptySlotH = (TOTE_RIM_H + TOTE_BODY_H) * scale * 0.3; // Short visual indicator
+      for (let col = 0; col < slotsWide; col++) {
+        const slotLeftX = railXPositions[col] + RAIL_W;
+        const slotPX = startX + slotLeftX * scale;
+        const slotPW = SLOT_W * scale;
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(slotPX, slotTopY, slotPW, emptySlotH);
+        ctx.setLineDash([]);
       }
     }
 
@@ -592,7 +664,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.max(10, Math.round(scale * 3))}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("CEILING TOTE RAIL · BOTTOM VIEW", canvasW / 2, canvasH / 2);
+    ctx.fillText("CEILING TOTE RAIL · FRONT VIEW", canvasW / 2, canvasH / 2);
     ctx.restore();
 
     // ── Watermark ──

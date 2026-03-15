@@ -105,7 +105,7 @@ interface RackVisualizerProps {
   /** When set, renders an open shelving unit instead of a tote organizer */
   shelvingConfig?: ShelvingConfig3D;
   /** When set, renders a ceiling tote rail system */
-  overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
+  overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes?: boolean };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
   /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
@@ -282,7 +282,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
     : undefined;
 
   const bp2dOverheadConfig = activeMultiUnit?.overheadStorageConfig
-    ? { slotsWide: activeMultiUnit.overheadStorageConfig.slotsWide, slotsDeep: activeMultiUnit.overheadStorageConfig.slotsDeep, toteType: activeMultiUnit.overheadStorageConfig.toteType }
+    ? { slotsWide: activeMultiUnit.overheadStorageConfig.slotsWide, slotsDeep: activeMultiUnit.overheadStorageConfig.slotsDeep, toteType: activeMultiUnit.overheadStorageConfig.toteType, hasTotes: activeMultiUnit.hasTotes }
     : props.overheadConfig;
 
   const bp2dShelvingConfig = activeMultiUnit?.shelvingConfig ?? props.shelvingConfig;
