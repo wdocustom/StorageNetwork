@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { stampLastLogin } from "@/app/actions/profile";
 import { Loader2, KeyRound, CheckCircle2, ArrowLeft, AlertCircle } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,6 +92,9 @@ export default function ResetPasswordPage() {
         setError(updateError.message);
       } else {
         setSuccess(true);
+        // Stamp login — user is authenticated via recovery link
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) stampLastLogin(user.id);
         // Redirect to dashboard after a moment
         setTimeout(() => {
           router.push("/dashboard");
