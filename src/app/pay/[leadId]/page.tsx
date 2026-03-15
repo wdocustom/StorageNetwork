@@ -29,8 +29,9 @@ import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandon
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
-import { getSalesTax, type SalesTaxResult } from "@/app/actions/fee-engine";
+import { getSalesTax, getDepositAmount, type SalesTaxResult } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
+import { updateLeadWithAddons } from "@/app/actions/cleanout-upsell";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Resume Payment Page — /pay/[leadId]
@@ -79,6 +80,10 @@ export default function ResumePaymentPage() {
   const [contactSending, setContactSending] = useState(false);
   const [contactSent, setContactSent] = useState(false);
   const [contactError, setContactError] = useState("");
+
+  // Selected add-on services (inline upsell — no separate page)
+  const [selectedAddons, setSelectedAddons] = useState<Map<string, { id: string; name: string; description: string; price: number }>>(new Map());
+  const [addonDeposit, setAddonDeposit] = useState<number | null>(null);
 
   // Address state
   const [step, setStep] = useState<Step>("address");
@@ -152,6 +157,20 @@ export default function ResumePaymentPage() {
   // Build-only price (estimated_price includes delivery fee)
   const buildTotal = lead ? lead.estimated_price - deliveryFee : 0;
 
+  // Add-on totals (selected inline — services added directly to this quote)
+  const addonTotal = Array.from(selectedAddons.values()).reduce((s, a) => s + a.price, 0);
+  const effectiveEstimatedPrice = (lead?.estimated_price || 0) + addonTotal;
+  const effectiveBuildTotal = buildTotal + addonTotal;
+
+  // Recalculate deposit when add-ons change
+  useEffect(() => {
+    if (!lead?.installer_id || addonTotal === 0) {
+      setAddonDeposit(null);
+      return;
+    }
+    getDepositAmount(effectiveEstimatedPrice, lead.installer_id).then(setAddonDeposit);
+  }, [effectiveEstimatedPrice, lead?.installer_id, addonTotal]);
+
   // Determine taxable amount from quote_data:
   // - Delivery fee is tax-exempt
   // - Cleanout / custom service items are tax-exempt (labor services)
@@ -187,9 +206,12 @@ export default function ResumePaymentPage() {
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;
 
+  // Deposit uses installer's configured rate (min 15%) — recalculated when add-ons selected
+  const effectiveDeposit = addonDeposit ?? (lead?.deposit_amount || 0);
+
   // Balance at installation = remaining build cost - discount + sales tax
   const balanceAtInstall = lead
-    ? (lead.estimated_price - lead.deposit_amount - discountAmount) + (taxInfo?.taxAmount || 0)
+    ? (effectiveEstimatedPrice - effectiveDeposit - discountAmount) + (taxInfo?.taxAmount || 0)
     : 0;
 
   // Address validation
@@ -226,6 +248,19 @@ export default function ResumePaymentPage() {
     setDiscountApplied(null);
     setDiscountInput("");
     setDiscountError("");
+  }
+
+  // Toggle an add-on service selection (inline upsell)
+  function toggleAddon(svc: { id: string; name: string; description: string; price: number }) {
+    setSelectedAddons((prev) => {
+      const next = new Map(prev);
+      if (next.has(svc.id)) {
+        next.delete(svc.id);
+      } else {
+        next.set(svc.id, svc);
+      }
+      return next;
+    });
   }
 
   // Contact installer handler
@@ -266,9 +301,6 @@ export default function ResumePaymentPage() {
     }
   }
 
-  // Deposit uses installer's configured rate (min 15%) — discounts only affect the balance
-  const effectiveDeposit = lead ? lead.deposit_amount : 0;
-
   // Initialize Stripe payment
   const initializePayment = useCallback(async () => {
     if (!lead) return;
@@ -277,10 +309,34 @@ export default function ResumePaymentPage() {
     setError(null);
 
     try {
+      let paymentTotal = lead.estimated_price;
+      let paymentDeposit = lead.deposit_amount;
+
+      // If add-ons are selected, update the lead first so the DB
+      // reflects the correct total before the payment intent is created
+      if (selectedAddons.size > 0) {
+        const addons = Array.from(selectedAddons.values()).map((a) => ({
+          id: a.id,
+          name: a.name,
+          price: a.price,
+        }));
+        const addonResult = await updateLeadWithAddons({
+          leadId: lead.id,
+          services: addons,
+        });
+        if (!addonResult.success) {
+          setError(addonResult.error || "Failed to add services to quote.");
+          setInitializingPayment(false);
+          return;
+        }
+        paymentTotal = addonResult.newTotal;
+        paymentDeposit = addonResult.newDeposit;
+      }
+
       const result = await createDepositIntent({
         leadId: lead.id,
-        amount: lead.deposit_amount, // Deposit only — tax collected at installation
-        totalPrice: lead.estimated_price,
+        amount: paymentDeposit,
+        totalPrice: paymentTotal,
         installerId: lead.installer_id || undefined,
         customerEmail: lead.customer_email,
         customerName: lead.customer_name,
@@ -307,7 +363,7 @@ export default function ResumePaymentPage() {
     } finally {
       setInitializingPayment(false);
     }
-  }, [lead, taxInfo, address.state, discountApplied]);
+  }, [lead, selectedAddons, taxInfo, address.state, discountApplied]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — Loading State
@@ -384,7 +440,12 @@ export default function ResumePaymentPage() {
 
   // Parse quote data for display
   const units = Array.isArray(lead.quote_data) ? lead.quote_data : [];
-  const unitCount = units.length;
+  // Count display units (consolidate old-format preset sub-units like "Name — NxN")
+  const presetNamePattern = /^(.+?) — \d+×\d+$/;
+  const uniquePresetNames = new Set(
+    units.map((u: any) => u.desc?.match(presetNamePattern)?.[1]).filter(Boolean)
+  );
+  const unitCount = units.length - units.filter((u: any) => u.desc?.match(presetNamePattern)).length + uniquePresetNames.size;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -442,104 +503,204 @@ export default function ResumePaymentPage() {
             </h2>
           </div>
 
-          {/* Units */}
+          {/* Units — consolidate preset sub-units (old format "Name — NxN") into single lines */}
           <div className="mb-4 space-y-2">
-            {units.map((unit: any, idx: number) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    Unit #{idx + 1}: {unit.desc || `${unit.cols}W × ${unit.rows}H`}
-                  </p>
-                  <p className="text-xs text-stone-400">
-                    {[
-                      unit.hasTotes && "Totes",
-                      unit.hasWheels && "Wheels",
-                      unit.hasTop && "Top",
-                    ]
-                      .filter(Boolean)
-                      .join(", ") || "Frame Only"}
-                  </p>
-                </div>
-                <span className="text-sm font-bold text-white">
-                  {formatCurrency(unit.price || 0)}
-                </span>
-              </div>
-            ))}
+            {(() => {
+              // Detect old-format preset sub-units: descs matching "PresetName — NxN"
+              const presetPattern = /^(.+?) — \d+×\d+$/;
+              const presetGroups = new Map<string, { units: any[]; indices: number[] }>();
+              const standalone: { unit: any; idx: number }[] = [];
+
+              units.forEach((unit: any, idx: number) => {
+                const match = unit.desc?.match(presetPattern);
+                if (match) {
+                  const name = match[1];
+                  const group = presetGroups.get(name) || { units: [], indices: [] };
+                  group.units.push(unit);
+                  group.indices.push(idx);
+                  presetGroups.set(name, group);
+                } else {
+                  standalone.push({ unit, idx });
+                }
+              });
+
+              const items: React.ReactNode[] = [];
+              const rendered = new Set<string>();
+              let itemNum = 0;
+
+              units.forEach((unit: any, idx: number) => {
+                const match = unit.desc?.match(presetPattern);
+                if (match) {
+                  const name = match[1];
+                  if (rendered.has(name)) return;
+                  rendered.add(name);
+                  const group = presetGroups.get(name)!;
+                  itemNum++;
+
+                  // Consolidate: single card for the whole preset group
+                  const groupPrice = group.units.reduce((s: number, u: any) => s + (u.price || 0), 0);
+                  const dims = group.units.map((u: any) => `${u.cols}×${u.rows}`).join(" + ");
+                  const totalSlots = group.units.reduce((s: number, u: any) => s + (u.cols || 0) * (u.rows || 0), 0);
+                  const features = [
+                    group.units[0]?.hasTotes && "Totes",
+                    group.units.some((u: any) => u.hasWheels) && "Wheels",
+                    group.units.some((u: any) => u.hasTop) && "Top",
+                  ].filter(Boolean).join(", ");
+
+                  items.push(
+                    <div key={`preset-${name}`} className="flex items-center justify-between rounded-lg border border-yellow-400/30 bg-slate-800 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Unit #{itemNum}: {name} ({dims} — {totalSlots} slots)
+                        </p>
+                        <p className="text-xs text-stone-400">{features || "Frame Only"}</p>
+                      </div>
+                      <span className="text-sm font-bold text-white">{formatCurrency(groupPrice)}</span>
+                    </div>
+                  );
+                } else {
+                  itemNum++;
+                  items.push(
+                    <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Unit #{itemNum}: {unit.desc || `${unit.cols}W × ${unit.rows}H`}
+                        </p>
+                        <p className="text-xs text-stone-400">
+                          {[unit.hasTotes && "Totes", unit.hasWheels && "Wheels", unit.hasTop && "Top"].filter(Boolean).join(", ") || "Frame Only"}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-white">{formatCurrency(unit.price || 0)}</span>
+                    </div>
+                  );
+                }
+              });
+
+              return items;
+            })()}
           </div>
 
-          {/* Cleanout Upsell */}
+          {/* Selected Add-On Services (shown as line items) */}
+          {selectedAddons.size > 0 && (
+            <div className="mb-4 space-y-2">
+              {Array.from(selectedAddons.values()).map((addon) => (
+                <div
+                  key={addon.id}
+                  className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">Add-On: {addon.name}</p>
+                      <p className="text-xs text-stone-400">{addon.description}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-emerald-400">
+                    {formatCurrency(addon.price)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add-On Service Picker */}
           {lead.installer_services && lead.installer_services.length > 0 && !units.some((u: any) => u.toteType === "cleanout" || u.toteType === "custom_service") && (
             <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                Add-On Service
+                Add-On Services
               </p>
               <p className="mb-3 text-sm text-stone-300">
                 Want us to clean out your space before installation?
               </p>
               <div className="space-y-2">
-                {lead.installer_services.map((svc) => (
-                  <a
-                    key={svc.id}
-                    href={`/upsell/${lead.id}?service=${svc.id}`}
-                    className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/5"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-white">{svc.name}</p>
-                      <p className="text-xs text-stone-400">{svc.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-emerald-400">
-                        {formatCurrency(svc.price)}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-stone-500" />
-                    </div>
-                  </a>
-                ))}
+                {lead.installer_services.map((svc) => {
+                  const isSelected = selectedAddons.has(svc.id);
+                  return (
+                    <button
+                      key={svc.id}
+                      onClick={() => toggleAddon(svc)}
+                      className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-all ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-500/10"
+                          : "border-slate-700 bg-slate-800 hover:border-emerald-500/40 hover:bg-emerald-500/5"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-white">{svc.name}</p>
+                        <p className="text-xs text-stone-400">{svc.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-emerald-400">
+                          {formatCurrency(svc.price)}
+                        </span>
+                        {isSelected ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-stone-500" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="mt-2 text-[11px] text-stone-500 text-center">
-                50% deposit collected now, remainder at service
-              </p>
+              {selectedAddons.size > 0 ? (
+                <p className="mt-2 text-[11px] text-emerald-400 text-center font-medium">
+                  {selectedAddons.size} add-on{selectedAddons.size > 1 ? "s" : ""} included in your deposit below
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-stone-500 text-center">
+                  Click to add — included in your single deposit payment
+                </p>
+              )}
             </div>
           )}
 
           {/* Totals */}
           <div className="border-t border-slate-700 pt-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-stone-400">{deliveryFee > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
-              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 ? buildTotal : lead.estimated_price)}</span>
+              <span className="text-stone-400">{deliveryFee > 0 || addonTotal > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
+              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 || addonTotal > 0 ? buildTotal : lead.estimated_price)}</span>
             </div>
+            {addonTotal > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-emerald-400">Add-On Services</span>
+                <span className="font-bold text-emerald-400">{formatCurrency(addonTotal)}</span>
+              </div>
+            )}
             {deliveryFee > 0 && (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-stone-400">
-                    <MapPin className="h-3 w-3 text-yellow-400" />
-                    Delivery Fee
-                  </span>
-                  <span className="font-bold text-white">{formatCurrency(deliveryFee)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm border-t border-slate-700/50 pt-2">
-                  <span className="text-stone-400">Total</span>
-                  <span className="font-bold text-white">{formatCurrency(lead.estimated_price)}</span>
-                </div>
-              </>
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1 text-stone-400">
+                  <MapPin className="h-3 w-3 text-yellow-400" />
+                  Delivery Fee
+                </span>
+                <span className="font-bold text-white">{formatCurrency(deliveryFee)}</span>
+              </div>
+            )}
+            {(deliveryFee > 0 || addonTotal > 0) && (
+              <div className="flex items-center justify-between text-sm border-t border-slate-700/50 pt-2">
+                <span className="text-stone-400">Total</span>
+                <span className="font-bold text-white">{formatCurrency(effectiveEstimatedPrice)}</span>
+              </div>
             )}
 
-            {/* Due Today = Deposit only (never changes with discounts) */}
+            {/* Due Today = Deposit (adjusts when add-ons are included) */}
             <div className="mt-2 flex items-center justify-between border-t border-slate-700 pt-2">
               <span className="font-bold text-stone-300">Due Today (Deposit)</span>
               <span className="text-xl font-black text-yellow-400">
-                {formatCurrency(lead.deposit_amount)}
+                {formatCurrency(effectiveDeposit)}
               </span>
             </div>
+            {addonTotal > 0 && lead && effectiveDeposit > lead.deposit_amount && (
+              <p className="text-[11px] text-yellow-400/70 text-center">
+                Deposit adjusted from {formatCurrency(lead.deposit_amount)} to include add-on services
+              </p>
+            )}
 
             {/* Balance at installation */}
             <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-500">Remaining Balance</span>
-                <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
+                <span className="text-stone-400">{formatCurrency(effectiveEstimatedPrice - effectiveDeposit)}</span>
               </div>
               {discountApplied && (
                 <div className="flex items-center justify-between text-xs">
@@ -783,6 +944,12 @@ export default function ResumePaymentPage() {
                 <span className="text-stone-400">Build Total</span>
                 <span className="text-white">{formatCurrency(buildTotal)}</span>
               </div>
+              {addonTotal > 0 && (
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-emerald-400">Add-On Services</span>
+                  <span className="text-emerald-400">{formatCurrency(addonTotal)}</span>
+                </div>
+              )}
               {deliveryFee > 0 && (
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="flex items-center gap-1 text-stone-400">
@@ -795,14 +962,19 @@ export default function ResumePaymentPage() {
               <div className="flex items-center justify-between border-t border-yellow-400/20 pt-2 mt-2">
                 <span className="font-bold text-white">Due Today (Deposit)</span>
                 <span className="text-xl font-black text-yellow-400">
-                  {formatCurrency(lead.deposit_amount)}
+                  {formatCurrency(effectiveDeposit)}
                 </span>
               </div>
+              {addonTotal > 0 && lead && effectiveDeposit > lead.deposit_amount && (
+                <p className="text-[11px] text-yellow-400/70 text-center mt-1">
+                  Deposit adjusted from {formatCurrency(lead.deposit_amount)} to include add-on services
+                </p>
+              )}
               {/* Balance at installation — discount applied here */}
               <div className="mt-3 pt-2 border-t border-yellow-400/10 space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-stone-500">Remaining Balance</span>
-                  <span className="text-stone-400">{formatCurrency(lead.estimated_price - lead.deposit_amount)}</span>
+                  <span className="text-stone-400">{formatCurrency(effectiveEstimatedPrice - effectiveDeposit)}</span>
                 </div>
                 {discountApplied && (
                   <div className="flex items-center justify-between text-xs">

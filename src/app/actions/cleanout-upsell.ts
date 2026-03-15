@@ -8,6 +8,7 @@ import {
   sendCleanoutUpsellConfirmation,
 } from "@/lib/email";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
+import { getDepositAmount } from "@/app/actions/fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell — Automated Pre-Install Upsell Engine
@@ -471,5 +472,124 @@ export async function handleCleanoutUpsellPayment(
     }
   } catch (err) {
     console.error("[CleanoutUpsell] handleCleanoutUpsellPayment error:", err);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// updateLeadWithAddons — Integrates add-on services directly into the quote
+//
+// Called from the /pay page when a customer selects add-on services before
+// paying their deposit. Updates the lead's total, deposit, and balance so
+// the single payment covers everything.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface UpdateLeadWithAddonsInput {
+  leadId: string;
+  services: Array<{ id: string; name: string; price: number }>;
+}
+
+export interface UpdateLeadWithAddonsResult {
+  success: boolean;
+  newTotal: number;
+  newDeposit: number;
+  newBalance: number;
+  error?: string;
+}
+
+export async function updateLeadWithAddons(
+  input: UpdateLeadWithAddonsInput
+): Promise<UpdateLeadWithAddonsResult> {
+  const { leadId, services } = input;
+  const empty = { success: false, newTotal: 0, newDeposit: 0, newBalance: 0 };
+
+  if (!leadId || !services.length) {
+    return { ...empty, error: "Missing required parameters." };
+  }
+
+  try {
+    // Fetch current lead
+    const { data: lead, error: fetchErr } = await db()
+      .from("leads")
+      .select("estimated_price, deposit_amount, installer_id, notes, delivery_fee")
+      .eq("id", leadId)
+      .single();
+
+    if (fetchErr || !lead) {
+      return { ...empty, error: "Order not found." };
+    }
+
+    // Validate services exist in installer's config
+    let servicesConfig: ServiceOffering[] = DEFAULT_SERVICES;
+    if (lead.installer_id) {
+      const { data: installer } = await db()
+        .from("profiles")
+        .select("services_config")
+        .eq("id", lead.installer_id)
+        .single();
+      if (installer?.services_config && Array.isArray(installer.services_config)) {
+        servicesConfig = installer.services_config as ServiceOffering[];
+      }
+    }
+
+    // Validate each service and use installer's actual price
+    const validatedServices: Array<{ id: string; name: string; price: number }> = [];
+    for (const svc of services) {
+      const match = servicesConfig.find((s) => s.id === svc.id && s.enabled && s.price && s.price > 0);
+      if (!match) {
+        return { ...empty, error: `Service "${svc.name}" is not available.` };
+      }
+      validatedServices.push({ id: match.id, name: match.name, price: match.price! });
+    }
+
+    const addonTotal = validatedServices.reduce((s, svc) => s + svc.price, 0);
+    const newTotal = Math.round((lead.estimated_price + addonTotal) * 100) / 100;
+
+    // Recalculate deposit for the new total
+    const newDeposit = await getDepositAmount(newTotal, lead.installer_id || undefined);
+    const newBalance = Math.round((newTotal - newDeposit) * 100) / 100;
+
+    // Build upsell snapshot
+    const upsellSnapshot = validatedServices.map((svc) => ({
+      id: svc.id,
+      name: svc.name,
+      price: svc.price,
+      added_at: new Date().toISOString(),
+    }));
+
+    // Build notes about the change
+    const currentNotes = lead.notes || "";
+    const addonLines = validatedServices
+      .map((svc) => `+ Add-On: ${svc.name} ($${svc.price})`)
+      .join("\n");
+    const depositNote = `Deposit adjusted from $${lead.deposit_amount} → $${newDeposit} (add-on services included)`;
+    const newNotes = currentNotes + (currentNotes ? "\n" : "") + addonLines + "\n" + depositNote;
+
+    // Update the lead
+    const { error: updateErr } = await db()
+      .from("leads")
+      .update({
+        estimated_price: newTotal,
+        deposit_amount: newDeposit,
+        balance_due: newBalance,
+        cleanout_upsell_service: upsellSnapshot.length === 1 ? upsellSnapshot[0] : upsellSnapshot,
+        cleanout_upsell_amount: addonTotal,
+        notes: newNotes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
+
+    if (updateErr) {
+      console.error("[Upsell] updateLeadWithAddons DB error:", updateErr);
+      return { ...empty, error: "Failed to update quote." };
+    }
+
+    console.log(
+      `[Upsell] Lead ${leadId} updated — addons: ${validatedServices.map((s) => s.name).join(", ")}, new total: $${newTotal}, deposit: $${newDeposit}`
+    );
+
+    return { success: true, newTotal, newDeposit, newBalance };
+  } catch (err) {
+    console.error("[Upsell] updateLeadWithAddons error:", err);
+    return { ...empty, error: "Failed to update quote." };
   }
 }
