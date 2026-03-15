@@ -113,6 +113,8 @@ interface Rack3DProps {
   overheadConfig?: OverheadConfig3D;
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
+  /** Text displayed as a diagonal watermark behind the 3D scene */
+  watermarkText?: string;
 }
 
 // ── Constants (inches) — Standard Unit (27 Gallon) ───────────────────────
@@ -1481,9 +1483,37 @@ export default function Rack3D(props: Rack3DProps) {
   const isOverhead = !!props.overheadConfig;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
   const isShelving = !!props.shelvingConfig;
+  const wmText = props.watermarkText || "Storage-Network.app";
 
   return (
     <div className="absolute inset-0" style={{ touchAction: "none" }}>
+      {/* Watermark overlay — behind 3D canvas interaction via pointer-events:none */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+          zIndex: 1,
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            transform: "rotate(-30deg)",
+            fontSize: "clamp(24px, 8vw, 72px)",
+            fontWeight: "bold",
+            fontFamily: "Arial, sans-serif",
+            color: "rgba(0,0,0,0.03)",
+            whiteSpace: "nowrap",
+            userSelect: "none",
+          }}
+        >
+          {wmText}
+        </span>
+      </div>
       <Canvas
         shadows
         camera={{ fov: 45 }}

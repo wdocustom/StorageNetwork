@@ -60,6 +60,8 @@ interface BlueprintCanvasProps {
   shelvingConfig?: ShelvingConfig2D;
   /** When set, renders a ceiling tote rail system (top-down view from below) */
   overheadConfig?: OverheadConfig2D;
+  /** Text displayed as a diagonal watermark behind the blueprint */
+  watermarkText?: string;
 }
 
 // Wheel height constant (industrial casters)
@@ -81,6 +83,7 @@ export default function BlueprintCanvas({
   addons,
   shelvingConfig,
   overheadConfig,
+  watermarkText = "Storage-Network.app",
 }: BlueprintCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -462,9 +465,9 @@ export default function BlueprintCanvas({
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(0,0,0,0.03)";
     ctx.font = `bold ${Math.round(canvasW * 0.08)}px Arial`;
-    ctx.fillText("WDO CUSTOM", 0, 0);
+    ctx.fillText(watermarkText, 0, 0);
     ctx.restore();
-  }, []);
+  }, [watermarkText]);
 
   // ── Helper: draw ceiling tote rail system (front view) ──────────────
   const drawOverheadUnit = useCallback((
@@ -676,9 +679,9 @@ export default function BlueprintCanvas({
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(0,0,0,0.03)";
     ctx.font = `bold ${Math.round(canvasW * 0.08)}px Arial`;
-    ctx.fillText("WDO CUSTOM", 0, 0);
+    ctx.fillText(watermarkText, 0, 0);
     ctx.restore();
-  }, []);
+  }, [watermarkText]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -759,7 +762,7 @@ export default function BlueprintCanvas({
       ctx.textAlign = "center";
       ctx.fillStyle = "rgba(0,0,0,0.03)";
       ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
-      ctx.fillText("WDO CUSTOM", 0, 0);
+      ctx.fillText(watermarkText, 0, 0);
       ctx.restore();
       return;
     }
@@ -787,9 +790,9 @@ export default function BlueprintCanvas({
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(0,0,0,0.03)";
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
-    ctx.fillText("WDO CUSTOM", 0, 0);
+    ctx.fillText(watermarkText, 0, 0);
     ctx.restore();
-  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, drawOverheadUnit, shelvingConfig, overheadConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP]);
+  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, drawOverheadUnit, shelvingConfig, overheadConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP, watermarkText]);
 
   useEffect(() => {
     draw();

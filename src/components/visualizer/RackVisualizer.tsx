@@ -116,6 +116,8 @@ interface RackVisualizerProps {
     onUnitVisibilityChange: (index: number, visible: boolean) => void;
     orderItems: Array<{ desc: string }>;
   };
+  /** Text displayed as a diagonal watermark behind the visualizer */
+  watermarkText?: string;
 }
 
 /** A completed order item for multi-unit 3D rendering */
@@ -361,6 +363,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             addons={bp2dAddons}
             shelvingConfig={bp2dShelvingConfig}
             overheadConfig={bp2dOverheadConfig}
+            watermarkText={props.watermarkText}
           />
         </div>
       ) : (
@@ -392,6 +395,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 addons={bp2dAddons}
                 shelvingConfig={bp2dShelvingConfig}
                 overheadConfig={bp2dOverheadConfig}
+                watermarkText={props.watermarkText}
               />
             </div>
           }
@@ -450,6 +454,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
                   presetUnits: u.presetUnits,
                 }))}
+                watermarkText={props.watermarkText}
               />
             </Suspense>
           </div>

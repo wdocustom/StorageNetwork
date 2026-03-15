@@ -1545,6 +1545,7 @@ export default function DesignConfigurator({
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
               overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
+              watermarkText={data?.branding.title || "Storage-Network.app"}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
               multiUnitControls={orderItems.length >= 1 ? {
                 showMultiUnit3D,
