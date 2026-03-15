@@ -523,7 +523,7 @@ function ProfilePageInner() {
 
   function addDeliveryTier() {
     const lastMax = deliveryTiers.length > 0 ? deliveryTiers[deliveryTiers.length - 1].max_miles : 0;
-    const newMax = Math.min(lastMax + 25, serviceRadius || 100);
+    const newMax = Math.min(lastMax + 25, serviceRadius || 85);
     setDeliveryTiers([
       ...deliveryTiers,
       { max_miles: newMax, fee: 0, enabled: true, label: `${lastMax}-${newMax} mi` },
@@ -969,14 +969,14 @@ function ProfilePageInner() {
                 {/* Filled portion */}
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-400"
-                  style={{ width: `${((serviceRadius - 5) / 95) * 100}%` }}
+                  style={{ width: `${((serviceRadius - 5) / 80) * 100}%` }}
                 />
               </div>
               {/* Hidden range input */}
               <input
                 type="range"
                 min={5}
-                max={100}
+                max={85}
                 step={5}
                 value={serviceRadius}
                 onChange={(e) => setServiceRadius(Number(e.target.value))}
@@ -985,13 +985,13 @@ function ProfilePageInner() {
               {/* Custom thumb */}
               <div
                 className="pointer-events-none absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-yellow-400 bg-slate-900 shadow-lg transition-all"
-                style={{ left: `calc(${((serviceRadius - 5) / 95) * 100}% - 12px)` }}
+                style={{ left: `calc(${((serviceRadius - 5) / 80) * 100}% - 12px)` }}
               />
             </div>
 
             {/* Preset Quick Buttons */}
             <div className="mt-4 flex flex-wrap gap-2">
-              {[10, 25, 50, 75, 100].map((preset) => (
+              {[10, 25, 50, 75, 85].map((preset) => (
                 <button
                   key={preset}
                   onClick={() => setServiceRadius(preset)}
@@ -1122,7 +1122,7 @@ function ProfilePageInner() {
                         <input
                           type="number"
                           min={prevMax + 1}
-                          max={serviceRadius || 200}
+                          max={serviceRadius || 85}
                           value={tier.max_miles}
                           onChange={(e) => updateDeliveryTier(idx, { max_miles: e.target.value === "" ? 0 : Number(e.target.value) })}
                           onBlur={(e) => {

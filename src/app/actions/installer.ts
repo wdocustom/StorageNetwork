@@ -47,7 +47,7 @@ export async function updateInstallerProfile(
   }
 
   // Clamp radius to reasonable bounds
-  const radius = Math.max(1, Math.min(service_radius_miles, 150));
+  const radius = Math.max(1, Math.min(service_radius_miles, 85));
 
   // Compute all zips within the radius
   const coveredZips = zipcodes.radius(service_zip, radius) ?? [];
