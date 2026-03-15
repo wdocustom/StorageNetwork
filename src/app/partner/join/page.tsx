@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
+import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
 
@@ -99,10 +100,13 @@ function PartnerJoinPageInner() {
     if (result.success) {
       // Sign in with the new credentials, then redirect to dashboard
       const supabase = getSupabaseBrowserClient();
-      await supabase.auth.signInWithPassword({
+      const { data: signInData } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
+      if (signInData?.user) {
+        await stampLastLogin(signInData.user.id);
+      }
       window.location.href = result.redirectUrl || "/dashboard";
     } else {
       setError(result.error || "Something went wrong.");

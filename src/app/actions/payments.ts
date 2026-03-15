@@ -16,6 +16,7 @@ import { getDepositAmount } from "./fee-engine";
 //
 // FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
+// First 3 Jobs:     0% → Platform (waived), 15% → Installer (new user promo)
 // Standard:         3% of build → Platform (maintenance fee), 12% → Installer
 // No Stripe:        15% of build → Platform keeps full deposit
 // Fee Override (0): 0% → Platform, 15% → Installer (Founder accounts)
@@ -85,6 +86,21 @@ async function requireLeadOwnership(
 const PRO_PLATFORM_FEE_RATE = 0.03;  // 3% platform fee for Pro installers
 const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
 // Note: Balance payments have NO platform fee — platform already took their cut from deposit
+
+// ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────────
+// New installers get their first 3 completed jobs with zero platform fees.
+// This counts leads with status = 'paid' for the installer. Once they have
+// 3+ paid jobs, normal fee rates apply.
+const FREE_JOBS_LIMIT = 3;
+
+async function getCompletedJobCount(installerId: string): Promise<number> {
+  const { count } = await supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("installer_id", installerId)
+    .eq("status", "paid");
+  return count ?? 0;
+}
 
 // ── Helper: Check if installer is Pro ────────────────────────────────────
 async function isInstallerPro(installerId: string): Promise<boolean> {
@@ -509,6 +525,12 @@ export async function createDepositIntent(
     const feeOverride = installerProfile?.platform_fee_override;
     const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
 
+    // ── First 3 Jobs: Zero Platform Fees ───────────────────────────────
+    // Check if this installer qualifies for the free-first-3-jobs promotion.
+    // Only applies when they have Stripe connected (otherwise platform holds deposit).
+    const completedJobs = await getCompletedJobCount(installerId);
+    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId;
+
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
 
@@ -518,7 +540,53 @@ export async function createDepositIntent(
     // Deposit uses installer's custom rate (min 15%). Discount reduces the
     // balance the installer collects at installation (installer absorbs their own discount codes).
 
-    if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
+    if (qualifiesForFreeJob && installerStripeId) {
+      // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────
+      // Installer gets 100% of deposit, platform takes $0.
+      // Requires Stripe connected (otherwise platform must hold deposit).
+      const platformFeeCents = 0;
+      const installerReceivesCents = depositAmountCents;
+
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: depositAmountCents,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        application_fee_amount: platformFeeCents,
+        transfer_data: {
+          destination: installerStripeId,
+        },
+        receipt_email: customerEmail || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "deposit",
+          source,
+          installer_id: installerId,
+          is_pro: isPro ? "true" : "false",
+          fee_waived: "true",
+          completed_jobs: String(completedJobs),
+          customer_name: customerName || "",
+          customer_email: customerEmail || "",
+          platform_fee_cents: "0",
+          platform_fee_rate: "0% (first 3 jobs free)",
+          installer_receives_cents: String(installerReceivesCents),
+          installer_stripe_id: installerStripeId,
+          scheduled_at: scheduledAt || "",
+          sales_tax_cents: String(taxCents),
+          billing_state: billingState || "",
+          balance_due_with_tax_cents: String(balanceWithTaxCents),
+          discount_code: discountCode || "",
+          discount_code_cents: String(promoCodeCents),
+          delivery_fee_cents: String(deliveryFeeCents),
+        },
+      }, {
+        idempotencyKey: `deposit-${leadId}`,
+      });
+
+      console.log(`[Deposit] FREE JOB ${completedJobs + 1}/${FREE_JOBS_LIMIT}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $0 (waived), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+    } else if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
       // ── Fee Override (Founder / special rate) + Stripe ───────────────────
       // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
       // Bounds-check: clamp override to [0, 0.25] to prevent negative fees
@@ -660,6 +728,8 @@ export async function createDepositIntent(
       sales_tax_amount: salesTaxAmount || null,
       billing_state: billingState || null,
       updated_at: new Date().toISOString(),
+      // Mark fee as waived if this is one of the installer's first 3 free jobs
+      fee_status: qualifiesForFreeJob ? "waived" : "standard",
     };
     // If discount applied, reduce balance_due (installer absorbs the discount)
     // Deposit amount stays unchanged at the full 15%
