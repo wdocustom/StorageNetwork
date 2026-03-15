@@ -470,6 +470,41 @@ export default function ResumePaymentPage() {
             ))}
           </div>
 
+          {/* Cleanout Upsell */}
+          {lead.installer_services && lead.installer_services.length > 0 && !units.some((u: any) => u.toteType === "cleanout" || u.toteType === "custom_service") && (
+            <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Add-On Service
+              </p>
+              <p className="mb-3 text-sm text-stone-300">
+                Want us to clean out your space before installation?
+              </p>
+              <div className="space-y-2">
+                {lead.installer_services.map((svc) => (
+                  <a
+                    key={svc.id}
+                    href={`/upsell/${lead.id}?service=${svc.id}`}
+                    className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/5"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">{svc.name}</p>
+                      <p className="text-xs text-stone-400">{svc.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-emerald-400">
+                        {formatCurrency(svc.price)}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-stone-500" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-stone-500 text-center">
+                50% deposit collected now, remainder at service
+              </p>
+            </div>
+          )}
+
           {/* Totals */}
           <div className="border-t border-slate-700 pt-4 space-y-2">
             <div className="flex items-center justify-between text-sm">

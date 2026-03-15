@@ -279,6 +279,22 @@ export async function createQuote(
       }
     }
 
+    // ── Load installer's cleanout services (for upsell in email) ──────────
+    let cleanoutServices: Array<{ id: string; name: string; description: string; price: number }> = [];
+    {
+      const { data: installerProfile } = await supabase
+        .from("profiles")
+        .select("services_config")
+        .eq("id", effectiveInstallerId)
+        .single();
+
+      if (installerProfile?.services_config && Array.isArray(installerProfile.services_config)) {
+        cleanoutServices = (installerProfile.services_config as Array<{ id: string; name: string; description: string; price: number | null; enabled: boolean }>)
+          .filter((s) => s.enabled && s.price && s.price > 0 && s.id.startsWith("cleanout_"))
+          .map((s) => ({ id: s.id, name: s.name, description: s.description, price: s.price! }));
+      }
+    }
+
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
 
@@ -418,6 +434,7 @@ export async function createQuote(
         totalPrice: finalTotal,
         depositAmount,
         checkoutUrl,
+        cleanoutServices: cleanoutServices.length > 0 ? cleanoutServices : undefined,
       });
 
       const bizName = effectiveBusinessName || siteConfig.name;

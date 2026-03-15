@@ -1148,10 +1148,11 @@ export interface QuoteEmailData {
   totalPrice: number;
   depositAmount: number;
   checkoutUrl: string;
+  cleanoutServices?: Array<{ id: string; name: string; description: string; price: number }>;
 }
 
 export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
-  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl } = data;
+  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices } = data;
 
   const firstName = customerName.split(" ")[0] || customerName;
   const sigName = installerFirstName || businessName;
@@ -1191,6 +1192,27 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
         Review Quote &amp; Secure Installation
       </a>
     </div>
+    ${cleanoutServices && cleanoutServices.length > 0 ? `
+    <!-- Cleanout Upsell -->
+    <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #22c55e40;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;color:#22c55e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">&#10024; Add-On Service</p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;font-weight:700;">Want us to clean out your space first?</p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">Get the most out of your new storage — we&rsquo;ll sort, organize, and haul away the clutter before your installation. Available as an add-on at checkout.</p>
+      ${cleanoutServices.map((svc) => `
+      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:8px;">
+        <table style="width:100%;"><tr>
+          <td style="vertical-align:top;">
+            <p style="margin:0 0 2px;color:#e2e8f0;font-size:14px;font-weight:600;">${svc.name}</p>
+            <p style="margin:0;color:#94a3b8;font-size:12px;">${svc.description}</p>
+          </td>
+          <td style="text-align:right;vertical-align:middle;white-space:nowrap;padding-left:16px;">
+            <span style="color:#facc15;font-size:16px;font-weight:700;">$${svc.price}</span>
+          </td>
+        </tr></table>
+      </div>`).join("")}
+      <p style="margin:12px 0 0;color:#64748b;font-size:11px;text-align:center;">You can add cleanout service during checkout. 50% deposit, remainder at service.</p>
+    </div>
+    ` : ""}
     <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">Looking forward to getting your space organized!</p>
     <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">
       Best,<br/>${sigName}<br/>${businessName}${phoneLine}

@@ -27,6 +27,8 @@ export interface PendingLeadDetails {
   status: string;
   discount_code: string | null;
   delivery_fee: number;
+  /** Installer's available services (for cleanout upsell on pay page) */
+  installer_services?: Array<{ id: string; name: string; description: string; price: number }>;
 }
 
 export interface FetchPendingLeadResult {
@@ -98,17 +100,24 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     // Fetch installer details if assigned
     let installerName: string | null = null;
     let installerStripeId: string | null = null;
+    let installerServices: Array<{ id: string; name: string; description: string; price: number }> = [];
 
     if (lead.installer_id) {
       const { data: installer } = await db()
         .from("profiles")
-        .select("business_name, first_name, stripe_account_id")
+        .select("business_name, first_name, stripe_account_id, services_config")
         .eq("id", lead.installer_id)
         .single();
 
       if (installer) {
         installerName = installer.business_name || installer.first_name || null;
         installerStripeId = installer.stripe_account_id || null;
+        // Extract enabled cleanout services for upsell
+        if (installer.services_config && Array.isArray(installer.services_config)) {
+          installerServices = (installer.services_config as Array<{ id: string; name: string; description: string; price: number | null; enabled: boolean }>)
+            .filter((s) => s.enabled && s.price && s.price > 0 && s.id.startsWith("cleanout_"))
+            .map((s) => ({ id: s.id, name: s.name, description: s.description, price: s.price! }));
+        }
       }
     }
 
@@ -118,6 +127,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         ...lead,
         installer_name: installerName,
         installer_stripe_id: installerStripeId,
+        installer_services: installerServices.length > 0 ? installerServices : undefined,
       } as PendingLeadDetails,
     };
   } catch (err) {

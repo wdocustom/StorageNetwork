@@ -665,27 +665,64 @@ export default function BuildConfiguratorPage() {
 
   /** Build the quote units array from current state. */
   function buildQuoteUnits(): QuoteUnit[] | null {
-    const quoteUnits: QuoteUnit[] = units.map((u) => ({
-      cols: u.cols,
-      rows: u.rows,
-      toteType: u.toteType,
-      unitType: "standard" as const,
-      orientation: "standard" as const,
-      hasTotes: u.hasTotes,
-      hasWheels: u.hasWheels,
-      hasTop: u.hasTop,
-      price: u.price || 0,
-      totalW: u.totalW || 0,
-      totalH: u.totalH || 0,
-      depth: u.depth || 30,
-      desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
-      shelvingConfigId: u.shelvingConfigId,
-      overheadGridPresetId: u.overheadGridPresetId,
-      addons: u.addons,
-      paintFrameColor: u.paintFrameColor,
-      paintDoorColor: u.paintDoorColor,
-      paintSidePanelColor: u.paintSidePanelColor,
-    }));
+    const quoteUnits: QuoteUnit[] = [];
+    const processedGroups = new Set<string>();
+
+    for (const u of units) {
+      // Consolidate preset groups into a single line item
+      if (u.presetGroup) {
+        if (processedGroups.has(u.presetGroup)) continue;
+        processedGroups.add(u.presetGroup);
+        const groupUnits = units.filter((g) => g.presetGroup === u.presetGroup);
+        const groupPrice = groupUnits.reduce((s, g) => s + (g.price || 0), 0);
+        const groupSlots = groupUnits.reduce((s, g) => s + (g.slots || 0), 0);
+        const subDesc = groupUnits.map((g) => `${g.cols}×${g.rows}`).join(" + ");
+        const features: string[] = [];
+        if (groupUnits[0]?.hasTotes) features.push("Totes");
+        if (groupUnits.some((g) => g.hasWheels)) features.push("Wheels");
+        if (groupUnits.some((g) => g.hasTop)) features.push("Top");
+        const desc = `${u.presetName} (${subDesc} — ${groupSlots} slots${features.length ? `, ${features.join(", ")}` : ""})`;
+
+        quoteUnits.push({
+          cols: groupUnits[0].cols,
+          rows: groupUnits[0].rows,
+          toteType: groupUnits[0].toteType,
+          unitType: "standard" as const,
+          orientation: "standard" as const,
+          hasTotes: groupUnits[0].hasTotes,
+          hasWheels: groupUnits.some((g) => g.hasWheels),
+          hasTop: groupUnits.some((g) => g.hasTop),
+          price: groupPrice,
+          totalW: groupUnits[0].totalW || 0,
+          totalH: groupUnits[0].totalH || 0,
+          depth: groupUnits[0].depth || 30,
+          desc,
+        });
+        continue;
+      }
+
+      quoteUnits.push({
+        cols: u.cols,
+        rows: u.rows,
+        toteType: u.toteType,
+        unitType: "standard" as const,
+        orientation: "standard" as const,
+        hasTotes: u.hasTotes,
+        hasWheels: u.hasWheels,
+        hasTop: u.hasTop,
+        price: u.price || 0,
+        totalW: u.totalW || 0,
+        totalH: u.totalH || 0,
+        depth: u.depth || 30,
+        desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
+        shelvingConfigId: u.shelvingConfigId,
+        overheadGridPresetId: u.overheadGridPresetId,
+        addons: u.addons,
+        paintFrameColor: u.paintFrameColor,
+        paintDoorColor: u.paintDoorColor,
+        paintSidePanelColor: u.paintSidePanelColor,
+      });
+    }
 
     if (buildResult && units.length === 0) {
       quoteUnits.push({
