@@ -60,6 +60,7 @@ const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide")
 // ═══════════════════════════════════════════════════════════════════════════
 
 type ToteType = "HDX" | "GM";
+type UnitTypeOption = "standard" | "mini";
 type InputMode = "wallFit" | "custom";
 
 // Unit configuration for multi-unit quotes
@@ -68,6 +69,7 @@ interface UnitConfig {
   cols: number;
   rows: number;
   toteType: ToteType;
+  unitType: UnitTypeOption;
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -116,6 +118,7 @@ export default function BuildConfiguratorPage() {
 
   // Common inputs
   const [toteType, setToteType] = useState<ToteType>("HDX");
+  const [unitType, setUnitType] = useState<UnitTypeOption>("standard");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(false);
@@ -206,6 +209,7 @@ export default function BuildConfiguratorPage() {
       cols: 0,
       rows: 0,
       toteType: "HDX",
+      unitType: "standard",
       hasTotes: false,
       hasWheels: false,
       hasTop: false,
@@ -378,6 +382,7 @@ export default function BuildConfiguratorPage() {
         cols: su.cols,
         rows: su.rows,
         toteType: preset.toteModel as ToteType,
+        unitType: "standard" as UnitTypeOption,
         hasTotes: presetHasTotes,
         hasWheels: preset.units[i].hasWheels,
         hasTop: preset.units[i].hasTop,
@@ -432,6 +437,7 @@ export default function BuildConfiguratorPage() {
       cols: preset.slotsWide,
       rows: preset.slotsDeep,
       toteType: overheadToteType,
+      unitType: "standard",
       hasTotes: overheadHasTotes,
       hasWheels: false,
       hasTop: false,
@@ -462,6 +468,7 @@ export default function BuildConfiguratorPage() {
       cols: 0,
       rows: 0,
       toteType: "HDX",
+      unitType: "standard",
       hasTotes: false,
       hasWheels: false,
       hasTop: true,
@@ -512,7 +519,8 @@ export default function BuildConfiguratorPage() {
         cols: inputMode === "custom" ? parseInt(customCols) : undefined,
         rows: inputMode === "custom" ? parseInt(customRows) : undefined,
         toteModel: toteType,
-        addOns: { totes: hasTotes, wheels: hasWheels, top: hasTop },
+        unitType,
+        addOns: { totes: hasTotes, wheels: hasWheels, top: unitType === "mini" ? true : hasTop },
         mode: inputMode === "wallFit" ? "wallFit" : "manual",
         installerPricing,
       });
@@ -578,9 +586,10 @@ export default function BuildConfiguratorPage() {
       cols: buildResult.cols,
       rows: buildResult.rows,
       toteType,
+      unitType,
       hasTotes,
       hasWheels,
-      hasTop,
+      hasTop: unitType === "mini" ? true : hasTop,
       price: buildResult.price,
       totalW: buildResult.totalW,
       totalH: buildResult.totalH,
@@ -630,7 +639,7 @@ export default function BuildConfiguratorPage() {
       cols: u.cols,
       rows: u.rows,
       toteType: u.toteType,
-      unitType: "standard" as const,
+      unitType: u.unitType ?? ("standard" as const),
       orientation: "standard" as const,
       hasTotes: u.hasTotes,
       hasWheels: u.hasWheels,
@@ -687,7 +696,7 @@ export default function BuildConfiguratorPage() {
           cols: groupUnits[0].cols,
           rows: groupUnits[0].rows,
           toteType: groupUnits[0].toteType,
-          unitType: "standard" as const,
+          unitType: groupUnits[0].unitType ?? ("standard" as const),
           orientation: "standard" as const,
           hasTotes: groupUnits[0].hasTotes,
           hasWheels: groupUnits.some((g) => g.hasWheels),
@@ -705,7 +714,7 @@ export default function BuildConfiguratorPage() {
         cols: u.cols,
         rows: u.rows,
         toteType: u.toteType,
-        unitType: "standard" as const,
+        unitType: u.unitType ?? ("standard" as const),
         orientation: "standard" as const,
         hasTotes: u.hasTotes,
         hasWheels: u.hasWheels,
@@ -1483,6 +1492,44 @@ export default function BuildConfiguratorPage() {
             </>
           )}
 
+          {/* ── Unit Size Toggle (Standard vs Mini) ──────────────── */}
+          {installerPricing?.mini_enabled === true && (
+            <div className="mt-3">
+              <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                Unit Size
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setUnitType("standard")}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    unitType === "standard"
+                      ? "border-yellow-400 bg-yellow-400/10"
+                      : "border-slate-700 hover:border-stone-600"
+                  }`}
+                >
+                  <div className="text-sm font-bold text-stone-200">Standard</div>
+                  <div className="mt-0.5 text-[10px] text-stone-500">27 Gallon Totes</div>
+                </button>
+                <button
+                  onClick={() => {
+                    setUnitType("mini");
+                    setHasTop(true);
+                  }}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    unitType === "mini"
+                      ? "border-yellow-400 bg-yellow-400/10"
+                      : "border-slate-700 hover:border-stone-600"
+                  }`}
+                >
+                  <div className="text-sm font-bold text-stone-200">Mini</div>
+                  <div className="mt-0.5 text-[10px] text-stone-500">6.5 Quart Totes</div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Tote Size (Standard units only) ────────────────────── */}
+          {unitType === "standard" ? (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Size
@@ -1539,25 +1586,35 @@ export default function BuildConfiguratorPage() {
               </button>
             </div>
           </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Tote Type</div>
+              <div className="mt-1 text-sm font-medium text-stone-300">
+                6.5 Quart Clear Totes (Yellow Lids)
+              </div>
+            </div>
+          )}
 
           {/* Toggles */}
           <div className="mt-3 space-y-2">
             {[
-              { val: hasTotes, set: setHasTotes, label: "Totes" },
-              { val: hasWheels, set: setHasWheels, label: "Wheels" },
-              { val: hasTop, set: setHasTop, label: "Plywood Top" },
-            ].map(({ val, set, label }) => (
+              { val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false },
+              { val: hasWheels, set: setHasWheels, label: "Wheels", disabled: false },
+              { val: unitType === "mini" ? true : hasTop, set: setHasTop, label: "Plywood Top", disabled: unitType === "mini" },
+            ].map(({ val, set, label, disabled }) => (
               <label
                 key={label}
-                className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5"
+                className={`flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 ${disabled ? "opacity-60" : "cursor-pointer"}`}
               >
                 <input
                   type="checkbox"
                   checked={val}
                   onChange={(e) => set(e.target.checked)}
+                  disabled={disabled}
                   className="h-4 w-4 accent-yellow-400"
                 />
                 <span className="text-sm text-stone-300">{label}</span>
+                {disabled && <span className="text-[9px] text-stone-600">(always included)</span>}
               </label>
             ))}
           </div>
@@ -1724,7 +1781,7 @@ export default function BuildConfiguratorPage() {
                             <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
                           ) : (
                             <>
-                              {unit.toteType} • {unit.slots} slots
+                              {unit.unitType === "mini" ? "Mini" : unit.toteType} • {unit.slots} slots
                               {unit.hasTotes && " • Totes"}
                               {unit.hasWheels && " • Wheels"}
                               {unit.hasTop && " • Top"}
