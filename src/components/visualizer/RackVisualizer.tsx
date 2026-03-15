@@ -274,6 +274,33 @@ export default function RackVisualizer(props: RackVisualizerProps) {
 
   const showMultiUnitOverlay = viewMode === "3D" && props.multiUnitControls && props.multiUnitControls.orderItems.length >= 1;
 
+  // When in 2D + multi-unit mode, derive BlueprintCanvas props from the first
+  // visible multi-unit item so that overhead/shelving units render correctly
+  // instead of falling through to the default standard tote unit.
+  const activeMultiUnit = viewMode === "2D" && props.multiUnitItems
+    ? props.multiUnitItems.find((u) => u.visible)
+    : undefined;
+
+  const bp2dOverheadConfig = activeMultiUnit?.overheadStorageConfig
+    ? { slotsWide: activeMultiUnit.overheadStorageConfig.slotsWide, slotsDeep: activeMultiUnit.overheadStorageConfig.slotsDeep, toteType: activeMultiUnit.overheadStorageConfig.toteType }
+    : props.overheadConfig;
+
+  const bp2dShelvingConfig = activeMultiUnit?.shelvingConfig ?? props.shelvingConfig;
+
+  const bp2dCols = activeMultiUnit ? activeMultiUnit.cols : props.cols;
+  const bp2dRows = activeMultiUnit ? activeMultiUnit.rows : props.rows;
+  const bp2dToteType = activeMultiUnit ? activeMultiUnit.toteType : props.toteType;
+  const bp2dToteColor = activeMultiUnit ? activeMultiUnit.toteColor : props.toteColor;
+  const bp2dUnitType = activeMultiUnit ? activeMultiUnit.unitType : props.unitType;
+  const bp2dOrientation = activeMultiUnit ? activeMultiUnit.orientation : props.orientation;
+  const bp2dHasTotes = activeMultiUnit ? activeMultiUnit.hasTotes : props.hasTotes;
+  const bp2dHasWheels = activeMultiUnit ? activeMultiUnit.hasWheels : props.hasWheels;
+  const bp2dHasTop = activeMultiUnit ? activeMultiUnit.hasTop : props.hasTop;
+  const bp2dTotalW = activeMultiUnit ? activeMultiUnit.totalW : props.totalW;
+  const bp2dTotalH = activeMultiUnit ? activeMultiUnit.totalH : props.totalH;
+  const bp2dPresetUnits = activeMultiUnit?.presetUnits ?? props.presetUnits;
+  const bp2dAddons = activeMultiUnit?.addons ?? props.addons;
+
   return (
     <div className="relative h-full w-full">
       {/* ── Multi-Unit Overlay (top-left, 3D only) ──────────────── */}
@@ -319,21 +346,21 @@ export default function RackVisualizer(props: RackVisualizerProps) {
           }}
         >
           <BlueprintCanvas
-            cols={props.cols}
-            rows={props.rows}
-            toteType={props.toteType}
-            toteColor={props.toteColor}
-            unitType={props.unitType}
-            orientation={props.orientation}
-            hasTotes={props.hasTotes}
-            hasWheels={props.hasWheels}
-            hasTop={props.hasTop}
-            totalW={props.totalW}
-            totalH={props.totalH}
-            presetUnits={props.presetUnits}
-            addons={props.addons}
-            shelvingConfig={props.shelvingConfig}
-            overheadConfig={props.overheadConfig}
+            cols={bp2dCols}
+            rows={bp2dRows}
+            toteType={bp2dToteType}
+            toteColor={bp2dToteColor}
+            unitType={bp2dUnitType}
+            orientation={bp2dOrientation}
+            hasTotes={bp2dHasTotes}
+            hasWheels={bp2dHasWheels}
+            hasTop={bp2dHasTop}
+            totalW={bp2dTotalW}
+            totalH={bp2dTotalH}
+            presetUnits={bp2dPresetUnits}
+            addons={bp2dAddons}
+            shelvingConfig={bp2dShelvingConfig}
+            overheadConfig={bp2dOverheadConfig}
           />
         </div>
       ) : (
@@ -350,21 +377,21 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               }}
             >
               <BlueprintCanvas
-                cols={props.cols}
-                rows={props.rows}
-                toteType={props.toteType}
-                toteColor={props.toteColor}
-                unitType={props.unitType}
-                orientation={props.orientation}
-                hasTotes={props.hasTotes}
-                hasWheels={props.hasWheels}
-                hasTop={props.hasTop}
-                totalW={props.totalW}
-                totalH={props.totalH}
-                presetUnits={props.presetUnits}
-                addons={props.addons}
-                shelvingConfig={props.shelvingConfig}
-                overheadConfig={props.overheadConfig}
+                cols={bp2dCols}
+                rows={bp2dRows}
+                toteType={bp2dToteType}
+                toteColor={bp2dToteColor}
+                unitType={bp2dUnitType}
+                orientation={bp2dOrientation}
+                hasTotes={bp2dHasTotes}
+                hasWheels={bp2dHasWheels}
+                hasTop={bp2dHasTop}
+                totalW={bp2dTotalW}
+                totalH={bp2dTotalH}
+                presetUnits={bp2dPresetUnits}
+                addons={bp2dAddons}
+                shelvingConfig={bp2dShelvingConfig}
+                overheadConfig={bp2dOverheadConfig}
               />
             </div>
           }
