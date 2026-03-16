@@ -13,7 +13,7 @@ import { slugify } from "@/lib/utils";
 // 45-day period fully elapses.
 //
 // After the 45-day clock expires without a Stripe subscription:
-//   → If installer has active jobs (deposit_paid, payment_pending, completed):
+//   → If installer has active jobs (open, payment_pending, completed):
 //     → Soft lock: is_pro stays true so they can finish existing work
 //     → New bookings/configurator should be blocked by the UI
 //     → 14-day grace window from trial end — hard suspend after that
@@ -104,7 +104,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("installer_id", userId)
-      .in("status", ["deposit_paid", "payment_pending", "completed", "paid"]);
+      .in("status", ["open", "payment_pending", "completed", "paid"]);
 
     const completedJobs = jobsCompleted ?? 0;
 
@@ -200,7 +200,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("installer_id", userId)
-      .in("status", ["deposit_paid", "payment_pending", "completed"]);
+      .in("status", ["open", "payment_pending", "completed"]);
 
     const activeJobs = activeJobCount ?? 0;
     const graceEnd = new Date(trialEnd.getTime() + GRACE_PERIOD_DAYS * 86_400_000);
