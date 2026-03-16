@@ -38,6 +38,17 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
 
   const isActive = profile.is_pro !== false;
 
+  // Soft lock: trial expired, no subscription, but is_pro still true
+  // (installer has active jobs in grace period). Portfolio stays visible
+  // but new bookings are blocked — the configurator gate handles this.
+  const isSoftLocked = isActive
+    && !!profile.pro_trial_ends_at
+    && !profile.stripe_subscription_id
+    && new Date() >= new Date(profile.pro_trial_ends_at as string);
+
+  // During soft lock, hide configurator links (new bookings blocked)
+  const acceptingBookings = isActive && !isSoftLocked;
+
   const displayName =
     profile.business_name ||
     profile.trade_name ||
@@ -209,12 +220,14 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
               Storage Network
             </span>
           </Link>
-          <Link
-            href={configuratorUrl}
-            className="rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-bold text-yellow-400 transition-colors hover:bg-yellow-400/20"
-          >
-            Design Your Unit
-          </Link>
+          {acceptingBookings && (
+            <Link
+              href={configuratorUrl}
+              className="rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-bold text-yellow-400 transition-colors hover:bg-yellow-400/20"
+            >
+              Design Your Unit
+            </Link>
+          )}
         </div>
       </div>
 
@@ -308,22 +321,29 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Primary CTA — highest-contrast element */}
-              <Link
-                href={configuratorUrl}
-                className="group mb-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:shadow-yellow-400/30 sm:w-auto"
-              >
-                Design &amp; Price Your System
-                <svg
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
+              {/* Primary CTA — hidden during soft lock (no new bookings) */}
+              {acceptingBookings && (
+                <Link
+                  href={configuratorUrl}
+                  className="group mb-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:shadow-yellow-400/30 sm:w-auto"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
+                  Design &amp; Price Your System
+                  <svg
+                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+              )}
+              {isSoftLocked && (
+                <div className="mb-4 w-full rounded-xl border border-amber-400/20 bg-amber-400/5 px-6 py-3.5 text-center text-sm font-semibold text-amber-300 sm:w-auto">
+                  Not accepting new bookings right now
+                </div>
+              )}
 
               {/* Secondary: Phone, Email & Social Links */}
               <div className="flex flex-wrap items-center gap-2">
@@ -390,8 +410,8 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
           </div>
           <div className="space-y-3">
-            {/* Custom Tote Storage — links to configurator */}
-            {hasToteStorage && (
+            {/* Custom Tote Storage — links to configurator (hidden during soft lock) */}
+            {hasToteStorage && acceptingBookings && (
               <Link
                 href={configuratorUrl}
                 className="group flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-700/60 bg-[#0d1220] p-5 transition-all hover:border-yellow-400/30 hover:bg-[#111827] sm:flex-row sm:items-start"
@@ -460,52 +480,54 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* ── CTA Section ─────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-3xl px-4 pb-12 pt-4">
-        <div className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/[0.08] via-[#0d1220] to-[#0d1220]">
-          {/* Decorative corner glow */}
-          <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-yellow-400/[0.06] blur-3xl" />
+      {/* ── CTA Section (hidden during soft lock — no new bookings) ──── */}
+      {acceptingBookings && (
+        <section className="mx-auto max-w-3xl px-4 pb-12 pt-4">
+          <div className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/[0.08] via-[#0d1220] to-[#0d1220]">
+            {/* Decorative corner glow */}
+            <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-yellow-400/[0.06] blur-3xl" />
 
-          <div className="relative p-6 sm:p-8">
-            <div className="mx-auto max-w-md text-center">
-              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Free 3D Designer
-              </div>
+            <div className="relative p-6 sm:p-8">
+              <div className="mx-auto max-w-md text-center">
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-yellow-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-yellow-400">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Free 3D Designer
+                </div>
 
-              <h2 className="mb-2 text-xl font-black tracking-tight text-white sm:text-2xl">
-                Design Your Custom Storage System
-              </h2>
-              <p className="mb-6 text-sm text-stone-400">
-                Use {displayName}&apos;s 3D configurator to design your perfect tote storage system.
-                Get instant pricing, view it in 3D, and secure your installation date.
-              </p>
+                <h2 className="mb-2 text-xl font-black tracking-tight text-white sm:text-2xl">
+                  Design Your Custom Storage System
+                </h2>
+                <p className="mb-6 text-sm text-stone-400">
+                  Use {displayName}&apos;s 3D configurator to design your perfect tote storage system.
+                  Get instant pricing, view it in 3D, and secure your installation date.
+                </p>
 
-              <Link
-                href={configuratorUrl}
-                className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:shadow-yellow-400/30"
-              >
-                Start Designing
-                <svg
-                  className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
+                <Link
+                  href={configuratorUrl}
+                  className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:shadow-yellow-400/30"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
+                  Start Designing
+                  <svg
+                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
 
-              <p className="mt-4 text-xs text-stone-600">
-                Design takes 30 seconds. No account required.
-              </p>
+                <p className="mt-4 text-xs text-stone-600">
+                  Design takes 30 seconds. No account required.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-800/40 bg-[#070a13]">

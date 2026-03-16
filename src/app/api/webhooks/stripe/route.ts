@@ -123,12 +123,22 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
 
     console.log(`[Bounty] Deposit: $${(depositCents / 100).toFixed(2)} → 30% = $${(calculatedBountyCents / 100).toFixed(2)} → Final: $${(bountyAmountCents / 100).toFixed(2)}`);
 
-    // 3. Fetch the referring installer's Stripe account + email
+    // 3. Fetch the referring installer's Stripe account + email + trial status
     const { data: referrer, error: refErr } = await getDb()
       .from("profiles")
-      .select("stripe_account_id, email, business_name, first_name")
+      .select("stripe_account_id, email, business_name, first_name, pro_trial_ends_at, stripe_subscription_id")
       .eq("id", claimed.referring_installer_id)
       .single();
+
+    // Block bounty payout for soft-locked installers (trial expired, no subscription)
+    if (referrer?.pro_trial_ends_at && !referrer.stripe_subscription_id) {
+      const trialEnd = new Date(referrer.pro_trial_ends_at as string);
+      if (new Date() >= trialEnd) {
+        console.log(`[Bounty] Referring installer ${claimed.referring_installer_id} is soft-locked — forfeiting bounty`);
+        await getDb().from("leads").update({ bounty_status: "forfeited" }).eq("id", leadId);
+        return;
+      }
+    }
 
     if (refErr || !referrer?.stripe_account_id) {
       console.warn("[Bounty] Referring installer has no Stripe account:", claimed.referring_installer_id);

@@ -26,7 +26,18 @@ export interface AvailabilityResult {
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs, pro_trial_ends_at, stripe_subscription_id";
+
+/**
+ * Detect soft-lock state: trial expired but is_pro kept true for active jobs.
+ * Soft-locked installers should not accept NEW bookings.
+ */
+function isSoftLocked(data: Record<string, unknown>): boolean {
+  const trialEnd = data.pro_trial_ends_at as string | null;
+  const hasSubscription = !!data.stripe_subscription_id;
+  if (!trialEnd || hasSubscription) return false;
+  return new Date() >= new Date(trialEnd);
+}
 
 function toResult(
   data: Record<string, unknown> | null,
@@ -123,8 +134,9 @@ export async function checkAvailability(
           }
         }
 
-        // Find the first installer who isn't at capacity
+        // Find the first installer who isn't at capacity and isn't soft-locked
         for (const installer of matches) {
+          if (isSoftLocked(installer as Record<string, unknown>)) continue;
           const currentLeads = (installer.current_month_leads as number) ?? 0;
           const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 
@@ -147,6 +159,7 @@ export async function checkAvailability(
 
       if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
         for (const installer of fallbackMatches) {
+          if (isSoftLocked(installer as Record<string, unknown>)) continue;
           const currentLeads = (installer.current_month_leads as number) ?? 0;
           const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 
@@ -219,6 +232,7 @@ export async function rerouteToLocalInstaller(
       }
 
       for (const installer of matches) {
+        if (isSoftLocked(installer as Record<string, unknown>)) continue;
         const currentLeads = (installer.current_month_leads as number) ?? 0;
         const maxLeads = (installer.max_monthly_leads as number) ?? 25;
 
@@ -241,6 +255,7 @@ export async function rerouteToLocalInstaller(
 
     if (!fbErr && fallbackMatches && fallbackMatches.length > 0) {
       for (const installer of fallbackMatches) {
+        if (isSoftLocked(installer as Record<string, unknown>)) continue;
         const currentLeads = (installer.current_month_leads as number) ?? 0;
         const maxLeads = (installer.max_monthly_leads as number) ?? 25;
         if (currentLeads < maxLeads) {
@@ -277,7 +292,7 @@ export async function getInstallerById(
         return toResult(null, "Installer not found.");
       }
 
-      if ((data as Record<string, unknown>).is_suspended === true) {
+      if ((data as Record<string, unknown>).is_suspended === true || isSoftLocked(data as Record<string, unknown>)) {
         return toResult(null, "This installer is not currently active.");
       }
 
@@ -310,8 +325,8 @@ export async function getInstallerBySlug(
         return getInstallerByRef(slug);
       }
 
-      // Suspended or inactive installers should not accept new leads
-      if (data.is_pro === false || (data as Record<string, unknown>).is_suspended === true) {
+      // Suspended, inactive, or soft-locked installers should not accept new leads
+      if (data.is_pro === false || (data as Record<string, unknown>).is_suspended === true || isSoftLocked(data as Record<string, unknown>)) {
         return toResult(null, "This installer is not currently active.");
       }
 
@@ -343,7 +358,7 @@ export async function getInstallerByRef(
         return toResult(null, "Installer not found.");
       }
 
-      if ((data as Record<string, unknown>).is_suspended === true) {
+      if ((data as Record<string, unknown>).is_suspended === true || isSoftLocked(data as Record<string, unknown>)) {
         return toResult(null, "This installer is not currently active.");
       }
 

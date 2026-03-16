@@ -13,9 +13,14 @@ import { slugify } from "@/lib/utils";
 //   2. 45 days pass from signup (hidden — installer never sees this timer)
 //
 // If trial expires without a Stripe subscription:
-//   → Account is suspended (is_pro = false)
-//   → Portfolio page shows "inactive installer" overlay
-//   → Configurator/booking links stop working
+//   → If installer has active jobs (deposit_paid, payment_pending, completed):
+//     → Soft lock: is_pro stays true so they can finish existing work
+//     → New bookings/configurator should be blocked by the UI
+//     → 14-day grace window from trial end — hard suspend after that
+//   → If no active jobs (or grace window passed):
+//     → Hard suspend: is_pro = false
+//     → Portfolio page shows "inactive installer" overlay
+//     → Configurator/booking links stop working
 //
 // If they subscribe via Stripe, trial fields are cleared and they continue
 // as a paid Pro subscriber.
@@ -24,10 +29,14 @@ import { slugify } from "@/lib/utils";
 const supabase = getServiceClient();
 
 const TRIAL_JOB_LIMIT = 3;
+const GRACE_PERIOD_DAYS = 14;
 
 export interface TrialStatus {
   onTrial: boolean;
   trialExpired: boolean;
+  softLocked: boolean;
+  activeJobsCount: number;
+  graceEndsAt: string | null;
   jobsCompleted: number;
   jobsRemaining: number;
   partnerName: string | null;
@@ -46,6 +55,9 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
   const noTrial: TrialStatus = {
     onTrial: false,
     trialExpired: false,
+    softLocked: false,
+    activeJobsCount: 0,
+    graceEndsAt: null,
     jobsCompleted: 0,
     jobsRemaining: 0,
     partnerName: null,
@@ -148,13 +160,66 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       return {
         onTrial: true,
         trialExpired: false,
+        softLocked: false,
+        activeJobsCount: 0,
+        graceEndsAt: null,
         jobsCompleted: completedJobs,
         jobsRemaining: Math.max(0, TRIAL_JOB_LIMIT - completedJobs),
         partnerName: profile.pro_trial_partner,
       };
     }
 
-    // ── Trial expired — suspend account ──────────────────────────────────
+    // ── Trial expired — check for active jobs before suspending ─────────
+    //
+    // If the installer has jobs in progress (deposit collected, awaiting
+    // payment, or completed-but-unpaid), don't hard-lock them out.
+    // Instead, soft-lock: keep is_pro true so they can finish existing
+    // work, but the UI should block new bookings. This avoids stranding
+    // customers who already paid deposits and burning installer trust.
+    //
+    // Grace window: 14 days from trial end. After that, hard suspend
+    // regardless — prevents indefinite stalling.
+
+    // Active jobs = deposit paid but not yet fully resolved
+    const { count: activeJobCount } = await supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("installer_id", userId)
+      .in("status", ["deposit_paid", "payment_pending", "completed"]);
+
+    const activeJobs = activeJobCount ?? 0;
+    const graceEnd = new Date(trialEnd.getTime() + GRACE_PERIOD_DAYS * 86_400_000);
+    const withinGrace = now < graceEnd;
+
+    if (activeJobs > 0 && withinGrace) {
+      // ── Soft lock: let them finish existing jobs ────────────────────
+      // Keep is_pro = true so dashboard/job management still works.
+      // Don't clear trial fields — we need pro_trial_ends_at to
+      // calculate when the grace window ends.
+      if (!profile.is_pro) {
+        await supabase
+          .from("profiles")
+          .update({ is_pro: true })
+          .eq("id", userId);
+      }
+
+      console.log(
+        `[ProTrial] Trial expired for ${userId} — soft lock: ${activeJobs} active job(s), grace until ${graceEnd.toISOString()}`
+      );
+
+      return {
+        onTrial: false,
+        trialExpired: true,
+        softLocked: true,
+        activeJobsCount: activeJobs,
+        graceEndsAt: graceEnd.toISOString(),
+        jobsCompleted: completedJobs,
+        jobsRemaining: 0,
+        partnerName: profile.pro_trial_partner,
+      };
+    }
+
+    // ── Hard suspend — no active jobs or grace window passed ──────────
     // Slug is preserved so the portfolio URL still resolves
     // (shows an "inactive installer" overlay instead of 404)
     await supabase
@@ -166,14 +231,19 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       })
       .eq("id", userId);
 
-    const reason = jobsExpired
-      ? `completed ${completedJobs} jobs`
-      : "45-day period elapsed";
+    const reason = activeJobs > 0
+      ? `grace period ended with ${activeJobs} unresolved job(s)`
+      : jobsExpired
+        ? `completed ${completedJobs} jobs`
+        : "45-day period elapsed";
     console.log(`[ProTrial] Trial expired for ${userId} — ${reason} — account suspended`);
 
     return {
       onTrial: false,
       trialExpired: true,
+      softLocked: false,
+      activeJobsCount: 0,
+      graceEndsAt: null,
       jobsCompleted: completedJobs,
       jobsRemaining: 0,
       partnerName: null,

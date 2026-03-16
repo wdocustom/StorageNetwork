@@ -199,6 +199,7 @@ export async function createQuote(
     let effectivePhone = installer_phone;
     let referringInstallerId: string | null = null;
     let referralStatus: ReferralStatus = "none";
+    let referrerSoftLocked = false;
     let coveringInstallerName: string | undefined;
     let effectiveQuoteData = quote_data;
     let effectiveTotal = grand_total;
@@ -222,6 +223,18 @@ export async function createQuote(
         effectiveBusinessName = localResult.installer_name || "Storage Network";
         coveringInstallerName = localResult.installer_name || "a local installer";
         referralStatus = "handed_off";
+
+        // Check if referring installer is soft-locked (no bounty)
+        const { data: refProfile } = await supabase
+          .from("profiles")
+          .select("pro_trial_ends_at, stripe_subscription_id")
+          .eq("id", installer_id)
+          .maybeSingle();
+        if (refProfile?.pro_trial_ends_at && !refProfile.stripe_subscription_id) {
+          if (new Date() >= new Date(refProfile.pro_trial_ends_at)) {
+            referrerSoftLocked = true;
+          }
+        }
 
         // Fetch covering installer's profile for email details + pricing
         const { data: coveringProfile } = await supabase
@@ -379,8 +392,10 @@ export async function createQuote(
         // Distance-based delivery fee (tax-exempt, included in estimated_price)
         delivery_fee: delivery_fee || 0,
         // Network Referral Bounty tracking
+        // Soft-locked installers (trial expired, active jobs in grace period)
+        // don't earn new bounties — that's a paid-subscriber benefit.
         referring_installer_id: referringInstallerId,
-        bounty_status: referringInstallerId ? "pending" : "none",
+        bounty_status: referringInstallerId && !referrerSoftLocked ? "pending" : "none",
       })
       .select("id")
       .single();

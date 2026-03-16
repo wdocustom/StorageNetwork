@@ -123,8 +123,24 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   }
 
   try {
-    // All installers are eligible for referral bounties
-    const referralEligible = !!input.referring_installer_id;
+    // Referral bounty eligibility: must have a referring installer who
+    // isn't soft-locked (trial expired with active jobs in grace period).
+    // Soft-locked installers can finish existing jobs but shouldn't earn
+    // new bounties — that's a paid-subscriber benefit.
+    let referralEligible = !!input.referring_installer_id;
+    if (referralEligible && input.referring_installer_id) {
+      const { data: refProfile } = await supabase
+        .from("profiles")
+        .select("pro_trial_ends_at, stripe_subscription_id")
+        .eq("id", input.referring_installer_id)
+        .maybeSingle();
+      if (refProfile?.pro_trial_ends_at && !refProfile.stripe_subscription_id) {
+        const trialEnd = new Date(refProfile.pro_trial_ends_at);
+        if (new Date() >= trialEnd) {
+          referralEligible = false;
+        }
+      }
+    }
 
     // Separate organizer units from service add-ons (e.g. cleanout)
     const unitItems = input.quote_data.filter((u): u is QuoteUnit => !("type" in u));

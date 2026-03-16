@@ -81,9 +81,10 @@ export default function DashboardPage() {
     // Check and enforce Pro trial expiry (runs on every dashboard load)
     checkProTrial(user.id).then((status) => {
       setTrialStatus(status);
-      // If trial just expired, the server action already reverted is_pro.
-      // Reload profile to reflect the change.
-      if (!status.onTrial && profile?.is_pro) {
+      // If trial expired (hard suspend, not soft lock), the server action
+      // already reverted is_pro. Reload profile to reflect the change.
+      // Soft lock keeps is_pro = true so installer can finish active jobs.
+      if (status.trialExpired && !status.softLocked && profile?.is_pro) {
         supabase.from("profiles").select("is_pro").eq("id", user.id).single().then(({ data }) => {
           if (data && !data.is_pro && profile) {
             setProfile({ ...profile, is_pro: false });
@@ -304,8 +305,28 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Trial Expired Banner ───────────────────────────────────── */}
-      {trialStatus?.trialExpired && (
+      {/* ── Soft Lock Banner (trial expired, active jobs remain) ──── */}
+      {trialStatus?.softLocked && (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-sm font-bold text-amber-300">
+              Your trial has ended — finish your {trialStatus.activeJobsCount} active {trialStatus.activeJobsCount === 1 ? "job" : "jobs"}
+            </p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              New bookings are paused. Subscribe to keep your account fully active ·{" "}
+              <a
+                href="/upgrade"
+                className="font-bold underline hover:text-amber-200"
+              >
+                Subscribe Now
+              </a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Trial Expired Banner (hard suspend, no active jobs) ───── */}
+      {trialStatus?.trialExpired && !trialStatus?.softLocked && (
         <div className="shrink-0 border-b border-red-400/20 bg-red-400/5 px-4 py-3">
           <div className="mx-auto max-w-lg text-center">
             <p className="text-sm font-bold text-red-300">

@@ -8,6 +8,7 @@ import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { checkProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
 import { DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
@@ -253,6 +254,9 @@ export default function BuildConfiguratorPage() {
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
   const [showMaterialPricing, setShowMaterialPricing] = useState(false);
 
+  // Soft lock: trial expired but active jobs remain — block new quotes
+  const [softLocked, setSoftLocked] = useState(false);
+
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
     const {
@@ -264,6 +268,14 @@ export default function BuildConfiguratorPage() {
     }
 
     setUserId(user.id);
+
+    // Check trial status — block /build during soft lock
+    const trialStatus = await checkProTrial(user.id);
+    if (trialStatus.softLocked) {
+      setSoftLocked(true);
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from("profiles")
@@ -949,6 +961,38 @@ export default function BuildConfiguratorPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+      </div>
+    );
+  }
+
+  // Soft lock gate: trial expired, active jobs remain — no new quotes
+  if (softLocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/10">
+            <HardHat className="h-8 w-8 text-amber-400" />
+          </div>
+          <h1 className="mb-2 text-xl font-black text-white">Finish Your Active Jobs</h1>
+          <p className="mb-6 text-sm text-stone-400">
+            Your trial has ended. Complete your current jobs, then subscribe to
+            send new quotes and accept new bookings.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <a
+              href="/upgrade"
+              className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              Subscribe Now
+            </a>
+            <a
+              href="/dashboard"
+              className="rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-700"
+            >
+              Back to Dashboard
+            </a>
+          </div>
+        </div>
       </div>
     );
   }
