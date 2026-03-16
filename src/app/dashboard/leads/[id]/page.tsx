@@ -22,6 +22,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { startTripNotify } from "@/app/actions/sms";
 import { updateCustomerContact } from "@/app/actions/jobs";
+import { maskName, maskEmail, maskPhone } from "@/lib/email";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -165,6 +166,8 @@ export default function JobTicketPage() {
   }
 
   function openContactEdit() {
+    // Block editing for waitlisted leads — contact details are masked
+    if (lead?.status === "waitlisted") return;
     setEditEmail(lead?.customer_email || "");
     setEditPhone(lead?.customer_phone || "");
     setShowContactEdit(true);
@@ -234,92 +237,129 @@ export default function JobTicketPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Customer Info (clickable to edit contact) ────────────── */}
-        <section
-          onClick={openContactEdit}
-          className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900 p-4 transition-colors hover:border-yellow-400/40"
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-              Customer
-            </h2>
-            <Pencil className="h-3.5 w-3.5 text-stone-600" />
-          </div>
-          <p className="text-lg font-bold text-white">{lead.customer_name}</p>
-          {lead.customer_email ? (
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
-              <Mail className="h-3 w-3 text-stone-500" />
-              {lead.customer_email}
-            </p>
-          ) : (
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
-              <Mail className="h-3 w-3" />
-              No email — tap to add
-            </p>
-          )}
-          {lead.customer_phone ? (
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
-              <Phone className="h-3 w-3 text-stone-500" />
-              {lead.customer_phone}
-            </p>
-          ) : (
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
-              <Phone className="h-3 w-3" />
-              No phone — tap to add
-            </p>
-          )}
-          {lead.address ? (
-            <a
-              href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-yellow-400 hover:text-yellow-300"
-            >
-              <MapPin className="h-3 w-3" />
-              {lead.address}
-            </a>
-          ) : lead.address_line1 ? (
-            <div className="mt-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
-              <p className="flex items-center gap-1 text-sm font-semibold text-white">
-                <MapPin className="h-3 w-3 text-yellow-400" />
-                {lead.address_line1}
-              </p>
-              <p className="text-xs text-stone-400">
-                {[lead.address_city, lead.address_state, lead.address_zip].filter(Boolean).join(", ")}
-              </p>
+        {/* ── Customer Info ────────────────────────────────────────── */}
+        {lead.status === "waitlisted" ? (
+          /* Waitlisted lead — mask contact details, show upgrade CTA */
+          <section className="rounded-xl border border-amber-500/30 bg-slate-900 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                Waitlisted Customer
+              </h2>
             </div>
-          ) : null}
+            <p className="text-lg font-bold text-white">{maskName(lead.customer_name)}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-500">
+              <Mail className="h-3 w-3 text-stone-600" />
+              {lead.customer_email ? maskEmail(lead.customer_email) : "Hidden"}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-500">
+              <Phone className="h-3 w-3 text-stone-600" />
+              {lead.customer_phone ? maskPhone(lead.customer_phone) : "Hidden"}
+            </p>
 
-          {/* Delivery / Installation Address */}
-          {lead.delivery_address_line1 && (
-            <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                Delivery / Installation Address
+            <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-center">
+              <p className="mb-2 text-xs font-semibold text-amber-300">
+                Subscribe to Pro to unlock this customer&apos;s full details and accept the job.
               </p>
               <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(
-                  [lead.delivery_address_line1, lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")
-                )}`}
+                href="/upgrade"
+                className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+              >
+                Subscribe &amp; Unlock
+              </a>
+            </div>
+
+            <p className="mt-3 text-xs text-stone-600">
+              Submitted {new Date(lead.created_at).toLocaleDateString()}
+            </p>
+          </section>
+        ) : (
+          /* Normal lead — full contact info, editable */
+          <section
+            onClick={openContactEdit}
+            className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900 p-4 transition-colors hover:border-yellow-400/40"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                Customer
+              </h2>
+              <Pencil className="h-3.5 w-3.5 text-stone-600" />
+            </div>
+            <p className="text-lg font-bold text-white">{lead.customer_name}</p>
+            {lead.customer_email ? (
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
+                <Mail className="h-3 w-3 text-stone-500" />
+                {lead.customer_email}
+              </p>
+            ) : (
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
+                <Mail className="h-3 w-3" />
+                No email — tap to add
+              </p>
+            )}
+            {lead.customer_phone ? (
+              <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
+                <Phone className="h-3 w-3 text-stone-500" />
+                {lead.customer_phone}
+              </p>
+            ) : (
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
+                <Phone className="h-3 w-3" />
+                No phone — tap to add
+              </p>
+            )}
+            {lead.address ? (
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 text-sm font-semibold text-white hover:text-emerald-300"
+                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-yellow-400 hover:text-yellow-300"
               >
-                <Navigation className="h-3 w-3 text-emerald-400" />
-                {lead.delivery_address_line1}
-                {lead.delivery_address_line2 ? `, ${lead.delivery_address_line2}` : ""}
+                <MapPin className="h-3 w-3" />
+                {lead.address}
               </a>
-              <p className="text-xs text-stone-400">
-                {[lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")}
-              </p>
-            </div>
-          )}
+            ) : lead.address_line1 ? (
+              <div className="mt-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                <p className="flex items-center gap-1 text-sm font-semibold text-white">
+                  <MapPin className="h-3 w-3 text-yellow-400" />
+                  {lead.address_line1}
+                </p>
+                <p className="text-xs text-stone-400">
+                  {[lead.address_city, lead.address_state, lead.address_zip].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            ) : null}
 
-          <p className="mt-2 text-xs text-stone-600">
-            Submitted {new Date(lead.created_at).toLocaleDateString()}
-          </p>
-        </section>
+            {/* Delivery / Installation Address */}
+            {lead.delivery_address_line1 && (
+              <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Delivery / Installation Address
+                </p>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(
+                    [lead.delivery_address_line1, lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-sm font-semibold text-white hover:text-emerald-300"
+                >
+                  <Navigation className="h-3 w-3 text-emerald-400" />
+                  {lead.delivery_address_line1}
+                  {lead.delivery_address_line2 ? `, ${lead.delivery_address_line2}` : ""}
+                </a>
+                <p className="text-xs text-stone-400">
+                  {[lead.delivery_address_city, lead.delivery_address_state, lead.delivery_address_zip].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            )}
+
+            <p className="mt-2 text-xs text-stone-600">
+              Submitted {new Date(lead.created_at).toLocaleDateString()}
+            </p>
+          </section>
+        )}
 
         {/* ── Customer Contact Edit Modal ─────────────────────────────── */}
         {showContactEdit && (
@@ -461,9 +501,9 @@ export default function JobTicketPage() {
           status={lead.status}
           photoUrl={lead.photo_url}
           quoteData={lead.quote_data}
-          customerEmail={lead.customer_email}
-          customerName={lead.customer_name}
-          customerPhone={lead.customer_phone}
+          customerEmail={lead.status === "waitlisted" ? null : lead.customer_email}
+          customerName={lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name}
+          customerPhone={lead.status === "waitlisted" ? null : lead.customer_phone}
           scheduledAt={lead.scheduled_at}
           installerStripeId={installerStripeId}
           source={lead.source}

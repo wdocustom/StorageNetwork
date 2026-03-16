@@ -13,6 +13,7 @@ import {
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
+import { maskName } from "@/lib/email";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -316,7 +317,7 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
           <div className="text-center">
             <p className="mb-3 text-sm font-bold text-red-400">Delete this quote?</p>
             <p className="mb-4 text-xs text-stone-400">
-              {lead.customer_name} — ${lead.estimated_price?.toLocaleString() ?? "0"}
+              {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name} — ${lead.estimated_price?.toLocaleString() ?? "0"}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
@@ -346,13 +347,17 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
             <p className="truncate text-base font-bold text-white">
-              {lead.customer_name}
+              {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name}
             </p>
-            {lead.address && (
+            {lead.status === "waitlisted" ? (
+              <p className="mt-0.5 truncate text-xs font-semibold text-amber-400">
+                Waitlisted — subscribe to unlock details
+              </p>
+            ) : lead.address ? (
               <p className="mt-0.5 truncate text-sm text-stone-500">
                 {lead.address}
               </p>
-            )}
+            ) : null}
           </div>
           <SourceBadge source={lead.source} />
         </div>

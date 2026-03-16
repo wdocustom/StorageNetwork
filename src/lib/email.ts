@@ -2634,6 +2634,27 @@ export async function sendOverheadAnnouncementEmail(
 //          has used all 3 trial jobs. The lead is captured as a hostage.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Masking helpers — used to redact contact info in trial cap emails + dashboard
+export function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "***@***.com";
+  return `${local[0]}${"*".repeat(Math.max(local.length - 1, 2))}@${domain}`;
+}
+
+export function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return "***-****";
+  return `(***) ***-${digits.slice(-4)}`;
+}
+
+export function maskName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return "Customer";
+  const first = parts[0];
+  const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1][0]}.` : "";
+  return `${first}${lastInitial}`;
+}
+
 export async function sendTrialCapHotLead(
   installerEmail: string,
   data: {
@@ -2647,8 +2668,13 @@ export async function sendTrialCapHotLead(
 ): Promise<SendEmailResult> {
   const upgradeUrl = `${getAppUrl()}/upgrade`;
 
-  const phoneLine = data.customerPhone
-    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.customerPhone}</td></tr>`
+  // Mask customer details — installer must subscribe to unlock
+  const maskedName = maskName(data.customerName);
+  const maskedEmail = maskEmail(data.customerEmail);
+  const maskedPhone = data.customerPhone ? maskPhone(data.customerPhone) : null;
+
+  const phoneLine = maskedPhone
+    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#64748b;">${maskedPhone}</td></tr>`
     : "";
 
   const hasQuote = data.quoteData && data.quoteData.length > 0;
@@ -2675,7 +2701,7 @@ export async function sendTrialCapHotLead(
     </div>
 
     <p style="margin:0 0 24px;color:#f87171;font-size:14px;font-weight:600;text-align:center;">
-      You&rsquo;ve used all 3 free trial jobs. Subscribe to Pro to accept this booking.
+      You&rsquo;ve used all 3 free trial jobs. Subscribe to Pro to unlock this customer&rsquo;s details.
     </p>
 
     ${hasQuote ? `
@@ -2691,18 +2717,22 @@ export async function sendTrialCapHotLead(
     </div>
     ` : ""}
 
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px;">
       <p style="margin:0 0 10px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
       <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.customerName}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${data.customerEmail}" style="color:#2563eb;text-decoration:none;">${data.customerEmail}</a></td></tr>
+        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${maskedName}</td></tr>
+        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#64748b;">${maskedEmail}</td></tr>
         ${phoneLine}
       </table>
     </div>
 
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
+      Full contact details will be unlocked when you subscribe to Pro.
+    </p>
+
     <div style="text-align:center;margin-bottom:24px;">
       <a href="${upgradeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
-        Subscribe &amp; Accept This Job
+        Subscribe &amp; Unlock Customer
       </a>
     </div>
 
@@ -2714,7 +2744,7 @@ export async function sendTrialCapHotLead(
 
   return sendTransactionalEmail({
     to: installerEmail,
-    subject: `$${data.grandTotal.toLocaleString()} job waiting — ${data.customerName} wants to book`,
+    subject: `$${data.grandTotal.toLocaleString()} job waiting — a customer wants to book`,
     html,
   });
 }
