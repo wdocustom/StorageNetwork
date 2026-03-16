@@ -5,7 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
 import { BufferGeometry, BufferAttribute, DoubleSide } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 
@@ -1478,6 +1478,26 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
   );
 }
 
+/**
+ * Invisible R3F component that restores procedural textures when the
+ * browser tab becomes visible again. Browsers may GC detached canvas
+ * pixel buffers during inactivity, turning all wood textures black.
+ */
+function TextureGuard() {
+  const { gl, invalidate } = useThree();
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        restoreAllTextures();
+        invalidate();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [gl, invalidate]);
+  return null;
+}
+
 export default function Rack3D(props: Rack3DProps) {
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isOverhead = !!props.overheadConfig;
@@ -1519,8 +1539,17 @@ export default function Rack3D(props: Rack3DProps) {
         camera={{ fov: 45 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
+        onCreated={({ gl }) => {
+          const domEl = gl.domElement;
+          domEl.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+          });
+          domEl.addEventListener("webglcontextrestored", () => {
+            restoreAllTextures();
+          });
+        }}
       >
-
+        <TextureGuard />
         <ambientLight intensity={0.85} />
         <directionalLight
           position={[12, 18, 12]}

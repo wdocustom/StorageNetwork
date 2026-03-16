@@ -18,6 +18,73 @@ import {
 } from "three";
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TEXTURE PERSISTENCE — survive browser canvas GC during tab inactivity
+//
+// Browsers can reclaim the pixel buffer of detached (offscreen) canvases
+// to free memory when a tab is backgrounded. When Three.js re-renders,
+// it reads zeroed-out data → everything turns black.
+//
+// Fix: After generating a procedural canvas texture, immediately snapshot
+// the pixel data as ImageData. On WebGL context restore (or periodic
+// integrity checks), we can repaint the canvas from the snapshot.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Store pixel snapshots keyed by the canvas element */
+const textureSnapshots = new Map<HTMLCanvasElement, ImageData>();
+
+/**
+ * Snapshot a procedural canvas's pixel data so it survives browser GC.
+ * Call this immediately after drawing the canvas.
+ */
+function snapshotCanvas(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  textureSnapshots.set(canvas, imageData);
+}
+
+/**
+ * Restore a canvas from its snapshot if the browser cleared it.
+ * Returns true if restoration was needed.
+ */
+function restoreCanvasIfNeeded(canvas: HTMLCanvasElement): boolean {
+  const snapshot = textureSnapshots.get(canvas);
+  if (!snapshot) return false;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  // Check if canvas data has been zeroed out by reading a few pixels
+  const probe = ctx.getImageData(0, 0, 1, 1).data;
+  // If alpha is 0 at origin but snapshot has data, canvas was cleared
+  if (probe[3] === 0 && snapshot.data[3] !== 0) {
+    ctx.putImageData(snapshot, 0, 0);
+    return true;
+  }
+  return false;
+}
+
+/** All canvas-backed textures that need restoration after context loss */
+const managedTextures: CanvasTexture[] = [];
+
+/**
+ * Restore all managed textures after WebGL context loss or browser
+ * canvas GC. Called from Rack3D's context-restore handler.
+ */
+export function restoreAllTextures(): void {
+  for (const tex of managedTextures) {
+    const canvas = tex.image as HTMLCanvasElement;
+    if (canvas && restoreCanvasIfNeeded(canvas)) {
+      tex.needsUpdate = true;
+    }
+  }
+}
+
+/** Register a canvas texture for lifecycle management */
+function trackTexture(texture: CanvasTexture, canvas: HTMLCanvasElement): void {
+  snapshotCanvas(canvas);
+  managedTextures.push(texture);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SEEDED RANDOM — deterministic noise for consistent textures across renders
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -352,12 +419,14 @@ export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
+  trackTexture(texture, canvas);
 
   const bumpCanvas = createDougFirCanvas(256, 256, seed + 1);
   const bumpTexture = bumpCanvas ? new CanvasTexture(bumpCanvas) : null;
   if (bumpTexture) {
     bumpTexture.wrapS = RepeatWrapping;
     bumpTexture.wrapT = RepeatWrapping;
+    trackTexture(bumpTexture, bumpCanvas!);
   }
 
   return new MeshStandardMaterial({
@@ -381,6 +450,7 @@ export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
+  trackTexture(texture, canvas);
 
   return new MeshStandardMaterial({
     map: texture,
@@ -402,6 +472,7 @@ export function createPlywoodTopMaterial(seed = 250): MeshStandardMaterial {
   texture.colorSpace = SRGBColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
+  trackTexture(texture, canvas);
 
   return new MeshStandardMaterial({
     map: texture,
