@@ -2820,3 +2820,98 @@ export async function sendTrialCapCustomerConfirmation(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Waitlisted Leads Unlocked (Installer)
+// Trigger: Installer subscribes to Pro — all their waitlisted leads flip to
+//          pending_payment. This email shows the FULL (unmasked) customer
+//          details so the installer can follow up and collect deposits.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendWaitlistedLeadsUnlocked(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    leads: Array<{
+      customerName: string;
+      customerEmail: string | null;
+      customerPhone: string | null;
+      estimatedPrice: number | null;
+      leadId: string;
+    }>;
+  }
+): Promise<SendEmailResult> {
+  const baseUrl = getAppUrl();
+
+  const totalValue = data.leads.reduce(
+    (sum, l) => sum + (l.estimatedPrice ?? 0),
+    0
+  );
+
+  const leadsTableRows = data.leads
+    .map(
+      (l) => `
+      <tr style="border-bottom:1px solid #334155;">
+        <td style="padding:12px 8px;">
+          <p style="margin:0 0 4px;color:#e2e8f0;font-size:14px;font-weight:600;">${l.customerName}</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">${l.customerEmail || "—"}</p>
+          ${l.customerPhone ? `<p style="margin:0;color:#94a3b8;font-size:12px;">${l.customerPhone}</p>` : ""}
+        </td>
+        <td style="padding:12px 8px;text-align:right;vertical-align:top;">
+          <p style="margin:0 0 6px;color:#facc15;font-size:16px;font-weight:800;">${l.estimatedPrice ? `$${l.estimatedPrice.toLocaleString()}` : "—"}</p>
+          <a href="${baseUrl}/dashboard/leads/${l.leadId}" style="color:#60a5fa;font-size:12px;text-decoration:none;">View Lead &rarr;</a>
+        </td>
+      </tr>`
+    )
+    .join("");
+
+  const html = emailShell(
+    "Your Waitlisted Leads Are Unlocked",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
+
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.6;">
+      Welcome to <strong style="color:#facc15;">Storage Network Pro</strong>! 🎉
+      Your subscription is active and <strong style="color:#e2e8f0;">${data.leads.length} waitlisted lead${data.leads.length === 1 ? "" : "s"}</strong>
+      ${data.leads.length === 1 ? "has" : "have"} been unlocked.
+    </p>
+
+    <!-- Total value callout -->
+    <div style="text-align:center;margin:24px 0;padding:24px;background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;border-radius:16px;">
+      <p style="margin:0 0 4px;color:#6ee7b7;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Pipeline Unlocked</p>
+      <p style="margin:0;color:#ffffff;font-size:36px;font-weight:900;">$${totalValue.toLocaleString()}</p>
+      <p style="margin:4px 0 0;color:#6ee7b7;font-size:13px;">${data.leads.length} lead${data.leads.length === 1 ? "" : "s"} ready for follow-up</p>
+    </div>
+
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+      <div style="padding:12px 16px;border-bottom:1px solid #334155;">
+        <p style="margin:0;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Unlocked Customers</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        ${leadsTableRows}
+      </table>
+    </div>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:14px;text-align:center;line-height:1.5;">
+      These customers designed a build and are waiting to hear from you.
+      Reach out to collect their deposit and confirm the job.
+    </p>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${baseUrl}/dashboard/leads" style="display:inline-block;background-color:#10b981;color:#ffffff;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
+        View All Leads
+      </a>
+    </div>
+
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      These customers have not been charged yet. Follow up to collect deposits and lock in the jobs.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    subject: `${data.leads.length} lead${data.leads.length === 1 ? "" : "s"} unlocked — $${totalValue.toLocaleString()} in your pipeline`,
+    html,
+  });
+}
