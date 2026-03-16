@@ -295,7 +295,7 @@ export default function DashboardPage() {
             <p className="text-xs text-purple-400/70 mt-0.5">
               {trialStatus.jobsRemaining} trial {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining ·{" "}
               <a
-                href="/dashboard/profile"
+                href="/upgrade"
                 className="font-bold underline hover:text-purple-200"
               >
                 Subscribe anytime
