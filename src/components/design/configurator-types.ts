@@ -280,6 +280,13 @@ export interface ConfiguratorSidebarProps {
   // UI_TRIGGER: When this fires, the 3D model should animate/highlight
   // to draw attention to the updated configuration.
   onPulseVisualizerTrigger?: () => void;
+
+  // Trial cap waitlist (installer at 3-job limit — "hostage lead")
+  installerAtCapacity: boolean;
+  trialCapWaitlistSending: boolean;
+  trialCapWaitlistSent: boolean;
+  trialCapWaitlistError: string;
+  onJoinTrialCapWaitlist: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

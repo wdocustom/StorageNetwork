@@ -1012,17 +1012,21 @@ export default function BuildConfiguratorPage() {
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400/10">
             <HardHat className="h-8 w-8 text-yellow-400" />
           </div>
-          <h1 className="mb-2 text-xl font-black text-white">Trial Job Limit Reached</h1>
-          <p className="mb-6 text-sm text-stone-400">
-            You&apos;ve used all 3 trial jobs. Subscribe to Pro to send unlimited
-            quotes and accept new bookings. Your existing jobs are unaffected.
+          <h1 className="mb-2 text-xl font-black text-white">3 Free Trial Jobs Used</h1>
+          <p className="mb-4 text-sm text-stone-400">
+            You&apos;ve completed all 3 jobs included in your free trial.
+            New quotes and bookings cannot be sent or accepted until you subscribe to Pro.
+          </p>
+          <p className="mb-6 text-xs text-stone-500">
+            Your existing jobs are unaffected — finish them as normal.
+            Any new customers who find your page will be waitlisted until you upgrade.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a
               href="/upgrade"
               className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
             >
-              Subscribe Now
+              Subscribe to Pro
             </a>
             <a
               href="/dashboard"

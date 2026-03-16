@@ -2627,3 +2627,166 @@ export async function sendOverheadAnnouncementEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Trial Cap — Hot Lead Alert (Installer)
+// Trigger: Customer completes configurator + enters details, but installer
+//          has used all 3 trial jobs. The lead is captured as a hostage.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendTrialCapHotLead(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    grandTotal: number;
+    quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+  }
+): Promise<SendEmailResult> {
+  const upgradeUrl = `${getAppUrl()}/upgrade`;
+
+  const phoneLine = data.customerPhone
+    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.customerPhone}</td></tr>`
+    : "";
+
+  const hasQuote = data.quoteData && data.quoteData.length > 0;
+  const quoteSummary = hasQuote
+    ? data.quoteData!.map((u, i) =>
+        `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td><td style="padding:4px 0;color:#e2e8f0;font-size:13px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td></tr>`
+      ).join("")
+    : "";
+
+  const html = emailShell(
+    "You Have a Customer Ready to Book",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
+
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;">
+      A customer just designed a build and wants to hire <strong style="color:#facc15;">you</strong>.
+      They entered their details and are ready to book.
+    </p>
+
+    <!-- Dollar amount callout -->
+    <div style="text-align:center;margin:24px 0;padding:24px;background:linear-gradient(135deg,#422006,#78350f);border:2px solid #f59e0b;border-radius:16px;">
+      <p style="margin:0 0 4px;color:#fbbf24;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Job Value</p>
+      <p style="margin:0;color:#ffffff;font-size:36px;font-weight:900;">$${data.grandTotal.toLocaleString()}</p>
+    </div>
+
+    <p style="margin:0 0 24px;color:#f87171;font-size:14px;font-weight:600;text-align:center;">
+      You&rsquo;ve used all 3 free trial jobs. Subscribe to Pro to accept this booking.
+    </p>
+
+    ${hasQuote ? `
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 10px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Build Summary</p>
+      <table style="width:100%;border-collapse:collapse;">
+        ${quoteSummary}
+        <tr style="border-top:1px solid #334155;">
+          <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total</td>
+          <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.grandTotal.toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+    ` : ""}
+
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0 0 10px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.customerName}</td></tr>
+        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${data.customerEmail}" style="color:#2563eb;text-decoration:none;">${data.customerEmail}</a></td></tr>
+        ${phoneLine}
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${upgradeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
+        Subscribe &amp; Accept This Job
+      </a>
+    </div>
+
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      This customer has not been charged yet. They&rsquo;re waiting to hear from you.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    subject: `$${data.grandTotal.toLocaleString()} job waiting — ${data.customerName} wants to book`,
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Trial Cap — Waitlist Confirmation (Customer)
+// Trigger: Customer completes configurator but installer is at trial cap.
+//          Reassures them their build is saved and the installer will follow up.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendTrialCapCustomerConfirmation(
+  customerEmail: string,
+  data: {
+    customerName: string;
+    installerBusinessName: string;
+    grandTotal: number;
+    quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+  }
+): Promise<SendEmailResult> {
+  const firstName = (data.customerName || "").split(" ")[0] || "there";
+  const hasQuote = data.quoteData && data.quoteData.length > 0;
+
+  const buildSummaryHtml = hasQuote
+    ? `
+      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Saved Build</p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${data.quoteData!.map((u, i) => `
+            <tr>
+              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
+              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+            </tr>
+          `).join("")}
+          ${data.grandTotal > 0 ? `
+            <tr style="border-top:1px solid #334155;">
+              <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total Estimate</td>
+              <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.grandTotal.toLocaleString()}</td>
+            </tr>
+          ` : ""}
+        </table>
+      </div>
+    `
+    : "";
+
+  const html = emailShell(
+    "You\u2019re on the List",
+    `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
+        &#9989;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.6;">
+      <strong style="color:#facc15;">${data.installerBusinessName}</strong> is currently at full capacity,
+      but your build has been saved and they&rsquo;ve been notified. They&rsquo;ll reach out
+      to you shortly to confirm your booking.
+    </p>
+
+    ${buildSummaryHtml}
+
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      No payment has been charged. Your installer will contact you directly.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    subject: `Your build with ${data.installerBusinessName} is saved`,
+    html,
+  });
+}

@@ -11,6 +11,8 @@ import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
+import { recordTrialCapWaitlist } from "@/app/actions/demand-signals";
+import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { SHELVING_CONFIGS, type ShelvingConfig } from "@/lib/shelving";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
@@ -97,6 +99,7 @@ interface DesignConfiguratorProps {
   isDemo?: boolean;
   leadSource?: "platform" | "partner_link";
   savedSignal?: SavedSignalData;
+  initialInstallerAtCapacity?: boolean;
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -123,6 +126,7 @@ export default function DesignConfigurator({
   isDemo = false,
   leadSource = "platform",
   savedSignal,
+  initialInstallerAtCapacity = false,
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
@@ -168,6 +172,10 @@ export default function DesignConfigurator({
           setData(vm);
           setInstallerId(vm.routing.installerId);
           setInstallerCookie(vm.routing.installerId);
+          // Check if this installer is at their trial job cap
+          checkInstallerAtCapacity(vm.routing.installerId).then((cap) => {
+            setInstallerAtCapacity(cap.atCapacity);
+          }).catch(() => {});
         }
       }
     } catch {
@@ -450,6 +458,12 @@ export default function DesignConfigurator({
   const [waitlistSent, setWaitlistSent] = useState(false);
   const [waitlistError, setWaitlistError] = useState("");
   const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Trial cap waitlist (installer at 3-job limit) ──────────────────
+  const [installerAtCapacity, setInstallerAtCapacity] = useState(initialInstallerAtCapacity);
+  const [trialCapWaitlistSending, setTrialCapWaitlistSending] = useState(false);
+  const [trialCapWaitlistSent, setTrialCapWaitlistSent] = useState(false);
+  const [trialCapWaitlistError, setTrialCapWaitlistError] = useState("");
 
   // ── Delivery fee (distance-based) ──────────────────────────────────
   const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
@@ -1212,6 +1226,61 @@ export default function DesignConfigurator({
     }
   }
 
+  // ── Trial cap waitlist handler (hostage lead) ─────────────────────
+  async function handleJoinTrialCapWaitlist() {
+    setTrialCapWaitlistError("");
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+    if (!fullName || !email.trim() || !phone.trim()) {
+      setTrialCapWaitlistError("Name, email, and phone are required.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setTrialCapWaitlistError("Please enter a valid email address.");
+      return;
+    }
+    if (orderItems.length === 0) {
+      setTrialCapWaitlistError("Add at least one unit to your quote first.");
+      return;
+    }
+
+    setTrialCapWaitlistSending(true);
+    try {
+      // Build quote items with cleanout/paint add-ons
+      const items: unknown[] = [...orderItems];
+      if (selectedCleanout && cleanoutPrice > 0) {
+        const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+        items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
+      }
+      if (paintTotal > 0) {
+        const paintParts: string[] = [];
+        if (paintFrameColor) paintParts.push(`Frame: ${paintFrameColor}`);
+        if (paintDoorColor) paintParts.push(`Doors: ${paintDoorColor}`);
+        if (paintSidePanelColor) paintParts.push(`Panels: ${paintSidePanelColor}`);
+        items.push({ type: "paint", name: `Paint (${paintParts.join(", ")})`, price: paintTotal });
+      }
+
+      const res = await recordTrialCapWaitlist({
+        installerId,
+        customerName: fullName,
+        customerEmail: email.trim(),
+        customerPhone: phone.trim() || undefined,
+        zip: addrZip.trim() || zip,
+        quoteData: items,
+        grandTotal,
+      });
+
+      if (res.success) {
+        setTrialCapWaitlistSent(true);
+      } else {
+        setTrialCapWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setTrialCapWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setTrialCapWaitlistSending(false);
+    }
+  }
+
   // ── Contact installer handler ──────────────────────────────────────
   async function handleContactInstaller() {
     if (!contactMessage.trim()) {
@@ -1322,6 +1391,16 @@ export default function DesignConfigurator({
           <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
             <User className="h-3.5 w-3.5" />
             Designing with {data.branding.title}
+          </span>
+        </div>
+      )}
+
+      {/* ── Trial cap banner — installer at full capacity ────────────── */}
+      {installerAtCapacity && !trialCapWaitlistSent && (
+        <div className="shrink-0 bg-amber-600/90 px-4 py-2 text-center">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            This installer is at full capacity — design your build &amp; join the waitlist
           </span>
         </div>
       )}
@@ -1472,6 +1551,13 @@ export default function DesignConfigurator({
           waitlistSent={waitlistSent}
           waitlistError={waitlistError}
           onWaitlist={handleWaitlist}
+
+          // Trial cap waitlist (hostage lead)
+          installerAtCapacity={installerAtCapacity}
+          trialCapWaitlistSending={trialCapWaitlistSending}
+          trialCapWaitlistSent={trialCapWaitlistSent}
+          trialCapWaitlistError={trialCapWaitlistError}
+          onJoinTrialCapWaitlist={handleJoinTrialCapWaitlist}
 
           // Installer services (cleanout — adds to order)
           servicesConfig={data?.servicesConfig}

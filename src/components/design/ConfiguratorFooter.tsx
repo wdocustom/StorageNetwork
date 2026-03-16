@@ -7,6 +7,7 @@ import {
   Send,
   Loader2,
   Sparkles,
+  Clock,
 } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
@@ -71,8 +72,8 @@ export default function ConfiguratorFooter({
         </div>
       </div>
 
-      {/* CTA Button */}
-      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && activeStep === 4 && detailsFilled && props.scheduledDate && (
+      {/* CTA Button — normal booking flow */}
+      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && activeStep === 4 && detailsFilled && props.scheduledDate && (
         <motion.button
           onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
           disabled={props.submitting}
@@ -101,7 +102,25 @@ export default function ConfiguratorFooter({
         </motion.button>
       )}
 
-      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && (
+      {/* CTA Button — trial cap waitlist (hostage lead) */}
+      {props.installerAtCapacity && props.orderItems.length > 0 && !props.submitted && !props.trialCapWaitlistSent && !props.zipOutOfArea && activeStep === 4 && detailsFilled && (
+        <motion.button
+          onClick={props.onJoinTrialCapWaitlist}
+          disabled={props.trialCapWaitlistSending}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 text-sm font-bold uppercase tracking-wider text-zinc-900 shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 disabled:opacity-50"
+          whileHover={{ scale: 1.01, y: -1 }}
+          whileTap={{ scale: 0.99 }}
+        >
+          {props.trialCapWaitlistSending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Clock className="h-4 w-4" />
+          )}
+          {props.trialCapWaitlistSending ? "Saving..." : "Join Wait-list"}
+        </motion.button>
+      )}
+
+      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.trialCapWaitlistSent && (
         <p className="mt-2 text-center text-[10px] text-zinc-600">
           By placing this order, you agree to our{" "}
           <a href="/terms" className="underline hover:text-yellow-400">Terms of Service</a>.

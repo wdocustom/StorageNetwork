@@ -423,8 +423,8 @@ export default function StepSummary({
         </section>
       )}
 
-      {/* Scheduler */}
-      {props.orderItems.length > 0 && !props.submitted && props.installerId && (
+      {/* Scheduler — hidden when installer is at trial cap (waitlist flow instead) */}
+      {props.orderItems.length > 0 && !props.submitted && props.installerId && !props.installerAtCapacity && (
         <section className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             <Calendar className="mr-1.5 inline h-3.5 w-3.5 text-yellow-400" />
@@ -450,6 +450,41 @@ export default function StepSummary({
               })}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Trial Cap Waitlist — installer used all 3 trial jobs */}
+      {props.installerAtCapacity && props.orderItems.length > 0 && !props.submitted && !props.trialCapWaitlistSent && (
+        <section className="space-y-3">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <div className="mb-2 flex items-start gap-2">
+              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <div>
+                <p className="text-xs font-semibold text-amber-300">
+                  This installer is currently at full capacity.
+                </p>
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Enter your details above and join the waitlist. Your build will be saved and the installer will reach out to you directly.
+                </p>
+              </div>
+            </div>
+            {props.trialCapWaitlistError && (
+              <p className="mt-2 text-xs font-medium text-red-400">{props.trialCapWaitlistError}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Trial Cap Waitlist Success */}
+      {props.trialCapWaitlistSent && (
+        <section>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+            <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
+            <p className="text-sm font-bold text-white">You&apos;re on the List!</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Your build has been saved. The installer has been notified and will reach out to confirm your booking.
+            </p>
+          </div>
         </section>
       )}
 

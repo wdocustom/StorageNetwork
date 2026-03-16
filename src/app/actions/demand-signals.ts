@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { sendTrialCapHotLead, sendTrialCapCustomerConfirmation } from "@/lib/email";
 
 const supabase = getServiceClient();
 
@@ -89,6 +90,82 @@ export async function recordWaitlistDemand(input: {
     console.error("[DemandSignal] Insert failed:", error);
     return { success: false, error: "Failed to save waitlist request." };
   }
+
+  return { success: true, id: data?.id };
+}
+
+/**
+ * Record a trial-cap waitlist signal — customer tried to book but the
+ * installer has used all 3 trial jobs. This is a "hot lead as hostage":
+ * the customer's full build + contact info is captured, and the installer
+ * gets an email with the exact dollar amount they're leaving on the table.
+ *
+ * Uses signal_type = 'trial_cap' to distinguish from area-based waitlists.
+ */
+export async function recordTrialCapWaitlist(input: {
+  installerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  zip: string;
+  quoteData?: unknown[];
+  grandTotal?: number;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  const trimmed = input.zip.trim();
+  if (!input.customerName?.trim() || !input.customerEmail?.trim()) {
+    return { success: false, error: "Name and email are required." };
+  }
+
+  const { data, error } = await supabase.from("demand_signals").insert({
+    zip: trimmed || "00000",
+    signal_type: "trial_cap",
+    status: "unresolved",
+    customer_name: input.customerName.trim(),
+    customer_email: input.customerEmail.trim(),
+    customer_phone: input.customerPhone?.trim() || null,
+    source_installer_id: input.installerId,
+    quote_data: input.quoteData && input.quoteData.length > 0
+      ? input.quoteData
+      : null,
+  }).select("id").single();
+
+  if (error) {
+    console.error("[DemandSignal] Trial cap waitlist insert failed:", error);
+    return { success: false, error: "Failed to save waitlist request." };
+  }
+
+  // Fetch installer profile for email
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email, business_name, first_name")
+    .eq("id", input.installerId)
+    .single();
+
+  const installerName = profile?.business_name || profile?.first_name || "Installer";
+  const quoteDataForEmail = (input.quoteData || []) as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+
+  // Send emails (non-blocking — don't fail the waitlist if email fails)
+  if (profile?.email) {
+    sendTrialCapHotLead(profile.email, {
+      installerName,
+      customerName: input.customerName.trim(),
+      customerEmail: input.customerEmail.trim(),
+      customerPhone: input.customerPhone?.trim(),
+      grandTotal: input.grandTotal || 0,
+      quoteData: quoteDataForEmail,
+    }).catch((err) => {
+      console.error("[DemandSignal] Trial cap installer email failed:", err);
+    });
+  }
+
+  sendTrialCapCustomerConfirmation(input.customerEmail.trim(), {
+    customerName: input.customerName.trim(),
+    installerBusinessName: installerName,
+    grandTotal: input.grandTotal || 0,
+    quoteData: quoteDataForEmail,
+  }).catch((err) => {
+    console.error("[DemandSignal] Trial cap customer email failed:", err);
+  });
 
   return { success: true, id: data?.id };
 }

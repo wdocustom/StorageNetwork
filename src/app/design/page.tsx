@@ -9,6 +9,7 @@ import {
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
 import { generateHowToJsonLd } from "@/lib/schema/howto";
 import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
+import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -169,6 +170,13 @@ export default async function DesignPage({ searchParams }: PageProps) {
   // If from=network is set, it's always a platform lead even if installer param exists
   const isDirectLead = !fromNetwork && !!(rawInstaller && (ref || installerId || installerParam));
 
+  // ── Trial cap check — is the installer at their 3-job limit? ────────
+  // If so, we pass a flag to the configurator so it can swap the booking
+  // CTA with a waitlist flow. Runs in parallel with saved signal fetch.
+  const capacityStatus = rawInstaller?.installer_id
+    ? await checkInstallerAtCapacity(rawInstaller.installer_id)
+    : null;
+
   // ── Map to View Model — branding gate applied here ──────────────────
   // The raw installer object dies here. Only the view model is serialized
   // to the client. Free installers get platform branding; Pro gets theirs.
@@ -208,6 +216,7 @@ export default async function DesignPage({ searchParams }: PageProps) {
           initialZip={zip}
           mode={mode}
           leadSource={isDirectLead ? "partner_link" : "platform"}
+          initialInstallerAtCapacity={capacityStatus?.atCapacity ?? false}
           savedSignal={savedSignal ? {
             quoteData: savedSignal.quoteData,
             sourceInstallerId: savedSignal.sourceInstallerId || refInstaller || null,
