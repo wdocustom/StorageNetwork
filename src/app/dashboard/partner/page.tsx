@@ -479,17 +479,28 @@ export default function PartnerDashboardPage() {
 
                   {/* Status Badge */}
                   <div className="col-span-2">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        ref.status === "active"
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : ref.status === "pending"
-                          ? "bg-amber-500/10 text-amber-400"
-                          : "bg-slate-700 text-stone-400"
-                      }`}
-                    >
-                      {ref.status}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          ref.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : ref.status === "pending"
+                            ? "bg-amber-500/10 text-amber-400"
+                            : "bg-slate-700 text-stone-400"
+                        }`}
+                      >
+                        {ref.status}
+                      </span>
+                      {ref.is_pro ? (
+                        <span className="inline-flex w-fit rounded-full bg-yellow-400/10 px-2 py-0.5 text-[9px] font-bold text-yellow-400">
+                          PRO
+                        </span>
+                      ) : (
+                        <span className="inline-flex w-fit rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-bold text-stone-600">
+                          FREE
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Per-installer Value */}

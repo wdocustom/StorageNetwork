@@ -42,6 +42,7 @@ export interface ReferralRow {
   created_at: string;
   installer_name: string;
   installer_business: string | null;
+  is_pro: boolean;
 }
 
 export interface PartnerDashboardData {
@@ -195,7 +196,7 @@ export async function getPartnerDashboard(
       const installerIds = rawReferrals.map((r) => r.installer_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, business_name")
+        .select("id, first_name, last_name, business_name, is_pro")
         .in("id", installerIds);
 
       const profileMap = new Map(
@@ -212,6 +213,7 @@ export async function getPartnerDashboard(
             ? [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown"
             : "Unknown",
           installer_business: p?.business_name ?? null,
+          is_pro: p?.is_pro === true,
         });
       }
     }

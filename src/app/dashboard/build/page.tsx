@@ -11,9 +11,10 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
-import { DEFAULT_MATERIAL_PRICES, type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
+import { type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { type MaterialInventory, normalizeInventory } from "@/utils/inventoryManager";
+import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import { toFraction } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -250,9 +251,8 @@ export default function BuildConfiguratorPage() {
   const [overheadAdded, setOverheadAdded] = useState(false);
   const [overheadCollapsed, setOverheadCollapsed] = useState(false);
 
-  // Custom material pricing (stored in localStorage)
+  // Custom material pricing (loaded from DB material_pricing_config)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
-  const [showMaterialPricing, setShowMaterialPricing] = useState(false);
 
   // Soft lock: trial expired but active jobs remain — block new quotes
   const [softLocked, setSoftLocked] = useState(false);
@@ -286,7 +286,7 @@ export default function BuildConfiguratorPage() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config, material_inventory")
+      .select("is_pro, subscription_tier, business_name, first_name, phone, stripe_account_id, pricing_config, material_inventory, material_pricing_config")
       .eq("id", user.id)
       .single();
 
@@ -301,11 +301,20 @@ export default function BuildConfiguratorPage() {
       if (data.material_inventory) {
         setInstallerInventory(normalizeInventory(data.material_inventory));
       }
-      // Load custom material prices from localStorage
-      try {
-        const saved = localStorage.getItem(`sn_material_prices_${user.id}`);
-        if (saved) setMaterialPrices(JSON.parse(saved));
-      } catch { /* ignore parse errors */ }
+      // Load material pricing from DB (material_pricing_config)
+      if (data.material_pricing_config) {
+        const mpc = data.material_pricing_config as MaterialPricingConfig;
+        const p: Record<string, number> = {};
+        if (mpc.lumber_2x4_8ft !== undefined) p.lumber_2x4_8ft = mpc.lumber_2x4_8ft;
+        if (mpc.plywood_sheet !== undefined) p.plywood_sheet = mpc.plywood_sheet;
+        if (mpc.tote !== undefined) p.tote = mpc.tote;
+        if (mpc.wheels_4pk !== undefined) p.wheels_4pk = mpc.wheels_4pk;
+        // Normalize custom screw packages to equivalent default-box-size price
+        if (mpc.screw_1in) p.screw_1in_90ct = mpc.screw_1in.price / mpc.screw_1in.count * 90;
+        if (mpc.screw_1_5_8in) p.screw_1_5_8in_158ct = mpc.screw_1_5_8in.price / mpc.screw_1_5_8in.count * 158;
+        if (mpc.screw_3in) p.screw_3in_137ct = mpc.screw_3in.price / mpc.screw_3in.count * 137;
+        setMaterialPrices(p as MaterialPrices);
+      }
     }
     setLoading(false);
   }, [supabase]);
@@ -1948,47 +1957,16 @@ export default function BuildConfiguratorPage() {
                       ))}
                     </div>
 
-                    {/* Custom Material Pricing Toggle */}
-                    <button
-                      onClick={() => setShowMaterialPricing(!showMaterialPricing)}
-                      className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2 text-left transition-colors hover:border-stone-600"
-                    >
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-3.5 w-3.5 text-yellow-400" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                          Custom Material Prices
+                    {/* Custom pricing indicator — configured in Profile > Material Costs */}
+                    {Object.keys(materialPrices).length > 0 && (
+                      <div className="flex items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/20 px-3 py-1.5">
+                        <span className="rounded-full bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
+                          CUSTOM
                         </span>
-                        {Object.keys(materialPrices).length > 0 && (
-                          <span className="rounded-full bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
-                            CUSTOM
-                          </span>
-                        )}
+                        <span className="text-[10px] text-stone-500">
+                          Material prices from your profile settings
+                        </span>
                       </div>
-                      <ChevronDown className={`h-3 w-3 text-stone-500 transition-transform ${showMaterialPricing ? "rotate-180" : ""}`} />
-                    </button>
-
-                    {showMaterialPricing && (
-                      <MaterialPricingEditor
-                        prices={materialPrices}
-                        onChange={(p) => {
-                          setMaterialPrices(p);
-                          if (userId) {
-                            try { localStorage.setItem(`sn_material_prices_${userId}`, JSON.stringify(p)); } catch {}
-                          }
-                          // Recalculate if build exists (server action)
-                          if (buildResult) {
-                            calculateMaterialCostServer({
-                              cols: buildResult.cols,
-                              rows: buildResult.rows,
-                              toteType,
-                              unitType,
-                              hasTotes,
-                              hasWheels,
-                              hasTop: unitType === "mini" ? true : hasTop,
-                            }, p, installerInventory).then(setMaterialBreakdown).catch(() => {});
-                          }
-                        }}
-                      />
                     )}
                   </div>
 
@@ -2530,82 +2508,3 @@ export default function BuildConfiguratorPage() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Material Pricing Editor — Inline custom pricing for internal cost tracking
-// ═══════════════════════════════════════════════════════════════════════════
-
-const MATERIAL_FIELDS: { key: keyof typeof DEFAULT_MATERIAL_PRICES; label: string; unit: string }[] = [
-  { key: "lumber_2x4_8ft", label: "2×4 Lumber (8ft)", unit: "each" },
-  { key: "plywood_sheet", label: "Plywood (4×8 sheet)", unit: "sheet" },
-  { key: "tote", label: "27-Gal Tote", unit: "each" },
-  { key: "screw_1_5_8in_158ct", label: '1⅝" Screws (158ct box)', unit: "box" },
-  { key: "screw_3in_137ct", label: '3" Screws (137ct box)', unit: "box" },
-  { key: "screw_1in_90ct", label: '1" Screws (90ct box)', unit: "box" },
-  { key: "wheels_4pk", label: "Caster Kit (4pk)", unit: "set" },
-];
-
-function MaterialPricingEditor({
-  prices,
-  onChange,
-}: {
-  prices: MaterialPrices;
-  onChange: (prices: MaterialPrices) => void;
-}) {
-  function handleChange(key: keyof typeof DEFAULT_MATERIAL_PRICES, val: string) {
-    const num = parseFloat(val);
-    const next = { ...prices };
-    if (isNaN(num) || val === "") {
-      delete next[key];
-    } else {
-      next[key] = num;
-    }
-    onChange(next);
-  }
-
-  function resetAll() {
-    onChange({});
-  }
-
-  return (
-    <div className="space-y-2 rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-          Your Local Material Prices
-        </p>
-        {Object.keys(prices).length > 0 && (
-          <button
-            onClick={resetAll}
-            className="text-[10px] font-semibold text-red-400 hover:text-red-300"
-          >
-            Reset to Defaults
-          </button>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        {MATERIAL_FIELDS.map((f) => (
-          <div key={f.key}>
-            <label className="mb-0.5 block text-[9px] font-semibold uppercase text-stone-600">
-              {f.label}
-            </label>
-            <div className="flex overflow-hidden rounded-md border border-slate-700 bg-slate-800 focus-within:border-yellow-400">
-              <span className="flex items-center bg-slate-700/50 px-2 text-[10px] font-bold text-stone-500">$</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                placeholder={DEFAULT_MATERIAL_PRICES[f.key].toFixed(2)}
-                value={prices[f.key] ?? ""}
-                onChange={(e) => handleChange(f.key, e.target.value)}
-                className="w-full bg-transparent px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none"
-              />
-              <span className="flex items-center bg-slate-700/50 px-2 text-[9px] text-stone-600">/{f.unit}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="text-[9px] text-stone-600">
-        Prices are saved locally. Customers never see these.
-      </p>
-    </div>
-  );
-}

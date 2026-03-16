@@ -42,6 +42,7 @@ import ProPill from "@/components/dashboard/ProPill";
 import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
 import PricingSettings from "@/components/dashboard/PricingSettings";
+import MaterialCostSettings from "@/components/dashboard/MaterialCostSettings";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
 import PortfolioSection from "@/components/profile/PortfolioSection";
@@ -1385,6 +1386,9 @@ function ProfilePageInner() {
 
             {/* SECTION D: Custom Pricing */}
             <PricingSettings userId={profile.id} />
+
+            {/* SECTION D.2: Material Costs & Screw Packaging */}
+            <MaterialCostSettings userId={profile.id} />
 
             {/* SECTION D.5: Custom Deposit */}
             <CollapsibleSection
