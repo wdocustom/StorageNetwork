@@ -21,7 +21,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { MaterialConfig, MaterialBreakdown } from "@/utils/calculateMaterials";
+import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { BuildManifest } from "@/lib/buildEngine.types";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
@@ -65,6 +65,7 @@ interface JobTicketProps {
   installerStripeId: string | null;
   source?: string | null;
   inventory?: MaterialInventory | null;
+  customMaterialPrices?: MaterialPrices;
   salesTaxAmount?: number | null;
   addressState?: string | null;
   installerId?: string | null;
@@ -88,6 +89,7 @@ export default function JobTicket({
   installerStripeId,
   source,
   inventory,
+  customMaterialPrices,
   salesTaxAmount,
   addressState,
   installerId,
@@ -146,12 +148,12 @@ export default function JobTicket({
     });
   }
 
-  // ── Material calculation (server action) ─────────────────────────────
+  // ── Material calculation (server action) — uses custom pricing + inventory ──
   const [materialBreakdown, setMaterialBreakdown] = useState<MaterialBreakdown | null>(null);
   useEffect(() => {
     if (!quoteData || quoteData.length === 0) { setMaterialBreakdown(null); return; }
-    calculateMaterialCostServer(quoteData).then(setMaterialBreakdown).catch(() => {});
-  }, [quoteData]);
+    calculateMaterialCostServer(quoteData, customMaterialPrices, inventory).then(setMaterialBreakdown).catch(() => {});
+  }, [quoteData, customMaterialPrices, inventory]);
 
   // ── Build manifest (shopping list + cut plans) ─────────────────────
   const [buildManifest, setBuildManifest] = useState<BuildManifest | null>(null);

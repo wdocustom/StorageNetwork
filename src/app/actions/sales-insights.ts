@@ -2,7 +2,8 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
-import type { MaterialConfig } from "@/utils/calculateMaterials";
+import type { MaterialConfig, MaterialPrices } from "@/utils/calculateMaterials";
+import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 
 const supabase = getServiceClient();
 
@@ -96,6 +97,30 @@ export async function getSalesInsights(
     };
   }
 
+  // Load installer's custom material pricing for accurate COGS
+  let customPrices: MaterialPrices | undefined;
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("material_pricing_config")
+      .eq("id", installerId)
+      .single();
+    if (profile?.material_pricing_config) {
+      const mpc = profile.material_pricing_config as MaterialPricingConfig;
+      const p: Record<string, number> = {};
+      if (mpc.lumber_2x4_8ft !== undefined) p.lumber_2x4_8ft = mpc.lumber_2x4_8ft;
+      if (mpc.plywood_sheet !== undefined) p.plywood_sheet = mpc.plywood_sheet;
+      if (mpc.tote !== undefined) p.tote = mpc.tote;
+      if (mpc.wheels_4pk !== undefined) p.wheels_4pk = mpc.wheels_4pk;
+      if (mpc.screw_1in) p.screw_1in_90ct = mpc.screw_1in.price / mpc.screw_1in.count * 90;
+      if (mpc.screw_1_5_8in) p.screw_1_5_8in_158ct = mpc.screw_1_5_8in.price / mpc.screw_1_5_8in.count * 158;
+      if (mpc.screw_3in) p.screw_3in_137ct = mpc.screw_3in.price / mpc.screw_3in.count * 137;
+      if (Object.keys(p).length > 0) customPrices = p as MaterialPrices;
+    }
+  } catch {
+    // Fall through to default pricing
+  }
+
   let totalSales = 0;
   let totalCOGS = 0;
   let totalFees = 0;
@@ -114,7 +139,7 @@ export async function getSalesInsights(
     let materialCost = 0;
     if (quoteData.length > 0) {
       try {
-        const breakdown = await calculateMaterialCostServer(quoteData);
+        const breakdown = await calculateMaterialCostServer(quoteData, customPrices);
         materialCost = breakdown.totalCost;
         totalTotes += breakdown.rawCounts.totes;
       } catch {

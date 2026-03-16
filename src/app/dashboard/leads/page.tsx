@@ -391,14 +391,14 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
         )}
       </a>
 
-      {/* Delete button for unpaid quotes */}
+      {/* Delete button for unpaid quotes — full-width row below card */}
       {showDelete && (
         <button
-          onClick={(e) => { e.preventDefault(); setConfirmDelete(true); }}
-          className="absolute right-3 top-3 rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
-          title="Delete quote"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true); }}
+          className="flex w-full items-center justify-center gap-2 border-t border-slate-800 px-4 py-2.5 text-xs font-semibold text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete Quote
         </button>
       )}
     </li>

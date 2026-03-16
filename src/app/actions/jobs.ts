@@ -3,8 +3,9 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendTransactionalEmail } from "@/lib/email";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
-import type { MaterialConfig } from "@/utils/calculateMaterials";
+import type { MaterialConfig, MaterialPrices } from "@/utils/calculateMaterials";
 import { updateInventoryAfterJob, getInstallerInventory } from "@/app/actions/inventory";
+import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { escapeHtml } from "@/utils/escapeHtml";
 
@@ -65,10 +66,26 @@ export async function updateOperationalStatus(
   return { success: true };
 }
 
+/** Convert DB material_pricing_config to MaterialPrices for the calculator. */
+function toMaterialPrices(mpc: MaterialPricingConfig | null | undefined): MaterialPrices | undefined {
+  if (!mpc) return undefined;
+  const p: Record<string, number> = {};
+  if (mpc.lumber_2x4_8ft !== undefined) p.lumber_2x4_8ft = mpc.lumber_2x4_8ft;
+  if (mpc.plywood_sheet !== undefined) p.plywood_sheet = mpc.plywood_sheet;
+  if (mpc.tote !== undefined) p.tote = mpc.tote;
+  if (mpc.wheels_4pk !== undefined) p.wheels_4pk = mpc.wheels_4pk;
+  // Normalize custom screw packages to equivalent default-box-size price
+  if (mpc.screw_1in) p.screw_1in_90ct = mpc.screw_1in.price / mpc.screw_1in.count * 90;
+  if (mpc.screw_1_5_8in) p.screw_1_5_8in_158ct = mpc.screw_1_5_8in.price / mpc.screw_1_5_8in.count * 158;
+  if (mpc.screw_3in) p.screw_3in_137ct = mpc.screw_3in.price / mpc.screw_3in.count * 137;
+  return Object.keys(p).length > 0 ? (p as MaterialPrices) : undefined;
+}
+
 /**
  * Update material inventory after a job is completed.
  * Fetches the lead's quote_data, calculates raw material usage,
  * and adjusts the installer's running inventory.
+ * Uses the installer's custom material pricing for accurate cost tracking.
  */
 async function syncInventoryForLead(leadId: string) {
   try {
@@ -83,9 +100,21 @@ async function syncInventoryForLead(leadId: string) {
     const quoteData = lead.quote_data as MaterialConfig[];
     if (!Array.isArray(quoteData) || quoteData.length === 0) return;
 
-    // Fetch current inventory so the calculator can account for offcuts
-    const currentInventory = await getInstallerInventory(lead.installer_id);
-    const breakdown = await calculateMaterialCostServer(quoteData, undefined, currentInventory);
+    // Fetch current inventory AND custom pricing so the calculator uses accurate values
+    const [currentInventory, pricingData] = await Promise.all([
+      getInstallerInventory(lead.installer_id),
+      supabase
+        .from("profiles")
+        .select("material_pricing_config")
+        .eq("id", lead.installer_id)
+        .single(),
+    ]);
+
+    const customPrices = toMaterialPrices(
+      pricingData.data?.material_pricing_config as MaterialPricingConfig | null
+    );
+
+    const breakdown = await calculateMaterialCostServer(quoteData, customPrices, currentInventory);
     await updateInventoryAfterJob(lead.installer_id, breakdown.rawCounts);
   } catch (err) {
     // Non-blocking: inventory sync failure should never block job completion

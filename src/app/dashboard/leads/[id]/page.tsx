@@ -24,6 +24,8 @@ import { startTripNotify } from "@/app/actions/sms";
 import { updateCustomerContact } from "@/app/actions/jobs";
 import { maskName, maskEmail, maskPhone } from "@/lib/mask";
 import type { MaterialInventory } from "@/utils/inventoryManager";
+import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
+import type { MaterialPrices } from "@/utils/calculateMaterials";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -77,6 +79,7 @@ export default function JobTicketPage() {
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
   const [installerInventory, setInstallerInventory] = useState<MaterialInventory | null>(null);
+  const [installerMaterialPrices, setInstallerMaterialPrices] = useState<MaterialPrices | undefined>(undefined);
 
   // Deposit amount — computed server-side (black box)
   const [depositAmt, setDepositAmt] = useState(0);
@@ -124,7 +127,7 @@ export default function JobTicketPage() {
     if (leadData.installer_id) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("stripe_account_id, material_inventory")
+        .select("stripe_account_id, material_inventory, material_pricing_config")
         .eq("id", leadData.installer_id)
         .single();
       if (profile?.stripe_account_id) {
@@ -132,6 +135,18 @@ export default function JobTicketPage() {
       }
       if (profile?.material_inventory) {
         setInstallerInventory(profile.material_inventory as MaterialInventory);
+      }
+      if (profile?.material_pricing_config) {
+        const mpc = profile.material_pricing_config as MaterialPricingConfig;
+        const p: Record<string, number> = {};
+        if (mpc.lumber_2x4_8ft !== undefined) p.lumber_2x4_8ft = mpc.lumber_2x4_8ft;
+        if (mpc.plywood_sheet !== undefined) p.plywood_sheet = mpc.plywood_sheet;
+        if (mpc.tote !== undefined) p.tote = mpc.tote;
+        if (mpc.wheels_4pk !== undefined) p.wheels_4pk = mpc.wheels_4pk;
+        if (mpc.screw_1in) p.screw_1in_90ct = mpc.screw_1in.price / mpc.screw_1in.count * 90;
+        if (mpc.screw_1_5_8in) p.screw_1_5_8in_158ct = mpc.screw_1_5_8in.price / mpc.screw_1_5_8in.count * 158;
+        if (mpc.screw_3in) p.screw_3in_137ct = mpc.screw_3in.price / mpc.screw_3in.count * 137;
+        if (Object.keys(p).length > 0) setInstallerMaterialPrices(p as MaterialPrices);
       }
     }
 
@@ -508,6 +523,7 @@ export default function JobTicketPage() {
           installerStripeId={installerStripeId}
           source={lead.source}
           inventory={installerInventory}
+          customMaterialPrices={installerMaterialPrices}
           salesTaxAmount={lead.sales_tax_amount}
           addressState={lead.delivery_address_state || lead.address_state}
           installerId={lead.installer_id}
