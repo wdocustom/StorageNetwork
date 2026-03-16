@@ -1363,18 +1363,20 @@ export default function DesignConfigurator({
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            {data?.branding.logoUrl ? (
-              <Image
-                src={data.branding.logoUrl}
-                alt={data.branding.title}
-                width={56}
-                height={56}
-                className="h-14 w-auto object-contain"
-                unoptimized
-              />
-            ) : (
-              <Image src="/Header_avatar_logo.png" alt="Storage Network" width={56} height={56} className="h-14 w-auto object-contain" />
-            )}
+            <div className="h-12 w-12 overflow-hidden rounded-full border-[3px] border-yellow-400/30 bg-slate-800 shadow-lg shadow-yellow-400/5">
+              {data?.branding.logoUrl ? (
+                <Image
+                  src={data.branding.logoUrl}
+                  alt={data.branding.title}
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <Image src="/Header_avatar_logo.png" alt="Storage Network" width={48} height={48} className="h-full w-full object-cover" />
+              )}
+            </div>
           </a>
           <div className="flex-1">
             <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
