@@ -7,7 +7,9 @@ import { slugify } from "@/lib/utils";
 // Pro Trial — Check and manage trial periods
 //
 // Trial ends when EITHER condition is met:
-//   1. Installer completes 3 jobs (paid status)
+//   1. Installer has 3 committed jobs (deposit_paid, payment_pending,
+//      completed, or paid status — counting from deposit, not just
+//      final payment, to prevent gaming)
 //   2. 45 days pass from signup (hidden — installer never sees this timer)
 //
 // If trial expires without a Stripe subscription:
@@ -76,12 +78,15 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
       return noTrial;
     }
 
-    // Count completed jobs for this installer
+    // Count committed jobs for this installer.
+    // A job counts once a deposit is paid — not just when the installer
+    // marks it "paid". This prevents gaming the trial by leaving jobs
+    // in deposit_paid status indefinitely.
     const { count: jobsCompleted } = await supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("installer_id", userId)
-      .eq("status", "paid");
+      .in("status", ["deposit_paid", "payment_pending", "completed", "paid"]);
 
     const completedJobs = jobsCompleted ?? 0;
 

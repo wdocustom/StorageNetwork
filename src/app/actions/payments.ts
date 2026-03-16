@@ -88,9 +88,9 @@ const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
 // Note: Balance payments have NO platform fee — platform already took their cut from deposit
 
 // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────────
-// New installers get their first 3 completed jobs with zero platform fees.
-// This counts leads with status = 'paid' for the installer. Once they have
-// 3+ paid jobs, normal fee rates apply.
+// New installers get their first 3 committed jobs with zero platform fees.
+// A job counts once a deposit is paid (not just when marked "paid") to
+// prevent gaming by leaving jobs in deposit_paid status indefinitely.
 const FREE_JOBS_LIMIT = 3;
 
 async function getCompletedJobCount(installerId: string): Promise<number> {
@@ -98,7 +98,7 @@ async function getCompletedJobCount(installerId: string): Promise<number> {
     .from("leads")
     .select("id", { count: "exact", head: true })
     .eq("installer_id", installerId)
-    .eq("status", "paid");
+    .in("status", ["deposit_paid", "payment_pending", "completed", "paid"]);
   return count ?? 0;
 }
 
