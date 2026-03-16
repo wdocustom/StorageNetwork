@@ -27,6 +27,7 @@ import type { InstallerPricing } from "@/types/viewModels";
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { checkProTrial } from "@/app/actions/pro-trial";
 
 const supabase = getServiceClient();
 
@@ -187,6 +188,16 @@ export async function createQuote(
 
   if (!installer_id) {
     return { success: false, error: "Installer ID is required." };
+  }
+
+  // ── Trial Job Cap — block new quotes when 3-job limit reached ──────
+  // Server-side enforcement so it can't be bypassed via direct API call.
+  const trialStatus = await checkProTrial(installer_id);
+  if (trialStatus.jobCapReached && !trialStatus.trialExpired) {
+    return { success: false, error: "Trial job limit reached. Subscribe to Pro to send unlimited quotes." };
+  }
+  if (trialStatus.softLocked) {
+    return { success: false, error: "Trial has ended. Subscribe to Pro to send new quotes." };
   }
 
   try {

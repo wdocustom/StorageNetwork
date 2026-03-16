@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { calculateWeight } from "@/utils/scheduling";
 import { validateServiceArea } from "@/app/actions/installer";
 import { getDepositAmount } from "@/app/actions/fee-engine";
+import { checkProTrial } from "@/app/actions/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
@@ -119,6 +120,15 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
           ? `This address (ZIP ${input.address_zip.trim()}) is outside the installer's ${areaCheck.radiusMiles}-mile service area. Please verify the installation ZIP code or contact the installer directly.`
           : `This address (ZIP ${input.address_zip.trim()}) is outside the installer's service area. Please verify the installation ZIP code.`;
       return { success: false, error: msg };
+    }
+  }
+
+  // 4. Trial Job Cap — block new bookings when installer's 3-job trial limit reached
+  // Customer-facing message is intentionally vague — they don't need to know about trial internals.
+  if (input.installer_id) {
+    const trialStatus = await checkProTrial(input.installer_id);
+    if (trialStatus.softLocked || (trialStatus.jobCapReached && trialStatus.onTrial)) {
+      return { success: false, error: "This installer is not accepting new bookings right now. Please contact them directly." };
     }
   }
 

@@ -220,8 +220,8 @@ export default function DashboardPage() {
           {/* Plan Status */}
           <div className="flex items-center gap-1.5">
             {trialStatus?.onTrial ? (
-              <span className="rounded bg-purple-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-purple-400">
-                TRIAL · {trialStatus.jobsRemaining} {trialStatus.jobsRemaining === 1 ? "JOB" : "JOBS"} TO GO
+              <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${trialStatus.jobCapReached ? "bg-amber-400/15 text-amber-400" : "bg-purple-400/15 text-purple-400"}`}>
+                {trialStatus.jobCapReached ? "TRIAL · JOB CAP REACHED" : `TRIAL · ${trialStatus.jobsRemaining} ${trialStatus.jobsRemaining === 1 ? "JOB" : "JOBS"} TO GO`}
               </span>
             ) : (
               <ProPill link={leadLink} />
@@ -286,19 +286,39 @@ export default function DashboardPage() {
       )}
 
       {/* ── Trial Banner ──────────────────────────────────────────── */}
-      {trialStatus?.onTrial && (
+      {trialStatus?.onTrial && !trialStatus?.jobCapReached && (
         <div className="shrink-0 border-b border-purple-400/20 bg-purple-400/5 px-4 py-3">
           <div className="mx-auto max-w-lg text-center">
             <p className="text-sm font-bold text-purple-300">
               Pro Trial{trialStatus.partnerName ? ` — courtesy of ${trialStatus.partnerName}` : ""}
             </p>
             <p className="text-xs text-purple-400/70 mt-0.5">
-              Trial ends after {trialStatus.jobsRemaining} more paid {trialStatus.jobsRemaining === 1 ? "job lands" : "jobs land"} in your dashboard ·{" "}
+              {trialStatus.jobsRemaining} trial {trialStatus.jobsRemaining === 1 ? "job" : "jobs"} remaining ·{" "}
               <a
                 href="/dashboard/profile"
                 className="font-bold underline hover:text-purple-200"
               >
                 Subscribe anytime
+              </a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Job Cap Banner (trial active, 3 jobs used up) ──────────── */}
+      {trialStatus?.onTrial && trialStatus?.jobCapReached && (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-sm font-bold text-amber-300">
+              All 3 trial jobs used — subscribe to accept new bookings
+            </p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              Your existing jobs and dashboard are unaffected ·{" "}
+              <a
+                href="/upgrade"
+                className="font-bold underline hover:text-amber-200"
+              >
+                Subscribe Now
               </a>
             </p>
           </div>

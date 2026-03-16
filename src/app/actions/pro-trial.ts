@@ -6,13 +6,13 @@ import { slugify } from "@/lib/utils";
 // ═══════════════════════════════════════════════════════════════════════════
 // Pro Trial — Check and manage trial periods
 //
-// Trial ends when EITHER condition is met:
-//   1. Installer has 3 committed jobs (deposit_paid, payment_pending,
-//      completed, or paid status — counting from deposit, not just
-//      final payment, to prevent gaming)
-//   2. 45 days pass from signup (hidden — installer never sees this timer)
+// Trial expiry is driven ONLY by the 45-day clock (hidden from installer).
+// The 3-job limit is a BOOKING CAP — it prevents new jobs from being
+// created but does NOT end the trial early. The installer keeps full
+// access to dashboard, /build, portfolio, and existing jobs until the
+// 45-day period fully elapses.
 //
-// If trial expires without a Stripe subscription:
+// After the 45-day clock expires without a Stripe subscription:
 //   → If installer has active jobs (deposit_paid, payment_pending, completed):
 //     → Soft lock: is_pro stays true so they can finish existing work
 //     → New bookings/configurator should be blocked by the UI
@@ -35,6 +35,7 @@ export interface TrialStatus {
   onTrial: boolean;
   trialExpired: boolean;
   softLocked: boolean;
+  jobCapReached: boolean;       // 3-job cap hit — block new bookings but trial stays active
   activeJobsCount: number;
   graceEndsAt: string | null;
   jobsCompleted: number;
@@ -45,8 +46,12 @@ export interface TrialStatus {
 /**
  * Check trial status for a user.
  *
- * If the trial has expired (3 jobs completed OR 45 days elapsed) and they
- * haven't subscribed (no stripe_subscription_id), suspends the account.
+ * Trial expiry is driven ONLY by the 45-day clock. The 3-job limit is a
+ * booking cap — it prevents new jobs but doesn't end the trial early.
+ *
+ * If the 45-day period has elapsed and they haven't subscribed
+ * (no stripe_subscription_id), suspends the account (with grace period
+ * if active jobs remain).
  *
  * If the trial is active but is_pro is false or slug is missing,
  * auto-corrects to ensure full trial experience.
@@ -56,6 +61,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     onTrial: false,
     trialExpired: false,
     softLocked: false,
+    jobCapReached: false,
     activeJobsCount: 0,
     graceEndsAt: null,
     jobsCompleted: 0,
@@ -105,11 +111,19 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     const trialEnd = new Date(profile.pro_trial_ends_at);
     const now = new Date();
     const timeExpired = now >= trialEnd;
-    const jobsExpired = completedJobs >= TRIAL_JOB_LIMIT;
-    const trialExpired = timeExpired || jobsExpired;
+
+    // Job cap: prevents NEW bookings but does NOT end the trial.
+    // The installer keeps full access — they just can't take on more work.
+    const jobCapReached = completedJobs >= TRIAL_JOB_LIMIT;
+
+    // Trial expiry is driven ONLY by the 45-day clock.
+    const trialExpired = timeExpired;
 
     if (!trialExpired) {
       // ── Trial still active ──────────────────────────────────────────────
+      // Even if jobCapReached, the installer keeps full dashboard access.
+      // The jobCapReached flag tells UI to block new quote/booking creation
+      // but NOT to soft-lock or degrade the experience.
 
       // Self-healing: auto-activate Pro if trial is valid but is_pro/slug missing
       if (!profile.is_pro || !profile.slug) {
@@ -161,6 +175,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
         onTrial: true,
         trialExpired: false,
         softLocked: false,
+        jobCapReached,
         activeJobsCount: 0,
         graceEndsAt: null,
         jobsCompleted: completedJobs,
@@ -211,6 +226,7 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
         onTrial: false,
         trialExpired: true,
         softLocked: true,
+        jobCapReached: true,
         activeJobsCount: activeJobs,
         graceEndsAt: graceEnd.toISOString(),
         jobsCompleted: completedJobs,
@@ -233,15 +249,14 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
 
     const reason = activeJobs > 0
       ? `grace period ended with ${activeJobs} unresolved job(s)`
-      : jobsExpired
-        ? `completed ${completedJobs} jobs`
-        : "45-day period elapsed";
+      : `45-day period elapsed (${completedJobs} jobs completed)`;
     console.log(`[ProTrial] Trial expired for ${userId} — ${reason} — account suspended`);
 
     return {
       onTrial: false,
       trialExpired: true,
       softLocked: false,
+      jobCapReached: true,
       activeJobsCount: 0,
       graceEndsAt: null,
       jobsCompleted: completedJobs,

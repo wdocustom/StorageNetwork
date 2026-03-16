@@ -256,6 +256,8 @@ export default function BuildConfiguratorPage() {
 
   // Soft lock: trial expired but active jobs remain — block new quotes
   const [softLocked, setSoftLocked] = useState(false);
+  // Job cap: 3 trial jobs reached but trial time remains — block new quotes with softer message
+  const [jobCapReached, setJobCapReached] = useState(false);
 
   // Check if user is PRO
   const fetchProfile = useCallback(async () => {
@@ -269,10 +271,15 @@ export default function BuildConfiguratorPage() {
 
     setUserId(user.id);
 
-    // Check trial status — block /build during soft lock
+    // Check trial status — block /build during soft lock or job cap
     const trialStatus = await checkProTrial(user.id);
     if (trialStatus.softLocked) {
       setSoftLocked(true);
+      setLoading(false);
+      return;
+    }
+    if (trialStatus.jobCapReached && trialStatus.onTrial) {
+      setJobCapReached(true);
       setLoading(false);
       return;
     }
@@ -977,6 +984,38 @@ export default function BuildConfiguratorPage() {
           <p className="mb-6 text-sm text-stone-400">
             Your trial has ended. Complete your current jobs, then subscribe to
             send new quotes and accept new bookings.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <a
+              href="/upgrade"
+              className="rounded-xl bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              Subscribe Now
+            </a>
+            <a
+              href="/dashboard"
+              className="rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-700"
+            >
+              Back to Dashboard
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Job cap gate: 3 trial jobs reached but trial still active — block new quotes
+  if (jobCapReached) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400/10">
+            <HardHat className="h-8 w-8 text-yellow-400" />
+          </div>
+          <h1 className="mb-2 text-xl font-black text-white">Trial Job Limit Reached</h1>
+          <p className="mb-6 text-sm text-stone-400">
+            You&apos;ve used all 3 trial jobs. Subscribe to Pro to send unlimited
+            quotes and accept new bookings. Your existing jobs are unaffected.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
             <a
