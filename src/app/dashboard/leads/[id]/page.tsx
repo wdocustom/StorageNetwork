@@ -22,7 +22,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { startTripNotify } from "@/app/actions/sms";
 import { updateCustomerContact } from "@/app/actions/jobs";
-import { maskName, maskEmail, maskPhone } from "@/lib/email";
+import { maskName, maskEmail, maskPhone } from "@/lib/mask";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -13,7 +13,7 @@ import {
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
-import { maskName } from "@/lib/email";
+import { maskName } from "@/lib/mask";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
