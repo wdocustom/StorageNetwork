@@ -94,6 +94,8 @@ export default function ResumePaymentPage() {
     state: "",
     zip: "",
   });
+  // Email capture — shown only when lead has no customer_email
+  const [customerEmailInput, setCustomerEmailInput] = useState("");
 
   // Fetch lead details on mount
   useEffect(() => {
@@ -224,6 +226,18 @@ export default function ResumePaymentPage() {
       setError("Please enter a valid 2-letter state code (e.g., TX, CA).");
       return;
     }
+    // Validate email if the lead doesn't already have one
+    if (!lead?.customer_email && customerEmailInput.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmailInput.trim())) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+    }
+    if (!lead?.customer_email && !customerEmailInput.trim()) {
+      setError("Please enter your email address so we can send your receipt.");
+      return;
+    }
     setError(null);
     setStep("review");
   }
@@ -338,7 +352,7 @@ export default function ResumePaymentPage() {
         amount: paymentDeposit,
         totalPrice: paymentTotal,
         installerId: lead.installer_id || undefined,
-        customerEmail: lead.customer_email || undefined,
+        customerEmail: lead.customer_email || customerEmailInput.trim() || undefined,
         customerName: lead.customer_name || undefined,
         source: (lead.source as LeadSource) || "platform",
         // Tax info for records (collected at installation)
@@ -363,7 +377,7 @@ export default function ResumePaymentPage() {
     } finally {
       setInitializingPayment(false);
     }
-  }, [lead, selectedAddons, taxInfo, address.state, discountApplied]);
+  }, [lead, selectedAddons, taxInfo, address.state, discountApplied, customerEmailInput]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — Loading State
@@ -742,7 +756,7 @@ export default function ResumePaymentPage() {
           </h3>
           <div className="space-y-1 text-sm">
             <p className="text-white">{lead.customer_name}</p>
-            <p className="text-stone-400">{lead.customer_email}</p>
+            <p className="text-stone-400">{lead.customer_email || customerEmailInput || "—"}</p>
             {lead.customer_phone && (
               <p className="text-stone-400">{lead.customer_phone}</p>
             )}
@@ -901,6 +915,25 @@ export default function ResumePaymentPage() {
                 </div>
               </div>
             </div>
+
+            {/* Email capture — only shown when lead has no customer_email */}
+            {!lead.customer_email && (
+              <div className="mt-3">
+                <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  value={customerEmailInput}
+                  onChange={(e) => setCustomerEmailInput(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
+                />
+                <p className="mt-1 text-[10px] text-stone-500">
+                  For your payment receipt and booking confirmation.
+                </p>
+              </div>
+            )}
 
             <button
               onClick={handleAddressNext}

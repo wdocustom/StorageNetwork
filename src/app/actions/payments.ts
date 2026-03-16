@@ -722,11 +722,13 @@ export async function createDepositIntent(
 
     // Update lead with scheduling info, tax info, and discount (for reference)
     // Deposit stays at installer's configured rate — discount only reduces balance_due (installer absorbs)
+    // Also backfill customer_email if it was provided (e.g. collected on /pay page)
     const leadUpdate: Record<string, unknown> = {
       source,
       scheduled_at: scheduledAt || null,
       sales_tax_amount: salesTaxAmount || null,
       billing_state: billingState || null,
+      ...(customerEmail && { customer_email: customerEmail }),
       updated_at: new Date().toISOString(),
       // Mark fee as waived if this is one of the installer's first 3 free jobs
       fee_status: qualifiesForFreeJob ? "waived" : "standard",
