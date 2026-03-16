@@ -11,7 +11,6 @@ import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
 import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
-import { recordTrialCapWaitlist } from "@/app/actions/demand-signals";
 import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
 import { SHELVING_CONFIGS, type ShelvingConfig } from "@/lib/shelving";
@@ -1227,6 +1226,9 @@ export default function DesignConfigurator({
   }
 
   // ── Trial cap waitlist handler (hostage lead) ─────────────────────
+  // Creates a REAL lead in the leads table with status "waitlisted".
+  // The installer sees it in their dashboard but can't act on it until
+  // they subscribe. Sends emails to both parties.
   async function handleJoinTrialCapWaitlist() {
     setTrialCapWaitlistError("");
     const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
@@ -1245,8 +1247,13 @@ export default function DesignConfigurator({
 
     setTrialCapWaitlistSending(true);
     try {
+      const compositeAddress = [streetAddress, city, addrState, addrZip].filter(Boolean).join(", ");
+      const deliveryAddress = hasDifferentDelivery
+        ? [deliveryStreet, deliveryCity, deliveryState, deliveryZip].filter(Boolean).join(", ")
+        : undefined;
+
       // Build quote items with cleanout/paint add-ons
-      const items: unknown[] = [...orderItems];
+      const items: QuoteItem[] = [...orderItems];
       if (selectedCleanout && cleanoutPrice > 0) {
         const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
         items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
@@ -1259,21 +1266,31 @@ export default function DesignConfigurator({
         items.push({ type: "paint", name: `Paint (${paintParts.join(", ")})`, price: paintTotal });
       }
 
-      const res = await recordTrialCapWaitlist({
-        installerId,
-        customerName: fullName,
-        customerEmail: email.trim(),
-        customerPhone: phone.trim() || undefined,
-        zip: addrZip.trim() || zip,
-        quoteData: items,
-        grandTotal,
+      // Create real lead with status "waitlisted" (bypasses trial cap block)
+      const result = await submitNetworkLead({
+        customer_name: fullName,
+        customer_email: email.trim(),
+        customer_phone: phone.trim(),
+        address: compositeAddress,
+        address_line1: streetAddress,
+        address_city: city,
+        address_state: addrState,
+        address_zip: addrZip,
+        delivery_address: deliveryAddress,
+        quote_data: items,
+        grand_total: grandTotal,
+        installer_id: installerId || undefined,
+        referring_installer_id: referringInstallerId || undefined,
+        source: leadSource,
+        waitlisted: true,
       });
 
-      if (res.success) {
-        setTrialCapWaitlistSent(true);
-      } else {
-        setTrialCapWaitlistError(res.error || "Something went wrong.");
+      if (!result.success || !result.id) {
+        setTrialCapWaitlistError(result.error || "Something went wrong.");
+        return;
       }
+
+      setTrialCapWaitlistSent(true);
     } catch {
       setTrialCapWaitlistError("Something went wrong. Please try again.");
     } finally {

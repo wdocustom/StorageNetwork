@@ -6,6 +6,7 @@ import { validateServiceArea } from "@/app/actions/installer";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
+import { sendTrialCapHotLead, sendTrialCapCustomerConfirmation } from "@/lib/email";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = getServiceClient();
@@ -64,6 +65,11 @@ export interface SubmitQuoteInput {
   referring_installer_id?: string; // Network Bounty: original installer who drove the traffic
   source?: "platform" | "partner_link";
   scheduled_at?: string;
+  /** When true, bypasses the trial cap block and creates the lead with
+   *  status "waitlisted" instead of "pending_payment". Used when the
+   *  installer has hit their 3-job trial limit — the lead is captured
+   *  as a hostage to drive subscription conversion. */
+  waitlisted?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,6 +92,7 @@ const submitLeadSchema = z.object({
   referring_installer_id: z.string().uuid().optional(),
   source: z.enum(["platform", "partner_link"]).optional(),
   scheduled_at: z.string().max(30).optional(),
+  waitlisted: z.boolean().optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -125,7 +132,9 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
 
   // 4. Trial Job Cap — block new bookings when installer's 3-job trial limit reached
   // Customer-facing message is intentionally vague — they don't need to know about trial internals.
-  if (input.installer_id) {
+  // Skip this check when `waitlisted` is true — the lead is being captured intentionally
+  // as a hostage to drive the installer's subscription conversion.
+  if (input.installer_id && !input.waitlisted) {
     const trialStatus = await checkProTrial(input.installer_id);
     if (trialStatus.softLocked || (trialStatus.jobCapReached && trialStatus.onTrial)) {
       return { success: false, error: "This installer is not accepting new bookings right now. Please contact them directly." };
@@ -248,7 +257,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         deposit_paid: false,
         balance_due: balanceDue,
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
-        status: "pending_payment",
+        status: input.waitlisted ? "waitlisted" : "pending_payment",
         scheduled_at: input.scheduled_at || null,
         // Network Referral Bounty: track the original installer who drove traffic
         // Bounty is only eligible if the referring installer is a Pro subscriber
@@ -270,6 +279,48 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
 
     // NOTE: New booking alert email is sent from the Stripe webhook AFTER deposit is paid.
     // This prevents double-emailing the installer (one at lead creation, one at payment).
+
+    // Waitlisted leads: send trial cap emails immediately (no deposit to wait for).
+    // Installer gets a "hostage" email with the dollar amount; customer gets confirmation.
+    if (input.waitlisted && input.installer_id) {
+      (async () => {
+        try {
+          const { data: installer } = await supabase
+            .from("profiles")
+            .select("email, business_name, first_name")
+            .eq("id", input.installer_id!)
+            .single();
+
+          const installerName = installer?.business_name || installer?.first_name || "Installer";
+          const quoteDataForEmail = unitItems.map((u) => ({
+            desc: u.desc,
+            cols: u.cols,
+            rows: u.rows,
+            price: u.price,
+          }));
+
+          if (installer?.email) {
+            sendTrialCapHotLead(installer.email, {
+              installerName,
+              customerName: input.customer_name.trim(),
+              customerEmail: input.customer_email.trim(),
+              customerPhone: input.customer_phone?.trim(),
+              grandTotal: input.grand_total,
+              quoteData: quoteDataForEmail,
+            }).catch((err) => console.error("[TrialCap] Installer email failed:", err));
+          }
+
+          sendTrialCapCustomerConfirmation(input.customer_email.trim(), {
+            customerName: input.customer_name.trim(),
+            installerBusinessName: installerName,
+            grandTotal: input.grand_total,
+            quoteData: quoteDataForEmail,
+          }).catch((err) => console.error("[TrialCap] Customer email failed:", err));
+        } catch (err) {
+          console.error("[TrialCap] Email flow error:", err);
+        }
+      })();
+    }
 
     // Network Referral Bounty: notify the referring installer about the handoff
     if (input.referring_installer_id) {
