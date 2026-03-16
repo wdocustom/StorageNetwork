@@ -488,6 +488,35 @@ export async function POST(request: NextRequest) {
         leadId,
       });
       console.log("[Webhook] Booking confirmation sent for lead:", leadId);
+
+      // ── NEW BOOKING alert to installer ────────────────────────────────
+      // This was previously missing from the checkout.session.completed path,
+      // causing installers to never receive booking notifications for deposits
+      // paid via redirect-based Stripe Checkout (only inline BookingModal worked).
+      if (resolvedInstallerId) {
+        try {
+          const { data: authUser } = await getDb().auth.admin.getUserById(resolvedInstallerId);
+          const installerEmail = authUser?.user?.email;
+          if (installerEmail) {
+            const city = lead.address
+              ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
+              : fullAddress
+                ? fullAddress.split(",").slice(-2, -1)[0]?.trim() || "Unknown"
+                : "Unknown";
+            await sendNewBookingAlert(installerEmail, city, {
+              customerName,
+              customerEmail: customerEmail || undefined,
+              address: lead.address || fullAddress || undefined,
+              unitCount,
+              totalPrice: lead.estimated_price ?? amountPaid,
+              leadId,
+            });
+            console.log("[Webhook] Installer booking alert sent for lead:", leadId);
+          }
+        } catch (alertErr) {
+          console.error("[Webhook] Installer alert failed (non-fatal):", alertErr);
+        }
+      }
     });
 
     console.log(`[Webhook] checkout.session.completed processed (DB saved) for lead ${leadId}`);
