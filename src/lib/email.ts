@@ -2915,3 +2915,102 @@ export async function sendWaitlistedLeadsUnlocked(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Waitlisted Lead — Payment Ready (Customer)
+// Trigger: Installer subscribes to Pro, waitlisted lead flips to
+//          pending_payment. Customer gets emailed a deposit payment link
+//          automatically — installer doesn't have to do anything.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendWaitlistedLeadPaymentReady(
+  customerEmail: string,
+  data: {
+    customerName: string;
+    installerBusinessName: string;
+    estimatedPrice: number;
+    depositAmount: number;
+    leadId: string;
+    quoteData?: Array<{ desc?: string; cols?: number; rows?: number; price?: number }>;
+  }
+): Promise<SendEmailResult> {
+  const baseUrl = getAppUrl();
+  const payUrl = `${baseUrl}/pay/${data.leadId}`;
+  const firstName = (data.customerName || "").split(" ")[0] || "there";
+
+  const hasQuote = data.quoteData && data.quoteData.length > 0;
+  const buildSummaryHtml = hasQuote
+    ? `
+      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Build</p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${data.quoteData!.map((u, i) => `
+            <tr>
+              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
+              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+            </tr>
+          `).join("")}
+          <tr style="border-top:1px solid #334155;">
+            <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total</td>
+            <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.estimatedPrice.toLocaleString()}</td>
+          </tr>
+        </table>
+      </div>
+    `
+    : "";
+
+  const html = emailShell(
+    "Your Installer Is Ready — Book Now",
+    `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
+        &#9989;
+      </div>
+    </div>
+
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.6;">
+      Great news! <strong style="color:#facc15;">${data.installerBusinessName}</strong> is now
+      accepting new bookings, and your build is first in line.
+    </p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.6;">
+      Pay your deposit to lock in the job and your installer will reach out
+      to confirm the details.
+    </p>
+
+    ${buildSummaryHtml}
+
+    <!-- Deposit callout -->
+    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Deposit to Book</td>
+          <td style="padding:8px 0;font-weight:800;text-align:right;color:#10b981;font-size:18px;">$${data.depositAmount.toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Balance Due at Install</td>
+          <td style="padding:8px 0;font-weight:600;text-align:right;color:#e2e8f0;">$${(data.estimatedPrice - data.depositAmount).toLocaleString()}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${payUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
+        Pay Deposit &amp; Book
+      </a>
+    </div>
+
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      No obligation until you pay. Your installer will contact you after your deposit is received.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    subject: `${data.installerBusinessName} is ready — pay your deposit to book`,
+    html,
+  });
+}

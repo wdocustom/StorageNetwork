@@ -110,7 +110,7 @@ export default function LeadsListPage() {
 
     if (data) setLeads(data as LeadItem[]);
 
-    // Fetch unpaid quotes (pending_payment, deposit not paid)
+    // Fetch unpaid quotes (pending_payment + waitlisted, deposit not paid)
     const { data: unpaid } = await supabase
       .from("leads")
       .select(
@@ -118,7 +118,7 @@ export default function LeadsListPage() {
       )
       .eq("installer_id", user.id)
       .eq("deposit_paid", false)
-      .eq("status", "pending_payment")
+      .in("status", ["pending_payment", "waitlisted"])
       .order("created_at", { ascending: false });
 
     if (unpaid) setUnpaidLeads(unpaid as LeadItem[]);
@@ -239,7 +239,7 @@ export default function LeadsListPage() {
               {tab === "active"
                 ? "Leads from the network and your lead link will appear here."
                 : tab === "unpaid"
-                ? "Quotes where the customer hasn't paid the deposit yet will appear here."
+                ? "Quotes awaiting deposit payment and waitlisted leads will appear here."
                 : "Completed and paid jobs will show up here."}
             </p>
           </div>
