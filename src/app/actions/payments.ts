@@ -460,7 +460,7 @@ const depositIntentSchema = z.object({
   totalPrice: z.number().positive("Total price must be positive").max(1_000_000, "Price too large"),
   installerId: z.string().uuid("Invalid installer ID").optional(),
   source: z.enum(["platform", "partner_link", "installer_manual"]),
-  customerEmail: z.email("Invalid email").optional(),
+  customerEmail: z.union([z.email("Invalid email"), z.literal("")]).optional().transform(v => v || undefined),
   customerName: z.string().max(200).optional(),
   scheduledAt: z.string().max(30).optional(),
   salesTaxAmount: z.number().min(0).max(100_000).optional(),

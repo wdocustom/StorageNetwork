@@ -338,8 +338,8 @@ export default function ResumePaymentPage() {
         amount: paymentDeposit,
         totalPrice: paymentTotal,
         installerId: lead.installer_id || undefined,
-        customerEmail: lead.customer_email,
-        customerName: lead.customer_name,
+        customerEmail: lead.customer_email || undefined,
+        customerName: lead.customer_name || undefined,
         source: (lead.source as LeadSource) || "platform",
         // Tax info for records (collected at installation)
         salesTaxAmount: taxInfo?.taxAmount || 0,
