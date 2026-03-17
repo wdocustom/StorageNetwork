@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/overhead-announcement",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/jig-announcement",
+      "schedule": "0 13 * * *"
     }
   ]
 }
