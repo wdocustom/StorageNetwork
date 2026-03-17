@@ -2998,3 +2998,169 @@ export async function sendWaitlistedLeadPaymentReady(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Jig Plan + Custom Pricing Announcement
+// One-time announcement email promoting the $9 ladder building jig plans
+// and the new custom material pricing feature.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface JigAnnouncementData {
+  installerName: string;
+  guidesUrl: string;
+  profileUrl: string;
+}
+
+export async function sendJigAnnouncementEmail(
+  email: string,
+  data: JigAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, guidesUrl, profileUrl } = data;
+
+  const html = emailShell(
+    "New: Ladder Jig Plans + Custom Material Pricing",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      Two updates this week that are going to save you time, money, and headaches.
+    </p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      One helps you build faster. The other helps you <strong style="color:#e2e8f0;">buy smarter</strong>.
+    </p>
+
+    <!-- Hero: Jig Plans -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">New &mdash; Ladder Building Jig Plans</p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:18px;font-weight:700;line-height:1.4;">
+        Build consistent, square ladders every single time. $9.
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        If you&rsquo;ve ever had a ladder come out slightly racked, or spent 20 minutes fussing with
+        clamps and a tape measure to get your rung spacing right &mdash; this jig eliminates all of that.
+      </p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:14px;line-height:1.7;">
+        <strong>One-time build. Every ladder after that is drop-in, screw, done.</strong>
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">&#10003;</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Complete cut plan</strong> &mdash; every piece, every dimension, no guesswork</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">&#10003;</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>IKEA-style build instructions</strong> &mdash; step-by-step visual walkthrough</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">&#10003;</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Materials list</strong> &mdash; one sheet of OSB, three 2&times;4s, and some screws</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:6px 12px 6px 0;width:28px;">
+            <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">&#10003;</div>
+          </td>
+          <td style="vertical-align:top;padding:6px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Rung spacing marks</strong> &mdash; pre-calculated for perfect alignment every build</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        The jig costs about <strong style="color:#e2e8f0;">$20 in lumber</strong> to build and pays for itself on
+        your very first rack. No more marking, measuring, and re-checking &mdash; just load the boards, align
+        to the marks, and fasten. You&rsquo;ll cut your ladder assembly time in half.
+      </p>
+      <div style="text-align:center;">
+        <a href="${guidesUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+          Get the Plans &mdash; $9 &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- Custom Material Pricing -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:24px;margin-bottom:16px;border-left:3px solid #10b981;">
+      <p style="margin:0 0 6px;color:#10b981;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">New &mdash; Custom Material Pricing</p>
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:18px;font-weight:700;line-height:1.4;">
+        Your prices. Your quantities. Your inventory &mdash; always accurate.
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        You can now enter your <strong style="color:#e2e8f0;">exact screw counts and pricing</strong> directly
+        in your profile. Found a killer deal on a 25&nbsp;lb bucket of 1&#8209;5/8&quot; screws at the supply house?
+        Punch in the quantity and what you paid &mdash; the system does the rest.
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        This feeds directly into the <strong style="color:#facc15;">Smart Inventory System</strong> &mdash; our flagship
+        feature that tracks your material usage across every job. It knows exactly how many screws, boards,
+        and sheets you have left, and it&rsquo;ll tell you <strong style="color:#e2e8f0;">before your next build</strong>
+        if you need to restock.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:28px;">
+            <div style="background:#064e3b;color:#10b981;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:14px;font-weight:800;">1</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.5;"><strong>Enter your bulk purchase</strong> &mdash; quantity and price per box or bucket</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:28px;">
+            <div style="background:#064e3b;color:#10b981;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:14px;font-weight:800;">2</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.5;"><strong>System calculates per-unit cost</strong> &mdash; accurate material costs on every quote</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="vertical-align:top;padding:8px 12px 8px 0;width:28px;">
+            <div style="background:#064e3b;color:#10b981;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:14px;font-weight:800;">3</div>
+          </td>
+          <td style="vertical-align:top;padding:8px 0;">
+            <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.5;"><strong>Inventory auto-depletes per job</strong> &mdash; you always know what you have and what you need</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;line-height:1.6;">
+        No more guessing if you have enough screws for tomorrow&rsquo;s build. No more emergency
+        hardware store runs. The system stays ahead of your inventory so you can stay ahead of your schedule.
+      </p>
+      <div style="text-align:center;">
+        <a href="${profileUrl}" style="display:inline-block;background-color:transparent;color:#10b981;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;border:1px solid #10b981;">
+          Set Up My Material Pricing &rarr;
+        </a>
+      </div>
+    </div>
+
+    <!-- Bottom CTA -->
+    <div style="text-align:center;margin:24px 0;">
+      <p style="margin:0 0 12px;color:#94a3b8;font-size:14px;line-height:1.7;">
+        Build faster. Buy smarter. Know your numbers.
+      </p>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:13px;line-height:1.6;">
+        These two features work together &mdash; the jig speeds up your builds, and custom pricing ensures
+        every quote reflects your <em>actual</em> costs. More margin, less waste.
+      </p>
+    </div>
+
+    <p style="margin:0;color:#64748b;font-size:13px;">
+      &mdash; The Storage Network Team
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "Build Faster, Price Smarter — Jig Plans + Custom Material Pricing",
+    html,
+  });
+}
