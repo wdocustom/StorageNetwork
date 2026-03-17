@@ -37,6 +37,7 @@ import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/f
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
+import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
 
@@ -765,11 +766,11 @@ export default function JobTicket({
       ) : isPaymentPending ? (
         /* ── PAYMENT PENDING — GET PAID button + dropdown ─────────── */
         <div className="relative space-y-3">
-          {/* Awaiting payment badge */}
+          {/* Pending badge */}
           <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-4 py-2">
             <DollarSign className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-              Awaiting Payment
+              Pending
             </span>
           </div>
 
@@ -861,21 +862,95 @@ export default function JobTicket({
           )}
         </div>
       ) : isActive ? (
-        /* ── COMPLETE JOB button (transitions directly to payment) ──────────────── */
-        <button
-          onClick={handleCompleteJob}
-          disabled={payLoading}
-          className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
-        >
-          {payLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <>
-              <CheckCircle2 className="h-6 w-6" />
-              COMPLETE JOB
-            </>
+        /* ── ACTIVE JOB — GET PAID button (completes job + opens payment) ──── */
+        <div className="relative space-y-3">
+          <button
+            onClick={() => {
+              // Auto-complete the job when installer taps Get Paid
+              if (status !== "payment_pending") {
+                handleCompleteJob();
+              }
+              setShowGetPaidMenu(!showGetPaidMenu);
+            }}
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
+            disabled={payLoading}
+          >
+            {payLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <DollarSign className="h-6 w-6" />
+                GET PAID — {fmt(collectFromCustomer)}
+                <ChevronDown className={`h-5 w-5 transition-transform ${showGetPaidMenu ? "rotate-180" : ""}`} />
+              </>
+            )}
+          </button>
+
+          {/* Dropdown menu (same as payment_pending) */}
+          {showGetPaidMenu && (
+            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              <button
+                onClick={handleEnterCard}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+                ) : (
+                  <CreditCard className="h-5 w-5 text-yellow-400" />
+                )}
+                <div>
+                  <p className="text-sm font-bold text-white">Manual Card Entry</p>
+                  <p className="text-[11px] text-stone-500">Open Stripe — type in customer&apos;s card</p>
+                </div>
+              </button>
+
+              {customerEmail && (
+                <button
+                  onClick={handleResendInvoice}
+                  disabled={payLoading}
+                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <Mail className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">Email Customer for Payment</p>
+                    <p className="text-[11px] text-stone-500">Send payment link to {customerEmail}</p>
+                  </div>
+                </button>
+              )}
+
+              <button
+                onClick={handleCopyPaymentLink}
+                disabled={payLoading || !installerStripeId}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
+                ) : (
+                  <Link className="h-5 w-5 text-violet-400" />
+                )}
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {copyLinkSuccess ? "Copied!" : "Copy Payment Link"}
+                  </p>
+                  <p className="text-[11px] text-stone-500">Generate link to share via any channel</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
+                disabled={payLoading}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Mark Paid (Cash/Venmo/Check)</p>
+                  <p className="text-[11px] text-stone-500">Manual confirmation — close the job</p>
+                </div>
+              </button>
+            </div>
           )}
-        </button>
+        </div>
       ) : null}
 
       {/* ── Completion Photo (if exists) ─────────────────────────────── */}
@@ -1008,6 +1083,11 @@ export default function JobTicket({
           </div>
         </section>
       )}
+
+      {/* ── Blueprints Gate — only show when deposit is paid ────────── */}
+      {!depositPaid ? (
+        <LockedBlueprintsTeaser />
+      ) : (<>
 
       {/* ── Purchase List (inventory-aware material list) ────────────── */}
       {netPurchase && netPurchase.items.length > 0 && (() => {
@@ -1440,6 +1520,9 @@ export default function JobTicket({
           </div>
         </details>
       )}
+
+      </>)}
+      {/* End of blueprints gate */}
 
       {/* ── Photo Completion Modal ───────────────────────────────────── */}
       {showCompletionModal && (

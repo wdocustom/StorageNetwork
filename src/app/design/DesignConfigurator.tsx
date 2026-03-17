@@ -1172,7 +1172,33 @@ export default function DesignConfigurator({
         address_zip: addrZip,
         delivery_address: deliveryAddress,
         quote_data: (() => {
-          const items: QuoteItem[] = [...orderItems];
+          // Expand compound presets (bestsellers) into individual sub-units
+          // so the build engine generates correct modules for each sub-unit
+          const expandedUnits: UnitConfig[] = [];
+          for (const item of orderItems) {
+            if (item.presetUnits && item.presetUnits.length > 1) {
+              // Split the preset's price proportionally by slot count
+              const totalSlots = item.presetUnits.reduce((s, u) => s + u.cols * u.rows, 0);
+              for (const sub of item.presetUnits) {
+                const subSlots = sub.cols * sub.rows;
+                expandedUnits.push({
+                  ...item,
+                  cols: sub.cols,
+                  rows: sub.rows,
+                  totalW: sub.totalW,
+                  totalH: sub.totalH,
+                  hasTop: sub.hasTop,
+                  hasWheels: sub.hasWheels,
+                  price: Math.round((item.price * subSlots / totalSlots) * 100) / 100,
+                  desc: `${item.desc} — ${sub.cols}x${sub.rows}`,
+                  presetUnits: undefined,
+                });
+              }
+            } else {
+              expandedUnits.push(item);
+            }
+          }
+          const items: QuoteItem[] = [...expandedUnits];
           if (selectedCleanout && cleanoutPrice > 0) {
             const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
             items.push({
