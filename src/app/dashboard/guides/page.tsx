@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
+import LadderJigPlans from "@/components/dashboard/LadderJigPlans";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -115,6 +116,13 @@ export default function GuidesPage() {
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 p-4">
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION: Ladder Building Jig Plans ($9 Digital Download)
+        ═══════════════════════════════════════════════════════════════ */}
+        <Suspense fallback={null}>
+          <LadderJigPlans />
+        </Suspense>
+
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Instagram Showcase
         ═══════════════════════════════════════════════════════════════ */}
