@@ -130,7 +130,14 @@ export default function ConfiguratorFooter({
       )}
 
       {/* DIY Plans CTA — secondary action for all configurator states */}
-      <DIYPlansCTA build={props.build} orderItems={props.orderItems} />
+      <DIYPlansCTA
+        build={props.build}
+        orderItems={props.orderItems}
+        installerId={props.installerId}
+        installerSlug={props.installerSlug}
+        installerPhone={props.installerPhone}
+        brandingTitle={props.brandingTitle}
+      />
     </div>
   );
 }
@@ -142,9 +149,17 @@ export default function ConfiguratorFooter({
 function DIYPlansCTA({
   build,
   orderItems,
+  installerId,
+  installerSlug,
+  installerPhone,
+  brandingTitle,
 }: {
   build: ConfiguratorSidebarProps["build"];
   orderItems: ConfiguratorSidebarProps["orderItems"];
+  installerId: string;
+  installerSlug: string | null;
+  installerPhone: string | null;
+  brandingTitle: string;
 }) {
   const router = useRouter();
 
@@ -162,6 +177,11 @@ function DIYPlansCTA({
     totalW: item?.totalW ?? build.totalW,
     totalH: item?.totalH ?? build.totalH,
     depth: item?.depth ?? 30,
+    // Installer context for branding on checkout/PDF
+    installerId,
+    installerSlug,
+    installerPhone,
+    installerName: brandingTitle,
   };
 
   // Only show for standard tote organizer configs (not shelving/overhead)

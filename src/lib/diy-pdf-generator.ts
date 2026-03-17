@@ -50,6 +50,9 @@ export interface DIYPDFInput {
   cutList: CutListResult;
   /** 3D snapshot images (4 steps, each as JPEG data URL) */
   snapshots: BlueprintSnapshotResult[];
+  /** Installer branding (optional — shown on cover page when present) */
+  installerName?: string;
+  installerPhone?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -120,6 +123,18 @@ function renderCoverPage(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(180, 200, 230);
   doc.text(input.unitName, MARGIN, 34);
+
+  // Installer branding line (right-aligned in title block)
+  if (input.installerName) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(140, 160, 190);
+    const brandLine = input.installerPhone
+      ? `${input.installerName}  ·  ${input.installerPhone}`
+      : input.installerName;
+    const brandW = doc.getTextWidth(brandLine);
+    doc.text(brandLine, PAGE_W - MARGIN - brandW, 34);
+  }
 
   // ── Unit info chips ─────────────────────────────────────────────────
   let chipY = 55;

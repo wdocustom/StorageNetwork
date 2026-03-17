@@ -32,6 +32,7 @@ export function mapToDesignViewModel(
   return {
     routing: {
       installerId: installer.installer_id,
+      slug: installer.installer_slug,
       stripeAccountId: installer.installer_stripe_id,
       phone: installer.installer_phone,
       leadTime: installer.installer_lead_time,

@@ -172,6 +172,7 @@ export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
   routing: {
     installerId: string;
+    slug: string | null;
     stripeAccountId: string | null;
     phone: string | null;
     leadTime: number;

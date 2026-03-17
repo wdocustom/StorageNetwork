@@ -35,6 +35,11 @@ export interface DIYPlanCheckoutConfig {
   totalW: number;
   totalH: number;
   depth: number;
+  /** Installer context — carried through to PDF branding */
+  installerId?: string;
+  installerSlug?: string | null;
+  installerPhone?: string | null;
+  installerName?: string;
 }
 
 export async function createDIYPlanCheckout(
@@ -67,6 +72,8 @@ export async function createDIYPlanCheckout(
       metadata: {
         type: "diy_plan",
         config: JSON.stringify(config),
+        ...(config.installerId ? { installer_id: config.installerId } : {}),
+        ...(config.installerSlug ? { installer_slug: config.installerSlug } : {}),
       },
     });
 

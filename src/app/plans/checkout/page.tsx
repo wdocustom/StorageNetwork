@@ -9,7 +9,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useMemo, Suspense } from "react";
-import { ArrowLeft, Hammer, Loader2, CheckCircle2, FileText, Ruler, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Hammer, Loader2, CheckCircle2, FileText, Ruler, ShoppingCart, Phone } from "lucide-react";
 import Link from "next/link";
 import { createDIYPlanCheckout, type DIYPlanCheckoutConfig } from "@/app/actions/diy-plan-checkout";
 import { generateCutList } from "@/lib/diy-cut-list";
@@ -100,6 +100,27 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
+
+      {/* ── Installer branding (when linked from an installer's design page) ── */}
+      {config.installerName && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-slate-700/60 bg-slate-800/40 px-4 py-3">
+          <div className="flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Designed with
+            </div>
+            <div className="text-sm font-semibold text-white">{config.installerName}</div>
+          </div>
+          {config.installerPhone && (
+            <a
+              href={`tel:${config.installerPhone}`}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700/60 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-blue-500/40 hover:text-blue-400"
+            >
+              <Phone className="h-3 w-3" />
+              Call
+            </a>
+          )}
+        </div>
+      )}
 
       {/* ── Unit summary card ── */}
       <div className="mb-6 rounded-xl border border-slate-700/60 bg-slate-800/60 p-6">

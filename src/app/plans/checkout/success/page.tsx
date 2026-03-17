@@ -76,6 +76,8 @@ function SuccessContent() {
         hasTop: config.hasTop,
         cutList,
         snapshots,
+        installerName: config.installerName,
+        installerPhone: config.installerPhone,
       });
 
       setState("done");

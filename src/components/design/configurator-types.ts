@@ -215,6 +215,8 @@ export interface ConfiguratorSidebarProps {
 
   // Contact installer
   installerId: string;
+  installerSlug: string | null;
+  installerPhone: string | null;
   brandingTitle: string;
   showContactForm: boolean;
   onShowContactFormChange: (v: boolean) => void;

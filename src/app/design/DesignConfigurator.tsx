@@ -1585,6 +1585,8 @@ export default function DesignConfigurator({
 
           // Contact installer
           installerId={installerId}
+          installerSlug={data?.routing.slug ?? null}
+          installerPhone={data?.routing.phone ?? null}
           brandingTitle={data?.branding.title || ""}
           showContactForm={showContactForm}
           onShowContactFormChange={setShowContactForm}
