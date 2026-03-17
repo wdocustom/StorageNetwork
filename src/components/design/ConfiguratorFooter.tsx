@@ -131,15 +131,15 @@ export default function ConfiguratorFooter({
         </p>
       )}
 
-      {/* DIY Plans CTA — secondary action for all configurator states */}
-      <DIYPlansCTA
+      {/* DIY Plans CTA — temporarily disabled */}
+      {/* <DIYPlansCTA
         build={props.build}
         orderItems={props.orderItems}
         installerId={props.installerId}
         installerSlug={props.installerSlug}
         installerPhone={props.installerPhone}
         brandingTitle={props.brandingTitle}
-      />
+      /> */}
     </div>
   );
 }
