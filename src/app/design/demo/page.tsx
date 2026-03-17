@@ -17,6 +17,7 @@ export default function DemoPage() {
   const demoViewModel: DesignPageViewModel = {
     routing: {
       installerId: "demo-platform",
+      slug: null,
       stripeAccountId: "demo_stripe_placeholder",
       phone: null,
       leadTime: 5,
