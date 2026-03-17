@@ -3055,7 +3055,7 @@ export async function sendJigAnnouncementEmail(
             <div style="background:#422006;color:#facc15;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:11px;font-weight:800;">&#10003;</div>
           </td>
           <td style="vertical-align:top;padding:6px 0;">
-            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>IKEA-style build instructions</strong> &mdash; step-by-step visual walkthrough</p>
+            <p style="margin:0;color:#e2e8f0;font-size:14px;"><strong>Step-by-step build instructions</strong> &mdash; visual walkthrough with diagrams</p>
           </td>
         </tr>
         <tr>

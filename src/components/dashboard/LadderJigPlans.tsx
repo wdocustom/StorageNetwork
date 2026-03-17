@@ -22,7 +22,7 @@ import { useSearchParams } from "next/navigation";
 //
 // Gated build plans for the ladder assembly jig. Shows a compelling sales
 // section at the top of the /guides page. Unlocks the full cut plan and
-// IKEA-style build instructions after purchase.
+// step-by-step build instructions after purchase.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Cut Plan Data ────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ const BUILD_STEPS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// IKEA-style Build Diagram (inline SVG)
+// Build Diagram (inline SVG)
 // ═══════════════════════════════════════════════════════════════════════════
 function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
   return (
