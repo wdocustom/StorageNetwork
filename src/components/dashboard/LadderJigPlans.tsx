@@ -71,7 +71,7 @@ const CUT_LIST = [
     piece: "Stop Block",
     material: "2x4 x 8\u2019",
     qty: 1,
-    dimensions: '1.5" x 3.5" x 3"',
+    dimensions: '1.5" x 3.5" x 30"',
     notes: "Cut from third 2x4. Sits between the rails, not over them.",
   },
 ];
@@ -109,7 +109,7 @@ const BUILD_STEPS = [
     step: 4,
     title: "Square & fasten the Stop Block",
     detail:
-      'Cut a 3" piece from the third 2x4. Place it between Rails A and B on one short end — it sits in the gap, not on top of the rails. Use a framing square to ensure it\u2019s perfectly 90\u00b0 to both rails. Then fasten with 2" screws.',
+      'Cut the third 2x4 to 30". Place it between Rails A and B on one short end — it sits in the gap, not on top of the rails. Use a framing square to ensure it\u2019s perfectly 90\u00b0 to both rails. Then fasten with 2" screws.',
   },
   {
     step: 5,
@@ -210,7 +210,7 @@ function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
         {/* Stop Block (between rails, not over them) */}
         <rect x="50" y="368" width="18" height="54" rx="2" fill="#f97316" fillOpacity="0.5" stroke="#fb923c" strokeWidth="1.5" />
         <text x="59" y="399" textAnchor="middle" fill="#fdba74" fontSize="7" fontWeight="bold" fontFamily="monospace" transform="rotate(-90 59 399)">
-          STOP 3&quot;
+          STOP 30&quot;
         </text>
         {/* Right angle indicator */}
         <rect x="68" y="368" width="10" height="10" fill="none" stroke="#4ade80" strokeWidth="1" />
