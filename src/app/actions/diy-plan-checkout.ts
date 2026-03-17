@@ -1,0 +1,111 @@
+"use server";
+
+import Stripe from "stripe";
+import { siteConfig } from "@/config/site";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIY Plan Checkout — Stripe Checkout Session for custom blueprint PDFs
+//
+// Purchase flow:
+//   1. User configures a unit on /design, clicks "Buy DIY Plans ($19)"
+//   2. Config is serialized and passed to /plans/checkout?config=[data]
+//   3. createDIYPlanCheckout() creates a Stripe Checkout Session
+//   4. On success redirect, user lands on /plans/checkout/success with
+//      the config re-hydrated so the PDF generator can run client-side
+//
+// No authentication required — one-time digital purchase.
+// No Stripe Connect — all revenue goes to platform.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-12-15.clover",
+});
+
+const DIY_PLAN_PRICE_CENTS = 1900; // $19.00
+
+export interface DIYPlanCheckoutConfig {
+  cols: number;
+  rows: number;
+  toteType: "HDX" | "GM";
+  unitType: "standard" | "mini";
+  orientation: "standard" | "sideways";
+  hasWheels: boolean;
+  hasTop: boolean;
+  hasTotes: boolean;
+  totalW: number;
+  totalH: number;
+  depth: number;
+}
+
+export async function createDIYPlanCheckout(
+  config: DIYPlanCheckoutConfig
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const baseUrl = siteConfig.baseUrl;
+
+    // Serialize config into the success URL so the PDF generator can use it
+    const configParam = encodeURIComponent(JSON.stringify(config));
+    const desc = `${config.cols}×${config.rows} ${config.unitType === "mini" ? "Mini" : "Standard"} Tote Organizer`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `DIY Blueprint — ${desc}`,
+              description: `Complete visual build plan: 3D assembly diagrams, cut list, shopping list, and step-by-step instructions for a ${desc}.`,
+            },
+            unit_amount: DIY_PLAN_PRICE_CENTS,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${baseUrl}/plans/checkout/success?config=${configParam}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/plans/checkout?config=${configParam}&cancelled=1`,
+      metadata: {
+        type: "diy_plan",
+        config: JSON.stringify(config),
+      },
+    });
+
+    if (!session.url) {
+      return { success: false, error: "Failed to create checkout session." };
+    }
+
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[DIYPlanCheckout] Stripe session error:", err);
+    return {
+      success: false,
+      error: "Failed to create checkout. Please try again.",
+    };
+  }
+}
+
+/**
+ * Verify a completed Stripe checkout session for a DIY plan purchase.
+ */
+export async function verifyDIYPlanPurchase(
+  sessionId: string
+): Promise<{ success: boolean; verified: boolean; config?: DIYPlanCheckoutConfig }> {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (
+      session.payment_status === "paid" &&
+      session.metadata?.type === "diy_plan"
+    ) {
+      const config = session.metadata.config
+        ? (JSON.parse(session.metadata.config) as DIYPlanCheckoutConfig)
+        : undefined;
+
+      return { success: true, verified: true, config };
+    }
+
+    return { success: true, verified: false };
+  } catch {
+    return { success: false, verified: false };
+  }
+}

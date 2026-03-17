@@ -8,7 +8,9 @@ import {
   Loader2,
   Sparkles,
   Clock,
+  Hammer,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 
@@ -126,6 +128,63 @@ export default function ConfiguratorFooter({
           <a href="/terms" className="underline hover:text-yellow-400">Terms of Service</a>.
         </p>
       )}
+
+      {/* DIY Plans CTA — secondary action for all configurator states */}
+      <DIYPlansCTA build={props.build} orderItems={props.orderItems} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIY Plans CTA — "Buy DIY Plans ($19)" secondary button
+// ═══════════════════════════════════════════════════════════════════════════
+
+function DIYPlansCTA({
+  build,
+  orderItems,
+}: {
+  build: ConfiguratorSidebarProps["build"];
+  orderItems: ConfiguratorSidebarProps["orderItems"];
+}) {
+  const router = useRouter();
+
+  // Use the first order item if available, otherwise derive from current build
+  const item = orderItems[0];
+  const config = {
+    cols: item?.cols ?? build.cols,
+    rows: item?.rows ?? build.rows,
+    toteType: (item?.toteType ?? "HDX") as "HDX" | "GM",
+    unitType: (item?.unitType ?? build.unitType) as "standard" | "mini",
+    orientation: (item?.orientation ?? build.orientation) as "standard" | "sideways",
+    hasWheels: item?.hasWheels ?? false,
+    hasTop: item?.hasTop ?? false,
+    hasTotes: item?.hasTotes ?? true,
+    totalW: item?.totalW ?? build.totalW,
+    totalH: item?.totalH ?? build.totalH,
+    depth: item?.depth ?? 30,
+  };
+
+  // Only show for standard tote organizer configs (not shelving/overhead)
+  const isStandardUnit = !item?.shelvingConfigId && !item?.overheadStorageConfig;
+  if (!isStandardUnit && orderItems.length > 0) return null;
+
+  const handleClick = () => {
+    const encoded = encodeURIComponent(JSON.stringify(config));
+    router.push(`/plans/checkout?config=${encoded}`);
+  };
+
+  return (
+    <div className="mt-3 border-t border-zinc-800/50 pt-3">
+      <button
+        onClick={handleClick}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 py-2.5 text-xs font-bold uppercase tracking-wider text-blue-400 transition-all hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-300"
+      >
+        <Hammer className="h-3.5 w-3.5" />
+        Buy DIY Plans ($19)
+      </button>
+      <p className="mt-1.5 text-center text-[9px] text-zinc-600">
+        Build it yourself — visual step-by-step PDF with cut lists
+      </p>
     </div>
   );
 }
