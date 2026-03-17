@@ -116,7 +116,7 @@ async function isInstallerPro(installerId: string): Promise<boolean> {
 async function getInstallerProfile(installerId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("stripe_account_id, is_pro, platform_fee_override")
+    .select("stripe_account_id, is_pro, platform_fee_override, stripe_subscription_id")
     .eq("id", installerId)
     .single();
   return data;
@@ -527,9 +527,11 @@ export async function createDepositIntent(
 
     // ── First 3 Jobs: Zero Platform Fees ───────────────────────────────
     // Check if this installer qualifies for the free-first-3-jobs promotion.
-    // Only applies when they have Stripe connected (otherwise platform holds deposit).
+    // Only applies during the trial period (no active subscription) with Stripe connected.
+    // Once an installer subscribes and starts paying monthly, the 3% fee always applies.
     const completedJobs = await getCompletedJobCount(installerId);
-    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !isPro;
+    const hasActiveSubscription = !!installerProfile?.stripe_subscription_id;
+    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !hasActiveSubscription;
 
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
