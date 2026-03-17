@@ -42,6 +42,8 @@ function SuccessContent() {
     }
   }, [searchParams]);
 
+  const isProAccess = searchParams.get("access") === "pro";
+
   const [state, setState] = useState<GenerationState>("capturing");
   const [snapshots, setSnapshots] = useState<BlueprintSnapshotResult[]>([]);
 
@@ -93,8 +95,8 @@ function SuccessContent() {
             Something went wrong. Please{" "}
             <Link href="/design" className="text-blue-400 hover:underline">
               design your unit
-            </Link>{" "}
-            again.
+            </Link>
+            {" "}again.
           </p>
         </div>
       </main>
@@ -118,7 +120,9 @@ function SuccessContent() {
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/20">
           <CheckCircle2 className="h-8 w-8 text-green-400" />
         </div>
-        <h1 className="text-3xl font-bold text-white">Payment Successful!</h1>
+        <h1 className="text-3xl font-bold text-white">
+          {isProAccess ? "Blueprint Ready!" : "Payment Successful!"}
+        </h1>
         <p className="mt-2 text-slate-400">
           Your DIY Assembly Blueprint is being generated.
         </p>
@@ -128,10 +132,12 @@ function SuccessContent() {
       <div className="mb-8 rounded-xl border border-slate-700/60 bg-slate-800/60 p-8">
         {/* Step indicators */}
         <div className="space-y-4">
-          {/* Step 1: Payment */}
+          {/* Step 1: Payment / Access */}
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-400" />
-            <span className="text-sm text-slate-300">Payment confirmed</span>
+            <span className="text-sm text-slate-300">
+              {isProAccess ? "Pro access verified" : "Payment confirmed"}
+            </span>
           </div>
 
           {/* Step 2: 3D Rendering */}
@@ -227,10 +233,10 @@ function SuccessContent() {
         </div>
       )}
 
-      {/* ── Back to design ── */}
+      {/* ── Back to design — preserve installer context ── */}
       <div className="text-center">
         <Link
-          href="/design"
+          href={config.installerSlug ? `/design?installer=${encodeURIComponent(config.installerSlug)}` : config.installerId ? `/design?installer_id=${encodeURIComponent(config.installerId)}` : "/design"}
           className="inline-flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />

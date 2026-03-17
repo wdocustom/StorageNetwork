@@ -2,6 +2,8 @@
 
 import Stripe from "stripe";
 import { siteConfig } from "@/config/site";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY Plan Checkout — Stripe Checkout Session for custom blueprint PDFs
@@ -13,7 +15,7 @@ import { siteConfig } from "@/config/site";
 //   4. On success redirect, user lands on /plans/checkout/success with
 //      the config re-hydrated so the PDF generator can run client-side
 //
-// No authentication required — one-time digital purchase.
+// Paid Pro subscribers and admins get free access (no Stripe checkout).
 // No Stripe Connect — all revenue goes to platform.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -40,6 +42,40 @@ export interface DIYPlanCheckoutConfig {
   installerSlug?: string | null;
   installerPhone?: string | null;
   installerName?: string;
+}
+
+/**
+ * Check if the current user has free DIY plan access.
+ * Paid Pro subscribers (with stripe_subscription_id, NOT trial-only) and
+ * admins can download blueprints without paying.
+ */
+export async function checkDIYPlanAccess(): Promise<{
+  hasFreeAccess: boolean;
+  reason?: "pro" | "admin";
+}> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { hasFreeAccess: false };
+
+  const db = getServiceClient();
+  const { data: profile } = await db
+    .from("profiles")
+    .select("is_pro, stripe_subscription_id, pro_trial_ends_at, is_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) return { hasFreeAccess: false };
+
+  // Admin always gets free access
+  if (profile.is_admin) {
+    return { hasFreeAccess: true, reason: "admin" };
+  }
+
+  // Paid Pro subscriber (has stripe_subscription_id — excludes trial-only users)
+  if (profile.is_pro && profile.stripe_subscription_id && !profile.pro_trial_ends_at) {
+    return { hasFreeAccess: true, reason: "pro" };
+  }
+
+  return { hasFreeAccess: false };
 }
 
 export async function createDIYPlanCheckout(

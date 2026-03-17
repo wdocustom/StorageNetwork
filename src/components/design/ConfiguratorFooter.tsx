@@ -11,8 +11,10 @@ import {
   Hammer,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
+import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 
 export default function ConfiguratorFooter({
   props,
@@ -162,6 +164,11 @@ function DIYPlansCTA({
   brandingTitle: string;
 }) {
   const router = useRouter();
+  const [freeAccess, setFreeAccess] = useState(false);
+
+  useEffect(() => {
+    checkDIYPlanAccess().then((result) => setFreeAccess(result.hasFreeAccess));
+  }, []);
 
   // Use the first order item if available, otherwise derive from current build
   const item = orderItems[0];
@@ -178,10 +185,16 @@ function DIYPlansCTA({
     totalH: item?.totalH ?? build.totalH,
     depth: item?.depth ?? 30,
     // Installer context for branding on checkout/PDF
-    installerId,
-    installerSlug,
-    installerPhone,
-    installerName: brandingTitle,
+    // Only include installer branding when an actual installer is linked
+    // (brandingTitle defaults to "Professional Grade Storage" for platform pages)
+    ...(installerSlug || installerId
+      ? {
+          installerId,
+          installerSlug,
+          installerPhone,
+          installerName: brandingTitle,
+        }
+      : {}),
   };
 
   // Only show for standard tote organizer configs (not shelving/overhead)
@@ -197,13 +210,19 @@ function DIYPlansCTA({
     <div className="mt-3 border-t border-zinc-800/50 pt-3">
       <button
         onClick={handleClick}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 py-2.5 text-xs font-bold uppercase tracking-wider text-blue-400 transition-all hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-300"
+        className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+          freeAccess
+            ? "border-green-500/30 bg-green-500/10 text-green-400 hover:border-green-400/50 hover:bg-green-500/20 hover:text-green-300"
+            : "border-blue-500/30 bg-blue-500/10 text-blue-400 hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-300"
+        }`}
       >
         <Hammer className="h-3.5 w-3.5" />
-        Buy DIY Plans ($19)
+        {freeAccess ? "Get DIY Plans" : "Buy DIY Plans ($19)"}
       </button>
       <p className="mt-1.5 text-center text-[9px] text-zinc-600">
-        Build it yourself — visual step-by-step PDF with cut lists
+        {freeAccess
+          ? "Included with your subscription — PDF with cut lists"
+          : "Build it yourself — visual step-by-step PDF with cut lists"}
       </p>
     </div>
   );
