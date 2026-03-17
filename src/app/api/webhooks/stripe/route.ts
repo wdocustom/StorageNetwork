@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { waitUntil } from "@vercel/functions";
 
 export const dynamic = "force-dynamic";
 import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail } from "@/lib/email";
@@ -32,10 +33,12 @@ function getDb() {
 }
 
 // ── Fire-and-forget helper ───────────────────────────────────────────────
-// Runs async work without blocking the webhook response. Errors are logged
-// but never propagated — the critical DB write has already succeeded.
+// Runs async work without blocking the webhook response. Uses waitUntil()
+// to keep the Vercel serverless function alive until emails finish sending,
+// even after the HTTP response is returned to Stripe.
 function fireAndForget(label: string, fn: () => Promise<void>) {
-  fn().catch((err) => console.error(`[Webhook] ${label} failed (non-fatal):`, err));
+  const promise = fn().catch((err) => console.error(`[Webhook] ${label} failed (non-fatal):`, err));
+  waitUntil(promise);
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -419,7 +422,7 @@ export async function POST(request: NextRequest) {
 
       // ── Network Referral Bounty (non-blocking) ───────────────────────
       const piId = session.payment_intent as string;
-      if (piId) processReferralBounty(leadId, piId);
+      if (piId) waitUntil(processReferralBounty(leadId, piId));
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
       // Clear idempotency key so Stripe retries can re-process this event
@@ -736,7 +739,7 @@ export async function POST(request: NextRequest) {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
 
             // ── Network Referral Bounty (non-blocking) ─────────────────
-            processReferralBounty(leadId, paymentIntent.id);
+            waitUntil(processReferralBounty(leadId, paymentIntent.id));
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);
