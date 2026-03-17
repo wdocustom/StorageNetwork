@@ -37,7 +37,10 @@ function getDb() {
 // to keep the Vercel serverless function alive until emails finish sending,
 // even after the HTTP response is returned to Stripe.
 function fireAndForget(label: string, fn: () => Promise<void>) {
-  const promise = fn().catch((err) => console.error(`[Webhook] ${label} failed (non-fatal):`, err));
+  console.log(`[Webhook] waitUntil: starting ${label}`);
+  const promise = fn()
+    .then(() => console.log(`[Webhook] waitUntil: ${label} completed successfully`))
+    .catch((err) => console.error(`[Webhook] waitUntil: ${label} failed:`, err));
   waitUntil(promise);
 }
 
