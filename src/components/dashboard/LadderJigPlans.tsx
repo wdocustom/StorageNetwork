@@ -71,8 +71,8 @@ const CUT_LIST = [
     piece: "Stop Block",
     material: "2x4 x 8\u2019",
     qty: 1,
-    dimensions: '1.5" x 3.5" x 30"',
-    notes: "Cut from third 2x4. Must be squared with a framing square.",
+    dimensions: '1.5" x 3.5" x 3"',
+    notes: "Cut from third 2x4. Sits between the rails, not over them.",
   },
 ];
 
@@ -109,7 +109,7 @@ const BUILD_STEPS = [
     step: 4,
     title: "Square & fasten the Stop Block",
     detail:
-      'Cut the third 2x4 to 30". Place it on one short end, flush with the OSB edge. Use a framing square to ensure it\u2019s perfectly 90\u00b0 to both rails. Then fasten with 2" screws.',
+      'Cut a 3" piece from the third 2x4. Place it between Rails A and B on one short end — it sits in the gap, not on top of the rails. Use a framing square to ensure it\u2019s perfectly 90\u00b0 to both rails. Then fasten with 2" screws.',
   },
   {
     step: 5,
@@ -207,14 +207,14 @@ function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
         <rect x="50" y="350" width="480" height="18" rx="2" fill="#ca8a04" fillOpacity="0.3" stroke="#a16207" strokeWidth="1" />
         {/* Rail B */}
         <rect x="50" y="422" width="480" height="18" rx="2" fill="#ca8a04" fillOpacity="0.3" stroke="#a16207" strokeWidth="1" />
-        {/* Stop Block (on the left short end) */}
-        <rect x="50" y="350" width="18" height="90" rx="2" fill="#f97316" fillOpacity="0.5" stroke="#fb923c" strokeWidth="1.5" />
-        <text x="59" y="400" textAnchor="middle" fill="#fdba74" fontSize="7" fontWeight="bold" fontFamily="monospace" transform="rotate(-90 59 400)">
-          STOP 30&quot;
+        {/* Stop Block (between rails, not over them) */}
+        <rect x="50" y="368" width="18" height="54" rx="2" fill="#f97316" fillOpacity="0.5" stroke="#fb923c" strokeWidth="1.5" />
+        <text x="59" y="399" textAnchor="middle" fill="#fdba74" fontSize="7" fontWeight="bold" fontFamily="monospace" transform="rotate(-90 59 399)">
+          STOP 3&quot;
         </text>
         {/* Right angle indicator */}
-        <rect x="68" y="350" width="10" height="10" fill="none" stroke="#4ade80" strokeWidth="1" />
-        <rect x="68" y="430" width="10" height="10" fill="none" stroke="#4ade80" strokeWidth="1" />
+        <rect x="68" y="368" width="10" height="10" fill="none" stroke="#4ade80" strokeWidth="1" />
+        <rect x="68" y="412" width="10" height="10" fill="none" stroke="#4ade80" strokeWidth="1" />
         <text x="90" y="348" fill="#4ade80" fontSize="8" fontFamily="monospace">
           90° (use framing square!)
         </text>
@@ -228,8 +228,8 @@ function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
         {/* Rails */}
         <rect x="50" y="480" width="480" height="15" rx="2" fill="#ca8a04" fillOpacity="0.25" stroke="#a16207" strokeWidth="0.8" />
         <rect x="50" y="565" width="480" height="15" rx="2" fill="#ca8a04" fillOpacity="0.25" stroke="#a16207" strokeWidth="0.8" />
-        {/* Stop Block */}
-        <rect x="50" y="480" width="15" height="100" rx="2" fill="#f97316" fillOpacity="0.35" stroke="#ea580c" strokeWidth="0.8" />
+        {/* Stop Block (between rails) */}
+        <rect x="50" y="495" width="15" height="70" rx="2" fill="#f97316" fillOpacity="0.35" stroke="#ea580c" strokeWidth="0.8" />
 
         {/* Rung mark lines */}
         {[
@@ -278,7 +278,7 @@ function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
         <rect x="100" y="655" width="400" height="50" rx="3" fill="#78716c" fillOpacity="0.15" stroke="#57534e" strokeWidth="1" />
         <rect x="100" y="655" width="400" height="10" rx="2" fill="#ca8a04" fillOpacity="0.3" stroke="#a16207" strokeWidth="0.8" />
         <rect x="100" y="695" width="400" height="10" rx="2" fill="#ca8a04" fillOpacity="0.3" stroke="#a16207" strokeWidth="0.8" />
-        <rect x="100" y="655" width="10" height="50" rx="2" fill="#f97316" fillOpacity="0.4" stroke="#ea580c" strokeWidth="0.8" />
+        <rect x="100" y="665" width="10" height="30" rx="2" fill="#f97316" fillOpacity="0.4" stroke="#ea580c" strokeWidth="0.8" />
         {[130, 195, 260, 325, 390, 455].map((x, i) => (
           <line key={`final-${i}`} x1={x} y1="665" x2={x} y2="695" stroke="#f43f5e" strokeWidth="1" strokeDasharray="2 1" />
         ))}
