@@ -182,6 +182,7 @@ export default function DesignConfigurator({
         available: false,
         installer_id: null,
         installer_name: null,
+        installer_slug: null,
         installer_stripe_id: null,
         installer_avatar_url: null,
         installer_phone: null,
