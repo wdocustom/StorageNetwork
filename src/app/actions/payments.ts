@@ -529,7 +529,7 @@ export async function createDepositIntent(
     // Check if this installer qualifies for the free-first-3-jobs promotion.
     // Only applies when they have Stripe connected (otherwise platform holds deposit).
     const completedJobs = await getCompletedJobCount(installerId);
-    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId;
+    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !isPro;
 
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
