@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/jig-announcement",
-      "schedule": "0 13 * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }
