@@ -45,6 +45,11 @@ export interface BlueprintConfig {
   totalW: number;
   totalH: number;
   depth: number;
+  /** Installer context (optional — carried through for PDF branding) */
+  installerId?: string;
+  installerSlug?: string | null;
+  installerPhone?: string | null;
+  installerName?: string;
 }
 
 export interface BuildStep {
