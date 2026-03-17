@@ -14,7 +14,7 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import { createJigPlanCheckout, verifyJigPlanPurchase } from "@/app/actions/jig-plans";
+import { createJigPlanCheckout, verifyJigPlanPurchase, checkJigPlanAccess } from "@/app/actions/jig-plans";
 import { useSearchParams } from "next/navigation";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24,8 +24,6 @@ import { useSearchParams } from "next/navigation";
 // section at the top of the /guides page. Unlocks the full cut plan and
 // IKEA-style build instructions after purchase.
 // ═══════════════════════════════════════════════════════════════════════════
-
-const JIG_STORAGE_KEY = "sn_jig_plan_purchased";
 
 // ── Cut Plan Data ────────────────────────────────────────────────────────
 const MATERIALS = [
@@ -303,15 +301,16 @@ export default function LadderJigPlans() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check localStorage on mount
+  // Check DB for existing purchase or admin access on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(JIG_STORAGE_KEY);
-      if (stored === "true") {
+    checkJigPlanAccess().then((result) => {
+      if (result.hasAccess) {
         setPurchased(true);
+        setIsAdmin(result.isAdmin);
       }
-    }
+    });
   }, []);
 
   // Handle success redirect from Stripe
@@ -324,7 +323,6 @@ export default function LadderJigPlans() {
       verifyJigPlanPurchase(sessionId).then((result) => {
         if (result.verified) {
           setPurchased(true);
-          localStorage.setItem(JIG_STORAGE_KEY, "true");
           // Clean URL
           window.history.replaceState({}, "", "/dashboard/guides");
         }
@@ -493,7 +491,7 @@ export default function LadderJigPlans() {
             <div className="mb-3 flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2">
               <Check className="h-4 w-4 text-emerald-400" />
               <p className="text-xs font-semibold text-emerald-400">
-                Plans Unlocked — You own this forever
+                {isAdmin ? "Plans Unlocked — Admin Preview" : "Plans Unlocked — You own this forever"}
               </p>
             </div>
 

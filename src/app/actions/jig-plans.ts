@@ -2,16 +2,20 @@
 
 import Stripe from "stripe";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Jig Plans — $9 Digital Download for Ladder Building Jig
 //
-// Simple one-time purchase flow:
+// Purchase flow:
 //   1. Installer clicks "Get the Plans" on /guides
 //   2. createJigPlanCheckout() creates a Stripe Checkout Session ($9)
 //   3. On success redirect, verifyJigPlanPurchase() confirms payment
-//   4. Purchase state stored in localStorage on the client
+//   4. Purchase state persisted in profiles.jig_plan_purchased (durable)
+//
+// Admin/owner bypass: checkJigPlanAccess() returns true for is_admin users
+// so the owner can preview plans without purchasing.
 //
 // No Stripe Connect — all revenue goes to platform.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -20,7 +24,32 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
+const supabase = getServiceClient();
+
 const JIG_PLAN_PRICE_CENTS = 900; // $9.00
+
+/**
+ * Check if the current user has access to the jig plans.
+ * Returns true if they purchased OR if they are an admin.
+ */
+export async function checkJigPlanAccess(): Promise<{
+  hasAccess: boolean;
+  isAdmin: boolean;
+}> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { hasAccess: false, isAdmin: false };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("jig_plan_purchased, is_admin")
+    .eq("id", user.id)
+    .single();
+
+  const isAdmin = profile?.is_admin === true;
+  const purchased = profile?.jig_plan_purchased === true;
+
+  return { hasAccess: purchased || isAdmin, isAdmin };
+}
 
 export async function createJigPlanCheckout(): Promise<{
   success: boolean;
@@ -68,6 +97,10 @@ export async function createJigPlanCheckout(): Promise<{
   }
 }
 
+/**
+ * Verify a Stripe checkout session and persist the purchase in the DB.
+ * Called on success redirect from Stripe.
+ */
 export async function verifyJigPlanPurchase(
   sessionId: string
 ): Promise<{ success: boolean; verified: boolean }> {
@@ -82,6 +115,12 @@ export async function verifyJigPlanPurchase(
       session.metadata?.type === "jig_plan" &&
       session.metadata?.user_id === user.id
     ) {
+      // Persist purchase in the database (durable, cross-device)
+      await supabase
+        .from("profiles")
+        .update({ jig_plan_purchased: true })
+        .eq("id", user.id);
+
       return { success: true, verified: true };
     }
 
