@@ -31,7 +31,7 @@ function validateQuoteUnits(units: QuoteUnit[]): void {
 function expandPresetUnits(units: QuoteUnit[]): QuoteUnit[] {
   const expanded: QuoteUnit[] = [];
   for (const unit of units) {
-    const presetUnits = (unit as Record<string, unknown>).presetUnits as
+    const presetUnits = (unit as unknown as Record<string, unknown>).presetUnits as
       | Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>
       | undefined;
 
