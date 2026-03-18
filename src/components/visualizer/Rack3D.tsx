@@ -1169,7 +1169,7 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Ceiling Tote Rail System — 3-layer: nailer → padding → plywood rail
+// Ceiling Tote Rail System — 4-layer: nailer → padding → plywood rail
 //
 // Totes hang between adjacent rail assemblies by their rim/lip.
 // Layer 1 (top): 2×4 nailer mounted flat — lagged to ceiling joists (1.5" drop)

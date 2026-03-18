@@ -2448,7 +2448,7 @@ export async function sendOverheadAnnouncementEmail(
         Turn dead ceiling space into organized, accessible storage.
       </p>
       <p style="margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7;">
-        The overhead system is a <strong style="color:#e2e8f0;">3-layer build</strong> that lags directly to ceiling joists:
+        The overhead system is a <strong style="color:#e2e8f0;">4-layer build</strong> that lags directly to ceiling joists:
       </p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
         <tr>

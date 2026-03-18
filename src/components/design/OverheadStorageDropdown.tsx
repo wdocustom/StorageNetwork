@@ -126,7 +126,7 @@ export default function OverheadStorageDropdown({
           >
             <div className="space-y-3 px-4 pb-4">
               <p className="text-[10px] text-zinc-500">
-                Ceiling-mounted tote rails. Totes hang by their rim. 3-layer system: nailer → padding → plywood rail.
+                Ceiling-mounted tote rails. Totes hang by their rim. 4-layer system: nailer → padding → plywood rail.
               </p>
 
               {/* Tote Type */}
