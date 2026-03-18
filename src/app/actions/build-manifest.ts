@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { generateBuildManifest } from "@/lib/buildEngine";
+import { expandPresetUnits } from "@/lib/buildEngine.types";
 import type { QuoteUnit, BuildManifest } from "@/lib/buildEngine.types";
 
 /**
@@ -21,41 +22,6 @@ function validateQuoteUnits(units: QuoteUnit[]): void {
   if (hasTotes && hasShelving) {
     throw new Error("Cannot mix tote organizers with open shelving in the same quote.");
   }
-}
-
-/**
- * Expand compound preset units (e.g. "The Gass Station" stored as a single
- * item with presetUnits) into individual QuoteUnit entries so the build
- * engine generates correct modules for each sub-unit.
- */
-function expandPresetUnits(units: QuoteUnit[]): QuoteUnit[] {
-  const expanded: QuoteUnit[] = [];
-  for (const unit of units) {
-    const presetUnits = (unit as unknown as Record<string, unknown>).presetUnits as
-      | Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>
-      | undefined;
-
-    if (presetUnits && presetUnits.length > 1) {
-      const totalSlots = presetUnits.reduce((s, u) => s + u.cols * u.rows, 0);
-      for (const sub of presetUnits) {
-        const subSlots = sub.cols * sub.rows;
-        expanded.push({
-          ...unit,
-          cols: sub.cols,
-          rows: sub.rows,
-          totalW: sub.totalW,
-          totalH: sub.totalH,
-          hasTop: sub.hasTop,
-          hasWheels: sub.hasWheels,
-          price: Math.round((unit.price * subSlots / totalSlots) * 100) / 100,
-          desc: `${unit.desc} — ${sub.cols}x${sub.rows}`,
-        });
-      }
-    } else {
-      expanded.push(unit);
-    }
-  }
-  return expanded;
 }
 
 /**

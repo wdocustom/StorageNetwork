@@ -14,6 +14,7 @@
 
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
+import { expandPresetUnits } from "@/lib/buildEngine.types";
 import { getShelvingConfig } from "@/lib/shelving";
 import {
   OVERHEAD_GRID_PRESETS,
@@ -79,41 +80,13 @@ function calcUprightHeight(rows: number, unitType: "standard" | "mini"): number 
 
 // ── Server Action ────────────────────────────────────────────────────────
 
-/**
- * Expand compound preset units (stored as a single item with presetUnits)
- * into individual entries so each sub-unit gets its own material calculation.
- */
-function expandPresetConfigs(configs: MaterialConfig[]): MaterialConfig[] {
-  const expanded: MaterialConfig[] = [];
-  for (const unit of configs) {
-    const presetUnits = (unit as unknown as Record<string, unknown>).presetUnits as
-      | Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>
-      | undefined;
-
-    if (presetUnits && presetUnits.length > 1) {
-      for (const sub of presetUnits) {
-        expanded.push({
-          ...unit,
-          cols: sub.cols,
-          rows: sub.rows,
-          hasTop: sub.hasTop,
-          hasWheels: sub.hasWheels,
-        });
-      }
-    } else {
-      expanded.push(unit);
-    }
-  }
-  return expanded;
-}
-
 export async function calculateMaterialCostServer(
   configs: MaterialConfig | MaterialConfig[],
   customPrices?: MaterialPrices,
   inventory?: MaterialInventory | null,
 ): Promise<MaterialBreakdown> {
   const rawUnits = Array.isArray(configs) ? configs : [configs];
-  const units = expandPresetConfigs(rawUnits);
+  const units = expandPresetUnits(rawUnits);
   const prices = { ...DEFAULT_MATERIAL_PRICES, ...customPrices };
 
   let totalBoards = 0;

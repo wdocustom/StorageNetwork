@@ -18,6 +18,7 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { expandPresetUnits } from "@/lib/buildEngine.types";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit, ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
@@ -64,7 +65,7 @@ interface UnitConfig {
   /** When set, this order item is an overhead ceiling storage unit */
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
   /** When set, this order item is a compound preset with sub-units (e.g. Indiana Joe) */
-  presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
+  presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
 }
 
 interface ServerBuild {
@@ -1115,7 +1116,7 @@ export default function DesignConfigurator({
         customer_phone: phone.trim() || undefined,
         customer_zip: zip,
         quote_data: orderItems.length > 0 ? (() => {
-          const items: unknown[] = [...orderItems];
+          const items: unknown[] = [...expandPresetUnits(orderItems)];
           if (selectedCleanout && cleanoutPrice > 0) {
             const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
             items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
@@ -1172,32 +1173,7 @@ export default function DesignConfigurator({
         address_zip: addrZip,
         delivery_address: deliveryAddress,
         quote_data: (() => {
-          // Expand compound presets (bestsellers) into individual sub-units
-          // so the build engine generates correct modules for each sub-unit
-          const expandedUnits: UnitConfig[] = [];
-          for (const item of orderItems) {
-            if (item.presetUnits && item.presetUnits.length > 1) {
-              // Split the preset's price proportionally by slot count
-              const totalSlots = item.presetUnits.reduce((s, u) => s + u.cols * u.rows, 0);
-              for (const sub of item.presetUnits) {
-                const subSlots = sub.cols * sub.rows;
-                expandedUnits.push({
-                  ...item,
-                  cols: sub.cols,
-                  rows: sub.rows,
-                  totalW: sub.totalW,
-                  totalH: sub.totalH,
-                  hasTop: sub.hasTop,
-                  hasWheels: sub.hasWheels,
-                  price: Math.round((item.price * subSlots / totalSlots) * 100) / 100,
-                  desc: `${item.desc} — ${sub.cols}x${sub.rows}`,
-                  presetUnits: undefined,
-                });
-              }
-            } else {
-              expandedUnits.push(item);
-            }
-          }
+          const expandedUnits = expandPresetUnits(orderItems);
           const items: QuoteItem[] = [...expandedUnits];
           if (selectedCleanout && cleanoutPrice > 0) {
             const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);

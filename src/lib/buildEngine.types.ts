@@ -33,6 +33,19 @@ export interface QuoteUnit {
   shelvingConfigId?: string;
   /** When set, this unit is an overhead ceiling storage unit — routed to overhead handler */
   overheadGridPresetId?: string;
+  /** Compound preset sub-units (e.g. "The Gass Station" = 1x4 + 4x2 + 1x4).
+   *  Present on old DB records where the preset was stored as one aggregate item.
+   *  New leads expand these client-side before saving, so this field is absent. */
+  presetUnits?: PresetSubUnitConfig[];
+}
+
+export interface PresetSubUnitConfig {
+  cols: number;
+  rows: number;
+  totalW: number;
+  totalH: number;
+  hasTop: boolean;
+  hasWheels: boolean;
 }
 
 export interface CutPart {
@@ -98,6 +111,43 @@ export interface Financials {
   depositRate: number;
   depositAmount: number;
   balanceDue: number;
+}
+
+// ── Preset Expansion ──────────────────────────────────────────────────────
+// Single source of truth for expanding compound presets into individual units.
+// Old DB records store bestseller presets as one aggregate item with a
+// presetUnits array. This function splits them into separate QuoteUnit
+// entries so the build engine processes each sub-unit independently.
+
+export function expandPresetUnits<T extends { presetUnits?: PresetSubUnitConfig[]; cols: number; rows: number }>(
+  units: T[],
+): T[] {
+  const expanded: T[] = [];
+  for (const unit of units) {
+    if (unit.presetUnits && unit.presetUnits.length > 1) {
+      const price = (unit as T & { price?: number }).price ?? 0;
+      const desc = (unit as T & { desc?: string }).desc ?? "";
+      const totalSlots = unit.presetUnits.reduce((s, u) => s + u.cols * u.rows, 0);
+      for (const sub of unit.presetUnits) {
+        const subSlots = sub.cols * sub.rows;
+        expanded.push({
+          ...unit,
+          cols: sub.cols,
+          rows: sub.rows,
+          totalW: sub.totalW,
+          totalH: sub.totalH,
+          hasTop: sub.hasTop,
+          hasWheels: sub.hasWheels,
+          ...(price > 0 ? { price: Math.round((price * subSlots / totalSlots) * 100) / 100 } : {}),
+          ...(desc ? { desc: `${desc} — ${sub.cols}x${sub.rows}` } : {}),
+          presetUnits: undefined, // consumed — don't re-expand
+        });
+      }
+    } else {
+      expanded.push(unit);
+    }
+  }
+  return expanded;
 }
 
 export interface BuildManifest {

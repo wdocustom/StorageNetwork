@@ -41,6 +41,8 @@ export interface MaterialConfig {
   overheadGridPresetId?: string;
   /** Per-section addons (doors, panels, rail removal, shelves) */
   addons?: import("@/types/viewModels").SectionAddon[];
+  /** Compound preset sub-units (old DB records only — new leads expand client-side) */
+  presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
 }
 
 export interface MaterialBreakdown {
