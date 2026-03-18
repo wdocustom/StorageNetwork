@@ -86,7 +86,7 @@ function calcUprightHeight(rows: number, unitType: "standard" | "mini"): number 
 function expandPresetConfigs(configs: MaterialConfig[]): MaterialConfig[] {
   const expanded: MaterialConfig[] = [];
   for (const unit of configs) {
-    const presetUnits = (unit as Record<string, unknown>).presetUnits as
+    const presetUnits = (unit as unknown as Record<string, unknown>).presetUnits as
       | Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>
       | undefined;
 
