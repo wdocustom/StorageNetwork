@@ -703,6 +703,16 @@ export default function JobTicket({
           {/* Dropdown menu — same options as payment_pending */}
           {showGetPaidMenu && (
             <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {payError && (
+                <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
+                  {payError}
+                </div>
+              )}
+              {!installerStripeId && (
+                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
+                  Connect your Stripe account in Settings to unlock card payments and payment links.
+                </div>
+              )}
               {/* Enter Card Details */}
               <button
                 onClick={handleEnterCard}
@@ -823,6 +833,11 @@ export default function JobTicket({
                   {payError}
                 </div>
               )}
+              {!installerStripeId && (
+                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
+                  Connect your Stripe account in Settings to unlock card payments and payment links.
+                </div>
+              )}
               {/* Enter Card Details — opens Stripe Checkout in new tab */}
               <button
                 onClick={handleEnterCard}
@@ -846,7 +861,7 @@ export default function JobTicket({
               {customerEmail && (
                 <button
                   onClick={handleResendInvoice}
-                  disabled={payLoading}
+                  disabled={payLoading || !installerStripeId}
                   className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
@@ -925,6 +940,16 @@ export default function JobTicket({
           {/* Dropdown menu (same as payment_pending) */}
           {showGetPaidMenu && (
             <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {payError && (
+                <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
+                  {payError}
+                </div>
+              )}
+              {!installerStripeId && (
+                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
+                  Connect your Stripe account in Settings to unlock card payments and payment links.
+                </div>
+              )}
               <button
                 onClick={handleEnterCard}
                 disabled={payLoading || !installerStripeId}
