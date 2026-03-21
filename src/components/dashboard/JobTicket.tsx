@@ -417,9 +417,30 @@ export default function JobTicket({
         customerEmail: customerEmail || undefined,
       });
       if (result.success && result.url) {
-        await navigator.clipboard.writeText(result.url);
-        setCopyLinkSuccess(true);
-        setTimeout(() => setCopyLinkSuccess(false), 2000);
+        // Try native share (best UX on mobile), then clipboard, then fallback
+        let copied = false;
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: "Payment Link", url: result.url });
+            copied = true;
+          } catch {
+            // User cancelled share sheet — fall through to clipboard
+          }
+        }
+        if (!copied) {
+          try {
+            await navigator.clipboard.writeText(result.url);
+            copied = true;
+          } catch {
+            // Clipboard API not available on this device — prompt to copy manually
+            window.prompt("Copy this payment link:", result.url);
+            copied = true;
+          }
+        }
+        if (copied) {
+          setCopyLinkSuccess(true);
+          setTimeout(() => setCopyLinkSuccess(false), 2000);
+        }
       } else {
         setPayError(result.error || "Failed to generate payment link.");
       }
