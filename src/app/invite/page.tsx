@@ -1,0 +1,669 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import {
+  ChevronRight,
+  Loader2,
+  DollarSign,
+  ClipboardList,
+  Zap,
+  MapPin,
+  User,
+  Mail,
+  Lock,
+  Building2,
+  CheckCircle2,
+  ArrowRight,
+  Clock,
+  XCircle,
+  Shield,
+  TrendingUp,
+  Hammer,
+  Package,
+} from "lucide-react";
+import { onboardInstaller } from "@/app/actions/onboard-installer";
+import { stampLastLogin } from "@/app/actions/profile";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// /invite — High-Converting Installer Acquisition Landing Page
+//
+// Optimized for cold traffic from:
+// - Facebook ads (?utm_source=facebook)
+// - Reddit posts (?utm_source=reddit)
+// - Craigslist (?utm_source=craigslist)
+// - Referral links (?ref=<installer_slug>)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const OLD_WAY = [
+  { icon: XCircle, text: "Chase leads on Thumbtack" },
+  { icon: XCircle, text: "Write quotes & estimates" },
+  { icon: XCircle, text: "Wait 30 days for payment" },
+];
+
+const NEW_WAY = [
+  { icon: CheckCircle2, text: "Pre-sold customers delivered to you" },
+  { icon: CheckCircle2, text: "Cut list calculated automatically" },
+  { icon: CheckCircle2, text: "Instant payout when job is done" },
+];
+
+const STEPS = [
+  {
+    num: "01",
+    icon: User,
+    title: "Sign Up",
+    desc: "Claim your territory. Takes 30 seconds. No credit card.",
+  },
+  {
+    num: "02",
+    icon: Hammer,
+    title: "Get Jobs",
+    desc: "Pre-sold customers with deposits collected. Complete cut lists included.",
+  },
+  {
+    num: "03",
+    icon: DollarSign,
+    title: "Get Paid",
+    desc: "Tap 'Complete.' Money hits your bank account instantly via Stripe.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "What does it cost?",
+    a: "Nothing to start. Your first 3 paid jobs are completely free — no subscription, no fees. After that it's $49/month with a small network fee on jobs we send you.",
+  },
+  {
+    q: "What kind of jobs will I get?",
+    a: "Residential garage tote-rack storage installations. Each job comes with a complete material list and cut list. Average job takes 3-4 hours and pays $400-600.",
+  },
+  {
+    q: "Do I need special tools?",
+    a: "If you own a miter saw, drill, and tape measure, you're set. These are standard 2x4 builds with off-the-shelf totes.",
+  },
+  {
+    q: "What does 'claim your territory' mean?",
+    a: "We limit the number of installers per area so you don't compete with 20 other contractors for the same jobs. First to sign up for a ZIP code gets priority.",
+  },
+  {
+    q: "Can I keep my other clients?",
+    a: "Absolutely. Storage Network is additive — extra jobs on top of whatever you're already doing. Many installers do 2-3 installs per weekend as a side hustle.",
+  },
+];
+
+export default function InvitePage() {
+  return (
+    <Suspense>
+      <InvitePageContent />
+    </Suspense>
+  );
+}
+
+function InvitePageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [name, setName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Persist referral attribution via cookie
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) {
+      document.cookie = `sn_ref=${ref};max-age=${30 * 24 * 60 * 60};path=/;samesite=lax`;
+    }
+  }, [searchParams]);
+
+  async function handleSubmit() {
+    setError("");
+
+    if (!name.trim() || !email.trim() || !password.trim() || !zipCode.trim()) {
+      setError("All fields are required.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await onboardInstaller({
+        name: name.trim(),
+        businessName: businessName.trim() || name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        zipCode: zipCode.trim(),
+        withStandardTrial: true,
+      });
+
+      if (!result.success) {
+        setError(result.error || "Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Sign in and redirect to dashboard
+      const supabase = getSupabaseBrowserClient();
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (signInError) {
+        setError("Account created! Please log in at /login");
+        setLoading(false);
+        return;
+      }
+
+      if (signInData?.user) {
+        await stampLastLogin(signInData.user.id);
+      }
+      window.location.href = result.redirectUrl || "/dashboard";
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  function scrollToSignup() {
+    document.getElementById("signup")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-950">
+      {/* ══════════════════════════════════════════════════════════════════
+          HERO — Money-First Headline
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="relative flex min-h-[90vh] flex-col items-center justify-center overflow-hidden px-4 py-20">
+        {/* Radial glow */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 20%, rgba(250,204,21,0.12) 0%, transparent 60%)",
+          }}
+        />
+
+        {/* Grid overlay */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage:
+              "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          {/* Badge */}
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-yellow-400/20 bg-yellow-400/5 px-4 py-1.5">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              Territories Open In Your Area
+            </span>
+          </div>
+
+          {/* Logo */}
+          <div className="mb-6 inline-block">
+            <Image
+              src="/landing_page_logo.png"
+              alt="Storage Network"
+              width={180}
+              height={180}
+              priority
+              className="h-28 w-auto object-contain sm:h-36"
+            />
+          </div>
+
+          <h1 className="mb-4 text-4xl font-black uppercase leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+            Make{" "}
+            <span className="text-yellow-400">$800–$1,200</span>
+            <br />
+            Per Weekend.
+          </h1>
+
+          <p className="mx-auto mb-8 max-w-lg text-lg font-medium text-stone-400 sm:text-xl">
+            Pre-sold garage storage jobs. Cut lists included.
+            <br />
+            No quoting. No selling. Just build &amp; get paid.
+          </p>
+
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <button
+              onClick={scrollToSignup}
+              className="group flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-base font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+            >
+              Claim Your Territory
+              <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-xs font-semibold text-stone-600">
+              3 Jobs Free — No Credit Card
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          PAIN/SOLUTION — Old Way vs. New Way
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <p className="mb-12 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
+            The Difference
+          </p>
+
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Old Way */}
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8">
+              <h3 className="mb-6 text-sm font-extrabold uppercase tracking-wider text-red-400">
+                The Old Way
+              </h3>
+              <div className="space-y-4">
+                {OLD_WAY.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 shrink-0 text-red-400" />
+                    <span className="text-sm text-stone-300">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* New Way */}
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-8">
+              <h3 className="mb-6 text-sm font-extrabold uppercase tracking-wider text-emerald-400">
+                Storage Network
+              </h3>
+              <div className="space-y-4">
+                {NEW_WAY.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 shrink-0 text-emerald-400" />
+                    <span className="text-sm text-stone-300">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          SOCIAL PROOF — Numbers That Matter
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-16">
+        <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-3">
+          <StatCard value="$400–600" label="Per Install" icon={DollarSign} />
+          <StatCard value="3–4 hrs" label="Average Job Time" icon={Clock} />
+          <StatCard value="2×4 + Totes" label="Materials Needed" icon={Package} />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          HOW IT WORKS — 3 Steps
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="mb-4 text-center text-3xl font-black uppercase text-white sm:text-4xl">
+            How It <span className="text-yellow-400">Works</span>
+          </h2>
+          <p className="mb-12 text-center text-sm text-stone-500">
+            From signup to payout in 3 steps.
+          </p>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {STEPS.map((step) => (
+              <div
+                key={step.num}
+                className="relative rounded-2xl border border-stone-800 bg-gray-900 p-8 text-center transition-colors hover:border-yellow-400/30"
+              >
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-gray-950">
+                  {step.num}
+                </div>
+                <div className="mx-auto mb-4 mt-2 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
+                  <step.icon className="h-7 w-7 text-yellow-400" />
+                </div>
+                <h3 className="mb-2 text-lg font-extrabold uppercase text-white">
+                  {step.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-stone-400">
+                  {step.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          WHAT YOU BUILD — Product Preview
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="mb-4 text-center text-3xl font-black uppercase text-white sm:text-4xl">
+            What You&apos;re <span className="text-yellow-400">Building</span>
+          </h2>
+          <p className="mb-12 text-center text-sm text-stone-500">
+            Heavy-duty tote-rack storage systems for residential garages.
+            Customers design their unit in our 3D configurator — you just build it.
+          </p>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <FeatureCard
+              icon={Shield}
+              title="Lifetime Warranty"
+              desc="Every system is backed by our structural warranty. Built to hold 2,000+ lbs."
+            />
+            <FeatureCard
+              icon={ClipboardList}
+              title="Cut Lists Included"
+              desc="Every job comes with a precise, bin-packed material list. No math required."
+            />
+            <FeatureCard
+              icon={Zap}
+              title="Instant Stripe Payout"
+              desc="Finish the job, tap Complete. Money goes straight to your bank."
+            />
+            <FeatureCard
+              icon={MapPin}
+              title="Territory Protection"
+              desc="Limited installers per area. No competing with 20 other contractors."
+            />
+            <FeatureCard
+              icon={TrendingUp}
+              title="Passive Referrals"
+              desc="Refer another installer, earn $50 when they complete their first job."
+            />
+            <FeatureCard
+              icon={Building2}
+              title="Your Portfolio Page"
+              desc="Get a custom profile page with QR code. Build your brand on the network."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          MID-PAGE CTA
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 bg-gradient-to-br from-yellow-400/5 via-transparent to-yellow-400/5 px-4 py-16">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="mb-3 text-2xl font-black uppercase text-white sm:text-3xl">
+            Your ZIP Code May Still Be{" "}
+            <span className="text-yellow-400">Open</span>
+          </h2>
+          <p className="mb-6 text-sm text-stone-400">
+            We&apos;re limiting installers per territory. Don&apos;t wait.
+          </p>
+          <button
+            onClick={scrollToSignup}
+            className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
+          >
+            Claim My Territory
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          FAQ — Objection Handling
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-20">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="mb-10 text-center text-3xl font-black uppercase text-white">
+            Questions
+          </h2>
+
+          <div className="space-y-3">
+            {FAQS.map((faq, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-stone-800 bg-gray-900 transition-colors hover:border-stone-700"
+              >
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="flex w-full items-center justify-between px-6 py-4 text-left"
+                >
+                  <span className="text-sm font-bold text-white">{faq.q}</span>
+                  <ChevronRight
+                    className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${
+                      openFaq === i ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                {openFaq === i && (
+                  <div className="border-t border-stone-800 px-6 py-4">
+                    <p className="text-sm leading-relaxed text-stone-400">
+                      {faq.a}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          SIGNUP FORM — Bottom of Funnel
+      ══════════════════════════════════════════════════════════════════ */}
+      <section
+        id="signup"
+        className="border-t border-stone-800/50 px-4 py-20"
+      >
+        <div className="mx-auto max-w-md">
+          <div className="mb-8 text-center">
+            <h2 className="mb-2 text-3xl font-black uppercase text-white sm:text-4xl">
+              Claim Your <span className="text-yellow-400">Territory</span>
+            </h2>
+            <p className="text-sm text-stone-400">
+              3 jobs free. No credit card required.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-stone-800 bg-gray-900 p-8">
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Your Name
+                </label>
+                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
+                  <User className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="John Smith"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Business Name */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Business Name{" "}
+                  <span className="font-normal text-stone-600">(optional)</span>
+                </label>
+                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
+                  <Building2 className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                  <input
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="Smith's Handyman Services"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Email
+                </label>
+                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
+                  <Mail className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Password
+                </label>
+                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
+                  <Lock className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="6+ characters"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* ZIP Code */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Your ZIP Code
+                </label>
+                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
+                  <MapPin className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={zipCode}
+                    onChange={(e) =>
+                      setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))
+                    }
+                    placeholder="90210"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs font-medium text-red-400">{error}</p>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-base font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+              >
+                {loading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    Claim Your Territory — 3 Jobs Free
+                    <ChevronRight className="h-5 w-5" />
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-[11px] text-stone-600">
+                No credit card required. Cancel anytime.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-stone-800 bg-gray-950 px-4 py-8">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/Header_avatar_logo.png"
+              alt="Storage Network"
+              width={32}
+              height={32}
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+          <p className="text-xs text-stone-700">
+            &copy; {new Date().getFullYear()} Storage-Network.app
+          </p>
+          <div className="flex items-center gap-4">
+            <a
+              href="/legal/privacy"
+              className="text-[11px] text-stone-600 hover:text-stone-400"
+            >
+              Privacy
+            </a>
+            <a
+              href="/legal/terms"
+              className="text-[11px] text-stone-600 hover:text-stone-400"
+            >
+              Terms
+            </a>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sub-Components
+// ═══════════════════════════════════════════════════════════════════════════
+
+function StatCard({
+  value,
+  label,
+  icon: Icon,
+}: {
+  value: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800 bg-gray-900 p-6 text-center">
+      <Icon className="mx-auto mb-2 h-6 w-6 text-yellow-400" />
+      <div className="text-2xl font-black text-white">{value}</div>
+      <div className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon: Icon,
+  title,
+  desc,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-800 bg-gray-900 p-6 transition-colors hover:border-stone-700">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+        <Icon className="h-5 w-5 text-yellow-400" />
+      </div>
+      <h3 className="mb-1.5 text-sm font-extrabold uppercase text-white">
+        {title}
+      </h3>
+      <p className="text-xs leading-relaxed text-stone-500">{desc}</p>
+    </div>
+  );
+}
