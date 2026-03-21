@@ -1,11 +1,12 @@
 /**
  * Facebook Ad Copy Generator — Ready-to-use ad variants for Ads Manager
  *
- * Budget: $60 across 3 variants ($20 each, or kill losers and scale winner)
+ * Budget: $80 across 4 variants ($20 each, or kill losers and scale winner)
  *
  * Targeting Recommendations:
  * - Job titles: Handyman, Carpenter, General Contractor, Home Improvement
- * - Interests: Home Depot, Lowe's, garage organization, woodworking, Kreg tools
+ * - Interests: Home Depot, Lowe's, garage organization, woodworking, Kreg tools,
+ *              garage shelving, tote storage, 27 gallon totes, DIY shelves
  * - Age: 25-55
  * - Location: US (exclude Alaska, Hawaii)
  * - Placement: Facebook Feed + Instagram Feed
@@ -83,6 +84,30 @@ First come, first served. Check if your area is still available.`,
     image_direction:
       "Map of the US with colored dots showing 'CLAIMED' territories. A few areas highlighted in yellow showing 'OPEN'. Text overlay: 'Is Your Territory Still Available?' Dark background, yellow accents.",
   },
+  {
+    name: "VARIANT D — Course Killer",
+    headline: "Skip the Course. Start Getting Paid.",
+    primary_text: `Tired of people selling you a $500 course to "learn the shelf business"?
+
+Here's what they don't tell you:
+❌ You still have to find your own customers
+❌ You still have to do all the quoting
+❌ You still have to calculate your own cut lists
+❌ You compete with everyone else who bought the same course
+
+Storage Network flips the script:
+✅ Pre-sold customers delivered to YOUR territory
+✅ Cut lists auto-generated (zero math errors)
+✅ Exclusive ZIP code — no competition
+✅ Instant Stripe payout when you're done
+
+Free to join. No course to buy. No franchise fee. Your first 3 jobs are on us.`,
+    description: "No Course Needed. Pre-Sold Jobs. Exclusive Territory.",
+    cta: "Sign Up",
+    url: "https://storage-network.app/invite?utm_source=facebook&utm_medium=cpc&utm_campaign=course_killer",
+    image_direction:
+      "Split screen. Left side (red tint): laptop showing '$497 COURSE — Learn to sell shelves' with a big X over it. Right side (green tint): contractor building shelves with '$800-1,200/Weekend' overlay. Bottom text: 'Why pay to learn when you can get paid to build?' Dark background.",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -92,7 +117,7 @@ First come, first served. Check if your area is still available.`,
 function main() {
   console.log("══════════════════════════════════════════════════════════");
   console.log("  FACEBOOK AD COPY — Storage Network");
-  console.log("  Budget: $60 | 3 Variants | $20 each");
+  console.log("  Budget: $80 | 4 Variants | $20 each");
   console.log("══════════════════════════════════════════════════════════\n");
 
   console.log("TARGETING SETUP:");
@@ -100,7 +125,8 @@ function main() {
   console.log("  Age:          25-55");
   console.log("  Location:     United States (exclude AK, HI)");
   console.log("  Job Titles:   Handyman, Carpenter, General Contractor");
-  console.log("  Interests:    Home Depot, Lowe's, Woodworking, Garage Organization");
+  console.log("  Interests:    Home Depot, Lowe's, Woodworking, Garage Organization,");
+  console.log("                Garage Shelving, Tote Storage, 27 Gallon Totes, DIY Shelves");
   console.log("  Placements:   Facebook Feed, Instagram Feed");
   console.log("  Budget:       $10/day for 6 days\n");
 
@@ -119,9 +145,9 @@ function main() {
 
   console.log("\n══════════════════════════════════════════════════════════");
   console.log("  OPTIMIZATION PLAYBOOK:");
-  console.log("  Day 1-2: Run all 3 variants at $10/day each");
-  console.log("  Day 3:   Check CTR and CPC. Kill the worst performer.");
-  console.log("  Day 3-6: Split remaining $30 between top 2 variants.");
+  console.log("  Day 1-2: Run all 4 variants at $10/day each");
+  console.log("  Day 3:   Check CTR and CPC. Kill the 2 worst performers.");
+  console.log("  Day 3-6: Split remaining $40 between top 2 variants.");
   console.log("  Day 5:   Kill 2nd worst. Put remaining budget on winner.");
   console.log("  Target:  CPL < $3.00, CTR > 1.5%, CVR > 10%");
   console.log("══════════════════════════════════════════════════════════\n");

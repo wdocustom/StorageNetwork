@@ -34,7 +34,7 @@ const POSTS: RedditPost[] = [
 I signed up with a platform called Storage Network that has a 3D configurator where homeowners design their storage unit. When someone in my area places an order, I get the job with a complete cut list — I just show up, cut the lumber, and build.
 
 **What you need:**
-- Miter saw, drill, tape measure, level
+- Miter saw, tablesaw, drill, tape measure, level
 - Basic carpentry skills (if you can build a bookshelf, you can do this)
 - A truck or SUV for lumber runs
 
