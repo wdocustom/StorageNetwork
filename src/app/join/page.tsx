@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   Loader2,
   Mail,
@@ -32,9 +32,11 @@ import {
   ArrowRight,
   Wrench,
   Video,
+  XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
+import { checkTerritoryAvailability } from "@/app/actions/territory";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
@@ -75,6 +77,39 @@ export default function JoinPage() {
   const [zipCode, setZipCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Territory availability state
+  const [territoryStatus, setTerritoryStatus] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
+  const [territoryMessage, setTerritoryMessage] = useState("");
+  const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const checkTerritory = useCallback(async (zip: string) => {
+    if (zip.length !== 5) {
+      setTerritoryStatus("idle");
+      setTerritoryMessage("");
+      return;
+    }
+    setTerritoryStatus("checking");
+    setTerritoryMessage("");
+    try {
+      const result = await checkTerritoryAvailability(zip);
+      if (result.available) {
+        setTerritoryStatus("available");
+        setTerritoryMessage("Territory available!");
+      } else {
+        setTerritoryStatus("taken");
+        const nearest = result.nearestInstaller;
+        const hint = nearest?.city && nearest?.state
+          ? ` An installer is already active near ${nearest.city}, ${nearest.state} (${nearest.distance} mi away).`
+          : "";
+        setTerritoryMessage(`Territory unavailable.${hint} Try a different ZIP code.`);
+      }
+    } catch {
+      setTerritoryStatus("idle");
+    }
+  }, []);
 
   async function handleSubmit() {
     setError("");
@@ -313,19 +348,42 @@ export default function JoinPage() {
                 </div>
               </div>
 
-              {/* Zip Code */}
+              {/* Zip Code — with territory check */}
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
                   Service Zip Code
                 </label>
-                <div className="flex overflow-hidden rounded-lg border border-slate-700 bg-slate-800 focus-within:border-yellow-400">
-                  <div className="flex items-center pl-3 text-stone-500">
+                <div
+                  className={`flex overflow-hidden rounded-lg border bg-slate-800 transition-colors ${
+                    territoryStatus === "available"
+                      ? "border-emerald-500"
+                      : territoryStatus === "taken"
+                        ? "border-red-500"
+                        : "border-slate-700 focus-within:border-yellow-400"
+                  }`}
+                >
+                  <div className={`flex items-center pl-3 ${
+                    territoryStatus === "available" ? "text-emerald-400"
+                    : territoryStatus === "taken" ? "text-red-400"
+                    : "text-stone-500"
+                  }`}>
                     <MapPin className="h-4 w-4" />
                   </div>
                   <input
                     type="text"
                     value={zipCode}
-                    onChange={(e) => { setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5)); setError(""); }}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                      setZipCode(val);
+                      setError("");
+                      if (territoryCheckTimer.current) clearTimeout(territoryCheckTimer.current);
+                      if (val.length === 5) {
+                        territoryCheckTimer.current = setTimeout(() => checkTerritory(val), 400);
+                      } else {
+                        setTerritoryStatus("idle");
+                        setTerritoryMessage("");
+                      }
+                    }}
                     onKeyDown={handleKeyDown}
                     placeholder="90210"
                     inputMode="numeric"
@@ -333,7 +391,23 @@ export default function JoinPage() {
                     className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
                     autoComplete="postal-code"
                   />
+                  {territoryStatus === "checking" && (
+                    <Loader2 className="mr-3 h-4 w-4 shrink-0 animate-spin text-yellow-400" />
+                  )}
+                  {territoryStatus === "available" && (
+                    <CheckCircle2 className="mr-3 h-4 w-4 shrink-0 text-emerald-400" />
+                  )}
+                  {territoryStatus === "taken" && (
+                    <XCircle className="mr-3 h-4 w-4 shrink-0 text-red-400" />
+                  )}
                 </div>
+                {territoryMessage && (
+                  <p className={`mt-1 text-xs font-medium ${
+                    territoryStatus === "available" ? "text-emerald-400" : "text-red-400"
+                  }`}>
+                    {territoryMessage}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -343,7 +417,7 @@ export default function JoinPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || territoryStatus === "taken" || territoryStatus === "checking"}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-widest text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
             >
               {loading ? (

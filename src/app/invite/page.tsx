@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -24,6 +24,7 @@ import {
   Package,
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
+import { checkTerritoryAvailability } from "@/app/actions/territory";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -119,6 +120,13 @@ function InvitePageContent() {
   const [error, setError] = useState("");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Territory availability state
+  const [territoryStatus, setTerritoryStatus] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
+  const [territoryMessage, setTerritoryMessage] = useState("");
+  const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Persist referral attribution via cookie
   useEffect(() => {
     const ref = searchParams.get("ref");
@@ -126,6 +134,38 @@ function InvitePageContent() {
       document.cookie = `sn_ref=${ref};max-age=${30 * 24 * 60 * 60};path=/;samesite=lax`;
     }
   }, [searchParams]);
+
+  // Debounced territory availability check — fires when ZIP reaches 5 digits
+  const checkTerritory = useCallback(async (zip: string) => {
+    if (zip.length !== 5) {
+      setTerritoryStatus("idle");
+      setTerritoryMessage("");
+      return;
+    }
+
+    setTerritoryStatus("checking");
+    setTerritoryMessage("");
+
+    try {
+      const result = await checkTerritoryAvailability(zip);
+      if (result.available) {
+        setTerritoryStatus("available");
+        setTerritoryMessage("Territory available!");
+      } else {
+        setTerritoryStatus("taken");
+        const nearest = result.nearestInstaller;
+        const hint = nearest?.city && nearest?.state
+          ? ` An installer is already active near ${nearest.city}, ${nearest.state} (${nearest.distance} mi away).`
+          : "";
+        setTerritoryMessage(
+          `Territory unavailable.${hint} Try a different ZIP code.`
+        );
+      }
+    } catch {
+      // Don't block the form on check failure — server will enforce on submit
+      setTerritoryStatus("idle");
+    }
+  }, []);
 
   async function handleSubmit() {
     setError("");
@@ -545,25 +585,77 @@ function InvitePageContent() {
                 </div>
               </div>
 
-              {/* ZIP Code */}
+              {/* ZIP Code — with real-time territory availability check */}
               <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
                   Your ZIP Code
                 </label>
-                <div className="flex items-center rounded-lg border border-stone-700 bg-gray-800 focus-within:border-yellow-400">
-                  <MapPin className="ml-3 h-4 w-4 shrink-0 text-stone-500" />
+                <div
+                  className={`flex items-center rounded-lg border bg-gray-800 transition-colors ${
+                    territoryStatus === "available"
+                      ? "border-emerald-500"
+                      : territoryStatus === "taken"
+                        ? "border-red-500"
+                        : "border-stone-700 focus-within:border-yellow-400"
+                  }`}
+                >
+                  <MapPin
+                    className={`ml-3 h-4 w-4 shrink-0 ${
+                      territoryStatus === "available"
+                        ? "text-emerald-400"
+                        : territoryStatus === "taken"
+                          ? "text-red-400"
+                          : "text-stone-500"
+                    }`}
+                  />
                   <input
                     type="text"
                     inputMode="numeric"
                     maxLength={5}
                     value={zipCode}
-                    onChange={(e) =>
-                      setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                      setZipCode(val);
+
+                      // Clear any pending check
+                      if (territoryCheckTimer.current) {
+                        clearTimeout(territoryCheckTimer.current);
+                      }
+
+                      if (val.length === 5) {
+                        // Debounce 400ms to avoid rapid-fire server calls
+                        territoryCheckTimer.current = setTimeout(() => {
+                          checkTerritory(val);
+                        }, 400);
+                      } else {
+                        setTerritoryStatus("idle");
+                        setTerritoryMessage("");
+                      }
+                    }}
                     placeholder="90210"
                     className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-600 outline-none"
                   />
+                  {territoryStatus === "checking" && (
+                    <Loader2 className="mr-3 h-4 w-4 shrink-0 animate-spin text-yellow-400" />
+                  )}
+                  {territoryStatus === "available" && (
+                    <CheckCircle2 className="mr-3 h-4 w-4 shrink-0 text-emerald-400" />
+                  )}
+                  {territoryStatus === "taken" && (
+                    <XCircle className="mr-3 h-4 w-4 shrink-0 text-red-400" />
+                  )}
                 </div>
+                {territoryMessage && (
+                  <p
+                    className={`mt-1.5 text-xs font-medium ${
+                      territoryStatus === "available"
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {territoryMessage}
+                  </p>
+                )}
               </div>
 
               {error && (
@@ -572,7 +664,7 @@ function InvitePageContent() {
 
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || territoryStatus === "taken" || territoryStatus === "checking"}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-base font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 {loading ? (

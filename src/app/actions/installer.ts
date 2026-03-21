@@ -5,6 +5,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
+import { checkTerritoryAvailability } from "@/app/actions/territory";
 
 const supabase = getServiceClient();
 
@@ -46,17 +47,36 @@ export async function updateInstallerProfile(
     return { success: false, zips_covered: 0, error: "ZIP code not found." };
   }
 
+  // ── Territory exclusivity check ──
+  // Verify the new ZIP doesn't conflict with another installer's territory.
+  // Excludes self so an installer can adjust radius without self-conflicting.
+  const territoryCheck = await checkTerritoryAvailability(service_zip, installer_id);
+  if (!territoryCheck.available) {
+    const nearestInfo = territoryCheck.nearestInstaller;
+    const locationHint = nearestInfo?.city && nearestInfo?.state
+      ? ` (near ${nearestInfo.city}, ${nearestInfo.state})`
+      : "";
+    return {
+      success: false,
+      zips_covered: 0,
+      error: `Territory unavailable — an installer is already within ${nearestInfo?.distance ?? 85} miles${locationHint}. Choose a different home ZIP.`,
+    };
+  }
+
   // Clamp radius to reasonable bounds
   const radius = Math.max(1, Math.min(service_radius_miles, 85));
 
   // Compute all zips within the radius
   const coveredZips = zipcodes.radius(service_zip, radius) ?? [];
+  const zipGeo = zipcodes.lookup(service_zip);
 
   const updateData: Record<string, unknown> = {
     service_zip,
     service_radius_miles: radius,
     service_zips: coveredZips,
     service_settings: input.service_settings ?? {},
+    latitude: zipGeo?.latitude ?? null,
+    longitude: zipGeo?.longitude ?? null,
   };
 
   if (input.business_name !== undefined) {

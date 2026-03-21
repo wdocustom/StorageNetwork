@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
+import { checkTerritoryAvailability } from "@/app/actions/territory";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
@@ -50,6 +51,25 @@ export async function onboardInstaller(
   }
 
   try {
+    // 0. Territory exclusivity check — MUST happen before auth user creation
+    //    to prevent orphaned accounts when territory is taken.
+    const baseZip = zipCode.trim();
+    if (!/^\d{5}$/.test(baseZip)) {
+      return { success: false, error: "Please enter a valid 5-digit ZIP code." };
+    }
+
+    const territoryCheck = await checkTerritoryAvailability(baseZip);
+    if (!territoryCheck.available) {
+      const nearestInfo = territoryCheck.nearestInstaller;
+      const locationHint = nearestInfo?.city && nearestInfo?.state
+        ? ` (near ${nearestInfo.city}, ${nearestInfo.state})`
+        : "";
+      return {
+        success: false,
+        error: `This territory is unavailable — there's already an installer within ${nearestInfo?.distance ?? 85} miles${locationHint}. Try a different ZIP code, or join our waitlist for when a spot opens up.`,
+      };
+    }
+
     // 1. Create auth user
     const { data: authData, error: authError } =
       await supabase.auth.admin.createUser({
@@ -76,8 +96,8 @@ export async function onboardInstaller(
     const lastName = nameParts.slice(1).join(" ") || "";
 
     // 2. Create profile with radius-expanded service area
-    const baseZip = zipCode.trim();
     const coveredZips = zipcodes.radius(baseZip, DEFAULT_SERVICE_RADIUS) ?? [baseZip];
+    const zipGeo = zipcodes.lookup(baseZip);
 
     await supabase.from("profiles").upsert({
       id: userId,
@@ -88,6 +108,8 @@ export async function onboardInstaller(
       service_radius_miles: DEFAULT_SERVICE_RADIUS,
       service_zips: coveredZips.length > 0 ? coveredZips : [baseZip],
       subscription_tier: "pro",
+      latitude: zipGeo?.latitude ?? null,
+      longitude: zipGeo?.longitude ?? null,
     });
 
     console.log("✅ Installer account created:", userId);
