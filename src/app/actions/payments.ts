@@ -129,7 +129,7 @@ async function getInstallerProfile(installerId: string) {
 export interface PaymentSessionInput {
   leadId: string;
   amount: number; // dollars (e.g., 1200)
-  installerStripeId: string; // Stripe Connect account ID (acct_xxx)
+  installerStripeId?: string; // Optional — server looks it up from DB if not provided
   customerEmail?: string;
   description?: string;
 }
@@ -143,11 +143,10 @@ export interface PaymentSessionResult {
 export async function createPaymentSession(
   input: PaymentSessionInput
 ): Promise<PaymentSessionResult> {
-  const { leadId, amount, installerStripeId, customerEmail, description } =
-    input;
+  const { leadId, amount, customerEmail, description } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
-  if (!leadId || !amount || !installerStripeId) {
+  if (!leadId || !amount) {
     return { success: false, error: "Missing required payment parameters." };
   }
 
@@ -157,6 +156,14 @@ export async function createPaymentSession(
 
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
+
+  // ── Look up installer's Stripe account from DB (source of truth) ──────
+  // Client may pass installerStripeId as a hint, but we always verify server-side
+  const profile = await getInstallerProfile(auth.userId);
+  const installerStripeId = profile?.stripe_account_id;
+  if (!installerStripeId) {
+    return { success: false, error: "Stripe account not connected. Please connect Stripe in Settings." };
+  }
 
   try {
     // ── Balance Collection ───────────────────────────────────────────────
@@ -229,7 +236,7 @@ export async function createPaymentSession(
 export interface InvoiceInput {
   leadId: string;
   amount: number;
-  installerStripeId: string;
+  installerStripeId?: string; // Optional — server resolves from DB
   customerEmail: string;
   customerName: string;
   businessName: string;

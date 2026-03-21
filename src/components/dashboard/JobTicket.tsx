@@ -63,7 +63,7 @@ interface JobTicketProps {
   customerName: string;
   customerPhone?: string | null;
   scheduledAt?: string | null;
-  installerStripeId: string | null;
+  installerStripeId?: string | null; // Deprecated — server actions look up Stripe account directly
   source?: string | null;
   inventory?: MaterialInventory | null;
   customMaterialPrices?: MaterialPrices;
@@ -272,16 +272,13 @@ export default function JobTicket({
         // ── AUTO-SEND: Immediately trigger invoice email & set payment_pending ──
         setPayLoading(true);
         let paymentUrl: string | undefined;
-        if (installerStripeId) {
-          const session = await createPaymentSession({
-            leadId,
-            amount: collectFromCustomer,
-            installerStripeId,
-            customerEmail: customerEmail || undefined,
-          });
-          if (session.success && session.url) {
-            paymentUrl = session.url;
-          }
+        const session = await createPaymentSession({
+          leadId,
+          amount: collectFromCustomer,
+          customerEmail: customerEmail || undefined,
+        });
+        if (session.success && session.url) {
+          paymentUrl = session.url;
         }
         await completeJobWithProof(
           leadId,
@@ -313,18 +310,15 @@ export default function JobTicket({
     if (!uploadedPhotoUrl) return;
     setPayLoading(true);
 
-    // Optionally create a Stripe payment URL for the invoice email
+    // Create a Stripe payment URL for the invoice email
     let paymentUrl: string | undefined;
-    if (installerStripeId) {
-      const session = await createPaymentSession({
-        leadId,
-        amount: collectFromCustomer,
-        installerStripeId,
-        customerEmail: customerEmail || undefined,
-      });
-      if (session.success && session.url) {
-        paymentUrl = session.url;
-      }
+    const session = await createPaymentSession({
+      leadId,
+      amount: collectFromCustomer,
+      customerEmail: customerEmail || undefined,
+    });
+    if (session.success && session.url) {
+      paymentUrl = session.url;
     }
 
     await completeJobWithProof(
@@ -344,14 +338,12 @@ export default function JobTicket({
 
   // ── Payment Collection: Enter Card (opens Stripe in new tab) ──────────
   async function handleEnterCard() {
-    if (!installerStripeId) return;
     setPayError(null);
     setPayLoading(true);
     try {
       const result = await createPaymentSession({
         leadId,
         amount: collectFromCustomer,
-        installerStripeId,
         customerEmail: customerEmail || undefined,
       });
       if (result.success && result.url) {
@@ -369,14 +361,13 @@ export default function JobTicket({
 
   // ── Payment Collection: Resend Invoice Email ──────────────────────────
   async function handleResendInvoice() {
-    if (!installerStripeId || !customerEmail) return;
+    if (!customerEmail) return;
     setPayError(null);
     setPayLoading(true);
     try {
       const result = await sendPaymentInvoice({
         leadId,
         amount: collectFromCustomer,
-        installerStripeId,
         customerEmail,
         customerName,
         businessName: "Storage Network",
@@ -396,24 +387,33 @@ export default function JobTicket({
 
   // ── Payment Collection: Mark Paid Manually (cash/venmo/check) ─────────
   async function handleMarkPaidManual() {
+    setPayError(null);
     setPayLoading(true);
-    await markJobPaidManual(leadId, manualPayMethod);
-    setPayLoading(false);
-    setShowManualPayModal(false);
-    onStatusChange?.("paid");
-    onRefresh();
+    try {
+      const result = await markJobPaidManual(leadId, manualPayMethod);
+      if (result && "error" in result && result.error) {
+        setPayError(result.error);
+        return;
+      }
+      setShowManualPayModal(false);
+      onStatusChange?.("paid");
+      onRefresh();
+    } catch (err) {
+      console.error("[JobTicket] handleMarkPaidManual error:", err);
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
+    }
   }
 
   // ── Payment Collection: Copy Payment Link ────────────────────────────────
   async function handleCopyPaymentLink() {
-    if (!installerStripeId) return;
     setPayError(null);
     setPayLoading(true);
     try {
       const result = await createPaymentSession({
         leadId,
         amount: collectFromCustomer,
-        installerStripeId,
         customerEmail: customerEmail || undefined,
       });
       if (result.success && result.url) {
@@ -708,15 +708,11 @@ export default function JobTicket({
                   {payError}
                 </div>
               )}
-              {!installerStripeId && (
-                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
-                  Connect your Stripe account in Settings to unlock card payments and payment links.
-                </div>
-              )}
+
               {/* Enter Card Details */}
               <button
                 onClick={handleEnterCard}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -736,7 +732,7 @@ export default function JobTicket({
               {customerEmail && (
                 <button
                   onClick={handleResendInvoice}
-                  disabled={payLoading || !installerStripeId}
+                  disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
@@ -752,7 +748,7 @@ export default function JobTicket({
               {/* Copy Payment Link */}
               <button
                 onClick={handleCopyPaymentLink}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -833,15 +829,11 @@ export default function JobTicket({
                   {payError}
                 </div>
               )}
-              {!installerStripeId && (
-                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
-                  Connect your Stripe account in Settings to unlock card payments and payment links.
-                </div>
-              )}
+
               {/* Enter Card Details — opens Stripe Checkout in new tab */}
               <button
                 onClick={handleEnterCard}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -861,7 +853,7 @@ export default function JobTicket({
               {customerEmail && (
                 <button
                   onClick={handleResendInvoice}
-                  disabled={payLoading || !installerStripeId}
+                  disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
@@ -877,7 +869,7 @@ export default function JobTicket({
               {/* Copy Payment Link */}
               <button
                 onClick={handleCopyPaymentLink}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -945,14 +937,10 @@ export default function JobTicket({
                   {payError}
                 </div>
               )}
-              {!installerStripeId && (
-                <div className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-400">
-                  Connect your Stripe account in Settings to unlock card payments and payment links.
-                </div>
-              )}
+
               <button
                 onClick={handleEnterCard}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -982,7 +970,7 @@ export default function JobTicket({
 
               <button
                 onClick={handleCopyPaymentLink}
-                disabled={payLoading || !installerStripeId}
+                disabled={payLoading}
                 className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
               >
                 {payLoading ? (
@@ -1716,6 +1704,11 @@ export default function JobTicket({
                   <option value="other">Other</option>
                 </select>
               </div>
+              {payError && (
+                <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
+                  {payError}
+                </div>
+              )}
               <button
                 onClick={handleMarkPaidManual}
                 disabled={payLoading}
