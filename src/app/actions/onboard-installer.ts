@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
-import { checkTerritoryAvailability } from "@/app/actions/territory";
+import { checkTerritoryAvailability, assignTerritoryCluster } from "@/app/actions/territory";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
@@ -60,13 +60,9 @@ export async function onboardInstaller(
 
     const territoryCheck = await checkTerritoryAvailability(baseZip);
     if (!territoryCheck.available) {
-      const nearestInfo = territoryCheck.nearestInstaller;
-      const locationHint = nearestInfo?.city && nearestInfo?.state
-        ? ` (near ${nearestInfo.city}, ${nearestInfo.state})`
-        : "";
       return {
         success: false,
-        error: `This territory is unavailable — there's already an installer within ${nearestInfo?.distance ?? 85} miles${locationHint}. Try a different ZIP code, or join our waitlist for when a spot opens up.`,
+        error: territoryCheck.reason || "This territory is unavailable. Try a different ZIP code.",
       };
     }
 
@@ -95,8 +91,7 @@ export async function onboardInstaller(
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ") || "";
 
-    // 2. Create profile with radius-expanded service area
-    const coveredZips = zipcodes.radius(baseZip, DEFAULT_SERVICE_RADIUS) ?? [baseZip];
+    // 2. Create profile (service_zips populated by territory cluster assignment below)
     const zipGeo = zipcodes.lookup(baseZip);
 
     await supabase.from("profiles").upsert({
@@ -106,13 +101,30 @@ export async function onboardInstaller(
       business_name: businessName.trim(),
       service_zip: baseZip,
       service_radius_miles: DEFAULT_SERVICE_RADIUS,
-      service_zips: coveredZips.length > 0 ? coveredZips : [baseZip],
+      service_zips: [baseZip], // Temporary — overwritten by cluster assignment
       subscription_tier: "pro",
       latitude: zipGeo?.latitude ?? null,
       longitude: zipGeo?.longitude ?? null,
     });
 
-    console.log("✅ Installer account created:", userId);
+    // 2a. Assign exclusive ZIP cluster (atomic via PRIMARY KEY on territory_zips)
+    //     This is the real territory claim. If it fails (race condition where
+    //     someone claimed the ZIP between our pre-check and now), we clean up.
+    const clusterResult = await assignTerritoryCluster(userId, baseZip);
+    if (!clusterResult.success) {
+      // Clean up: delete the auth user + profile we just created
+      console.error(`[Onboard] Territory claim failed for ${userId}, cleaning up:`, clusterResult.error);
+      await supabase.from("profiles").delete().eq("id", userId);
+      await supabase.auth.admin.deleteUser(userId);
+      return {
+        success: false,
+        error: clusterResult.error || "This territory was just claimed. Try a different ZIP code.",
+      };
+    }
+
+    console.log(
+      `✅ Installer account created: ${userId} | Territory: ${clusterResult.assignedZips?.length} ZIPs (${clusterResult.tier})`
+    );
 
     // 2b. Check for affiliate referral cookie → link to partner + activate 7-day Pro trial
     let isTrialActivated = false;

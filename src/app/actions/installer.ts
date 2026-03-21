@@ -5,7 +5,11 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
 import { sendWaitlistAlert, sendWaitlistCustomerConfirmation } from "@/lib/email";
 import { recordWaitlistDemand, activateDemandSignals } from "@/app/actions/demand-signals";
-import { checkTerritoryAvailability } from "@/app/actions/territory";
+import {
+  checkTerritoryAvailability,
+  assignTerritoryCluster,
+  releaseTerritoryCluster,
+} from "@/app/actions/territory";
 
 const supabase = getServiceClient();
 
@@ -47,27 +51,74 @@ export async function updateInstallerProfile(
     return { success: false, zips_covered: 0, error: "ZIP code not found." };
   }
 
-  // ── Territory exclusivity check ──
-  // Verify the new ZIP doesn't conflict with another installer's territory.
-  // Excludes self so an installer can adjust radius without self-conflicting.
-  const territoryCheck = await checkTerritoryAvailability(service_zip, installer_id);
-  if (!territoryCheck.available) {
-    const nearestInfo = territoryCheck.nearestInstaller;
-    const locationHint = nearestInfo?.city && nearestInfo?.state
-      ? ` (near ${nearestInfo.city}, ${nearestInfo.state})`
-      : "";
-    return {
-      success: false,
-      zips_covered: 0,
-      error: `Territory unavailable — an installer is already within ${nearestInfo?.distance ?? 85} miles${locationHint}. Choose a different home ZIP.`,
-    };
+  // ── Fetch current profile to detect ZIP change ──
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("service_zip")
+    .eq("id", installer_id)
+    .single();
+
+  const isZipChanging = currentProfile?.service_zip !== service_zip;
+
+  // ── Territory exclusivity check (only if ZIP is changing) ──
+  if (isZipChanging) {
+    const territoryCheck = await checkTerritoryAvailability(service_zip, installer_id);
+    if (!territoryCheck.available) {
+      return {
+        success: false,
+        zips_covered: 0,
+        error: territoryCheck.reason || "This ZIP code is already claimed. Choose a different home ZIP.",
+      };
+    }
   }
 
   // Clamp radius to reasonable bounds
   const radius = Math.max(1, Math.min(service_radius_miles, 85));
 
-  // Compute all zips within the radius
-  const coveredZips = zipcodes.radius(service_zip, radius) ?? [];
+  // ── Handle territory cluster reassignment if ZIP changed ──
+  let coveredZips: string[];
+
+  if (isZipChanging) {
+    // Release old cluster, then assign new one
+    try {
+      await releaseTerritoryCluster(installer_id);
+    } catch (releaseErr) {
+      console.error("[Installer] Failed to release old territory:", releaseErr);
+      return {
+        success: false,
+        zips_covered: 0,
+        error: "Failed to update territory. Please try again.",
+      };
+    }
+
+    const clusterResult = await assignTerritoryCluster(installer_id, service_zip);
+    if (!clusterResult.success) {
+      // Re-claim old territory if new assignment failed
+      if (currentProfile?.service_zip) {
+        await assignTerritoryCluster(installer_id, currentProfile.service_zip).catch(() => {});
+      }
+      return {
+        success: false,
+        zips_covered: 0,
+        error: clusterResult.error || "Failed to claim new territory. Your old territory has been restored.",
+      };
+    }
+
+    coveredZips = clusterResult.assignedZips ?? [service_zip];
+  } else {
+    // ZIP didn't change — keep existing territory, just update other fields
+    const { data: existingTerritory } = await supabase
+      .from("territory_zips")
+      .select("zip")
+      .eq("installer_id", installer_id);
+
+    coveredZips = existingTerritory?.map((r) => r.zip) ?? [];
+    if (coveredZips.length === 0) {
+      // Fallback: compute from radius (legacy profiles without territory_zips)
+      coveredZips = zipcodes.radius(service_zip, radius) ?? [service_zip];
+    }
+  }
+
   const zipGeo = zipcodes.lookup(service_zip);
 
   const updateData: Record<string, unknown> = {

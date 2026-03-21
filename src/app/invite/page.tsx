@@ -150,15 +150,16 @@ function InvitePageContent() {
       const result = await checkTerritoryAvailability(zip);
       if (result.available) {
         setTerritoryStatus("available");
-        setTerritoryMessage("Territory available!");
+        const preview = result.clusterPreview;
+        setTerritoryMessage(
+          preview
+            ? `Territory available! You'll cover ~${preview.estimatedZips} ZIP codes.`
+            : "Territory available!"
+        );
       } else {
         setTerritoryStatus("taken");
-        const nearest = result.nearestInstaller;
-        const hint = nearest?.city && nearest?.state
-          ? ` An installer is already active near ${nearest.city}, ${nearest.state} (${nearest.distance} mi away).`
-          : "";
         setTerritoryMessage(
-          `Territory unavailable.${hint} Try a different ZIP code.`
+          result.reason || "Territory unavailable. Try a different ZIP code."
         );
       }
     } catch {
