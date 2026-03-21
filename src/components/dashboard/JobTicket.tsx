@@ -111,6 +111,7 @@ export default function JobTicket({
   const [manualPayMethod, setManualPayMethod] = useState("cash");
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
   const [copyLinkSuccess, setCopyLinkSuccess] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -344,33 +345,53 @@ export default function JobTicket({
   // ── Payment Collection: Enter Card (opens Stripe in new tab) ──────────
   async function handleEnterCard() {
     if (!installerStripeId) return;
+    setPayError(null);
     setPayLoading(true);
-    const result = await createPaymentSession({
-      leadId,
-      amount: collectFromCustomer,
-      installerStripeId,
-      customerEmail: customerEmail || undefined,
-    });
-    setPayLoading(false);
-    if (result.success && result.url) {
-      window.open(result.url, "_blank");
+    try {
+      const result = await createPaymentSession({
+        leadId,
+        amount: collectFromCustomer,
+        installerStripeId,
+        customerEmail: customerEmail || undefined,
+      });
+      if (result.success && result.url) {
+        window.open(result.url, "_blank");
+      } else {
+        setPayError(result.error || "Failed to create payment session.");
+      }
+    } catch (err) {
+      console.error("[JobTicket] handleEnterCard error:", err);
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
     }
   }
 
   // ── Payment Collection: Resend Invoice Email ──────────────────────────
   async function handleResendInvoice() {
     if (!installerStripeId || !customerEmail) return;
+    setPayError(null);
     setPayLoading(true);
-    await sendPaymentInvoice({
-      leadId,
-      amount: collectFromCustomer,
-      installerStripeId,
-      customerEmail,
-      customerName,
-      businessName: "Storage Network",
-    });
-    setPayLoading(false);
-    onRefresh();
+    try {
+      const result = await sendPaymentInvoice({
+        leadId,
+        amount: collectFromCustomer,
+        installerStripeId,
+        customerEmail,
+        customerName,
+        businessName: "Storage Network",
+      });
+      if (!result.success) {
+        setPayError(result.error || "Failed to send invoice email.");
+      } else {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error("[JobTicket] handleResendInvoice error:", err);
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
+    }
   }
 
   // ── Payment Collection: Mark Paid Manually (cash/venmo/check) ─────────
@@ -386,18 +407,27 @@ export default function JobTicket({
   // ── Payment Collection: Copy Payment Link ────────────────────────────────
   async function handleCopyPaymentLink() {
     if (!installerStripeId) return;
+    setPayError(null);
     setPayLoading(true);
-    const result = await createPaymentSession({
-      leadId,
-      amount: collectFromCustomer,
-      installerStripeId,
-      customerEmail: customerEmail || undefined,
-    });
-    setPayLoading(false);
-    if (result.success && result.url) {
-      await navigator.clipboard.writeText(result.url);
-      setCopyLinkSuccess(true);
-      setTimeout(() => setCopyLinkSuccess(false), 2000);
+    try {
+      const result = await createPaymentSession({
+        leadId,
+        amount: collectFromCustomer,
+        installerStripeId,
+        customerEmail: customerEmail || undefined,
+      });
+      if (result.success && result.url) {
+        await navigator.clipboard.writeText(result.url);
+        setCopyLinkSuccess(true);
+        setTimeout(() => setCopyLinkSuccess(false), 2000);
+      } else {
+        setPayError(result.error || "Failed to generate payment link.");
+      }
+    } catch (err) {
+      console.error("[JobTicket] handleCopyPaymentLink error:", err);
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
     }
   }
 
@@ -787,6 +817,12 @@ export default function JobTicket({
           {/* Dropdown menu */}
           {showGetPaidMenu && (
             <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {/* Payment error banner */}
+              {payError && (
+                <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
+                  {payError}
+                </div>
+              )}
               {/* Enter Card Details — opens Stripe Checkout in new tab */}
               <button
                 onClick={handleEnterCard}
