@@ -97,14 +97,14 @@ export async function checkProTrial(userId: string): Promise<TrialStatus> {
     }
 
     // Count committed jobs for this installer.
-    // A job counts once a deposit is paid — not just when the installer
-    // marks it "paid". This prevents gaming the trial by leaving jobs
-    // in deposit_paid status indefinitely.
+    // A job counts once a deposit is paid (deposit_paid = true) — not by
+    // status string. This prevents gaming the trial by leaving jobs in any
+    // non-terminal status (open, scheduled, active) indefinitely.
     const { count: jobsCompleted } = await supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("installer_id", userId)
-      .in("status", ["open", "payment_pending", "completed", "paid"]);
+      .eq("deposit_paid", true);
 
     const completedJobs = jobsCompleted ?? 0;
 
