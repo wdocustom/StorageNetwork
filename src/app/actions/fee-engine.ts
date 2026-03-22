@@ -247,8 +247,8 @@ export async function getBuildFeeBreakdown(
   materialsCost: number,
   installerId?: string
 ): Promise<BuildFeeBreakdown> {
-  const networkFee = Math.round(jobPrice * NETWORK_FEE_RATE);
-  const directFee = Math.round(jobPrice * MAINTENANCE_FEE_RATE);
+  const networkFee = Math.round(jobPrice * NETWORK_FEE_RATE * 100) / 100;
+  const directFee = Math.round(jobPrice * MAINTENANCE_FEE_RATE * 100) / 100;
 
   // Use installer's custom deposit config
   const config = installerId ? await getInstallerDepositConfig(installerId) : null;

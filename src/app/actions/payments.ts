@@ -166,6 +166,24 @@ export async function createPaymentSession(
     return { success: false, error: "Stripe account not connected. Please connect Stripe in Settings." };
   }
 
+  // ── Server-side balance sanity check ─────────────────────────────────
+  // Verify the client-passed amount is within a reasonable range of what
+  // the DB expects. Prevents tampered clients from overcharging customers.
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("estimated_price, deposit_amount, sales_tax_amount")
+    .eq("id", leadId)
+    .single();
+
+  if (lead) {
+    const expectedBalance = (lead.estimated_price || 0) - (lead.deposit_amount || 0) + (lead.sales_tax_amount || 0);
+    // Allow tolerance for discounts (client can charge LESS than expected, not MORE)
+    if (amount > expectedBalance + 0.01) {
+      console.warn(`[Payment] Amount exceeds expected balance: client=$${amount}, expected=$${expectedBalance} for lead ${leadId}`);
+      return { success: false, error: "Payment amount exceeds balance due. Please refresh and try again." };
+    }
+  }
+
   try {
     // ── Balance Collection ───────────────────────────────────────────────
     // Platform already collected their fee (15% or 3%) from the deposit.
@@ -264,13 +282,26 @@ export async function sendPaymentInvoice(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
+  // Resolve installer's actual business name from DB (client sends fallback "Storage Network")
+  let resolvedBusinessName = businessName;
+  const { data: installerProfile } = await supabase
+    .from("profiles")
+    .select("business_name, first_name")
+    .eq("id", auth.userId)
+    .single();
+  if (installerProfile?.business_name) {
+    resolvedBusinessName = installerProfile.business_name;
+  } else if (installerProfile?.first_name) {
+    resolvedBusinessName = installerProfile.first_name;
+  }
+
   // First, create the payment session to get the URL
   const sessionResult = await createPaymentSession({
     leadId,
     amount,
     installerStripeId,
     customerEmail,
-    description: `Storage Unit — Balance Due (${businessName})`,
+    description: `Storage Unit — Balance Due (${resolvedBusinessName})`,
   });
 
   if (!sessionResult.success || !sessionResult.url) {
@@ -282,7 +313,7 @@ export async function sendPaymentInvoice(
     const { sendTransactionalEmail } = await import("@/lib/email");
 
     const safeName = escapeHtml(customerName);
-    const safeBiz = escapeHtml(businessName);
+    const safeBiz = escapeHtml(resolvedBusinessName);
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1a1a; margin-bottom: 8px;">Balance Due</h2>
@@ -310,9 +341,9 @@ export async function sendPaymentInvoice(
     const emailResult = await sendTransactionalEmail({
       to: customerEmail,
       toName: customerName,
-      subject: `Balance Due — $${amount.toLocaleString()} from ${businessName}`,
+      subject: `Balance Due — $${amount.toLocaleString()} from ${resolvedBusinessName}`,
       html: emailHtml,
-      senderName: businessName,
+      senderName: resolvedBusinessName,
     });
 
     if (!emailResult.success) {

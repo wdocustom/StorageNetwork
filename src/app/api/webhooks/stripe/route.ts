@@ -67,15 +67,15 @@ const redis = hasRedis
 
 const IDEMPOTENCY_TTL_S = 48 * 60 * 60; // 48 hours
 
-/** Returns true if this event was already processed. Marks it as processed if not. */
+/** Returns true if this event was already successfully processed. Marks it as processing if not. */
 async function checkAndMarkProcessed(eventId: string): Promise<boolean> {
   if (redis) {
-    // SET NX returns null if key already exists (event already processed)
-    const result = await redis.set(`webhook:evt:${eventId}`, "1", {
-      nx: true,
-      ex: IDEMPOTENCY_TTL_S,
-    });
-    return result === null; // null = key existed = already processed
+    // Check current value — allow retry if previous attempt failed
+    const existing = await redis.get(`webhook:evt:${eventId}`);
+    if (existing === "1") return true; // Successfully processed before
+    // "failed" or missing — attempt to process (SET with TTL)
+    await redis.set(`webhook:evt:${eventId}`, "1", { ex: IDEMPOTENCY_TTL_S });
+    return false;
   }
   // Fallback: in-memory (single-instance only, best-effort)
   if (fallbackSet.has(eventId)) return true;
@@ -416,8 +416,11 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error("[Webhook] CRITICAL: DB update failed!", JSON.stringify(updateError));
-        // Clear idempotency key so Stripe retries can re-process this event
-        if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
+        // Return 500 so Stripe retries. Do NOT delete the idempotency key —
+        // the retry will arrive with the same event.id. We clear the key first
+        // so the retry can be re-processed, but use a short TTL to prevent
+        // infinite duplicate processing if the error is permanent.
+        if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
         return NextResponse.json({ error: "DB update failed" }, { status: 500 });
       }
 
@@ -428,8 +431,8 @@ export async function POST(request: NextRequest) {
       if (piId) waitUntil(processReferralBounty(leadId, piId));
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
-      // Clear idempotency key so Stripe retries can re-process this event
-      if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
+      // Return 500 so Stripe retries. Reset key with short TTL to allow retry.
+      if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
       return NextResponse.json({ error: "DB update exception" }, { status: 500 });
     }
 
@@ -736,8 +739,8 @@ export async function POST(request: NextRequest) {
 
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
-            // Clear idempotency key so Stripe retries can re-process this event
-            if (redis) await redis.del(`webhook:evt:${event.id}`).catch(() => {});
+            // Reset key with short TTL so Stripe retry can re-process
+            if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
           } else {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
 
@@ -821,7 +824,9 @@ export async function POST(request: NextRequest) {
             .from("leads")
             .update({
               status: "paid",
+              deposit_paid: true,
               payout_status: "paid",
+              paid_at: new Date().toISOString(),
               completed_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })

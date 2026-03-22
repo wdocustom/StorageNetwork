@@ -202,6 +202,7 @@ export async function markJobPaidManual(
       status: "paid",
       deposit_paid: true,
       payout_status: "paid",
+      paid_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
