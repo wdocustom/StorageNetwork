@@ -60,9 +60,9 @@ export interface DeliveryAddress {
 
 export interface CreateQuoteInput {
   installer_id: string;
-  installer_business_name: string;
-  installer_first_name?: string;
-  installer_phone?: string;
+  installer_business_name?: string; // Ignored — server resolves from DB
+  installer_first_name?: string;    // Ignored — server resolves from DB
+  installer_phone?: string;         // Ignored — server resolves from DB
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
@@ -190,6 +190,18 @@ export async function createQuote(
     return { success: false, error: "Installer ID is required." };
   }
 
+  // ── Resolve installer profile server-side (never trust client values) ──
+  const { data: installerProfile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("business_name, first_name, phone")
+    .eq("id", installer_id)
+    .single();
+
+  if (profileErr || !installerProfile) {
+    console.error("[Quote] Installer profile lookup failed:", installer_id, profileErr);
+    return { success: false, error: "Could not load installer profile." };
+  }
+
   // ── Trial Job Cap — block new quotes when 3-job limit reached ──────
   // Server-side enforcement so it can't be bypassed via direct API call.
   const trialStatus = await checkProTrial(installer_id);
@@ -205,9 +217,9 @@ export async function createQuote(
     // If a delivery ZIP is provided, check whether it's inside the
     // originating installer's area.  If not, hand off to a local installer.
     let effectiveInstallerId = installer_id;
-    let effectiveBusinessName = installer_business_name;
-    let effectiveFirstName = installer_first_name;
-    let effectivePhone = installer_phone;
+    let effectiveBusinessName = installerProfile.business_name || installerProfile.first_name;
+    let effectiveFirstName = installerProfile.first_name;
+    let effectivePhone = installerProfile.phone;
     let referringInstallerId: string | null = null;
     let referralStatus: ReferralStatus = "none";
     let referrerSoftLocked = false;
@@ -231,7 +243,7 @@ export async function createQuote(
         // ── Handoff: re-route to covering installer ──────────────────
         referringInstallerId = installer_id;
         effectiveInstallerId = localResult.installer_id;
-        effectiveBusinessName = localResult.installer_name || "Storage Network";
+        effectiveBusinessName = localResult.installer_name || "a local installer";
         coveringInstallerName = localResult.installer_name || "a local installer";
         referralStatus = "handed_off";
 
@@ -286,7 +298,7 @@ export async function createQuote(
           // know their build is saved and they'll be notified later
           await sendWaitlistCustomerConfirmation(normalizedEmail, {
             customerName: customer_name.trim(),
-            installerBusinessName: installer_business_name,
+            installerBusinessName: effectiveBusinessName || "Your Installer",
             zip: deliveryZip,
             quoteData: quote_data as Array<{ desc?: string; cols?: number; rows?: number; price?: number }>,
           }).catch((err) => {
@@ -453,7 +465,7 @@ export async function createQuote(
 
       const emailHtml = buildQuoteEmailTemplate({
         customerName: customer_name.trim(),
-        businessName: effectiveBusinessName || siteConfig.name,
+        businessName: effectiveBusinessName || "Your Installer",
         installerFirstName: effectiveFirstName || undefined,
         installerPhone: effectivePhone || undefined,
         quoteItems,
@@ -463,7 +475,7 @@ export async function createQuote(
         cleanoutServices: cleanoutServices.length > 0 ? cleanoutServices : undefined,
       });
 
-      const bizName = effectiveBusinessName || siteConfig.name;
+      const bizName = effectiveBusinessName || "Your Installer";
       const subjectTitle = project_title
         ? `Quote for ${customer_name.trim()} - ${project_title}`
         : `Your Custom Storage Quote from ${bizName}`;
