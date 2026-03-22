@@ -276,7 +276,9 @@ export async function POST(request: NextRequest) {
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {
       try {
-        const { error } = await getDb()
+        // State guard: only update if the job is in a pre-paid state.
+        // Prevents re-processing if the installer already marked it paid manually.
+        const { data: updated, error } = await getDb()
           .from("leads")
           .update({
             status: "paid",
@@ -286,15 +288,28 @@ export async function POST(request: NextRequest) {
             completed_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", leadId);
+          .eq("id", leadId)
+          .in("status", ["payment_pending", "open", "pending_payment"])
+          .select("id")
+          .maybeSingle();
 
         if (error) {
           console.error("[Webhook] CRITICAL: Final payment DB update failed!", JSON.stringify(error));
+          // Return 500 so Stripe retries — the payment was collected but DB wasn't updated
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+        }
+
+        if (!updated) {
+          console.log("[Webhook] Final payment: lead already in terminal state, skipping DB update for:", leadId);
         } else {
           console.log("SUCCESS: Job marked PAID (final payment) for lead:", leadId);
         }
       } catch (err) {
         console.error("[Webhook] Final payment update threw:", err);
+        // Return 500 so Stripe retries
+        if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+        return NextResponse.json({ error: "Final payment update exception" }, { status: 500 });
       }
 
       // Fire-and-forget: emails are non-critical — return 200 to Stripe immediately
@@ -409,10 +424,14 @@ export async function POST(request: NextRequest) {
 
       console.log("[Webhook] DB update payload:", JSON.stringify(updatePayload));
 
-      const { error: updateError } = await getDb()
+      // State guard: only update if deposit hasn't already been recorded
+      const { data: depositResult, error: updateError } = await getDb()
         .from("leads")
         .update(updatePayload)
-        .eq("id", leadId);
+        .eq("id", leadId)
+        .eq("deposit_paid", false)
+        .select("id")
+        .maybeSingle();
 
       if (updateError) {
         console.error("[Webhook] CRITICAL: DB update failed!", JSON.stringify(updateError));
@@ -424,7 +443,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "DB update failed" }, { status: 500 });
       }
 
-      console.log("SUCCESS: Job DB Updated for lead:", leadId);
+      if (!depositResult) {
+        console.log("[Webhook] Deposit already recorded for lead:", leadId, "— skipping duplicate");
+      } else {
+        console.log("SUCCESS: Job DB Updated for lead:", leadId);
+      }
 
       // ── Network Referral Bounty (non-blocking) ───────────────────────
       const piId = session.payment_intent as string;
@@ -732,15 +755,21 @@ export async function POST(request: NextRequest) {
 
           console.log("[Webhook] Deposit update payload:", JSON.stringify(updatePayload));
 
-          const { error: updateError } = await getDb()
+          // State guard: only update if deposit hasn't already been recorded
+          const { data: depositUpdated, error: updateError } = await getDb()
             .from("leads")
             .update(updatePayload)
-            .eq("id", leadId);
+            .eq("id", leadId)
+            .eq("deposit_paid", false)
+            .select("id")
+            .maybeSingle();
 
           if (updateError) {
             console.error("[Webhook] CRITICAL: Deposit DB update failed!", JSON.stringify(updateError));
             // Reset key with short TTL so Stripe retry can re-process
             if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          } else if (!depositUpdated) {
+            console.log("[Webhook] Deposit already recorded for lead:", leadId, "— skipping duplicate");
           } else {
             console.log("[Webhook] Deposit recorded for lead:", leadId, "| email:", customerEmail);
 
@@ -820,7 +849,8 @@ export async function POST(request: NextRequest) {
       } else {
         // ── FINAL PAYMENT (balance collection) ─────────────────────────
         try {
-          await getDb()
+          // State guard: only update if the job is in a pre-paid state
+          const { data: piUpdated, error: piUpdateErr } = await getDb()
             .from("leads")
             .update({
               status: "paid",
@@ -830,10 +860,22 @@ export async function POST(request: NextRequest) {
               completed_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
-            .eq("id", leadId);
-          console.log("[Webhook] Lead marked paid (PI final):", leadId);
+            .eq("id", leadId)
+            .in("status", ["payment_pending", "open", "pending_payment"])
+            .select("id")
+            .maybeSingle();
+
+          if (piUpdateErr) {
+            console.error("[Webhook] CRITICAL: PI final payment DB update failed!", JSON.stringify(piUpdateErr));
+            if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          } else if (!piUpdated) {
+            console.log("[Webhook] PI final: lead already in terminal state, skipping:", leadId);
+          } else {
+            console.log("[Webhook] Lead marked paid (PI final):", leadId);
+          }
         } catch (piErr) {
           console.error("[Webhook] payment_intent update failed:", piErr);
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
         }
       }
     }

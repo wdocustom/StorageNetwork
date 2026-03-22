@@ -196,7 +196,8 @@ export async function markJobPaidManual(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  const { error } = await supabase
+  // Status precondition: only allow marking paid from valid pre-paid states
+  const { data: updated, error } = await supabase
     .from("leads")
     .update({
       status: "paid",
@@ -206,14 +207,73 @@ export async function markJobPaidManual(
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", leadId);
+    .eq("id", leadId)
+    .in("status", ["payment_pending", "open", "pending_payment"])
+    .select("id, customer_name, customer_email, estimated_price, deposit_amount, installer_id")
+    .maybeSingle();
 
   if (error) {
     console.error("[MarkPaidManual] DB error:", error);
     return { success: false, error: "Failed to update payment status." };
   }
 
+  if (!updated) {
+    return { success: false, error: "Job is not in a payable state. It may already be paid." };
+  }
+
   console.log(`[MarkPaidManual] Lead ${leadId} marked paid via ${method}`);
+
+  // Fire-and-forget: send receipt/alert emails (same as webhook path)
+  import("@/lib/email").then(async ({ sendJobReceipt, sendPaymentReceivedAlert }) => {
+    try {
+      const balanceCollected = (updated.estimated_price || 0) - (updated.deposit_amount || 0);
+
+      let installerName = "Your Installer";
+      let installerEmail: string | null = null;
+
+      if (updated.installer_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("first_name, last_name, business_name")
+          .eq("id", updated.installer_id)
+          .single();
+        if (profile) {
+          installerName = profile.business_name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Your Installer";
+        }
+        const { data: authUser } = await supabase.auth.admin.getUserById(updated.installer_id);
+        installerEmail = authUser?.user?.email || null;
+      }
+
+      const customerName = updated.customer_name ?? "Customer";
+
+      if (updated.customer_email) {
+        await sendJobReceipt(updated.customer_email, {
+          customerName,
+          installerName,
+          totalAmount: updated.estimated_price ?? balanceCollected,
+          depositPaid: updated.deposit_amount ?? 0,
+          balanceCollected,
+          jobDescription: "Storage unit installation",
+          completedDate: new Date().toISOString(),
+        });
+        console.log("[MarkPaidManual] Receipt email sent to customer");
+      }
+
+      if (installerEmail) {
+        await sendPaymentReceivedAlert(installerEmail, {
+          installerName,
+          customerName,
+          amountReceived: balanceCollected,
+          jobTotal: updated.estimated_price ?? balanceCollected,
+          leadId,
+        });
+        console.log("[MarkPaidManual] Payment alert sent to installer:", installerEmail);
+      }
+    } catch (emailErr) {
+      console.error("[MarkPaidManual] Email failed (non-fatal):", emailErr);
+    }
+  }).catch((err: unknown) => console.error("[MarkPaidManual] Email import failed:", err));
+
   return { success: true };
 }
 
