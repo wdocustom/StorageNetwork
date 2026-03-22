@@ -258,7 +258,6 @@ export interface InvoiceInput {
   installerStripeId?: string; // Optional — server resolves from DB
   customerEmail: string;
   customerName: string;
-  businessName?: string; // Deprecated — server resolves from DB, kept for backward compat
 }
 
 export interface InvoiceResult {
@@ -269,20 +268,13 @@ export interface InvoiceResult {
 export async function sendPaymentInvoice(
   input: InvoiceInput
 ): Promise<InvoiceResult> {
-  const {
-    leadId,
-    amount,
-    installerStripeId,
-    customerEmail,
-    customerName,
-    businessName,
-  } = input;
+  const { leadId, amount, customerEmail, customerName } = input;
 
   // Auth: verify the caller owns this lead
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Resolve installer's actual business name from DB (never trust client fallback)
+  // Resolve installer's business name from their profile
   const { data: installerProfile, error: profileError } = await supabase
     .from("profiles")
     .select("business_name, first_name, last_name")
@@ -291,18 +283,17 @@ export async function sendPaymentInvoice(
 
   if (profileError) {
     console.error("[Payment] Profile lookup failed for installer:", auth.userId, profileError);
+    return { success: false, error: "Could not load installer profile." };
   }
 
   const resolvedBusinessName =
-    installerProfile?.business_name ||
-    [installerProfile?.first_name, installerProfile?.last_name].filter(Boolean).join(" ") ||
-    "Your Installer";
+    installerProfile.business_name ||
+    [installerProfile.first_name, installerProfile.last_name].filter(Boolean).join(" ");
 
   // First, create the payment session to get the URL
   const sessionResult = await createPaymentSession({
     leadId,
     amount,
-    installerStripeId,
     customerEmail,
     description: `Storage Unit — Balance Due (${resolvedBusinessName})`,
   });

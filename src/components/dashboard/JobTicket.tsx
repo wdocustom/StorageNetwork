@@ -370,7 +370,6 @@ export default function JobTicket({
         amount: collectFromCustomer,
         customerEmail,
         customerName,
-        businessName: "Storage Network",
       });
       if (!result.success) {
         setPayError(result.error || "Failed to send invoice email.");
