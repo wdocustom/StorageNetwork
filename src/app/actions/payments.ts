@@ -258,7 +258,7 @@ export interface InvoiceInput {
   installerStripeId?: string; // Optional — server resolves from DB
   customerEmail: string;
   customerName: string;
-  businessName: string;
+  businessName?: string; // Deprecated — server resolves from DB, kept for backward compat
 }
 
 export interface InvoiceResult {
@@ -283,15 +283,20 @@ export async function sendPaymentInvoice(
   if ("error" in auth) return { success: false, error: auth.error };
 
   // Resolve installer's actual business name from DB (never trust client fallback)
-  const { data: installerProfile } = await supabase
+  const { data: installerProfile, error: profileError } = await supabase
     .from("profiles")
     .select("business_name, first_name, last_name")
     .eq("id", auth.userId)
     .single();
+
+  if (profileError) {
+    console.error("[Payment] Profile lookup failed for installer:", auth.userId, profileError);
+  }
+
   const resolvedBusinessName =
     installerProfile?.business_name ||
     [installerProfile?.first_name, installerProfile?.last_name].filter(Boolean).join(" ") ||
-    businessName;
+    "Your Installer";
 
   // First, create the payment session to get the URL
   const sessionResult = await createPaymentSession({
