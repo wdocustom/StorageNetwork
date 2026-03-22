@@ -282,18 +282,16 @@ export async function sendPaymentInvoice(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Resolve installer's actual business name from DB (client sends fallback "Storage Network")
-  let resolvedBusinessName = businessName;
+  // Resolve installer's actual business name from DB (never trust client fallback)
   const { data: installerProfile } = await supabase
     .from("profiles")
-    .select("business_name, first_name")
+    .select("business_name, first_name, last_name")
     .eq("id", auth.userId)
     .single();
-  if (installerProfile?.business_name) {
-    resolvedBusinessName = installerProfile.business_name;
-  } else if (installerProfile?.first_name) {
-    resolvedBusinessName = installerProfile.first_name;
-  }
+  const resolvedBusinessName =
+    installerProfile?.business_name ||
+    [installerProfile?.first_name, installerProfile?.last_name].filter(Boolean).join(" ") ||
+    businessName;
 
   // First, create the payment session to get the URL
   const sessionResult = await createPaymentSession({
