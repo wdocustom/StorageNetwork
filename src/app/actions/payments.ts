@@ -290,19 +290,11 @@ export async function sendPaymentInvoice(
     installerProfile.business_name ||
     [installerProfile.first_name, installerProfile.last_name].filter(Boolean).join(" ");
 
-  // First, create the payment session to get the URL
-  const sessionResult = await createPaymentSession({
-    leadId,
-    amount,
-    customerEmail,
-    description: `Storage Unit — Balance Due (${resolvedBusinessName})`,
-  });
+  // Use permanent app URL — never embeds a Stripe session URL (those expire in 24h)
+  const baseUrl = siteConfig.baseUrl;
+  const paymentUrl = `${baseUrl}/payment/collect/${leadId}`;
 
-  if (!sessionResult.success || !sessionResult.url) {
-    return { success: false, error: sessionResult.error };
-  }
-
-  // Send email with payment link via Resend
+  // Send email with permanent payment link
   try {
     const { sendTransactionalEmail } = await import("@/lib/email");
 
@@ -323,7 +315,7 @@ export async function sendPaymentInvoice(
             $${amount.toLocaleString()}
           </p>
         </div>
-        <a href="${sessionResult.url}" style="display: block; background: #facc15; color: #1a1a1a; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 15px;">
+        <a href="${paymentUrl}" style="display: block; background: #facc15; color: #1a1a1a; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 15px;">
           Pay Now →
         </a>
         <p style="color: #aaa; font-size: 11px; text-align: center; margin-top: 16px;">
@@ -342,7 +334,6 @@ export async function sendPaymentInvoice(
 
     if (!emailResult.success) {
       console.error("[Payment] Invoice email failed:", emailResult.error);
-      // Don't fail — payment link was still created
     }
 
     // Update lead status
@@ -451,6 +442,109 @@ export async function checkInstallerPaymentInfo(installerId: string): Promise<In
     hasStripeConnected,
     isPro,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// createBalanceCheckout — PUBLIC (no auth). Creates a fresh Stripe Checkout
+// Session for the remaining balance on a lead. Used by /payment/collect/[leadId]
+// so the email link never expires (it always creates a new session on visit).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface BalanceCheckoutResult {
+  success: boolean;
+  url?: string;
+  error?: string;
+  alreadyPaid?: boolean;
+}
+
+export async function createBalanceCheckout(
+  leadId: string
+): Promise<BalanceCheckoutResult> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  // Look up lead — public, no auth required
+  const { data: lead, error: leadError } = await supabase
+    .from("leads")
+    .select("installer_id, estimated_price, deposit_amount, sales_tax_amount, customer_email, customer_name, status, payout_status")
+    .eq("id", leadId)
+    .single();
+
+  if (leadError || !lead) {
+    return { success: false, error: "Order not found." };
+  }
+
+  // Already paid — don't create a new session
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, alreadyPaid: true, error: "This order has already been paid." };
+  }
+
+  // Calculate balance
+  const balance = (lead.estimated_price || 0) - (lead.deposit_amount || 0) + (lead.sales_tax_amount || 0);
+  if (balance <= 0) {
+    return { success: false, alreadyPaid: true, error: "No balance due." };
+  }
+
+  // Look up installer's Stripe account
+  const profile = await getInstallerProfile(lead.installer_id);
+  const installerStripeId = profile?.stripe_account_id;
+  if (!installerStripeId) {
+    return { success: false, error: "Installer payment account not configured." };
+  }
+
+  // Resolve business name for description
+  const { data: nameData } = await supabase
+    .from("profiles")
+    .select("business_name, first_name, last_name")
+    .eq("id", lead.installer_id)
+    .single();
+
+  const bizName = nameData?.business_name ||
+    [nameData?.first_name, nameData?.last_name].filter(Boolean).join(" ") ||
+    "Your Installer";
+
+  try {
+    const amountCents = Math.round(balance * 100);
+    const baseUrl = siteConfig.baseUrl;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Storage Unit — Balance Due (${bizName})`,
+              description: `Job #${leadId.slice(0, 8)}`,
+            },
+            unit_amount: amountCents,
+          },
+          quantity: 1,
+        },
+      ],
+      payment_intent_data: {
+        transfer_data: {
+          destination: installerStripeId,
+        },
+      },
+      customer_email: lead.customer_email || undefined,
+      success_url: `${baseUrl}/payment/success?job=${leadId}`,
+      cancel_url: `${baseUrl}/payment/collect/${leadId}`,
+      metadata: {
+        lead_id: leadId,
+        type: "final_payment",
+        installer_stripe_id: installerStripeId,
+      },
+    });
+
+    if (!session.url) {
+      return { success: false, error: "Failed to create checkout session." };
+    }
+
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[BalanceCheckout] Stripe error:", err);
+    return { success: false, error: "Payment system error. Please try again." };
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

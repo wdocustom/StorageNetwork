@@ -269,24 +269,14 @@ export default function JobTicket({
       if (result.success && result.publicUrl) {
         setUploadedPhotoUrl(result.publicUrl);
 
-        // ── AUTO-SEND: Immediately trigger invoice email & set payment_pending ──
+        // Mark job complete with proof — no auto-email
         setPayLoading(true);
-        let paymentUrl: string | undefined;
-        const session = await createPaymentSession({
-          leadId,
-          amount: collectFromCustomer,
-          customerEmail: customerEmail || undefined,
-        });
-        if (session.success && session.url) {
-          paymentUrl = session.url;
-        }
         await completeJobWithProof(
           leadId,
           result.publicUrl,
           customerEmail,
           customerName,
-          collectFromCustomer,
-          paymentUrl
+          collectFromCustomer
         );
         setPayLoading(false);
         setShowCompletionModal(false);
@@ -305,29 +295,17 @@ export default function JobTicket({
     }
   }
 
-  // ── Complete job with proof → triggers invoice email → payment_pending ──
+  // ── Complete job with proof → payment_pending (no auto-email) ──
   async function handleCompleteWithProof() {
     if (!uploadedPhotoUrl) return;
     setPayLoading(true);
-
-    // Create a Stripe payment URL for the invoice email
-    let paymentUrl: string | undefined;
-    const session = await createPaymentSession({
-      leadId,
-      amount: collectFromCustomer,
-      customerEmail: customerEmail || undefined,
-    });
-    if (session.success && session.url) {
-      paymentUrl = session.url;
-    }
 
     await completeJobWithProof(
       leadId,
       uploadedPhotoUrl,
       customerEmail,
       customerName,
-      collectFromCustomer,
-      paymentUrl
+      collectFromCustomer
     );
 
     setPayLoading(false);
@@ -406,48 +384,31 @@ export default function JobTicket({
   }
 
   // ── Payment Collection: Copy Payment Link ────────────────────────────────
+  // Uses permanent app URL — never expires (unlike Stripe session URLs)
   async function handleCopyPaymentLink() {
     setPayError(null);
-    setPayLoading(true);
-    try {
-      const result = await createPaymentSession({
-        leadId,
-        amount: collectFromCustomer,
-        customerEmail: customerEmail || undefined,
-      });
-      if (result.success && result.url) {
-        // Try native share (best UX on mobile), then clipboard, then fallback
-        let copied = false;
-        if (navigator.share) {
-          try {
-            await navigator.share({ title: "Payment Link", url: result.url });
-            copied = true;
-          } catch {
-            // User cancelled share sheet — fall through to clipboard
-          }
-        }
-        if (!copied) {
-          try {
-            await navigator.clipboard.writeText(result.url);
-            copied = true;
-          } catch {
-            // Clipboard API not available on this device — prompt to copy manually
-            window.prompt("Copy this payment link:", result.url);
-            copied = true;
-          }
-        }
-        if (copied) {
-          setCopyLinkSuccess(true);
-          setTimeout(() => setCopyLinkSuccess(false), 2000);
-        }
-      } else {
-        setPayError(result.error || "Failed to generate payment link.");
+    const paymentUrl = `${window.location.origin}/payment/collect/${leadId}`;
+    let copied = false;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Payment Link", url: paymentUrl });
+        copied = true;
+      } catch {
+        // User cancelled share sheet — fall through to clipboard
       }
-    } catch (err) {
-      console.error("[JobTicket] handleCopyPaymentLink error:", err);
-      setPayError("Something went wrong. Please try again.");
-    } finally {
-      setPayLoading(false);
+    }
+    if (!copied) {
+      try {
+        await navigator.clipboard.writeText(paymentUrl);
+        copied = true;
+      } catch {
+        window.prompt("Copy this payment link:", paymentUrl);
+        copied = true;
+      }
+    }
+    if (copied) {
+      setCopyLinkSuccess(true);
+      setTimeout(() => setCopyLinkSuccess(false), 2000);
     }
   }
 
