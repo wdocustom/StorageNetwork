@@ -1,7 +1,6 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
-import { headers } from "next/headers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Analytics — Server actions for installer page view tracking & metrics
@@ -9,55 +8,12 @@ import { headers } from "next/headers";
 // Tracks page visits to installer links and conversion to orders.
 // Uses `page_views` table for visit tracking, `leads` table for conversions.
 //
-// Write-flood protection:
-//   - Per-IP debounce: same IP + installer + page = 1 write per 30s window
-//   - Buffered batch inserts: rows accumulate in memory and flush every 5s
-//     or when the buffer hits 50 rows, whichever comes first.
+// Writes directly to DB on every request — no in-memory buffering.
+// Serverless functions freeze between invocations, so setTimeout-based
+// flush buffers silently lose data.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = getServiceClient();
-
-// ── Debounce + Batch Buffer ─────────────────────────────────────────────
-
-const DEBOUNCE_MS = 30_000; // ignore duplicate views within 30s
-const FLUSH_INTERVAL_MS = 5_000;
-const FLUSH_SIZE = 50;
-
-const recentViews = new Map<string, number>(); // key → timestamp
-let viewBuffer: Array<{
-  installer_id: string;
-  page: string;
-  referrer: string | null;
-  user_agent: string | null;
-  screen_width: number | null;
-}> = [];
-let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-function gcDebounceMap() {
-  const now = Date.now();
-  recentViews.forEach((ts, key) => {
-    if (now - ts > DEBOUNCE_MS) recentViews.delete(key);
-  });
-}
-
-async function flushBuffer() {
-  if (viewBuffer.length === 0) return;
-  const batch = viewBuffer;
-  viewBuffer = [];
-  try {
-    await supabase.from("page_views").insert(batch);
-  } catch {
-    // Drop on failure — analytics are best-effort
-  }
-}
-
-function scheduleFlush() {
-  if (flushTimer) return;
-  flushTimer = setTimeout(async () => {
-    flushTimer = null;
-    await flushBuffer();
-  }, FLUSH_INTERVAL_MS);
-}
 
 // ── Track Page View ─────────────────────────────────────────────────────
 
@@ -73,35 +29,13 @@ export async function trackPageView(input: PageViewInput): Promise<{ success: bo
   if (!input.installerId) return { success: false };
 
   try {
-    // Derive a debounce key from forwarded IP + installer + page
-    const hdrs = await headers();
-    const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const dedupeKey = `${ip}:${input.installerId}:${input.page}`;
-
-    const now = Date.now();
-    const lastSeen = recentViews.get(dedupeKey);
-    if (lastSeen && now - lastSeen < DEBOUNCE_MS) {
-      return { success: true }; // duplicate within window — skip
-    }
-    recentViews.set(dedupeKey, now);
-
-    // Periodic cleanup of stale debounce entries
-    if (recentViews.size > 5_000) gcDebounceMap();
-
-    // Buffer the row for batch insert
-    viewBuffer.push({
+    await supabase.from("page_views").insert({
       installer_id: input.installerId,
       page: input.page,
       referrer: input.referrer || null,
       user_agent: input.userAgent || null,
       screen_width: input.screenWidth || null,
     });
-
-    if (viewBuffer.length >= FLUSH_SIZE) {
-      await flushBuffer();
-    } else {
-      scheduleFlush();
-    }
 
     return { success: true };
   } catch {
