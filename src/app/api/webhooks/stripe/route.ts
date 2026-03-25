@@ -460,98 +460,106 @@ export async function POST(request: NextRequest) {
     }
 
     // ═════════════════════════════════════════════════════════════════════
-    // STEP 2: EMAILS (fire-and-forget — DB is already saved)
-    // Return 200 to Stripe immediately, emails run in background.
+    // STEP 2: EMAILS — sent synchronously so Stripe retries on failure.
+    // DB update is idempotent. booking_email_sent flag prevents duplicates.
     // ═════════════════════════════════════════════════════════════════════
-    fireAndForget("booking_emails", async () => {
+    try {
       const { data: lead } = await getDb()
         .from("leads")
-        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
+        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent")
         .eq("id", leadId)
         .single();
 
       if (!lead) {
         console.warn("[Webhook] Lead not found after update — skipping emails");
-        return;
-      }
+      } else if (lead.booking_email_sent) {
+        console.log("[Webhook] Booking emails already sent for lead:", leadId, "— skipping");
+      } else {
+        const resolvedInstallerId = installerId || lead.installer_id;
+        const customerEmail = lead.customer_email || stripeEmail;
+        const customerName = lead.customer_name || session.customer_details?.name || metadata.customer_name || "Customer";
 
-      const resolvedInstallerId = installerId || lead.installer_id;
-      const customerEmail = lead.customer_email || stripeEmail;
-      const customerName = lead.customer_name || session.customer_details?.name || metadata.customer_name || "Customer";
+        if (!customerEmail) {
+          console.warn("[Webhook] No customer email — skipping booking confirmation");
+        } else {
+          let installerName = "Your Installer";
+          let installerPhone: string | undefined;
+          let installerAvatar: string | undefined;
 
-      if (!customerEmail) {
-        console.warn("[Webhook] No customer email — skipping booking confirmation");
-        return;
-      }
-
-      let installerName = "Your Installer";
-      let installerPhone: string | undefined;
-      let installerAvatar: string | undefined;
-
-      if (resolvedInstallerId) {
-        const { data: profile } = await getDb()
-          .from("profiles")
-          .select("first_name, last_name, business_name, phone, avatar_url")
-          .eq("id", resolvedInstallerId)
-          .single();
-        if (profile) {
-          installerName =
-            profile.business_name ||
-            [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-            "Your Installer";
-          installerPhone = profile.phone || undefined;
-          installerAvatar = profile.avatar_url || undefined;
-        }
-      }
-
-      const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
-
-      await sendBookingConfirmation({
-        customerName,
-        customerEmail,
-        installerName,
-        installerPhone,
-        installerAvatarUrl: installerAvatar,
-        scheduledDate: lead.scheduled_at ?? "TBD",
-        address: lead.address ?? fullAddress ?? "Address Pending",
-        depositAmount: amountPaid,
-        totalPrice: lead.estimated_price ?? amountPaid,
-        jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
-        leadId,
-      });
-      console.log("[Webhook] Booking confirmation sent for lead:", leadId);
-
-      // ── NEW BOOKING alert to installer ────────────────────────────────
-      // This was previously missing from the checkout.session.completed path,
-      // causing installers to never receive booking notifications for deposits
-      // paid via redirect-based Stripe Checkout (only inline BookingModal worked).
-      if (resolvedInstallerId) {
-        try {
-          const { data: authUser } = await getDb().auth.admin.getUserById(resolvedInstallerId);
-          const installerEmail = authUser?.user?.email;
-          if (installerEmail) {
-            const city = lead.address
-              ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
-              : fullAddress
-                ? fullAddress.split(",").slice(-2, -1)[0]?.trim() || "Unknown"
-                : "Unknown";
-            await sendNewBookingAlert(installerEmail, city, {
-              customerName,
-              customerEmail: customerEmail || undefined,
-              address: lead.address || fullAddress || undefined,
-              unitCount,
-              totalPrice: lead.estimated_price ?? amountPaid,
-              leadId,
-            });
-            console.log("[Webhook] Installer booking alert sent for lead:", leadId);
+          if (resolvedInstallerId) {
+            const { data: profile } = await getDb()
+              .from("profiles")
+              .select("first_name, last_name, business_name, phone, avatar_url")
+              .eq("id", resolvedInstallerId)
+              .single();
+            if (profile) {
+              installerName =
+                profile.business_name ||
+                [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+                "Your Installer";
+              installerPhone = profile.phone || undefined;
+              installerAvatar = profile.avatar_url || undefined;
+            }
           }
-        } catch (alertErr) {
-          console.error("[Webhook] Installer alert failed (non-fatal):", alertErr);
+
+          const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+
+          await sendBookingConfirmation({
+            customerName,
+            customerEmail,
+            installerName,
+            installerPhone,
+            installerAvatarUrl: installerAvatar,
+            scheduledDate: lead.scheduled_at ?? "TBD",
+            address: lead.address ?? fullAddress ?? "Address Pending",
+            depositAmount: amountPaid,
+            totalPrice: lead.estimated_price ?? amountPaid,
+            jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+            leadId,
+          });
+          console.log("[Webhook] Booking confirmation sent for lead:", leadId);
+
+          // ── NEW BOOKING alert to installer ────────────────────────────────
+          if (resolvedInstallerId) {
+            try {
+              const { data: authUser } = await getDb().auth.admin.getUserById(resolvedInstallerId);
+              const installerEmail = authUser?.user?.email;
+              if (installerEmail) {
+                const city = lead.address
+                  ? lead.address.split(",").slice(-2, -1)[0]?.trim() || lead.address
+                  : fullAddress
+                    ? fullAddress.split(",").slice(-2, -1)[0]?.trim() || "Unknown"
+                    : "Unknown";
+                await sendNewBookingAlert(installerEmail, city, {
+                  customerName,
+                  customerEmail: customerEmail || undefined,
+                  address: lead.address || fullAddress || undefined,
+                  unitCount,
+                  totalPrice: lead.estimated_price ?? amountPaid,
+                  leadId,
+                });
+                console.log("[Webhook] Installer booking alert sent for lead:", leadId);
+              }
+            } catch (alertErr) {
+              console.error("[Webhook] Installer alert failed (non-fatal):", alertErr);
+            }
+          }
+
+          // Mark emails as sent so retries don't re-send
+          await getDb()
+            .from("leads")
+            .update({ booking_email_sent: true })
+            .eq("id", leadId);
         }
       }
-    });
+    } catch (emailErr) {
+      console.error("[Webhook] Booking email failed:", emailErr);
+      // Return 500 so Stripe retries — DB update is idempotent, email will get another chance
+      if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+      return NextResponse.json({ error: "Email sending failed" }, { status: 500 });
+    }
 
-    console.log(`[Webhook] checkout.session.completed processed (DB saved) for lead ${leadId}`);
+    console.log(`[Webhook] checkout.session.completed fully processed for lead ${leadId}`);
   }
 
   // ── Handle Pro subscription events ──────────────────────────────────────
@@ -780,18 +788,21 @@ export async function POST(request: NextRequest) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);
         }
 
-        // Fire-and-forget: booking confirmation + installer alert emails
-        fireAndForget("pi_booking_emails", async () => {
+        // ── Booking confirmation + installer alert emails ───────────────
+        // Sent SYNCHRONOUSLY so Stripe retries the webhook if email fails.
+        // DB update is idempotent, so retries are safe.
+        // Check booking_email_sent flag to avoid duplicate emails on retry.
+        try {
           const { data: lead } = await getDb()
             .from("leads")
-            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at")
+            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent")
             .eq("id", leadId)
             .single();
 
           const piEmail = lead?.customer_email || metadata.customer_email || paymentIntent.receipt_email;
           const piName = lead?.customer_name || metadata.customer_name || "Customer";
 
-          if (piEmail && lead) {
+          if (piEmail && lead && !lead.booking_email_sent) {
             let installerName = "Your Installer";
             let installerPhone: string | undefined;
             let installerAvatar: string | undefined;
@@ -844,8 +855,23 @@ export async function POST(request: NextRequest) {
                 console.log("[Webhook] Installer alert sent (PI flow)");
               }
             }
+
+            // Mark emails as sent so retries don't re-send
+            await getDb()
+              .from("leads")
+              .update({ booking_email_sent: true })
+              .eq("id", leadId);
+          } else if (lead?.booking_email_sent) {
+            console.log("[Webhook] Booking emails already sent for lead:", leadId, "— skipping");
+          } else {
+            console.warn("[Webhook] No customer email for PI deposit — skipping booking emails. Lead:", leadId);
           }
-        });
+        } catch (emailErr) {
+          console.error("[Webhook] PI booking email failed:", emailErr);
+          // Return 500 so Stripe retries — DB update is idempotent, email will get another chance
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          return NextResponse.json({ error: "Email sending failed" }, { status: 500 });
+        }
       } else {
         // ── FINAL PAYMENT (balance collection) ─────────────────────────
         try {
