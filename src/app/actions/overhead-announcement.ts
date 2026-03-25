@@ -30,12 +30,20 @@ export async function processOverheadAnnouncement(): Promise<AnnouncementResult>
   const result: AnnouncementResult = { processed: 0, sent: 0, skipped: 0, errors: [] };
 
   try {
-    // Fetch all installers that haven't received this email yet
+    // Skip installers who signed up less than 7 days ago (let onboarding drip finish)
+    // and who already received an announcement email today (max 1/day)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayISO = todayStart.toISOString();
+
     const { data: installers, error } = await db()
       .from("profiles")
       .select("id, email, first_name, business_name, slug")
       .or("overhead_email_mar2026_sent.is.null,overhead_email_mar2026_sent.eq.false")
       .not("email", "is", null)
+      .lt("created_at", sevenDaysAgo)
+      .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);
 
     if (error) {
@@ -113,7 +121,10 @@ export async function processOverheadAnnouncement(): Promise<AnnouncementResult>
         if (sent) {
           await db()
             .from("profiles")
-            .update({ overhead_email_mar2026_sent: true })
+            .update({
+              overhead_email_mar2026_sent: true,
+              last_announcement_email_at: new Date().toISOString(),
+            })
             .eq("id", installer.id);
         }
 
