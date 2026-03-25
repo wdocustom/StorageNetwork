@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   BarChart3,
   Bot,
+  DollarSign,
   Eye,
   Globe2,
   Loader2,
@@ -15,6 +16,7 @@ import {
   Smartphone,
   Tablet,
   TrendingUp,
+  UserPlus,
   Users,
   Zap,
 } from "lucide-react";
@@ -159,6 +161,38 @@ export default function PlatformAnalyticsPage() {
           <KPICard icon={<BarChart3 className="h-4 w-4 text-cyan-400" />} label="Pages / Session" value={String(kpis.avgPagesPerSession)} />
           <KPICard icon={<Bot className="h-4 w-4 text-red-400" />} label="Bot Views" value={kpis.botViews.toLocaleString()} muted />
         </div>
+
+        {/* ── Business Metrics ──────────────────────────────────────── */}
+        {data.businessMetrics && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <KPICard icon={<UserPlus className="h-4 w-4 text-green-400" />} label="New Signups" value={data.businessMetrics.newSignups.toLocaleString()} />
+            <KPICard icon={<Users className="h-4 w-4 text-slate-400" />} label="Total Installers" value={data.businessMetrics.totalInstallers.toLocaleString()} />
+            <KPICard icon={<BarChart3 className="h-4 w-4 text-orange-400" />} label="Bookings" value={data.businessMetrics.bookingsInPeriod.toLocaleString()} />
+            <KPICard icon={<DollarSign className="h-4 w-4 text-emerald-400" />} label="Revenue" value={`$${data.businessMetrics.revenueInPeriod.toLocaleString()}`} />
+            <KPICard icon={<TrendingUp className="h-4 w-4 text-violet-400" />} label="Conversion" value={`${data.businessMetrics.conversionRate}%`} />
+          </div>
+        )}
+
+        {/* Top Installers */}
+        {data.businessMetrics?.topInstallersByBookings?.length > 0 && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h3 className="text-sm font-bold text-white mb-3">Top Installers by Bookings</h3>
+            <div className="space-y-2">
+              {data.businessMetrics.topInstallersByBookings.map((inst, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-stone-500 w-5">#{i + 1}</span>
+                    <span className="text-sm font-semibold text-white">{inst.name}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-stone-400">{inst.bookings} booking{inst.bookings !== 1 ? "s" : ""}</span>
+                    <span className="font-bold text-emerald-400">${inst.revenue.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
         <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">

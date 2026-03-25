@@ -6,11 +6,50 @@ import { getServiceClient } from "@/lib/supabase-server";
 // Platform Analytics — Admin-Only Server Actions
 //
 // Aggregates data from `platform_page_views` for the admin analytics
-// dashboard. Filters out bots by default, provides device/geo/referrer
-// breakdowns, live activity feed, and hourly traffic patterns.
+// dashboard. Uses paginated fetches to bypass Supabase's default 1000-row
+// limit. Filters out bots by default, provides device/geo/referrer
+// breakdowns, live activity feed, hourly traffic patterns, and business
+// metrics (signups, bookings, revenue).
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = getServiceClient();
+
+// ── Paginated fetch helper ───────────────────────────────────────────────
+// Supabase caps responses at 1000 rows by default. This fetches all rows
+// by paginating in chunks.
+const PAGE_SIZE = 1000;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllPageViews(since: string, columns: string): Promise<any[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allRows: any[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("platform_page_views")
+      .select(columns)
+      .gte("created_at", since)
+      .order("created_at", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("[PlatformAnalytics] Paginated fetch error at offset", offset, error);
+      break;
+    }
+
+    if (!data || data.length === 0) {
+      hasMore = false;
+    } else {
+      allRows.push(...data);
+      offset += data.length;
+      if (data.length < PAGE_SIZE) hasMore = false;
+    }
+  }
+
+  return allRows;
+}
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -19,9 +58,17 @@ export interface PlatformAnalyticsData {
     totalViews: number;
     uniqueVisitors: number;
     uniqueSessions: number;
-    activeNow: number;         // views in last 5 minutes
+    activeNow: number;
     botViews: number;
     avgPagesPerSession: number;
+  };
+  businessMetrics: {
+    newSignups: number;
+    totalInstallers: number;
+    bookingsInPeriod: number;
+    revenueInPeriod: number;
+    conversionRate: number; // visitor → booking %
+    topInstallersByBookings: { name: string; bookings: number; revenue: number }[];
   };
   viewsByDay: { date: string; views: number; unique: number }[];
   viewsByHour: { hour: number; views: number }[];
@@ -42,7 +89,7 @@ export interface PlatformAnalyticsData {
   }[];
 }
 
-// ── Referrer source mapping (reuse from existing analytics) ─────────────
+// ── Referrer source mapping ──────────────────────────────────────────────
 
 const SOURCE_MAP: Record<string, string> = {
   "facebook.com": "Facebook", "m.facebook.com": "Facebook", "l.facebook.com": "Facebook",
@@ -67,7 +114,6 @@ function classifyReferrer(referrer: string | null): string {
     if (url.searchParams.has("fbclid")) return "Facebook";
     if (url.searchParams.has("gclid")) return "Google Ads";
     if (hostname.endsWith("craigslist.org")) return "Craigslist";
-    // Return cleaned hostname for unknown sources
     return hostname;
   } catch {
     return referrer.slice(0, 30);
@@ -98,14 +144,10 @@ export async function getAdminPlatformAnalytics(
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    // Fetch all views in range + active-now count in parallel
-    const [allViewsRes, activeNowRes, liveRes] = await Promise.all([
-      supabase
-        .from("platform_page_views")
-        .select("page_path, visitor_id, session_id, device_type, city, region, country, referrer, is_bot, created_at")
-        .gte("created_at", since)
-        .order("created_at", { ascending: true })
-        .limit(50000),
+    // Fetch all views (paginated to break 1000-row limit), active-now,
+    // live feed, and business metrics in parallel
+    const [allViews, activeNowRes, liveRes, signupsRes, totalInstallersRes, bookingsRes] = await Promise.all([
+      fetchAllPageViews(since, "page_path, visitor_id, session_id, device_type, city, region, country, referrer, is_bot, created_at"),
 
       supabase
         .from("platform_page_views")
@@ -119,11 +161,29 @@ export async function getAdminPlatformAnalytics(
         .select("page_path, city, region, country, device_type, referrer, is_bot, created_at")
         .order("created_at", { ascending: false })
         .limit(50),
+
+      // New installer signups in this period
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since),
+
+      // Total installers
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true }),
+
+      // Bookings (deposit paid) in this period
+      supabase
+        .from("leads")
+        .select("id, estimated_price, installer_id, deposit_paid")
+        .eq("deposit_paid", true)
+        .gte("created_at", since),
     ]);
 
-    const allViews = allViewsRes.data || [];
     const activeNow = activeNowRes.count || 0;
     const liveRaw = liveRes.data || [];
+    const bookings = bookingsRes.data || [];
 
     // Split human vs bot views
     const humanViews = allViews.filter((v) => !v.is_bot);
@@ -137,13 +197,57 @@ export async function getAdminPlatformAnalytics(
       ? Math.round((totalViews / uniqueSessions) * 10) / 10
       : 0;
 
+    // ── Business Metrics ─────────────────────────────────────────────
+    const newSignups = signupsRes.count || 0;
+    const totalInstallers = totalInstallersRes.count || 0;
+    const bookingsInPeriod = bookings.length;
+    const revenueInPeriod = bookings.reduce((sum, b) => sum + ((b.estimated_price as number) || 0), 0);
+    const conversionRate = uniqueVisitors > 0
+      ? Math.round((bookingsInPeriod / uniqueVisitors) * 1000) / 10
+      : 0;
+
+    // Top installers by bookings
+    const installerBookingMap: Record<string, { bookings: number; revenue: number }> = {};
+    for (const b of bookings) {
+      const instId = b.installer_id as string;
+      if (!instId) continue;
+      if (!installerBookingMap[instId]) installerBookingMap[instId] = { bookings: 0, revenue: 0 };
+      installerBookingMap[instId].bookings++;
+      installerBookingMap[instId].revenue += (b.estimated_price as number) || 0;
+    }
+    const topInstallerIds = Object.entries(installerBookingMap)
+      .sort((a, b) => b[1].bookings - a[1].bookings)
+      .slice(0, 5);
+
+    // Look up installer names
+    const topInstallersByBookings: { name: string; bookings: number; revenue: number }[] = [];
+    if (topInstallerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, business_name, first_name, last_name")
+        .in("id", topInstallerIds.map(([id]) => id));
+
+      const nameMap: Record<string, string> = {};
+      for (const p of profiles || []) {
+        nameMap[p.id] = p.business_name || [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown";
+      }
+
+      for (const [id, stats] of topInstallerIds) {
+        topInstallersByBookings.push({
+          name: nameMap[id] || "Unknown",
+          bookings: stats.bookings,
+          revenue: Math.round(stats.revenue),
+        });
+      }
+    }
+
     // ── Views by Day ────────────────────────────────────────────────
     const dayMap: Record<string, { views: number; visitors: Set<string> }> = {};
     for (const v of humanViews) {
-      const day = v.created_at?.slice(0, 10) || "unknown";
+      const day = (v.created_at as string)?.slice(0, 10) || "unknown";
       if (!dayMap[day]) dayMap[day] = { views: 0, visitors: new Set() };
       dayMap[day].views++;
-      if (v.visitor_id) dayMap[day].visitors.add(v.visitor_id);
+      if (v.visitor_id) dayMap[day].visitors.add(v.visitor_id as string);
     }
     const viewsByDay = Object.entries(dayMap)
       .map(([date, d]) => ({ date, views: d.views, unique: d.visitors.size }))
@@ -152,7 +256,7 @@ export async function getAdminPlatformAnalytics(
     // ── Views by Hour (pattern analysis) ────────────────────────────
     const hourMap: Record<number, number> = {};
     for (const v of humanViews) {
-      const hour = new Date(v.created_at).getHours();
+      const hour = new Date(v.created_at as string).getHours();
       hourMap[hour] = (hourMap[hour] || 0) + 1;
     }
     const viewsByHour = Array.from({ length: 24 }, (_, i) => ({
@@ -163,10 +267,10 @@ export async function getAdminPlatformAnalytics(
     // ── Top Pages ───────────────────────────────────────────────────
     const pageMap: Record<string, { views: number; visitors: Set<string> }> = {};
     for (const v of humanViews) {
-      const page = v.page_path || "/";
+      const page = (v.page_path as string) || "/";
       if (!pageMap[page]) pageMap[page] = { views: 0, visitors: new Set() };
       pageMap[page].views++;
-      if (v.visitor_id) pageMap[page].visitors.add(v.visitor_id);
+      if (v.visitor_id) pageMap[page].visitors.add(v.visitor_id as string);
     }
     const topPages = Object.entries(pageMap)
       .map(([page, d]) => ({ page, views: d.views, unique: d.visitors.size }))
@@ -176,7 +280,7 @@ export async function getAdminPlatformAnalytics(
     // ── Device Breakdown ────────────────────────────────────────────
     const deviceMap: Record<string, number> = {};
     for (const v of humanViews) {
-      const device = v.device_type || "desktop";
+      const device = (v.device_type as string) || "desktop";
       deviceMap[device] = (deviceMap[device] || 0) + 1;
     }
     const deviceBreakdown = Object.entries(deviceMap)
@@ -192,7 +296,7 @@ export async function getAdminPlatformAnalytics(
     for (const v of humanViews) {
       if (!v.city) continue;
       const key = `${v.city}|${v.region || ""}|${v.country || ""}`;
-      if (!cityMap[key]) cityMap[key] = { count: 0, region: v.region, country: v.country };
+      if (!cityMap[key]) cityMap[key] = { count: 0, region: v.region as string | null, country: v.country as string | null };
       cityMap[key].count++;
     }
     const topCities = Object.entries(cityMap)
@@ -206,7 +310,7 @@ export async function getAdminPlatformAnalytics(
     // ── Top Countries ───────────────────────────────────────────────
     const countryMap: Record<string, number> = {};
     for (const v of humanViews) {
-      const c = v.country || "Unknown";
+      const c = (v.country as string) || "Unknown";
       countryMap[c] = (countryMap[c] || 0) + 1;
     }
     const topCountries = Object.entries(countryMap)
@@ -217,7 +321,7 @@ export async function getAdminPlatformAnalytics(
     // ── Traffic Sources ─────────────────────────────────────────────
     const sourceMap: Record<string, number> = {};
     for (const v of humanViews) {
-      const source = classifyReferrer(v.referrer);
+      const source = classifyReferrer(v.referrer as string | null);
       sourceMap[source] = (sourceMap[source] || 0) + 1;
     }
     const trafficSources = Object.entries(sourceMap)
@@ -247,6 +351,14 @@ export async function getAdminPlatformAnalytics(
           activeNow,
           botViews: botViews.length,
           avgPagesPerSession,
+        },
+        businessMetrics: {
+          newSignups,
+          totalInstallers,
+          bookingsInPeriod,
+          revenueInPeriod: Math.round(revenueInPeriod),
+          conversionRate,
+          topInstallersByBookings,
         },
         viewsByDay,
         viewsByHour,
