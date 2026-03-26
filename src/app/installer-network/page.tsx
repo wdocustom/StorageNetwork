@@ -19,7 +19,7 @@ import InstallerNetworkMap from "@/components/map/InstallerNetworkMap";
 // geocodes from ZIP, renders interactive SVG map client-side.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const revalidate = 300; // 5 min ISR
+export const dynamic = "force-dynamic"; // Must be dynamic — fetches installer data from Supabase
 
 export const metadata: Metadata = {
   title: "Our Installer Network | Storage Network",
