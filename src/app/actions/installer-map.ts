@@ -7,12 +7,13 @@ import zipcodes from "zipcodes";
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Map — Public data for the interactive network map
 //
-// Fetches all active installers from BOTH sources:
-//   1. profiles.service_zip (legacy onboarding)
-//   2. installer_zip_codes table (new onboarding via /installers/join)
+// Strategy:
+//   1. Start from user_roles (role = 'installer') — source of truth
+//   2. Join to profiles for name/slug/avatar
+//   3. Pull ZIPs from installer_zip_codes (primary) + profiles.service_zip (legacy)
+//   4. Geocode via zipcodes package (offline, no API)
 //
-// Geocodes server-side using the `zipcodes` package. Returns one pin per
-// installer using their first/primary ZIP for positioning.
+// Cached 5 min via unstable_cache for ISR.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface MapInstaller {
@@ -29,85 +30,103 @@ export interface MapInstaller {
   zipCount: number;
 }
 
-/**
- * Fetch all active installers with geocoded positions for the network map.
- * Pulls from both profiles.service_zip and installer_zip_codes to capture
- * installers from both the old and new onboarding flows.
- * Cached for 5 min via unstable_cache.
- */
 export const getMapInstallers = unstable_cache(
   async (): Promise<MapInstaller[]> => {
     const supabase = getServiceClient();
 
-    // 1. Get all installer profiles (not suspended)
-    //    Use .or() to handle is_suspended being null (pre-migration profiles)
-    const { data: profiles, error: profileErr } = await supabase
-      .from("profiles")
-      .select(
-        "id, business_name, slug, city, state, service_zip, service_radius_miles, is_pro, avatar_url, is_suspended"
-      )
-      .or("is_suspended.is.null,is_suspended.eq.false");
+    // 1. Get all installer user IDs
+    const { data: roles, error: rolesErr } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "installer");
 
-    if (profileErr || !profiles) {
-      console.error("[getMapInstallers] Profile fetch error:", profileErr?.message);
+    if (rolesErr || !roles || roles.length === 0) {
+      console.error("[getMapInstallers] Roles query:", rolesErr?.message || "no installers");
       return [];
     }
 
-    // 2. Get all ZIP codes from installer_zip_codes table
-    const profileIds = profiles.map((p) => p.id as string);
-    let zipsByInstaller: Record<string, string[]> = {};
+    const installerIds = roles.map((r) => r.user_id as string);
 
-    if (profileIds.length > 0) {
-      const { data: zipRows } = await supabase
-        .from("installer_zip_codes")
-        .select("installer_id, zip_code")
-        .in("installer_id", profileIds);
+    // 2. Get profiles for these installers
+    const { data: profiles, error: profileErr } = await supabase
+      .from("profiles")
+      .select(
+        "id, user_id, business_name, first_name, last_name, slug, city, state, service_zip, service_radius_miles, is_pro, avatar_url, is_suspended, status"
+      )
+      .in("user_id", installerIds);
 
-      if (zipRows) {
-        for (const row of zipRows) {
-          const iid = row.installer_id as string;
-          if (!zipsByInstaller[iid]) zipsByInstaller[iid] = [];
-          zipsByInstaller[iid].push(row.zip_code as string);
-        }
+    if (profileErr) {
+      console.error("[getMapInstallers] Profile fetch error:", profileErr.message);
+      return [];
+    }
+
+    // Build lookup by user_id
+    const profileByUserId: Record<string, (typeof profiles)[number]> = {};
+    for (const p of profiles || []) {
+      const uid = (p.user_id ?? p.id) as string;
+      profileByUserId[uid] = p;
+    }
+
+    // 3. Get all ZIP codes from installer_zip_codes
+    const { data: zipRows } = await supabase
+      .from("installer_zip_codes")
+      .select("installer_id, zip_code")
+      .in("installer_id", installerIds);
+
+    const zipsByInstaller: Record<string, string[]> = {};
+    if (zipRows) {
+      for (const row of zipRows) {
+        const iid = row.installer_id as string;
+        if (!zipsByInstaller[iid]) zipsByInstaller[iid] = [];
+        zipsByInstaller[iid].push(row.zip_code as string);
       }
     }
 
-    // 3. Build map pins — use first available ZIP from either source
+    // 4. Build map pins
     const results: MapInstaller[] = [];
-    const seen = new Set<string>();
 
-    for (const row of profiles) {
-      const id = row.id as string;
-      if (seen.has(id)) continue;
+    for (const installerId of installerIds) {
+      const profile = profileByUserId[installerId];
 
-      // Collect all ZIPs for this installer
-      const installerZips = zipsByInstaller[id] || [];
-      const legacyZip = row.service_zip as string | null;
+      // Skip suspended or inactive installers
+      if (profile) {
+        const suspended = profile.is_suspended === true;
+        const inactive = (profile.status as string) === "inactive";
+        if (suspended || inactive) continue;
+      }
 
-      // Pick the best ZIP for map positioning:
-      // prefer installer_zip_codes (newer), fall back to service_zip (legacy)
-      const primaryZip = installerZips[0] || legacyZip;
+      // Collect ZIPs from both sources
+      const tableZips = zipsByInstaller[installerId] || [];
+      const legacyZip = profile ? (profile.service_zip as string | null) : null;
+      const primaryZip = tableZips[0] || legacyZip;
+
       if (!primaryZip) continue;
 
       const geo = zipcodes.lookup(primaryZip);
       if (!geo) continue;
 
-      seen.add(id);
+      const name = profile
+        ? (profile.business_name as string) ||
+          [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+          "Storage Network Installer"
+        : "Storage Network Installer";
+
       results.push({
-        id,
-        name: (row.business_name as string) || "Storage Network Installer",
-        slug: (row.slug as string) || null,
-        city: (row.city as string) || geo.city || null,
-        state: (row.state as string) || geo.state || null,
+        id: installerId,
+        name,
+        slug: profile ? (profile.slug as string) || null : null,
+        city: profile ? (profile.city as string) || geo.city || null : geo.city || null,
+        state: profile ? (profile.state as string) || geo.state || null : geo.state || null,
         lat: geo.latitude,
         lng: geo.longitude,
-        radiusMiles: (row.service_radius_miles as number) || 25,
-        isPro: !!(row.is_pro),
-        avatarUrl: (row.avatar_url as string) || null,
-        zipCount: installerZips.length || (legacyZip ? 1 : 0),
+        radiusMiles: profile ? (profile.service_radius_miles as number) || 25 : 25,
+        isPro: profile ? !!(profile.is_pro) : false,
+        avatarUrl: profile ? (profile.avatar_url as string) || null : null,
+        zipCount: tableZips.length || (legacyZip ? 1 : 0),
       });
     }
 
+    console.log(`[getMapInstallers] Found ${results.length} installers with geocodable ZIPs (from ${installerIds.length} total)`);
     return results;
   },
   ["map-installers"],
