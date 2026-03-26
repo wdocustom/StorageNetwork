@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/jig-announcement",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/feedback-call-invite",
+      "schedule": "0 16 * * *"
     }
   ]
 }

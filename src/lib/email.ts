@@ -3164,3 +3164,109 @@ export async function sendJigAnnouncementEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Installer Feedback Call Invite
+// Trigger: One-time cron blast to all installers
+// Purpose: Schedule a personal video call to review the platform, gather
+//          feedback, and discuss feature requests.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface FeedbackCallData {
+  installerName: string;
+  bookingUrl: string;
+}
+
+export async function sendFeedbackCallInvite(
+  email: string,
+  data: FeedbackCallData
+): Promise<SendEmailResult> {
+  const { installerName, bookingUrl } = data;
+
+  const html = emailShell(
+    "Let\u2019s Connect",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+
+    <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      I want to schedule a quick <strong style="color:#e2e8f0;">personal video call</strong> with you.
+    </p>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      The goal is simple &mdash; walk through the platform together, make sure everything
+      is working smoothly on your end, hear how things are going, and get your honest
+      feedback on what you&rsquo;d like to see added or improved.
+    </p>
+
+    <!-- What we'll cover -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:24px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">On the Call</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:6px 0;vertical-align:top;width:24px;">
+            <span style="color:#facc15;font-size:14px;">&#10003;</span>
+          </td>
+          <td style="padding:6px 0;color:#e2e8f0;font-size:14px;">
+            Full walkthrough of the platform &amp; your dashboard
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;vertical-align:top;width:24px;">
+            <span style="color:#facc15;font-size:14px;">&#10003;</span>
+          </td>
+          <td style="padding:6px 0;color:#e2e8f0;font-size:14px;">
+            Check in on how things are going for you
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;vertical-align:top;width:24px;">
+            <span style="color:#facc15;font-size:14px;">&#10003;</span>
+          </td>
+          <td style="padding:6px 0;color:#e2e8f0;font-size:14px;">
+            Your feedback &mdash; what&rsquo;s working, what&rsquo;s not
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;vertical-align:top;width:24px;">
+            <span style="color:#facc15;font-size:14px;">&#10003;</span>
+          </td>
+          <td style="padding:6px 0;color:#e2e8f0;font-size:14px;">
+            Feature requests &mdash; anything you&rsquo;d like to see built
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      It&rsquo;s a 15&ndash;20 minute call, no pressure, no sales pitch. Just want to
+      make sure the platform is actually helping you make money.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin:32px 0;">
+      <a href="${bookingUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;letter-spacing:0.3px;">
+        Book Your Call &rarr;
+      </a>
+    </div>
+
+    <p style="margin:0 0 8px;color:#64748b;font-size:13px;text-align:center;">
+      Pick whatever time works best for you.
+    </p>
+
+    <div style="border-top:1px solid #334155;margin-top:32px;padding-top:24px;">
+      <p style="margin:0;color:#94a3b8;font-size:14px;line-height:1.7;">
+        Looking forward to hearing from you,
+      </p>
+      <p style="margin:8px 0 0;color:#e2e8f0;font-size:14px;font-weight:700;">
+        The Storage Network Team
+      </p>
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "Let\u2019s hop on a quick call \u2014 I want your feedback",
+    html,
+  });
+}
