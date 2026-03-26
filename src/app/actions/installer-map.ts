@@ -39,13 +39,14 @@ export const getMapInstallers = unstable_cache(
   async (): Promise<MapInstaller[]> => {
     const supabase = getServiceClient();
 
-    // 1. Get all non-suspended installer profiles
+    // 1. Get all installer profiles (not suspended)
+    //    Use .or() to handle is_suspended being null (pre-migration profiles)
     const { data: profiles, error: profileErr } = await supabase
       .from("profiles")
       .select(
         "id, business_name, slug, city, state, service_zip, service_radius_miles, is_pro, avatar_url, is_suspended"
       )
-      .eq("is_suspended", false);
+      .or("is_suspended.is.null,is_suspended.eq.false");
 
     if (profileErr || !profiles) {
       console.error("[getMapInstallers] Profile fetch error:", profileErr?.message);
