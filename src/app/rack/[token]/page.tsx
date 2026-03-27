@@ -759,7 +759,7 @@ export default function RackPage() {
           const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
           const isFull = utilizationPct >= 80;
           const designUrl = installer?.slug
-            ? `/p/${installer.slug}`
+            ? `/design?installer=${installer.slug}`
             : "/design";
 
           return (
