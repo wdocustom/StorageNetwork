@@ -759,7 +759,7 @@ export default function RackPage() {
           const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
           const isFull = utilizationPct >= 80;
           const designUrl = installer?.slug
-            ? `/design?ref=${installer.slug}`
+            ? `/p/${installer.slug}`
             : "/design";
 
           return (
@@ -802,7 +802,7 @@ export default function RackPage() {
                 <button
                   onClick={() => {
                     const shareText = installer?.slug
-                      ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/design?ref=${installer.slug}`
+                      ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/p/${installer.slug}`
                       : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
                     if (navigator.share) {
                       navigator.share({ text: shareText }).catch(() => {});
