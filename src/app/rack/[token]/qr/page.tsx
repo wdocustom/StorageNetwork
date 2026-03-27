@@ -4,24 +4,19 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getRackByToken, type InventoryRack } from "@/app/actions/tote-inventory";
 import { Loader2, Printer } from "lucide-react";
+import QRCode from "react-qr-code";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Printable QR Code Page — /rack/[token]/qr
 //
-// Opens in a new tab. Shows a print-ready QR code card that the installer
-// can print and stick on the physical shelf rack. Includes:
-//   - QR code (generated via Google Charts API — no dependency needed)
+// Opens in a new tab. Shows a print-ready QR code card with:
+//   - QR code (rendered client-side via react-qr-code, no external API)
 //   - Rack label and dimensions
 //   - Brief instructions for the customer
 //   - Storage Network branding
 //
-// Auto-triggers print dialog on load. Designed for thermal label printers
-// or regular paper (cut along border).
+// Designed for thermal label printers or regular paper (cut along border).
 // ═══════════════════════════════════════════════════════════════════════════
-
-function generateQrUrl(data: string, size: number = 300): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&margin=8&format=svg`;
-}
 
 export default function QrPrintPage() {
   const params = useParams();
@@ -89,16 +84,17 @@ export default function QrPrintPage() {
             </p>
           </div>
 
-          {/* QR Code */}
+          {/* QR Code — rendered client-side, no external API */}
           <div className="flex justify-center my-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={generateQrUrl(rackUrl, 400)}
-              alt="QR Code"
-              className="w-48 h-48"
-              width={192}
-              height={192}
-            />
+            {rackUrl && (
+              <QRCode
+                value={rackUrl}
+                size={192}
+                level="M"
+                bgColor="#ffffff"
+                fgColor="#000000"
+              />
+            )}
           </div>
 
           {/* Instructions */}
