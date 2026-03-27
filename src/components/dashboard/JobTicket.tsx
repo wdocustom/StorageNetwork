@@ -37,6 +37,7 @@ import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/f
 import { createPaymentSession, sendPaymentInvoice } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
+import { createRacksForJob, getRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
@@ -115,6 +116,12 @@ export default function JobTicket({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Inventory QR State ────────────────────────────────────────────────
+  const [inventoryRacks, setInventoryRacks] = useState<InventoryRack[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryCreating, setInventoryCreating] = useState(false);
+  const [inventoryEmailing, setInventoryEmailing] = useState<string | null>(null);
 
   // ── Discount Code State ─────────────────────────────────────────────────
   const [discountInput, setDiscountInput] = useState("");
@@ -412,6 +419,56 @@ export default function JobTicket({
     }
   }
 
+  // ── Inventory QR Handlers ───────────────────────────────────────────────
+  async function loadInventoryRacks() {
+    setInventoryLoading(true);
+    const racks = await getRacksForJob(leadId);
+    setInventoryRacks(racks);
+    setInventoryLoading(false);
+  }
+
+  async function handleCreateInventoryRacks() {
+    if (!quoteData || quoteData.length === 0 || !installerId) return;
+    setInventoryCreating(true);
+    const configs = quoteData.map((q: any) => ({
+      cols: q.cols ?? q.width ?? 4,
+      rows: q.rows ?? q.height ?? 3,
+      hasWheels: q.hasWheels ?? q.wheels ?? false,
+      topType: q.topType ?? q.top ?? "none",
+      layout: q.layout ?? "standard",
+    }));
+    const result = await createRacksForJob({
+      leadId,
+      installerId,
+      customerName,
+      customerEmail: customerEmail || "",
+      shelfConfigs: configs,
+    });
+    if (result.racks.length > 0) {
+      setInventoryRacks(result.racks);
+    }
+    setInventoryCreating(false);
+  }
+
+  async function handleEmailRackLink(rackId: string) {
+    if (!customerEmail) return;
+    setInventoryEmailing(rackId);
+    await emailRackLink({
+      rackId,
+      customerEmail,
+      customerName,
+    });
+    setInventoryEmailing(null);
+  }
+
+  // Load inventory racks when job is paid
+  useEffect(() => {
+    if (status === "paid") {
+      loadInventoryRacks();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, leadId]);
+
   // ── Simple Complete Job (no photo required) ─────────────────────────────
   async function handleCompleteJob() {
     setPayLoading(true);
@@ -581,11 +638,123 @@ export default function JobTicket({
       {/* ── Action Button Area ────────────────────────────────────────── */}
       {isPaid ? (
         /* ── PAID badge ───────────────────────────────────────────── */
-        <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/20 px-6 py-4">
-          <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-          <span className="text-lg font-black uppercase tracking-wider text-emerald-400">
-            PAID
-          </span>
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/20 px-6 py-4">
+            <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+            <span className="text-lg font-black uppercase tracking-wider text-emerald-400">
+              PAID
+            </span>
+          </div>
+
+          {/* ── Inventory QR Section ──────────────────────────────── */}
+          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="h-4 w-4 text-yellow-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-300">
+                Customer Inventory
+              </span>
+            </div>
+
+            {inventoryLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
+              </div>
+            ) : inventoryRacks.length === 0 ? (
+              <div>
+                <p className="text-xs text-stone-400 mb-3">
+                  Create a digital inventory tracker for this customer&apos;s rack.
+                  They&apos;ll get a QR code link to catalog what&apos;s in each tote.
+                </p>
+                <button
+                  onClick={handleCreateInventoryRacks}
+                  disabled={inventoryCreating || !quoteData || quoteData.length === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-50 transition-colors"
+                >
+                  {inventoryCreating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Package className="h-4 w-4" />
+                  )}
+                  {inventoryCreating ? "Creating..." : "Create Inventory QR"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {inventoryRacks.map((rack) => {
+                  const rackUrl = `${window.location.origin}/rack/${rack.access_token}`;
+                  return (
+                    <div
+                      key={rack.id}
+                      className="rounded-lg border border-slate-700 bg-slate-900/50 p-3"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-white">
+                          {rack.label}
+                        </span>
+                        <span className="text-[10px] text-stone-500">
+                          {rack.cols}&times;{rack.rows}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {/* Copy Link */}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(rackUrl);
+                            setCopyLinkSuccess(true);
+                            setTimeout(() => setCopyLinkSuccess(false), 2000);
+                          }}
+                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                        >
+                          <Link className="h-3 w-3" />
+                          {copyLinkSuccess ? "Copied!" : "Copy Link"}
+                        </button>
+
+                        {/* Open QR Page */}
+                        <a
+                          href={rackUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                        >
+                          <Package className="h-3 w-3" />
+                          Open
+                        </a>
+
+                        {/* Print QR */}
+                        <button
+                          onClick={() => {
+                            const printUrl = `${window.location.origin}/rack/${rack.access_token}/qr`;
+                            window.open(printUrl, "_blank");
+                          }}
+                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                        >
+                          <Camera className="h-3 w-3" />
+                          Print QR
+                        </button>
+
+                        {/* Email to Customer */}
+                        {customerEmail && (
+                          <button
+                            onClick={() => handleEmailRackLink(rack.id)}
+                            disabled={inventoryEmailing === rack.id}
+                            className="flex items-center gap-1.5 rounded-md bg-yellow-400/20 px-3 py-1.5 text-xs font-medium text-yellow-400 hover:bg-yellow-400/30 disabled:opacity-50 transition-colors"
+                          >
+                            {inventoryEmailing === rack.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                            Email Customer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       ) : isUnpaidQuote ? (
         /* ── UNPAID QUOTE — Collect Full Payment on Delivery ────────── */

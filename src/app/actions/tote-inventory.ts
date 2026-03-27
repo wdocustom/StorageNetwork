@@ -365,3 +365,110 @@ export async function searchRackItems(
 
   return { results };
 }
+
+// ── Batch create racks from a job's shelf configs ────────────────────────
+
+export async function createRacksForJob(input: {
+  leadId: string;
+  installerId: string;
+  customerName: string;
+  customerEmail: string;
+  shelfConfigs: Array<{ cols: number; rows: number; hasWheels?: boolean; topType?: string; layout?: string }>;
+}): Promise<{ racks: InventoryRack[]; error?: string }> {
+  const racks: InventoryRack[] = [];
+
+  for (let i = 0; i < input.shelfConfigs.length; i++) {
+    const config = input.shelfConfigs[i];
+    const label = input.shelfConfigs.length === 1
+      ? "My Storage Rack"
+      : `Rack ${i + 1}`;
+
+    const result = await createRack({
+      leadId: input.leadId,
+      installerId: input.installerId,
+      customerName: input.customerName,
+      customerEmail: input.customerEmail,
+      label,
+      cols: config.cols,
+      rows: config.rows,
+      hasWheels: config.hasWheels,
+      topType: config.topType,
+      layout: config.layout,
+    });
+
+    if (result.rack) {
+      racks.push(result.rack);
+    } else {
+      return { racks, error: result.error || "Failed to create rack" };
+    }
+  }
+
+  return { racks };
+}
+
+// ── Get racks for a job (installer-side) ─────────────────────────────────
+
+export async function getRacksForJob(leadId: string): Promise<InventoryRack[]> {
+  const { data } = await db()
+    .from("inventory_racks")
+    .select("*")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: true });
+
+  return (data || []) as InventoryRack[];
+}
+
+// ── Email rack link to customer ──────────────────────────────────────────
+
+export async function emailRackLink(input: {
+  rackId: string;
+  customerEmail: string;
+  customerName: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { data: rack } = await db()
+    .from("inventory_racks")
+    .select("access_token, label, cols, rows")
+    .eq("id", input.rackId)
+    .maybeSingle();
+
+  if (!rack) return { success: false, error: "Rack not found" };
+
+  const { getAppUrl } = await import("@/lib/url-helper");
+  const { sendTransactionalEmail } = await import("@/lib/email");
+
+  const rackUrl = `${getAppUrl()}/rack/${rack.access_token}`;
+  const safeName = input.customerName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const html = `
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+    <h2 style="color:#1a1a1a;margin-bottom:8px;">Your Tote Inventory Is Ready</h2>
+    <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
+    <p style="color:#666;font-size:14px;">
+      Your storage rack <strong>${rack.label}</strong> (${rack.cols}&times;${rack.rows}) now has a digital inventory tracker.
+      Use it to catalog what&rsquo;s in each tote &mdash; snap a photo and our AI will identify the contents automatically.
+    </p>
+    <p style="color:#666;font-size:14px;">
+      Bookmark this link or scan the QR code on your rack anytime:
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${rackUrl}" style="display:inline-block;background:#facc15;color:#1a1a1a;text-align:center;padding:14px 32px;border-radius:10px;font-weight:700;text-decoration:none;font-size:15px;">
+        Open My Inventory &rarr;
+      </a>
+    </div>
+    <p style="color:#999;font-size:12px;text-align:center;">
+      No login required &mdash; this link is your private access key.
+    </p>
+    <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">
+      Powered by Storage Network
+    </p>
+  </div>`;
+
+  const result = await sendTransactionalEmail({
+    to: input.customerEmail,
+    toName: input.customerName,
+    subject: `Your Storage Rack Inventory — ${rack.label}`,
+    html,
+  });
+
+  return { success: result.success, error: result.error };
+}
