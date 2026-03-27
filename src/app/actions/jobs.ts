@@ -63,6 +63,9 @@ export async function updateOperationalStatus(
     return { success: false, error: "Failed to update status." };
   }
 
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "job_status_update", { leadId, status });
+
   return { success: true };
 }
 
@@ -180,6 +183,9 @@ export async function completeJob(leadId: string) {
   // Update material inventory (non-blocking)
   syncInventoryForLead(leadId);
 
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "job_completed", { leadId });
+
   console.log(`[CompleteJob] Lead ${leadId} marked as payment_pending (no photo required)`);
   return { success: true };
 }
@@ -222,6 +228,9 @@ export async function markJobPaidManual(
   }
 
   console.log(`[MarkPaidManual] Lead ${leadId} marked paid via ${method}`);
+
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "job_paid_manual", { leadId, method });
 
   // Fire-and-forget: send receipt/alert emails (same as webhook path)
   import("@/lib/email").then(async ({ sendJobReceipt, sendPaymentReceivedAlert }) => {

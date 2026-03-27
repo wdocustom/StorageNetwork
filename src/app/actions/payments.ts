@@ -345,6 +345,9 @@ export async function sendPaymentInvoice(
       })
       .eq("id", leadId);
 
+    const { logActivityInternal } = await import("@/app/actions/installer-activity");
+    await logActivityInternal(auth.userId, "payment_invoice_sent", { leadId, amount, customerEmail });
+
     return { success: true };
   } catch (err) {
     console.error("[Payment] Invoice email error:", err);

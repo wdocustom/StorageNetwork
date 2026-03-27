@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getAdminPlatformAnalytics, type PlatformAnalyticsData } from "@/app/actions/platform-analytics";
+import { getInstallerActivityReport, type InstallerActivitySummary } from "@/app/actions/installer-activity";
 import {
   ArrowLeft,
   BarChart3,
   Bot,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Eye,
   Globe2,
@@ -38,7 +41,10 @@ export default function PlatformAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "pages" | "geo" | "live">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "pages" | "geo" | "live" | "installers">("overview");
+  const [installerData, setInstallerData] = useState<InstallerActivitySummary[]>([]);
+  const [installerLoading, setInstallerLoading] = useState(false);
+  const [expandedInstaller, setExpandedInstaller] = useState<string | null>(null);
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -59,7 +65,23 @@ export default function PlatformAnalyticsPage() {
     setRefreshing(false);
   }, [supabase, range]);
 
+  const fetchInstallerActivity = useCallback(async () => {
+    setInstallerLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const result = await getInstallerActivityReport(user.id, range);
+    if (result.installers) setInstallerData(result.installers);
+    setInstallerLoading(false);
+  }, [supabase, range]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Load installer activity when tab is selected
+  useEffect(() => {
+    if (activeTab === "installers" && installerData.length === 0 && !installerLoading) {
+      fetchInstallerActivity();
+    }
+  }, [activeTab, installerData.length, installerLoading, fetchInstallerActivity]);
 
   if (loading) {
     return (
@@ -196,7 +218,7 @@ export default function PlatformAnalyticsPage() {
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
         <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
-          {(["overview", "pages", "geo", "live"] as const).map((tab) => (
+          {(["overview", "pages", "geo", "live", "installers"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -206,7 +228,7 @@ export default function PlatformAnalyticsPage() {
                   : "text-stone-500 hover:text-white"
               }`}
             >
-              {tab === "overview" ? "Overview" : tab === "pages" ? "Pages" : tab === "geo" ? "Geography" : "Live Feed"}
+              {tab === "overview" ? "Overview" : tab === "pages" ? "Pages" : tab === "geo" ? "Geography" : tab === "live" ? "Live Feed" : "Installers"}
             </button>
           ))}
         </div>
@@ -457,6 +479,139 @@ export default function PlatformAnalyticsPage() {
                 <div className="px-5 py-8 text-center text-stone-600 text-sm">No activity yet</div>
               )}
             </div>
+          </div>
+        )}
+        {/* ── INSTALLERS TAB ────────────────────────────────────────── */}
+        {activeTab === "installers" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Users className="h-4 w-4 text-yellow-400" />
+                Installer Activity — Last {range} Days
+              </h3>
+              <button
+                onClick={fetchInstallerActivity}
+                disabled={installerLoading}
+                className="rounded-lg p-2 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${installerLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            {installerLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+              </div>
+            ) : installerData.length === 0 ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-12 text-center text-stone-600 text-sm">
+                No installer activity recorded yet. Activity will appear as installers use the dashboard.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {installerData.map((inst) => (
+                  <div key={inst.installerId} className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+                    {/* Installer Summary Row */}
+                    <button
+                      onClick={() => setExpandedInstaller(expandedInstaller === inst.installerId ? null : inst.installerId)}
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-800/50 transition-colors text-left"
+                    >
+                      {/* Avatar */}
+                      {inst.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={inst.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover border-2 border-slate-700 shrink-0" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-stone-500">{inst.installerName.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                      {/* Name + Business */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">
+                          {inst.businessName || inst.installerName}
+                        </p>
+                        <p className="text-[10px] text-stone-500 truncate">
+                          {inst.email}
+                        </p>
+                      </div>
+                      {/* Stats */}
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <p className="text-sm font-black text-yellow-400">{inst.totalActions}</p>
+                          <p className="text-[9px] text-stone-600 uppercase">Actions</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-semibold text-stone-400">{timeAgo(inst.lastActive)}</p>
+                          <p className="text-[9px] text-stone-600 uppercase">Last Active</p>
+                        </div>
+                        {expandedInstaller === inst.installerId
+                          ? <ChevronUp className="h-4 w-4 text-stone-600" />
+                          : <ChevronDown className="h-4 w-4 text-stone-600" />
+                        }
+                      </div>
+                    </button>
+
+                    {/* Expanded Detail */}
+                    {expandedInstaller === inst.installerId && (
+                      <div className="border-t border-slate-800 px-5 py-4 space-y-4">
+                        {/* Top Pages + Top Actions side-by-side */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Top Pages */}
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2">Top Pages Visited</p>
+                            <div className="space-y-1">
+                              {inst.topPages.map((p) => (
+                                <div key={p.page} className="flex items-center justify-between text-xs">
+                                  <span className="text-stone-300 truncate mr-2 font-mono text-[11px]">{p.page}</span>
+                                  <span className="text-yellow-400 font-bold shrink-0">{p.count}</span>
+                                </div>
+                              ))}
+                              {inst.topPages.length === 0 && <p className="text-stone-600 text-xs">No page views</p>}
+                            </div>
+                          </div>
+                          {/* Top Actions */}
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2">Action Breakdown</p>
+                            <div className="space-y-1">
+                              {inst.topActions.map((a) => (
+                                <div key={a.action} className="flex items-center justify-between text-xs">
+                                  <span className="text-stone-300 truncate mr-2">
+                                    {a.action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                                  </span>
+                                  <span className="text-emerald-400 font-bold shrink-0">{a.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recent Activity Timeline */}
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2">Recent Activity</p>
+                          <div className="space-y-1 max-h-64 overflow-y-auto">
+                            {inst.recentActivity.map((act, i) => (
+                              <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2 text-xs">
+                                <span className="text-stone-600 text-[10px] font-mono shrink-0 w-16">{timeAgo(act.created_at)}</span>
+                                <span className="inline-block rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-stone-300 shrink-0">
+                                  {act.action.replace(/_/g, " ")}
+                                </span>
+                                {act.page_path && (
+                                  <span className="text-stone-500 truncate font-mono text-[10px]">{act.page_path}</span>
+                                )}
+                                {act.detail && Object.keys(act.detail).length > 0 && (
+                                  <span className="text-stone-600 truncate text-[10px]">
+                                    {Object.entries(act.detail).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

@@ -140,6 +140,11 @@ export async function updateProfile(
 
   await revalidatePortfolio(user_id);
   console.log("[Profile Update] Success");
+
+  // Log activity
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(user_id, "profile_edit", { fields: Object.keys(cleanUpdates) });
+
   return { success: true };
 }
 
