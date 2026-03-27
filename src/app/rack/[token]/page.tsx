@@ -65,6 +65,7 @@ export default function RackPage() {
   const [rack, setRack] = useState<InventoryRack | null>(null);
   const [slots, setSlots] = useState<InventorySlot[]>([]);
   const [linkedRacks, setLinkedRacks] = useState<Array<{ id: string; access_token: string; label: string }>>([]);
+  const [installer, setInstaller] = useState<{ name: string; slug: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,6 +106,7 @@ export default function RackPage() {
       setRack(result.rack);
       setSlots(result.slots);
       setLinkedRacks(result.linkedRacks);
+      setInstaller(result.installer);
     }
     setLoading(false);
   }, [token]);
@@ -749,10 +751,92 @@ export default function RackPage() {
           </div>
         )}
 
+        {/* ── Growth Engine ──────────────────────────────────────── */}
+        {(() => {
+          const totalSlots = rack.cols * rack.rows;
+          const filledSlots = slots.filter((s) => (s.item_count ?? 0) > 0).length;
+          const allLinkedSlots = filledSlots + linkedRacks.length * totalSlots; // rough estimate
+          const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
+          const isFull = utilizationPct >= 80;
+          const designUrl = installer?.slug
+            ? `/design?ref=${installer.slug}`
+            : "/design";
+
+          return (
+            <div className="space-y-3 pt-2">
+              {/* Running out of space — shows when 80%+ totes have items */}
+              {isFull && (
+                <a
+                  href={designUrl}
+                  className="block rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-4 hover:bg-yellow-400/10 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-400/20 flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        Running out of space?
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {utilizationPct}% of your totes are cataloged.
+                        {installer ? ` ${installer.name} can` : " We can"} build
+                        you another rack — same quality, professionally installed.
+                      </p>
+                      <span className="inline-block mt-2 text-xs font-bold text-yellow-400">
+                        Design Another Rack &rarr;
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              )}
+
+              {/* Recommend to a neighbor — always visible */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+                <p className="text-xs font-semibold text-slate-300 mb-1">
+                  Know someone who needs garage storage?
+                </p>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Share with a friend and they&apos;ll get the same professional installation you did.
+                </p>
+                <button
+                  onClick={() => {
+                    const shareText = installer?.slug
+                      ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/design?ref=${installer.slug}`
+                      : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
+                    if (navigator.share) {
+                      navigator.share({ text: shareText }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(shareText);
+                    }
+                  }}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-xs font-medium text-slate-300 transition-colors w-full justify-center"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                  Share with a Friend
+                </button>
+              </div>
+
+              {/* Soft CTA — always visible */}
+              <a
+                href={designUrl}
+                className="block rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-center hover:border-yellow-400/30 transition-colors group"
+              >
+                <p className="text-[11px] text-slate-500 group-hover:text-slate-400">
+                  Need more storage?{" "}
+                  <span className="text-yellow-400/70 group-hover:text-yellow-400 font-medium">
+                    Design a new rack &rarr;
+                  </span>
+                </p>
+              </a>
+            </div>
+          );
+        })()}
+
         {/* Footer */}
         <div className="text-center pt-4 pb-8">
           <p className="text-[10px] text-slate-600">
-            Powered by{" "}
+            Free forever &bull; Powered by{" "}
             <a href="/" className="text-slate-500 hover:text-yellow-400">
               Storage Network
             </a>

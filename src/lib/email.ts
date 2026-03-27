@@ -3270,3 +3270,142 @@ export async function sendFeedbackCallInvite(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Tote Inventory Feature Announcement
+// Trigger: One-time cron blast to all installers
+// Purpose: Announce the free customer inventory system, AI photo scanning,
+//          and explain how it drives repeat business back to them.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface InventoryAnnouncementData {
+  installerName: string;
+  dashboardUrl: string;
+}
+
+export async function sendInventoryAnnouncementEmail(
+  email: string,
+  data: InventoryAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, dashboardUrl } = data;
+
+  const html = emailShell(
+    "New Feature: Customer Tote Inventory",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
+
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      We just launched something that&rsquo;s going to set you apart from every other
+      shelf builder in your area &mdash; and it&rsquo;s going to make your customers love you.
+    </p>
+
+    <!-- Feature Hero -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:24px;margin-bottom:20px;border:1px solid #facc15;text-align:center;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:22px;font-weight:900;">Customer Tote Inventory</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.6;">
+        AI-powered &bull; Always free for your customers &bull; Drives repeat business back to you
+      </p>
+    </div>
+
+    <!-- How it works -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 10px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">How It Works</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.8;">
+        After you complete a job, hit <strong>&ldquo;Create Inventory QR&rdquo;</strong> on the job ticket.
+        The platform generates a unique QR code for each rack you built. Print the sticker, stick it
+        on the rack, and your customer can scan it anytime to manage what&rsquo;s in their totes.
+      </p>
+    </div>
+
+    <!-- AI Scanning -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 10px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">AI Photo Scanning</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.8;">
+        Your customer opens a tote, snaps <strong>one photo</strong>, and our AI identifies every item inside &mdash;
+        &ldquo;Christmas ornaments (12), string lights, tree skirt, wreath&rdquo; &mdash; all in seconds.
+        One tap to add everything to their inventory. No typing. No hassle.
+      </p>
+    </div>
+
+    <!-- Always Free -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 10px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Always Free for Your Customers</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.8;">
+        There is <strong>no charge</strong> to your customer. Ever. The inventory system is a value-add
+        that makes your installation memorable. Once they&rsquo;ve cataloged 20+ totes of holiday
+        decorations, tools, and camping gear &mdash; they&rsquo;re never ripping out that shelf.
+        And they&rsquo;ll tell their neighbors about it.
+      </p>
+    </div>
+
+    <!-- Why it matters to YOU -->
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px 24px;margin-bottom:24px;border-left:3px solid #facc15;">
+      <p style="margin:0 0 10px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Why This Makes You Money</p>
+      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.8;">
+        Every inventory page has a soft &ldquo;Need More Storage?&rdquo; link that goes directly to
+        <strong>your branded design page</strong>. When their totes fill up, when their neighbor asks
+        &ldquo;where&rsquo;d you get that?&rdquo; &mdash; the lead comes back to <strong>you</strong> at the
+        network rate. You don&rsquo;t have to ask for referrals. The platform does it for you.
+      </p>
+    </div>
+
+    <!-- How to use it -->
+    <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">To Get Started</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <tr>
+        <td style="padding:8px 0;vertical-align:top;width:24px;">
+          <span style="color:#facc15;font-size:14px;font-weight:bold;">1.</span>
+        </td>
+        <td style="padding:8px 0;color:#e2e8f0;font-size:14px;">
+          Complete a job and mark it <strong>PAID</strong>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;vertical-align:top;width:24px;">
+          <span style="color:#facc15;font-size:14px;font-weight:bold;">2.</span>
+        </td>
+        <td style="padding:8px 0;color:#e2e8f0;font-size:14px;">
+          Tap <strong>&ldquo;Create Inventory QR&rdquo;</strong> on the job ticket
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;vertical-align:top;width:24px;">
+          <span style="color:#facc15;font-size:14px;font-weight:bold;">3.</span>
+        </td>
+        <td style="padding:8px 0;color:#e2e8f0;font-size:14px;">
+          Print the QR sticker and stick it on the rack
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;vertical-align:top;width:24px;">
+          <span style="color:#facc15;font-size:14px;font-weight:bold;">4.</span>
+        </td>
+        <td style="padding:8px 0;color:#e2e8f0;font-size:14px;">
+          Email the link to your customer (one-tap from the job ticket)
+        </td>
+      </tr>
+    </table>
+
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">
+        Open Dashboard &rarr;
+      </a>
+    </div>
+
+    <div style="border-top:1px solid #334155;margin-top:32px;padding-top:24px;">
+      <p style="margin:0;color:#94a3b8;font-size:14px;line-height:1.7;">
+        This is the kind of touch that turns a one-time job into a long-term customer.
+      </p>
+      <p style="margin:8px 0 0;color:#e2e8f0;font-size:14px;font-weight:700;">
+        The Storage Network Team
+      </p>
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "New: AI-Powered Tote Inventory \u2014 Free for Your Customers, Drives Repeat Business",
+    html,
+  });
+}

@@ -60,10 +60,11 @@ export async function getRackByToken(token: string): Promise<{
   rack: InventoryRack | null;
   slots: InventorySlot[];
   linkedRacks: Array<{ id: string; access_token: string; label: string }>;
+  installer: { name: string; slug: string | null } | null;
   error?: string;
 }> {
   if (!token || token.length < 16) {
-    return { rack: null, slots: [], linkedRacks: [], error: "Invalid access token" };
+    return { rack: null, slots: [], linkedRacks: [], installer: null, error: "Invalid access token" };
   }
 
   const { data: rack, error: rackErr } = await db()
@@ -73,7 +74,7 @@ export async function getRackByToken(token: string): Promise<{
     .maybeSingle();
 
   if (rackErr || !rack) {
-    return { rack: null, slots: [], linkedRacks: [], error: "Rack not found" };
+    return { rack: null, slots: [], linkedRacks: [], installer: null, error: "Rack not found" };
   }
 
   const { data: slots } = await db()
@@ -112,7 +113,25 @@ export async function getRackByToken(token: string): Promise<{
     }));
   }
 
-  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks };
+  // Fetch installer info for referral links
+  let installer: { name: string; slug: string | null } | null = null;
+  if (rack.installer_id) {
+    const { data: profile } = await db()
+      .from("profiles")
+      .select("business_name, first_name, last_name, slug")
+      .eq("id", rack.installer_id)
+      .maybeSingle();
+    if (profile) {
+      installer = {
+        name: (profile.business_name as string) ||
+          [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+          "Your Installer",
+        slug: (profile.slug as string) || null,
+      };
+    }
+  }
+
+  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks, installer };
 }
 
 export async function createRack(input: {
