@@ -14,9 +14,10 @@ interface ProQRCodeCardProps {
   slug: string;
   businessName?: string;
   phone?: string;
+  avatarUrl?: string;
 }
 
-export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCardProps) {
+export default function ProQRCodeCard({ slug, businessName, phone, avatarUrl }: ProQRCodeCardProps) {
   const qrRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -67,17 +68,39 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.download = `storage-network-qr-${slug}.png`;
-              link.href = url;
-              link.click();
-              URL.revokeObjectURL(url);
-            }
-            setDownloading(false);
-          }, "image/png", 1.0);
+          const finalize = () => {
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.download = `storage-network-qr-${slug}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+              }
+              setDownloading(false);
+            }, "image/png", 1.0);
+          };
+
+          // Overlay installer logo if available
+          if (avatarUrl) {
+            const logo = new window.Image();
+            logo.crossOrigin = "anonymous";
+            logo.onload = () => {
+              const logoSize = canvas.width * 0.22;
+              const pad = 8;
+              const cx = (canvas.width - logoSize) / 2;
+              const cy = (canvas.height - logoSize) / 2;
+              ctx.fillStyle = "#FFFFFF";
+              ctx.fillRect(cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2);
+              ctx.drawImage(logo, cx, cy, logoSize, logoSize);
+              finalize();
+            };
+            logo.onerror = () => finalize();
+            logo.src = avatarUrl;
+          } else {
+            finalize();
+          }
         }
 
         URL.revokeObjectURL(svgUrl);
@@ -94,7 +117,7 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
       console.error("Download failed:", err);
       setDownloading(false);
     }
-  }, [slug]);
+  }, [slug, avatarUrl]);
 
   // Download branded share card (1080x1350 — optimized for FB/IG posts)
   const handleDownloadShareCard = useCallback(async () => {
@@ -180,6 +203,9 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
         // Draw QR code inside white card
         ctx.drawImage(qrImg, cardX + qrPadding, cardY + qrPadding, qrSize, qrSize);
 
+        // Draw installer logo centered on QR if available
+        const drawRestOfCard = () => {
+
         // ── URL CTA (primary — drives traffic to the platform) ──
         let nextY = cardY + cardSize + 45;
 
@@ -235,6 +261,28 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
           setDownloadingCard(false);
         }, "image/png", 1.0);
 
+        }; // end drawRestOfCard
+
+        // Overlay installer logo on share card QR if available
+        if (avatarUrl) {
+          const logo = new window.Image();
+          logo.crossOrigin = "anonymous";
+          logo.onload = () => {
+            const logoSize = qrSize * 0.22;
+            const pad = 10;
+            const cx = cardX + qrPadding + (qrSize - logoSize) / 2;
+            const cy = cardY + qrPadding + (qrSize - logoSize) / 2;
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2);
+            ctx.drawImage(logo, cx, cy, logoSize, logoSize);
+            drawRestOfCard();
+          };
+          logo.onerror = () => drawRestOfCard();
+          logo.src = avatarUrl;
+        } else {
+          drawRestOfCard();
+        }
+
         URL.revokeObjectURL(svgUrl);
       };
 
@@ -249,7 +297,7 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
       console.error("Share card download failed:", err);
       setDownloadingCard(false);
     }
-  }, [slug, businessName, phone, shortUrl]);
+  }, [slug, businessName, phone, shortUrl, avatarUrl]);
 
   return (
     <>
@@ -291,7 +339,7 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
             <div className="mb-4 flex justify-center">
               <div
                 ref={qrRef}
-                className="rounded-xl bg-white p-4 shadow-lg"
+                className="relative rounded-xl bg-white p-4 shadow-lg"
               >
                 <QRCode
                   value={profileUrl}
@@ -300,6 +348,21 @@ export default function ProQRCodeCard({ slug, businessName, phone }: ProQRCodeCa
                   bgColor="#FFFFFF"
                   fgColor="#1e293b"
                 />
+                {avatarUrl && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <div className="rounded-lg bg-white p-1 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-10 w-10 rounded object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

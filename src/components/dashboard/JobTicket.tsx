@@ -122,6 +122,7 @@ export default function JobTicket({
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryCreating, setInventoryCreating] = useState(false);
   const [inventoryEmailing, setInventoryEmailing] = useState<string | null>(null);
+  const [inventoryEmailSent, setInventoryEmailSent] = useState<string | null>(null);
 
   // ── Discount Code State ─────────────────────────────────────────────────
   const [discountInput, setDiscountInput] = useState("");
@@ -453,12 +454,16 @@ export default function JobTicket({
   async function handleEmailRackLink(rackId: string) {
     if (!customerEmail) return;
     setInventoryEmailing(rackId);
-    await emailRackLink({
+    const result = await emailRackLink({
       rackId,
       customerEmail,
       customerName,
     });
     setInventoryEmailing(null);
+    if (result.success) {
+      setInventoryEmailSent(rackId);
+      setTimeout(() => setInventoryEmailSent(null), 4000);
+    }
   }
 
   // Load inventory racks when job is paid
@@ -737,15 +742,21 @@ export default function JobTicket({
                         {customerEmail && (
                           <button
                             onClick={() => handleEmailRackLink(rack.id)}
-                            disabled={inventoryEmailing === rack.id}
-                            className="flex items-center gap-1.5 rounded-md bg-yellow-400/20 px-3 py-1.5 text-xs font-medium text-yellow-400 hover:bg-yellow-400/30 disabled:opacity-50 transition-colors"
+                            disabled={inventoryEmailing === rack.id || inventoryEmailSent === rack.id}
+                            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-70 ${
+                              inventoryEmailSent === rack.id
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-yellow-400/20 text-yellow-400 hover:bg-yellow-400/30"
+                            }`}
                           >
                             {inventoryEmailing === rack.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : inventoryEmailSent === rack.id ? (
+                              <CheckCircle2 className="h-3 w-3" />
                             ) : (
                               <Mail className="h-3 w-3" />
                             )}
-                            Email Customer
+                            {inventoryEmailSent === rack.id ? "Sent!" : "Email Customer"}
                           </button>
                         )}
                       </div>

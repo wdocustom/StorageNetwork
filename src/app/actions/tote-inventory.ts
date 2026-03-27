@@ -454,34 +454,53 @@ export async function emailRackLink(input: {
   if (!rack) return { success: false, error: "Rack not found" };
 
   const { getAppUrl } = await import("@/lib/url-helper");
-  const { sendTransactionalEmail } = await import("@/lib/email");
+  const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
 
   const rackUrl = `${getAppUrl()}/rack/${rack.access_token}`;
   const safeName = input.customerName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const html = `
-  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-    <h2 style="color:#1a1a1a;margin-bottom:8px;">Your Tote Inventory Is Ready</h2>
-    <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
-    <p style="color:#666;font-size:14px;">
-      Your storage rack <strong>${rack.label}</strong> (${rack.cols}&times;${rack.rows}) now has a digital inventory tracker.
+  const html = emailShell(
+    "Your Tote Inventory Is Ready",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${safeName},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
+      Your storage rack <strong style="color:#facc15;">${rack.label}</strong> (${rack.cols}&times;${rack.rows}) now has a digital inventory tracker.
       Use it to catalog what&rsquo;s in each tote &mdash; snap a photo and our AI will identify the contents automatically.
     </p>
-    <p style="color:#666;font-size:14px;">
-      Bookmark this link or scan the QR code on your rack anytime:
+
+    <!-- Feature Highlights -->
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;font-size:14px;color:#cbd5e1;">
+        <tr>
+          <td style="padding:8px 0;color:#facc15;font-weight:700;">&#128247; AI Photo Scan</td>
+          <td style="padding:8px 0;color:#94a3b8;text-align:right;">Snap a photo, we identify contents</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b;">
+          <td style="padding:8px 0;color:#facc15;font-weight:700;">&#128269; Search</td>
+          <td style="padding:8px 0;color:#94a3b8;text-align:right;">Find any item across all your totes</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b;">
+          <td style="padding:8px 0;color:#facc15;font-weight:700;">&#128274; Private</td>
+          <td style="padding:8px 0;color:#94a3b8;text-align:right;">No login needed &mdash; access via your link</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:14px;text-align:center;">
+      Bookmark this link or scan the QR code on your rack:
     </p>
+
     <div style="text-align:center;margin:24px 0;">
-      <a href="${rackUrl}" style="display:inline-block;background:#facc15;color:#1a1a1a;text-align:center;padding:14px 32px;border-radius:10px;font-weight:700;text-decoration:none;font-size:15px;">
+      <a href="${rackUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
         Open My Inventory &rarr;
       </a>
     </div>
-    <p style="color:#999;font-size:12px;text-align:center;">
-      No login required &mdash; this link is your private access key.
+
+    <p style="margin:0;color:#475569;font-size:12px;text-align:center;font-style:italic;">
+      This link is your private access key &mdash; no account required.
     </p>
-    <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">
-      Powered by Storage Network
-    </p>
-  </div>`;
+    `
+  );
 
   const result = await sendTransactionalEmail({
     to: input.customerEmail,
