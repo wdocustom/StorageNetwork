@@ -23,11 +23,13 @@ export default function QrPrintPage() {
   const token = params.token as string;
 
   const [rack, setRack] = useState<InventoryRack | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getRackByToken(token).then((result) => {
       if (result.rack) setRack(result.rack);
+      if (result.installer?.avatarUrl) setLogoUrl(result.installer.avatarUrl);
       setLoading(false);
     });
   }, [token]);
@@ -84,16 +86,33 @@ export default function QrPrintPage() {
             </p>
           </div>
 
-          {/* QR Code — rendered client-side, no external API */}
+          {/* QR Code with installer logo overlay */}
           <div className="flex justify-center my-4">
             {rackUrl && (
-              <QRCode
-                value={rackUrl}
-                size={192}
-                level="M"
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
+              <div className="relative inline-block">
+                <QRCode
+                  value={rackUrl}
+                  size={192}
+                  level="H"
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                />
+                {logoUrl && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <div className="bg-white rounded-lg p-1 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={logoUrl}
+                        alt="Installer logo"
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

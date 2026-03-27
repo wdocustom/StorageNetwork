@@ -60,7 +60,7 @@ export async function getRackByToken(token: string): Promise<{
   rack: InventoryRack | null;
   slots: InventorySlot[];
   linkedRacks: Array<{ id: string; access_token: string; label: string }>;
-  installer: { name: string; slug: string | null } | null;
+  installer: { name: string; slug: string | null; avatarUrl: string | null } | null;
   error?: string;
 }> {
   if (!token || token.length < 16) {
@@ -114,11 +114,11 @@ export async function getRackByToken(token: string): Promise<{
   }
 
   // Fetch installer info for referral links
-  let installer: { name: string; slug: string | null } | null = null;
+  let installer: { name: string; slug: string | null; avatarUrl: string | null } | null = null;
   if (rack.installer_id) {
     const { data: profile } = await db()
       .from("profiles")
-      .select("business_name, first_name, last_name, slug")
+      .select("business_name, first_name, last_name, slug, avatar_url")
       .eq("id", rack.installer_id)
       .maybeSingle();
     if (profile) {
@@ -127,6 +127,7 @@ export async function getRackByToken(token: string): Promise<{
           [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
           "Your Installer",
         slug: (profile.slug as string) || null,
+        avatarUrl: (profile.avatar_url as string) || null,
       };
     }
   }
