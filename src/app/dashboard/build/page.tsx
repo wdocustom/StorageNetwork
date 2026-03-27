@@ -73,6 +73,7 @@ interface UnitConfig {
   rows: number;
   toteType: ToteType;
   unitType: UnitTypeOption;
+  orientation?: "standard" | "sideways";
   hasTotes: boolean;
   hasWheels: boolean;
   hasTop: boolean;
@@ -121,6 +122,7 @@ export default function BuildConfiguratorPage() {
 
   // Common inputs
   const [toteType, setToteType] = useState<ToteType>("HDX");
+  const [orientation, setOrientation] = useState<"standard" | "sideways">("standard");
   const [unitType, setUnitType] = useState<UnitTypeOption>("standard");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
@@ -555,6 +557,7 @@ export default function BuildConfiguratorPage() {
         rows: inputMode === "custom" ? parseInt(customRows) : undefined,
         toteModel: toteType,
         unitType,
+        orientation: unitType === "standard" ? orientation : "standard",
         addOns: { totes: hasTotes, wheels: hasWheels, top: unitType === "mini" ? true : hasTop },
         mode: inputMode === "wallFit" ? "wallFit" : "manual",
         installerPricing,
@@ -623,6 +626,7 @@ export default function BuildConfiguratorPage() {
       rows: buildResult.rows,
       toteType,
       unitType,
+      orientation: buildResult.orientation,
       hasTotes,
       hasWheels,
       hasTop: unitType === "mini" ? true : hasTop,
@@ -677,7 +681,7 @@ export default function BuildConfiguratorPage() {
       rows: u.rows,
       toteType: u.toteType,
       unitType: u.unitType ?? ("standard" as const),
-      orientation: "standard" as const,
+      orientation: u.orientation ?? ("standard" as const),
       hasTotes: u.hasTotes,
       hasWheels: u.hasWheels,
       hasTop: u.hasTop,
@@ -1619,6 +1623,7 @@ export default function BuildConfiguratorPage() {
                   onClick={() => {
                     setUnitType("mini");
                     setHasTop(true);
+                    setOrientation("standard");
                   }}
                   className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
                     unitType === "mini"
@@ -1631,6 +1636,49 @@ export default function BuildConfiguratorPage() {
                 </button>
               </div>
             </div>
+          )}
+
+          {/* ── Tote Orientation (Standard units only) ─────────────── */}
+          {unitType === "standard" && (
+          <div className="mt-3">
+            <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+              Tote Orientation
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setOrientation("standard")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  orientation === "standard"
+                    ? "border-yellow-400 bg-yellow-400/10"
+                    : "border-slate-700 hover:border-stone-600"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-bold text-stone-200">Standard</div>
+                  {orientation === "standard" && (
+                    <svg className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[10px] text-stone-500">30&quot; Deep</div>
+              </button>
+              <button
+                onClick={() => setOrientation("sideways")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  orientation === "sideways"
+                    ? "border-yellow-400 bg-yellow-400/10"
+                    : "border-slate-700 hover:border-stone-600"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-bold text-stone-200">Sideways</div>
+                  {orientation === "sideways" && (
+                    <svg className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[10px] text-stone-500">20&quot; Deep</div>
+              </button>
+            </div>
+          </div>
           )}
 
           {/* ── Tote Size (Standard units only) ────────────────────── */}
