@@ -86,6 +86,11 @@ export default function RackPage() {
   const [searching, setSearching] = useState(false);
   const [searchAll, setSearchAll] = useState(false);
 
+  // AI scan
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState<Array<{ name: string; quantity: number; category: string }>>([]);
+  const [suggestedLabel, setSuggestedLabel] = useState("");
+
   // Edit rack label
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState("");
@@ -170,6 +175,63 @@ export default function RackPage() {
     await updateRackLabel(token, labelDraft.trim());
     setRack((prev) => prev ? { ...prev, label: labelDraft.trim() } : prev);
     setEditingLabel(false);
+  };
+
+  // AI photo scan
+  const handlePhotoScan = async (file: File) => {
+    setScanning(true);
+    setScanPreview([]);
+    setSuggestedLabel("");
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      // Strip the data:image/...;base64, prefix
+      const imageBase64 = base64.split(",")[1];
+
+      const res = await fetch("/api/inventory/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64 }),
+      });
+
+      if (!res.ok) throw new Error("Scan failed");
+
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        setScanPreview(data.items);
+        if (data.toteDescription) setSuggestedLabel(data.toteDescription);
+      }
+    } catch (err) {
+      console.error("[Scan]", err);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Accept all scanned items
+  const handleAcceptScan = async () => {
+    if (!slotData || scanPreview.length === 0) return;
+    setAddingItem(true);
+    for (const item of scanPreview) {
+      const result = await addItem(slotData.id, token, {
+        name: item.name,
+        quantity: item.quantity,
+        category: item.category,
+      });
+      if (result.item) {
+        setSlotItems((prev) => [...prev, result.item!]);
+      }
+    }
+    // Auto-set tote label if empty and we have a suggestion
+    if (!slotData.label && suggestedLabel) {
+      await handleSlotUpdate("label", suggestedLabel);
+    }
+    setScanPreview([]);
+    setSuggestedLabel("");
+    setAddingItem(false);
   };
 
   // Search
@@ -332,10 +394,111 @@ export default function RackPage() {
             )}
           </div>
 
-          {/* Add Item Form */}
+          {/* AI Photo Scan */}
           <div className="border-t border-slate-800 pt-4">
             <label className="text-xs text-slate-400 uppercase tracking-wider">
-              Add Item
+              Snap &amp; Scan
+            </label>
+            <p className="text-[11px] text-slate-500 mt-1 mb-2">
+              Take a photo of the open tote — AI identifies everything inside
+            </p>
+
+            <label
+              className={`flex items-center justify-center gap-2 w-full py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                scanning
+                  ? "border-yellow-400/50 bg-yellow-400/5"
+                  : "border-slate-700 hover:border-yellow-400/50 hover:bg-slate-800/50"
+              }`}
+            >
+              {scanning ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin text-yellow-400" />
+                  <span className="text-sm text-yellow-400 font-medium">
+                    Analyzing photo...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-5 h-5 text-slate-400" />
+                  <span className="text-sm text-slate-300 font-medium">
+                    Take Photo or Choose Image
+                  </span>
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                disabled={scanning}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePhotoScan(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            {/* Scan Results Preview */}
+            {scanPreview.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-yellow-400 font-medium">
+                    {scanPreview.length} items detected
+                  </span>
+                  <button
+                    onClick={() => { setScanPreview([]); setSuggestedLabel(""); }}
+                    className="text-xs text-slate-500 hover:text-slate-300"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+
+                {suggestedLabel && !slotData?.label && (
+                  <div className="text-xs text-slate-400 bg-slate-800/50 rounded px-2 py-1">
+                    Suggested label: <span className="text-yellow-400">{suggestedLabel}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {scanPreview.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between bg-slate-800/70 border border-yellow-400/20 rounded px-2.5 py-1.5 text-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-white truncate">{item.name}</span>
+                        {item.quantity > 1 && (
+                          <span className="text-[10px] text-slate-400 shrink-0">x{item.quantity}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-300 shrink-0">
+                        {item.category}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleAcceptScan}
+                  disabled={addingItem}
+                  className="w-full bg-yellow-400 text-slate-900 font-bold text-sm py-2.5 rounded-lg hover:bg-yellow-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {addingItem ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Add All {scanPreview.length} Items
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manual Add Item Form */}
+          <div className="border-t border-slate-800 pt-4">
+            <label className="text-xs text-slate-400 uppercase tracking-wider">
+              Add Manually
             </label>
             <div className="mt-2 space-y-2">
               <input
