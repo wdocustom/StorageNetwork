@@ -435,6 +435,22 @@ export async function getAdminPlatformUsers(
       return { success: false, error: error.message };
     }
 
+    // Count actual jobs from leads table (source of truth) instead of
+    // relying on profiles.completed_jobs which can drift out of sync.
+    // "Bookings" = deposit_paid leads, "Completed" = status 'paid'
+    const { data: allLeads } = await supabase
+      .from("leads")
+      .select("installer_id, status, deposit_paid");
+
+    const jobCounts: Record<string, { bookings: number; completed: number }> = {};
+    for (const lead of allLeads || []) {
+      const instId = lead.installer_id as string;
+      if (!instId) continue;
+      if (!jobCounts[instId]) jobCounts[instId] = { bookings: 0, completed: 0 };
+      if (lead.deposit_paid) jobCounts[instId].bookings++;
+      if (lead.status === "paid") jobCounts[instId].completed++;
+    }
+
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://storage-network.app";
 
@@ -443,6 +459,8 @@ export async function getAdminPlatformUsers(
         p.is_pro && p.slug
           ? `installer=${encodeURIComponent(p.slug)}`
           : `installer_id=${p.id}`;
+
+      const counts = jobCounts[p.id] || { bookings: 0, completed: 0 };
 
       return {
         id: p.id,
@@ -456,7 +474,7 @@ export async function getAdminPlatformUsers(
         city: p.city,
         state: p.state,
         phone: p.phone,
-        completed_jobs: p.completed_jobs ?? 0,
+        completed_jobs: counts.bookings,
         job_score: p.job_score ?? 0,
         created_at: p.created_at,
         last_login_at: p.last_login_at ?? null,
