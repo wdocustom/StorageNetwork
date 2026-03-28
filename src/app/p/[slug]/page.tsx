@@ -8,6 +8,7 @@ import PortfolioGallery from "./PortfolioGallery";
 import PortfolioContact from "./PortfolioContact";
 import CleanOutBooking from "./CleanOutBooking";
 import CustomServiceCard from "./CustomServiceCard";
+import ReviewsSection from "./ReviewsSection";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Portfolio Page — /p/[slug]
@@ -478,6 +479,11 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
           </div>
           <PortfolioGallery photos={photos} businessName={displayName} />
         </section>
+      )}
+
+      {/* ── Customer Reviews ──────────────────────────────────────────── */}
+      {profile.show_reviews !== false && (
+        <ReviewsSection installerId={profile.id} />
       )}
 
       {/* ── CTA Section (hidden during soft lock — no new bookings) ──── */}

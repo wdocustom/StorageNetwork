@@ -341,6 +341,12 @@ export async function POST(request: NextRequest) {
         const customerName = lead?.customer_name ?? "Customer";
 
         if (lead?.customer_email) {
+          // Generate review token for this job
+          const { generateReviewToken } = await import("@/app/actions/reviews");
+          const { getAppUrl } = await import("@/lib/url-helper");
+          const reviewToken = await generateReviewToken(leadId);
+          const reviewUrl = reviewToken ? `${getAppUrl()}/review/${reviewToken}` : undefined;
+
           await sendJobReceipt(lead.customer_email, {
             customerName,
             installerName,
@@ -349,6 +355,7 @@ export async function POST(request: NextRequest) {
             balanceCollected: amountPaid,
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
             completedDate: new Date().toISOString(),
+            reviewUrl,
           });
           console.log("[Webhook] Receipt email sent to customer");
         }

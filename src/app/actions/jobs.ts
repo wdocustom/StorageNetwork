@@ -256,6 +256,12 @@ export async function markJobPaidManual(
       const customerName = updated.customer_name ?? "Customer";
 
       if (updated.customer_email) {
+        // Generate review token for this job
+        const { generateReviewToken } = await import("@/app/actions/reviews");
+        const { getAppUrl } = await import("@/lib/url-helper");
+        const reviewToken = await generateReviewToken(leadId);
+        const reviewUrl = reviewToken ? `${getAppUrl()}/review/${reviewToken}` : undefined;
+
         await sendJobReceipt(updated.customer_email, {
           customerName,
           installerName,
@@ -264,6 +270,7 @@ export async function markJobPaidManual(
           balanceCollected,
           jobDescription: "Storage unit installation",
           completedDate: new Date().toISOString(),
+          reviewUrl,
         });
         console.log("[MarkPaidManual] Receipt email sent to customer");
       }

@@ -109,6 +109,7 @@ interface Profile {
   facebook_url: string | null;
   portfolio_photos: PortfolioPhoto[] | null;
   services_config: ServiceOffering[] | null;
+  show_reviews: boolean;
 }
 
 function ProfilePageInner() {
@@ -215,7 +216,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
       .eq("id", user.id)
       .single();
 
@@ -226,7 +227,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -1357,6 +1358,46 @@ function ProfilePageInner() {
             city={profile.city || undefined}
             state={profile.state || undefined}
           />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C.6: Customer Reviews Toggle
+        ═══════════════════════════════════════════════════════════════ */}
+        {profile?.slug && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Customer Reviews</p>
+                  <p className="text-[11px] text-stone-500">
+                    Show verified customer reviews on your portfolio page
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const newValue = !(profile.show_reviews ?? true);
+                  const { toggleShowReviews } = await import("@/app/actions/reviews");
+                  await toggleShowReviews(profile.id, newValue);
+                  setProfile({ ...profile, show_reviews: newValue });
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    (profile.show_reviews ?? true) ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* ── Group: Services ────────────────────────────────────────── */}

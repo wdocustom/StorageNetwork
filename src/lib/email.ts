@@ -317,6 +317,7 @@ export async function sendJobReceipt(
     balanceCollected: number;
     jobDescription: string;
     completedDate: string;
+    reviewUrl?: string;
   }
 ): Promise<SendEmailResult> {
   const formattedDate = new Date(data.completedDate).toLocaleDateString("en-US", {
@@ -352,6 +353,21 @@ export async function sendJobReceipt(
         &#10003; Installation Complete &mdash; 30-Day Warranty Active
       </p>
     </div>
+
+    ${data.reviewUrl ? `
+    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:20px;">&#11088;</p>
+      <p style="margin:0 0 8px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+        Rate Your Experience
+      </p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">
+        Help other homeowners find great installers. It takes 30 seconds.
+      </p>
+      <a href="${data.reviewUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">
+        Leave a Review
+      </a>
+    </div>
+    ` : ""}
 
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
       Thank you for choosing Storage Network! Questions? Reply to this email.
