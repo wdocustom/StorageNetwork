@@ -127,6 +127,8 @@ export default function JobTicket({
   const [reviewRequested, setReviewRequested] = useState(!!reviewToken);
   const [reviewDone, setReviewDone] = useState(!!reviewSubmitted);
   const [reviewSendSuccess, setReviewSendSuccess] = useState(false);
+  const [reviewLink, setReviewLink] = useState(reviewToken ? `${typeof window !== "undefined" ? window.location.origin : ""}/review/${reviewToken}` : "");
+  const [reviewLinkCopied, setReviewLinkCopied] = useState(false);
 
   // ── Inventory QR State ────────────────────────────────────────────────
   const [inventoryRacks, setInventoryRacks] = useState<InventoryRack[]>([]);
@@ -798,88 +800,127 @@ export default function JobTicket({
                   </p>
                 </div>
               </div>
-            ) : reviewSendSuccess ? (
-              /* Just sent — success feedback */
-              <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-emerald-400">Review Request Sent!</p>
-                  <p className="text-[10px] text-stone-500 mt-0.5">
-                    {customerName.split(" ")[0]} will receive an email with a link to leave their review.
-                  </p>
-                </div>
-              </div>
-            ) : reviewRequested ? (
-              /* Token exists but no review yet — pending */
-              <div>
-                <div className="flex items-center gap-3 rounded-lg bg-yellow-400/5 border border-yellow-400/20 px-4 py-3 mb-3">
-                  <Mail className="h-5 w-5 text-yellow-400/70 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-yellow-400/80">Review Pending</p>
-                    <p className="text-[10px] text-stone-500 mt-0.5">
-                      A review link has been sent. Waiting for {customerName.split(" ")[0]} to submit.
-                    </p>
-                  </div>
-                </div>
-                {customerEmail && (
-                  <button
-                    onClick={async () => {
-                      if (!installerId) return;
-                      setReviewRequesting(true);
-                      const { requestReview } = await import("@/app/actions/reviews");
-                      const result = await requestReview({ leadId, installerId });
-                      setReviewRequesting(false);
-                      if (result.success) {
-                        setReviewSendSuccess(true);
-                        setTimeout(() => setReviewSendSuccess(false), 5000);
-                      }
-                    }}
-                    disabled={reviewRequesting}
-                    className="flex items-center justify-center gap-1.5 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-xs font-medium text-stone-400 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
-                  >
-                    {reviewRequesting ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Mail className="h-3 w-3" />
-                    )}
-                    Send Reminder
-                  </button>
-                )}
-              </div>
             ) : (
-              /* No review requested yet */
-              <div>
-                <p className="text-xs text-stone-400 mb-3">
-                  Ask {customerName.split(" ")[0]} to leave a review. Verified reviews build trust and help you win more jobs.
-                </p>
-                {customerEmail ? (
+              <div className="space-y-3">
+                {/* Status badge */}
+                {reviewSendSuccess ? (
+                  <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-400">Review Request Sent!</p>
+                      <p className="text-[10px] text-stone-500 mt-0.5">
+                        {customerName.split(" ")[0]} will receive an email with a link to leave their review.
+                      </p>
+                    </div>
+                  </div>
+                ) : reviewRequested ? (
+                  <div className="flex items-center gap-3 rounded-lg bg-yellow-400/5 border border-yellow-400/20 px-4 py-3">
+                    <Mail className="h-5 w-5 text-yellow-400/70 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-yellow-400/80">Review Pending</p>
+                      <p className="text-[10px] text-stone-500 mt-0.5">
+                        Waiting for {customerName.split(" ")[0]} to submit their review.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-stone-400">
+                    Ask {customerName.split(" ")[0]} to leave a review. Verified reviews build trust and help you win more jobs.
+                  </p>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  {/* Send via Email (or Reminder) */}
+                  {customerEmail && (
+                    <button
+                      onClick={async () => {
+                        if (!installerId) return;
+                        setReviewRequesting(true);
+                        const { requestReview } = await import("@/app/actions/reviews");
+                        const result = await requestReview({ leadId, installerId });
+                        setReviewRequesting(false);
+                        if (result.success) {
+                          setReviewRequested(true);
+                          setReviewSendSuccess(true);
+                          // Set the link for copy if we didn't have one
+                          if (!reviewLink) {
+                            const { generateReviewToken } = await import("@/app/actions/reviews");
+                            // Token was already generated by requestReview, refetch
+                          }
+                          setTimeout(() => setReviewSendSuccess(false), 5000);
+                        }
+                      }}
+                      disabled={reviewRequesting}
+                      className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
+                        reviewRequested
+                          ? "bg-slate-800 border border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
+                          : "bg-yellow-400/20 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/30"
+                      }`}
+                    >
+                      {reviewRequesting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : reviewRequested ? (
+                        <Mail className="h-3.5 w-3.5" />
+                      ) : (
+                        <Star className="h-3.5 w-3.5" />
+                      )}
+                      {reviewRequested ? "Send Reminder" : "Send via Email"}
+                    </button>
+                  )}
+
+                  {/* Copy Link — generate token on first click if needed */}
                   <button
                     onClick={async () => {
-                      if (!installerId) return;
+                      if (reviewLink) {
+                        navigator.clipboard.writeText(reviewLink);
+                        setReviewLinkCopied(true);
+                        setTimeout(() => setReviewLinkCopied(false), 3000);
+                        return;
+                      }
+                      // Generate token first
                       setReviewRequesting(true);
-                      const { requestReview } = await import("@/app/actions/reviews");
-                      const result = await requestReview({ leadId, installerId });
+                      const { generateReviewToken } = await import("@/app/actions/reviews");
+                      const token = await generateReviewToken(leadId);
                       setReviewRequesting(false);
-                      if (result.success) {
+                      if (token) {
+                        const url = `${window.location.origin}/review/${token}`;
+                        setReviewLink(url);
                         setReviewRequested(true);
-                        setReviewSendSuccess(true);
-                        setTimeout(() => setReviewSendSuccess(false), 5000);
+                        navigator.clipboard.writeText(url);
+                        setReviewLinkCopied(true);
+                        setTimeout(() => setReviewLinkCopied(false), 3000);
                       }
                     }}
                     disabled={reviewRequesting}
-                    className="flex items-center justify-center gap-2 w-full rounded-lg bg-yellow-400/20 border border-yellow-400/30 px-4 py-2.5 text-xs font-bold text-yellow-400 hover:bg-yellow-400/30 transition-colors disabled:opacity-50"
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
+                      reviewLinkCopied
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        : "bg-slate-800 border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
+                    }`}
                   >
-                    {reviewRequesting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    {reviewLinkCopied ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
-                      <Star className="h-4 w-4" />
+                      <Link className="h-3.5 w-3.5" />
                     )}
-                    Request Review
+                    {reviewLinkCopied ? "Link Copied!" : "Copy Link"}
                   </button>
-                ) : (
-                  <p className="text-[10px] text-stone-600 text-center">
-                    No customer email on file — review request unavailable
-                  </p>
+                </div>
+
+                {/* Show the link text for easy copying on mobile */}
+                {reviewLink && !reviewLinkCopied && (
+                  <div
+                    onClick={() => {
+                      navigator.clipboard.writeText(reviewLink);
+                      setReviewLinkCopied(true);
+                      setTimeout(() => setReviewLinkCopied(false), 3000);
+                    }}
+                    className="cursor-pointer rounded-lg bg-slate-900 border border-slate-800 px-3 py-2"
+                  >
+                    <p className="text-[9px] text-stone-600 uppercase font-bold tracking-wider mb-0.5">Review Link</p>
+                    <p className="text-[10px] text-stone-500 font-mono break-all select-all">{reviewLink}</p>
+                  </div>
                 )}
               </div>
             )}
