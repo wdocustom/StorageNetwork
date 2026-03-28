@@ -126,6 +126,8 @@ export interface InstallerPricing {
   addon_pricing?: AddonPricing;
   /** When true, the overhead ceiling storage section is shown on the installer's design page (default: off) */
   overhead_storage_enabled?: boolean;
+  /** When true, raised bed planters are shown on the installer's design page (default: off) */
+  raised_bed_enabled?: boolean;
   /** Per-overhead-grid total-price overrides (ceiling tote rail system).
    *  Key pattern: overhead_<slotsWide>x<slotsDeep> */
   overhead_2x2?: number;
@@ -137,7 +139,7 @@ export interface InstallerPricing {
 }
 
 /** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall" | "overhead_2x2" | "overhead_2x3" | "overhead_3x2" | "overhead_3x3" | "overhead_3x4" | "overhead_4x4"> = {
+export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall" | "overhead_2x2" | "overhead_2x3" | "overhead_3x2" | "overhead_3x3" | "overhead_3x4" | "overhead_4x4"> = {
   standard_slot: 30,
   mini_slot: 15,
   standard_tote: 12,
