@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getInstallerReviews, REVIEW_TAGS, type ReviewSummary } from "@/app/actions/reviews";
+import { getInstallerReviews, type ReviewSummary } from "@/app/actions/reviews";
+import { REVIEW_TAGS } from "@/config/review-tags";
 import { Star, Shield, ChevronDown } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════

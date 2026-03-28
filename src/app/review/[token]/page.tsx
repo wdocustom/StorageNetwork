@@ -5,9 +5,9 @@ import { useParams } from "next/navigation";
 import {
   getReviewPageData,
   submitReview,
-  REVIEW_TAGS,
   type ReviewPageData,
 } from "@/app/actions/reviews";
+import { REVIEW_TAGS } from "@/config/review-tags";
 import { Star, CheckCircle2, Loader2, Shield } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
