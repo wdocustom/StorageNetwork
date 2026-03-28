@@ -1,6 +1,5 @@
 "use server";
 
-import { randomBytes } from "crypto";
 import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,30 +29,43 @@ export const REVIEW_TAGS = [
 // ── Generate review token for a completed job ────────────────────────────
 
 export async function generateReviewToken(leadId: string): Promise<string | null> {
-  // Check if token already exists
-  const { data: existing } = await db()
-    .from("leads")
-    .select("review_token")
-    .eq("id", leadId)
-    .maybeSingle();
+  try {
+    // Check if token already exists
+    const { data: existing, error: fetchErr } = await db()
+      .from("leads")
+      .select("review_token")
+      .eq("id", leadId)
+      .maybeSingle();
 
-  if (existing?.review_token) {
-    return existing.review_token as string;
-  }
+    if (fetchErr) {
+      console.error("[Reviews] Failed to fetch lead:", fetchErr.message);
+      return null;
+    }
 
-  const token = randomBytes(16).toString("hex");
+    if (existing?.review_token) {
+      return existing.review_token as string;
+    }
 
-  const { error } = await db()
-    .from("leads")
-    .update({ review_token: token })
-    .eq("id", leadId);
+    // Generate a 32-char hex token without requiring Node crypto
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 
-  if (error) {
-    console.error("[Reviews] Failed to generate token:", error.message);
+    const { error } = await db()
+      .from("leads")
+      .update({ review_token: token })
+      .eq("id", leadId);
+
+    if (error) {
+      console.error("[Reviews] Failed to update lead with token:", error.message);
+      return null;
+    }
+
+    return token;
+  } catch (err) {
+    console.error("[Reviews] generateReviewToken crashed:", err);
     return null;
   }
-
-  return token;
 }
 
 // ── Get review page data (validates token, returns job context) ──────────
