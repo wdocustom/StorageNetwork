@@ -126,6 +126,9 @@ export default function RackPage() {
   // Share feedback
   const [shared, setShared] = useState(false);
 
+  // Onboarding dismissed
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
   // Load rack data
   const loadRack = useCallback(async () => {
     setLoading(true);
@@ -722,8 +725,14 @@ export default function RackPage() {
         </div>
 
         {/* ── Empty State Onboarding ──────────────────────────────── */}
-        {totalItems === 0 && (
-          <div className="rounded-2xl border border-dashed border-yellow-400/30 bg-yellow-400/5 p-5 text-center">
+        {totalItems === 0 && !onboardingDismissed && (
+          <div className="rounded-2xl border border-dashed border-yellow-400/30 bg-yellow-400/5 p-5 text-center relative">
+            <button
+              onClick={() => setOnboardingDismissed(true)}
+              className="absolute top-3 right-3 text-slate-500 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
             <div className="text-3xl mb-2">{"\u{1F4E6}"}</div>
             <h2 className="text-base font-bold text-white mb-1">Let&apos;s catalog your totes!</h2>
             <p className="text-xs text-slate-400 mb-4">
