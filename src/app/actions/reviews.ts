@@ -30,13 +30,23 @@ export const REVIEW_TAGS = [
 // ── Generate review token for a completed job ────────────────────────────
 
 export async function generateReviewToken(leadId: string): Promise<string | null> {
+  // Check if token already exists
+  const { data: existing } = await db()
+    .from("leads")
+    .select("review_token")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (existing?.review_token) {
+    return existing.review_token as string;
+  }
+
   const token = randomBytes(16).toString("hex");
 
   const { error } = await db()
     .from("leads")
     .update({ review_token: token })
-    .eq("id", leadId)
-    .is("review_token", null); // Only set if not already set
+    .eq("id", leadId);
 
   if (error) {
     console.error("[Reviews] Failed to generate token:", error.message);

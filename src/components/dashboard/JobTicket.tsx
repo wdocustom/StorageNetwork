@@ -123,7 +123,8 @@ export default function JobTicket({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Review State ─────────────────────────────────────────────────────
-  const [reviewRequesting, setReviewRequesting] = useState(false);
+  const [reviewEmailing, setReviewEmailing] = useState(false);
+  const [reviewCopying, setReviewCopying] = useState(false);
   const [reviewRequested, setReviewRequested] = useState(!!reviewToken);
   const [reviewDone, setReviewDone] = useState(!!reviewSubmitted);
   const [reviewSendSuccess, setReviewSendSuccess] = useState(false);
@@ -836,10 +837,10 @@ export default function JobTicket({
                     <button
                       onClick={async () => {
                         if (!installerId) return;
-                        setReviewRequesting(true);
+                        setReviewEmailing(true);
                         const { requestReview } = await import("@/app/actions/reviews");
                         const result = await requestReview({ leadId, installerId });
-                        setReviewRequesting(false);
+                        setReviewEmailing(false);
                         if (result.success) {
                           setReviewRequested(true);
                           setReviewSendSuccess(true);
@@ -851,14 +852,14 @@ export default function JobTicket({
                           setTimeout(() => setReviewSendSuccess(false), 5000);
                         }
                       }}
-                      disabled={reviewRequesting}
+                      disabled={reviewEmailing}
                       className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                         reviewRequested
                           ? "bg-slate-800 border border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
                           : "bg-yellow-400/20 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/30"
                       }`}
                     >
-                      {reviewRequesting ? (
+                      {reviewEmailing ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : reviewRequested ? (
                         <Mail className="h-3.5 w-3.5" />
@@ -879,10 +880,10 @@ export default function JobTicket({
                         return;
                       }
                       // Generate token first
-                      setReviewRequesting(true);
+                      setReviewCopying(true);
                       const { generateReviewToken } = await import("@/app/actions/reviews");
                       const token = await generateReviewToken(leadId);
-                      setReviewRequesting(false);
+                      setReviewCopying(false);
                       if (token) {
                         const url = `${window.location.origin}/review/${token}`;
                         setReviewLink(url);
@@ -892,19 +893,21 @@ export default function JobTicket({
                         setTimeout(() => setReviewLinkCopied(false), 3000);
                       }
                     }}
-                    disabled={reviewRequesting}
+                    disabled={reviewCopying}
                     className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                       reviewLinkCopied
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                         : "bg-slate-800 border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
-                    {reviewLinkCopied ? (
+                    {reviewCopying ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : reviewLinkCopied ? (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
                       <Link className="h-3.5 w-3.5" />
                     )}
-                    {reviewLinkCopied ? "Link Copied!" : "Copy Link"}
+                    {reviewCopying ? "Generating..." : reviewLinkCopied ? "Link Copied!" : "Copy Link"}
                   </button>
                 </div>
 
