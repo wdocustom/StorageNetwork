@@ -1748,6 +1748,13 @@ export default function DesignConfigurator({
                   Raised Bed
                 </span>
               </>
+            ) : showMultiUnit3D && orderItems.length > 0 && orderItems.every((it) => it.raisedBedConfig) ? (
+              <>
+                {orderItems.length} Raised Bed{orderItems.length > 1 ? "s" : ""}
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Planter Order
+                </span>
+              </>
             ) : activeShelvingConfig ? (
               <>
                 {activeShelvingConfig.widthIn}&quot; W &times;{" "}

@@ -1352,87 +1352,98 @@ const SOIL_COLOR = "#3e2723";
 function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number } }) {
   const { widthIn, lengthIn, heightIn, hasLegs, groundClearance } = config;
 
-  // Convert to Three.js units (1 unit = 1 inch, then scaled by S)
-  const w = widthIn * S;
-  const l = lengthIn * S;
-  const bedH = (hasLegs ? heightIn - groundClearance : heightIn) * S;
-  const legH = groundClearance * S;
-  const postW = 3.5 * S; // 4×4 corner posts
-  const slat = 1.5 * S; // slat thickness
-  const trimH = 1.5 * S; // top trim cap
+  const w = widthIn * S;    // depth (front-to-back)
+  const l = lengthIn * S;   // length (left-to-right)
+  const boxH = (hasLegs ? heightIn - groundClearance : heightIn) * S; // planter box height
+  const legH = hasLegs ? groundClearance * S : 0;
+  const postSize = 3.5 * S; // 4×4 corner posts
+  const boardT = 0.75 * S;  // board thickness (3/4")
+  const trimW = 3.5 * S;    // top trim width
+  const trimT = 1.5 * S;    // top trim thickness
 
-  const totalY = hasLegs ? legH + bedH : bedH;
-  const bedBaseY = hasLegs ? legH : 0;
+  // Number of horizontal boards per wall (each ~5.5" tall like a 1×6)
+  const boardFaceH = 5.5 * S;
+  const numBoards = Math.max(1, Math.round(boxH / boardFaceH));
+  const actualBoardH = boxH / numBoards;
+  const gapH = actualBoardH * 0.04; // tiny gap between boards
 
   return (
-    <group position={[0, totalY / 2 - totalY / 2, 0]}>
-      {/* Corner posts */}
-      {[
-        [-l / 2 + postW / 2, -w / 2 + postW / 2],
-        [l / 2 - postW / 2, -w / 2 + postW / 2],
-        [-l / 2 + postW / 2, w / 2 - postW / 2],
-        [l / 2 - postW / 2, w / 2 - postW / 2],
-      ].map(([px, pz], i) => (
-        <mesh key={`post-${i}`} position={[px, totalY / 2, pz]}>
-          <boxGeometry args={[postW, totalY, postW]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.8} />
-        </mesh>
-      ))}
-
-      {/* Front and back slats (along length) */}
-      {[-w / 2 + slat / 2, w / 2 - slat / 2].map((z, si) => {
-        const numSlats = Math.max(2, Math.round(bedH / (5 * S)));
-        return Array.from({ length: numSlats }, (_, j) => {
-          const slatH = (bedH - trimH) / numSlats;
-          const y = bedBaseY + trimH + slatH * j + slatH / 2;
-          return (
-            <mesh key={`fb-${si}-${j}`} position={[0, y, z]}>
-              <boxGeometry args={[l - postW * 2, slatH * 0.9, slat]} />
-              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.7} />
-            </mesh>
-          );
-        });
-      }).flat()}
-
-      {/* Left and right slats (along width) */}
-      {[-l / 2 + slat / 2, l / 2 - slat / 2].map((x, si) => {
-        const numSlats = Math.max(2, Math.round(bedH / (5 * S)));
-        return Array.from({ length: numSlats }, (_, j) => {
-          const slatH = (bedH - trimH) / numSlats;
-          const y = bedBaseY + trimH + slatH * j + slatH / 2;
-          return (
-            <mesh key={`lr-${si}-${j}`} position={[x, y, 0]}>
-              <boxGeometry args={[slat, slatH * 0.9, w - postW * 2]} />
-              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.7} />
-            </mesh>
-          );
-        });
-      }).flat()}
-
-      {/* Top trim cap */}
-      <mesh position={[0, bedBaseY + bedH - trimH / 2, 0]}>
-        <boxGeometry args={[l, trimH, w]} />
-        <meshStandardMaterial color={CEDAR_DARK} roughness={0.6} />
-      </mesh>
-
-      {/* Soil fill */}
-      <mesh position={[0, bedBaseY + bedH * 0.4, 0]}>
-        <boxGeometry args={[l - postW * 2 - slat, bedH * 0.6, w - postW * 2 - slat]} />
-        <meshStandardMaterial color={SOIL_COLOR} roughness={1} />
-      </mesh>
-
-      {/* Legs (if elevated) */}
+    <group position={[0, 0, 0]}>
+      {/* ── LEGS (if elevated) ─────────────────────────── */}
       {hasLegs && [
-        [-l / 2 + postW / 2, -w / 2 + postW / 2],
-        [l / 2 - postW / 2, -w / 2 + postW / 2],
-        [-l / 2 + postW / 2, w / 2 - postW / 2],
-        [l / 2 - postW / 2, w / 2 - postW / 2],
+        [-l / 2 + postSize / 2, -w / 2 + postSize / 2],
+        [l / 2 - postSize / 2, -w / 2 + postSize / 2],
+        [-l / 2 + postSize / 2, w / 2 - postSize / 2],
+        [l / 2 - postSize / 2, w / 2 - postSize / 2],
       ].map(([px, pz], i) => (
         <mesh key={`leg-${i}`} position={[px, legH / 2, pz]}>
-          <boxGeometry args={[postW, legH, postW]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.8} />
+          <boxGeometry args={[postSize, legH, postSize]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.85} />
         </mesh>
       ))}
+
+      {/* ── CORNER POSTS (run full height of box) ──────── */}
+      {[
+        [-l / 2 + postSize / 2, -w / 2 + postSize / 2],
+        [l / 2 - postSize / 2, -w / 2 + postSize / 2],
+        [-l / 2 + postSize / 2, w / 2 - postSize / 2],
+        [l / 2 - postSize / 2, w / 2 - postSize / 2],
+      ].map(([px, pz], i) => (
+        <mesh key={`post-${i}`} position={[px, legH + boxH / 2, pz]}>
+          <boxGeometry args={[postSize, boxH, postSize]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.85} />
+        </mesh>
+      ))}
+
+      {/* ── FRONT & BACK WALLS (horizontal boards along length) ── */}
+      {[-1, 1].map((side, si) => {
+        const z = side * (w / 2 - boardT / 2);
+        return Array.from({ length: numBoards }, (_, j) => {
+          const y = legH + actualBoardH * j + actualBoardH / 2;
+          return (
+            <mesh key={`fb-${si}-${j}`} position={[0, y, z]}>
+              <boxGeometry args={[l - postSize * 2, actualBoardH - gapH, boardT]} />
+              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.75} />
+            </mesh>
+          );
+        });
+      }).flat()}
+
+      {/* ── LEFT & RIGHT WALLS (horizontal boards along width) ── */}
+      {[-1, 1].map((side, si) => {
+        const x = side * (l / 2 - boardT / 2);
+        return Array.from({ length: numBoards }, (_, j) => {
+          const y = legH + actualBoardH * j + actualBoardH / 2;
+          return (
+            <mesh key={`lr-${si}-${j}`} position={[x, y, 0]}>
+              <boxGeometry args={[boardT, actualBoardH - gapH, w - postSize * 2]} />
+              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.75} />
+            </mesh>
+          );
+        });
+      }).flat()}
+
+      {/* ── TOP TRIM (frame around the top edge, NOT solid) ──── */}
+      {/* Front & back trim */}
+      {[-1, 1].map((side, si) => (
+        <mesh key={`trim-fb-${si}`} position={[0, legH + boxH + trimT / 2, side * (w / 2 - trimW / 2)]}>
+          <boxGeometry args={[l, trimT, trimW]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.7} />
+        </mesh>
+      ))}
+      {/* Left & right trim */}
+      {[-1, 1].map((side, si) => (
+        <mesh key={`trim-lr-${si}`} position={[side * (l / 2 - trimW / 2), legH + boxH + trimT / 2, 0]}>
+          <boxGeometry args={[trimW, trimT, w - trimW * 2]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.7} />
+        </mesh>
+      ))}
+
+      {/* ── SOIL (visible from top, inside the box) ────── */}
+      <mesh position={[0, legH + boxH * 0.65, 0]}>
+        <boxGeometry args={[l - postSize * 2 - boardT * 2, boxH * 0.05, w - postSize * 2 - boardT * 2]} />
+        <meshStandardMaterial color={SOIL_COLOR} roughness={1} />
+      </mesh>
     </group>
   );
 }
