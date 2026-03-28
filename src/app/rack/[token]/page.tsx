@@ -16,6 +16,9 @@ import {
   Pencil,
   Save,
   ArrowLeft,
+  Share2,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import {
   getRackByToken,
@@ -54,8 +57,29 @@ const CATEGORIES = [
   "Garden", "Auto", "Office", "Medical", "Other",
 ];
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  Holiday: "\u{1F384}", Tools: "\u{1F527}", Sports: "\u{26BD}", Kids: "\u{1F9F8}",
+  Kitchen: "\u{1F373}", Clothing: "\u{1F455}", Electronics: "\u{1F50C}", Documents: "\u{1F4C4}",
+  Camping: "\u{26FA}", Crafts: "\u{1F3A8}", Garden: "\u{1F33F}", Auto: "\u{1F697}",
+  Office: "\u{1F4BC}", Medical: "\u{1FA7A}", Other: "\u{1F4E6}",
+};
+
+function getCategoryEmoji(category: string) {
+  return CATEGORY_EMOJI[category] || "";
+}
+
 function getSlotColor(color: string) {
   return COLORS.find((c) => c.value === color)?.bg || "bg-slate-800";
+}
+
+// Organization score messaging
+function getScoreMessage(pct: number): { text: string; subtext: string } {
+  if (pct === 0) return { text: "Ready to organize!", subtext: "Scan your first tote to get started" };
+  if (pct < 25) return { text: "Great start!", subtext: "Keep going \u2014 every tote cataloged saves time later" };
+  if (pct < 50) return { text: "Making progress!", subtext: "You\u2019ll never lose track of anything again" };
+  if (pct < 75) return { text: "Almost there!", subtext: "Your garage is becoming seriously organized" };
+  if (pct < 100) return { text: "Nearly perfect!", subtext: "Just a few more totes to catalog" };
+  return { text: "Fully organized!", subtext: "Every tote is cataloged \u2014 you\u2019re a storage pro" };
 }
 
 export default function RackPage() {
@@ -65,7 +89,7 @@ export default function RackPage() {
   const [rack, setRack] = useState<InventoryRack | null>(null);
   const [slots, setSlots] = useState<InventorySlot[]>([]);
   const [linkedRacks, setLinkedRacks] = useState<Array<{ id: string; access_token: string; label: string }>>([]);
-  const [installer, setInstaller] = useState<{ name: string; slug: string | null } | null>(null);
+  const [installer, setInstaller] = useState<{ name: string; slug: string | null; avatarUrl: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +119,12 @@ export default function RackPage() {
   // Edit rack label
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState("");
+
+  // Grid highlight (from search)
+  const [highlightSlot, setHighlightSlot] = useState<string | null>(null);
+
+  // Share feedback
+  const [shared, setShared] = useState(false);
 
   // Load rack data
   const loadRack = useCallback(async () => {
@@ -551,15 +581,33 @@ export default function RackPage() {
     );
   }
 
+  // ── Computed Stats ───────────────────────────────────────────────
+  const totalSlots = rack.cols * rack.rows;
+  const filledSlots = slots.filter((s) => (s.item_count ?? 0) > 0).length;
+  const totalItems = slots.reduce((sum, s) => sum + (s.item_count ?? 0), 0);
+  const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
+  const scoreMsg = getScoreMessage(utilizationPct);
+  const designUrl = installer?.slug ? `/design?installer=${installer.slug}` : "/design";
+
+  // Collect unique categories from slot labels
+  const usedCategories = new Set<string>();
+  for (const s of slots) {
+    if (s.label) {
+      for (const cat of CATEGORIES) {
+        if (s.label.toLowerCase().includes(cat.toLowerCase())) usedCategories.add(cat);
+      }
+    }
+  }
+
   // ── Main Rack Grid View ──────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Header */}
-      <header className="border-b border-slate-800 px-4 py-3">
+      <header className="border-b border-slate-800 px-4 py-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-2 mb-1">
             <Package className="w-5 h-5 text-yellow-400" />
-            <span className="text-xs text-slate-400 uppercase tracking-wider">
+            <span className="text-xs text-slate-400 uppercase tracking-wider font-bold">
               Storage Network Inventory
             </span>
           </div>
@@ -620,6 +668,93 @@ export default function RackPage() {
       </header>
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
+
+        {/* ── Organization Score + Quick Stats ─────────────────────── */}
+        <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-900/50 p-5">
+          <div className="flex items-center gap-5">
+            {/* Progress Ring */}
+            <div className="relative w-20 h-20 shrink-0">
+              <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#1e293b" strokeWidth="3" />
+                <circle
+                  cx="18" cy="18" r="15.5" fill="none"
+                  stroke={utilizationPct >= 100 ? "#22c55e" : "#facc15"}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(utilizationPct / 100) * 97.4} 97.4`}
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-black text-white leading-none">{utilizationPct}%</span>
+                <span className="text-[8px] text-slate-500 uppercase font-bold">Organized</span>
+              </div>
+            </div>
+
+            {/* Message + Stats */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                {utilizationPct >= 100 && <Sparkles className="w-4 h-4 text-emerald-400" />}
+                {utilizationPct >= 100 && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                {scoreMsg.text}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{scoreMsg.subtext}</p>
+
+              {/* Mini stat pills */}
+              <div className="flex gap-2 mt-3">
+                <div className="bg-slate-800 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                  <p className="text-sm font-black text-yellow-400">{totalItems}</p>
+                  <p className="text-[8px] text-slate-500 uppercase font-bold">Items</p>
+                </div>
+                <div className="bg-slate-800 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                  <p className="text-sm font-black text-white">{filledSlots}<span className="text-slate-500 font-normal">/{totalSlots}</span></p>
+                  <p className="text-[8px] text-slate-500 uppercase font-bold">Totes</p>
+                </div>
+                {usedCategories.size > 0 && (
+                  <div className="bg-slate-800 rounded-lg px-2.5 py-1.5 text-center flex-1">
+                    <p className="text-sm font-black text-white">{usedCategories.size}</p>
+                    <p className="text-[8px] text-slate-500 uppercase font-bold">Categories</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Empty State Onboarding ──────────────────────────────── */}
+        {totalItems === 0 && (
+          <div className="rounded-2xl border border-dashed border-yellow-400/30 bg-yellow-400/5 p-5 text-center">
+            <div className="text-3xl mb-2">{"\u{1F4E6}"}</div>
+            <h2 className="text-base font-bold text-white mb-1">Let&apos;s catalog your totes!</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              It only takes a minute per tote. Here&apos;s how:
+            </p>
+            <div className="space-y-3 text-left max-w-xs mx-auto">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-yellow-400 text-slate-900 flex items-center justify-center text-xs font-black shrink-0">1</div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Tap a tote on the grid</p>
+                  <p className="text-[10px] text-slate-500">Pick any tote to start with</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-yellow-400 text-slate-900 flex items-center justify-center text-xs font-black shrink-0">2</div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Snap a photo</p>
+                  <p className="text-[10px] text-slate-500">Our AI identifies everything inside</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-yellow-400 text-slate-900 flex items-center justify-center text-xs font-black shrink-0">3</div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Never lose anything again</p>
+                  <p className="text-[10px] text-slate-500">Search across all totes instantly</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -627,8 +762,8 @@ export default function RackPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search items across totes..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
+            placeholder={totalItems > 0 ? `Search ${totalItems} items across ${filledSlots} totes...` : "Search items across totes..."}
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
           />
           {linkedRacks.length > 0 && (
             <label className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer">
@@ -657,20 +792,28 @@ export default function RackPage() {
             ) : (
               <>
                 <p className="text-xs text-slate-400">
-                  {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
+                  {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} &mdash; tap to find on grid
                 </p>
                 {searchResults.map((r) => (
                   <div
                     key={r.id}
                     className="bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-yellow-400/50 transition-colors"
                     onClick={() => {
+                      // Highlight the tote on grid, then open on second tap
+                      const slotKey = `${r.slot_col}-${r.slot_row}`;
                       setSearchQuery("");
                       setSearchResults([]);
-                      openSlot(r.slot_col, r.slot_row);
+                      setHighlightSlot(slotKey);
+                      setTimeout(() => setHighlightSlot(null), 3000);
+                      // Scroll grid into view
+                      document.getElementById("rack-grid")?.scrollIntoView({ behavior: "smooth", block: "center" });
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{r.name}</p>
+                      <p className="text-sm font-medium">
+                        {r.category && <span className="mr-1.5">{getCategoryEmoji(r.category)}</span>}
+                        {r.name}
+                      </p>
                       {r.quantity > 1 && (
                         <span className="text-xs text-slate-400">
                           x{r.quantity}
@@ -681,9 +824,9 @@ export default function RackPage() {
                       <span>
                         Tote {r.slot_col + 1}-{rack.rows - r.slot_row}
                       </span>
-                      {r.slot_label && <span>· {r.slot_label}</span>}
+                      {r.slot_label && <span>&middot; {r.slot_label}</span>}
                       {searchAll && r.rack_label !== rack.label && (
-                        <span className="text-yellow-400">· {r.rack_label}</span>
+                        <span className="text-yellow-400">&middot; {r.rack_label}</span>
                       )}
                       {r.category && (
                         <span className="bg-slate-700 px-1.5 py-0.5 rounded">
@@ -698,9 +841,9 @@ export default function RackPage() {
           </div>
         )}
 
-        {/* Rack Grid */}
+        {/* ── Rack Grid ───────────────────────────────────────────── */}
         {!searchQuery.trim() && (
-          <div>
+          <div id="rack-grid">
             <p className="text-xs text-slate-400 mb-2">
               Tap a tote to view or add contents
             </p>
@@ -711,31 +854,54 @@ export default function RackPage() {
               }}
             >
               {Array.from({ length: rack.rows }, (_, rowIdx) => {
-                const displayRow = rack.rows - 1 - rowIdx; // Top row = highest number
+                const displayRow = rack.rows - 1 - rowIdx;
                 return Array.from({ length: rack.cols }, (_, col) => {
                   const slot = getSlotAt(col, displayRow);
                   const hasItems = slot && (slot.item_count ?? 0) > 0;
                   const colorClass = slot?.color
                     ? getSlotColor(slot.color)
                     : "bg-slate-800";
+                  const isHighlighted = highlightSlot === `${col}-${displayRow}`;
+
+                  // Determine category emoji from slot label
+                  let slotEmoji = "";
+                  if (slot?.label) {
+                    for (const cat of CATEGORIES) {
+                      if (slot.label.toLowerCase().includes(cat.toLowerCase())) {
+                        slotEmoji = getCategoryEmoji(cat);
+                        break;
+                      }
+                    }
+                  }
 
                   return (
                     <button
                       key={`${col}-${displayRow}`}
                       onClick={() => openSlot(col, displayRow)}
-                      className={`${colorClass} border border-slate-700 rounded-lg p-2 aspect-square flex flex-col items-center justify-center gap-1 hover:border-yellow-400/50 transition-colors relative`}
+                      className={`${colorClass} border rounded-xl p-2 aspect-square flex flex-col items-center justify-center gap-0.5 transition-all relative ${
+                        isHighlighted
+                          ? "border-yellow-400 ring-2 ring-yellow-400/50 animate-pulse scale-105 z-10"
+                          : "border-slate-700 hover:border-yellow-400/50"
+                      }`}
                     >
                       {/* Tote number */}
-                      <span className="text-[10px] text-slate-500 absolute top-1 left-1.5">
+                      <span className="text-[9px] text-slate-600 absolute top-1 left-1.5 font-mono">
                         {col + 1}-{rack.rows - displayRow}
                       </span>
 
                       {slot?.label ? (
-                        <span className="text-[11px] text-white font-medium text-center leading-tight line-clamp-2 px-1">
-                          {slot.label}
-                        </span>
+                        <>
+                          {slotEmoji && (
+                            <span className="text-base leading-none">{slotEmoji}</span>
+                          )}
+                          <span className="text-[10px] text-white font-medium text-center leading-tight line-clamp-2 px-0.5">
+                            {slot.label}
+                          </span>
+                        </>
+                      ) : hasItems ? (
+                        <Package className="w-4 h-4 text-slate-500" />
                       ) : (
-                        <Package className="w-4 h-4 text-slate-600" />
+                        <Plus className="w-4 h-4 text-slate-700" />
                       )}
 
                       {hasItems && (
@@ -752,86 +918,111 @@ export default function RackPage() {
         )}
 
         {/* ── Growth Engine ──────────────────────────────────────── */}
-        {(() => {
-          const totalSlots = rack.cols * rack.rows;
-          const filledSlots = slots.filter((s) => (s.item_count ?? 0) > 0).length;
-          const allLinkedSlots = filledSlots + linkedRacks.length * totalSlots; // rough estimate
-          const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
-          const isFull = utilizationPct >= 80;
-          const designUrl = installer?.slug
-            ? `/design?installer=${installer.slug}`
-            : "/design";
+        <div className="space-y-3 pt-2">
+          {/* Running out of space — shows when 80%+ totes have items */}
+          {utilizationPct >= 80 && (
+            <a
+              href={designUrl}
+              className="block rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4 hover:bg-yellow-400/10 transition-colors"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-400/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Running out of space?
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {utilizationPct}% of your totes are cataloged.
+                    {installer ? ` ${installer.name} can` : " We can"} build
+                    you another rack &mdash; same quality, professionally installed.
+                  </p>
+                  <span className="inline-block mt-2 text-xs font-bold text-yellow-400">
+                    Design Another Rack &rarr;
+                  </span>
+                </div>
+              </div>
+            </a>
+          )}
 
-          return (
-            <div className="space-y-3 pt-2">
-              {/* Running out of space — shows when 80%+ totes have items */}
-              {isFull && (
-                <a
-                  href={designUrl}
-                  className="block rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-4 hover:bg-yellow-400/10 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-yellow-400/20 flex items-center justify-center shrink-0">
-                      <Package className="w-5 h-5 text-yellow-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        Running out of space?
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {utilizationPct}% of your totes are cataloged.
-                        {installer ? ` ${installer.name} can` : " We can"} build
-                        you another rack — same quality, professionally installed.
-                      </p>
-                      <span className="inline-block mt-2 text-xs font-bold text-yellow-400">
-                        Design Another Rack &rarr;
-                      </span>
-                    </div>
-                  </div>
-                </a>
-              )}
-
-              {/* Recommend to a neighbor — always visible */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
-                <p className="text-xs font-semibold text-slate-300 mb-1">
-                  Know someone who needs garage storage?
-                </p>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Share with a friend and they&apos;ll get the same professional installation you did.
+          {/* Share with household */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
+                <Share2 className="w-5 h-5 text-slate-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-slate-300">Share with your household</p>
+                <p className="text-[11px] text-slate-500 mt-0.5 mb-3">
+                  Send this link to your family so everyone can find what they need.
                 </p>
                 <button
                   onClick={() => {
-                    const shareText = installer?.slug
-                      ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/p/${installer.slug}`
-                      : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
+                    const url = window.location.href;
                     if (navigator.share) {
-                      navigator.share({ text: shareText }).catch(() => {});
+                      navigator.share({ title: rack.label, text: `Access our tote inventory: ${rack.label}`, url }).catch(() => {});
                     } else {
-                      navigator.clipboard.writeText(shareText);
+                      navigator.clipboard.writeText(url);
                     }
+                    setShared(true);
+                    setTimeout(() => setShared(false), 3000);
                   }}
-                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-xs font-medium text-slate-300 transition-colors w-full justify-center"
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-colors w-full justify-center ${
+                    shared
+                      ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                      : "bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300"
+                  }`}
                 >
-                  <ChevronRight className="w-3 h-3" />
-                  Share with a Friend
+                  {shared ? (
+                    <><CheckCircle2 className="w-3 h-3" /> Link Copied!</>
+                  ) : (
+                    <><Share2 className="w-3 h-3" /> Share Inventory Link</>
+                  )}
                 </button>
               </div>
-
-              {/* Soft CTA — always visible */}
-              <a
-                href={designUrl}
-                className="block rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-center hover:border-yellow-400/30 transition-colors group"
-              >
-                <p className="text-[11px] text-slate-500 group-hover:text-slate-400">
-                  Need more storage?{" "}
-                  <span className="text-yellow-400/70 group-hover:text-yellow-400 font-medium">
-                    Design a new rack &rarr;
-                  </span>
-                </p>
-              </a>
             </div>
-          );
-        })()}
+          </div>
+
+          {/* Recommend to a neighbor */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <p className="text-xs font-semibold text-slate-300 mb-1">
+              Know someone who needs garage storage?
+            </p>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Share with a friend and they&apos;ll get the same professional installation you did.
+            </p>
+            <button
+              onClick={() => {
+                const shareText = installer?.slug
+                  ? `Check out this garage storage system I got — they build and install custom tote racks. ${window.location.origin}/p/${installer.slug}`
+                  : `Check out this garage storage system — custom tote racks, professionally installed. ${window.location.origin}/design`;
+                if (navigator.share) {
+                  navigator.share({ text: shareText }).catch(() => {});
+                } else {
+                  navigator.clipboard.writeText(shareText);
+                }
+              }}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-xs font-medium text-slate-300 transition-colors w-full justify-center"
+            >
+              <ChevronRight className="w-3 h-3" />
+              Share with a Friend
+            </button>
+          </div>
+
+          {/* Soft CTA — always visible */}
+          <a
+            href={designUrl}
+            className="block rounded-2xl border border-slate-800 bg-slate-900/30 p-3 text-center hover:border-yellow-400/30 transition-colors group"
+          >
+            <p className="text-[11px] text-slate-500 group-hover:text-slate-400">
+              Need more storage?{" "}
+              <span className="text-yellow-400/70 group-hover:text-yellow-400 font-medium">
+                Design a new rack &rarr;
+              </span>
+            </p>
+          </a>
+        </div>
 
         {/* Footer */}
         <div className="text-center pt-4 pb-8">
