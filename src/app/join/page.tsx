@@ -33,6 +33,9 @@ import {
   Wrench,
   Video,
   XCircle,
+  QrCode,
+  Star,
+  Shield,
 } from "lucide-react";
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
@@ -1052,17 +1055,17 @@ export default function JoinPage() {
 
         <div className="relative mx-auto max-w-6xl">
           <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-[0.2em] text-yellow-400">
-            New Product Lines
+            Platform Features
           </p>
           <h2 className="mb-4 text-center text-3xl font-black leading-[1.1] tracking-tight text-white xl:text-4xl">
             More Products.{" "}
             <span className="bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
-              More Revenue Per Job.
+              More Tools. More Revenue.
             </span>
           </h2>
           <p className="mx-auto mb-12 max-w-2xl text-center text-base leading-relaxed text-stone-400">
-            Tote organizers are just the start. Now offer open shelving and overhead ceiling
-            storage &mdash; all designed, quoted, and planned through the same platform.
+            Tote organizers are just the start. Open shelving, overhead ceiling
+            storage, AI-powered inventory, and verified reviews &mdash; all through the same platform.
           </p>
 
           <div className="grid gap-6 md:grid-cols-2">
@@ -1123,6 +1126,73 @@ export default function JoinPage() {
                   "Ceiling-mounted 3D preview",
                   "Full material & hardware lists",
                   "High-margin upsell opportunity",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer Tote Inventory */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <QrCode className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                    New
+                  </span>
+                  <p className="text-lg font-bold text-white">Customer Tote Inventory</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Every rack you build gets a free digital inventory system. Customers scan a QR code
+                to catalog what&apos;s in every tote &mdash; AI photo scanning identifies contents instantly.
+                No app, no login. When they run out of space, the lead comes back to you.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "AI-powered photo scanning",
+                  "Organization score & progress tracking",
+                  "Built-in referral engine to your design page",
+                  "Always free for your customers",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Verified Customer Reviews */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Star className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                    New
+                  </span>
+                  <p className="text-lg font-bold text-white">Verified Customer Reviews</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Collect verified reviews from real customers, tied to actual paid jobs on the platform.
+                Reviews display on your portfolio page with star ratings, distribution charts,
+                and a <span className="text-emerald-400 font-semibold">&#10003; Verified</span> badge
+                that builds instant trust.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "One-click request or copy link to text",
+                  "No customer login — review in 30 seconds",
+                  "Quick-tap tags: Professional, On Time, etc.",
+                  "Portfolio showcase with rating summary",
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />

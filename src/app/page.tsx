@@ -228,7 +228,7 @@ export default function LandingPage() {
             Why Homeowners Trust Us
           </p>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             <TrustBadge
               icon={<Shield className="h-7 w-7" />}
               title="Lifetime Warranty"
@@ -248,6 +248,11 @@ export default function LandingPage() {
               icon={<Truck className="h-7 w-7" />}
               title="Pro Installation"
               desc="Certified local installers handle everything. You don't lift a finger."
+            />
+            <TrustBadge
+              icon={<Star className="h-7 w-7" />}
+              title="Verified Reviews"
+              desc="Real reviews from real customers, verified by the platform. Read before you book."
             />
           </div>
         </div>

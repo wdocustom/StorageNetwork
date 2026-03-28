@@ -19,8 +19,10 @@ import {
   Layout,
   Megaphone,
   Package,
+  QrCode,
   Rocket,
   Rows3,
+  Shield,
   Star,
   Target,
   TrendingUp,
@@ -67,6 +69,8 @@ const FEATURES: FeatureRow[] = [
   { name: "Custom Pricing Controls", included: true, id: "pricing", icon: Calculator },
   { name: "Open Shelving Systems", included: true, id: "shelving", icon: Rows3, highlight: true },
   { name: "Overhead Ceiling Storage", included: true, id: "overhead", icon: Warehouse, highlight: true },
+  { name: "Customer Tote Inventory", included: true, id: "tote-inventory", icon: QrCode, highlight: true },
+  { name: "Verified Customer Reviews", included: true, id: "reviews", icon: Star, highlight: true },
   { name: "Auto-Marketing Engine", included: "Coming Soon", id: "auto-marketing", icon: Rocket, highlight: true },
 ];
 
@@ -967,6 +971,149 @@ export default function FeaturesPage() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Customer Tote Inventory ────────────────────────────────────── */}
+      <section id="tote-inventory" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <QrCode className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  Included
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Customer Tote Inventory</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Every rack you build comes with a free digital inventory system for your customer.
+                They scan a QR code on the rack and instantly manage what&apos;s in every tote &mdash;
+                no app download, no login required. AI photo scanning identifies contents automatically.
+              </p>
+              <ul className="space-y-2">
+                {[
+                  "QR code printed and attached to each rack",
+                  "AI photo scan — snap a photo, contents identified instantly",
+                  "Organization score tracks progress and motivates customers",
+                  "Search across all totes — \"where are my Christmas lights?\"",
+                  "Category emoji labels for at-a-glance visual organization",
+                  "Share with household — family members access the same inventory",
+                  "Always free for your customers, forever",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                Why This Drives Repeat Business
+              </p>
+              <div className="space-y-3">
+                {[
+                  { title: "Customers Stay Engaged", desc: "Once they've cataloged 20+ totes of holiday decorations, tools, and camping gear — they're never ripping out that rack. And they'll tell their neighbors." },
+                  { title: "Built-In Referral Engine", desc: "Every inventory page has a \"Need More Storage?\" link that goes directly to your branded design page. When totes fill up, the lead comes back to you." },
+                  { title: "Premium Differentiator", desc: "No other shelf builder offers a digital inventory system. This is the kind of value-add that wins the job before you even show up." },
+                ].map((s) => (
+                  <div key={s.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{s.title}</p>
+                      <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Verified Customer Reviews ──────────────────────────────────── */}
+      <section id="reviews" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="md:order-2">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Star className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  Included
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Verified Customer Reviews</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Build trust with verified reviews from real customers. Every review is tied to an actual
+                paid job on the platform and displayed with a <span className="text-emerald-400 font-semibold">&#10003; Verified</span> badge.
+                Reviews are showcased on your portfolio page with star ratings, distribution bars,
+                and quick-tap tags.
+              </p>
+              <ul className="space-y-2">
+                {[
+                  "One-click review request from any completed job",
+                  "Copy link to text, DM, or share however you want",
+                  "No customer login required — review in 30 seconds",
+                  "Quick-tap tags: Professional, On Time, Quality Build, etc.",
+                  "Star rating + headline + detailed comment",
+                  "Portfolio page shows average rating + distribution chart",
+                  "Toggle reviews on/off from your profile settings",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6 md:order-1">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                Why Reviews Win You More Jobs
+              </p>
+              <div className="space-y-3">
+                {[
+                  { title: "Social Proof Converts", desc: "92% of consumers read reviews before making a purchase. Your portfolio with verified reviews converts browsers into booked jobs." },
+                  { title: "The Verified Badge", desc: "Every review is tied to a real paid job — not fake, not incentivized. The \"Verified Purchase\" badge means something, and customers notice." },
+                  { title: "Your Reputation, Quantified", desc: "Average rating, star distribution, top tags like \"Professional\" and \"On Time\" — all displayed beautifully on your portfolio page for every visitor to see." },
+                ].map((s) => (
+                  <div key={s.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{s.title}</p>
+                      <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sample review card */}
+              <div className="mt-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                <div className="flex items-center gap-1 mb-1">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                  ))}
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-400 uppercase">
+                    <Shield className="h-2.5 w-2.5" /> Verified
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-white mb-0.5">Incredible craftsmanship</p>
+                <p className="text-[11px] text-stone-500 leading-relaxed">
+                  &ldquo;The team was professional, on time, and the build quality is outstanding.
+                  My garage has never been this organized.&rdquo;
+                </p>
+                <p className="text-[10px] text-stone-600 mt-1.5">Sarah M. &bull; 2 weeks ago</p>
+              </div>
             </div>
           </div>
         </div>
