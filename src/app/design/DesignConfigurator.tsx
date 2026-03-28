@@ -18,6 +18,7 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { RAISED_BED_SIZES, type RaisedBedConfig } from "@/lib/raised-beds";
 import { expandPresetUnits } from "@/lib/buildEngine.types";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
@@ -317,6 +318,39 @@ export default function DesignConfigurator({
     setShelvingConfigId(null);
     setShelvingPrice(null);
     // Auto-enable multi-unit 3D so the visualizer shows the actual added units
+    setShowMultiUnit3D(true);
+  }
+
+  // ── Raised Bed Planters ─────────────────────────────────────────────
+  const raisedBedEnabled = data?.pricing?.raised_bed_enabled === true;
+
+  function handleAddRaisedBed(
+    config: RaisedBedConfig,
+    price: number,
+    desc: string,
+  ) {
+    const bed = RAISED_BED_SIZES.find((s) => s.id === config.sizeId);
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: false,
+        price,
+        totalW: bed?.lengthIn || 48,
+        totalH: bed?.heightIn || 16.5,
+        depth: bed?.widthIn || 24,
+        desc,
+        addons: [],
+        raisedBedConfig: config,
+      } as UnitConfig,
+    ]);
     setShowMultiUnit3D(true);
   }
 
@@ -1493,6 +1527,10 @@ export default function DesignConfigurator({
           overheadStorageHidden={!overheadStorageEnabled}
           onAddOverheadUnit={handleAddOverheadUnit}
           onOverheadConfigPreview={setOverheadPreview}
+
+          // Raised Bed Planters
+          raisedBedHidden={!raisedBedEnabled}
+          onAddRaisedBed={handleAddRaisedBed}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={showMultiUnit3D}

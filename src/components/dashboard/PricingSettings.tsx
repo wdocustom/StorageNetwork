@@ -267,6 +267,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [miniEnabled, setMiniEnabled] = useState(false);
   const [shelvingEnabled, setShelvingEnabled] = useState(false);
   const [overheadEnabled, setOverheadEnabled] = useState(false);
+  const [raisedBedEnabled, setRaisedBedEnabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Organizer Customization (addon pricing) state ──────────────────
@@ -295,6 +296,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setMiniEnabled(result.pricing.mini_enabled === true);
       setShelvingEnabled(result.pricing.open_shelving_enabled === true);
       setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
+      setRaisedBedEnabled(result.pricing.raised_bed_enabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
         cornhusker: result.pricing.bestseller_cornhusker_disabled !== true,
@@ -358,6 +360,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     if (miniEnabled) pricing.mini_enabled = true;
     if (shelvingEnabled) pricing.open_shelving_enabled = true;
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
+    if (raisedBedEnabled) pricing.raised_bed_enabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
     if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
     if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
@@ -403,6 +406,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       setMiniEnabled(false);
       setShelvingEnabled(false);
       setOverheadEnabled(false);
+      setRaisedBedEnabled(false);
       setPresetToggles({});
       setAddonEnabled(true);
       setAddonValues({});
@@ -428,6 +432,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     return miniEnabled
       || shelvingEnabled
       || overheadEnabled
+      || raisedBedEnabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
@@ -588,6 +593,36 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
               {overheadEnabled
                 ? "Ceiling-mounted storage options are visible on your design page"
                 : "Toggle to offer overhead ceiling storage to customers"}
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* Raised Bed Planter Toggle */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setRaisedBedEnabled(!raisedBedEnabled)}
+          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+            raisedBedEnabled
+              ? "border-yellow-500/30 bg-yellow-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${raisedBedEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${raisedBedEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <Eye className={`h-3.5 w-3.5 ${raisedBedEnabled ? "text-yellow-400" : "text-stone-500"}`} />
+              <p className={`text-sm font-medium ${raisedBedEnabled ? "text-yellow-400" : "text-white"}`}>
+                {raisedBedEnabled ? "Raised Bed Planters Enabled" : "Enable Raised Bed Planters"}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {raisedBedEnabled
+                ? "Handmade cedar planter options are visible on your design page"
+                : "Toggle to offer raised bed planters to customers"}
             </p>
           </div>
         </button>

@@ -18,6 +18,7 @@ import { FocusFrame } from "../configurator-primitives";
 import BestsellerDropdown from "../BestsellerDropdown";
 import ShelvingDropdown from "../ShelvingDropdown";
 import OverheadStorageDropdown from "../OverheadStorageDropdown";
+import RaisedBedDropdown from "../RaisedBedDropdown";
 
 export default function StepSize({
   props,
@@ -139,47 +140,7 @@ export default function StepSize({
         )}
       </section>
 
-      {/* Bestsellers Dropdown */}
-      {props.presetOptions.length > 0 && (
-        <BestsellerDropdown
-          presetOptions={props.presetOptions}
-          activePreset={props.activePreset}
-          onPresetChange={props.onPresetChange}
-          compoundBuild={props.compoundBuild}
-          presetLoading={props.presetLoading}
-          presetTotes={props.presetTotes}
-          onPresetTotesChange={props.onPresetTotesChange}
-          onAddPresetUnit={() => { props.onAddPresetUnit(); setActiveStep(4); }}
-          wallW={wallW}
-          wallH={wallH}
-          hasWallDimensions={hasWallDimensions}
-        />
-      )}
-
-      {/* Open Shelving Dropdown */}
-      {!props.shelvingHidden && (
-        <ShelvingDropdown
-          shelvingConfigId={props.shelvingConfigId}
-          onShelvingConfigChange={props.onShelvingConfigChange}
-          shelvingPrice={props.shelvingPrice}
-          shelvingLoading={props.shelvingLoading}
-          onAddShelvingUnit={() => { props.onAddShelvingUnit(); setActiveStep(4); }}
-        />
-      )}
-
-      {/* Overhead Ceiling Storage Dropdown */}
-      {!props.overheadStorageHidden && (
-        <OverheadStorageDropdown
-          onAddOverheadUnit={(result, config) => {
-            props.onAddOverheadUnit(result, config);
-            setActiveStep(4);
-          }}
-          onConfigPreview={props.onOverheadConfigPreview}
-          installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
-        />
-      )}
-
-      {/* Manual Columns / Rows — hidden when a bestseller is selected */}
+      {/* Grid Size — moved up for structured placement */}
       {!props.activePreset && (
         <section className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 backdrop-blur-sm">
           <Grid3X3 className="h-4 w-4 shrink-0 text-yellow-400" />
@@ -229,6 +190,57 @@ export default function StepSize({
             </div>
           </div>
         </section>
+      )}
+
+      {/* Bestsellers Dropdown */}
+      {props.presetOptions.length > 0 && (
+        <BestsellerDropdown
+          presetOptions={props.presetOptions}
+          activePreset={props.activePreset}
+          onPresetChange={props.onPresetChange}
+          compoundBuild={props.compoundBuild}
+          presetLoading={props.presetLoading}
+          presetTotes={props.presetTotes}
+          onPresetTotesChange={props.onPresetTotesChange}
+          onAddPresetUnit={() => { props.onAddPresetUnit(); setActiveStep(4); }}
+          wallW={wallW}
+          wallH={wallH}
+          hasWallDimensions={hasWallDimensions}
+        />
+      )}
+
+      {/* Open Shelving Dropdown */}
+      {!props.shelvingHidden && (
+        <ShelvingDropdown
+          shelvingConfigId={props.shelvingConfigId}
+          onShelvingConfigChange={props.onShelvingConfigChange}
+          shelvingPrice={props.shelvingPrice}
+          shelvingLoading={props.shelvingLoading}
+          onAddShelvingUnit={() => { props.onAddShelvingUnit(); setActiveStep(4); }}
+        />
+      )}
+
+      {/* Overhead Ceiling Storage Dropdown */}
+      {!props.overheadStorageHidden && (
+        <OverheadStorageDropdown
+          onAddOverheadUnit={(result, config) => {
+            props.onAddOverheadUnit(result, config);
+            setActiveStep(4);
+          }}
+          onConfigPreview={props.onOverheadConfigPreview}
+          installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
+        />
+      )}
+
+      {/* Raised Bed Planters Dropdown */}
+      {!props.raisedBedHidden && (
+        <RaisedBedDropdown
+          onAddRaisedBed={(config, price, desc) => {
+            props.onAddRaisedBed(config, price, desc);
+            setActiveStep(4);
+          }}
+          onConfigPreview={props.onRaisedBedPreview}
+        />
       )}
 
       {/* Contact Installer — Custom / Email */}

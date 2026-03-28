@@ -34,6 +34,8 @@ export interface UnitConfig {
   shelvingConfigId?: string;
   /** When set, this order item is an overhead ceiling storage unit */
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
+  /** When set, this order item is a raised bed planter */
+  raisedBedConfig?: import("@/lib/raised-beds").RaisedBedConfig;
 }
 
 export interface ServerBuild {
@@ -270,6 +272,11 @@ export interface ConfiguratorSidebarProps {
   overheadStorageHidden?: boolean;
   onAddOverheadUnit: (result: import("@/lib/overhead-storage").OverheadStorageResult, config: import("@/lib/overhead-storage").OverheadStorageConfig) => void;
   onOverheadConfigPreview?: (preview: { slotsWide: number; slotsDeep: number; toteType: import("@/lib/overhead-storage").OverheadToteType; hasTotes: boolean } | null) => void;
+
+  // Raised Bed Planters
+  raisedBedHidden?: boolean;
+  onAddRaisedBed: (config: import("@/lib/raised-beds").RaisedBedConfig, price: number, desc: string) => void;
+  onRaisedBedPreview?: (bed: import("@/lib/raised-beds").RaisedBedSize | null) => void;
 
   // Multi-unit 3D visualization
   showMultiUnit3D: boolean;
