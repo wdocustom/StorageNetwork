@@ -16,6 +16,7 @@ import {
   Phone,
   Ruler,
   Link,
+  Star,
   Trash2,
   TrendingUp,
   Upload,
@@ -71,6 +72,8 @@ interface JobTicketProps {
   salesTaxAmount?: number | null;
   addressState?: string | null;
   installerId?: string | null;
+  reviewToken?: string | null;
+  reviewSubmitted?: boolean;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -95,6 +98,8 @@ export default function JobTicket({
   salesTaxAmount,
   addressState,
   installerId,
+  reviewToken,
+  reviewSubmitted,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -116,6 +121,12 @@ export default function JobTicket({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Review State ─────────────────────────────────────────────────────
+  const [reviewRequesting, setReviewRequesting] = useState(false);
+  const [reviewRequested, setReviewRequested] = useState(!!reviewToken);
+  const [reviewDone, setReviewDone] = useState(!!reviewSubmitted);
+  const [reviewSendSuccess, setReviewSendSuccess] = useState(false);
 
   // ── Inventory QR State ────────────────────────────────────────────────
   const [inventoryRacks, setInventoryRacks] = useState<InventoryRack[]>([]);
@@ -763,6 +774,113 @@ export default function JobTicket({
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* ── Customer Review Section ─────────────────────────────── */}
+          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="h-4 w-4 text-yellow-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-300">
+                Customer Review
+              </span>
+            </div>
+
+            {reviewDone ? (
+              /* Review submitted */
+              <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">Review Received</p>
+                  <p className="text-[10px] text-stone-500 mt-0.5">
+                    This customer has submitted a verified review. It will appear on your portfolio page.
+                  </p>
+                </div>
+              </div>
+            ) : reviewSendSuccess ? (
+              /* Just sent — success feedback */
+              <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-emerald-400">Review Request Sent!</p>
+                  <p className="text-[10px] text-stone-500 mt-0.5">
+                    {customerName.split(" ")[0]} will receive an email with a link to leave their review.
+                  </p>
+                </div>
+              </div>
+            ) : reviewRequested ? (
+              /* Token exists but no review yet — pending */
+              <div>
+                <div className="flex items-center gap-3 rounded-lg bg-yellow-400/5 border border-yellow-400/20 px-4 py-3 mb-3">
+                  <Mail className="h-5 w-5 text-yellow-400/70 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-yellow-400/80">Review Pending</p>
+                    <p className="text-[10px] text-stone-500 mt-0.5">
+                      A review link has been sent. Waiting for {customerName.split(" ")[0]} to submit.
+                    </p>
+                  </div>
+                </div>
+                {customerEmail && (
+                  <button
+                    onClick={async () => {
+                      if (!installerId) return;
+                      setReviewRequesting(true);
+                      const { requestReview } = await import("@/app/actions/reviews");
+                      const result = await requestReview({ leadId, installerId });
+                      setReviewRequesting(false);
+                      if (result.success) {
+                        setReviewSendSuccess(true);
+                        setTimeout(() => setReviewSendSuccess(false), 5000);
+                      }
+                    }}
+                    disabled={reviewRequesting}
+                    className="flex items-center justify-center gap-1.5 w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-xs font-medium text-stone-400 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    {reviewRequesting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Mail className="h-3 w-3" />
+                    )}
+                    Send Reminder
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* No review requested yet */
+              <div>
+                <p className="text-xs text-stone-400 mb-3">
+                  Ask {customerName.split(" ")[0]} to leave a review. Verified reviews build trust and help you win more jobs.
+                </p>
+                {customerEmail ? (
+                  <button
+                    onClick={async () => {
+                      if (!installerId) return;
+                      setReviewRequesting(true);
+                      const { requestReview } = await import("@/app/actions/reviews");
+                      const result = await requestReview({ leadId, installerId });
+                      setReviewRequesting(false);
+                      if (result.success) {
+                        setReviewRequested(true);
+                        setReviewSendSuccess(true);
+                        setTimeout(() => setReviewSendSuccess(false), 5000);
+                      }
+                    }}
+                    disabled={reviewRequesting}
+                    className="flex items-center justify-center gap-2 w-full rounded-lg bg-yellow-400/20 border border-yellow-400/30 px-4 py-2.5 text-xs font-bold text-yellow-400 hover:bg-yellow-400/30 transition-colors disabled:opacity-50"
+                  >
+                    {reviewRequesting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Star className="h-4 w-4" />
+                    )}
+                    Request Review
+                  </button>
+                ) : (
+                  <p className="text-[10px] text-stone-600 text-center">
+                    No customer email on file — review request unavailable
+                  </p>
+                )}
               </div>
             )}
           </div>
