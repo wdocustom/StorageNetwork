@@ -34,6 +34,7 @@ import {
   Video,
   XCircle,
   QrCode,
+  Sprout,
   Star,
   Shield,
 } from "lucide-react";
@@ -1126,6 +1127,39 @@ export default function JoinPage() {
                   "Ceiling-mounted 3D preview",
                   "Full material & hardware lists",
                   "High-margin upsell opportunity",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Raised Bed Planters */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Sprout className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">
+                    New
+                  </span>
+                  <p className="text-lg font-bold text-white">Raised Bed Planters</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Handmade cedar raised beds in 8 sizes — elevated or ground-level. Customers configure
+                finish, depth, and pest protection in the 3D design tool. High-margin seasonal product
+                that upsells naturally on every garage job.
+              </p>
+              <div className="space-y-2">
+                {[
+                  "8 sizes with 4 finish options",
+                  "4 pest protection cover styles",
+                  "3D preview + instant pricing",
+                  "Custom installer pricing controls",
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />

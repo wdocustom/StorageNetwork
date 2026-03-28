@@ -23,6 +23,7 @@ import {
   Rocket,
   Rows3,
   Shield,
+  Sprout,
   Star,
   Target,
   TrendingUp,
@@ -69,6 +70,7 @@ const FEATURES: FeatureRow[] = [
   { name: "Custom Pricing Controls", included: true, id: "pricing", icon: Calculator },
   { name: "Open Shelving Systems", included: true, id: "shelving", icon: Rows3, highlight: true },
   { name: "Overhead Ceiling Storage", included: true, id: "overhead", icon: Warehouse, highlight: true },
+  { name: "Raised Bed Planters", included: true, id: "raised-beds", icon: Sprout, highlight: true },
   { name: "Customer Tote Inventory", included: true, id: "tote-inventory", icon: QrCode, highlight: true },
   { name: "Verified Customer Reviews", included: true, id: "reviews", icon: Star, highlight: true },
   { name: "Auto-Marketing Engine", included: "Coming Soon", id: "auto-marketing", icon: Rocket, highlight: true },
@@ -971,6 +973,68 @@ export default function FeaturesPage() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Raised Bed Planters ──────────────────────────────────────── */}
+      <section id="raised-beds" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="grid gap-8 md:grid-cols-2 md:items-center">
+            <div className="md:order-2">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Sprout className="h-4 w-4 text-yellow-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-yellow-400/60">
+                  New Product
+                </span>
+              </div>
+              <h3 className="mb-3 text-2xl font-black text-white">Raised Bed Planters</h3>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                Handmade cedar raised bed planters — elevated with legs or ground-level. Customers
+                configure size, finish (natural cedar, stain, liner, or painted white), planting depth,
+                and pest protection covers all through the same 3D design tool. A high-margin product
+                that&apos;s in massive demand from homeowners with gardens.
+              </p>
+              <ul className="space-y-2">
+                {[
+                  "8 sizes: 12\"×48\" to 48\"×48\", elevated or ground-level",
+                  "4 finish options with custom installer pricing",
+                  "4 pest protection covers: hoop netting to 48\" cabinet cage",
+                  "3D preview + instant pricing in the configurator",
+                  "Full quote integration — add alongside tote racks",
+                  "Toggle on/off in your profile settings",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-6 md:order-1">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">
+                Why Offer Planters
+              </p>
+              <div className="space-y-3">
+                {[
+                  { title: "Seasonal Revenue Stream", desc: "Spring and summer demand is massive. Planters sell year-round as gifts, too. This product fills the seasonal gap when garage projects slow down." },
+                  { title: "High Margins", desc: "Cedar planters are premium products with strong margins. Platform defaults start at $165 and scale to $675+ with pest covers. Your pricing, your profit." },
+                  { title: "Upsell on Every Job", desc: "Every customer who books a garage storage build is a homeowner who likely gardens. One conversation can add $200-500+ to the ticket." },
+                ].map((s) => (
+                  <div key={s.title} className="flex gap-3">
+                    <div className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{s.title}</p>
+                      <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

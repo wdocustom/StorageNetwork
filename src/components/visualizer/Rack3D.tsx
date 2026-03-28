@@ -78,6 +78,8 @@ interface MultiUnit3DItem {
   overheadConfig?: OverheadConfig3D;
   /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
   presetUnits?: SubUnit3D[];
+  /** When set, this item is a raised bed planter */
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
 }
 
 /** Overhead ceiling tote rail config for 3D rendering */
@@ -111,6 +113,8 @@ interface Rack3DProps {
   shelvingConfig?: ShelvingConfig3D;
   /** When set, renders an overhead ceiling storage unit */
   overheadConfig?: OverheadConfig3D;
+  /** When set, renders a raised bed planter */
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
   /** Text displayed as a diagonal watermark behind the 3D scene */
@@ -1337,6 +1341,103 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RAISED BED PLANTER — 3D Assembly
+// Cedar box with corner posts, horizontal slats, optional legs, trim cap
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CEDAR_COLOR = "#c87533";
+const CEDAR_DARK = "#a0522d";
+const SOIL_COLOR = "#3e2723";
+
+function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number } }) {
+  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance } = config;
+
+  // Convert to Three.js units (1 unit = 1 inch, then scaled by S)
+  const w = widthIn * S;
+  const l = lengthIn * S;
+  const bedH = (hasLegs ? heightIn - groundClearance : heightIn) * S;
+  const legH = groundClearance * S;
+  const postW = 3.5 * S; // 4×4 corner posts
+  const slat = 1.5 * S; // slat thickness
+  const trimH = 1.5 * S; // top trim cap
+
+  const totalY = hasLegs ? legH + bedH : bedH;
+  const bedBaseY = hasLegs ? legH : 0;
+
+  return (
+    <group position={[0, totalY / 2 - totalY / 2, 0]}>
+      {/* Corner posts */}
+      {[
+        [-l / 2 + postW / 2, -w / 2 + postW / 2],
+        [l / 2 - postW / 2, -w / 2 + postW / 2],
+        [-l / 2 + postW / 2, w / 2 - postW / 2],
+        [l / 2 - postW / 2, w / 2 - postW / 2],
+      ].map(([px, pz], i) => (
+        <mesh key={`post-${i}`} position={[px, totalY / 2, pz]}>
+          <boxGeometry args={[postW, totalY, postW]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.8} />
+        </mesh>
+      ))}
+
+      {/* Front and back slats (along length) */}
+      {[-w / 2 + slat / 2, w / 2 - slat / 2].map((z, si) => {
+        const numSlats = Math.max(2, Math.round(bedH / (5 * S)));
+        return Array.from({ length: numSlats }, (_, j) => {
+          const slatH = (bedH - trimH) / numSlats;
+          const y = bedBaseY + trimH + slatH * j + slatH / 2;
+          return (
+            <mesh key={`fb-${si}-${j}`} position={[0, y, z]}>
+              <boxGeometry args={[l - postW * 2, slatH * 0.9, slat]} />
+              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.7} />
+            </mesh>
+          );
+        });
+      }).flat()}
+
+      {/* Left and right slats (along width) */}
+      {[-l / 2 + slat / 2, l / 2 - slat / 2].map((x, si) => {
+        const numSlats = Math.max(2, Math.round(bedH / (5 * S)));
+        return Array.from({ length: numSlats }, (_, j) => {
+          const slatH = (bedH - trimH) / numSlats;
+          const y = bedBaseY + trimH + slatH * j + slatH / 2;
+          return (
+            <mesh key={`lr-${si}-${j}`} position={[x, y, 0]}>
+              <boxGeometry args={[slat, slatH * 0.9, w - postW * 2]} />
+              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.7} />
+            </mesh>
+          );
+        });
+      }).flat()}
+
+      {/* Top trim cap */}
+      <mesh position={[0, bedBaseY + bedH - trimH / 2, 0]}>
+        <boxGeometry args={[l, trimH, w]} />
+        <meshStandardMaterial color={CEDAR_DARK} roughness={0.6} />
+      </mesh>
+
+      {/* Soil fill */}
+      <mesh position={[0, bedBaseY + bedH * 0.4, 0]}>
+        <boxGeometry args={[l - postW * 2 - slat, bedH * 0.6, w - postW * 2 - slat]} />
+        <meshStandardMaterial color={SOIL_COLOR} roughness={1} />
+      </mesh>
+
+      {/* Legs (if elevated) */}
+      {hasLegs && [
+        [-l / 2 + postW / 2, -w / 2 + postW / 2],
+        [l / 2 - postW / 2, -w / 2 + postW / 2],
+        [-l / 2 + postW / 2, w / 2 - postW / 2],
+        [l / 2 - postW / 2, w / 2 - postW / 2],
+      ].map(([px, pz], i) => (
+        <mesh key={`leg-${i}`} position={[px, legH / 2, pz]}>
+          <boxGeometry args={[postW, legH, postW]} />
+          <meshStandardMaterial color={CEDAR_DARK} roughness={0.8} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1346,6 +1447,10 @@ function computeItemOverallH(item: MultiUnit3DItem): number {
   if (item.overheadConfig) {
     const totalDrop = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
     return totalDrop;
+  }
+  // Raised bed planter
+  if (item.raisedBedConfig) {
+    return item.raisedBedConfig.heightIn;
   }
   // Open shelving unit — use its frameH directly
   if (item.shelvingConfig) {
@@ -1443,6 +1548,8 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
           <group key={i} position={[x, y, 0]}>
             {item.overheadConfig ? (
               <OverheadAssembly config={item.overheadConfig} />
+            ) : item.raisedBedConfig ? (
+              <RaisedBedAssembly config={item.raisedBedConfig} />
             ) : item.shelvingConfig ? (
               <ShelvingAssembly config={item.shelvingConfig} />
             ) : item.presetUnits && item.presetUnits.length > 0 ? (
@@ -1501,6 +1608,7 @@ function TextureGuard() {
 export default function Rack3D(props: Rack3DProps) {
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isOverhead = !!props.overheadConfig;
+  const isRaisedBed = !!props.raisedBedConfig;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
   const isShelving = !!props.shelvingConfig;
   const wmText = props.watermarkText || "Storage-Network.app";
@@ -1587,6 +1695,12 @@ export default function Rack3D(props: Rack3DProps) {
             <OverheadCameraRig config={props.overheadConfig!} />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <OverheadAssembly config={props.overheadConfig!} />
+            </Stage>
+          </>
+        ) : isRaisedBed ? (
+          <>
+            <Stage intensity={0.6} environment={null}>
+              <RaisedBedAssembly config={props.raisedBedConfig!} />
             </Stage>
           </>
         ) : isShelving ? (
