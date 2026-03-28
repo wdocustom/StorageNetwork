@@ -106,6 +106,8 @@ interface RackVisualizerProps {
   shelvingConfig?: ShelvingConfig3D;
   /** When set, renders a ceiling tote rail system */
   overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes?: boolean };
+  /** When set, renders a raised bed planter */
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
   /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
@@ -141,6 +143,7 @@ export interface MultiUnitItem {
   shelvingConfigId?: string;
   shelvingConfig?: { widthIn: number; frameH: number; depth: number; shelves: number };
   overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   visible: boolean;
   desc: string;
@@ -288,6 +291,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
     : props.overheadConfig;
 
   const bp2dShelvingConfig = activeMultiUnit?.shelvingConfig ?? props.shelvingConfig;
+  const bp2dIsRaisedBed = !!(activeMultiUnit?.raisedBedConfig || props.raisedBedConfig);
 
   const bp2dCols = activeMultiUnit ? activeMultiUnit.cols : props.cols;
   const bp2dRows = activeMultiUnit ? activeMultiUnit.rows : props.rows;
@@ -347,24 +351,34 @@ export default function RackVisualizer(props: RackVisualizerProps) {
             backgroundColor: "#ffffff",
           }}
         >
-          <BlueprintCanvas
-            cols={bp2dCols}
-            rows={bp2dRows}
-            toteType={bp2dToteType}
-            toteColor={bp2dToteColor}
-            unitType={bp2dUnitType}
-            orientation={bp2dOrientation}
-            hasTotes={bp2dHasTotes}
-            hasWheels={bp2dHasWheels}
-            hasTop={bp2dHasTop}
-            totalW={bp2dTotalW}
-            totalH={bp2dTotalH}
-            presetUnits={bp2dPresetUnits}
-            addons={bp2dAddons}
-            shelvingConfig={bp2dShelvingConfig}
-            overheadConfig={bp2dOverheadConfig}
-            watermarkText={props.watermarkText}
-          />
+          {bp2dIsRaisedBed ? (
+            <div className="flex items-center justify-center h-full w-full">
+              <div className="text-center">
+                <p className="text-4xl mb-2">{"\u{1F331}"}</p>
+                <p className="text-sm font-bold text-stone-700">Raised Bed Planter</p>
+                <p className="text-xs text-stone-400 mt-1">Switch to 3D for a full preview</p>
+              </div>
+            </div>
+          ) : (
+            <BlueprintCanvas
+              cols={bp2dCols}
+              rows={bp2dRows}
+              toteType={bp2dToteType}
+              toteColor={bp2dToteColor}
+              unitType={bp2dUnitType}
+              orientation={bp2dOrientation}
+              hasTotes={bp2dHasTotes}
+              hasWheels={bp2dHasWheels}
+              hasTop={bp2dHasTop}
+              totalW={bp2dTotalW}
+              totalH={bp2dTotalH}
+              presetUnits={bp2dPresetUnits}
+              addons={bp2dAddons}
+              shelvingConfig={bp2dShelvingConfig}
+              overheadConfig={bp2dOverheadConfig}
+              watermarkText={props.watermarkText}
+            />
+          )}
         </div>
       ) : (
         <Render3DErrorBoundary
@@ -379,24 +393,34 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 backgroundColor: "#ffffff",
               }}
             >
-              <BlueprintCanvas
-                cols={bp2dCols}
-                rows={bp2dRows}
-                toteType={bp2dToteType}
-                toteColor={bp2dToteColor}
-                unitType={bp2dUnitType}
-                orientation={bp2dOrientation}
-                hasTotes={bp2dHasTotes}
-                hasWheels={bp2dHasWheels}
-                hasTop={bp2dHasTop}
-                totalW={bp2dTotalW}
-                totalH={bp2dTotalH}
-                presetUnits={bp2dPresetUnits}
-                addons={bp2dAddons}
-                shelvingConfig={bp2dShelvingConfig}
-                overheadConfig={bp2dOverheadConfig}
-                watermarkText={props.watermarkText}
-              />
+              {bp2dIsRaisedBed ? (
+                <div className="flex items-center justify-center h-full w-full">
+                  <div className="text-center">
+                    <p className="text-4xl mb-2">{"\u{1F331}"}</p>
+                    <p className="text-sm font-bold text-stone-700">Raised Bed Planter</p>
+                    <p className="text-xs text-stone-400 mt-1">Loading 3D preview...</p>
+                  </div>
+                </div>
+              ) : (
+                <BlueprintCanvas
+                  cols={bp2dCols}
+                  rows={bp2dRows}
+                  toteType={bp2dToteType}
+                  toteColor={bp2dToteColor}
+                  unitType={bp2dUnitType}
+                  orientation={bp2dOrientation}
+                  hasTotes={bp2dHasTotes}
+                  hasWheels={bp2dHasWheels}
+                  hasTop={bp2dHasTop}
+                  totalW={bp2dTotalW}
+                  totalH={bp2dTotalH}
+                  presetUnits={bp2dPresetUnits}
+                  addons={bp2dAddons}
+                  shelvingConfig={bp2dShelvingConfig}
+                  overheadConfig={bp2dOverheadConfig}
+                  watermarkText={props.watermarkText}
+                />
+              )}
             </div>
           }
         >
@@ -433,6 +457,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 paintSidePanelColor={props.paintSidePanelColor}
                 shelvingConfig={props.shelvingConfig}
                 overheadConfig={props.overheadConfig}
+                raisedBedConfig={props.raisedBedConfig}
                 multiUnitItems={props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
                   cols: u.cols,
                   rows: u.rows,
@@ -452,6 +477,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   paintSidePanelColor: u.paintSidePanelColor,
                   shelvingConfig: u.shelvingConfig,
                   overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
+                  raisedBedConfig: u.raisedBedConfig,
                   presetUnits: u.presetUnits,
                 }))}
                 watermarkText={props.watermarkText}
