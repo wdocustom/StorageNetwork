@@ -79,7 +79,7 @@ interface MultiUnit3DItem {
   /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
   presetUnits?: SubUnit3D[];
   /** When set, this item is a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string };
 }
 
 /** Overhead ceiling tote rail config for 3D rendering */
@@ -114,7 +114,7 @@ interface Rack3DProps {
   /** When set, renders an overhead ceiling storage unit */
   overheadConfig?: OverheadConfig3D;
   /** When set, renders a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
   /** Text displayed as a diagonal watermark behind the 3D scene */
@@ -1352,8 +1352,12 @@ const SOIL_COLOR = "#3e2723";
 const WIRE_COLOR = "#94a3b8";
 const FRAME_WIRE_COLOR = "#78716c";
 
-function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string } }) {
-  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover } = config;
+function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string } }) {
+  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover, finish } = config;
+
+  // Color based on finish
+  const boardColor = finish === "painted_white" ? "#f5f5f4" : finish === "stain" ? "#8b5e3c" : CEDAR_COLOR;
+  const postColor = finish === "painted_white" ? "#e7e5e4" : finish === "stain" ? "#6d4427" : CEDAR_DARK;
 
   const w = widthIn * S;    // depth (front-to-back)
   const l = lengthIn * S;   // length (left-to-right)
@@ -1381,7 +1385,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
       ].map(([px, pz], i) => (
         <mesh key={`leg-${i}`} position={[px, legH / 2, pz]}>
           <boxGeometry args={[postSize, legH, postSize]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.85} />
+          <meshStandardMaterial color={postColor} roughness={0.85} />
         </mesh>
       ))}
 
@@ -1394,7 +1398,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
       ].map(([px, pz], i) => (
         <mesh key={`post-${i}`} position={[px, legH + boxH / 2, pz]}>
           <boxGeometry args={[postSize, boxH, postSize]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.85} />
+          <meshStandardMaterial color={postColor} roughness={0.85} />
         </mesh>
       ))}
 
@@ -1406,7 +1410,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
           return (
             <mesh key={`fb-${si}-${j}`} position={[0, y, z]}>
               <boxGeometry args={[l - postSize * 2, actualBoardH - gapH, boardT]} />
-              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.75} />
+              <meshStandardMaterial color={boardColor} roughness={0.75} />
             </mesh>
           );
         });
@@ -1420,7 +1424,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
           return (
             <mesh key={`lr-${si}-${j}`} position={[x, y, 0]}>
               <boxGeometry args={[boardT, actualBoardH - gapH, w - postSize * 2]} />
-              <meshStandardMaterial color={CEDAR_COLOR} roughness={0.75} />
+              <meshStandardMaterial color={boardColor} roughness={0.75} />
             </mesh>
           );
         });
@@ -1431,14 +1435,14 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
       {[-1, 1].map((side, si) => (
         <mesh key={`trim-fb-${si}`} position={[0, legH + boxH + trimT / 2, side * (w / 2 - trimW / 2)]}>
           <boxGeometry args={[l, trimT, trimW]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.7} />
+          <meshStandardMaterial color={postColor} roughness={0.7} />
         </mesh>
       ))}
       {/* Left & right trim */}
       {[-1, 1].map((side, si) => (
         <mesh key={`trim-lr-${si}`} position={[side * (l / 2 - trimW / 2), legH + boxH + trimT / 2, 0]}>
           <boxGeometry args={[trimW, trimT, w - trimW * 2]} />
-          <meshStandardMaterial color={CEDAR_DARK} roughness={0.7} />
+          <meshStandardMaterial color={postColor} roughness={0.7} />
         </mesh>
       ))}
 

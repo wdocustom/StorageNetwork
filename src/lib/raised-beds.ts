@@ -241,6 +241,7 @@ export function getPestCoverPrice(
 export interface RaisedBedConfig {
   sizeId: string;
   finish: RaisedBedFinish;
+  hasLiner: boolean;
   depthIncrease: boolean;
   bottomShelf: boolean;
   pestCover: PestCoverType;
@@ -261,10 +262,13 @@ export function calculateRaisedBedPrice(config: RaisedBedConfig): {
   // Finish
   if (config.finish === "stain") {
     breakdown.push({ label: "Cedar Stain", amount: bed.stainPrice });
-  } else if (config.finish === "liner") {
-    breakdown.push({ label: "Landscape Liner", amount: bed.linerPrice });
   } else if (config.finish === "painted_white") {
     breakdown.push({ label: "Painted White", amount: bed.paintedWhitePrice });
+  }
+
+  // Liner (separate add-on, compatible with any finish)
+  if (config.hasLiner) {
+    breakdown.push({ label: "Landscape Liner", amount: bed.linerPrice });
   }
 
   // Depth increase
@@ -305,9 +309,9 @@ export function getRaisedBedDescription(config: RaisedBedConfig): string {
   else parts.push("(ground-level)");
 
   if (config.finish === "stain") parts.push("+ Stain");
-  else if (config.finish === "liner") parts.push("+ Liner");
   else if (config.finish === "painted_white") parts.push("+ Painted White");
 
+  if (config.hasLiner) parts.push("+ Liner");
   if (config.depthIncrease) parts.push("+ 12\" Depth");
   if (config.bottomShelf) parts.push("+ Bottom Shelf");
 

@@ -38,6 +38,7 @@ export default function RaisedBedDropdown({
   const [style, setStyle] = useState<"with_legs" | "without_legs">("without_legs");
   const [sizeId, setSizeId] = useState<string | null>(null);
   const [finish, setFinish] = useState<RaisedBedFinish>("natural");
+  const [hasLiner, setHasLiner] = useState(false);
   const [depthIncrease, setDepthIncrease] = useState(false);
   const [bottomShelf, setBottomShelf] = useState(false);
   const [pestCover, setPestCover] = useState<PestCoverType>("none");
@@ -48,12 +49,13 @@ export default function RaisedBedDropdown({
   // Calculate price
   const calculation = useMemo(() => {
     if (!sizeId) return null;
-    return calculateRaisedBedPrice({ sizeId, finish, depthIncrease, bottomShelf, pestCover });
-  }, [sizeId, finish, depthIncrease, bottomShelf, pestCover]);
+    return calculateRaisedBedPrice({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover });
+  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover]);
 
   // Notify parent for 3D preview
   const handleSizeChange = (id: string | null) => {
     setSizeId(id);
+    setHasLiner(false);
     setDepthIncrease(false);
     setBottomShelf(false);
     setPestCover("none");
@@ -65,15 +67,17 @@ export default function RaisedBedDropdown({
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
     setStyle(s);
     setSizeId(null);
+    setHasLiner(false);
     setDepthIncrease(false);
     setBottomShelf(false);
     setPestCover("none");
+    setFinish("natural");
     onConfigPreview?.(null);
   };
 
   function handleAdd() {
     if (!sizeId || !calculation) return;
-    const config: RaisedBedConfig = { sizeId, finish, depthIncrease, bottomShelf, pestCover };
+    const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover };
     const desc = getRaisedBedDescription(config);
     onAddRaisedBed(config, calculation.total, desc);
     // Reset
@@ -190,11 +194,10 @@ export default function RaisedBedDropdown({
                     <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
                       Finish
                     </label>
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1.5">
                       {([
                         { id: "natural" as RaisedBedFinish, label: "Natural Cedar", price: 0 },
                         { id: "stain" as RaisedBedFinish, label: "Cedar Stain", price: selectedBed.stainPrice },
-                        { id: "liner" as RaisedBedFinish, label: "Landscape Liner", price: selectedBed.linerPrice },
                         { id: "painted_white" as RaisedBedFinish, label: "Painted White", price: selectedBed.paintedWhitePrice },
                       ]).map((f) => (
                         <button
@@ -217,6 +220,20 @@ export default function RaisedBedDropdown({
                       ))}
                     </div>
                   </div>
+
+                  {/* Landscape Liner */}
+                  <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-300">Add Landscape Liner</p>
+                      <p className="text-[10px] text-zinc-500">+${selectedBed.linerPrice}</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={hasLiner}
+                      onChange={(e) => setHasLiner(e.target.checked)}
+                      className="accent-yellow-400"
+                    />
+                  </label>
 
                   {/* Depth Increase */}
                   {selectedBed.depthIncreaseAvailable && (

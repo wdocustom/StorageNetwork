@@ -446,6 +446,7 @@ export default function DesignConfigurator({
                 hasLegs: bed.style === "with_legs",
                 groundClearance: bed.groundClearance,
                 pestCover: item.raisedBedConfig!.pestCover,
+                finish: item.raisedBedConfig!.finish,
               } : undefined;
             })()
           : undefined,
@@ -1718,7 +1719,7 @@ export default function DesignConfigurator({
               overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
               raisedBedConfig={raisedBedPreview ? (() => {
                 const bed = RAISED_BED_SIZES.find((s) => s.widthIn === raisedBedPreview.widthIn && s.lengthIn === raisedBedPreview.lengthIn && s.heightIn === raisedBedPreview.heightIn);
-                return bed ? { widthIn: bed.widthIn, lengthIn: bed.lengthIn, heightIn: bed.heightIn, hasLegs: bed.style === "with_legs", groundClearance: bed.groundClearance, pestCover: undefined } : undefined;
+                return bed ? { widthIn: bed.widthIn, lengthIn: bed.lengthIn, heightIn: bed.heightIn, hasLegs: bed.style === "with_legs", groundClearance: bed.groundClearance, pestCover: undefined, finish: undefined } : undefined;
               })() : undefined}
               watermarkText={data?.branding.title || "Storage-Network.app"}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
