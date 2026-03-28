@@ -1543,6 +1543,46 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
   );
 }
 
+function RaisedBedCameraRig({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number } }) {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
+
+  const rl = config.lengthIn * S;
+  const rw = config.widthIn * S;
+  const rh = config.heightIn * S;
+  const maxDim = Math.max(rl, rw, rh);
+  const dist = maxDim * 2.5;
+
+  useEffect(() => {
+    camera.position.set(dist * 0.7, dist * 0.5, dist * 0.7);
+    camera.lookAt(0, rh / 2, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, rh / 2, 0);
+      controlsRef.current.update();
+    }
+  }, [camera, dist, rh]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      autoRotate
+      autoRotateSpeed={0.4}
+      enablePan
+      panSpeed={0.5}
+      rotateSpeed={0.6}
+      zoomSpeed={0.8}
+      minPolarAngle={0.1}
+      maxPolarAngle={Math.PI / 1.5}
+      minDistance={0.2}
+      maxDistance={dist * 5}
+      target={[0, rh / 2, 0]}
+      enableDamping
+      dampingFactor={0.08}
+    />
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1805,7 +1845,8 @@ export default function Rack3D(props: Rack3DProps) {
           </>
         ) : isRaisedBed ? (
           <>
-            <Stage intensity={0.6} environment={null}>
+            <RaisedBedCameraRig config={props.raisedBedConfig!} />
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <RaisedBedAssembly config={props.raisedBedConfig!} />
             </Stage>
           </>
