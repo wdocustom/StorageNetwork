@@ -325,7 +325,7 @@ export default function DesignConfigurator({
 
   // ── Raised Bed Planters ─────────────────────────────────────────────
   const raisedBedEnabled = data?.pricing?.raised_bed_enabled === true;
-  const [raisedBedPreview, setRaisedBedPreview] = useState<{ widthIn: number; lengthIn: number; heightIn: number; label: string } | null>(null);
+  const [raisedBedPreview, setRaisedBedPreview] = useState<{ widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string } | null>(null);
 
   function handleAddRaisedBed(
     config: RaisedBedConfig,
@@ -1548,13 +1548,7 @@ export default function DesignConfigurator({
           // Raised Bed Planters
           raisedBedHidden={!raisedBedEnabled}
           onAddRaisedBed={handleAddRaisedBed}
-          onRaisedBedPreview={(bed) => {
-            if (bed) {
-              setRaisedBedPreview({ widthIn: bed.widthIn, lengthIn: bed.lengthIn, heightIn: bed.heightIn, label: bed.label });
-            } else {
-              setRaisedBedPreview(null);
-            }
-          }}
+          onRaisedBedPreview={setRaisedBedPreview}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={showMultiUnit3D}
@@ -1717,10 +1711,7 @@ export default function DesignConfigurator({
               paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
               shelvingConfig={activeShelvingConfig}
               overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
-              raisedBedConfig={raisedBedPreview ? (() => {
-                const bed = RAISED_BED_SIZES.find((s) => s.widthIn === raisedBedPreview.widthIn && s.lengthIn === raisedBedPreview.lengthIn && s.heightIn === raisedBedPreview.heightIn);
-                return bed ? { widthIn: bed.widthIn, lengthIn: bed.lengthIn, heightIn: bed.heightIn, hasLegs: bed.style === "with_legs", groundClearance: bed.groundClearance, pestCover: undefined, finish: undefined } : undefined;
-              })() : undefined}
+              raisedBedConfig={raisedBedPreview || undefined}
               watermarkText={data?.branding.title || "Storage-Network.app"}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
               multiUnitControls={orderItems.length >= 1 ? {
@@ -1743,9 +1734,9 @@ export default function DesignConfigurator({
               </>
             ) : raisedBedPreview ? (
               <>
-                {raisedBedPreview.widthIn}&quot; W &times;{" "}
-                {raisedBedPreview.lengthIn}&quot; L &times;{" "}
-                {raisedBedPreview.heightIn}&quot; H
+                {raisedBedPreview.widthIn}&quot; &times;{" "}
+                {raisedBedPreview.lengthIn}&quot; &times;{" "}
+                {raisedBedPreview.heightIn}&quot;
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
                   Raised Bed
                 </span>

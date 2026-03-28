@@ -1515,17 +1515,27 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
               <meshStandardMaterial color={WIRE_COLOR} transparent opacity={isHoop ? 0.2 : 0.12} roughness={0.5} />
             </mesh>
 
-            {/* Hoop arches */}
+            {/* Hoop arches — half-circle arches made from thin curved tubes */}
             {isHoop && Array.from({ length: Math.max(3, Math.round(lengthIn / 18)) }, (_, i) => {
               const count = Math.max(3, Math.round(lengthIn / 18));
               const x = -l / 2 + l * (i + 0.5) / count;
+              const hoopRadius = w / 2;
+              const tubeRadius = 0.5 * S;
               return (
-                <mesh key={`hoop-${i}`} position={[x, cageH / 2, 0]}>
-                  <boxGeometry args={[1 * S, cageH, w]} />
-                  <meshStandardMaterial color={FRAME_WIRE_COLOR} transparent opacity={0.4} roughness={0.6} />
+                <mesh key={`hoop-${i}`} position={[x, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                  <torusGeometry args={[hoopRadius, tubeRadius, 8, 24, Math.PI]} />
+                  <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.7} />
                 </mesh>
               );
             })}
+
+            {/* Hoop netting fabric — semi-transparent half-cylinder shell */}
+            {isHoop && (
+              <mesh position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                <torusGeometry args={[w / 2 - 0.5 * S, 0.1 * S, 4, 24, Math.PI]} />
+                <meshStandardMaterial color={WIRE_COLOR} transparent opacity={0.08} roughness={0.3} side={2} />
+              </mesh>
+            )}
           </group>
         );
       })()}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Sprout, Plus, Loader2, Star } from "lucide-react";
 import {
@@ -25,7 +25,7 @@ import { RollingPrice } from "./configurator-primitives";
 
 interface RaisedBedDropdownProps {
   onAddRaisedBed: (config: RaisedBedConfig, price: number, desc: string) => void;
-  onConfigPreview?: (bed: RaisedBedSize | null) => void;
+  onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string } | null) => void;
 }
 
 export default function RaisedBedDropdown({
@@ -52,7 +52,25 @@ export default function RaisedBedDropdown({
     return calculateRaisedBedPrice({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover });
   }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover]);
 
-  // Notify parent for 3D preview
+  // Notify parent of live config for 3D preview on every change
+  useEffect(() => {
+    if (!sizeId || !expanded) {
+      onConfigPreview?.(null);
+      return;
+    }
+    const bed = RAISED_BED_SIZES.find((s) => s.id === sizeId);
+    if (!bed) { onConfigPreview?.(null); return; }
+    onConfigPreview?.({
+      widthIn: bed.widthIn,
+      lengthIn: bed.lengthIn,
+      heightIn: bed.heightIn,
+      hasLegs: bed.style === "with_legs",
+      groundClearance: bed.groundClearance,
+      pestCover,
+      finish,
+    });
+  }, [sizeId, finish, pestCover, expanded, onConfigPreview]);
+
   const handleSizeChange = (id: string | null) => {
     setSizeId(id);
     setHasLiner(false);
@@ -60,8 +78,6 @@ export default function RaisedBedDropdown({
     setBottomShelf(false);
     setPestCover("none");
     setFinish("natural");
-    const bed = id ? RAISED_BED_SIZES.find((s) => s.id === id) : null;
-    onConfigPreview?.(bed || null);
   };
 
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
