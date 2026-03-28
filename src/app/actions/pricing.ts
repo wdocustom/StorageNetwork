@@ -92,7 +92,7 @@ export async function updateInstallerPricing(
           return { success: false, error: `Invalid value for ${field}. Must be a positive number.` };
         }
         // Round to 2 decimal places
-        validated[field] = Math.round(num * 100) / 100;
+        (validated as Record<string, number>)[field] = Math.round(num * 100) / 100;
       }
       // undefined/null fields are omitted — they'll use platform defaults
     }
@@ -106,6 +106,9 @@ export async function updateInstallerPricing(
     }
     if (pricing.overhead_storage_enabled === true) {
       (validated as Record<string, unknown>).overhead_storage_enabled = true;
+    }
+    if (pricing.raised_bed_enabled === true) {
+      (validated as Record<string, unknown>).raised_bed_enabled = true;
     }
     for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled"] as const) {
       if (pricing[bk] === true) {
