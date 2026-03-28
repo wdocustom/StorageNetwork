@@ -67,6 +67,8 @@ interface UnitConfig {
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
   /** When set, this order item is a compound preset with sub-units (e.g. Indiana Joe) */
   presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
+  /** When set, this order item is a raised bed planter */
+  raisedBedConfig?: RaisedBedConfig;
 }
 
 interface ServerBuild {
@@ -431,6 +433,18 @@ export default function DesignConfigurator({
               const cfg = item.overheadStorageConfig;
               const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
               return preset ? { slotsWide: preset.slotsWide, slotsDeep: preset.slotsDeep, toteType: cfg.toteType } : undefined;
+            })()
+          : undefined,
+        raisedBedConfig: item.raisedBedConfig
+          ? (() => {
+              const bed = RAISED_BED_SIZES.find((s) => s.id === item.raisedBedConfig!.sizeId);
+              return bed ? {
+                widthIn: bed.widthIn,
+                lengthIn: bed.lengthIn,
+                heightIn: bed.heightIn,
+                hasLegs: bed.style === "with_legs",
+                groundClearance: bed.groundClearance,
+              } : undefined;
             })()
           : undefined,
         presetUnits: item.presetUnits,
