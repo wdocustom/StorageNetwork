@@ -194,14 +194,15 @@ export async function processAbandonedCarts(): Promise<{
       }
 
       try {
-        // Get installer name if assigned
+        // Get installer name if assigned — skip if installer is suspended
         let installerName: string | null = null;
         if (lead.installer_id) {
           const { data: installer } = await db()
             .from("profiles")
-            .select("business_name, first_name")
+            .select("business_name, first_name, is_suspended")
             .eq("id", lead.installer_id)
             .single();
+          if (installer?.is_suspended) continue;
           installerName = installer?.business_name || installer?.first_name || null;
         }
 

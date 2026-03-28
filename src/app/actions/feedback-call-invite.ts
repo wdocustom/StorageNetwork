@@ -44,6 +44,7 @@ export async function processFeedbackCallInvite(): Promise<FeedbackCallResult> {
       .select("id, email, first_name, business_name")
       .or("feedback_call_email_sent.is.null,feedback_call_email_sent.eq.false")
       .not("email", "is", null)
+      .neq("is_suspended", true)
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);

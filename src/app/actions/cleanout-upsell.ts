@@ -116,12 +116,15 @@ export async function processCleanoutUpsells(): Promise<{
         const { data: installer } = await db()
           .from("profiles")
           .select(
-            "id, business_name, first_name, last_name, phone, avatar_url, stripe_account_id, services_config, is_pro"
+            "id, business_name, first_name, last_name, phone, avatar_url, stripe_account_id, services_config, is_pro, is_suspended"
           )
           .eq("id", lead.installer_id)
           .single();
 
         if (!installer) continue;
+
+        // Skip leads belonging to suspended/locked installers
+        if (installer.is_suspended) continue;
 
         // Resolve cleanout services from installer's services_config
         const servicesConfig = (installer.services_config as ServiceOffering[] | null) ?? DEFAULT_SERVICES;

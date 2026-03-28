@@ -42,6 +42,7 @@ export async function processJigAnnouncement(): Promise<AnnouncementResult> {
       .select("id, email, first_name, business_name")
       .or("jig_email_mar2026_sent.is.null,jig_email_mar2026_sent.eq.false")
       .not("email", "is", null)
+      .neq("is_suspended", true)
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);

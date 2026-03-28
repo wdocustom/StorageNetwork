@@ -47,6 +47,7 @@ export async function processOnboardingDrip(): Promise<DripResult> {
       .from("profiles")
       .select("id, email, first_name, last_name, business_name, slug, onboarding_step, created_at")
       .lt("onboarding_step", 4)
+      .neq("is_suspended", true)
       .lte("created_at", twoDaysAgo.toISOString())
       .limit(50); // Batch size to avoid rate limits
 

@@ -45,6 +45,7 @@ export async function processBountyAnnouncement(): Promise<BountyAnnouncementRes
       .select("id, email, first_name, business_name, slug")
       .or("bounty_email_mar2026_sent.is.null,bounty_email_mar2026_sent.eq.false")
       .not("email", "is", null)
+      .neq("is_suspended", true)
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);

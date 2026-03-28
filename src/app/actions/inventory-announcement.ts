@@ -39,6 +39,7 @@ export async function processInventoryAnnouncement(): Promise<AnnouncementResult
       .select("id, email, first_name, business_name")
       .or("inventory_announcement_email_sent.is.null,inventory_announcement_email_sent.eq.false")
       .not("email", "is", null)
+      .neq("is_suspended", true)
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);
