@@ -107,7 +107,7 @@ interface RackVisualizerProps {
   /** When set, renders a ceiling tote rail system */
   overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes?: boolean };
   /** When set, renders a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
   /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
@@ -143,7 +143,7 @@ export interface MultiUnitItem {
   shelvingConfigId?: string;
   shelvingConfig?: { widthIn: number; frameH: number; depth: number; shelves: number };
   overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   visible: boolean;
   desc: string;

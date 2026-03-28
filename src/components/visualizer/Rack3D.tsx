@@ -79,7 +79,7 @@ interface MultiUnit3DItem {
   /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
   presetUnits?: SubUnit3D[];
   /** When set, this item is a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
 }
 
 /** Overhead ceiling tote rail config for 3D rendering */
@@ -114,7 +114,7 @@ interface Rack3DProps {
   /** When set, renders an overhead ceiling storage unit */
   overheadConfig?: OverheadConfig3D;
   /** When set, renders a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
   /** Text displayed as a diagonal watermark behind the 3D scene */
@@ -1349,8 +1349,11 @@ const CEDAR_COLOR = "#c87533";
 const CEDAR_DARK = "#a0522d";
 const SOIL_COLOR = "#3e2723";
 
-function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number } }) {
-  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance } = config;
+const WIRE_COLOR = "#94a3b8";
+const FRAME_WIRE_COLOR = "#78716c";
+
+function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string } }) {
+  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover } = config;
 
   const w = widthIn * S;    // depth (front-to-back)
   const l = lengthIn * S;   // length (left-to-right)
@@ -1444,6 +1447,84 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
         <boxGeometry args={[l - postSize * 2 - boardT * 2, boxH * 0.05, w - postSize * 2 - boardT * 2]} />
         <meshStandardMaterial color={SOIL_COLOR} roughness={1} />
       </mesh>
+
+      {/* ── PEST PROTECTION CAGE ───────────────────────── */}
+      {pestCover && pestCover !== "none" && (() => {
+        const topOfBed = legH + boxH + trimT;
+        const cageH = pestCover === "cabinet_48" ? 48 * S
+          : pestCover === "cabinet_24" ? 24 * S
+          : pestCover === "rigid_cage" ? 18 * S
+          : 14 * S; // hoop
+        const frameT = 1.5 * S;
+        const isHoop = pestCover === "hoop";
+
+        return (
+          <group position={[0, topOfBed, 0]}>
+            {/* Corner uprights */}
+            {!isHoop && [
+              [-l / 2 + frameT / 2, -w / 2 + frameT / 2],
+              [l / 2 - frameT / 2, -w / 2 + frameT / 2],
+              [-l / 2 + frameT / 2, w / 2 - frameT / 2],
+              [l / 2 - frameT / 2, w / 2 - frameT / 2],
+            ].map(([px, pz], i) => (
+              <mesh key={`cage-post-${i}`} position={[px, cageH / 2, pz]}>
+                <boxGeometry args={[frameT, cageH, frameT]} />
+                <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+              </mesh>
+            ))}
+
+            {/* Top frame */}
+            {!isHoop && (
+              <>
+                {[-1, 1].map((side, i) => (
+                  <mesh key={`cage-top-fb-${i}`} position={[0, cageH, side * (w / 2 - frameT / 2)]}>
+                    <boxGeometry args={[l, frameT, frameT]} />
+                    <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+                  </mesh>
+                ))}
+                {[-1, 1].map((side, i) => (
+                  <mesh key={`cage-top-lr-${i}`} position={[side * (l / 2 - frameT / 2), cageH, 0]}>
+                    <boxGeometry args={[frameT, frameT, w]} />
+                    <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+                  </mesh>
+                ))}
+              </>
+            )}
+
+            {/* Wire mesh panels (front, back, left, right) */}
+            {!isHoop && [-1, 1].map((side, si) => (
+              <mesh key={`cage-wire-fb-${si}`} position={[0, cageH / 2, side * (w / 2 - 0.1 * S)]}>
+                <boxGeometry args={[l - frameT * 2, cageH - frameT, 0.2 * S]} />
+                <meshStandardMaterial color={WIRE_COLOR} transparent opacity={0.15} roughness={0.5} />
+              </mesh>
+            ))}
+            {!isHoop && [-1, 1].map((side, si) => (
+              <mesh key={`cage-wire-lr-${si}`} position={[side * (l / 2 - 0.1 * S), cageH / 2, 0]}>
+                <boxGeometry args={[0.2 * S, cageH - frameT, w - frameT * 2]} />
+                <meshStandardMaterial color={WIRE_COLOR} transparent opacity={0.15} roughness={0.5} />
+              </mesh>
+            ))}
+
+            {/* Top mesh/cover */}
+            <mesh position={[0, cageH + frameT / 2, 0]}>
+              <boxGeometry args={[l - frameT * 2, 0.2 * S, w - frameT * 2]} />
+              <meshStandardMaterial color={WIRE_COLOR} transparent opacity={isHoop ? 0.2 : 0.12} roughness={0.5} />
+            </mesh>
+
+            {/* Hoop arches */}
+            {isHoop && Array.from({ length: Math.max(3, Math.round(lengthIn / 18)) }, (_, i) => {
+              const count = Math.max(3, Math.round(lengthIn / 18));
+              const x = -l / 2 + l * (i + 0.5) / count;
+              return (
+                <mesh key={`hoop-${i}`} position={[x, cageH / 2, 0]}>
+                  <boxGeometry args={[1 * S, cageH, w]} />
+                  <meshStandardMaterial color={FRAME_WIRE_COLOR} transparent opacity={0.4} roughness={0.6} />
+                </mesh>
+              );
+            })}
+          </group>
+        );
+      })()}
     </group>
   );
 }
