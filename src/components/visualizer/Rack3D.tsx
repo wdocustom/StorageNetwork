@@ -1473,7 +1473,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
             ].map(([px, pz], i) => (
               <mesh key={`cage-post-${i}`} position={[px, cageH / 2, pz]}>
                 <boxGeometry args={[frameT, cageH, frameT]} />
-                <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+                <meshStandardMaterial color={postColor} roughness={0.8} />
               </mesh>
             ))}
 
@@ -1483,13 +1483,13 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
                 {[-1, 1].map((side, i) => (
                   <mesh key={`cage-top-fb-${i}`} position={[0, cageH, side * (w / 2 - frameT / 2)]}>
                     <boxGeometry args={[l, frameT, frameT]} />
-                    <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+                    <meshStandardMaterial color={postColor} roughness={0.8} />
                   </mesh>
                 ))}
                 {[-1, 1].map((side, i) => (
                   <mesh key={`cage-top-lr-${i}`} position={[side * (l / 2 - frameT / 2), cageH, 0]}>
                     <boxGeometry args={[frameT, frameT, w]} />
-                    <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.8} />
+                    <meshStandardMaterial color={postColor} roughness={0.8} />
                   </mesh>
                 ))}
               </>
@@ -1524,7 +1524,7 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
               return (
                 <mesh key={`hoop-${i}`} position={[x, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
                   <torusGeometry args={[hoopRadius, tubeRadius, 8, 24, Math.PI]} />
-                  <meshStandardMaterial color={FRAME_WIRE_COLOR} roughness={0.7} />
+                  <meshStandardMaterial color={postColor} roughness={0.7} />
                 </mesh>
               );
             })}
