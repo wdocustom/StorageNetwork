@@ -333,7 +333,6 @@ export default function FeaturesPage() {
                 {[
                   "Customer pays deposit upfront — skin in the game",
                   "Full address, contact info, and project specs included",
-                  "Accept or pass — no obligation",
                   "Job ticket includes material list, cut plans, and financials",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-stone-400">
@@ -423,7 +422,9 @@ export default function FeaturesPage() {
                 Save hours of planning on every single job.
                 The platform auto-generates a complete shopping list and a board-by-board
                 cut plan with fractional measurements — so you walk into the lumber yard
-                knowing exactly what to grab and exactly where to cut.
+                knowing exactly what to grab and exactly where to cut. Material lists include
+                direct purchase links for specialty items like caster kits, so you can click
+                through and order the exact hardware we recommend — vetted for quality and value.
               </p>
               <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -434,6 +435,7 @@ export default function FeaturesPage() {
                   <li>3/4&quot; plywood sheet count</li>
                   <li>Tote count by type and color</li>
                   <li>Wheel kits, screws (1&quot;, 1-5/8&quot;, 3&quot;), wood glue</li>
+                  <li>Direct purchase links for caster kits and specialty hardware</li>
                 </ul>
               </div>
               <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
