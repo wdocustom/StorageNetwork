@@ -12,6 +12,10 @@ interface CollapsibleSectionProps {
   children: React.ReactNode;
   /** Whether to start expanded (default: false — starts collapsed) */
   defaultOpen?: boolean;
+  /** Controlled open state — when provided, overrides internal state */
+  isOpen?: boolean;
+  /** Called when the section is toggled (for coordinated collapse) */
+  onToggle?: (open: boolean) => void;
   /** Optional border color class override */
   borderClass?: string;
   /** Optional icon color class override */
@@ -28,19 +32,26 @@ export default function CollapsibleSection({
   description,
   children,
   defaultOpen = false,
+  isOpen: controlledOpen,
+  onToggle,
   borderClass = "border-slate-800",
   iconColor = "text-yellow-400",
   badge,
   badgeColor = "bg-yellow-400/10 text-yellow-400",
 }: CollapsibleSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
   return (
     <section className={`rounded-2xl border ${borderClass} bg-slate-900 overflow-hidden`}>
       {/* Header / Toggle */}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          const next = !open;
+          setInternalOpen(next);
+          onToggle?.(next);
+        }}
         className="flex w-full items-center gap-3 p-5 text-left transition-colors hover:bg-slate-800/30"
       >
         <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />

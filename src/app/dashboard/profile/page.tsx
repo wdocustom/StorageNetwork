@@ -121,6 +121,12 @@ function ProfilePageInner() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // ── Coordinated section collapse — only one open at a time ──────────
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const toggleSection = (id: string) => (open: boolean) => {
+    setActiveSection(open ? id : null);
+  };
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -695,6 +701,8 @@ function ProfilePageInner() {
             SECTION A: Personal & Business Info
         ═══════════════════════════════════════════════════════════════ */}
         <CollapsibleSection
+          isOpen={activeSection === "business"}
+          onToggle={toggleSection("business")}
           icon={User}
           title="Personal & Business Info"
           description="Business name, contact details, address, and photo"
@@ -922,6 +930,8 @@ function ProfilePageInner() {
             SECTION A.5: Service Area Radius
         ═══════════════════════════════════════════════════════════════ */}
         <CollapsibleSection
+          isOpen={activeSection === "servicearea"}
+          onToggle={toggleSection("servicearea")}
           icon={Target}
           title="Service Area"
           description={`${serviceRadius} mile radius from ZIP ${serviceZip || "—"}${zipsCovered ? ` (${zipsCovered.toLocaleString()} ZIPs)` : ""}`}
@@ -1060,6 +1070,8 @@ function ProfilePageInner() {
             SECTION A.6: Delivery Fee Tiers
         ═══════════════════════════════════════════════════════════════ */}
         <CollapsibleSection
+          isOpen={activeSection === "delivery"}
+          onToggle={toggleSection("delivery")}
           icon={Truck}
           title="Delivery Fees"
           description={deliveryFeeEnabled ? `${deliveryTiers.length} distance tier${deliveryTiers.length !== 1 ? "s" : ""} configured` : "Disabled — no delivery fees charged"}
@@ -1221,6 +1233,8 @@ function ProfilePageInner() {
             SECTION B: Stripe Connect (Payouts)
         ═══════════════════════════════════════════════════════════════ */}
         <CollapsibleSection
+          isOpen={activeSection === "stripe"}
+          onToggle={toggleSection("stripe")}
           icon={CreditCard}
           title="Payouts (Stripe Connect)"
           description={stripeStatus?.charges_enabled ? "Connected — deposits go to your bank" : "Not connected — set up to receive payments"}
@@ -1433,6 +1447,8 @@ function ProfilePageInner() {
 
             {/* SECTION D.5: Custom Deposit */}
             <CollapsibleSection
+              isOpen={activeSection === "deposit"}
+              onToggle={toggleSection("deposit")}
               icon={DollarSign}
               title="Customer Deposit"
               description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}

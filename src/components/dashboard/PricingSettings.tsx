@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DollarSign,
   Loader2,
@@ -270,6 +270,9 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [raisedBedEnabled, setRaisedBedEnabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
+  // ── Collapsible pricing categories ──────────────────────────────────
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
   // ── Organizer Customization (addon pricing) state ──────────────────
   const [addonExpanded, setAddonExpanded] = useState(false);
   const [addonEnabled, setAddonEnabled] = useState(true);
@@ -282,6 +285,20 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     shelf_enabled: true,
     paint_enabled: true,
   });
+
+  // ── Auto-save: debounced save on any state change ──────────────────
+  const initialLoadDone = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!initialLoadDone.current) return; // Skip until first load completes
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      handleSave();
+    }, 800); // 800ms debounce
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, presetToggles, addonEnabled, addonValues, addonToggles]);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -325,6 +342,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
     }
     setLoading(false);
+    // Mark initial load complete so auto-save doesn't fire on mount
+    setTimeout(() => { initialLoadDone.current = true; }, 100);
   }, [userId]);
 
   useEffect(() => {
@@ -628,24 +647,40 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         </button>
       </div>
 
-      {/* Pricing Categories */}
-      <div className="space-y-5">
+      {/* Pricing Categories — collapsible */}
+      <div className="space-y-2">
         {categories.map((cat) => {
           const isCatDisabled =
             (cat.key === "mini" && !miniEnabled) ||
             (cat.key === "shelving" && !shelvingEnabled) ||
             (cat.key === "overhead" && !overheadEnabled);
+          const isExpanded = expandedCategory === cat.key;
+          const hasCustom = cat.fields.some((f) => values[f.key] !== undefined && values[f.key] !== "");
 
           return (
             <div key={cat.key} className={isCatDisabled ? "opacity-40 pointer-events-none" : ""}>
-              <h3 className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                {cat.label}
-              </h3>
-              {cat.hint && (
-                <p className="mb-3 text-[11px] leading-relaxed text-stone-600">
-                  {cat.hint}
-                </p>
-              )}
+              <button
+                type="button"
+                onClick={() => setExpandedCategory(isExpanded ? null : cat.key)}
+                className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2.5 text-left transition-colors hover:bg-slate-800/60"
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    {cat.label}
+                  </h3>
+                  {hasCustom && (
+                    <span className="rounded-full bg-yellow-400/20 px-1.5 py-0.5 text-[8px] font-bold text-yellow-400">Custom</span>
+                  )}
+                </div>
+                <ChevronDown className={`h-3.5 w-3.5 text-stone-600 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {isExpanded && (
+                <div className="mt-2 space-y-2 pb-2">
+                  {cat.hint && (
+                    <p className="text-[11px] leading-relaxed text-stone-600 px-1">
+                      {cat.hint}
+                    </p>
+                  )}
               <div className="space-y-2">
                 {cat.fields.map((field) => {
                   // For bestsellers, extract the preset id for toggle
@@ -700,6 +735,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                   );
                 })}
               </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -880,50 +917,34 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="mt-5 flex gap-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
-        >
+      {/* Auto-save indicator */}
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-[10px] text-stone-600">
           {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <>
+              <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+              <span className="text-yellow-400">Saving...</span>
+            </>
+          ) : message ? (
+            <>
+              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+              <span className="text-emerald-400">Saved</span>
+            </>
           ) : (
-            <Save className="h-4 w-4" />
+            <span>Changes save automatically</span>
           )}
-          {saving ? "Saving..." : "Save Pricing"}
-        </button>
-
+        </div>
         {hasCustomValues() && (
           <button
             onClick={handleReset}
             disabled={resetting}
-            className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-stone-400 transition-colors hover:bg-slate-700 hover:text-white disabled:opacity-50"
-            title="Reset to platform defaults"
+            className="flex items-center gap-1 text-[10px] font-medium text-stone-500 hover:text-red-400 transition-colors disabled:opacity-50"
           >
-            {resetting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4" />
-            )}
+            {resetting ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+            Reset to defaults
           </button>
         )}
       </div>
-
-      {/* Status Message */}
-      {message && (
-        <div
-          className={`mt-3 flex items-center justify-center gap-1.5 text-xs font-medium ${
-            messageType === "success" ? "text-emerald-400" : "text-red-400"
-          }`}
-        >
-          {messageType === "success" && (
-            <CheckCircle2 className="h-3.5 w-3.5" />
-          )}
-          {message}
-        </div>
-      )}
     </section>
   );
 }
