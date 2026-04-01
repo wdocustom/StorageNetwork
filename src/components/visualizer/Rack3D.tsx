@@ -1453,21 +1453,26 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
       </mesh>
 
       {/* ── STRING LIGHT POST (center 4x4, ~7.5' tall) ─── */}
+      {/* Post starts at bottom of planter box (where dirt sits)
+          and runs up through the box and above */}
       {hasStringLightPost && (() => {
         const centerPostSize = 3.5 * S;
         const ph = (postHeightIn ?? 90) * S;
-        const baseY = legH + boxH + trimT;
+        // Post base = bottom of the planter box (top of legs)
+        const postBaseY = legH;
+        // Total post height = from box bottom, through box, through trim, plus the exposed height above
+        const totalPostH = boxH + trimT + ph;
         const capSize = 5.5 * S;
         const capH = 1.5 * S;
         return (
           <group>
-            {/* 4x4 center post */}
-            <mesh position={[0, baseY + ph / 2, 0]}>
-              <boxGeometry args={[centerPostSize, ph, centerPostSize]} />
+            {/* 4x4 center post — runs from box bottom through to top */}
+            <mesh position={[0, postBaseY + totalPostH / 2, 0]}>
+              <boxGeometry args={[centerPostSize, totalPostH, centerPostSize]} />
               <meshStandardMaterial color={postColor} roughness={0.8} />
             </mesh>
-            {/* Post cap (dark cap at top) */}
-            <mesh position={[0, baseY + ph + capH / 2, 0]}>
+            {/* Post cap (dark solar cap at top) */}
+            <mesh position={[0, postBaseY + totalPostH + capH / 2, 0]}>
               <boxGeometry args={[capSize, capH, capSize]} />
               <meshStandardMaterial color="#1e293b" roughness={0.3} />
             </mesh>
