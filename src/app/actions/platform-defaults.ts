@@ -84,5 +84,15 @@ export async function getPlatformDefaults() {
     bestsellers: PLATFORM_BESTSELLER_DEFAULTS,
     shelving: PLATFORM_SHELVING_DEFAULTS,
     overhead: PLATFORM_OVERHEAD_DEFAULTS,
+    raisedBeds: Object.fromEntries(
+      Object.entries(RAISED_BED_PRICES).map(([k, v]) => [`raised_bed_${k}`, v.basePrice])
+    ) as Record<string, number>,
+    raisedBedAddons: {
+      raised_bed_stain_addon: 35,
+      raised_bed_liner_addon: 25,
+      raised_bed_paint_white_addon: 90,
+      raised_bed_depth_increase_addon: 30,
+      raised_bed_bottom_shelf_addon: 50,
+    },
   };
 }

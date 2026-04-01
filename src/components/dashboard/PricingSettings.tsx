@@ -29,6 +29,7 @@ import { getPlatformDefaults } from "@/app/actions/platform-defaults";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
+import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -38,7 +39,7 @@ interface PricingSettingsProps {
   userId: string;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -48,7 +49,7 @@ interface PriceField {
   /** When true, the default is computed dynamically from the installer's
    *  slot/plywood pricing and shown as "Auto" when empty. */
   dynamicDefault?: boolean;
-  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving" | "overhead";
+  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving" | "overhead" | "raised_beds_elevated" | "raised_beds_ground" | "raised_beds_addons";
 }
 
 /**
@@ -191,6 +192,66 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
       category: "overhead" as const,
     };
   }),
+  // Raised Bed Planter base price overrides — elevated
+  ...RAISED_BED_SIZES.filter((b) => b.style === "with_legs").map((bed) => {
+    const key = `raised_bed_${bed.id}` as PricingNumericKey;
+    const defaultPrice = defs.raisedBeds[key] ?? 0;
+    return {
+      key,
+      label: `${bed.widthIn}"×${bed.lengthIn}" ${bed.hasStringLightPost ? "+ Post" : ""} ${bed.heightIn}"H`,
+      description: `Elevated (platform default: $${defaultPrice})`,
+      defaultValue: defaultPrice,
+      category: "raised_beds_elevated" as const,
+    };
+  }),
+  // Raised Bed Planter base price overrides — ground-level
+  ...RAISED_BED_SIZES.filter((b) => b.style === "without_legs").map((bed) => {
+    const key = `raised_bed_${bed.id}` as PricingNumericKey;
+    const defaultPrice = defs.raisedBeds[key] ?? 0;
+    return {
+      key,
+      label: `${bed.widthIn}"×${bed.lengthIn}" ${bed.heightIn}"H`,
+      description: `Ground-level (platform default: $${defaultPrice})`,
+      defaultValue: defaultPrice,
+      category: "raised_beds_ground" as const,
+    };
+  }),
+  // Raised Bed Addon overrides
+  {
+    key: "raised_bed_stain_addon" as PricingNumericKey,
+    label: "Cedar Stain",
+    description: `Add-on price for stain finish (default: $${defs.raisedBedAddons.raised_bed_stain_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_stain_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_liner_addon" as PricingNumericKey,
+    label: "Landscape Liner",
+    description: `Add-on price for landscape liner (default: $${defs.raisedBedAddons.raised_bed_liner_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_liner_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_paint_white_addon" as PricingNumericKey,
+    label: "Painted White",
+    description: `Add-on price for painted white finish (default: $${defs.raisedBedAddons.raised_bed_paint_white_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_paint_white_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_depth_increase_addon" as PricingNumericKey,
+    label: "Depth Increase to 12\"",
+    description: `Add-on for deeper planting area (default: $${defs.raisedBedAddons.raised_bed_depth_increase_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_depth_increase_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_bottom_shelf_addon" as PricingNumericKey,
+    label: "Bottom Shelf",
+    description: `Add-on for bottom storage shelf on tall beds (default: $${defs.raisedBedAddons.raised_bed_bottom_shelf_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_bottom_shelf_addon,
+    category: "raised_beds_addons" as const,
+  },
 ]; }
 
 /** Row component for each addon type — toggle + price input */
@@ -263,6 +324,11 @@ const EMPTY_DEFAULTS = {
   bestsellers: {} as Record<string, number>,
   shelving: {} as Record<string, number>,
   overhead: {} as Record<string, number>,
+  raisedBeds: {} as Record<string, number>,
+  raisedBedAddons: {
+    raised_bed_stain_addon: 0, raised_bed_liner_addon: 0, raised_bed_paint_white_addon: 0,
+    raised_bed_depth_increase_addon: 0, raised_bed_bottom_shelf_addon: 0,
+  },
 };
 
 export default function PricingSettings({ userId }: PricingSettingsProps) {
@@ -518,6 +584,24 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       hint: "Set a base price for each overhead storage size. Drop height and deck type adjustments are applied on top. Leave empty for platform default.",
       fields: PRICE_FIELDS.filter((f) => f.category === "overhead"),
     },
+    {
+      key: "raised_beds_elevated",
+      label: "Raised Beds — Elevated (with legs)",
+      hint: "Base price for each elevated planter size. Leave empty to use platform defaults.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "raised_beds_elevated"),
+    },
+    {
+      key: "raised_beds_ground",
+      label: "Raised Beds — Ground-Level",
+      hint: "Base price for each ground-level planter size. Leave empty to use platform defaults.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "raised_beds_ground"),
+    },
+    {
+      key: "raised_beds_addons",
+      label: "Raised Bed Add-Ons",
+      hint: "Override add-on prices for stain, liner, paint, depth increase, and bottom shelf.",
+      fields: PRICE_FIELDS.filter((f) => f.category === "raised_beds_addons"),
+    },
   ];
 
   return (
@@ -668,7 +752,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           const isCatDisabled =
             (cat.key === "mini" && !miniEnabled) ||
             (cat.key === "shelving" && !shelvingEnabled) ||
-            (cat.key === "overhead" && !overheadEnabled);
+            (cat.key === "overhead" && !overheadEnabled) ||
+            (cat.key.startsWith("raised_beds") && !raisedBedEnabled);
           const isExpanded = expandedCategory === cat.key;
           const hasCustom = cat.fields.some((f) => values[f.key] !== undefined && values[f.key] !== "");
 

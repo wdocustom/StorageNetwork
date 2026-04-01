@@ -74,7 +74,7 @@ export const RAISED_BED_SIZES: RaisedBedSize[] = [
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "2x6",
   },
   {
-    id: "legs_24x24x16_post", label: "24\" × 24\" String Light Planter", style: "with_legs",
+    id: "legs_24x24x16_post", label: "24\" × 24\" + String Light Post", style: "with_legs",
     widthIn: 24, lengthIn: 24, heightIn: 16.5, internalW: 22, internalL: 22, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "none",
     hasStringLightPost: true, postHeightIn: 90,
