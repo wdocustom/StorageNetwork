@@ -137,6 +137,7 @@ export function calculateOverheadStorage(
   installerPricing?: Record<string, number | boolean | undefined>,
   platformOverheadDefaults?: Record<string, number>,
   basePricePerSlot?: number,
+  defaultTotePrice?: number,
 ): OverheadStorageResult {
   const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === config.gridPresetId);
   if (!preset) throw new Error(`Unknown overhead grid preset: ${config.gridPresetId}`);
@@ -162,11 +163,10 @@ export function calculateOverheadStorage(
     price = (platformOverheadDefaults?.[presetKey]) ?? toteCount * fallbackPerSlot;
   }
 
-  // Tote pricing — use installer override or platform default ($12/ea standard)
-  const OVERHEAD_TOTE_PRICE_DEFAULT = 12;
+  // Tote pricing — use installer override or platform default
   const totePricePerUnit = (typeof installerPricing?.standard_tote === "number")
     ? installerPricing.standard_tote
-    : OVERHEAD_TOTE_PRICE_DEFAULT;
+    : (defaultTotePrice ?? 0);
   const totePrice = config.hasTotes ? toteCount * totePricePerUnit : 0;
   price += totePrice;
 

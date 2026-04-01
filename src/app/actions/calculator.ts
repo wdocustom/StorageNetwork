@@ -626,8 +626,8 @@ export async function calculateOverheadStorageUnit(input: {
   installerPricing?: InstallerPricing;
 }): Promise<{ success: true; result: OverheadStorageResult } | { success: false; error: string }> {
   try {
-    const { PLATFORM_OVERHEAD_DEFAULTS: ohDefaults, OVERHEAD_BASE_PRICE_PER_SLOT: ohSlotPrice } = await import("@/app/actions/platform-defaults");
-    const result = calcOverhead(input.config, input.installerPricing as Record<string, number | boolean | undefined>, ohDefaults, ohSlotPrice);
+    const { PLATFORM_OVERHEAD_DEFAULTS: ohDefaults, OVERHEAD_BASE_PRICE_PER_SLOT: ohSlotPrice, PLATFORM_DEFAULTS: pd } = await import("@/app/actions/platform-defaults");
+    const result = calcOverhead(input.config, input.installerPricing as Record<string, number | boolean | undefined>, ohDefaults, ohSlotPrice, pd.standard_tote);
     return { success: true, result };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Calculation failed" };
