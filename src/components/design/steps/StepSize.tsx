@@ -240,6 +240,7 @@ export default function StepSize({
             setActiveStep(4);
           }}
           onConfigPreview={props.onRaisedBedPreview}
+          onPriceChange={props.onRaisedBedPriceChange}
         />
       )}
 

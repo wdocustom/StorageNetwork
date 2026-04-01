@@ -275,6 +275,8 @@ export interface ConfiguratorSidebarProps {
 
   // Raised Bed Planters
   raisedBedHidden?: boolean;
+  raisedBedPreviewPrice?: number | null;
+  onRaisedBedPriceChange?: (price: number | null) => void;
   onAddRaisedBed: (config: import("@/lib/raised-beds").RaisedBedConfig, price: number, desc: string) => void;
   onRaisedBedPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
 

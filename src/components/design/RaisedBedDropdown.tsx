@@ -25,11 +25,13 @@ import { RollingPrice } from "./configurator-primitives";
 interface RaisedBedDropdownProps {
   onAddRaisedBed: (config: RaisedBedConfig, price: number, desc: string) => void;
   onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
+  onPriceChange?: (price: number | null) => void;
 }
 
 export default function RaisedBedDropdown({
   onAddRaisedBed,
   onConfigPreview,
+  onPriceChange,
 }: RaisedBedDropdownProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -57,11 +59,11 @@ export default function RaisedBedDropdown({
   const [priceLoading, setPriceLoading] = useState(false);
 
   useEffect(() => {
-    if (!sizeId) { setCalculation(null); return; }
+    if (!sizeId) { setCalculation(null); onPriceChange?.(null); return; }
     let cancelled = false;
     setPriceLoading(true);
     calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover })
-      .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); } })
+      .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); onPriceChange?.(result.total); } })
       .catch(() => { if (!cancelled) setPriceLoading(false); });
     return () => { cancelled = true; };
   }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover]);
@@ -113,6 +115,7 @@ export default function RaisedBedDropdown({
     const desc = getRaisedBedDescription(config);
     onAddRaisedBed(config, calculation.total, desc);
     // Reset
+    onPriceChange?.(null);
     setSizeId(null);
     setFinish("natural");
     setDepthIncrease(false);
