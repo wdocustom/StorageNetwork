@@ -325,7 +325,7 @@ export default function DesignConfigurator({
 
   // ── Raised Bed Planters ─────────────────────────────────────────────
   const raisedBedEnabled = data?.pricing?.raised_bed_enabled === true;
-  const [raisedBedPreview, setRaisedBedPreview] = useState<{ widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string } | null>(null);
+  const [raisedBedPreview, setRaisedBedPreview] = useState<{ widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null>(null);
 
   function handleAddRaisedBed(
     config: RaisedBedConfig,

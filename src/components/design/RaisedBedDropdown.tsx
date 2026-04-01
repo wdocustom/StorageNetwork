@@ -24,7 +24,7 @@ import { RollingPrice } from "./configurator-primitives";
 
 interface RaisedBedDropdownProps {
   onAddRaisedBed: (config: RaisedBedConfig, price: number, desc: string) => void;
-  onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string } | null) => void;
+  onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
 }
 
 export default function RaisedBedDropdown({
@@ -82,6 +82,8 @@ export default function RaisedBedDropdown({
       groundClearance: bed.groundClearance,
       pestCover,
       finish,
+      hasStringLightPost: bed.hasStringLightPost,
+      postHeightIn: bed.postHeightIn,
     });
   }, [sizeId, finish, pestCover, expanded, onConfigPreview]);
 
@@ -205,11 +207,16 @@ export default function RaisedBedDropdown({
                           <Star className="h-2 w-2" /> Popular
                         </span>
                       )}
+                      {bed.hasStringLightPost && (
+                        <span className="absolute -top-2 left-2 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[8px] font-black text-zinc-900 uppercase">
+                          String Light Post
+                        </span>
+                      )}
                       <p className={`text-xs font-bold ${sizeId === bed.id ? "text-yellow-400" : "text-zinc-300"}`}>
                         {bed.widthIn}" × {bed.lengthIn}"
                       </p>
                       <p className="text-[10px] text-zinc-500">
-                        {bed.heightIn}" tall
+                        {bed.hasStringLightPost ? "16.5\" + 7' post" : `${bed.heightIn}" tall`}
                       </p>
                     </button>
                   ))}
