@@ -79,7 +79,7 @@ interface MultiUnit3DItem {
   /** When set, this item is a compound preset (e.g. Indiana Joe) with sub-units */
   presetUnits?: SubUnit3D[];
   /** When set, this item is a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
 }
 
 /** Overhead ceiling tote rail config for 3D rendering */
@@ -114,7 +114,7 @@ interface Rack3DProps {
   /** When set, renders an overhead ceiling storage unit */
   overheadConfig?: OverheadConfig3D;
   /** When set, renders a raised bed planter */
-  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string };
+  raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
   /** Text displayed as a diagonal watermark behind the 3D scene */
@@ -1352,8 +1352,8 @@ const SOIL_COLOR = "#3e2723";
 const WIRE_COLOR = "#94a3b8";
 const FRAME_WIRE_COLOR = "#78716c";
 
-function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string } }) {
-  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover, finish } = config;
+function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number } }) {
+  const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover, finish, hasStringLightPost, postHeightIn } = config;
 
   // Color based on finish
   const boardColor = finish === "painted_white" ? "#f5f5f4" : finish === "stain" ? "#8b5e3c" : CEDAR_COLOR;
@@ -1451,6 +1451,29 @@ function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: nu
         <boxGeometry args={[l - postSize * 2 - boardT * 2, boxH * 0.05, w - postSize * 2 - boardT * 2]} />
         <meshStandardMaterial color={SOIL_COLOR} roughness={1} />
       </mesh>
+
+      {/* ── STRING LIGHT POST (center 4x4, ~7.5' tall) ─── */}
+      {hasStringLightPost && (() => {
+        const centerPostSize = 3.5 * S;
+        const ph = (postHeightIn ?? 90) * S;
+        const baseY = legH + boxH + trimT;
+        const capSize = 5.5 * S;
+        const capH = 1.5 * S;
+        return (
+          <group>
+            {/* 4x4 center post */}
+            <mesh position={[0, baseY + ph / 2, 0]}>
+              <boxGeometry args={[centerPostSize, ph, centerPostSize]} />
+              <meshStandardMaterial color={postColor} roughness={0.8} />
+            </mesh>
+            {/* Post cap (dark cap at top) */}
+            <mesh position={[0, baseY + ph + capH / 2, 0]}>
+              <boxGeometry args={[capSize, capH, capSize]} />
+              <meshStandardMaterial color="#1e293b" roughness={0.3} />
+            </mesh>
+          </group>
+        );
+      })()}
 
       {/* ── PEST PROTECTION CAGE ───────────────────────── */}
       {pestCover && pestCover !== "none" && (() => {
@@ -1594,9 +1617,11 @@ function computeItemOverallH(item: MultiUnit3DItem): number {
     const totalDrop = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
     return totalDrop;
   }
-  // Raised bed planter
+  // Raised bed planter (include string light post height if present)
   if (item.raisedBedConfig) {
-    return item.raisedBedConfig.heightIn;
+    let h = item.raisedBedConfig.heightIn;
+    if (item.raisedBedConfig.hasStringLightPost) h += (item.raisedBedConfig.postHeightIn ?? 90);
+    return h;
   }
   // Open shelving unit — use its frameH directly
   if (item.shelvingConfig) {

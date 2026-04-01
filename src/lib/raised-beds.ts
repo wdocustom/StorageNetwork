@@ -27,6 +27,10 @@ export interface RaisedBedSize {
   depthIncreaseAvailable: boolean;
   bottomShelfAvailable: boolean;
   pestCoverCategory: "2x4" | "2x6" | "none";
+  /** Center 4x4 post for string lights */
+  hasStringLightPost?: boolean;
+  /** Height of string light post in inches (from top of bed) */
+  postHeightIn?: number;
   popular?: boolean;
 }
 
@@ -68,6 +72,12 @@ export const RAISED_BED_SIZES: RaisedBedSize[] = [
     id: "legs_24x72x16", label: "24\" × 72\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 24, lengthIn: 72, heightIn: 16.5, internalW: 23, internalL: 69, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+  },
+  {
+    id: "legs_24x24x16_post", label: "24\" × 24\" String Light Planter", style: "with_legs",
+    widthIn: 24, lengthIn: 24, heightIn: 16.5, internalW: 22, internalL: 22, internalH: 9,
+    groundClearance: 5, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "none",
+    hasStringLightPost: true, postHeightIn: 90,
   },
   // WITHOUT LEGS
   {

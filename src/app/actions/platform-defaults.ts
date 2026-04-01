@@ -78,6 +78,7 @@ export const RAISED_BED_PRICES: Record<string, {
   legs_24x48x16: { basePrice: 185, stainPrice: 35, linerPrice: 25, paintedWhitePrice: 90, depthIncreasePrice: 30, bottomShelfPrice: 0 },
   legs_24x48x30: { basePrice: 195, stainPrice: 40, linerPrice: 30, paintedWhitePrice: 95, depthIncreasePrice: 30, bottomShelfPrice: 50 },
   legs_24x72x16: { basePrice: 205, stainPrice: 40, linerPrice: 35, paintedWhitePrice: 105, depthIncreasePrice: 40, bottomShelfPrice: 0 },
+  legs_24x24x16_post: { basePrice: 195, stainPrice: 35, linerPrice: 25, paintedWhitePrice: 90, depthIncreasePrice: 0, bottomShelfPrice: 0 },
   ground_24x72x11: { basePrice: 185, stainPrice: 35, linerPrice: 30, paintedWhitePrice: 105, depthIncreasePrice: 0, bottomShelfPrice: 0 },
   ground_24x72x22: { basePrice: 235, stainPrice: 45, linerPrice: 35, paintedWhitePrice: 135, depthIncreasePrice: 0, bottomShelfPrice: 0 },
   ground_36x72x22: { basePrice: 255, stainPrice: 50, linerPrice: 40, paintedWhitePrice: 150, depthIncreasePrice: 0, bottomShelfPrice: 0 },

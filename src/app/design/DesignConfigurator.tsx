@@ -447,6 +447,8 @@ export default function DesignConfigurator({
                 groundClearance: bed.groundClearance,
                 pestCover: item.raisedBedConfig!.pestCover,
                 finish: item.raisedBedConfig!.finish,
+                hasStringLightPost: bed.hasStringLightPost,
+                postHeightIn: bed.postHeightIn,
               } : undefined;
             })()
           : undefined,
