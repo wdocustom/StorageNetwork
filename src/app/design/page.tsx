@@ -7,7 +7,7 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
-import { PLATFORM_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/app/actions/platform-defaults";
+import { PLATFORM_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing-constants";
 import { generateHowToJsonLd } from "@/lib/schema/howto";
 import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
 import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";

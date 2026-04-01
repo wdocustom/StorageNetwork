@@ -10,7 +10,7 @@ export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
 
 import type { InstallerPricing, SectionAddon, AddonPricing } from "@/types/viewModels";
-import { PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/app/actions/platform-defaults";
+import { PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing-constants";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -626,7 +626,7 @@ export async function calculateOverheadStorageUnit(input: {
   installerPricing?: InstallerPricing;
 }): Promise<{ success: true; result: OverheadStorageResult } | { success: false; error: string }> {
   try {
-    const { PLATFORM_OVERHEAD_DEFAULTS: ohDefaults, OVERHEAD_BASE_PRICE_PER_SLOT: ohSlotPrice, PLATFORM_DEFAULTS: pd } = await import("@/app/actions/platform-defaults");
+    const { PLATFORM_OVERHEAD_DEFAULTS: ohDefaults, OVERHEAD_BASE_PRICE_PER_SLOT: ohSlotPrice, PLATFORM_DEFAULTS: pd } = await import("@/lib/server/pricing-constants");
     const result = calcOverhead(input.config, input.installerPricing as Record<string, number | boolean | undefined>, ohDefaults, ohSlotPrice, pd.standard_tote);
     return { success: true, result };
   } catch (err) {
