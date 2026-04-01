@@ -81,6 +81,8 @@ const TOPIC_PRESETS = [
   { label: "Overhead Storage", value: "Focus on overhead ceiling storage. Hook: Is there usable space above your head in the garage? Most people never look up — let's capitalize on that dead space to organize your home. Totes mounted to the ceiling joists, out of the way but easy to grab." },
   { label: "Open Shelving", value: "Focus on custom open shelving as a bonus add-on. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding." },
   { label: "Full Garage System", value: "Pitch the complete garage organization system — wall racks + overhead ceiling storage + open shelving. Top to bottom, wall to wall. One installer, one visit, total transformation." },
+  { label: "Raised Beds", value: "Focus on handmade cedar raised bed planters. Two styles: elevated on legs for comfortable gardening without bending, and ground-level for traditional garden beds. Natural cedar, cedar stain, or painted white finishes. Pest protection covers available. Mention the string light planter post for patios." },
+  { label: "String Light Post", value: "Focus on the 24x24 planter base with a 7-foot center post for hanging outdoor string lights. Perfect for patios, entertaining areas, outdoor dining. Handmade cedar, available in natural, stained, or painted white." },
   { label: "Spring Cleaning", value: "Seasonal spring cleaning angle — time to get organized before summer." },
   { label: "Holiday Prep", value: "Holiday season angle — get decorations organized and accessible with overhead ceiling storage." },
 ];
@@ -137,6 +139,20 @@ function buildTemplates(): PostTemplate[] {
       hook: "Not everything fits in a tote — custom shelves for the rest",
       getText: (link, _name, location) =>
         `Not everything fits in a tote. I build custom heavy-duty open shelving${location ? ` in ${location}` : ""} for toolboxes, paint cans, coolers, sports gear — all the odd-shaped stuff cluttering your garage. Wall-mounted or freestanding, built to last. See what I can build for your space:\n\n${link}`,
+    },
+    {
+      id: "planters",
+      label: "Raised Bed Planters",
+      hook: "Handmade cedar planters — elevated or ground-level",
+      getText: (link, _name, location) =>
+        `Garden season is here! I build handmade cedar raised bed planters${location ? ` right here in ${location}` : ""}. Elevated beds on legs so you can garden without bending, or ground-level beds for traditional layouts. Natural cedar, stained, or painted white. Pest protection covers available too. Design yours:\n\n${link}`,
+    },
+    {
+      id: "stringlight",
+      label: "String Light Post",
+      hook: "Planter + 7' post for string lights — the ultimate patio piece",
+      getText: (link, _name, location) =>
+        `Looking for a way to hang string lights on your patio without drilling into your house? I build these handmade cedar planter bases with a 7-foot post in the center${location ? ` right here in ${location}` : ""}. Fill the base with flowers, hang your lights, and you've got the best patio on the block. Natural cedar, stained, or painted white. Check it out:\n\n${link}`,
     },
   ];
 }

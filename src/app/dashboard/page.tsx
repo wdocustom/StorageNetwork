@@ -60,6 +60,7 @@ export default function DashboardPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [newLeadCount, setNewLeadCount] = useState(0);
+  const [hasRecentPosts, setHasRecentPosts] = useState(false);
   const [totalSales, setTotalSales] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -93,7 +94,7 @@ export default function DashboardPage() {
       }
     });
 
-    const [profileRes, leadsRes, paidLeadsRes] = await Promise.all([
+    const [profileRes, leadsRes, paidLeadsRes, recentPostsRes] = await Promise.all([
       supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
       // Only count leads with deposit paid (exclude unpaid quotes)
       supabase
@@ -107,6 +108,11 @@ export default function DashboardPage() {
         .select("estimated_price, balance_due, payout_status")
         .eq("installer_id", user.id)
         .in("payout_status", ["paid"]),
+      // Check for community posts in last 7 days
+      supabase
+        .from("posts")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
     ]);
 
     if (profileRes.error) {
@@ -126,6 +132,7 @@ export default function DashboardPage() {
 
     if (profileRes.data) setProfile(profileRes.data as Profile);
     if (leadsRes.count !== null) setNewLeadCount(leadsRes.count);
+    if (recentPostsRes.count && recentPostsRes.count > 0) setHasRecentPosts(true);
 
     // Aggregate sales from paid jobs
     if (paidLeadsRes.data) {
@@ -466,11 +473,22 @@ export default function DashboardPage() {
             href="/community"
             className="group relative flex items-center gap-5 rounded-2xl border p-6 transition-all active:scale-[0.98] border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 hover:border-yellow-400/50 hover:from-yellow-500/10"
           >
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
               <Users className="h-8 w-8" />
+              {hasRecentPosts && (
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-red-500" />
+                </span>
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">Community</h2>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                Community
+                {hasRecentPosts && (
+                  <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] font-bold text-red-400 uppercase">New</span>
+                )}
+              </h2>
               <p className="text-sm text-stone-500">
                 Discuss, share builds &amp; get advice
               </p>
