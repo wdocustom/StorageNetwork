@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X } from "lucide-react";
 import type { UnitConfig, ConfiguratorSidebarProps } from "./configurator-types";
 import type { AddonPricing, PaintColorId } from "@/types/viewModels";
-import { ADDON_PLATFORM_DEFAULTS, PAINT_COLORS } from "@/types/viewModels";
+import { PAINT_COLORS } from "@/types/viewModels";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 
 export default function OrderItemCard({
@@ -15,6 +15,7 @@ export default function OrderItemCard({
   pricing,
   platformDefaults,
   addonPricing,
+  addonDefaults,
 }: {
   item: UnitConfig;
   index: number;
@@ -22,6 +23,7 @@ export default function OrderItemCard({
   pricing?: ConfiguratorSidebarProps["pricing"];
   platformDefaults: ConfiguratorSidebarProps["platformDefaults"];
   addonPricing?: AddonPricing;
+  addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -74,31 +76,31 @@ export default function OrderItemCard({
   const ap = addonPricing;
   const shelfCount = item.addons?.filter((a) => a.type === "shelf").length ?? 0;
   if (shelfCount > 0) {
-    const shelfPrice = ap?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
+    const shelfPrice = ap?.shelf ?? addonDefaults?.shelf ?? 0;
     addOnItems.push({ label: `${shelfCount} Shelf${shelfCount !== 1 ? "s" : ""}`, price: shelfCount * shelfPrice });
   }
   const railRemovedCount = item.addons?.filter((a) => a.type === "rail_removed").length ?? 0;
   if (railRemovedCount > 0) {
-    const railPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+    const railPrice = ap?.rail_removal ?? addonDefaults?.rail_removal ?? 0;
     addOnItems.push({ label: `${railRemovedCount} Rail${railRemovedCount !== 1 ? "s" : ""} Removed`, price: railRemovedCount * railPrice });
   }
   const doorAddons = item.addons?.filter((a) => a.type === "plywood_door") ?? [];
   if (doorAddons.length > 0) {
-    const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
+    const doorPrice = ap?.plywood_door ?? addonDefaults?.plywood_door ?? 0;
     const allDoorsOn = doorAddons.some((a) => a.target === "doors_on");
     const totalDoorPrice = allDoorsOn ? doorPrice * item.cols : doorPrice * doorAddons.length;
     addOnItems.push({ label: "Plywood Doors", price: totalDoorPrice });
   }
   const sidePanelCount = item.addons?.filter((a) => a.type === "side_panel").length ?? 0;
   if (sidePanelCount > 0) {
-    const panelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
+    const panelPrice = ap?.side_panel ?? addonDefaults?.side_panel ?? 0;
     addOnItems.push({ label: `${sidePanelCount} Side Panel${sidePanelCount !== 1 ? "s" : ""}`, price: sidePanelCount * panelPrice });
   }
 
   // Paint details per component
   const paintLabel = (colorId: PaintColorId) => PAINT_COLORS.find((c) => c.id === colorId)?.label ?? colorId;
-  const paintFramePrice = ap?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price;
-  const paintDoorsPanelsPrice = ap?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
+  const paintFramePrice = ap?.paint_frame_price ?? addonDefaults?.paint_frame_price ?? 0;
+  const paintDoorsPanelsPrice = ap?.paint_doors_panels_price ?? addonDefaults?.paint_doors_panels_price ?? 0;
   if (item.paintFrameColor) addOnItems.push({ label: `Paint Frame: ${paintLabel(item.paintFrameColor)}`, price: paintFramePrice });
   if (item.paintDoorColor) addOnItems.push({ label: `Paint Doors: ${paintLabel(item.paintDoorColor)}`, price: paintDoorsPanelsPrice });
   if (item.paintSidePanelColor) addOnItems.push({ label: `Paint Side Panels: ${paintLabel(item.paintSidePanelColor)}`, price: paintDoorsPanelsPrice });

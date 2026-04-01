@@ -15,7 +15,7 @@ import {
   Paintbrush,
 } from "lucide-react";
 import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
-import { ADDON_PLATFORM_DEFAULTS, PAINT_COLORS } from "@/types/viewModels";
+import { PAINT_COLORS } from "@/types/viewModels";
 import { PaintSwatch, PaintColorPicker } from "./PaintPicker";
 import { AddonToggleBtn } from "./configurator-primitives";
 
@@ -25,6 +25,7 @@ export function OrganizerCustomization({
   addons,
   onAddonsChange,
   addonPricing,
+  addonDefaults,
   paintFrameColor,
   paintDoorColor,
   paintSidePanelColor,
@@ -37,6 +38,7 @@ export function OrganizerCustomization({
   addons: SectionAddon[];
   onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
+  addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
   paintFrameColor: PaintColorId | null;
   paintDoorColor: PaintColorId | null;
   paintSidePanelColor: PaintColorId | null;
@@ -48,10 +50,10 @@ export function OrganizerCustomization({
   const [railGridOpen, setRailGridOpen] = useState(false);
   const [activeCell, setActiveCell] = useState<{ col: number; row: number } | null>(null);
 
-  const doorPrice = addonPricing?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
-  const sidePanelPrice = addonPricing?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
-  const railRemovalPrice = addonPricing?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
-  const shelfPrice = addonPricing?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
+  const doorPrice = addonPricing?.plywood_door ?? addonDefaults?.plywood_door ?? 0;
+  const sidePanelPrice = addonPricing?.side_panel ?? addonDefaults?.side_panel ?? 0;
+  const railRemovalPrice = addonPricing?.rail_removal ?? addonDefaults?.rail_removal ?? 0;
+  const shelfPrice = addonPricing?.shelf ?? addonDefaults?.shelf ?? 0;
 
   const showDoor = addonPricing?.plywood_door_enabled !== false;
   const showSidePanel = addonPricing?.side_panel_enabled !== false;
@@ -59,8 +61,8 @@ export function OrganizerCustomization({
   const showShelf = addonPricing?.shelf_enabled !== false;
   const showSlotGrid = showRailRemoval || showShelf;
   const showPaint = addonPricing?.paint_enabled !== false;
-  const paintFramePrice = addonPricing?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price;
-  const paintDoorsPanelsPrice = addonPricing?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
+  const paintFramePrice = addonPricing?.paint_frame_price ?? addonDefaults?.paint_frame_price ?? 0;
+  const paintDoorsPanelsPrice = addonPricing?.paint_doors_panels_price ?? addonDefaults?.paint_doors_panels_price ?? 0;
 
   // Doors: total price = per-door price × number of columns
   const doorsTotalPrice = doorPrice * cols;

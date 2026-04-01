@@ -7,6 +7,7 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
+import { PLATFORM_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/app/actions/platform-defaults";
 import { generateHowToJsonLd } from "@/lib/schema/howto";
 import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
 import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
@@ -181,6 +182,13 @@ export default async function DesignPage({ searchParams }: PageProps) {
   // The raw installer object dies here. Only the view model is serialized
   // to the client. Free installers get platform branding; Pro gets theirs.
   const viewModel = mapToDesignViewModel(rawInstaller);
+
+  // Inject server-only pricing defaults into the view model
+  // These values NEVER appear in the client bundle — they're serialized as data, not code
+  if (viewModel) {
+    viewModel.platformDefaults = { ...PLATFORM_DEFAULTS };
+    viewModel.addonDefaults = { ...ADDON_PLATFORM_DEFAULTS };
+  }
 
   // ── HowTo JSON-LD — standard 5×4 build for rich snippet eligibility ──
   // This generates a generic HowTo for the default build configuration.

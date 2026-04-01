@@ -24,11 +24,11 @@ import {
   updateInstallerPricing,
   resetInstallerPricing,
 } from "@/app/actions/pricing";
-import { PLATFORM_DEFAULTS, PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
 import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
+import { getPlatformDefaults } from "@/app/actions/platform-defaults";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
-import { OVERHEAD_GRID_PRESETS, PLATFORM_OVERHEAD_DEFAULTS } from "@/lib/overhead-storage";
+import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing Settings — Pro installer custom pricing configuration
@@ -56,7 +56,7 @@ interface PriceField {
  * Total = (slots × slot_price) + (slots × tote_price) + (top_sheets × plywood) + wheels.
  * Uses platform defaults for the calculation.
  */
-function computePresetDefaultTotal(presetId: string): number {
+function computePresetDefaultTotal(presetId: string, defs: typeof EMPTY_DEFAULTS): number {
   const preset = BESTSELLER_PRESETS.find((p) => p.id === presetId);
   if (!preset) return 0;
 
@@ -64,16 +64,16 @@ function computePresetDefaultTotal(presetId: string): number {
   let totalTopSheets = 0;
   let totalWheelsCost = 0;
   const slotPrice = preset.unitType === "mini"
-    ? PLATFORM_DEFAULTS.mini_slot
-    : PLATFORM_DEFAULTS.standard_slot;
+    ? defs.mini_slot
+    : defs.standard_slot;
   const totePrice = preset.unitType === "mini"
-    ? PLATFORM_DEFAULTS.mini_tote
+    ? defs.mini_tote
     : preset.toteColor === "clear"
-      ? PLATFORM_DEFAULTS.standard_tote_clear
-      : PLATFORM_DEFAULTS.standard_tote;
+      ? defs.standard_tote_clear
+      : defs.standard_tote;
   const wheelsPrice = preset.unitType === "mini"
-    ? PLATFORM_DEFAULTS.mini_wheels
-    : PLATFORM_DEFAULTS.standard_wheels;
+    ? defs.mini_wheels
+    : defs.standard_wheels;
 
   for (const unit of preset.units) {
     const slots = unit.cols * unit.rows;
@@ -89,31 +89,31 @@ function computePresetDefaultTotal(presetId: string): number {
 
   return totalSlots * slotPrice
     + totalSlots * totePrice
-    + totalTopSheets * PLATFORM_DEFAULTS.plywood_top
+    + totalTopSheets * defs.plywood_top
     + totalWheelsCost;
 }
 
-const PRICE_FIELDS: PriceField[] = [
+function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
   // Standard unit pricing
   {
     key: "standard_slot",
     label: "Standard Slot",
     description: "Per tote slot (27-gal unit)",
-    defaultValue: PLATFORM_DEFAULTS.standard_slot,
+    defaultValue: defs.standard_slot,
     category: "standard",
   },
   {
     key: "standard_tote",
     label: "Standard Tote (Black)",
     description: "Per HDX black/yellow tote",
-    defaultValue: PLATFORM_DEFAULTS.standard_tote,
+    defaultValue: defs.standard_tote,
     category: "standard",
   },
   {
     key: "standard_tote_clear",
     label: "Standard Tote (Clear)",
     description: "Per HDX clear/yellow tote",
-    defaultValue: PLATFORM_DEFAULTS.standard_tote_clear,
+    defaultValue: defs.standard_tote_clear,
     category: "standard",
   },
   // Mini unit pricing
@@ -121,14 +121,14 @@ const PRICE_FIELDS: PriceField[] = [
     key: "mini_slot",
     label: "Mini Slot",
     description: "Per tote slot (6.5-qt unit)",
-    defaultValue: PLATFORM_DEFAULTS.mini_slot,
+    defaultValue: defs.mini_slot,
     category: "mini",
   },
   {
     key: "mini_tote",
     label: "Mini Tote",
     description: "Per 6.5-qt shoebox tote",
-    defaultValue: PLATFORM_DEFAULTS.mini_tote,
+    defaultValue: defs.mini_tote,
     category: "mini",
   },
   // Add-on pricing
@@ -136,21 +136,21 @@ const PRICE_FIELDS: PriceField[] = [
     key: "standard_wheels",
     label: "Standard Wheels",
     description: "Caster set (standard unit)",
-    defaultValue: PLATFORM_DEFAULTS.standard_wheels,
+    defaultValue: defs.standard_wheels,
     category: "addons",
   },
   {
     key: "mini_wheels",
     label: "Mini Wheels",
     description: "Caster set (mini unit)",
-    defaultValue: PLATFORM_DEFAULTS.mini_wheels,
+    defaultValue: defs.mini_wheels,
     category: "addons",
   },
   {
     key: "plywood_top",
     label: "Plywood Top",
     description: "Per 4×8 sheet",
-    defaultValue: PLATFORM_DEFAULTS.plywood_top,
+    defaultValue: defs.plywood_top,
     category: "addons",
   },
   // Bestseller total-price overrides (with totes included)
@@ -160,8 +160,8 @@ const PRICE_FIELDS: PriceField[] = [
     return {
       key,
       label: preset.name,
-      description: `Total price with ${totalSlots} totes (platform default: $${PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id)})`,
-      defaultValue: PLATFORM_BESTSELLER_DEFAULTS[key] ?? computePresetDefaultTotal(preset.id),
+      description: `Total price with ${totalSlots} totes (platform default: $${defs.bestsellers[key] ?? computePresetDefaultTotal(preset.id, defs)})`,
+      defaultValue: defs.bestsellers[key] ?? computePresetDefaultTotal(preset.id, defs),
       category: "bestsellers" as const,
     };
   }),
@@ -170,7 +170,7 @@ const PRICE_FIELDS: PriceField[] = [
     const key = `shelving_${cfg.id.replace(/-/g, "_")}` as PricingNumericKey;
     const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
     const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
-    const defaultPrice = PLATFORM_SHELVING_DEFAULTS[key] ?? 0;
+    const defaultPrice = defs.shelving[key] ?? 0;
     return {
       key,
       label: `${cfg.widthFt}' × ${heightLabel}`,
@@ -182,7 +182,7 @@ const PRICE_FIELDS: PriceField[] = [
   // Overhead Ceiling Tote Rail price overrides
   ...OVERHEAD_GRID_PRESETS.map((preset) => {
     const key = `overhead_${preset.id}` as PricingNumericKey;
-    const defaultPrice = PLATFORM_OVERHEAD_DEFAULTS[key] ?? 0;
+    const defaultPrice = defs.overhead[key] ?? 0;
     return {
       key,
       label: `${preset.label} grid`,
@@ -191,7 +191,7 @@ const PRICE_FIELDS: PriceField[] = [
       category: "overhead" as const,
     };
   }),
-];
+]; }
 
 /** Row component for each addon type — toggle + price input */
 function AddonPricingRow({
@@ -255,11 +255,23 @@ function AddonPricingRow({
   );
 }
 
+// Fallback defaults (used only while server defaults are loading — never exposed in production bundle as pricing)
+const EMPTY_DEFAULTS = {
+  standard_slot: 0, mini_slot: 0, standard_tote: 0, standard_tote_clear: 0,
+  mini_tote: 0, standard_wheels: 0, mini_wheels: 0, plywood_top: 0,
+  addon: { plywood_door: 0, side_panel: 0, concealed_hinge_pair: 0, rail_removal: 0, shelf: 0, paint_frame_price: 0, paint_doors_panels_price: 0 },
+  bestsellers: {} as Record<string, number>,
+  shelving: {} as Record<string, number>,
+  overhead: {} as Record<string, number>,
+};
+
 export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState("");
+  const [defaults, setDefaults] = useState(EMPTY_DEFAULTS);
+  const PRICE_FIELDS = getPriceFields(defaults);
   const [messageType, setMessageType] = useState<"success" | "error">("success");
 
   // Each field can be: a custom number string, or empty (use default)
@@ -302,6 +314,9 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
+    // Load platform defaults from server (never in client bundle)
+    const platformDefs = await getPlatformDefaults();
+    setDefaults(platformDefs);
     const result = await getInstallerPricing(userId);
     if (result.success && result.pricing) {
       const loaded: Record<string, string> = {};
@@ -799,7 +814,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Per door (full-height column door w/ Blum concealed hinges)"
                 priceKey="plywood_door"
                 toggleKey="plywood_door_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.plywood_door}
+                defaultPrice={defaults.addon.plywood_door}
                 value={addonValues.plywood_door ?? ""}
                 enabled={addonToggles.plywood_door_enabled}
                 onValueChange={(v) => handleAddonChange("plywood_door", v)}
@@ -813,7 +828,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Per plywood side panel (left or right)"
                 priceKey="side_panel"
                 toggleKey="side_panel_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.side_panel}
+                defaultPrice={defaults.addon.side_panel}
                 value={addonValues.side_panel ?? ""}
                 enabled={addonToggles.side_panel_enabled}
                 onValueChange={(v) => handleAddonChange("side_panel", v)}
@@ -827,7 +842,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Per pair of Blum concealed hinges (included in door price for customers)"
                 priceKey="concealed_hinge_pair"
                 toggleKey="hinge_concealed_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.concealed_hinge_pair}
+                defaultPrice={defaults.addon.concealed_hinge_pair}
                 value={addonValues.concealed_hinge_pair ?? ""}
                 enabled={addonToggles.hinge_concealed_enabled}
                 onValueChange={(v) => handleAddonChange("concealed_hinge_pair", v)}
@@ -841,7 +856,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Per rail removed (credit or charge)"
                 priceKey="rail_removal"
                 toggleKey="rail_removal_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.rail_removal}
+                defaultPrice={defaults.addon.rail_removal}
                 value={addonValues.rail_removal ?? ""}
                 enabled={addonToggles.rail_removal_enabled}
                 onValueChange={(v) => handleAddonChange("rail_removal", v)}
@@ -855,7 +870,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Per shelf (3/4&quot; plywood sitting on rails)"
                 priceKey="shelf"
                 toggleKey="shelf_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.shelf}
+                defaultPrice={defaults.addon.shelf}
                 value={addonValues.shelf ?? ""}
                 enabled={addonToggles.shelf_enabled}
                 onValueChange={(v) => handleAddonChange("shelf", v)}
@@ -893,7 +908,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Price to paint the 2×4 frame structure"
                 priceKey="paint_frame_price"
                 toggleKey="paint_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.paint_frame_price}
+                defaultPrice={defaults.addon.paint_frame_price}
                 value={addonValues.paint_frame_price ?? ""}
                 enabled={addonToggles.paint_enabled}
                 onValueChange={(v) => handleAddonChange("paint_frame_price", v)}
@@ -906,7 +921,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
                 description="Price to paint plywood doors and side panels"
                 priceKey="paint_doors_panels_price"
                 toggleKey="paint_enabled"
-                defaultPrice={ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price}
+                defaultPrice={defaults.addon.paint_doors_panels_price}
                 value={addonValues.paint_doors_panels_price ?? ""}
                 enabled={addonToggles.paint_enabled}
                 onValueChange={(v) => handleAddonChange("paint_doors_panels_price", v)}

@@ -72,16 +72,7 @@ export interface AddonPricing {
   paint_doors_panels_price?: number;   // price to paint doors & side panels
 }
 
-/** Platform default addon pricing */
-export const ADDON_PLATFORM_DEFAULTS: Required<Pick<AddonPricing, "plywood_door" | "side_panel" | "concealed_hinge_pair" | "rail_removal" | "shelf" | "paint_frame_price" | "paint_doors_panels_price">> = {
-  plywood_door: 45,               // per door (installer sees this as per-door price)
-  side_panel: 55,
-  concealed_hinge_pair: 15,       // per pair of Blum concealed hinges
-  rail_removal: 0,                // no charge by default (it's a material subtraction)
-  shelf: 20,                      // per shelf (3/4" plywood on top of rails)
-  paint_frame_price: 75,          // default price to paint the frame
-  paint_doors_panels_price: 50,   // default price to paint doors & panels
-};
+// ADDON_PLATFORM_DEFAULTS moved to src/app/actions/platform-defaults.ts (server-only)
 
 /** Installer-configurable pricing overrides (all optional, NULL = platform default) */
 export interface InstallerPricing {
@@ -138,37 +129,8 @@ export interface InstallerPricing {
   overhead_4x4?: number;
 }
 
-/** Platform default pricing constants (shared across server actions and client UI) */
-export const PLATFORM_DEFAULTS: Omit<Required<InstallerPricing>, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing" | "bestseller_indiana_joe" | "bestseller_cornhusker" | "bestseller_long_ranger" | "bestseller_gas_station" | "shelving_shelf_4ft_short" | "shelving_shelf_5ft_short" | "shelving_shelf_6ft_short" | "shelving_shelf_4ft_tall" | "shelving_shelf_5ft_tall" | "shelving_shelf_6ft_tall" | "overhead_2x2" | "overhead_2x3" | "overhead_3x2" | "overhead_3x3" | "overhead_3x4" | "overhead_4x4"> = {
-  standard_slot: 30,
-  mini_slot: 15,
-  standard_tote: 12,
-  standard_tote_clear: 20,
-  mini_tote: 4,
-  standard_wheels: 65,
-  mini_wheels: 40,
-  plywood_top: 95,
-};
-
-/** Platform default bestseller prices (total with totes included).
- *  Installer overrides in pricing_config take priority over these. */
-export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
-  bestseller_indiana_joe: 950,
-  bestseller_cornhusker: 660,
-  bestseller_long_ranger: 715,
-  bestseller_gas_station: 840,
-};
-
-/** Platform default shelving prices (keyed by shelving config ID with underscores).
- *  Used in PricingSettings for default display and in calculator.ts as fallback. */
-export const PLATFORM_SHELVING_DEFAULTS: Record<string, number> = {
-  shelving_shelf_4ft_short: 175,
-  shelving_shelf_5ft_short: 200,
-  shelving_shelf_6ft_short: 225,
-  shelving_shelf_4ft_tall: 325,
-  shelving_shelf_5ft_tall: 375,
-  shelving_shelf_6ft_tall: 425,
-};
+// All platform pricing constants moved to src/app/actions/platform-defaults.ts (server-only)
+// They are injected into DesignPageViewModel at runtime by the server component.
 
 export interface DesignPageViewModel {
   /** Routing & booking data — needed for lead submission and payments */
@@ -191,6 +153,29 @@ export interface DesignPageViewModel {
 
   /** Installer custom pricing (Pro only). Undefined = use platform defaults. */
   pricing?: InstallerPricing;
+
+  /** Platform default pricing — populated server-side, never hardcoded in client bundle */
+  platformDefaults?: {
+    standard_slot: number;
+    mini_slot: number;
+    standard_tote: number;
+    standard_tote_clear: number;
+    mini_tote: number;
+    standard_wheels: number;
+    mini_wheels: number;
+    plywood_top: number;
+  };
+
+  /** Platform addon defaults — populated server-side */
+  addonDefaults?: {
+    plywood_door: number;
+    side_panel: number;
+    concealed_hinge_pair: number;
+    rail_removal: number;
+    shelf: number;
+    paint_frame_price: number;
+    paint_doors_panels_price: number;
+  };
 
   /** Installer services config (cleanout pricing, enabled services, etc.) */
   servicesConfig?: Array<{

@@ -8,7 +8,7 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
-import { PLATFORM_DEFAULTS, type DesignPageViewModel } from "@/types/viewModels";
+import { type DesignPageViewModel } from "@/types/viewModels";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
@@ -24,7 +24,7 @@ import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
 import type { VisualizerSubUnit, ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
 import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
-import { ADDON_PLATFORM_DEFAULTS } from "@/types/viewModels";
+// ADDON_PLATFORM_DEFAULTS removed — using data.addonDefaults from server
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
 import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
@@ -742,8 +742,8 @@ export default function DesignConfigurator({
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
 
   // Paint pricing — calculated from installer's addon_pricing or platform defaults
-  const paintFramePrice = paintFrameColor ? (data?.pricing?.addon_pricing?.paint_frame_price ?? ADDON_PLATFORM_DEFAULTS.paint_frame_price) : 0;
-  const paintDoorsPanelsPrice = data?.pricing?.addon_pricing?.paint_doors_panels_price ?? ADDON_PLATFORM_DEFAULTS.paint_doors_panels_price;
+  const paintFramePrice = paintFrameColor ? (data?.pricing?.addon_pricing?.paint_frame_price ?? data?.addonDefaults?.paint_frame_price ?? 75) : 0;
+  const paintDoorsPanelsPrice = data?.pricing?.addon_pricing?.paint_doors_panels_price ?? data?.addonDefaults?.paint_doors_panels_price ?? 30;
   const paintDoorCost = paintDoorColor ? paintDoorsPanelsPrice : 0;
   const paintPanelCost = paintSidePanelColor ? paintDoorsPanelsPrice : 0;
   const paintTotal = paintFramePrice + paintDoorCost + paintPanelCost;
@@ -1515,7 +1515,7 @@ export default function DesignConfigurator({
 
           // Pricing
           pricing={data?.pricing}
-          platformDefaults={PLATFORM_DEFAULTS}
+          platformDefaults={data?.platformDefaults || { standard_slot: 0, mini_slot: 0, standard_tote: 0, standard_tote_clear: 0, mini_tote: 0, standard_wheels: 0, mini_wheels: 0, plywood_top: 0 }}
 
           // Build
           build={build}

@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Sprout, Plus, Loader2, Star } from "lucide-react";
 import {
   RAISED_BED_SIZES,
   PEST_COVER_OPTIONS,
-  calculateRaisedBedPrice,
   getRaisedBedDescription,
   type RaisedBedConfig,
   type RaisedBedFinish,
   type PestCoverType,
-  type RaisedBedSize,
 } from "@/lib/raised-beds";
+import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RollingPrice } from "./configurator-primitives";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,10 +45,25 @@ export default function RaisedBedDropdown({
   const selectedBed = sizeId ? RAISED_BED_SIZES.find((s) => s.id === sizeId) : null;
   const filteredSizes = RAISED_BED_SIZES.filter((s) => s.style === style);
 
-  // Calculate price
-  const calculation = useMemo(() => {
-    if (!sizeId) return null;
-    return calculateRaisedBedPrice({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover });
+  // Fetch option prices from server when size changes
+  const [optionPrices, setOptionPrices] = useState<Awaited<ReturnType<typeof getRaisedBedOptionPrices>>>(null);
+  useEffect(() => {
+    if (!sizeId) { setOptionPrices(null); return; }
+    getRaisedBedOptionPrices(sizeId).then(setOptionPrices);
+  }, [sizeId]);
+
+  // Calculate price via server action
+  const [calculation, setCalculation] = useState<{ total: number; breakdown: { label: string; amount: number }[] } | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sizeId) { setCalculation(null); return; }
+    let cancelled = false;
+    setPriceLoading(true);
+    calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover })
+      .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); } })
+      .catch(() => { if (!cancelled) setPriceLoading(false); });
+    return () => { cancelled = true; };
   }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover]);
 
   // Notify parent of live config for 3D preview on every change
@@ -195,7 +209,7 @@ export default function RaisedBedDropdown({
                         {bed.widthIn}" × {bed.lengthIn}"
                       </p>
                       <p className="text-[10px] text-zinc-500">
-                        {bed.heightIn}" tall · ${bed.basePrice}
+                        {bed.heightIn}" tall
                       </p>
                     </button>
                   ))}
@@ -213,8 +227,8 @@ export default function RaisedBedDropdown({
                     <div className="grid grid-cols-3 gap-1.5">
                       {([
                         { id: "natural" as RaisedBedFinish, label: "Natural Cedar", price: 0 },
-                        { id: "stain" as RaisedBedFinish, label: "Cedar Stain", price: selectedBed.stainPrice },
-                        { id: "painted_white" as RaisedBedFinish, label: "Painted White", price: selectedBed.paintedWhitePrice },
+                        { id: "stain" as RaisedBedFinish, label: "Cedar Stain", price: optionPrices?.stainPrice ?? 0 },
+                        { id: "painted_white" as RaisedBedFinish, label: "Painted White", price: optionPrices?.paintedWhitePrice ?? 0 },
                       ]).map((f) => (
                         <button
                           key={f.id}
@@ -241,7 +255,7 @@ export default function RaisedBedDropdown({
                   <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                     <div>
                       <p className="text-xs font-bold text-zinc-300">Add Landscape Liner</p>
-                      <p className="text-[10px] text-zinc-500">+${selectedBed.linerPrice}</p>
+                      <p className="text-[10px] text-zinc-500">+${optionPrices?.linerPrice ?? 0}</p>
                     </div>
                     <input
                       type="checkbox"
@@ -256,7 +270,7 @@ export default function RaisedBedDropdown({
                     <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                       <div>
                         <p className="text-xs font-bold text-zinc-300">Increase Planting Depth to 12"</p>
-                        <p className="text-[10px] text-zinc-500">+${selectedBed.depthIncreasePrice}</p>
+                        <p className="text-[10px] text-zinc-500">+${optionPrices?.depthIncreasePrice ?? 0}</p>
                       </div>
                       <input
                         type="checkbox"
@@ -272,7 +286,7 @@ export default function RaisedBedDropdown({
                     <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
                       <div>
                         <p className="text-xs font-bold text-zinc-300">Add Bottom Shelf</p>
-                        <p className="text-[10px] text-zinc-500">+${selectedBed.bottomShelfPrice}</p>
+                        <p className="text-[10px] text-zinc-500">+${optionPrices?.bottomShelfPrice ?? 0}</p>
                       </div>
                       <input
                         type="checkbox"
@@ -292,11 +306,9 @@ export default function RaisedBedDropdown({
                       <div className="space-y-1.5">
                         {PEST_COVER_OPTIONS.map((cover) => {
                           const isLarge = selectedBed.pestCoverCategory === "2x6";
-                          const price = cover.id === "none" ? 0 : (isLarge ? cover.price_2x6 : cover.price_2x4);
-                          // Add stain addon if finish is stain
-                          const stainAddon = finish === "stain" && cover.id !== "none"
-                            ? (isLarge ? cover.stainAddon_2x6 : cover.stainAddon_2x4) : 0;
-                          const totalCoverPrice = price + stainAddon;
+                          const coverPrices = cover.id !== "none" && optionPrices?.pestCovers?.[cover.id];
+                          const price = coverPrices ? (isLarge ? coverPrices.price_2x6 : coverPrices.price_2x4) : 0;
+                          const totalCoverPrice = price;
 
                           return (
                             <button

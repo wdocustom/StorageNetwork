@@ -105,10 +105,7 @@ export interface OverheadMaterial {
   unit: string;
 }
 
-// ── Pricing ──────────────────────────────────────────────────────────────
-
-/** Base price per tote slot for overhead ceiling rail system */
-export const OVERHEAD_BASE_PRICE_PER_SLOT = 28;
+// ── Pricing Keys ─────────────────────────────────────────────────────────
 
 /** InstallerPricing keys for overhead grid presets */
 export const OVERHEAD_PRICING_KEYS = [
@@ -119,15 +116,6 @@ export const OVERHEAD_PRICING_KEYS = [
   "overhead_3x4",
   "overhead_4x4",
 ] as const;
-
-export const PLATFORM_OVERHEAD_DEFAULTS: Record<string, number> = {
-  overhead_2x2: 4 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $112
-  overhead_2x3: 6 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $168
-  overhead_3x2: 6 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $168
-  overhead_3x3: 9 * OVERHEAD_BASE_PRICE_PER_SLOT,   // $252
-  overhead_3x4: 12 * OVERHEAD_BASE_PRICE_PER_SLOT,  // $336
-  overhead_4x4: 16 * OVERHEAD_BASE_PRICE_PER_SLOT,  // $448
-};
 
 // ── System Dimension Helpers ─────────────────────────────────────────────
 
@@ -147,6 +135,8 @@ export function getSystemDepth(slotsDeep: number): number {
 export function calculateOverheadStorage(
   config: OverheadStorageConfig,
   installerPricing?: Record<string, number | boolean | undefined>,
+  platformOverheadDefaults?: Record<string, number>,
+  basePricePerSlot?: number,
 ): OverheadStorageResult {
   const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === config.gridPresetId);
   if (!preset) throw new Error(`Unknown overhead grid preset: ${config.gridPresetId}`);
@@ -168,7 +158,8 @@ export function calculateOverheadStorage(
   if (typeof overridePrice === "number" && overridePrice > 0) {
     price = overridePrice;
   } else {
-    price = PLATFORM_OVERHEAD_DEFAULTS[presetKey] ?? toteCount * OVERHEAD_BASE_PRICE_PER_SLOT;
+    const fallbackPerSlot = basePricePerSlot ?? 28;
+    price = (platformOverheadDefaults?.[presetKey]) ?? toteCount * fallbackPerSlot;
   }
 
   // Tote pricing — use installer override or platform default ($12/ea standard)
