@@ -621,10 +621,13 @@ function RackAssembly({
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
+                  // Drawer rows: rail slides out with tote
+                  const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
+                  const railSlideZ = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
                   return (
                     <PlywoodStrip
                       key={`rr-${i}-${r}`}
-                      position={[railX, railY, unitDepth / 2]}
+                      position={[railX, railY, unitDepth / 2 - railSlideZ]}
                       length={railLen}
                       railHeight={railHeight}
                       material={railMat}
@@ -640,10 +643,13 @@ function RackAssembly({
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
+                  // Drawer rows: rail slides out with tote
+                  const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
+                  const railSlideZ = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
                   return (
                     <PlywoodStrip
                       key={`rl-${i}-${r}`}
-                      position={[railX, railY, unitDepth / 2]}
+                      position={[railX, railY, unitDepth / 2 - railSlideZ]}
                       length={railLen}
                       railHeight={railHeight}
                       material={railMat}
@@ -843,35 +849,76 @@ function RackAssembly({
           );
         })()}
 
-        {/* ── Drawer Slides (silver slide bars for bottom rows) ──── */}
+        {/* ── Drawer Slides + Cross Support Backers ──────────────── */}
         {drawerSlideRows && drawerSlideRows > 0 && (() => {
           const slideElements: React.ReactNode[] = [];
-          const slideH = 2.0;   // slide bar height (~2" tall, matching real slides)
-          const slideW = 0.5;   // slide bar width (thin profile)
-          const slideColor = "#c0c0c0"; // silver
+          const slideH = 1.5;
+          const slideW = 0.4;
+          const slideColor = "#c0c0c0";
+          const backerColor = frameMat ? undefined : PINE_MAT;
+          const slideOffset = drawersOpen ? unitDepth * 0.6 : 0;
 
           for (let row = 0; row < drawerSlideRows; row++) {
-            // Rail center Y for this row
             const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-            // Slide mounts just below the rail — centered on the tote body
             const slideCenterY = railCenterY - toteBodyH / 2;
+
+            // Cross support backers — 2×4 running between posts at slide height
+            // One at front, one at back of each bay
+            for (let col = 0; col < cols; col++) {
+              const leftPostX = POST_W + col * (bayW + POST_W);
+              const rightPostX = leftPostX + bayW + POST_W;
+              const backerX = (leftPostX + rightPostX) / 2;
+              const backerLen = bayW + POST_W;
+
+              // Front backer
+              slideElements.push(
+                <mesh key={`backer-f-${row}-${col}`} position={[backerX, slideCenterY, POST_D / 2]}
+                  material={backerColor ?? frameMat}
+                  castShadow>
+                  <boxGeometry args={[backerLen, POST_W, POST_D]} />
+                </mesh>
+              );
+              // Back backer
+              slideElements.push(
+                <mesh key={`backer-b-${row}-${col}`} position={[backerX, slideCenterY, unitDepth - POST_D / 2]}
+                  material={backerColor ?? frameMat}
+                  castShadow>
+                  <boxGeometry args={[backerLen, POST_W, POST_D]} />
+                </mesh>
+              );
+            }
 
             for (let col = 0; col < cols; col++) {
               const bayStartX = POST_W + col * (bayW + POST_W);
               const bayCenterX = bayStartX + bayW / 2;
 
-              // Left slide rail
+              // Fixed channel (stays on frame — shorter, at the back half)
+              const fixedLen = unitDepth * 0.45;
               slideElements.push(
-                <mesh key={`slide-l-${row}-${col}`} position={[bayCenterX - bayW / 2 + 1, slideCenterY, unitDepth * 0.15]}>
-                  <boxGeometry args={[slideW, slideH, unitDepth * 0.7]} />
-                  <meshStandardMaterial color={slideColor} metalness={0.8} roughness={0.2} />
+                <mesh key={`slide-fixed-l-${row}-${col}`} position={[bayCenterX - bayW / 2 + 1.5, slideCenterY, unitDepth - fixedLen / 2]}>
+                  <boxGeometry args={[slideW, slideH, fixedLen]} />
+                  <meshStandardMaterial color={slideColor} metalness={0.7} roughness={0.25} />
                 </mesh>
               );
-              // Right slide rail
               slideElements.push(
-                <mesh key={`slide-r-${row}-${col}`} position={[bayCenterX + bayW / 2 - 1, slideCenterY, unitDepth * 0.15]}>
-                  <boxGeometry args={[slideW, slideH, unitDepth * 0.7]} />
-                  <meshStandardMaterial color={slideColor} metalness={0.8} roughness={0.2} />
+                <mesh key={`slide-fixed-r-${row}-${col}`} position={[bayCenterX + bayW / 2 - 1.5, slideCenterY, unitDepth - fixedLen / 2]}>
+                  <boxGeometry args={[slideW, slideH, fixedLen]} />
+                  <meshStandardMaterial color={slideColor} metalness={0.7} roughness={0.25} />
+                </mesh>
+              );
+
+              // Sliding rail (extends out with tote — brighter, moves forward)
+              const slidingLen = unitDepth * 0.85;
+              slideElements.push(
+                <mesh key={`slide-ext-l-${row}-${col}`} position={[bayCenterX - bayW / 2 + 1.5, slideCenterY, unitDepth / 2 - slideOffset]}>
+                  <boxGeometry args={[slideW * 0.7, slideH * 0.7, slidingLen]} />
+                  <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.15} />
+                </mesh>
+              );
+              slideElements.push(
+                <mesh key={`slide-ext-r-${row}-${col}`} position={[bayCenterX + bayW / 2 - 1.5, slideCenterY, unitDepth / 2 - slideOffset]}>
+                  <boxGeometry args={[slideW * 0.7, slideH * 0.7, slidingLen]} />
+                  <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.15} />
                 </mesh>
               );
             }
