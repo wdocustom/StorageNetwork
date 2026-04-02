@@ -846,14 +846,15 @@ function RackAssembly({
         {/* ── Drawer Slides (silver slide bars for bottom rows) ──── */}
         {drawerSlideRows && drawerSlideRows > 0 && (() => {
           const slideElements: React.ReactNode[] = [];
-          const slideH = 1.0;   // slide bar height
-          const slideW = 0.5;   // slide bar width (thin)
+          const slideH = 2.0;   // slide bar height (~2" tall, matching real slides)
+          const slideW = 0.5;   // slide bar width (thin profile)
           const slideColor = "#c0c0c0"; // silver
 
           for (let row = 0; row < drawerSlideRows; row++) {
-            // Rail Y for this row (bottom-up: row 0 is bottom)
-            const railY = PLATE_H + firstRailY + row * tierSpacing;
-            const slideCenterY = railY + tierSpacing / 2;
+            // Rail center Y for this row
+            const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+            // Slide mounts just below the rail — centered on the tote body
+            const slideCenterY = railCenterY - toteBodyH / 2;
 
             for (let col = 0; col < cols; col++) {
               const bayStartX = POST_W + col * (bayW + POST_W);
