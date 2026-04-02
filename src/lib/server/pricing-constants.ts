@@ -30,6 +30,7 @@ export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_cornhusker: 660,
   bestseller_long_ranger: 715,
   bestseller_gas_station: 840,
+  bestseller_track_norris: 630,
 };
 
 /** Open shelving unit total prices */

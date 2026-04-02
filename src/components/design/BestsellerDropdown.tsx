@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ChevronDown, Loader2, Plus, Star } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2, Package, Plus, Star } from "lucide-react";
+import { BESTSELLER_PRESETS } from "@/lib/presets";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { SelectionCard, StudioToggle, RollingPrice } from "./configurator-primitives";
 
@@ -145,11 +146,21 @@ export default function BestsellerDropdown({
                       ))}
                     </ul>
                   </div>
-                  <StudioToggle
-                    checked={presetTotes}
-                    onChange={onPresetTotesChange}
-                    label={`Include Totes`}
-                  />
+                  {(() => {
+                    const presetDef = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
+                    return presetDef?.totesAreMandatory ? (
+                      <div className="flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2 text-[11px] text-zinc-400">
+                        <Package className="h-3.5 w-3.5 text-yellow-400" />
+                        Totes included — drawer slide system
+                      </div>
+                    ) : (
+                      <StudioToggle
+                        checked={presetTotes}
+                        onChange={onPresetTotesChange}
+                        label="Include Totes"
+                      />
+                    );
+                  })()}
                   <div className="flex items-center gap-3 border-t border-zinc-800 pt-3">
                     <div className="flex-1 text-center">
                       <div className="text-2xl font-black text-white">

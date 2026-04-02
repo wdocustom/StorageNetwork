@@ -110,7 +110,7 @@ export async function updateInstallerPricing(
     if (pricing.raised_bed_enabled === true) {
       (validated as Record<string, unknown>).raised_bed_enabled = true;
     }
-    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled"] as const) {
+    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled", "bestseller_track_norris_disabled"] as const) {
       if (pricing[bk] === true) {
         (validated as Record<string, unknown>)[bk] = true;
       }

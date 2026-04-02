@@ -94,6 +94,8 @@ interface RackVisualizerProps {
   totalH: number;
   /** When set, renders a compound preset (multiple sub-units side by side) */
   presetUnits?: VisualizerSubUnit[];
+  /** Number of bottom rows with drawer slides (Track Norris style) */
+  drawerSlideRows?: number;
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
   /** Paint color for the 2×4 frame */
@@ -451,6 +453,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 hasWheels={props.hasWheels}
                 hasTop={props.hasTop}
                 presetUnits={props.presetUnits}
+                drawerSlideRows={props.drawerSlideRows}
                 addons={props.addons}
                 paintFrameColor={props.paintFrameColor}
                 paintDoorColor={props.paintDoorColor}

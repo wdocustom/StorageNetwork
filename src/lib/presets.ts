@@ -3,7 +3,7 @@
 //
 // Contains unit configurations (cols, rows, options) needed by the 3D
 // configurator. Pricing is NOT included here — it lives server-side in:
-//   - PLATFORM_BESTSELLER_DEFAULTS (src/types/viewModels.ts)
+//   - PLATFORM_BESTSELLER_DEFAULTS (src/lib/server/pricing-constants.ts)
 //   - Installer overrides (pricing_config in profiles table)
 //   - calculateCompoundBuild() (src/app/actions/calculator.ts)
 //
@@ -29,6 +29,12 @@ export interface BestsellerPreset {
   orientation: "standard" | "sideways";
   /** When true, tote add-on price is calculated dynamically from the normal pricing engine */
   dynamicTotePricing?: boolean;
+  /** When true, totes cannot be removed — they are part of the system (e.g. drawer slides) */
+  totesAreMandatory?: boolean;
+  /** Number of bottom rows that have drawer slides (renders slide hardware in 3D) */
+  drawerSlideRows?: number;
+  /** Amazon purchase link for drawer slide hardware */
+  drawerSlideLink?: string;
 }
 
 export const BESTSELLER_PRESETS: BestsellerPreset[] = [
@@ -84,6 +90,21 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
       { cols: 1, rows: 4, hasTop: true, hasWheels: false },
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },
       { cols: 1, rows: 4, hasTop: true, hasWheels: false },
+    ],
+  },
+  {
+    id: "track-norris",
+    name: "Track Norris",
+    label: "New",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    totesAreMandatory: true,
+    drawerSlideRows: 2,
+    drawerSlideLink: "https://amzn.to/4bW48Ln",
+    units: [
+      { cols: 4, rows: 2, hasTop: true, hasWheels: false },
     ],
   },
 ];

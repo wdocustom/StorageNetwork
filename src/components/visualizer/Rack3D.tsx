@@ -101,6 +101,8 @@ interface Rack3DProps {
   hasTop: boolean;
   /** When set, renders compound preset (multiple sub-units side by side) */
   presetUnits?: SubUnit3D[];
+  /** Number of bottom rows with drawer slides */
+  drawerSlideRows?: number;
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
   /** Paint color for the 2×4 frame */
@@ -530,8 +532,8 @@ function SidePanel({ position, height, depth, material }: {
 
 function RackAssembly({
   cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
-  paintFrameColor, paintDoorColor, paintSidePanelColor,
-}: Rack3DProps) {
+  paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows,
+}: Rack3DProps & { drawerSlideRows?: number }) {
   const isMini = unitType === "mini";
 
   // Resolve paint materials (null = use default wood texture)
@@ -834,6 +836,41 @@ function RackAssembly({
             </>
           );
         })()}
+
+        {/* ── Drawer Slides (silver slide bars for bottom rows) ──── */}
+        {drawerSlideRows && drawerSlideRows > 0 && (() => {
+          const slideElements: React.ReactNode[] = [];
+          const slideH = 1.0;   // slide bar height
+          const slideW = 0.5;   // slide bar width (thin)
+          const slideColor = "#c0c0c0"; // silver
+
+          for (let row = 0; row < drawerSlideRows; row++) {
+            // Rail Y for this row (bottom-up: row 0 is bottom)
+            const railY = PLATE_H + firstRailY + row * tierSpacing;
+            const slideCenterY = railY + tierSpacing / 2;
+
+            for (let col = 0; col < cols; col++) {
+              const bayStartX = POST_W + col * (bayW + POST_W);
+              const bayCenterX = bayStartX + bayW / 2;
+
+              // Left slide rail
+              slideElements.push(
+                <mesh key={`slide-l-${row}-${col}`} position={[bayCenterX - bayW / 2 + 1, slideCenterY, unitDepth * 0.15]}>
+                  <boxGeometry args={[slideW, slideH, unitDepth * 0.7]} />
+                  <meshStandardMaterial color={slideColor} metalness={0.8} roughness={0.2} />
+                </mesh>
+              );
+              // Right slide rail
+              slideElements.push(
+                <mesh key={`slide-r-${row}-${col}`} position={[bayCenterX + bayW / 2 - 1, slideCenterY, unitDepth * 0.15]}>
+                  <boxGeometry args={[slideW, slideH, unitDepth * 0.7]} />
+                  <meshStandardMaterial color={slideColor} metalness={0.8} roughness={0.2} />
+                </mesh>
+              );
+            }
+          }
+          return <>{slideElements}</>;
+        })()}
       </group>
     </group>
   );
@@ -904,13 +941,14 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: P
 // ── Compound Preset Assembly ─────────────────────────────────────────────
 // Renders multiple RackAssembly groups side by side as one compound unit.
 
-function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes }: {
+function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows }: {
   presetUnits: SubUnit3D[];
   toteType: ToteType;
   toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
+  drawerSlideRows?: number;
 }) {
   const isMini = unitType === "mini";
   const bayW = getBayWidth(toteType, unitType, orientation);
@@ -945,8 +983,6 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
     <group scale={[S, S, S]}>
       {presetUnits.map((unit, i) => {
         const xOffset = (positions[i] - centerOffset);
-        // Bottom-align: RackAssembly centers each unit at y=0 using cy=overallH/2.
-        // Shift shorter units DOWN so all bottoms sit at -maxH/2.
         const yOffset = (unitHeights[i] - maxH) / 2;
         return (
           <group key={`preset-unit-${i}`} position={[xOffset, yOffset, 0]}>
@@ -961,6 +997,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
                 hasTotes={hasTotes}
                 hasWheels={unit.hasWheels}
                 hasTop={unit.hasTop}
+                drawerSlideRows={drawerSlideRows}
               />
             </group>
           </group>
@@ -1903,6 +1940,7 @@ export default function Rack3D(props: Rack3DProps) {
                 unitType={props.unitType}
                 orientation={props.orientation}
                 hasTotes={props.hasTotes}
+                drawerSlideRows={props.drawerSlideRows}
               />
             </Stage>
           </>

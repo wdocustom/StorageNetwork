@@ -446,6 +446,9 @@ export async function calculateCompoundBuild(input: {
     return { success: false, error: "Unknown preset." };
   }
 
+  // Force totes on for mandatory-tote presets (e.g. Track Norris — totes are drawers)
+  const hasTotes = preset.totesAreMandatory ? true : input.hasTotes;
+
   // Still calculate each sub-unit for dimensions/slots (pricing may be overridden)
   const subUnits: CompoundBuildResult["subUnits"] = [];
   let combinedW = 0;
@@ -462,7 +465,7 @@ export async function calculateCompoundBuild(input: {
       unitType: preset.unitType,
       orientation: preset.orientation,
       addOns: {
-        totes: input.hasTotes,
+        totes: hasTotes,
         wheels: unit.hasWheels,
         top: unit.hasTop,
       },
@@ -531,7 +534,7 @@ export async function calculateCompoundBuild(input: {
     // or platform default.  When customer toggles totes OFF → subtract tote
     // cost at the installer's rate.
     totalPrice = bestsellerOverride;
-    if (!input.hasTotes) {
+    if (!hasTotes) {
       totalPrice -= totalSlots * effectiveTotePrice;
     }
   } else {

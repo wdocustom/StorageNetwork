@@ -46,6 +46,7 @@ import {
   ArrowUpFromLine,
   ChevronUp,
   PenLine,
+  Package,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -1130,18 +1131,27 @@ export default function BuildConfiguratorPage() {
                 })}
               </select>
 
-              {selectedPreset && (
+              {selectedPreset && (() => {
+                const activePresetObj = BESTSELLER_PRESETS.find((p) => p.id === selectedPreset);
+                return (
                 <div className="mt-3 space-y-3">
-                  {/* Totes toggle */}
-                  <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={presetHasTotes}
-                      onChange={(e) => setPresetHasTotes(e.target.checked)}
-                      className="h-4 w-4 accent-yellow-400"
-                    />
-                    <span className="text-sm text-stone-300">Include Totes</span>
-                  </label>
+                  {/* Totes toggle — hidden for mandatory-tote presets like Track Norris */}
+                  {activePresetObj?.totesAreMandatory ? (
+                    <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
+                      <Package className="h-4 w-4 text-yellow-400" />
+                      Totes included — drawer slide system
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={presetHasTotes}
+                        onChange={(e) => setPresetHasTotes(e.target.checked)}
+                        className="h-4 w-4 accent-yellow-400"
+                      />
+                      <span className="text-sm text-stone-300">Include Totes</span>
+                    </label>
+                  )}
 
                   {/* Result */}
                   {presetLoading && (
@@ -1192,7 +1202,8 @@ export default function BuildConfiguratorPage() {
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </>
           )}
 
