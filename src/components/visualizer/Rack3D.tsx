@@ -861,7 +861,8 @@ function RackAssembly({
 
           for (let row = 0; row < drawerSlideRows; row++) {
             const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-            const slideCenterY = railCenterY - toteBodyH / 2;
+            // All three components sit at the same elevation as the plywood rails
+            const slideCenterY = railCenterY;
 
             // Cross support backers — 2×4 running FRONT-TO-BACK (along Z)
             // at each post/ladder position, providing mounting for slide channels
