@@ -103,6 +103,8 @@ interface Rack3DProps {
   presetUnits?: SubUnit3D[];
   /** Number of bottom rows with drawer slides */
   drawerSlideRows?: number;
+  /** When true, drawer totes slide out visually */
+  drawersOpen?: boolean;
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
   /** Paint color for the 2×4 frame */
@@ -532,8 +534,8 @@ function SidePanel({ position, height, depth, material }: {
 
 function RackAssembly({
   cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
-  paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows,
-}: Rack3DProps & { drawerSlideRows?: number }) {
+  paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows, drawersOpen,
+}: Rack3DProps & { drawerSlideRows?: number; drawersOpen?: boolean }) {
   const isMini = unitType === "mini";
 
   // Resolve paint materials (null = use default wood texture)
@@ -670,20 +672,24 @@ function RackAssembly({
 
               const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
               const railTop = railCenterY + railHeight / 2;
-              // Rim bottom = rail top → body bottom = rail top - toteBodyH
               const toteGroupY = railTop - toteBodyH;
 
+              // Drawer slide: bottom rows slide out when drawersOpen
+              const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
+              const slideOffset = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
+
               return (
-                <Tote
-                  key={`tote-${c}-${r}`}
-                  position={[bayCenterX, toteGroupY, unitDepth / 2]}
-                  bayW={bayW}
-                  toteType={toteType}
-                  toteColor={toteColor}
-                  unitType={unitType}
-                  orientation={orientation}
-                  unitDepth={unitDepth}
-                />
+                <group key={`tote-${c}-${r}`}>
+                  <Tote
+                    position={[bayCenterX, toteGroupY, unitDepth / 2 - slideOffset]}
+                    bayW={bayW}
+                    toteType={toteType}
+                    toteColor={toteColor}
+                    unitType={unitType}
+                    orientation={orientation}
+                    unitDepth={unitDepth}
+                  />
+                </group>
               );
             });
           })}
@@ -941,7 +947,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: P
 // ── Compound Preset Assembly ─────────────────────────────────────────────
 // Renders multiple RackAssembly groups side by side as one compound unit.
 
-function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows }: {
+function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows, drawersOpen }: {
   presetUnits: SubUnit3D[];
   toteType: ToteType;
   toteColor: ToteColor;
@@ -949,6 +955,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
   orientation: Orientation;
   hasTotes: boolean;
   drawerSlideRows?: number;
+  drawersOpen?: boolean;
 }) {
   const isMini = unitType === "mini";
   const bayW = getBayWidth(toteType, unitType, orientation);
@@ -998,6 +1005,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
                 hasWheels={unit.hasWheels}
                 hasTop={unit.hasTop}
                 drawerSlideRows={drawerSlideRows}
+                drawersOpen={drawersOpen}
               />
             </group>
           </group>
@@ -1941,6 +1949,7 @@ export default function Rack3D(props: Rack3DProps) {
                 orientation={props.orientation}
                 hasTotes={props.hasTotes}
                 drawerSlideRows={props.drawerSlideRows}
+                drawersOpen={props.drawersOpen}
               />
             </Stage>
           </>

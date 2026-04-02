@@ -122,6 +122,8 @@ interface RackVisualizerProps {
   };
   /** Text displayed as a diagonal watermark behind the visualizer */
   watermarkText?: string;
+  /** When true, shows an "Open Drawers" button on the 3D canvas */
+  hasDrawerSlides?: boolean;
 }
 
 /** A completed order item for multi-unit 3D rendering */
@@ -273,6 +275,7 @@ function MultiUnitOverlay({ controls }: {
 
 export default function RackVisualizer(props: RackVisualizerProps) {
   const [viewMode, setViewMode] = useState<"2D" | "3D">(getDefaultViewMode);
+  const [drawersOpen, setDrawersOpen] = useState(false);
 
   // Sync default on hydration (SSR always renders "2D", client may upgrade to "3D")
   useEffect(() => {
@@ -341,6 +344,25 @@ export default function RackVisualizer(props: RackVisualizerProps) {
           </button>
         </div>
       </div>
+
+      {/* ── Open Drawers Button (bottom-right, 3D only) ────────── */}
+      {viewMode === "3D" && (props.drawerSlideRows ?? 0) > 0 && (
+        <div className="absolute bottom-3 right-3 z-10">
+          <button
+            onClick={() => setDrawersOpen(!drawersOpen)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold shadow-sm backdrop-blur-sm transition-all ${
+              drawersOpen
+                ? "border-yellow-400/60 bg-yellow-400 text-gray-900"
+                : "border-stone-300/60 bg-white/90 text-stone-600 hover:bg-stone-100"
+            }`}
+          >
+            <svg className={`h-3.5 w-3.5 transition-transform duration-300 ${drawersOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h18" />
+            </svg>
+            {drawersOpen ? "Close Drawers" : "Open Drawers"}
+          </button>
+        </div>
+      )}
 
       {/* ── Active View ─────────────────────────────────────────── */}
       {viewMode === "2D" ? (
@@ -454,6 +476,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 hasTop={props.hasTop}
                 presetUnits={props.presetUnits}
                 drawerSlideRows={props.drawerSlideRows}
+                drawersOpen={drawersOpen}
                 addons={props.addons}
                 paintFrameColor={props.paintFrameColor}
                 paintDoorColor={props.paintDoorColor}
