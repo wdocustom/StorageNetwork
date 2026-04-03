@@ -316,8 +316,7 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
-  // Clamp rim width to bay opening so it doesn't clip through posts
-  const rimW = Math.min(toteW, bayW);
+  const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
   const bodyTopD = toteDepth * 0.95;
@@ -547,8 +546,25 @@ function RackAssembly({
   const sidePanelMat = getPaintMaterial(paintSidePanelColor) ?? undefined;
   // Rails are part of the frame, so they get frame paint
   const railMat = frameMat;
-  const bayW = getBayWidth(toteType, unitType, orientation);
-  const totalW = cols * bayW + (cols + 1) * POST_W;
+  const standardBayW = getBayWidth(toteType, unitType, orientation);
+  // Drawer columns are 1" wider (0.5" per side for slide hardware)
+  const DRAWER_SLIDE_EXTRA = 1.0;
+  const colBayWidths = Array.from({ length: cols }, (_, c) =>
+    drawerSlideColumns?.includes(c) ? standardBayW + DRAWER_SLIDE_EXTRA : standardBayW
+  );
+  const bayW = standardBayW; // default for non-per-column calculations
+  const totalW = colBayWidths.reduce((sum, w) => sum + w, 0) + (cols + 1) * POST_W;
+
+  // Per-column post X positions (accounts for variable bay widths)
+  const getColPostX = (postIdx: number) => {
+    let x = POST_W / 2;
+    for (let c = 0; c < postIdx; c++) {
+      x += colBayWidths[c] + POST_W;
+    }
+    return x;
+  };
+  // Bay width for a specific column
+  const getColBayW = (c: number) => colBayWidths[c] ?? standardBayW;
 
   // Get unit-specific values
   const unitDepth = getUnitDepth(unitType, orientation);
@@ -609,7 +625,7 @@ function RackAssembly({
 
           {/* Ladder frames: posts + rails */}
           {Array.from({ length: cols + 1 }).map((_, i) => {
-            const px = getPostX(i, bayW);
+            const px = getColPostX(i);
             return (
               <group key={`ladder-${i}`}>
                 {/* Front + Back posts */}
@@ -665,8 +681,8 @@ function RackAssembly({
 
           {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots) */}
           {hasTotes && Array.from({ length: cols }).map((_, c) => {
-            const leftPostX = getPostX(c, bayW);
-            const rightPostX = getPostX(c + 1, bayW);
+            const leftPostX = getColPostX(c);
+            const rightPostX = getColPostX(c + 1);
             const bayCenterX = (leftPostX + rightPostX) / 2;
 
             return Array.from({ length: rows }).map((_, r) => {
@@ -691,7 +707,7 @@ function RackAssembly({
                 <group key={`tote-${c}-${r}`}>
                   <Tote
                     position={[bayCenterX, toteGroupY, unitDepth / 2 - slideOffset]}
-                    bayW={bayW}
+                    bayW={getColBayW(c)}
                     toteType={toteType}
                     toteColor={toteColor}
                     unitType={unitType}
@@ -707,8 +723,8 @@ function RackAssembly({
           {addons && addons.filter((a) => a.type === "shelf").map((addon) => {
             const col = addon.target as number;
             const row = addon.row ?? 0;
-            const leftPostX = getPostX(col, bayW);
-            const rightPostX = getPostX(col + 1, bayW);
+            const leftPostX = getColPostX(col);
+            const rightPostX = getColPostX(col + 1);
             const shelfCenterX = (leftPostX + rightPostX) / 2;
             const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
             const railTop = railCenterY + railHeight / 2;
@@ -778,8 +794,8 @@ function RackAssembly({
               <>
                 {/* Full-height column doors — one door per column, spanning bottom to top */}
                 {hasDoors && Array.from({ length: cols }).map((_, col) => {
-                  const leftPostX = getPostX(col, bayW);
-                  const rightPostX = getPostX(col + 1, bayW);
+                  const leftPostX = getColPostX(col);
+                  const rightPostX = getColPostX(col + 1);
                   const bayCenterX = (leftPostX + rightPostX) / 2;
 
                   // Door is slightly larger than the opening (overlaps posts by 0.25" each side)
@@ -840,8 +856,8 @@ function RackAssembly({
 
         {/* ── 4 CASTERS — outer corners only ── */}
         {hasWheels && (() => {
-          const firstPostX = getPostX(0, bayW);
-          const lastPostX = getPostX(cols, bayW);
+          const firstPostX = getColPostX(0);
+          const lastPostX = getColPostX(cols);
           return (
             <>
               <IndustrialCaster position={[firstPostX, 0, POST_D / 2]} />
@@ -878,7 +894,7 @@ function RackAssembly({
               backerPostSet[col + 1] = true;   // right post of drawer bay
             }
             for (const postIdx of Object.keys(backerPostSet).map(Number)) {
-              const px = getPostX(postIdx, bayW);
+              const px = getColPostX(postIdx);
               slideElements.push(
                 <mesh key={`backer-${row}-${postIdx}`}
                   position={[px, slideCenterY, unitDepth / 2]}
@@ -891,8 +907,8 @@ function RackAssembly({
 
             // Slides — only for drawer columns
             for (const col of drawerCols) {
-              const leftPostX = getPostX(col, bayW);
-              const rightPostX = getPostX(col + 1, bayW);
+              const leftPostX = getColPostX(col);
+              const rightPostX = getColPostX(col + 1);
 
               // Left slide (on right face of left post, just inside the rail)
               const leftSlideX = leftPostX + POST_W / 2 + RAIL_THICKNESS + slideW / 2;
