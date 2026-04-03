@@ -316,7 +316,8 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
-  const rimW = toteW;
+  // Clamp rim width to bay opening so it doesn't clip through posts
+  const rimW = Math.min(toteW, bayW);
   const bodyTopW = bayW - BIN_GAP * 2;
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
   const bodyTopD = toteDepth * 0.95;

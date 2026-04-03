@@ -38,10 +38,10 @@ export default function ConfiguratorFooter({
       <div className="mb-3 flex items-end justify-between">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            {props.orderItems.length > 0 ? "Grand Total" : props.raisedBedPreviewPrice != null ? "Raised Bed" : props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
+            {props.orderItems.length > 0 ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : props.raisedBedPreviewPrice != null ? "Raised Bed" : props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
           </div>
           <div className="text-3xl font-black text-white">
-            <RollingPrice value={props.orderItems.length > 0 ? props.grandTotal : props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
+            <RollingPrice value={props.orderItems.length > 0 ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
           </div>
         </div>
         <div className="text-right">
