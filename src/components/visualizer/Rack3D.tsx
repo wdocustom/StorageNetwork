@@ -101,8 +101,10 @@ interface Rack3DProps {
   hasTop: boolean;
   /** When set, renders compound preset (multiple sub-units side by side) */
   presetUnits?: SubUnit3D[];
-  /** Number of bottom rows with drawer slides */
+  /** Number of bottom rows with drawer slides (legacy — use drawerSlideColumns for per-column) */
   drawerSlideRows?: number;
+  /** Column indices that have drawer slides (e.g. [0, 3] = first and last) */
+  drawerSlideColumns?: number[];
   /** When true, drawer totes slide out visually */
   drawersOpen?: boolean;
   /** Per-section addons (doors, side panels, rail removal, hinges) */
@@ -534,8 +536,8 @@ function SidePanel({ position, height, depth, material }: {
 
 function RackAssembly({
   cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
-  paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows, drawersOpen,
-}: Rack3DProps & { drawerSlideRows?: number; drawersOpen?: boolean }) {
+  paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows, drawerSlideColumns, drawersOpen,
+}: Rack3DProps & { drawerSlideRows?: number; drawerSlideColumns?: number[]; drawersOpen?: boolean }) {
   const isMini = unitType === "mini";
 
   // Resolve paint materials (null = use default wood texture)
@@ -621,9 +623,9 @@ function RackAssembly({
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
-                  // Drawer rows: rail slides out with tote
-                  const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
-                  const railSlideZ = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
+                  // Drawer column: rail slides out with tote
+                  const isDrawerCol = drawerSlideColumns?.includes(i) ?? (drawerSlideRows ? r < drawerSlideRows : false);
+                  const railSlideZ = isDrawerCol && drawersOpen ? unitDepth * 0.6 : 0;
                   return (
                     <PlywoodStrip
                       key={`rr-${i}-${r}`}
@@ -643,9 +645,9 @@ function RackAssembly({
                   if (isRailRemoved) return null;
                   const railY = PLATE_H + firstRailY + r * tierSpacing;
                   const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
-                  // Drawer rows: rail slides out with tote
-                  const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
-                  const railSlideZ = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
+                  // Drawer column: rail slides out with tote
+                  const isDrawerCol = drawerSlideColumns?.includes(i - 1) ?? (drawerSlideRows ? r < drawerSlideRows : false);
+                  const railSlideZ = isDrawerCol && drawersOpen ? unitDepth * 0.6 : 0;
                   return (
                     <PlywoodStrip
                       key={`rl-${i}-${r}`}
@@ -680,9 +682,9 @@ function RackAssembly({
               const railTop = railCenterY + railHeight / 2;
               const toteGroupY = railTop - toteBodyH;
 
-              // Drawer slide: bottom rows slide out when drawersOpen
-              const isDrawerRow = drawerSlideRows ? r < drawerSlideRows : false;
-              const slideOffset = isDrawerRow && drawersOpen ? unitDepth * 0.6 : 0;
+              // Drawer slide: drawer columns slide out when drawersOpen
+              const isDrawerCol = drawerSlideColumns?.includes(c) ?? (drawerSlideRows ? r < drawerSlideRows : false);
+              const slideOffset = isDrawerCol && drawersOpen ? unitDepth * 0.6 : 0;
 
               return (
                 <group key={`tote-${c}-${r}`}>
@@ -850,7 +852,7 @@ function RackAssembly({
         })()}
 
         {/* ── Drawer Slides + Cross Support Backers ──────────────── */}
-        {drawerSlideRows && drawerSlideRows > 0 && (() => {
+        {((drawerSlideColumns && drawerSlideColumns.length > 0) || (drawerSlideRows && drawerSlideRows > 0)) && (() => {
           const slideElements: React.ReactNode[] = [];
           const slideH = 1.5;
           const slideW = 0.4;
@@ -859,16 +861,23 @@ function RackAssembly({
           const slideOffset = drawersOpen ? unitDepth * 0.6 : 0;
           const backerDepth = unitDepth - POST_D; // spans between front and back posts
 
-          for (let row = 0; row < drawerSlideRows; row++) {
+          // Determine which columns have drawers
+          const drawerCols = drawerSlideColumns ?? (drawerSlideRows ? Array.from({ length: cols }, (_, i) => i) : []);
+          // All rows in a drawer column get slides
+          const drawerRowCount = rows;
+
+          for (let row = 0; row < drawerRowCount; row++) {
             const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
-            // All three components sit at the same elevation as the plywood rails
             const slideCenterY = railCenterY;
 
-            // Cross support backers — 2×4 running FRONT-TO-BACK (along Z)
-            // at each post/ladder position, providing mounting for slide channels
-            for (let postIdx = 0; postIdx <= cols; postIdx++) {
+            // Cross support backers — at posts adjacent to drawer columns only
+            const backerPostSet: Record<number, boolean> = {};
+            for (const col of drawerCols) {
+              backerPostSet[col] = true;       // left post of drawer bay
+              backerPostSet[col + 1] = true;   // right post of drawer bay
+            }
+            for (const postIdx of Object.keys(backerPostSet).map(Number)) {
               const px = getPostX(postIdx, bayW);
-
               slideElements.push(
                 <mesh key={`backer-${row}-${postIdx}`}
                   position={[px, slideCenterY, unitDepth / 2]}
@@ -879,8 +888,8 @@ function RackAssembly({
               );
             }
 
-            // Slides — mounted on inner face of posts, right next to the plywood rails
-            for (let col = 0; col < cols; col++) {
+            // Slides — only for drawer columns
+            for (const col of drawerCols) {
               const leftPostX = getPostX(col, bayW);
               const rightPostX = getPostX(col + 1, bayW);
 
@@ -992,7 +1001,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: P
 // ── Compound Preset Assembly ─────────────────────────────────────────────
 // Renders multiple RackAssembly groups side by side as one compound unit.
 
-function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows, drawersOpen }: {
+function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows, drawerSlideColumns, drawersOpen }: {
   presetUnits: SubUnit3D[];
   toteType: ToteType;
   toteColor: ToteColor;
@@ -1000,6 +1009,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
   orientation: Orientation;
   hasTotes: boolean;
   drawerSlideRows?: number;
+  drawerSlideColumns?: number[];
   drawersOpen?: boolean;
 }) {
   const isMini = unitType === "mini";
@@ -1050,6 +1060,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
                 hasWheels={unit.hasWheels}
                 hasTop={unit.hasTop}
                 drawerSlideRows={drawerSlideRows}
+                drawerSlideColumns={drawerSlideColumns}
                 drawersOpen={drawersOpen}
               />
             </group>
@@ -1994,6 +2005,7 @@ export default function Rack3D(props: Rack3DProps) {
                 orientation={props.orientation}
                 hasTotes={props.hasTotes}
                 drawerSlideRows={props.drawerSlideRows}
+                drawerSlideColumns={props.drawerSlideColumns}
                 drawersOpen={props.drawersOpen}
               />
             </Stage>

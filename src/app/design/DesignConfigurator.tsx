@@ -1711,7 +1711,8 @@ export default function DesignConfigurator({
               totalH={activePresetObj && compoundBuild ? compoundBuild.maxH : build.totalH}
               presetUnits={presetVisUnits}
               drawerSlideRows={activePresetObj?.drawerSlideRows}
-              hasDrawerSlides={(activePresetObj?.drawerSlideRows ?? 0) > 0}
+              drawerSlideColumns={activePresetObj?.drawerSlideColumns}
+              hasDrawerSlides={(activePresetObj?.drawerSlideColumns?.length ?? 0) > 0 || (activePresetObj?.drawerSlideRows ?? 0) > 0}
               addons={activePresetObj ? undefined : addons}
               paintFrameColor={activePresetObj ? null : paintFrameColor}
               paintDoorColor={activePresetObj ? null : paintDoorColor}

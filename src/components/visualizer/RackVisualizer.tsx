@@ -94,8 +94,10 @@ interface RackVisualizerProps {
   totalH: number;
   /** When set, renders a compound preset (multiple sub-units side by side) */
   presetUnits?: VisualizerSubUnit[];
-  /** Number of bottom rows with drawer slides (Track Norris style) */
+  /** Number of bottom rows with drawer slides (legacy) */
   drawerSlideRows?: number;
+  /** Column indices with drawer slides (e.g. [0, 3]) */
+  drawerSlideColumns?: number[];
   /** Per-section addons (doors, side panels, rail removal, hinges) */
   addons?: SectionAddon[];
   /** Paint color for the 2×4 frame */
@@ -346,7 +348,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
       </div>
 
       {/* ── Open Drawers Button (bottom-right, 3D only) ────────── */}
-      {viewMode === "3D" && (props.drawerSlideRows ?? 0) > 0 && (
+      {viewMode === "3D" && ((props.drawerSlideColumns?.length ?? 0) > 0 || (props.drawerSlideRows ?? 0) > 0) && (
         <div className="absolute bottom-3 right-3 z-10">
           <button
             onClick={() => setDrawersOpen(!drawersOpen)}
@@ -476,6 +478,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 hasTop={props.hasTop}
                 presetUnits={props.presetUnits}
                 drawerSlideRows={props.drawerSlideRows}
+                drawerSlideColumns={props.drawerSlideColumns}
                 drawersOpen={drawersOpen}
                 addons={props.addons}
                 paintFrameColor={props.paintFrameColor}

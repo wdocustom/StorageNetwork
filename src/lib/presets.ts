@@ -33,6 +33,8 @@ export interface BestsellerPreset {
   totesAreMandatory?: boolean;
   /** Number of bottom rows that have drawer slides (renders slide hardware in 3D) */
   drawerSlideRows?: number;
+  /** Column indices that have drawer slides (e.g. [0, 3] = first and last columns) */
+  drawerSlideColumns?: number[];
   /** Amazon purchase link for drawer slide hardware */
   drawerSlideLink?: string;
 }
@@ -101,7 +103,7 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     unitType: "standard",
     orientation: "standard",
     totesAreMandatory: true,
-    drawerSlideRows: 2,
+    drawerSlideColumns: [0, 3],
     drawerSlideLink: "https://amzn.to/4bW48Ln",
     units: [
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },
