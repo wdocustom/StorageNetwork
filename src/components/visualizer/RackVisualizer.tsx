@@ -151,6 +151,8 @@ export interface MultiUnitItem {
   overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
+  drawerSlideRows?: number;
+  drawerSlideColumns?: number[];
   visible: boolean;
   desc: string;
 }
@@ -508,6 +510,8 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
                   raisedBedConfig: u.raisedBedConfig,
                   presetUnits: u.presetUnits,
+                  drawerSlideRows: u.drawerSlideRows,
+                  drawerSlideColumns: u.drawerSlideColumns,
                 }))}
                 watermarkText={props.watermarkText}
               />

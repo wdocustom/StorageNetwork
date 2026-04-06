@@ -80,6 +80,10 @@ interface MultiUnit3DItem {
   presetUnits?: SubUnit3D[];
   /** When set, this item is a raised bed planter */
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
+  /** Number of bottom rows with drawer slides */
+  drawerSlideRows?: number;
+  /** Column indices that have drawer slides (e.g. [0, 3]) */
+  drawerSlideColumns?: number[];
 }
 
 /** Overhead ceiling tote rail config for 3D rendering */
@@ -1809,7 +1813,7 @@ function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
 }
 
 /** Multi-unit assembly — renders each visible unit side-by-side */
-function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
+function MultiUnitAssembly({ items, drawersOpen }: { items: MultiUnit3DItem[]; drawersOpen?: boolean }) {
   const GAP = 6; // 6" gap between units
 
   // Compute height for each item and find the tallest ground-level unit
@@ -1854,6 +1858,9 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
                 unitType={item.unitType}
                 orientation={item.orientation}
                 hasTotes={item.hasTotes}
+                drawerSlideRows={item.drawerSlideRows}
+                drawerSlideColumns={item.drawerSlideColumns}
+                drawersOpen={drawersOpen}
               />
             ) : (
               <RackAssembly
@@ -1870,6 +1877,9 @@ function MultiUnitAssembly({ items }: { items: MultiUnit3DItem[] }) {
                 paintFrameColor={item.paintFrameColor}
                 paintDoorColor={item.paintDoorColor}
                 paintSidePanelColor={item.paintSidePanelColor}
+                drawerSlideRows={item.drawerSlideRows}
+                drawerSlideColumns={item.drawerSlideColumns}
+                drawersOpen={drawersOpen}
               />
             )}
           </group>
@@ -1981,7 +1991,7 @@ export default function Rack3D(props: Rack3DProps) {
           <>
             <MultiUnitCameraRig items={props.multiUnitItems!} />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>
-              <MultiUnitAssembly items={props.multiUnitItems!} />
+              <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />
             </Stage>
           </>
         ) : isOverhead ? (

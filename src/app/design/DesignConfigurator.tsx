@@ -69,6 +69,10 @@ interface UnitConfig {
   presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
   /** When set, this order item is a raised bed planter */
   raisedBedConfig?: RaisedBedConfig;
+  /** Number of bottom rows with drawer slides */
+  drawerSlideRows?: number;
+  /** Column indices that have drawer slides (e.g. [0, 3]) */
+  drawerSlideColumns?: number[];
 }
 
 interface ServerBuild {
@@ -482,6 +486,8 @@ export default function DesignConfigurator({
             })()
           : undefined,
         presetUnits: item.presetUnits,
+        drawerSlideRows: item.drawerSlideRows,
+        drawerSlideColumns: item.drawerSlideColumns,
         visible: unitVisibility[i] !== false, // default visible — i is the original orderItems index
         desc: item.desc,
       };
@@ -1163,6 +1169,8 @@ export default function DesignConfigurator({
           hasTop: activePresetObj.units[idx]?.hasTop ?? false,
           hasWheels: activePresetObj.units[idx]?.hasWheels ?? false,
         })),
+        drawerSlideRows: activePresetObj.drawerSlideRows,
+        drawerSlideColumns: activePresetObj.drawerSlideColumns,
       },
     ]);
     // Auto-enable multi-unit 3D so the visualizer shows the actual added units

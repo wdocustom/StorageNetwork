@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarOff, Loader2, Plus, Trash2, X, Check, CalendarX2, Mail } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { invalidateInstallerCache } from "@/app/actions/profile";
 import {
   getBlackoutDates,
   addBlackoutDate,
@@ -84,6 +85,7 @@ export default function AvailabilityManager() {
         .from("profiles")
         .update({ working_days: next })
         .eq("id", userId);
+      await invalidateInstallerCache(userId);
     }
 
     setSavingDays(false);
@@ -143,6 +145,8 @@ export default function AvailabilityManager() {
       .from("profiles")
       .update({ scheduling_enabled: next })
       .eq("id", userId);
+    // Bust installer cache so /design page picks up the change immediately
+    await invalidateInstallerCache(userId);
     setSavingToggle(false);
   }
 

@@ -614,3 +614,13 @@ export async function updateServicesConfig(
 
   return { success: true };
 }
+
+/**
+ * Bust installer caches after a profile setting change (e.g. scheduling toggle).
+ * Called from client components that write directly to the DB via browser client.
+ */
+export async function invalidateInstallerCache(userId: string): Promise<void> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return;
+  await revalidatePortfolio(userId);
+}
