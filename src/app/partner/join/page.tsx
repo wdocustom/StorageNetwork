@@ -2,6 +2,9 @@
 
 import { Suspense, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const InstallerChatWidget = dynamic(() => import("@/components/chat/InstallerChatWidget"), { ssr: false });
 import {
   Loader2,
   Mail,
@@ -1060,6 +1063,9 @@ function PartnerJoinPageInner() {
           </button>
         </div>
       </section>
+
+      {/* AI Sales Chatbot */}
+      <InstallerChatWidget />
     </div>
   );
 }

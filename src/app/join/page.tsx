@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+const InstallerChatWidget = dynamic(() => import("@/components/chat/InstallerChatWidget"), { ssr: false });
 import {
   Loader2,
   Mail,
@@ -1387,6 +1390,9 @@ export default function JoinPage() {
           </div>
         </div>
       </section>
+
+      {/* AI Sales Chatbot */}
+      <InstallerChatWidget />
     </div>
   );
 }
