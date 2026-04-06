@@ -13,11 +13,12 @@
 
 import { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { z } from "zod";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
 import { buildCustomerChatPrompt, type InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
 import { calculateBuild } from "@/app/actions/calculator";
+import { lookupPlatformInfo } from "@/lib/ai/platform-registry";
 import type { InstallerPricing } from "@/types/viewModels";
 
 export const maxDuration = 30;
@@ -121,11 +122,33 @@ export async function POST(req: NextRequest) {
     },
   } : undefined;
 
+  // Platform lookup tool — available to BOTH installer and customer chatbots
+  const lookupSchema = z.object({
+    query: z.string().describe("What the user is asking about — e.g. 'demo', 'pricing', 'reviews', 'how do payments work', 'territory', 'what products can I build'"),
+  });
+  const lookupTool = {
+    lookup_platform: {
+      description: "Look up information about the Storage Network platform — pages, features, pricing, trial details, and FAQ. Use this when the user asks about anything you're not 100% certain about. Better to look it up than guess wrong.",
+      inputSchema: lookupSchema,
+      execute: async (input: z.infer<typeof lookupSchema>) => {
+        const audience = mode === "customer" ? "customer" : "installer";
+        return lookupPlatformInfo(input.query, audience);
+      },
+    },
+  };
+
+  // Merge tools based on mode
+  const tools = {
+    ...lookupTool,
+    ...(customerTools || {}),
+  };
+
   const result = streamText({
     model: google(model),
     system: systemPrompt,
     messages: truncated,
-    ...(customerTools && { tools: customerTools, maxSteps: 3 }),
+    tools,
+    stopWhen: stepCountIs(4),
   });
 
   return result.toTextStreamResponse();
