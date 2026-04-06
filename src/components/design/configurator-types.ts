@@ -230,6 +230,7 @@ export interface ConfiguratorSidebarProps {
   onContactInstaller: () => void;
 
   // Scheduler (inline in sidebar)
+  schedulingEnabled: boolean;
   scheduledDate: string | null;
   onScheduledDateChange: (date: string) => void;
   installerLeadTime: number;

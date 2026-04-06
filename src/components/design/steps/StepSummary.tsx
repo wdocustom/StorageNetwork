@@ -423,8 +423,8 @@ export default function StepSummary({
         </section>
       )}
 
-      {/* Scheduler — hidden when installer is at trial cap (waitlist flow instead) */}
-      {props.orderItems.length > 0 && !props.submitted && props.installerId && !props.installerAtCapacity && (
+      {/* Scheduler — hidden when installer disabled scheduling or is at trial cap */}
+      {props.orderItems.length > 0 && !props.submitted && props.installerId && !props.installerAtCapacity && props.schedulingEnabled && (
         <section className="space-y-3">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             <Calendar className="mr-1.5 inline h-3.5 w-3.5 text-yellow-400" />

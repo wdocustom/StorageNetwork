@@ -1699,6 +1699,7 @@ export default function DesignConfigurator({
           onContactInstaller={handleContactInstaller}
 
           // Scheduler (inline in sidebar)
+          schedulingEnabled={data?.routing.schedulingEnabled ?? true}
           scheduledDate={scheduledDate}
           onScheduledDateChange={setScheduledDate}
           installerLeadTime={effectiveLeadTime}
