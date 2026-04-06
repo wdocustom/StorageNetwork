@@ -77,7 +77,7 @@ export default function ConfiguratorFooter({
       </div>
 
       {/* CTA Button — normal booking flow */}
-      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && activeStep === 4 && detailsFilled && props.scheduledDate && (
+      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && activeStep === 4 && detailsFilled && (props.scheduledDate || !props.schedulingEnabled) && (
         <motion.button
           onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
           disabled={props.submitting}
