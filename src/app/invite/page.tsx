@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+const InstallerChatWidget = dynamic(() => import("@/components/chat/InstallerChatWidget"), { ssr: false });
 import {
   ChevronRight,
   Loader2,
@@ -717,6 +720,9 @@ function InvitePageContent() {
           </div>
         </div>
       </footer>
+
+      {/* AI Sales Chatbot */}
+      <InstallerChatWidget />
     </div>
   );
 }
