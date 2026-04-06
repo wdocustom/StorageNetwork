@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   MapPin, Loader2, ChevronRight, CheckCircle2, Star,
   Package, Flower2, ArrowUp, Layers, ShoppingCart,
-  Check, ArrowRight, Plus, Ruler,
+  Check, ArrowRight, Plus, Ruler, ArrowLeft,
 } from "lucide-react";
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
 import { calculateBuild } from "@/app/actions/calculator";
@@ -37,6 +37,20 @@ const STEP_ORDER: Step[] = [
   "tote-bring-or-buy", "tote-color", "wheels", "top", "another-unit", "summary",
 ];
 
+
+// Map each step to its previous step for back navigation
+const PREV_STEP: Partial<Record<Step, Step>> = {
+  "services": "installer-reveal",
+  "wall-width": "services",
+  "wall-height": "wall-width",
+  "tote-bring-or-buy": "wall-height",
+  "tote-color": "tote-bring-or-buy",
+  "wheels": "tote-bring-or-buy",
+  "top": "wheels",
+  "another-unit": "top",
+  "summary": "another-unit",
+};
+
 interface UnitBuild {
   cols: number;
   rows: number;
@@ -64,9 +78,14 @@ const HEIGHT_OPTIONS = [
 
 // ── Step Card Shell ─────────────────────────────────────────────────────
 
-function StepCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function StepCard({ title, subtitle, children, onBack }: { title: string; subtitle?: string; children: React.ReactNode; onBack?: () => void }) {
   return (
     <div className="animate-fadeInUp">
+      {onBack && (
+        <button onClick={onBack} className="mb-4 flex items-center gap-1.5 text-xs font-semibold text-stone-500 transition-colors hover:text-yellow-400">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </button>
+      )}
       <div className="mb-5 text-center">
         <h2 className="text-xl font-black uppercase tracking-tight text-white sm:text-2xl">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-stone-400">{subtitle}</p>}
@@ -182,14 +201,22 @@ export default function InlineConfigurator() {
 
   function goToSummary() { setStep("summary"); calculateTotalPrice([...units]); }
 
+  function goBack() {
+    const prev = PREV_STEP[step];
+    if (prev) setStep(prev);
+  }
+
   function goToDesign() {
     if (!installer?.installer_id) return;
-    const allUnits = units.length > 0 ? units : [{ cols: maxCols, rows: selectedRows, hasTotes, toteColor, hasWheels, hasTop, wallWidthFt }];
-    const first = allUnits[0];
     const params = new URLSearchParams();
     params.set("installer", installer.installer_id);
     params.set("from", "network");
-    params.set("config", btoa(JSON.stringify({ cols: first.cols, rows: first.rows, toteType: "HDX", toteColor: first.toteColor, unitType: "standard", orientation: "standard", hasTotes: first.hasTotes, hasWheels: first.hasWheels, hasTop: first.hasTop })));
+
+    // Only include config if we have tote storage units configured
+    if (units.length > 0) {
+      const first = units[0];
+      params.set("config", btoa(JSON.stringify({ cols: first.cols, rows: first.rows, toteType: "HDX", toteColor: first.toteColor, unitType: "standard", orientation: "standard", hasTotes: first.hasTotes, hasWheels: first.hasWheels, hasTop: first.hasTop })));
+    }
     router.push("/design?" + params.toString());
   }
 
@@ -246,7 +273,7 @@ export default function InlineConfigurator() {
 
       {/* ── Services ─────────────────────────────────────────── */}
       {step === "services" && (
-        <StepCard title="What do you need?" subtitle="Select everything that interests you.">
+        <StepCard title="What do you need?" subtitle="Select everything that interests you." onBack={() => setStep("installer-reveal")}>
           <div className="space-y-2">
             {availableServices().map((svc) => {
               const sel = selectedServices.includes(svc.id);
@@ -269,7 +296,7 @@ export default function InlineConfigurator() {
 
       {/* ── Wall Width ───────────────────────────────────────── */}
       {step === "wall-width" && (
-        <StepCard title="How wide is the wall?" subtitle="Measure the open space where you want the unit.">
+        <StepCard title="How wide is the wall?" subtitle="Measure the open space where you want the unit." onBack={goBack}>
           <div className="space-y-2">
             {[
               { ft: 4, label: "~4 feet", desc: "Small nook — 2 columns wide", cols: 2 },
@@ -292,7 +319,7 @@ export default function InlineConfigurator() {
 
       {/* ── Wall Height ──────────────────────────────────────── */}
       {step === "wall-height" && (
-        <StepCard title="How tall?" subtitle={`Your ${maxCols}-column unit. Pick a height that works for your space.`}>
+        <StepCard title="How tall?" subtitle={`Your ${maxCols}-column unit. Pick a height that works for your space.`} onBack={goBack}>
           <div className="space-y-2">
             {HEIGHT_OPTIONS.map((opt) => (
               <OptionCard key={opt.rows} onClick={() => { setSelectedRows(opt.rows); setStep("tote-bring-or-buy"); }} highlight={opt.popular}>
@@ -309,7 +336,7 @@ export default function InlineConfigurator() {
 
       {/* ── Totes ────────────────────────────────────────────── */}
       {step === "tote-bring-or-buy" && (
-        <StepCard title="Totes" subtitle={`Your ${maxCols}×${selectedRows} holds ${maxCols * selectedRows} totes. Include them or bring your own?`}>
+        <StepCard title="Totes" subtitle={`Your ${maxCols}×${selectedRows} holds ${maxCols * selectedRows} totes. Include them or bring your own?`} onBack={goBack}>
           <div className="space-y-2">
             <OptionCard onClick={() => { setHasTotes(true); setStep("tote-color"); }}>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400"><ShoppingCart className="h-5 w-5" /></div>
@@ -331,7 +358,7 @@ export default function InlineConfigurator() {
 
       {/* ── Tote Color ───────────────────────────────────────── */}
       {step === "tote-color" && (
-        <StepCard title="Tote style" subtitle="Choose your HDX 27-gallon tote color.">
+        <StepCard title="Tote style" subtitle="Choose your HDX 27-gallon tote color." onBack={goBack}>
           <div className="space-y-2">
             <OptionCard onClick={() => { setToteColor("black"); setStep("wheels"); }} highlight>
               <div className="h-10 w-10 shrink-0 rounded-lg bg-gray-800 border-2 border-stone-600" />
@@ -353,7 +380,7 @@ export default function InlineConfigurator() {
 
       {/* ── Wheels ───────────────────────────────────────────── */}
       {step === "wheels" && (
-        <StepCard title="Wheels" subtitle="Industrial casters let you roll the unit out for cleaning or access.">
+        <StepCard title="Wheels" subtitle="Industrial casters let you roll the unit out for cleaning or access." onBack={goBack}>
           <div className="space-y-2">
             <OptionCard onClick={() => { setHasWheels(true); setStep("top"); }}>
               <div className="flex-1"><p className="text-sm font-bold text-white">Add casters</p><p className="text-xs text-stone-500">+${pricing?.standard_wheels ?? 65}</p></div>
@@ -367,7 +394,7 @@ export default function InlineConfigurator() {
 
       {/* ── Top ──────────────────────────────────────────────── */}
       {step === "top" && (
-        <StepCard title="Countertop" subtitle="A plywood top makes a workbench or folding station.">
+        <StepCard title="Countertop" subtitle="A plywood top makes a workbench or folding station." onBack={goBack}>
           <div className="space-y-2">
             <OptionCard onClick={() => { setHasTop(true); finalizeUnit(); }}>
               <div className="flex-1"><p className="text-sm font-bold text-white">Add plywood top</p><p className="text-xs text-stone-500">+${pricing?.plywood_top ?? 95}</p></div>
@@ -381,7 +408,7 @@ export default function InlineConfigurator() {
 
       {/* ── Another Unit ─────────────────────────────────────── */}
       {step === "another-unit" && (
-        <StepCard title={`Unit ${units.length} saved`} subtitle="Need another unit for a different wall or space?">
+        <StepCard title={`Unit ${units.length} saved`} subtitle="Need another unit for a different wall or space?" onBack={goBack}>
           <div className="space-y-3">
             <div className="rounded-xl bg-slate-800/50 p-4">
               {units.map((u, i) => (
