@@ -14,6 +14,7 @@ import { PLATFORM_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing
 import { generateHowToJsonLd } from "@/lib/schema/howto";
 import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
 import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
+import { getServiceClient } from "@/lib/supabase-server";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -200,6 +201,21 @@ export default async function DesignPage({ searchParams }: PageProps) {
   if (viewModel) {
     viewModel.platformDefaults = { ...PLATFORM_DEFAULTS };
     viewModel.addonDefaults = { ...ADDON_PLATFORM_DEFAULTS };
+  }
+
+  // ── Fresh scheduling_enabled read (bypasses installer cache) ───────
+  // The installer cache is in-memory and doesn't sync across serverless
+  // function instances, so the cached value can be stale. Read directly.
+  if (viewModel && rawInstaller?.installer_id) {
+    const supabase = getServiceClient();
+    const { data: freshProfile } = await supabase
+      .from("profiles")
+      .select("scheduling_enabled")
+      .eq("id", rawInstaller.installer_id)
+      .maybeSingle();
+    if (freshProfile && typeof freshProfile.scheduling_enabled === "boolean") {
+      viewModel.routing.schedulingEnabled = freshProfile.scheduling_enabled;
+    }
   }
 
   // ── HowTo JSON-LD — standard 5×4 build for rich snippet eligibility ──
