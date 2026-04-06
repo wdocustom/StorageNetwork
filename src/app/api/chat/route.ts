@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Chat API — Streaming AI Assistant
+// Chat API — Streaming AI Assistant with Tool Calling
 //
 // Supports two modes:
-//   "installer" — sales chatbot for /join, /partner/join, /invite
-//   "customer"  — conversational configurator for /design pages
-//     Accepts installerContext to tailor responses to the specific
-//     installer's pricing, services, and product toggles.
+//   "installer" — sales chatbot for /join, /partner/join, /invite, /features
+//   "customer"  — design assistant for /design pages
+//     Uses tool calling to get REAL pricing from calculateBuild()
+//     instead of lookup tables. Pricing is always 100% accurate.
 //
 // Uses Gemini 2.0 Flash (switchable via AI_CHAT_MODEL env).
 // Public endpoint — no auth required.
@@ -14,8 +14,11 @@
 import { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
+import { z } from "zod";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
 import { buildCustomerChatPrompt, type InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
+import { calculateBuild } from "@/app/actions/calculator";
+import type { InstallerPricing } from "@/types/viewModels";
 
 export const maxDuration = 30;
 
@@ -45,7 +48,6 @@ export async function POST(req: NextRequest) {
 
   const mode: ChatMode = body.mode === "customer" ? "customer" : "installer";
 
-  // Customer mode gets more history (config builds over many exchanges)
   const maxMessages = mode === "customer" ? 20 : 10;
   const truncated = messages.slice(-maxMessages).map((m) => ({
     role: m.role as "user" | "assistant",
@@ -59,10 +61,71 @@ export async function POST(req: NextRequest) {
     ? buildCustomerChatPrompt(body.installerContext)
     : buildInstallerChatPrompt();
 
+  // Build installer pricing object for the calculator from the context
+  const installerPricing: InstallerPricing | undefined = body.installerContext ? {
+    standard_slot: body.installerContext.standardSlot,
+    mini_slot: body.installerContext.miniSlot,
+    standard_tote: body.installerContext.standardTote,
+    standard_tote_clear: body.installerContext.standardToteClear,
+    mini_tote: body.installerContext.miniTote,
+    standard_wheels: body.installerContext.standardWheels,
+    mini_wheels: body.installerContext.miniWheels,
+    plywood_top: body.installerContext.plywoodTop,
+  } : undefined;
+
+  // Customer mode gets tool calling for accurate pricing
+  const calcSchema = z.object({
+    cols: z.number().int().min(1).max(12).describe("Number of columns wide"),
+    rows: z.number().int().min(1).max(6).describe("Number of tiers/rows tall"),
+    toteColor: z.enum(["black", "clear"]).default("black").describe("HDX tote color"),
+    hasTotes: z.boolean().describe("Whether totes are included in the price"),
+    hasWheels: z.boolean().describe("Whether industrial casters are included"),
+    hasTop: z.boolean().describe("Whether a plywood countertop is included"),
+  });
+
+  const customerTools = mode === "customer" ? {
+    calculate_price: {
+      description: "Calculate the exact price for a tote storage rack configuration. ALWAYS use this tool before quoting any price to the customer. Never estimate or calculate prices yourself.",
+      inputSchema: calcSchema,
+      execute: async (input: z.infer<typeof calcSchema>) => {
+        try {
+          const result = await calculateBuild({
+            cols: input.cols,
+            rows: input.rows,
+            toteModel: "HDX",
+            toteColor: input.toteColor,
+            unitType: "standard",
+            orientation: "standard",
+            addOns: { totes: input.hasTotes, wheels: input.hasWheels, top: input.hasTop },
+            mode: "manual",
+            installerPricing,
+          });
+          if ("price" in result) {
+            return {
+              price: result.price,
+              cols: result.cols,
+              rows: result.rows,
+              slots: result.config.slots,
+              topSheets: result.config.topSheets,
+              dimensions: result.dimensions,
+              hasTotes: result.config.hasTotes,
+              hasWheels: result.config.hasWheels,
+              hasTop: result.config.hasTop,
+            };
+          }
+          return { error: result.error };
+        } catch (err) {
+          return { error: err instanceof Error ? err.message : "Calculation failed" };
+        }
+      },
+    },
+  } : undefined;
+
   const result = streamText({
     model: google(model),
     system: systemPrompt,
     messages: truncated,
+    ...(customerTools && { tools: customerTools, maxSteps: 3 }),
   });
 
   return result.toTextStreamResponse();

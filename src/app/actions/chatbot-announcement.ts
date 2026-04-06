@@ -74,7 +74,7 @@ export async function processChatbotAnnouncement(): Promise<AnnouncementResult> 
         (installer.first_name as string) ||
         "there";
 
-      const pricingUrl = `${baseUrl}/dashboard/pricing`;
+      const pricingUrl = `${baseUrl}/dashboard/profile`;
 
       const html = emailShell(
         "New Feature: AI Design Assistant",
@@ -229,13 +229,13 @@ export async function processChatbotAnnouncement(): Promise<AnnouncementResult> 
         <!-- CTA -->
         <div style="background:#0f172a;border:2px solid #facc15;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
           <p style="margin:0 0 4px;color:#facc15;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">
-            Make Sure Your Config is Dialed In
+            Make Sure Your Profile &amp; Pricing Are Dialed In
           </p>
           <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;line-height:1.6;">
             The AI assistant is only as good as your settings. Take 60 seconds to verify.
           </p>
           <a href="${pricingUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-            Review My Pricing Settings &rarr;
+            Review My Profile &amp; Pricing &rarr;
           </a>
         </div>
 
