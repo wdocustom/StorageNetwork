@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/review-announcement",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/chatbot-announcement",
+      "schedule": "0 18 * * *"
     }
   ]
 }
