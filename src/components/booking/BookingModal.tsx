@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Tag,
   Truck,
+  Mail,
 } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -65,6 +66,7 @@ interface BookingModalProps {
   installerLeadTime?: number;
   installerWorkingDays?: string[];
   hasWheels?: boolean;
+  schedulingEnabled?: boolean;
   totalCols?: number;
   /** The portion of totalPrice that is subject to sales tax.
    *  Defaults to totalPrice (full tax). Pass 0 for tax-exempt services.
@@ -89,6 +91,7 @@ export default function BookingModal({
   installerLeadTime = 5,
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
   hasWheels = false,
+  schedulingEnabled = true,
   totalCols = 1,
   taxableAmount,
   initialAddress,
@@ -101,7 +104,7 @@ export default function BookingModal({
   // If both address and date are pre-filled from sidebar, skip directly to payment init
   const hasPrefilledDate = !!initialScheduledDate;
   const [step, setStep] = useState<Step>(
-    prefilled && hasPrefilledDate ? "payment" : prefilled ? "schedule" : "address"
+    prefilled && (hasPrefilledDate || !schedulingEnabled) ? "payment" : prefilled ? (schedulingEnabled ? "schedule" : "payment") : "address"
   );
   const [address, setAddress] = useState<BookingAddress>({
     line1: initialAddress?.line1 || "",
@@ -220,12 +223,17 @@ export default function BookingModal({
       setDeliveryFeeLoading(false);
     }
 
-    setStep("schedule");
+    if (schedulingEnabled) {
+      setStep("schedule");
+    } else {
+      // Skip scheduling — installer will coordinate date via email
+      setStep("schedule");
+    }
   }
 
   // Initialize payment intent when user clicks "Pay & Book"
   const handleInitPayment = useCallback(async () => {
-    if (!selectedDate) {
+    if (schedulingEnabled && !selectedDate) {
       setError("Please select a date first.");
       return;
     }
@@ -241,7 +249,7 @@ export default function BookingModal({
       source,
       customerEmail,
       customerName,
-      scheduledAt: selectedDate,
+      scheduledAt: selectedDate || undefined,
       // Tax info for installer records (collected at installation — on build price only)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
@@ -260,7 +268,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
+  }, [selectedDate, schedulingEnabled, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
 
   // Auto-init payment when both address and date are pre-filled from sidebar
   const autoInitRef = useRef(false);
@@ -280,7 +288,7 @@ export default function BookingModal({
 
   const stepTitle: Record<Step, string> = {
     address: "Installation Address",
-    schedule: "Pick a Date",
+    schedule: schedulingEnabled ? "Pick a Date" : "Review & Pay",
     payment: "Pay Deposit",
     success: "Booking Confirmed",
   };
@@ -343,7 +351,7 @@ export default function BookingModal({
               <p className="mb-1 text-sm text-stone-400">
                 Deposit of {formatCurrency(effectiveDeposit)} received.{discountAmount > 0 && ` Discount of ${formatCurrency(discountAmount)} applied to balance.`}{deliveryFeeAmount > 0 && ` Delivery fee of ${formatCurrency(deliveryFeeAmount)} included.`}
               </p>
-              {selectedDate && (
+              {selectedDate ? (
                 <p className="text-sm font-semibold text-yellow-400">
                   <Calendar className="mr-1 inline h-3 w-3" />
                   {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
@@ -351,6 +359,11 @@ export default function BookingModal({
                     month: "long",
                     day: "numeric",
                   })}
+                </p>
+              ) : (
+                <p className="text-sm font-semibold text-yellow-400">
+                  <Mail className="mr-1 inline h-3 w-3" />
+                  Your installer will email you to schedule
                 </p>
               )}
               {address.line1 && (
@@ -458,20 +471,35 @@ export default function BookingModal({
                 </div>
               </div>
 
-              {hasWheels && (
-                <div className="rounded-lg bg-yellow-400/10 px-3 py-2 text-center text-[11px] font-semibold text-yellow-400">
-                  Caster add-on: 3 business day lead time applies
+              {schedulingEnabled ? (
+                <>
+                  {hasWheels && (
+                    <div className="rounded-lg bg-yellow-400/10 px-3 py-2 text-center text-[11px] font-semibold text-yellow-400">
+                      Caster add-on: 3 business day lead time applies
+                    </div>
+                  )}
+
+                  {/* Calendar */}
+                  <NativeScheduler
+                    leadTimeDays={effectiveLeadTime}
+                    workingDays={installerWorkingDays}
+                    blackoutDates={blackoutDates}
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
+                  />
+                </>
+              ) : (
+                /* Scheduling disabled — installer coordinates via email */
+                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4 text-center">
+                  <Mail className="mx-auto mb-2 h-6 w-6 text-yellow-400" />
+                  <p className="text-sm font-semibold text-white">
+                    Your installer will reach out to schedule
+                  </p>
+                  <p className="mt-1 text-[11px] text-stone-500 leading-relaxed">
+                    After booking, your installer will contact you directly via email to coordinate the best installation date.
+                  </p>
                 </div>
               )}
-
-              {/* Calendar */}
-              <NativeScheduler
-                leadTimeDays={effectiveLeadTime}
-                workingDays={installerWorkingDays}
-                blackoutDates={blackoutDates}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
 
               {error && (
                 <p className="text-center text-xs font-medium text-red-400">
@@ -521,7 +549,7 @@ export default function BookingModal({
               {/* Pay & Book button */}
               <button
                 onClick={handleInitPayment}
-                disabled={!selectedDate || initLoading}
+                disabled={(schedulingEnabled && !selectedDate) || initLoading}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-4 text-base font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 disabled:opacity-50"
               >
                 {initLoading ? (
@@ -534,7 +562,7 @@ export default function BookingModal({
                 )}
               </button>
 
-              {!selectedDate && (
+              {schedulingEnabled && !selectedDate && (
                 <p className="text-center text-[11px] text-stone-600">
                   Select a date above to continue
                 </p>
@@ -624,7 +652,7 @@ export default function BookingModal({
                 ) : (
                   <>
                     <MapPin className="h-5 w-5" />
-                    Continue to Scheduling
+                    {schedulingEnabled ? "Continue to Scheduling" : "Continue to Payment"}
                     <ChevronRight className="h-5 w-5" />
                   </>
                 )}

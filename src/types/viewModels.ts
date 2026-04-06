@@ -160,6 +160,7 @@ export interface DesignPageViewModel {
     phone: string | null;
     leadTime: number;
     workingDays: string[];
+    schedulingEnabled: boolean;
   };
 
   /** Display identity — strictly controlled by server-side branding gate */

@@ -22,6 +22,7 @@ export default function DemoPage() {
       phone: null,
       leadTime: 5,
       workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      schedulingEnabled: true,
     },
     branding: {
       title: "Professional Grade Storage",

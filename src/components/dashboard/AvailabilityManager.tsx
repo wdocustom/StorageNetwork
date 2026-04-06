@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarOff, Loader2, Plus, Trash2, X, Check } from "lucide-react";
+import { CalendarOff, Loader2, Plus, Trash2, X, Check, CalendarX2, Mail } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getBlackoutDates,
@@ -29,6 +29,10 @@ export default function AvailabilityManager() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Scheduling toggle
+  const [schedulingEnabled, setSchedulingEnabled] = useState(true);
+  const [savingToggle, setSavingToggle] = useState(false);
+
   // Weekly availability
   const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_WORKING_DAYS);
   const [savingDays, setSavingDays] = useState(false);
@@ -43,14 +47,17 @@ export default function AvailabilityManager() {
     const result = await getBlackoutDates(user.id);
     if (result.success) setDates(result.dates);
 
-    // Load working days from profile
+    // Load working days and scheduling toggle from profile
     const { data: profile } = await supabase
       .from("profiles")
-      .select("working_days")
+      .select("working_days, scheduling_enabled")
       .eq("id", user.id)
       .single();
     if (profile?.working_days && Array.isArray(profile.working_days)) {
       setWorkingDays(profile.working_days);
+    }
+    if (profile && typeof profile.scheduling_enabled === "boolean") {
+      setSchedulingEnabled(profile.scheduling_enabled);
     }
 
     setLoading(false);
@@ -127,8 +134,54 @@ export default function AvailabilityManager() {
     );
   }
 
+  async function toggleScheduling() {
+    if (!userId) return;
+    setSavingToggle(true);
+    const next = !schedulingEnabled;
+    setSchedulingEnabled(next);
+    await supabase
+      .from("profiles")
+      .update({ scheduling_enabled: next })
+      .eq("id", userId);
+    setSavingToggle(false);
+  }
+
   return (
     <div className="space-y-6">
+      {/* ── Scheduling Toggle ───────────────────────────────────────── */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              {schedulingEnabled ? (
+                <CalendarOff className="h-4 w-4 text-stone-500" />
+              ) : (
+                <Mail className="h-4 w-4 text-yellow-400" />
+              )}
+              <h3 className="text-sm font-bold text-white">Customer Scheduling</h3>
+            </div>
+            <p className="text-[11px] text-stone-500 leading-relaxed">
+              {schedulingEnabled
+                ? "Customers pick their own installation date during checkout."
+                : "Scheduling is off — customers skip the calendar and you coordinate the date directly via email after they book."}
+            </p>
+          </div>
+          <button
+            onClick={toggleScheduling}
+            disabled={savingToggle}
+            className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+              schedulingEnabled ? "bg-yellow-400" : "bg-slate-700"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                schedulingEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* ── Weekly Availability ──────────────────────────────────────── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="mb-3 flex items-center justify-between">

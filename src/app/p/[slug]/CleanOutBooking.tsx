@@ -11,6 +11,7 @@ interface CleanOutBookingProps {
   installerSlug: string;
   installerLeadTime?: number;
   installerWorkingDays?: string[];
+  schedulingEnabled?: boolean;
   /** Custom price for 1-car cleanout (from services_config). Defaults to 349. */
   price1Car?: number;
   /** Custom price for 2-car cleanout (from services_config). Defaults to 549. */
@@ -33,6 +34,7 @@ export default function CleanOutBooking({
   installerSlug,
   installerLeadTime = 5,
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  schedulingEnabled = true,
   price1Car = 349,
   price2Car = 549,
   price3Car = 749,
@@ -610,6 +612,7 @@ export default function CleanOutBooking({
           customerName={`${firstName} ${lastName}`}
           installerLeadTime={installerLeadTime}
           installerWorkingDays={installerWorkingDays}
+          schedulingEnabled={schedulingEnabled}
           totalCols={0}
           taxableAmount={addOrganizer ? TOTE_ORGANIZER_PRICE : 0}
         />

@@ -443,6 +443,7 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
                 installerSlug={slug}
                 installerLeadTime={profile.lead_time_days ?? 5}
                 installerWorkingDays={profile.working_days as string[] ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+                schedulingEnabled={profile.scheduling_enabled ?? true}
                 price1Car={cleanout1car?.price ?? undefined}
                 price2Car={cleanout2car?.price ?? undefined}
                 price3Car={cleanout3car?.price ?? undefined}
@@ -460,6 +461,7 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
                 installerSlug={slug}
                 installerLeadTime={profile.lead_time_days ?? 5}
                 installerWorkingDays={profile.working_days as string[] ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+                schedulingEnabled={profile.scheduling_enabled ?? true}
                 service={service}
               />
             ))}

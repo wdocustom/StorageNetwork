@@ -12,6 +12,7 @@ interface CustomServiceCardProps {
   installerSlug: string;
   installerLeadTime?: number;
   installerWorkingDays?: string[];
+  schedulingEnabled?: boolean;
   service: ServiceOffering;
 }
 
@@ -20,6 +21,7 @@ export default function CustomServiceCard({
   installerSlug,
   installerLeadTime = 5,
   installerWorkingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  schedulingEnabled = true,
   service,
 }: CustomServiceCardProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -249,6 +251,7 @@ export default function CustomServiceCard({
           customerName={`${firstName} ${lastName}`}
           installerLeadTime={installerLeadTime}
           installerWorkingDays={installerWorkingDays}
+          schedulingEnabled={schedulingEnabled}
           totalCols={0}
           taxableAmount={0}
         />

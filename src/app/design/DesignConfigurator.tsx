@@ -192,6 +192,7 @@ export default function DesignConfigurator({
         installer_phone: null,
         installer_lead_time: 5,
         installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        installer_scheduling_enabled: true,
         installer_is_pro: false,
         installer_logo_url: null,
         installer_pricing: null,
@@ -1844,6 +1845,7 @@ export default function DesignConfigurator({
           customerName={[firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || undefined}
           installerLeadTime={data?.routing.leadTime ?? 5}
           installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          schedulingEnabled={data?.routing.schedulingEnabled ?? true}
           hasWheels={anyHasWheels}
           totalCols={maxCols}
           initialAddress={{

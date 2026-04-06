@@ -266,7 +266,7 @@ export async function getFullProfileBySlug(slug: string) {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days, services_config, pro_trial_ends_at, stripe_subscription_id, show_reviews"
+        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days, scheduling_enabled, services_config, pro_trial_ends_at, stripe_subscription_id, show_reviews"
       )
       .ilike("slug", slug.trim())
       .single();

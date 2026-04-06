@@ -37,6 +37,7 @@ export function mapToDesignViewModel(
       phone: installer.installer_phone,
       leadTime: installer.installer_lead_time,
       workingDays: installer.installer_working_days,
+      schedulingEnabled: installer.installer_scheduling_enabled,
     },
     branding: {
       title: hasCustomBranding

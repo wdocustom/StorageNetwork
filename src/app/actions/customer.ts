@@ -19,6 +19,7 @@ export interface AvailabilityResult {
   installer_phone: string | null;
   installer_lead_time: number;
   installer_working_days: string[];
+  installer_scheduling_enabled: boolean;
   installer_is_pro: boolean;
   installer_logo_url: string | null;
   installer_pricing: InstallerPricing | null;
@@ -27,7 +28,7 @@ export interface AvailabilityResult {
 }
 
 const INSTALLER_SELECT =
-  "id, business_name, slug, stripe_account_id, avatar_url, phone, lead_time_days, working_days, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs, pro_trial_ends_at, stripe_subscription_id";
+  "id, business_name, slug, stripe_account_id, avatar_url, phone, lead_time_days, working_days, scheduling_enabled, max_monthly_leads, current_month_leads, leads_reset_at, is_pro, logo_url, pricing_config, services_config, is_suspended, completed_jobs, pro_trial_ends_at, stripe_subscription_id";
 
 /**
  * Detect soft-lock state: trial expired but is_pro kept true for active jobs.
@@ -55,6 +56,7 @@ function toResult(
       installer_phone: null,
       installer_lead_time: 5,
       installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      installer_scheduling_enabled: true,
       installer_is_pro: false,
       installer_logo_url: null,
       installer_pricing: null,
@@ -75,6 +77,7 @@ function toResult(
     installer_lead_time: (data.lead_time_days as number) ?? 5,
     installer_working_days:
       (data.working_days as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    installer_scheduling_enabled: (data.scheduling_enabled as boolean) ?? true,
     installer_is_pro: !!(data.is_pro),
     installer_logo_url: (data.logo_url as string) ?? null,
     installer_pricing: (data.pricing_config as InstallerPricing) ?? null,
