@@ -47,6 +47,7 @@ import {
   ChevronUp,
   PenLine,
   Package,
+  Sparkles,
 } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
@@ -201,13 +202,21 @@ export default function BuildConfiguratorPage() {
   const [presetAdded, setPresetAdded] = useState(false);
   const quoteBuilderRef = useRef<HTMLElement>(null);
 
-  // Bestseller / Custom Quote tab state
-  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "custom">("bestsellers");
+  // Bestseller / Custom Quote / AI Builder tab state
+  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "custom" | "ai">("bestsellers");
 
   // Custom Quote state
   const [customQuoteDesc, setCustomQuoteDesc] = useState("");
   const [customQuotePrice, setCustomQuotePrice] = useState("");
   const [customQuoteAdded, setCustomQuoteAdded] = useState(false);
+
+  // AI Builder state
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; description: string }> | null>(null);
+  const [aiNotes, setAiNotes] = useState("");
+  const [aiAdded, setAiAdded] = useState(false);
 
   function handleAddCustomQuote() {
     const desc = customQuoteDesc.trim();
@@ -234,6 +243,116 @@ export default function BuildConfiguratorPage() {
     setCustomQuoteDesc("");
     setCustomQuotePrice("");
     // Scroll to quote builder
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  async function handleAiBuild() {
+    if (!aiInput.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiResult(null);
+    setAiNotes("");
+    try {
+      const res = await fetch("/api/build-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: aiInput }),
+      });
+      if (!res.ok) {
+        setAiError("Failed to parse build. Try being more specific.");
+        setAiLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.units && data.units.length > 0) {
+        setAiResult(data.units);
+        if (data.notes) setAiNotes(data.notes);
+      } else {
+        setAiError("Couldn't parse that into a build config. Try something like '4x4 with totes and wheels'.");
+      }
+    } catch {
+      setAiError("Something went wrong. Try again.");
+    }
+    setAiLoading(false);
+  }
+
+  async function handleAddAiUnits() {
+    if (!aiResult) return;
+    setAiAdded(false);
+    for (const unit of aiResult) {
+      // Preset units
+      if (unit.presetId) {
+        const result = await calculateCompoundBuild({
+          presetId: unit.presetId,
+          hasTotes: unit.hasTotes,
+          installerPricing: installerPricing || undefined,
+        });
+        if ("totalPrice" in result) {
+          const preset = BESTSELLER_PRESETS.find((p) => p.id === unit.presetId);
+          if (preset) {
+            const groupId = `ai-preset-${Date.now()}`;
+            const totalSlots = result.subUnits.reduce((s, u) => s + u.cols * u.rows, 0);
+            result.subUnits.forEach((su, idx) => {
+              const subSlots = su.cols * su.rows;
+              const subPrice = totalSlots > 0 ? Math.round((result.totalPrice * subSlots) / totalSlots) : 0;
+              setUnits((prev) => [...prev, {
+                id: `ai-${Date.now()}-${idx}`,
+                cols: su.cols,
+                rows: su.rows,
+                toteType: "HDX",
+                unitType: "standard",
+                hasTotes: unit.hasTotes,
+                hasWheels: preset.units[idx]?.hasWheels ?? false,
+                hasTop: preset.units[idx]?.hasTop ?? false,
+                price: subPrice,
+                totalW: su.totalW,
+                totalH: su.totalH,
+                depth: 30,
+                slots: subSlots,
+                presetName: preset.name,
+                presetGroup: groupId,
+                desc: `${preset.name} (${su.cols}×${su.rows})`,
+              }]);
+            });
+          }
+        }
+      } else {
+        // Custom unit — calculate with real calculator
+        const result = await calculateBuild({
+          cols: unit.cols,
+          rows: unit.rows,
+          toteModel: "HDX",
+          toteColor: unit.toteColor as "black" | "clear",
+          unitType: "standard",
+          orientation: "standard",
+          addOns: { totes: unit.hasTotes, wheels: unit.hasWheels, top: unit.hasTop },
+          mode: "manual",
+          installerPricing: installerPricing || undefined,
+        });
+        if ("price" in result) {
+          setUnits((prev) => [...prev, {
+            id: `ai-${Date.now()}-${Math.random()}`,
+            cols: result.cols,
+            rows: result.rows,
+            toteType: "HDX",
+            unitType: "standard",
+            hasTotes: unit.hasTotes,
+            hasWheels: unit.hasWheels,
+            hasTop: unit.hasTop,
+            price: result.price,
+            totalW: result.dimensions.totalW,
+            totalH: result.dimensions.totalH,
+            depth: result.dimensions.depth,
+            slots: result.config.slots,
+            desc: unit.description,
+          }]);
+        }
+      }
+    }
+    setAiAdded(true);
+    setTimeout(() => { setAiAdded(false); setAiResult(null); setAiInput(""); }, 2000);
     setTimeout(() => {
       quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
@@ -1080,29 +1199,40 @@ export default function BuildConfiguratorPage() {
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ── Bestsellers / Custom Quote ────────────────────────────── */}
         <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-          {/* Two-column tab header */}
-          <div className="mb-3 grid grid-cols-2 gap-2">
+          {/* Three-column tab header */}
+          <div className="mb-3 grid grid-cols-3 gap-2">
             <button
               onClick={() => setTopSectionTab("bestsellers")}
-              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
                 topSectionTab === "bestsellers"
                   ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
                   : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
               }`}
             >
-              <Star className="h-4 w-4" />
+              <Star className="h-3.5 w-3.5" />
               Bestsellers
             </button>
             <button
               onClick={() => setTopSectionTab("custom")}
-              className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
                 topSectionTab === "custom"
                   ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
                   : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
               }`}
             >
-              <PenLine className="h-4 w-4" />
-              Custom Quote
+              <PenLine className="h-3.5 w-3.5" />
+              Custom
+            </button>
+            <button
+              onClick={() => setTopSectionTab("ai")}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+                topSectionTab === "ai"
+                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
+                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Builder
             </button>
           </div>
 
@@ -1264,6 +1394,93 @@ export default function BuildConfiguratorPage() {
                   </>
                 )}
               </button>
+            </div>
+          )}
+
+          {/* ── AI Builder tab content ── */}
+          {topSectionTab === "ai" && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Describe the build
+                </label>
+                <textarea
+                  value={aiInput}
+                  onChange={(e) => { setAiInput(e.target.value); setAiError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiBuild(); } }}
+                  placeholder='e.g. "4x4 with black totes, wheels, and a top" or "Indiana Joe no totes" or "two units — 3x4 clear totes and a 2x2 with wheels"'
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
+                  disabled={aiLoading}
+                />
+              </div>
+
+              {aiError && <p className="text-xs font-medium text-red-400">{aiError}</p>}
+
+              {!aiResult && (
+                <button
+                  onClick={handleAiBuild}
+                  disabled={!aiInput.trim() || aiLoading}
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                    aiInput.trim() && !aiLoading
+                      ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                      : "cursor-not-allowed bg-slate-700 text-stone-500"
+                  }`}
+                >
+                  {aiLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Parsing...</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4" /> Build</>
+                  )}
+                </button>
+              )}
+
+              {/* AI Result Preview — installer reviews before adding */}
+              {aiResult && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Preview — confirm before adding</p>
+                  {aiResult.map((unit, i) => (
+                    <div key={i} className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-white">{unit.description}</p>
+                        {unit.presetId && (
+                          <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">Preset</span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
+                        {!unit.presetId && <span>{unit.cols}×{unit.rows}</span>}
+                        {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
+                        {!unit.hasTotes && <span>No totes</span>}
+                        {unit.hasWheels && <span>Wheels</span>}
+                        {unit.hasTop && <span>Top</span>}
+                      </div>
+                    </div>
+                  ))}
+                  {aiNotes && <p className="text-xs text-stone-500 italic">{aiNotes}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setAiResult(null); }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={handleAddAiUnits}
+                      className={`flex flex-[2] items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
+                        aiAdded
+                          ? "bg-emerald-500 text-white"
+                          : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                      }`}
+                    >
+                      {aiAdded ? (
+                        <><Check className="h-4 w-4" /> Added to Quote</>
+                      ) : (
+                        <><Plus className="h-4 w-4" /> Add to Quote</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
