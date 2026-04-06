@@ -1,6 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+const InstallerChatWidget = dynamic(() => import("@/components/chat/InstallerChatWidget"), { ssr: false });
 import {
   ArrowRight,
   BarChart3,
@@ -1355,6 +1358,8 @@ export default function FeaturesPage() {
           </div>
         </div>
       </footer>
+      {/* AI Sales Chatbot */}
+      <InstallerChatWidget />
     </div>
   );
 }
