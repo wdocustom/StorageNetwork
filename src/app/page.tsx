@@ -1,9 +1,30 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import {
   Shield, Flag, Weight, ChevronRight, Truck,
   Star, Wrench, ArrowRight,
 } from "lucide-react";
 import InlineConfigurator from "@/components/landing/InlineConfigurator";
+
+export const metadata: Metadata = {
+  title: "Storage Network | Professional Tote Storage Systems — Design, Build & Install",
+  description:
+    "Design your custom 27-gallon tote storage system in 30 seconds. Heavy-duty shelving for garages, basements & sheds. Free 3D configurator with instant pricing. Professional installation by certified local pros. Lifetime warranty.",
+  keywords: [
+    "tote storage system", "garage storage", "tote rack", "tote shelving",
+    "garage organization", "HDX tote storage", "27 gallon tote rack",
+    "custom tote organizer", "garage shelving installation",
+    "professional garage storage", "tote storage near me",
+  ],
+  openGraph: {
+    title: "Storage Network | Professional Tote Storage Systems",
+    description: "Design your custom tote storage system in 30 seconds. Free 3D configurator. Professional installation by certified local pros.",
+    type: "website",
+  },
+  alternates: {
+    canonical: "https://storage-network.app",
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Landing Page — Guided Inline Configurator
