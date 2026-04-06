@@ -60,6 +60,47 @@ const ALL_PRESETS = [
   { id: "track-norris", name: "Track Norris", desc: "4×2 with drawer slides — totes pull out like drawers." },
 ];
 
+// Pre-compute dimension and pricing lookup tables so the LLM never does arithmetic
+function buildWidthTable(): string {
+  // Each slot is ~20" wide, each post is 1.5", there's always 1 more post than slots
+  // Total width = cols * 20 + (cols + 1) * 1.5
+  const rows: string[] = ["Wall Width → Max Columns → Unit Width:"];
+  for (let ft = 4; ft <= 16; ft += 2) {
+    const inches = ft * 12;
+    const cols = Math.max(1, Math.floor((inches - 1.5) / (20 + 1.5)));
+    const unitWidth = (cols * 20 + (cols + 1) * 1.5).toFixed(1);
+    rows.push(`  ${ft} feet (${inches}") → ${cols} columns → ${unitWidth}" wide`);
+  }
+  return rows.join("\n");
+}
+
+function buildHeightTable(): string {
+  // Each tier is ~16" of usable space. Total height includes base plate + top.
+  // Actual heights: 2T=36", 3T=52", 4T=68", 5T=84"
+  return `Tiers → Unit Height:
+  2 tiers → 36" tall (3 feet)
+  3 tiers → 52" tall (4 feet 4 inches)
+  4 tiers → 68" tall (5 feet 8 inches) ← most popular
+  5 tiers → 84" tall (7 feet) ← max recommended`;
+}
+
+function buildPriceTable(slotPrice: number, toteBlack: number, toteClear: number, wheelsPrice: number, topPrice: number): string {
+  const rows: string[] = ["Grid Size → Frame Price → With Black Totes → With Clear Totes:"];
+  for (const cols of [2, 3, 4, 5, 6]) {
+    for (const tiers of [2, 3, 4, 5]) {
+      const slots = cols * tiers;
+      const frame = slots * slotPrice;
+      const withBlack = frame + slots * toteBlack;
+      const withClear = frame + slots * toteClear;
+      rows.push(`  ${cols}×${tiers} (${slots} slots) → Frame: $${frame} | +Black totes: $${withBlack} | +Clear totes: $${withClear}`);
+    }
+  }
+  rows.push(`\nAdd-on prices (add to totals above):`);
+  rows.push(`  Wheels: +$${wheelsPrice}`);
+  rows.push(`  Plywood top: +$${topPrice} (1 sheet for ≤6 cols)`);
+  return rows.join("\n");
+}
+
 export function buildCustomerChatPrompt(ctx?: InstallerChatContext): string {
   const c = ctx || {};
   const name = c.installerName || "your installer";
@@ -73,6 +114,11 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext): string {
   const wheelsPrice = c.standardWheels ?? DEFAULTS.standardWheels;
   const miniWheelsPrice = c.miniWheels ?? DEFAULTS.miniWheels;
   const topPrice = c.plywoodTop ?? DEFAULTS.plywoodTop;
+
+  // Pre-compute lookup tables
+  const widthTable = buildWidthTable();
+  const heightTable = buildHeightTable();
+  const priceTable = buildPriceTable(slotPrice, toteBlack, toteClear, wheelsPrice, topPrice);
 
   // Feature toggles
   const hasMini = c.miniEnabled === true;
@@ -146,17 +192,17 @@ Follow this sequence naturally. Adapt to the conversation but cover these decisi
 ${toteSizeSection}
 
 2. **How much wall space do they have?**
-   Ask about available wall width (in feet is fine — you'll convert).
+   Ask about available wall width in feet.
    - Help them estimate: "A typical garage wall bay is about 8 feet between studs"
-   - Standard tote slot = ~20" wide.
-   - A 2×4 frame post = 1.5". Formula: cols = floor((wall_inches - 1.5) / (slot_width + 1.5))
-   - Don't show the math — just recommend: "With 8 feet, you could fit a 4-column rack"
+   - DO NOT calculate — use this exact table:
+${widthTable}
+   - Just tell them: "With 8 feet, you can fit a 4-column rack — about 86.5 inches wide"
 
 3. **How tall?**
    Ask about height preference or ceiling clearance.
-   - Standard: 16" per tier.${hasMini ? " Mini: 7\" per tier." : ""}
-   - Common configs: 2 tiers (~36"), 3 tiers (~52"), 4 tiers (~68"), 5 tiers (~84")
-   - Maximum reasonable is 5 tiers for standard
+   - DO NOT calculate — use this exact table:
+${heightTable}
+   - IMPORTANT: 4 tiers = 68", 5 tiers = 84". Do NOT confuse these.
 
 4. **Totes**
    Ask if they want ${name} to provide HDX totes or if they'll bring their own.
@@ -171,12 +217,17 @@ ${toteSizeSection}
 
 ═══ WHEN YOU HAVE ENOUGH INFO ═══
 
-Once you've collected: cols, rows, toteType, unitType, orientation, hasWheels, hasTop, and hasTotes — calculate the price and present the build summary.
+Once you've collected: cols, rows, toteType, unitType, orientation, hasWheels, hasTop, and hasTotes — look up the price from the table below and present the build summary.
 
-PRICING (${name}'s rates):
-${pricingLines.join("\n")}
+DO NOT DO MATH. Look up the price in this table:
 
-Present it conversationally: "So that's a 4×4 HDX rack with wheels and a top — 16 totes total. Comes out to about $X. Want to see it in 3D?"
+${priceTable}
+
+To get the final price: find the grid size row, pick the right tote column (or Frame if no totes), then add wheels and/or top if selected.
+
+Example: 4×4 with black totes + wheels + top = look up "4×4 with Black totes" + $${wheelsPrice} + $${topPrice}.
+
+Present it conversationally: "So that's a 4×4 rack with wheels and a top — 16 totes total. Comes out to about $X. Want to see it in 3D?"
 
 Then include this EXACT format at the end of your message (the frontend parses this):
 
@@ -191,10 +242,11 @@ ${presetsSection}
 - ONE question at a time. Never ask two things in the same message.
 - Keep messages to 2-3 sentences max unless they're asking for detail.
 - Use casual, friendly language. Not corporate.
-- If they give you a number, convert it for them: "8 feet? That's 96 inches — fits a 4-column rack perfectly."
+- NEVER do arithmetic yourself. ALWAYS look up dimensions and prices from the tables above.
+- If they give wall width in feet, find it in the width table. If they give inches, find the closest feet row.
 - Don't overwhelm with options. Lead with the popular choice.
 - NEVER output the config block until you have ALL required fields decided.
-- NEVER make up pricing — use ${name}'s rates listed above.
+- NEVER make up pricing — ONLY use prices from the lookup tables above. If a grid size isn't in the table, tell them the 3D designer will show exact pricing.
 - After presenting the config, ask: "Want to see it in 3D, or should I email you this quote?"
 - If they change their mind about something, adjust and re-present.
 ${!hasMini ? "- NEVER offer or mention mini 6.5-quart totes — this installer does not provide them.\n" : ""}${!hasShelving ? "- NEVER offer or mention open shelving — this installer does not provide it.\n" : ""}${!hasOverhead ? "- NEVER offer or mention overhead ceiling storage — this installer does not provide it.\n" : ""}${!hasRaisedBeds ? "- NEVER offer or mention raised bed planters — this installer does not provide them.\n" : ""}`;
