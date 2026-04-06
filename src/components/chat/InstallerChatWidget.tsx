@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Send, Loader2 } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, Sparkles } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Chat Widget — Sales Conversion Chatbot
@@ -19,9 +19,35 @@ interface ChatMessage {
 const GREETING = "Hey! Thinking about joining the network? I can answer any questions about the platform, pricing, or what it's like to be an installer. Fire away!";
 const SESSION_KEY = "sn_installer_chat";
 
+const TEASERS = [
+  "How much can I actually make?",
+  "What does the free trial include?",
+  "Is my area available?",
+  "How do the pre-sold jobs work?",
+  "What's the catch?",
+];
+
 export default function InstallerChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
+  const [teaserIndex, setTeaserIndex] = useState(0);
+  const [teaserDismissed, setTeaserDismissed] = useState(false);
+
+  // Rotate teaser messages
+  useEffect(() => {
+    if (isOpen || teaserDismissed) return;
+    const interval = setInterval(() => {
+      setTeaserIndex((prev) => (prev + 1) % TEASERS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isOpen, teaserDismissed]);
+
+  // Show teaser bubble after 3 seconds
+  const [showTeaser, setShowTeaser] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowTeaser(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -126,18 +152,44 @@ export default function InstallerChatWidget() {
 
   return (
     <>
-      {/* Floating Chat Button */}
+      {/* Floating Chat Button + Teaser */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400 text-slate-900 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
-          aria-label="Chat with us"
-        >
-          <MessageSquare className="h-6 w-6" />
-          {!hasGreeted && (
-            <span className="absolute inset-0 rounded-full animate-ping bg-yellow-400 opacity-30" />
+        <div className="fixed bottom-5 right-5 z-50 flex items-end gap-3">
+          {/* Teaser bubble */}
+          {showTeaser && !teaserDismissed && (
+            <div className="animate-fadeInUp mb-1 max-w-[220px]">
+              <button
+                onClick={() => setIsOpen(true)}
+                className="relative rounded-2xl rounded-br-md bg-slate-800 border border-slate-700 px-4 py-3 text-left shadow-xl shadow-black/30 transition-all hover:border-yellow-400/50 group"
+              >
+                <p className="text-[11px] font-bold text-yellow-400 mb-0.5 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Ask me anything
+                </p>
+                <p className="text-xs text-stone-300 leading-relaxed transition-all">
+                  &ldquo;{TEASERS[teaserIndex]}&rdquo;
+                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTeaserDismissed(true); }}
+                  className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-stone-500 text-[10px] hover:bg-slate-600 hover:text-white transition-colors"
+                >
+                  &times;
+                </button>
+              </button>
+            </div>
           )}
-        </button>
+
+          {/* Chat button */}
+          <button
+            onClick={() => setIsOpen(true)}
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-yellow-400 text-slate-900 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
+            aria-label="Chat with us"
+          >
+            <MessageSquare className="h-6 w-6" />
+            {!hasGreeted && (
+              <span className="absolute inset-0 rounded-full animate-ping bg-yellow-400 opacity-30" />
+            )}
+          </button>
+        </div>
       )}
 
       {/* Chat Panel */}

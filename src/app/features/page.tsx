@@ -1190,6 +1190,85 @@ export default function FeaturesPage() {
         </div>
       </section>
 
+      {/* ── AI Design Assistant ────────────────────────────────────────── */}
+      <section id="ai-assistant" className="scroll-mt-8 border-b border-slate-800 py-20">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="mb-10 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-1.5">
+              <Sparkles className="h-4 w-4 text-yellow-400" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-yellow-400">
+                New Feature
+              </span>
+            </div>
+            <h3 className="mb-3 text-3xl font-black text-white md:text-4xl">
+              AI Design Assistant
+            </h3>
+            <p className="mx-auto max-w-2xl text-sm leading-relaxed text-stone-400">
+              An AI-powered chatbot that lives on every design page &mdash; guiding your customers
+              through building their perfect storage system using <strong className="text-white">your name</strong>,{" "}
+              <strong className="text-white">your pricing</strong>, and{" "}
+              <strong className="text-white">only the products you offer</strong>.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+                <Target className="h-5 w-5 text-yellow-400" />
+              </div>
+              <h4 className="mb-2 text-sm font-bold text-white">Sells While You Sleep</h4>
+              <p className="text-xs leading-relaxed text-stone-400">
+                The AI assistant is available 24/7 on your design page. When a customer visits at 11pm
+                and feels overwhelmed by options, the chatbot walks them through it step by step &mdash;
+                wall measurements, tote options, wheels, plywood top &mdash; and hands them a fully
+                configured build with an accurate quote.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+                <Calculator className="h-5 w-5 text-yellow-400" />
+              </div>
+              <h4 className="mb-2 text-sm font-bold text-white">Your Exact Pricing</h4>
+              <p className="text-xs leading-relaxed text-stone-400">
+                Every quote the AI gives uses your actual per-slot, per-tote, and add-on rates &mdash;
+                pulled from your profile settings. It runs the same calculator as the 3D configurator,
+                so plywood sheets, wheels, and everything else are always accurate to the penny.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+                <Shield className="h-5 w-5 text-yellow-400" />
+              </div>
+              <h4 className="mb-2 text-sm font-bold text-white">Only What You Offer</h4>
+              <p className="text-xs leading-relaxed text-stone-400">
+                If you don&apos;t offer mini totes, the AI won&apos;t mention them. If you&apos;ve disabled a
+                bestseller preset, it won&apos;t suggest it. Overhead storage turned off? The AI won&apos;t
+                bring it up. Every conversation is tailored to your exact product catalog.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+                <TrendingUp className="h-5 w-5 text-yellow-400" />
+              </div>
+              <h4 className="mb-2 text-sm font-bold text-white">Higher Conversion</h4>
+              <p className="text-xs leading-relaxed text-stone-400">
+                Customers who use the AI assistant arrive at checkout with a fully configured build
+                they understand and a price they&apos;ve already seen. No sticker shock, no confusion,
+                no abandoned carts. They&apos;re ready to book.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-2xl border border-slate-700 bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-center">
+            <p className="mb-2 text-sm font-bold text-white">Zero setup required.</p>
+            <p className="text-xs text-stone-400">
+              The AI assistant is already live on every design page. It reads your pricing and product
+              config automatically. Just make sure your settings are up to date.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── Auto-Marketing Engine (Coming Soon) ──────────────────────────── */}
       <section id="auto-marketing" className="scroll-mt-8 border-b border-slate-800 py-20">
         <div className="mx-auto max-w-4xl px-6">
