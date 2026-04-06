@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
 import { joinWaitlist } from "@/app/actions/gatekeeper";
 import {
@@ -549,6 +552,11 @@ export default function LandingPage() {
           </div>
         </div>
       )}
+      {/* AI Design Assistant */}
+      <CustomerChatWidget
+        installerId={foundInstaller?.installer_id || undefined}
+        installerSlug={foundInstaller?.installer_slug || undefined}
+      />
     </div>
   );
 }

@@ -103,6 +103,7 @@ interface DesignConfiguratorProps {
   leadSource?: "platform" | "partner_link";
   savedSignal?: SavedSignalData;
   initialInstallerAtCapacity?: boolean;
+  initialConfig?: Record<string, unknown> | null;
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -130,6 +131,7 @@ export default function DesignConfigurator({
   leadSource = "platform",
   savedSignal,
   initialInstallerAtCapacity = false,
+  initialConfig,
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
@@ -238,6 +240,31 @@ export default function DesignConfigurator({
   const [presetTotes, setPresetTotes] = useState(true);
   const [presetLoading, setPresetLoading] = useState(false);
   const presetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Apply initial config from AI chatbot URL param ─────────────────────
+  const configApplied = useRef(false);
+  useEffect(() => {
+    if (!initialConfig || configApplied.current) return;
+    configApplied.current = true;
+
+    // Preset shortcut
+    if (typeof initialConfig.preset === "string") {
+      setActivePreset(initialConfig.preset);
+      if (typeof initialConfig.hasTotes === "boolean") setPresetTotes(initialConfig.hasTotes);
+      return;
+    }
+
+    // Custom build
+    if (typeof initialConfig.cols === "number") setCols(initialConfig.cols);
+    if (typeof initialConfig.rows === "number") setRows(initialConfig.rows);
+    if (initialConfig.toteType === "HDX" || initialConfig.toteType === "GM") setToteType(initialConfig.toteType);
+    if (initialConfig.toteColor === "black" || initialConfig.toteColor === "clear") setToteColor(initialConfig.toteColor);
+    if (initialConfig.unitType === "standard" || initialConfig.unitType === "mini") setUnitType(initialConfig.unitType);
+    if (initialConfig.orientation === "standard" || initialConfig.orientation === "sideways") setOrientation(initialConfig.orientation);
+    if (typeof initialConfig.hasTotes === "boolean") setHasTotes(initialConfig.hasTotes);
+    if (typeof initialConfig.hasWheels === "boolean") setHasWheels(initialConfig.hasWheels);
+    if (typeof initialConfig.hasTop === "boolean") setHasTop(initialConfig.hasTop);
+  }, [initialConfig]);
 
   // Active preset object (null when custom build)
   const activePresetObj = useMemo(() =>

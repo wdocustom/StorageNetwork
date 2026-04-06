@@ -1,17 +1,23 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Installer Chat API — Streaming AI Sales Assistant
+// Chat API — Streaming AI Assistant
 //
-// Conversion-focused chatbot for installer signup pages (/join, /partner/join).
-// Uses Gemini 2.0 Flash for streaming responses via Vercel AI SDK.
-// Public endpoint — rate limited by IP.
+// Supports two modes:
+//   "installer" — sales chatbot for /join, /partner/join, /invite
+//   "customer"  — conversational configurator for landing & /design pages
+//
+// Uses Gemini 2.0 Flash (switchable via AI_CHAT_MODEL env).
+// Public endpoint — no auth required.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
+import { buildCustomerChatPrompt } from "@/lib/ai/customer-chat-prompt";
 
 export const maxDuration = 30;
+
+type ChatMode = "installer" | "customer";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -19,7 +25,7 @@ export async function POST(req: NextRequest) {
     return new Response("AI not configured", { status: 500 });
   }
 
-  let body: { messages?: Array<{ role: string; content: string }> };
+  let body: { messages?: Array<{ role: string; content: string }>; mode?: string };
   try {
     body = await req.json();
   } catch {
@@ -31,8 +37,11 @@ export async function POST(req: NextRequest) {
     return new Response("Messages required", { status: 400 });
   }
 
-  // Truncate to last 10 messages to control token costs
-  const truncated = messages.slice(-10).map((m) => ({
+  const mode: ChatMode = body.mode === "customer" ? "customer" : "installer";
+
+  // Customer mode gets more history (config builds over many exchanges)
+  const maxMessages = mode === "customer" ? 20 : 10;
+  const truncated = messages.slice(-maxMessages).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
@@ -40,9 +49,13 @@ export async function POST(req: NextRequest) {
   const google = createGoogleGenerativeAI({ apiKey });
   const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
 
+  const systemPrompt = mode === "customer"
+    ? buildCustomerChatPrompt()
+    : buildInstallerChatPrompt();
+
   const result = streamText({
     model: google(model),
-    system: buildInstallerChatPrompt(),
+    system: systemPrompt,
     messages: truncated,
   });
 

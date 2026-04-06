@@ -1,5 +1,8 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import type { Metadata } from "next";
+
+const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import {
   getInstallerById,
   getInstallerByRef,
@@ -135,8 +138,17 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
   const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
+  const fromChat = params.from === "chat"; // Came from AI chat configurator
   const signalId = typeof params.signal_id === "string" ? params.signal_id : "";
   const refInstaller = typeof params.ref_installer === "string" ? params.ref_installer : "";
+
+  // Decode chat config if present (base64-encoded JSON from AI chatbot)
+  let chatConfig: Record<string, unknown> | null = null;
+  if (typeof params.config === "string") {
+    try {
+      chatConfig = JSON.parse(Buffer.from(params.config, "base64").toString());
+    } catch {}
+  }
 
   // UUID detection — route ?installer=UUID to getInstallerById, not slug lookup
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -225,6 +237,7 @@ export default async function DesignPage({ searchParams }: PageProps) {
           mode={mode}
           leadSource={isDirectLead ? "partner_link" : "platform"}
           initialInstallerAtCapacity={capacityStatus?.atCapacity ?? false}
+          initialConfig={chatConfig}
           savedSignal={savedSignal ? {
             quoteData: savedSignal.quoteData,
             sourceInstallerId: savedSignal.sourceInstallerId || refInstaller || null,
@@ -240,6 +253,12 @@ export default async function DesignPage({ searchParams }: PageProps) {
           } : undefined}
         />
       </Suspense>
+
+      {/* AI Design Assistant */}
+      <CustomerChatWidget
+        installerId={viewModel?.routing.installerId}
+        installerSlug={viewModel?.routing.slug || undefined}
+      />
     </>
   );
 }
