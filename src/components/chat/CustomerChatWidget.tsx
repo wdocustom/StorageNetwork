@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles } from "lucide-react";
-import type { RackConfig } from "@/lib/ai/customer-chat-prompt";
+import type { RackConfig, InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Customer Chat Widget — Conversational Configurator
 //
 // AI-guided tote rack builder. Walks customers through questions,
 // collects config params, and outputs action buttons when ready.
-// Lives on landing page and /design page.
+// Adapts to installer-specific pricing, services, and product toggles.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ChatMessage {
@@ -24,6 +24,8 @@ interface CustomerChatWidgetProps {
   installerId?: string;
   /** Installer slug for URL generation */
   installerSlug?: string;
+  /** Installer context for tailoring chat responses */
+  installerContext?: InstallerChatContext;
 }
 
 const GREETING = "Hey! Want help picking the right storage setup? I can walk you through it — just a few quick questions and I'll have a design ready for you.";
@@ -53,7 +55,7 @@ function buildDesignUrl(config: RackConfig, installerId?: string, installerSlug?
   return `/design?${params.toString()}`;
 }
 
-export default function CustomerChatWidget({ installerId, installerSlug }: CustomerChatWidgetProps) {
+export default function CustomerChatWidget({ installerId, installerSlug, installerContext }: CustomerChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -120,6 +122,7 @@ export default function CustomerChatWidget({ installerId, installerSlug }: Custo
         body: JSON.stringify({
           messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
           mode: "customer",
+          installerContext,
         }),
       });
 

@@ -274,6 +274,28 @@ export default async function DesignPage({ searchParams }: PageProps) {
       <CustomerChatWidget
         installerId={viewModel?.routing.installerId}
         installerSlug={viewModel?.routing.slug || undefined}
+        installerContext={viewModel ? {
+          installerName: viewModel.branding.title,
+          standardSlot: viewModel.pricing?.standard_slot,
+          miniSlot: viewModel.pricing?.mini_slot,
+          standardTote: viewModel.pricing?.standard_tote,
+          standardToteClear: viewModel.pricing?.standard_tote_clear,
+          miniTote: viewModel.pricing?.mini_tote,
+          standardWheels: viewModel.pricing?.standard_wheels,
+          miniWheels: viewModel.pricing?.mini_wheels,
+          plywoodTop: viewModel.pricing?.plywood_top,
+          miniEnabled: viewModel.pricing?.mini_enabled === true,
+          shelvingEnabled: viewModel.pricing?.open_shelving_enabled === true,
+          overheadEnabled: viewModel.pricing?.overhead_storage_enabled === true,
+          raisedBedEnabled: viewModel.pricing?.raised_bed_enabled === true,
+          disabledPresets: [
+            viewModel.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
+            viewModel.pricing?.bestseller_cornhusker_disabled ? "cornhusker" : "",
+            viewModel.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
+            viewModel.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
+            viewModel.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
+          ].filter(Boolean),
+        } : undefined}
       />
     </>
   );

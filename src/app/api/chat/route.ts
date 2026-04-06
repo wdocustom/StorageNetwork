@@ -3,7 +3,9 @@
 //
 // Supports two modes:
 //   "installer" — sales chatbot for /join, /partner/join, /invite
-//   "customer"  — conversational configurator for landing & /design pages
+//   "customer"  — conversational configurator for /design pages
+//     Accepts installerContext to tailor responses to the specific
+//     installer's pricing, services, and product toggles.
 //
 // Uses Gemini 2.0 Flash (switchable via AI_CHAT_MODEL env).
 // Public endpoint — no auth required.
@@ -13,7 +15,7 @@ import { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
-import { buildCustomerChatPrompt } from "@/lib/ai/customer-chat-prompt";
+import { buildCustomerChatPrompt, type InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
 
 export const maxDuration = 30;
 
@@ -25,7 +27,11 @@ export async function POST(req: NextRequest) {
     return new Response("AI not configured", { status: 500 });
   }
 
-  let body: { messages?: Array<{ role: string; content: string }>; mode?: string };
+  let body: {
+    messages?: Array<{ role: string; content: string }>;
+    mode?: string;
+    installerContext?: InstallerChatContext;
+  };
   try {
     body = await req.json();
   } catch {
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
   const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
 
   const systemPrompt = mode === "customer"
-    ? buildCustomerChatPrompt()
+    ? buildCustomerChatPrompt(body.installerContext)
     : buildInstallerChatPrompt();
 
   const result = streamText({
