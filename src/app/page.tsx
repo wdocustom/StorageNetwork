@@ -1,127 +1,25 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import dynamic from "next/dynamic";
-
-const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
-import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
-import { joinWaitlist } from "@/app/actions/gatekeeper";
 import {
-  MapPin,
-  Loader2,
-  Shield,
-  Flag,
-  Weight,
-  ChevronRight,
-  Truck,
-  X,
-  CheckCircle2,
-  Mail,
-  User,
-  Star,
-  Wrench,
-  ArrowRight,
+  Shield, Flag, Weight, ChevronRight, Truck,
+  Star, Wrench, ArrowRight,
 } from "lucide-react";
+import InlineConfigurator from "@/components/landing/InlineConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Landing Page — Smart Gatekeeper with Pro Found / Waitlist Modals
+// Landing Page — Guided Inline Configurator
+//
+// Hero section now contains the InlineConfigurator which walks customers
+// through ZIP → installer reveal → service selection → build config
+// entirely inline (no modals, no floating chatbot).
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function LandingPage() {
-  const router = useRouter();
-  const [zip, setZip] = useState("");
-  const [searching, setSearching] = useState(false);
-  const [error, setError] = useState("");
-
-  // Pro Found modal state
-  const [showProFound, setShowProFound] = useState(false);
-  const [foundInstaller, setFoundInstaller] = useState<AvailabilityResult | null>(null);
-
-  // Waitlist modal state
-  const [showWaitlist, setShowWaitlist] = useState(false);
-  const [waitlistZip, setWaitlistZip] = useState("");
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
-  const [waitlistDone, setWaitlistDone] = useState(false);
-  const [waitlistError, setWaitlistError] = useState("");
-
-  async function handleSearch() {
-    const trimmed = zip.trim();
-    if (trimmed.length < 5) {
-      setError("Enter a valid 5-digit ZIP code.");
-      return;
-    }
-
-    setError("");
-    setSearching(true);
-
-    try {
-      const result = await checkAvailability(trimmed);
-
-      if (result.available && result.installer_id) {
-        // Pro found → show sales modal
-        setFoundInstaller(result);
-        setShowProFound(true);
-      } else {
-        // No match → show waitlist modal
-        setWaitlistZip(trimmed);
-        setWaitlistDone(false);
-        setWaitlistEmail("");
-        setWaitlistError("");
-        setShowWaitlist(true);
-      }
-    } catch {
-      setWaitlistZip(trimmed);
-      setWaitlistDone(false);
-      setWaitlistEmail("");
-      setWaitlistError("");
-      setShowWaitlist(true);
-    } finally {
-      setSearching(false);
-    }
-  }
-
-  async function handleWaitlistSubmit() {
-    if (!waitlistEmail.trim()) {
-      setWaitlistError("Email is required.");
-      return;
-    }
-
-    setWaitlistSubmitting(true);
-    setWaitlistError("");
-
-    try {
-      const res = await joinWaitlist(waitlistEmail, waitlistZip);
-      if (res.success) {
-        setWaitlistDone(true);
-      } else {
-        setWaitlistError(res.error || "Something went wrong.");
-      }
-    } catch {
-      setWaitlistError("Failed to join waitlist. Please try again.");
-    } finally {
-      setWaitlistSubmitting(false);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") handleSearch();
-  }
-
-  function handleStartDesigning() {
-    if (!foundInstaller?.installer_id) return;
-    // Add from=network to indicate this came from platform ZIP lookup (not installer's direct link)
-    router.push(`/design?installer=${foundInstaller.installer_id}&from=network`);
-  }
-
   return (
     <div className="min-h-screen bg-gray-950">
       {/* ══════════════════════════════════════════════════════════════════
-          HERO SECTION
+          HERO SECTION — Logo + Inline Configurator
       ══════════════════════════════════════════════════════════════════ */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-20">
         {/* Radial gradient background */}
         <div
           className="pointer-events-none absolute inset-0"
@@ -143,82 +41,31 @@ export default function LandingPage() {
 
         {/* Content */}
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="mb-8 inline-block">
+          <div className="mb-6 inline-block">
             <Image
               src="/landing_page_logo.png"
               alt="Storage Network"
               width={256}
               height={256}
               priority
-              className="h-40 w-auto object-contain sm:h-52 md:h-64"
+              className="h-32 w-auto object-contain sm:h-40 md:h-48"
             />
           </div>
 
-          <h1 className="mb-4 text-4xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+          <h1 className="mb-3 text-3xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl">
             Professional
             <br />
             Grade{" "}
             <span className="text-yellow-400">Storage.</span>
           </h1>
 
-          <p className="mx-auto mb-10 max-w-lg text-lg font-medium text-stone-400 sm:text-xl">
+          <p className="mx-auto mb-8 max-w-lg text-base font-medium text-stone-400 sm:text-lg">
             Heavy-duty tote shelving designed, built &amp; installed by
             certified local pros.
           </p>
 
-          {/* ── Search Box ───────────────────────────────────────── */}
-          <div className="mx-auto max-w-md">
-            <div className="flex overflow-hidden rounded-xl border-2 border-yellow-400/30 bg-gray-900 shadow-2xl shadow-yellow-400/10 transition-all focus-within:border-yellow-400 focus-within:shadow-yellow-400/20">
-              <div className="flex items-center pl-4 text-yellow-400">
-                <MapPin className="h-5 w-5" />
-              </div>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={5}
-                value={zip}
-                onChange={(e) => {
-                  setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                  setError("");
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="ZIP Code"
-                className="w-full bg-transparent px-3 py-4 text-lg font-medium text-white placeholder-stone-500 outline-none"
-              />
-              <button
-                onClick={handleSearch}
-                disabled={searching || zip.length < 5}
-                className="m-1.5 flex shrink-0 items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold uppercase tracking-wider text-black transition-all hover:bg-yellow-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
-              >
-                {searching ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    Find My Installer
-                    <ChevronRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
-
-            {error && (
-              <p className="mt-3 text-sm font-medium text-red-400">{error}</p>
-            )}
-
-            <p className="mt-4 text-xs text-stone-600">
-              We&apos;ll match you with a certified installer in your area.
-            </p>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <div className="flex flex-col items-center gap-2 text-stone-600">
-            <span className="text-[10px] font-bold uppercase tracking-widest">
-              Learn More
-            </span>
-            <div className="h-8 w-[1px] bg-gradient-to-b from-stone-600 to-transparent" />
-          </div>
+          {/* ── Inline Configurator ─────────────────────────────── */}
+          <InlineConfigurator />
         </div>
       </section>
 
@@ -265,7 +112,6 @@ export default function LandingPage() {
           INSTALLER CTA BANNER — Join the Network
       ══════════════════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden border-t border-stone-800 bg-gradient-to-br from-gray-900 via-gray-950 to-gray-900 px-4 py-20">
-        {/* Subtle accent glow */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -276,12 +122,10 @@ export default function LandingPage() {
 
         <div className="relative z-10 mx-auto max-w-3xl">
           <div className="flex flex-col items-center gap-8 md:flex-row md:gap-12">
-            {/* Icon */}
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
               <Wrench className="h-10 w-10 text-yellow-400" />
             </div>
 
-            {/* Copy */}
             <div className="flex-1 text-center md:text-left">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-yellow-400">
                 Installer Network
@@ -296,7 +140,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* CTA */}
             <div className="shrink-0">
               <a
                 href="/join"
@@ -370,193 +213,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          PRO FOUND MODAL — Sales conversion
-      ══════════════════════════════════════════════════════════════════ */}
-      {showProFound && foundInstaller && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-stone-700 bg-gray-900 shadow-2xl">
-            {/* Close button */}
-            <button
-              onClick={() => setShowProFound(false)}
-              className="absolute right-4 top-4 z-10 text-stone-500 transition-colors hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {/* Gold accent bar */}
-            <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-400" />
-
-            <div className="px-6 pb-6 pt-8 text-center">
-              {/* Avatar */}
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-yellow-400 bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg shadow-yellow-400/30">
-                {foundInstaller.installer_avatar_url ? (
-                  <Image
-                    src={foundInstaller.installer_avatar_url}
-                    alt={foundInstaller.installer_name || "Installer"}
-                    width={80}
-                    height={80}
-                    className="h-full w-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <Image
-                    src="/Header_avatar_logo.png"
-                    alt="Storage Network"
-                    width={80}
-                    height={80}
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-
-              {/* Verified badge */}
-              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-bold text-emerald-400">
-                <CheckCircle2 className="h-3 w-3" />
-                Verified Pro Found
-              </div>
-
-              {/* Installer name */}
-              <h3 className="mb-1 text-2xl font-black uppercase text-white">
-                {foundInstaller.installer_name}
-              </h3>
-
-              {/* Stars */}
-              <div className="mb-4 flex items-center justify-center gap-0.5">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star
-                    key={i}
-                    className="h-4 w-4 fill-yellow-400 text-yellow-400"
-                  />
-                ))}
-                <span className="ml-2 text-xs font-semibold text-stone-400">
-                  Certified Installer
-                </span>
-              </div>
-
-              <p className="mb-6 text-sm text-stone-400">
-                A certified pro is ready to design, build &amp; install your
-                custom storage system.
-              </p>
-
-              {/* CTA Button */}
-              <button
-                onClick={handleStartDesigning}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-base font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
-              >
-                Start Designing
-                <ChevronRight className="h-5 w-5" />
-              </button>
-
-              <p className="mt-3 text-[11px] text-stone-600">
-                No commitment &mdash; design your unit and see pricing instantly.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════
-          WAITLIST MODAL — No Pro in area
-      ══════════════════════════════════════════════════════════════════ */}
-      {showWaitlist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-2xl border border-stone-700 bg-gray-900 p-6 shadow-2xl">
-            <button
-              onClick={() => setShowWaitlist(false)}
-              className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {!waitlistDone ? (
-              <>
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-400/10">
-                  <MapPin className="h-8 w-8 text-yellow-400" />
-                </div>
-
-                <h3 className="mb-2 text-center text-xl font-black uppercase text-white">
-                  We Haven&apos;t Reached{" "}
-                  <span className="text-yellow-400">{waitlistZip}</span> Yet
-                </h3>
-                <p className="mb-6 text-center text-sm text-stone-400">
-                  Join our waitlist and we&apos;ll notify you as soon as a
-                  certified installer is available in your area.
-                </p>
-
-                <div className="flex overflow-hidden rounded-lg border border-stone-600 bg-gray-800 focus-within:border-yellow-400">
-                  <div className="flex items-center pl-3 text-stone-500">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <input
-                    type="email"
-                    value={waitlistEmail}
-                    onChange={(e) => {
-                      setWaitlistEmail(e.target.value);
-                      setWaitlistError("");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleWaitlistSubmit();
-                    }}
-                    placeholder="Enter your email"
-                    className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder-stone-500 outline-none"
-                  />
-                </div>
-
-                {waitlistError && (
-                  <p className="mt-2 text-xs font-medium text-red-400">
-                    {waitlistError}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleWaitlistSubmit}
-                  disabled={waitlistSubmitting}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
-                >
-                  {waitlistSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Notify Me"
-                  )}
-                </button>
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/10">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-                </div>
-                <h3 className="mb-2 text-xl font-black uppercase text-white">
-                  You&apos;re on the List!
-                </h3>
-                <p className="mb-6 text-sm text-stone-400">
-                  We&apos;ll email you at{" "}
-                  <span className="font-semibold text-white">
-                    {waitlistEmail}
-                  </span>{" "}
-                  when an installer is available near{" "}
-                  <span className="font-semibold text-yellow-400">
-                    {waitlistZip}
-                  </span>
-                  .
-                </p>
-                <button
-                  onClick={() => setShowWaitlist(false)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
-                >
-                  Done
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {/* AI Design Assistant */}
-      <CustomerChatWidget
-        installerId={foundInstaller?.installer_id || undefined}
-        installerSlug={foundInstaller?.installer_slug || undefined}
-      />
     </div>
   );
 }
