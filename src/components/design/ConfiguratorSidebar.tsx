@@ -14,7 +14,7 @@ export type { ConfiguratorSidebarProps };
 export type { ToteType, ToteColor, UnitType, Orientation, UnitConfig, ServerBuild } from "./configurator-types";
 
 export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
-  const [activeStep, setActiveStep] = useState(1);
+  const [activeStep, setActiveStep] = useState(props.initialStep ?? 1);
   const [dimensionPulsing, setDimensionPulsing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 

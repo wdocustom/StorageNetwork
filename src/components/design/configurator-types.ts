@@ -283,6 +283,9 @@ export interface ConfiguratorSidebarProps {
   // Multi-unit 3D visualization
   showMultiUnit3D: boolean;
   onShowMultiUnit3DChange: (v: boolean) => void;
+
+  /** When set, auto-advance to this step on mount (from pre-filled config) */
+  initialStep?: number;
   unitVisibility: Record<number, boolean>;
   onUnitVisibilityChange: (index: number, visible: boolean) => void;
   onToggleAllUnits: (visible: boolean) => void;
