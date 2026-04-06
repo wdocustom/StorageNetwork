@@ -935,6 +935,30 @@ function PartnerJoinPageInner() {
               </div>
             </div>
 
+            {/* AI Design Assistant */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                  <Sparkles className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-yellow-400/60">New</span>
+                  <p className="text-lg font-bold text-white">AI Design Assistant</p>
+                </div>
+              </div>
+              <p className="mb-4 text-sm leading-relaxed text-stone-400">
+                An AI chatbot on every design page that guides your customers through building their
+                storage system — using your name, your pricing, and only the products you offer. Sells 24/7.
+              </p>
+              <div className="space-y-2">
+                {["Uses your exact pricing & brand", "Only offers products you've enabled", "Guides customers step-by-step", "Accurate quotes via real calculator"].map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-xs text-stone-400">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />{item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Verified Customer Reviews */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
               <div className="mb-4 flex items-center gap-3">

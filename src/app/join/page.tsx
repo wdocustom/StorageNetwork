@@ -807,6 +807,35 @@ export default function JoinPage() {
         </div>
       </section>
 
+      {/* ── AI Design Assistant ────────────────────────────────────────── */}
+      <section className="border-t border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 px-6 py-16">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10">
+              <Sparkles className="h-6 w-6 text-yellow-400" />
+            </div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">New Feature</p>
+            <h2 className="text-2xl font-black uppercase text-white sm:text-3xl">AI Design Assistant</h2>
+            <p className="mt-2 text-sm text-stone-400">
+              An AI-powered chatbot that guides your customers through building their storage system &mdash; using your name, your pricing, and only the products you offer.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              { title: "Your Pricing, Your Brand", desc: "Uses your exact per-slot, per-tote, and add-on rates. Quotes are always accurate." },
+              { title: "Only What You Offer", desc: "Won't mention mini totes, shelving, or planters unless you've enabled them." },
+              { title: "Guides Customers Step-by-Step", desc: "Asks about wall space, height, totes, wheels, and top — one question at a time." },
+              { title: "Sells 24/7", desc: "Available on your design page around the clock. Converts browsers into bookings while you sleep." },
+            ].map((item) => (
+              <div key={item.title} className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                <p className="text-sm font-bold text-white">{item.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Demo CTA — midpage strip ──────────────────────────────────── */}
       <section className="border-t border-slate-800 bg-slate-950 px-6 py-10">
         <div className="mx-auto max-w-2xl text-center">

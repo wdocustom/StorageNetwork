@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Hammer,
   Package,
+  Sparkles,
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { checkTerritoryAvailability } from "@/app/actions/territory";
@@ -435,6 +436,11 @@ function InvitePageContent() {
               icon={Building2}
               title="Your Portfolio Page"
               desc="Get a custom profile page with QR code. Build your brand on the network."
+            />
+            <FeatureCard
+              icon={Sparkles}
+              title="AI Design Assistant"
+              desc="AI chatbot guides your customers through building — using your pricing, your brand, 24/7."
             />
           </div>
         </div>

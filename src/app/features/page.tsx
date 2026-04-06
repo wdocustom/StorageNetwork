@@ -34,6 +34,7 @@ import {
   Warehouse,
   Wrench,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +77,7 @@ const FEATURES: FeatureRow[] = [
   { name: "Raised Bed Planters", included: true, id: "raised-beds", icon: Sprout, highlight: true },
   { name: "Customer Tote Inventory", included: true, id: "tote-inventory", icon: QrCode, highlight: true },
   { name: "Verified Customer Reviews", included: true, id: "reviews", icon: Star, highlight: true },
+  { name: "AI Design Assistant", included: true, id: "ai-assistant", icon: Sparkles, highlight: true },
   { name: "Auto-Marketing Engine", included: "Coming Soon", id: "auto-marketing", icon: Rocket, highlight: true },
 ];
 
