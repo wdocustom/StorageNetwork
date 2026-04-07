@@ -193,6 +193,7 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
     }
 
     setIsLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [messages, isLoading]);
 
   // Direct send with pre-built messages (used by welcome overlay)
@@ -226,6 +227,7 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
       }
     } catch {}
     setIsLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [installerContext]);
 
   const handleSendEmail = async (config: RackConfig) => {
