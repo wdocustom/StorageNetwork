@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles, Package, ArrowUp, Layers, Flower2 } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles, Package, ArrowUp, Layers, Flower2, ChevronRight } from "lucide-react";
 import type { RackConfig, InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -280,37 +280,53 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
         }
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm animate-fadeInUp rounded-2xl border border-stone-700/50 bg-slate-900 p-6 shadow-2xl shadow-black/50">
-              <div className="mb-5 text-center">
-                <h2 className="text-base font-black uppercase tracking-tight text-white">What can we build for you?</h2>
-                <p className="mt-1 text-xs text-stone-500">Select a product to get started</p>
-              </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
+            <div className="w-full max-w-md animate-fadeInUp overflow-hidden rounded-3xl border border-slate-700/40 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-2xl shadow-black/60">
+              {/* Gold accent bar */}
+              <div className="h-1 bg-gradient-to-r from-yellow-400/0 via-yellow-400 to-yellow-400/0" />
 
-              <div className={`grid gap-2 ${tiles.length <= 2 ? "grid-cols-2" : tiles.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-                {tiles.map((tile) => (
-                  <button
-                    key={tile.id}
-                    onClick={() => handleTileClick(tile.message)}
-                    className="group flex flex-col items-center gap-2 rounded-xl border border-stone-700/50 bg-slate-800/50 p-4 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/5"
-                  >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700/50 text-stone-400 transition-colors group-hover:bg-yellow-400/15 group-hover:text-yellow-400">
-                      {tile.icon}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs font-bold text-white">{tile.label}</p>
-                      <p className="text-[10px] text-stone-500">{tile.sub}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <div className="px-8 pb-7 pt-8">
+                {/* Header */}
+                <div className="mb-6 text-center">
+                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400/10 ring-1 ring-yellow-400/20">
+                    <Sparkles className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <h2 className="text-lg font-black tracking-tight text-white">
+                    Let&apos;s Build Something
+                  </h2>
+                  <p className="mt-1 text-[13px] text-stone-400">
+                    Choose a product and we&apos;ll walk you through it
+                  </p>
+                </div>
 
-              <button
-                onClick={dismissWelcome}
-                className="mt-4 flex w-full items-center justify-center text-[11px] font-medium text-stone-600 transition-colors hover:text-stone-400"
-              >
-                I&apos;ll browse on my own
-              </button>
+                {/* Product tiles */}
+                <div className="space-y-2.5">
+                  {tiles.map((tile) => (
+                    <button
+                      key={tile.id}
+                      onClick={() => handleTileClick(tile.message)}
+                      className="group flex w-full items-center gap-4 rounded-xl border border-slate-700/40 bg-slate-800/30 px-5 py-4 text-left transition-all duration-200 hover:border-yellow-400/40 hover:bg-yellow-400/[0.06] hover:shadow-lg hover:shadow-yellow-400/5"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-stone-400 ring-1 ring-slate-700/50 transition-all duration-200 group-hover:bg-yellow-400/10 group-hover:text-yellow-400 group-hover:ring-yellow-400/30">
+                        {tile.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">{tile.label}</p>
+                        <p className="text-xs text-stone-500">{tile.sub}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-stone-600 transition-all group-hover:text-yellow-400 group-hover:translate-x-0.5" />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Dismiss */}
+                <button
+                  onClick={dismissWelcome}
+                  className="mt-5 flex w-full items-center justify-center text-xs text-stone-600 transition-colors hover:text-stone-400"
+                >
+                  Skip &mdash; I&apos;ll configure it myself
+                </button>
+              </div>
             </div>
           </div>
         );
