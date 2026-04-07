@@ -296,33 +296,36 @@ export async function sendPaymentInvoice(
 
   // Send email with permanent payment link
   try {
-    const { sendTransactionalEmail } = await import("@/lib/email");
+    const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
 
     const safeName = escapeHtml(customerName);
     const safeBiz = escapeHtml(resolvedBusinessName);
-    const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a1a1a; margin-bottom: 8px;">Balance Due</h2>
-        <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
-          Hi ${safeName}, your installer <strong>${safeBiz}</strong> has
-          requested payment for the remaining balance on your storage unit build.
+    const emailHtml = emailShell(
+      "Balance Due",
+      `
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${safeName},</p>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+        Your installer <strong style="color:#facc15;">${safeBiz}</strong> has
+        requested payment for the remaining balance on your storage unit build.
+      </p>
+      <div style="background:#1e293b;border-radius:16px;padding:24px;text-align:center;margin-bottom:24px;border:1px solid #334155;">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">
+          Amount Due
         </p>
-        <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
-          <p style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px;">
-            Amount Due
-          </p>
-          <p style="color: #1a1a1a; font-size: 36px; font-weight: 900; margin: 0;">
-            $${amount.toLocaleString()}
-          </p>
-        </div>
-        <a href="${paymentUrl}" style="display: block; background: #facc15; color: #1a1a1a; text-align: center; padding: 14px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 15px;">
-          Pay Now →
-        </a>
-        <p style="color: #aaa; font-size: 11px; text-align: center; margin-top: 16px;">
-          Payments processed securely via Stripe.
+        <p style="color:#facc15;font-size:36px;font-weight:900;margin:0;">
+          $${amount.toLocaleString()}
         </p>
       </div>
-    `;
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="${paymentUrl}" style="display:inline-block;background:#facc15;color:#0f172a;text-align:center;padding:14px 48px;border-radius:12px;font-weight:900;text-decoration:none;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+          Pay Now &rarr;
+        </a>
+      </div>
+      <p style="color:#57534e;font-size:11px;text-align:center;">
+        Payments processed securely via Stripe.
+      </p>
+      `
+    );
 
     const emailResult = await sendTransactionalEmail({
       to: customerEmail,
