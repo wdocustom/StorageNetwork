@@ -259,9 +259,9 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-400/15">
                 <Sparkles className="h-6 w-6 text-yellow-400" />
               </div>
-              <h2 className="text-lg font-black uppercase text-white">Need help designing?</h2>
+              <h2 className="text-lg font-black uppercase text-white">What are you looking for?</h2>
               <p className="mt-1 text-sm text-stone-400">
-                Tell me about your space and I&apos;ll help you build the perfect setup.
+                Tote storage, overhead ceiling racks, planters — tell me what you need and I&apos;ll help you get it set up.
               </p>
             </div>
 
@@ -272,7 +272,7 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                 value={welcomeInput}
                 onChange={(e) => setWelcomeInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleWelcomeSubmit(); }}
-                placeholder="e.g. I have an 8-foot wall in my garage..."
+                placeholder="e.g. I need garage storage, or a planter for my patio..."
                 className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-stone-500 outline-none"
                 autoFocus
               />

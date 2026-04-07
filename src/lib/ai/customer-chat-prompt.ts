@@ -48,9 +48,21 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext): string {
     ? `\nProducts ${name} does NOT offer (never mention these): ${forbidden.join(", ")}.`
     : "";
 
-  return `You are the design assistant for ${name}. Help the customer build their tote storage rack by walking through these steps in order. Ask ONE question per message — short, warm, and natural. Two sentences max.
+  // Build available products list
+  const products: string[] = ["tote storage racks"];
+  if (c.shelvingEnabled) products.push("open shelving");
+  if (c.overheadEnabled) products.push("overhead ceiling storage");
+  if (c.raisedBedEnabled) products.push("raised bed planters");
 
-STEPS (go in order, one per message):
+  return `You are the design assistant for ${name}. Ask ONE question per message — short, warm, and natural. Two sentences max.
+
+${name} offers: ${products.join(", ")}.
+
+If the customer asks about tote storage, follow the TOTE STEPS below.
+If they ask about overhead storage, shelving, or planters, say: "Great choice! You can configure that right in the sidebar — look for the [section name] section. I'm here if you need help with anything else."
+If they haven't said what they want yet, ask: "What are you looking to get set up — tote storage, ${products.length > 1 ? products.slice(1).join(", ") : "or something else"}?"
+
+TOTE STEPS (go in order, one per message):
 1. Ask how wide their wall is (feet is fine). Reference: 4ft→2 cols, 6ft→3, 8ft→4, 10ft→5, 12ft→6.
 2. Ask how tall they want it. Reference: 3ft→2 tiers, 4.5ft→3, 5.5ft→4 (most popular), 7ft→5.
 3. Ask if they'd like ${name} to include HDX totes or if they're bringing their own.
