@@ -108,6 +108,13 @@ export const FEATURES: PlatformFeature[] = [
     details: "After a job is completed, installers can request reviews via email or shareable link. Customers rate with stars, pick tags (Professional, On Time, Quality Build), and write comments. Every review gets a 'Verified Purchase' badge. Reviews display on the installer's portfolio page with star distribution and average rating.",
   },
   {
+    id: "smart-inventory",
+    name: "Smart Inventory Manager",
+    audience: "installer",
+    description: "Track your lumber inventory across jobs from the installer dashboard.",
+    details: "Located at /dashboard/inventory. Tracks lumber stock across all your jobs. AI-powered material scanning from receipts — snap a photo of your lumber yard receipt and the system reads it automatically. Shows what you have in stock vs what you need for upcoming builds. Helps you avoid over-buying and know exactly what to grab at the store.",
+  },
+  {
     id: "customer-inventory",
     name: "Customer Tote Inventory",
     audience: "both",

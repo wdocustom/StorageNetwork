@@ -144,6 +144,7 @@ export default function InstallerChatWidget() {
     }
 
     setIsLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }, [messages, isLoading]);
 
   const handleSend = () => {

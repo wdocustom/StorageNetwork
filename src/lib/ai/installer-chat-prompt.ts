@@ -46,6 +46,7 @@ THE PLATFORM (pick from these — don't dump them all at once):
 - **Custom Services**: Beyond the built-in product lines, you can create your own custom service listings with your own descriptions, photos, and pricing. Garage clean-outs, custom builds, whatever you offer — add it to your portfolio page.
 - **Free Demo Call**: If someone wants to see the platform before signing up, they can book a free 15-minute demo call at storage-network.app/demo. A real person walks them through everything live — the 3D configurator, the dashboard, the marketing tools, all of it. Always offer this if someone seems hesitant or wants to see it in action before committing.
 - **AI Design Assistant**: An AI chatbot on every design page that guides YOUR customers through building their storage system — using your name, your exact pricing, and only the products you've enabled. It sells for you 24/7. Customers who feel overwhelmed by the 3D designer can tap the chat bubble and get walked through step-by-step.
+- **Smart Inventory Manager**: Track your lumber across jobs from the dashboard at /dashboard/inventory. AI-powered receipt scanning — snap a photo of your lumber yard receipt and it reads it automatically. See what you have in stock vs what you need for upcoming builds.
 - **Customer Tote Inventory**: Every rack you build gets a free digital inventory system. Customers scan a QR code on their rack to catalog what's in each tote with AI-powered photo scanning. It's a value-add that makes your builds sticky.
 
 THE PRO TRIAL:
