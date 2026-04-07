@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
 
   const google = createGoogleGenerativeAI({ apiKey });
   const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
+  console.log(`[Chat] Using model: ${model} | Mode: ${mode}`);
 
   const systemPrompt = mode === "customer"
     ? buildCustomerChatPrompt(body.installerContext)
