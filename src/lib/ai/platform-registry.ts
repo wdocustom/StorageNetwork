@@ -53,6 +53,13 @@ export const PAGES: PlatformPage[] = [
   { path: "/dashboard/schedule", name: "Schedule & Availability", audience: "installer", description: "Set working days, blackout dates, and toggle customer-facing scheduling on/off. When scheduling is off, customers skip the calendar step." },
   { path: "/dashboard/marketing", name: "Marketing Tools", audience: "installer", description: "AI script generator for social media posts, booking link to share, QR code for portfolio page, Facebook group finder for local posting." },
   { path: "/dashboard/inventory", name: "Smart Inventory", audience: "installer", description: "Track lumber inventory across jobs. AI-powered material scanning from receipts. See what you have in stock vs what you need for upcoming jobs." },
+  { path: "/dashboard/analytics", name: "Analytics Dashboard", audience: "installer", description: "See page views, unique visitors, device breakdown, referrer sources, and conversion rates for your portfolio and design pages." },
+  { path: "/dashboard/sales", name: "Sales Insights", audience: "installer", description: "CRM-style dashboard showing completed orders, customer cards, financial summary, popular unit rankings, and operational pipeline." },
+  { path: "/dashboard/referrals", name: "Referral Dashboard", audience: "installer", description: "Track all installers you've referred, bounty status, and payment history from the referral bounty program." },
+  { path: "/dashboard/guides", name: "Guides & Training", audience: "installer", description: "Installation checklist, training resources, and Jig Plans purchase ($9 digital download for building jigs)." },
+  { path: "/about", name: "About", audience: "both", description: "About Storage Network — the company, the founder, the mission." },
+  { path: "/technology", name: "Technology", audience: "both", description: "Deep dive into the platform's tech: 3D configurator engine, automated cut-list generator, Stripe Connect payment infrastructure." },
+  { path: "/community", name: "Community Forum", audience: "installer", description: "Private forum for installers to share tips, ask questions, show off builds, and connect with other builders on the network." },
 ];
 
 // ── Features ─────────────────────────────────────────────────────────────
@@ -170,6 +177,69 @@ export const FEATURES: PlatformFeature[] = [
     description: "Book a free 15-minute live demo at storage-network.app/demo.",
     details: "A real person walks you through the entire platform live — the 3D configurator, installer dashboard, marketing tools, pricing settings, everything. No commitment, no sales pitch. Available for both potential installers and curious customers who want to see it before signing up.",
   },
+  {
+    id: "cleanout-services",
+    name: "Garage Cleanout Services",
+    audience: "both",
+    description: "Installers can offer 1-car, 2-car, and 3+ car garage cleanout services.",
+    details: "Configurable pricing per cleanout tier. Customers can add a cleanout to their storage order or book it standalone from the installer's portfolio page. Great upsell opportunity — clean the garage first, then install the storage system.",
+  },
+  {
+    id: "diy-plans",
+    name: "DIY Cut Plan Downloads",
+    audience: "both",
+    description: "Customers can buy downloadable DIY cut plans for $19 instead of hiring an installer.",
+    details: "After designing a build in the 3D configurator, customers see a 'DIY Plans' option. They get a professional PDF with board-by-board cuts, material list, and assembly instructions. Available at /plans/checkout. Pro subscribers and admins get free access.",
+  },
+  {
+    id: "jig-plans",
+    name: "Jig Plans",
+    audience: "installer",
+    description: "$9 digital download for a ladder-style building jig — speeds up assembly.",
+    details: "Available from /dashboard/guides. The jig helps installers build racks faster and more consistently. One-time purchase, instant PDF download.",
+  },
+  {
+    id: "discount-codes",
+    name: "Discount Code Management",
+    audience: "installer",
+    description: "Create and manage discount codes for customers.",
+    details: "Installers can create custom promo codes with percentage or fixed dollar discounts, max uses, expiration dates, minimum order amounts, and maximum discount caps. Customers enter codes during checkout. Great for promotions, repeat customers, or referral incentives.",
+  },
+  {
+    id: "community-forum",
+    name: "Community Forum",
+    audience: "installer",
+    description: "Private network of builders sharing tips, questions, and build photos.",
+    details: "Located at /community. Installers can create posts, comment, vote, and share images. Moderated by the team. Great for learning new techniques, troubleshooting builds, and connecting with other installers.",
+  },
+  {
+    id: "leaderboard",
+    name: "Installer Leaderboard",
+    audience: "installer",
+    description: "Monthly rankings of top-performing installers by revenue and completed jobs.",
+    details: "Tracks streaks, rank position, and all-time stats. Visible on the installer dashboard. Encourages friendly competition and shows who's crushing it on the platform.",
+  },
+  {
+    id: "demand-signals",
+    name: "Demand Signals & Waitlist",
+    audience: "installer",
+    description: "The platform records customer demand from uncovered areas.",
+    details: "When a customer searches a ZIP with no installer, they join a waitlist. Installers can see demand counts for nearby areas. When a new installer claims a territory, waitlisted customers are automatically notified and routed to them. This means new installers in high-demand areas can get jobs from day one.",
+  },
+  {
+    id: "analytics",
+    name: "Analytics Dashboard",
+    audience: "installer",
+    description: "Track page views, visitors, conversions, and traffic sources for your portfolio and design pages.",
+    details: "Located at /dashboard/analytics. Shows unique visitors, page views, device breakdown (mobile vs desktop), referrer sources, hourly traffic patterns, and conversion tracking. Helps you understand what's working and where your customers are coming from.",
+  },
+  {
+    id: "sales-insights",
+    name: "Sales Insights / CRM",
+    audience: "installer",
+    description: "Full sales dashboard showing completed orders, customer details, and financial summary.",
+    details: "Located at /dashboard/sales. Shows all completed orders with customer cards, popular unit rankings, operational pipeline status, total revenue, and search. Basically your CRM for the platform.",
+  },
 ];
 
 // ── Trial & Pricing ──────────────────────────────────────────────────────
@@ -197,6 +267,13 @@ export const FAQ: PlatformFaq[] = [
   { question: "How do payments work?", answer: "Customers pay a deposit through the platform via Stripe. You get paid directly to your bank account. No invoicing, no check-chasing. The platform handles all payment processing.", audience: "installer" },
   { question: "What's the AI Design Assistant?", answer: "An AI chatbot on every design page that guides customers through building their storage system. Uses your name, your exact pricing, and only the products you offer. Gives accurate quotes 24/7. Helps convert customers who feel overwhelmed by the 3D configurator.", audience: "both" },
   { question: "Do I need to be tech-savvy?", answer: "No. If you can text and take photos, you can use this. The heavy lifting is on the customer side — they use the 3D designer. You get a notification, look at the build, accept the job, and build it. Cut plans are a PDF. The booking page is just a link you share.", audience: "installer" },
+  { question: "Can I offer garage cleanouts?", answer: "Yes. The platform has built-in cleanout services — 1-car, 2-car, and 3+ car garage cleanouts with custom pricing. Customers can add a cleanout to their storage order or book it standalone from your portfolio page.", audience: "installer" },
+  { question: "Can customers buy DIY plans?", answer: "Yes. Customers can purchase downloadable DIY cut plans for $19 instead of hiring an installer. They get a professional PDF with board-by-board cuts and a material list. If you're a Pro subscriber, you get free access to all plans.", audience: "both" },
+  { question: "Is there a community or forum?", answer: "Yes. There's a private community forum at storage-network.app/community where installers share tips, ask questions, post build photos, and connect with other builders.", audience: "installer" },
+  { question: "Can I create discount codes?", answer: "Yes. You can create custom promo codes with percentage or fixed discounts, set max uses, expiration dates, and minimum order amounts. Great for promotions or repeat customer incentives.", audience: "installer" },
+  { question: "Do you track lumber inventory?", answer: "Yes. The Smart Inventory Manager at /dashboard/inventory tracks your lumber stock across jobs. It has AI-powered receipt scanning — snap a photo of your lumber yard receipt and it reads it automatically. Shows what's in stock vs what you need.", audience: "installer" },
+  { question: "How do I see my analytics?", answer: "Your analytics dashboard at /dashboard/analytics shows page views, unique visitors, device breakdown, referrer sources, and conversion rates. You can see where your traffic comes from and what's converting.", audience: "installer" },
+  { question: "What happens in areas with no installer?", answer: "Customers in uncovered areas join a waitlist. The platform tracks demand by ZIP code. When a new installer claims that territory, all waitlisted customers are automatically notified and routed to them — so new installers in high-demand areas can get jobs from day one.", audience: "installer" },
 ];
 
 // ── Lookup Function (called by chatbot tools) ────────────────────────────
