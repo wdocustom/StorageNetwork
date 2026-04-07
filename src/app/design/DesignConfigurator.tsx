@@ -30,6 +30,8 @@ import ScanWizard from "@/components/design/ScanWizard";
 import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
 import DatePickerDrawer from "@/components/design/DatePickerDrawer";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
+import dynamic from "next/dynamic";
+const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import {
   AlertTriangle,
   ArrowLeft,
@@ -1899,6 +1901,70 @@ export default function DesignConfigurator({
           }}
         />
       )}
+
+      {/* AI Design Assistant — with direct add-to-order callback */}
+      <CustomerChatWidget
+        installerId={data?.routing.installerId}
+        installerSlug={data?.routing.slug || undefined}
+        installerContext={{
+          installerName: data?.branding.title,
+          standardSlot: data?.pricing?.standard_slot,
+          miniSlot: data?.pricing?.mini_slot,
+          standardTote: data?.pricing?.standard_tote,
+          standardToteClear: data?.pricing?.standard_tote_clear,
+          miniTote: data?.pricing?.mini_tote,
+          standardWheels: data?.pricing?.standard_wheels,
+          miniWheels: data?.pricing?.mini_wheels,
+          plywoodTop: data?.pricing?.plywood_top,
+          miniEnabled: data?.pricing?.mini_enabled === true,
+          shelvingEnabled: data?.pricing?.open_shelving_enabled === true,
+          overheadEnabled: data?.pricing?.overhead_storage_enabled === true,
+          raisedBedEnabled: data?.pricing?.raised_bed_enabled === true,
+          disabledPresets: [
+            data?.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
+            data?.pricing?.bestseller_cornhusker_disabled ? "cornhusker" : "",
+            data?.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
+            data?.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
+            data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
+          ].filter(Boolean),
+        }}
+        onAddUnits={async (configs) => {
+          for (const cfg of configs) {
+            const result = await calculateBuild({
+              cols: cfg.cols,
+              rows: cfg.rows,
+              toteModel: cfg.toteType || "HDX",
+              toteColor: cfg.toteColor || "black",
+              unitType: cfg.unitType || "standard",
+              orientation: cfg.orientation || "standard",
+              addOns: { totes: cfg.hasTotes, wheels: cfg.hasWheels, top: cfg.hasTop },
+              mode: "manual",
+              installerPricing: data?.pricing,
+            });
+            if ("price" in result) {
+              const colorLabel = cfg.hasTotes && cfg.toteColor === "clear" ? " (Clear Totes)" : "";
+              setOrderItems((prev) => [...prev, {
+                cols: result.cols,
+                rows: result.rows,
+                toteType: cfg.toteType || "HDX",
+                toteColor: cfg.toteColor || "black",
+                unitType: cfg.unitType || "standard",
+                orientation: cfg.orientation || "standard",
+                hasTotes: cfg.hasTotes,
+                hasWheels: cfg.hasWheels,
+                hasTop: cfg.hasTop,
+                price: result.price,
+                totalW: result.dimensions.totalW,
+                totalH: result.dimensions.totalH,
+                depth: result.dimensions.depth,
+                desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
+                addons: [],
+              }]);
+            }
+          }
+          setShowMultiUnit3D(true);
+        }}
+      />
 
     </div>
   );

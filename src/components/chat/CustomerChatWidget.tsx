@@ -26,6 +26,8 @@ interface CustomerChatWidgetProps {
   installerSlug?: string;
   /** Installer context for tailoring chat responses */
   installerContext?: InstallerChatContext;
+  /** Callback to add configured units directly into the sidebar order */
+  onAddUnits?: (configs: RackConfig[]) => void;
 }
 
 const GREETING = "Hey! Want help picking the right storage setup? I can walk you through it — just a few quick questions and I'll have a design ready for you.";
@@ -36,10 +38,20 @@ function parseConfig(text: string): RackConfig | null {
   const match = text.match(CONFIG_REGEX);
   if (!match) return null;
   try {
-    return JSON.parse(match[1]) as RackConfig;
+    const parsed = JSON.parse(match[1]);
+    // Multi-unit format: {"units":[...]} — return first unit for display, store all
+    if (parsed.units && Array.isArray(parsed.units)) {
+      return { ...parsed.units[0], _allUnits: parsed.units } as RackConfig;
+    }
+    return parsed as RackConfig;
   } catch {
     return null;
   }
+}
+
+function getAllUnits(config: RackConfig): RackConfig[] {
+  const all = (config as RackConfig & { _allUnits?: RackConfig[] })._allUnits;
+  return all || [config];
 }
 
 function stripConfigBlock(text: string): string {
@@ -55,7 +67,7 @@ function buildDesignUrl(config: RackConfig, installerId?: string, installerSlug?
   return `/design?${params.toString()}`;
 }
 
-export default function CustomerChatWidget({ installerId, installerSlug, installerContext }: CustomerChatWidgetProps) {
+export default function CustomerChatWidget({ installerId, installerSlug, installerContext, onAddUnits }: CustomerChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -399,15 +411,29 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                 {/* Config CTA Buttons — shown below the message that contains a config */}
                 {m.config && (
                   <div className="mt-3 space-y-2 pl-2">
-                    <a
-                      href={buildDesignUrl(m.config, installerId, installerSlug)}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      View My Design in 3D
-                    </a>
+                    {onAddUnits ? (
+                      /* On /design page — add directly to sidebar order */
+                      <button
+                        onClick={() => {
+                          onAddUnits(getAllUnits(m.config!));
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
+                      >
+                        <Package className="h-4 w-4" />
+                        Add {getAllUnits(m.config!).length > 1 ? `${getAllUnits(m.config!).length} Units` : "Unit"} to My Build
+                      </button>
+                    ) : (
+                      /* Standalone — link to /design */
+                      <a
+                        href={buildDesignUrl(m.config, installerId, installerSlug)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        View My Design in 3D
+                      </a>
+                    )}
 
-                    {!emailSent ? (
+                    {!onAddUnits && !emailSent && (
                       <div className="flex gap-2">
                         <input
                           type="email"
@@ -426,7 +452,8 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                           Email Quote
                         </button>
                       </div>
-                    ) : (
+                    )}
+                    {!onAddUnits && emailSent && (
                       <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 text-center text-xs font-semibold text-emerald-400">
                         Quote sent to {emailInput}!
                       </div>
