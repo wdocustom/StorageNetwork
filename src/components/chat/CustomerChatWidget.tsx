@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, ExternalLink, Mail, Sparkles, Package, ArrowUp, Layers, Flower2 } from "lucide-react";
 import type { RackConfig, InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -251,49 +251,70 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
 
   return (
     <>
-      {/* Welcome Overlay — shows once on first visit */}
-      {showWelcome && !isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md animate-fadeInUp rounded-2xl border border-stone-700/50 bg-slate-900 p-8 shadow-2xl shadow-black/50">
-            <div className="mb-5 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-400/15">
-                <Sparkles className="h-6 w-6 text-yellow-400" />
-              </div>
-              <h2 className="text-lg font-black uppercase text-white">What are you looking for?</h2>
-              <p className="mt-1 text-sm text-stone-400">
-                Tote storage, overhead ceiling racks, planters — tell me what you need and I&apos;ll help you get it set up.
-              </p>
-            </div>
+      {/* Welcome Overlay — product tiles */}
+      {showWelcome && !isOpen && (() => {
+        const tiles: Array<{ id: string; label: string; sub: string; icon: React.ReactNode; message: string }> = [
+          { id: "tote", label: "Tote Storage", sub: "Heavy-duty shelving", icon: <Package className="h-6 w-6" />, message: "I'd like to set up tote storage" },
+        ];
+        if (installerContext?.shelvingEnabled) {
+          tiles.push({ id: "shelving", label: "Open Shelving", sub: "Utility shelves", icon: <Layers className="h-6 w-6" />, message: "I'm interested in open shelving" });
+        }
+        if (installerContext?.overheadEnabled) {
+          tiles.push({ id: "overhead", label: "Ceiling Storage", sub: "Overhead tote racks", icon: <ArrowUp className="h-6 w-6" />, message: "I want overhead ceiling storage" });
+        }
+        if (installerContext?.raisedBedEnabled) {
+          tiles.push({ id: "planters", label: "Raised Beds", sub: "Cedar planters", icon: <Flower2 className="h-6 w-6" />, message: "I'd like a raised bed planter" });
+        }
 
-            <div className="flex overflow-hidden rounded-xl border-2 border-stone-700 bg-slate-800 transition-all focus-within:border-yellow-400">
-              <input
-                ref={welcomeInputRef}
-                type="text"
-                value={welcomeInput}
-                onChange={(e) => setWelcomeInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleWelcomeSubmit(); }}
-                placeholder="e.g. I need garage storage, or a planter for my patio..."
-                className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-stone-500 outline-none"
-                autoFocus
-              />
+        function handleTileClick(message: string) {
+          const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: message };
+          const msgs: ChatMessage[] = [
+            { id: "greeting", role: "assistant", content: GREETING },
+            userMsg,
+          ];
+          setMessages(msgs);
+          setHasGreeted(true);
+          setIsOpen(true);
+          dismissWelcome();
+          setTimeout(() => sendMessageDirect(message, msgs), 100);
+        }
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm animate-fadeInUp rounded-2xl border border-stone-700/50 bg-slate-900 p-6 shadow-2xl shadow-black/50">
+              <div className="mb-5 text-center">
+                <h2 className="text-base font-black uppercase tracking-tight text-white">What can we build for you?</h2>
+                <p className="mt-1 text-xs text-stone-500">Select a product to get started</p>
+              </div>
+
+              <div className={`grid gap-2 ${tiles.length <= 2 ? "grid-cols-2" : tiles.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+                {tiles.map((tile) => (
+                  <button
+                    key={tile.id}
+                    onClick={() => handleTileClick(tile.message)}
+                    className="group flex flex-col items-center gap-2 rounded-xl border border-stone-700/50 bg-slate-800/50 p-4 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/5"
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-700/50 text-stone-400 transition-colors group-hover:bg-yellow-400/15 group-hover:text-yellow-400">
+                      {tile.icon}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-white">{tile.label}</p>
+                      <p className="text-[10px] text-stone-500">{tile.sub}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
               <button
-                onClick={handleWelcomeSubmit}
-                disabled={!welcomeInput.trim()}
-                className="flex shrink-0 items-center gap-1.5 px-4 text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300 disabled:text-stone-600"
+                onClick={dismissWelcome}
+                className="mt-4 flex w-full items-center justify-center text-[11px] font-medium text-stone-600 transition-colors hover:text-stone-400"
               >
-                <Send className="h-4 w-4" />
+                I&apos;ll browse on my own
               </button>
             </div>
-
-            <button
-              onClick={dismissWelcome}
-              className="mt-4 flex w-full items-center justify-center text-xs font-semibold text-stone-500 transition-colors hover:text-stone-300"
-            >
-              I&apos;ll browse on my own
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Floating Button */}
       {!isOpen && !showWelcome && (
