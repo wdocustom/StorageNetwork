@@ -58,6 +58,8 @@ function buildDesignUrl(config: RackConfig, installerId?: string, installerSlug?
 export default function CustomerChatWidget({ installerId, installerSlug, installerContext }: CustomerChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [welcomeInput, setWelcomeInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +68,39 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
   const [emailSent, setEmailSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const welcomeInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if welcome was already dismissed this session
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("sn_welcome_dismissed")) setShowWelcome(false);
+    } catch {}
+  }, []);
+
+  function dismissWelcome() {
+    setShowWelcome(false);
+    try { sessionStorage.setItem("sn_welcome_dismissed", "1"); } catch {}
+  }
+
+  function handleWelcomeSubmit() {
+    if (!welcomeInput.trim()) return;
+    // Open chat with the user's message pre-loaded
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: welcomeInput };
+    setMessages([
+      { id: "greeting", role: "assistant", content: GREETING },
+      userMsg,
+    ]);
+    setHasGreeted(true);
+    setIsOpen(true);
+    dismissWelcome();
+    // Trigger the send
+    setInput("");
+    // Send to API
+    setTimeout(() => sendMessageDirect(welcomeInput, [
+      { id: "greeting", role: "assistant", content: GREETING },
+      userMsg,
+    ]), 100);
+  }
 
   // Restore from sessionStorage
   useEffect(() => {
@@ -160,6 +195,39 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
     setIsLoading(false);
   }, [messages, isLoading]);
 
+  // Direct send with pre-built messages (used by welcome overlay)
+  const sendMessageDirect = useCallback(async (text: string, prebuiltMessages: ChatMessage[]) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: prebuiltMessages.map((m) => ({ role: m.role, content: m.content })),
+          mode: "customer",
+          installerContext,
+        }),
+      });
+      if (!res.ok) { setIsLoading(false); return; }
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      const assistantId = `a-${Date.now()}`;
+      let fullContent = "";
+      if (reader) {
+        setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          fullContent += decoder.decode(value, { stream: true });
+          const displayContent = stripConfigBlock(fullContent);
+          const config = parseConfig(fullContent);
+          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: displayContent, config: config || undefined } : m));
+        }
+      }
+    } catch {}
+    setIsLoading(false);
+  }, [installerContext]);
+
   const handleSendEmail = async (config: RackConfig) => {
     if (!emailInput.trim()) return;
     setEmailSending(true);
@@ -183,8 +251,52 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
 
   return (
     <>
+      {/* Welcome Overlay — shows once on first visit */}
+      {showWelcome && !isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md animate-fadeInUp rounded-2xl border border-stone-700/50 bg-slate-900 p-8 shadow-2xl shadow-black/50">
+            <div className="mb-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-400/15">
+                <Sparkles className="h-6 w-6 text-yellow-400" />
+              </div>
+              <h2 className="text-lg font-black uppercase text-white">Need help designing?</h2>
+              <p className="mt-1 text-sm text-stone-400">
+                Tell me about your space and I&apos;ll help you build the perfect setup.
+              </p>
+            </div>
+
+            <div className="flex overflow-hidden rounded-xl border-2 border-stone-700 bg-slate-800 transition-all focus-within:border-yellow-400">
+              <input
+                ref={welcomeInputRef}
+                type="text"
+                value={welcomeInput}
+                onChange={(e) => setWelcomeInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleWelcomeSubmit(); }}
+                placeholder="e.g. I have an 8-foot wall in my garage..."
+                className="w-full bg-transparent px-4 py-3.5 text-sm text-white placeholder:text-stone-500 outline-none"
+                autoFocus
+              />
+              <button
+                onClick={handleWelcomeSubmit}
+                disabled={!welcomeInput.trim()}
+                className="flex shrink-0 items-center gap-1.5 px-4 text-sm font-bold text-yellow-400 transition-colors hover:text-yellow-300 disabled:text-stone-600"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={dismissWelcome}
+              className="mt-4 flex w-full items-center justify-center text-xs font-semibold text-stone-500 transition-colors hover:text-stone-300"
+            >
+              I&apos;ll browse on my own
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Button */}
-      {!isOpen && (
+      {!isOpen && !showWelcome && (
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-yellow-400 px-4 py-3 text-sm font-bold text-slate-900 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
