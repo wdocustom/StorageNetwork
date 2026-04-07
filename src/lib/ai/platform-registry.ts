@@ -313,7 +313,8 @@ export function lookupPlatformInfo(query: string, audience: "customer" | "instal
       p.name.toLowerCase().includes(kw) || p.description.toLowerCase().includes(kw)
     );
     if (match) {
-      results.push(`Page: ${p.name} (${p.path})\n${p.description}`);
+      // Don't expose internal paths — just name and description
+      results.push(`${p.name}: ${p.description}`);
     }
   }
 
@@ -326,5 +327,5 @@ export function lookupPlatformInfo(query: string, audience: "customer" | "instal
     return "No specific information found for this query. Answer based on your general knowledge of the platform, or suggest the user book a demo at storage-network.app/demo for detailed answers.";
   }
 
-  return results.slice(0, 5).join("\n\n---\n\n");
+  return results.slice(0, 3).join("\n\n---\n\n");
 }
