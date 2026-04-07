@@ -17,7 +17,8 @@ import { streamText, stepCountIs } from "ai";
 import { z } from "zod";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
 import { buildCustomerChatPrompt, type InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
-import { calculateBuild } from "@/app/actions/calculator";
+import { calculateBuild, calculateShelvingUnit, calculateOverheadStorageUnit } from "@/app/actions/calculator";
+import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { lookupPlatformInfo } from "@/lib/ai/platform-registry";
 import type { InstallerPricing } from "@/types/viewModels";
 
@@ -119,6 +120,54 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Calculation failed" };
         }
+      },
+    },
+    calculate_overhead: {
+      description: "Calculate exact price for overhead ceiling storage. Call before quoting price.",
+      inputSchema: z.object({
+        gridId: z.string().describe("Grid size ID: 2x2, 2x3, 3x2, 3x3, 3x4, or 4x4"),
+        hasTotes: z.boolean().describe("Whether to include totes"),
+      }),
+      execute: async (input: z.infer<z.ZodObject<{ gridId: z.ZodString; hasTotes: z.ZodBoolean }>>) => {
+        try {
+          const result = await calculateOverheadStorageUnit({
+            config: { gridPresetId: input.gridId, toteType: "HDX", hasTotes: input.hasTotes },
+            installerPricing,
+          });
+          if (result.success) return { price: result.result.price + result.result.totePrice, gridId: input.gridId, toteCount: result.result.toteCount };
+          return { error: result.error };
+        } catch (err) { return { error: err instanceof Error ? err.message : "Failed" }; }
+      },
+    },
+    calculate_shelving: {
+      description: "Calculate exact price for open shelving unit. Call before quoting price.",
+      inputSchema: z.object({
+        configId: z.string().describe("Config ID: shelf-4ft-short, shelf-5ft-short, shelf-6ft-short, shelf-4ft-tall, shelf-5ft-tall, or shelf-6ft-tall"),
+      }),
+      execute: async (input: z.infer<z.ZodObject<{ configId: z.ZodString }>>) => {
+        try {
+          const result = await calculateShelvingUnit({ configId: input.configId, installerPricing });
+          if (result.success) return { price: result.price, configId: input.configId, label: result.label };
+          return { error: result.error };
+        } catch (err) { return { error: err instanceof Error ? err.message : "Failed" }; }
+      },
+    },
+    calculate_raised_bed: {
+      description: "Calculate exact price for a raised bed planter. Call before quoting price.",
+      inputSchema: z.object({
+        sizeId: z.string().describe("Size ID: legs_12x48x16, legs_24x48x16, legs_24x48x30, legs_24x72x16, legs_24x24x16_post, ground_24x72x11, ground_24x72x22, ground_36x72x22, ground_48x48x22"),
+        finish: z.string().describe("Wood finish: natural, stain, or painted_white"),
+        hasLiner: z.boolean().describe("Waterproof liner"),
+        pestCover: z.string().describe("Pest protection: none, hoop, rigid_cage, cabinet_24, or cabinet_48"),
+      }),
+      execute: async (input: { sizeId: string; finish: string; hasLiner: boolean; pestCover: string }) => {
+        try {
+          const result = await calculateRaisedBedPriceServer({
+            sizeId: input.sizeId, finish: input.finish, hasLiner: input.hasLiner,
+            depthIncrease: false, bottomShelf: false, pestCover: input.pestCover,
+          });
+          return { price: result.total, breakdown: result.breakdown };
+        } catch (err) { return { error: err instanceof Error ? err.message : "Failed" }; }
       },
     },
   } : undefined;
