@@ -19,6 +19,7 @@ export default function BestsellerDropdown({
   wallW,
   wallH,
   hasWallDimensions,
+  totesDisabled,
 }: {
   presetOptions: ConfiguratorSidebarProps["presetOptions"];
   activePreset: string | null;
@@ -31,6 +32,7 @@ export default function BestsellerDropdown({
   wallW: number;
   wallH: number;
   hasWallDimensions: boolean;
+  totesDisabled?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasSelection = !!activePreset;
@@ -148,12 +150,12 @@ export default function BestsellerDropdown({
                   </div>
                   {(() => {
                     const presetDef = BESTSELLER_PRESETS.find((p) => p.id === activePreset);
-                    return presetDef?.totesAreMandatory ? (
+                    return presetDef?.totesAreMandatory && !totesDisabled ? (
                       <div className="flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2 text-[11px] text-zinc-400">
                         <Package className="h-3.5 w-3.5 text-yellow-400" />
                         Totes included — drawer slide system
                       </div>
-                    ) : presetDef?.totesDisabled ? (
+                    ) : (totesDisabled || presetDef?.totesDisabled) ? (
                       <div className="flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2 text-[11px] text-zinc-400">
                         <Package className="h-3.5 w-3.5 text-stone-500" />
                         Frame only — no totes

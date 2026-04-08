@@ -28,6 +28,7 @@ export interface InstallerChatContext {
   standardWheels?: number;
   miniWheels?: number;
   plywoodTop?: number;
+  totesDisabled?: boolean;
   miniEnabled?: boolean;
   shelvingEnabled?: boolean;
   overheadEnabled?: boolean;
@@ -40,6 +41,7 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext): string {
   const name = c.installerName || "your installer";
 
   const forbidden: string[] = [];
+  if (c.totesDisabled) forbidden.push("totes", "tote color", "tote size", "HDX totes", "black or clear totes");
   if (!c.miniEnabled) forbidden.push("mini totes");
   if (!c.shelvingEnabled) forbidden.push("open shelving");
   if (!c.overheadEnabled) forbidden.push("overhead storage");
@@ -93,14 +95,20 @@ ${forbiddenLine}
 
 The customer already selected a product from the menu. Follow the matching steps below.
 
-TOTE STORAGE STEPS:
+${c.totesDisabled ? `STORAGE RACK STEPS (frame only — this installer does not offer totes):
+1. Ask how wide their wall is (feet is fine). Reference: 4ft→2 cols, 6ft→3, 8ft→4, 10ft→5, 12ft→6.
+2. Ask how tall they want it. Reference: 3ft→2 tiers, 4.5ft→3, 5.5ft→4 (most popular), 7ft→5.
+3. Ask about wheels — "Want casters so you can roll it out?"
+4. Ask about a plywood top — "Want a work surface on top?"
+5. Call calculate_price with hasTotes=false. Present price, then ask: "Want to add another unit or see this in 3D?"
+NEVER ask about totes, tote color, tote size, or tote brands. This installer builds frames only.` : `TOTE STORAGE STEPS:
 1. Ask how wide their wall is (feet is fine). Reference: 4ft→2 cols, 6ft→3, 8ft→4, 10ft→5, 12ft→6.
 2. Ask how tall they want it. Reference: 3ft→2 tiers, 4.5ft→3, 5.5ft→4 (most popular), 7ft→5.
 3. Ask if they'd like ${name} to include HDX totes or bringing their own.
 4. If including totes: ask black or clear.
 5. Ask about wheels — "Want casters so you can roll it out?"
 6. Ask about a plywood top — "Want a work surface on top?"
-7. Call calculate_price with all selections. Present price, then ask: "Want to add another unit or see this in 3D?"
+7. Call calculate_price with all selections. Present price, then ask: "Want to add another unit or see this in 3D?"`}
 ${overheadFlow}${shelvingFlow}${raisedBedFlow}
 
 AFTER PRESENTING A PRICE:

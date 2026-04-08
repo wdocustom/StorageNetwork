@@ -23,8 +23,8 @@ export default function StepAddons({
 }) {
   return (
     <>
-      {/* HDX Color Cards */}
-      {props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
+      {/* HDX Color Cards — hidden when totes globally disabled */}
+      {!props.totesDisabled && props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             HDX Tote Style
@@ -71,19 +71,21 @@ export default function StepAddons({
         <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
           Add-ons
         </h3>
-        <StudioToggle
-          checked={props.hasTotes}
-          onChange={props.onHasTotesChange}
-          label={
-            props.unitType === "mini"
-              ? `Include Clear Totes (+$${props.pricing?.mini_tote ?? props.platformDefaults.mini_tote}/ea)`
-              : `Totes (+$${
-                  props.toteType === "HDX" && props.toteColor === "clear"
-                    ? (props.pricing?.standard_tote_clear ?? props.platformDefaults.standard_tote_clear)
-                    : (props.pricing?.standard_tote ?? props.platformDefaults.standard_tote)
-                }/ea)`
-          }
-        />
+        {!props.totesDisabled && (
+          <StudioToggle
+            checked={props.hasTotes}
+            onChange={props.onHasTotesChange}
+            label={
+              props.unitType === "mini"
+                ? `Include Clear Totes (+$${props.pricing?.mini_tote ?? props.platformDefaults.mini_tote}/ea)`
+                : `Totes (+$${
+                    props.toteType === "HDX" && props.toteColor === "clear"
+                      ? (props.pricing?.standard_tote_clear ?? props.platformDefaults.standard_tote_clear)
+                      : (props.pricing?.standard_tote ?? props.platformDefaults.standard_tote)
+                  }/ea)`
+            }
+          />
+        )}
         <StudioToggle
           checked={props.hasWheels}
           onChange={props.onHasWheelsChange}

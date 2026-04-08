@@ -16,8 +16,8 @@ export default function StepConfiguration({
 }) {
   return (
     <>
-      {/* Unit Size Cards */}
-      {!props.miniDisabled && (
+      {/* Unit Size Cards — hidden when totes are globally disabled (frame only) */}
+      {!props.miniDisabled && !props.totesDisabled && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Unit Size
@@ -50,7 +50,7 @@ export default function StepConfiguration({
       {!props.activePreset && props.unitType === "standard" && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-            Tote Orientation
+            {props.totesDisabled ? "Orientation" : "Tote Orientation"}
           </h3>
           <div className="grid grid-cols-2 gap-3">
             <SelectionCard
@@ -71,8 +71,8 @@ export default function StepConfiguration({
         </div>
       )}
 
-      {/* Tote Size */}
-      {!props.activePreset && props.unitType === "standard" ? (
+      {/* Tote Size — hidden when totes globally disabled */}
+      {!props.totesDisabled && !props.activePreset && props.unitType === "standard" ? (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Tote Size
@@ -124,7 +124,7 @@ export default function StepConfiguration({
             </SelectionCard>
           </div>
         </div>
-      ) : !props.activePreset && props.unitType !== "standard" ? (
+      ) : !props.totesDisabled && !props.activePreset && props.unitType !== "standard" ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
           <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Tote Type</div>
           <div className="mt-1 text-sm font-medium text-zinc-300">

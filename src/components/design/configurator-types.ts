@@ -85,6 +85,8 @@ export interface ConfiguratorSidebarProps {
   onHasTopChange: (v: boolean) => void;
   effectiveHasTop: boolean;
   miniDisabled?: boolean;
+  /** When true, totes are globally disabled — hide all tote options */
+  totesDisabled?: boolean;
 
   // Pricing info for toggle labels
   pricing?: {

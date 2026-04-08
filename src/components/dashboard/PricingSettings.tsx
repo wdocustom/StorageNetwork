@@ -39,7 +39,7 @@ interface PricingSettingsProps {
   userId: string;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -346,6 +346,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [shelvingEnabled, setShelvingEnabled] = useState(false);
   const [overheadEnabled, setOverheadEnabled] = useState(false);
   const [raisedBedEnabled, setRaisedBedEnabled] = useState(false);
+  const [totesDisabled, setTotesDisabled] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Collapsible pricing categories ──────────────────────────────────
@@ -376,7 +377,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     }, 800); // 800ms debounce
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, presetToggles, addonEnabled, addonValues, addonToggles]);
+  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, totesDisabled, presetToggles, addonEnabled, addonValues, addonToggles]);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -391,6 +392,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         loaded[field.key] = val !== undefined && val !== null ? String(val) : "";
       }
       setValues(loaded);
+      setTotesDisabled(result.pricing.totes_disabled === true);
       setMiniEnabled(result.pricing.mini_enabled === true);
       setShelvingEnabled(result.pricing.open_shelving_enabled === true);
       setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
@@ -457,6 +459,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         (pricing as Record<string, number>)[field.key] = Number(val);
       }
     }
+    if (totesDisabled) pricing.totes_disabled = true;
     if (miniEnabled) pricing.mini_enabled = true;
     if (shelvingEnabled) pricing.open_shelving_enabled = true;
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
@@ -626,8 +629,33 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
         </p>
       </div>
 
-      {/* Mini Tote Toggle */}
+      {/* Global Totes Disabled Toggle */}
       <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setTotesDisabled(!totesDisabled)}
+          className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 transition-all ${
+            totesDisabled
+              ? "border-red-500/30 bg-red-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className="text-left">
+            <p className={`text-xs font-bold ${totesDisabled ? "text-red-400" : "text-stone-400"}`}>
+              Frame Only — No Totes
+            </p>
+            <p className="text-[10px] text-stone-600">
+              {totesDisabled ? "Totes are disabled. Customers will not see tote options." : "Toggle on to build frame-only units without totes."}
+            </p>
+          </div>
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${totesDisabled ? "bg-red-400" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${totesDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+        </button>
+      </div>
+
+      {/* Mini Tote Toggle */}
+      {!totesDisabled && <div className="mb-5">
         <button
           type="button"
           onClick={() => setMiniEnabled(!miniEnabled)}
@@ -654,7 +682,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
             </p>
           </div>
         </button>
-      </div>
+      </div>}
 
       {/* Open Shelving Toggle */}
       <div className="mb-5">

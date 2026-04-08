@@ -975,12 +975,20 @@ export default function DesignConfigurator({
     [data?.pricing]
   );
 
-  // Force totes off for presets with totesDisabled
+  // Force totes off when installer has totes globally disabled or preset has totesDisabled
+  const globalTotesDisabled = data?.pricing?.totes_disabled === true;
   useEffect(() => {
-    if (activePresetObj?.totesDisabled && presetTotes) {
+    if ((globalTotesDisabled || activePresetObj?.totesDisabled) && presetTotes) {
       setPresetTotes(false);
     }
-  }, [activePresetObj, presetTotes]);
+  }, [activePresetObj, presetTotes, globalTotesDisabled]);
+
+  // Force hasTotes off globally
+  useEffect(() => {
+    if (globalTotesDisabled && hasTotes) {
+      setHasTotes(false);
+    }
+  }, [globalTotesDisabled, hasTotes]);
 
   // Re-fetch preset build when totes toggle changes
   useEffect(() => {
@@ -1598,6 +1606,7 @@ export default function DesignConfigurator({
           onHasTopChange={setHasTop}
           effectiveHasTop={effectiveHasTop}
           miniDisabled={data?.pricing?.mini_enabled !== true}
+          totesDisabled={data?.pricing?.totes_disabled === true}
 
           // Pricing
           pricing={data?.pricing}
@@ -1961,6 +1970,7 @@ export default function DesignConfigurator({
           standardWheels: data?.pricing?.standard_wheels,
           miniWheels: data?.pricing?.mini_wheels,
           plywoodTop: data?.pricing?.plywood_top,
+          totesDisabled: data?.pricing?.totes_disabled === true,
           miniEnabled: data?.pricing?.mini_enabled === true,
           shelvingEnabled: data?.pricing?.open_shelving_enabled === true,
           overheadEnabled: data?.pricing?.overhead_storage_enabled === true,

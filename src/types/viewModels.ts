@@ -102,6 +102,9 @@ export interface InstallerPricing {
   shelving_shelf_4ft_tall?: number;
   shelving_shelf_5ft_tall?: number;
   shelving_shelf_6ft_tall?: number;
+  /** When true, totes are globally disabled for this installer — frame-only builds.
+   *  Hides tote toggles, tote color, tote size, and tote pricing everywhere. */
+  totes_disabled?: boolean;
   /** @deprecated Use mini_enabled instead */
   mini_disabled?: boolean;
   /** When true, the mini (6.5 qt) unit option is shown on the installer's design page (default: off) */

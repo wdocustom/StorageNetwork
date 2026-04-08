@@ -206,6 +206,7 @@ export default function StepSize({
           wallW={wallW}
           wallH={wallH}
           hasWallDimensions={hasWallDimensions}
+          totesDisabled={props.totesDisabled}
         />
       )}
 
