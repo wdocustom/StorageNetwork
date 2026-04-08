@@ -676,16 +676,22 @@ export default function DesignConfigurator({
     const validationTargetId = originalInstallerId.current;
     if (!validationTargetId || !zipToCheck || zipToCheck.trim().length !== 5) return;
 
+    // Stale-response guard: if the effect re-fires (user types quickly),
+    // isActive is set to false by cleanup, preventing stale async results
+    // from overwriting fresh state.
+    let isActive = true;
+
     zipCheckRef.current = setTimeout(async () => {
       const trimmedZip = zipToCheck.trim();
       const result = await validateServiceArea(validationTargetId, trimmedZip);
+      if (!isActive) return;
+
       if (!result.inArea) {
         // ── Network Referral Bounty: re-route to local installer ──────
-        // Instead of blocking, find a local Pro and hand off the lead.
-        // The original installer becomes the referrer and earns 30% of the deposit.
         const localResult = await rerouteToLocalInstaller(trimmedZip, validationTargetId);
+        if (!isActive) return;
+
         if (localResult.available && localResult.installer_id) {
-          // Hand off: swap to local installer, track original as referrer
           setReferringInstallerId(validationTargetId);
           setHandedOff(true);
           setHandoffInstallerName(localResult.installer_name || "a local installer");
@@ -693,13 +699,11 @@ export default function DesignConfigurator({
           if (vm) {
             setData(vm);
             setInstallerId(vm.routing.installerId);
-            // Calculate delivery fee against the LOCAL installer
             calculateDeliveryFee(vm.routing.installerId, trimmedZip)
-              .then(setDeliveryFeeResult)
+              .then((r) => { if (isActive) setDeliveryFeeResult(r); })
               .catch(() => {});
           }
         } else {
-          // No local installer found — show waitlist UI
           setZipOutOfArea(true);
           setHandedOff(false);
           setReferringInstallerId(null);
@@ -708,18 +712,17 @@ export default function DesignConfigurator({
           );
         }
       } else {
-        // ZIP is in-area — clear any previous referral/handoff
         setReferringInstallerId(null);
         setHandedOff(false);
         setHandoffInstallerName("");
-        // Calculate delivery fee for this ZIP
         calculateDeliveryFee(validationTargetId, trimmedZip)
-          .then(setDeliveryFeeResult)
+          .then((r) => { if (isActive) setDeliveryFeeResult(r); })
           .catch(() => {});
       }
     }, 600);
 
     return () => {
+      isActive = false;
       if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
     };
   // Validate against the original installer — installerId is NOT a dep here

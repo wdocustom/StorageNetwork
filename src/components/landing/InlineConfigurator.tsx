@@ -235,6 +235,7 @@ export default function InlineConfigurator() {
           <div className="flex overflow-hidden rounded-xl border-2 border-yellow-400/30 bg-gray-900 shadow-2xl shadow-yellow-400/10 transition-all focus-within:border-yellow-400">
             <div className="flex items-center pl-4 text-yellow-400"><MapPin className="h-5 w-5" /></div>
             <input type="text" inputMode="numeric" maxLength={5} value={zip}
+              aria-label="ZIP code"
               onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 5)); setError(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
               placeholder="Enter your ZIP code"
