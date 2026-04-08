@@ -59,39 +59,44 @@ const ALLOWED_PATHS = [
   "/llms.txt",
 ];
 
-// AI bot user agents that should be explicitly welcomed
-const AI_BOTS = [
+// AI web crawlers — BLOCKED from scraping site content.
+// These bots train LLMs or power AI search on our proprietary data.
+const BLOCKED_AI_BOTS = [
   "GPTBot",
-  "ClaudeBot",
-  "anthropic-ai",
+  "ChatGPT-User",
   "CCBot",
-  "PerplexityBot",
+  "anthropic-ai",
+  "Claude-Web",
   "Google-Extended",
+  "ClaudeBot",
+  "PerplexityBot",
 ];
 
-// Traditional search engine bots
+// Traditional search engine bots — ALLOWED for indexing
 const SEARCH_BOTS = ["Googlebot", "Bingbot"];
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       // ── Default rule for all crawlers ──────────────────────────────────
+      // Standard search engines index public pages, proprietary tools blocked
       {
         userAgent: "*",
         allow: ALLOWED_PATHS,
         disallow: BLOCKED_PATHS,
       },
-      // ── AI bots — explicit allow for GEO indexing ──────────────────────
-      ...AI_BOTS.map((bot) => ({
-        userAgent: bot,
-        allow: ALLOWED_PATHS,
-        disallow: BLOCKED_PATHS,
-      })),
-      // ── Traditional search engines ─────────────────────────────────────
+      // ── Traditional search engines — explicit allow ────────────────────
       ...SEARCH_BOTS.map((bot) => ({
         userAgent: bot,
         allow: ALLOWED_PATHS,
         disallow: BLOCKED_PATHS,
+      })),
+      // ── AI crawlers — FULL BLOCK ──────────────────────────────────────
+      // Prevent LLM training and AI search engines from scraping content.
+      // Our platform knowledge, pricing, and feature details are proprietary.
+      ...BLOCKED_AI_BOTS.map((bot) => ({
+        userAgent: bot,
+        disallow: ["/"],
       })),
     ],
     sitemap: "https://storage-network.app/sitemap.xml",

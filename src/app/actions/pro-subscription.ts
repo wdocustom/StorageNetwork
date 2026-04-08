@@ -225,35 +225,39 @@ export async function activateProSubscription(
           // The installer doesn't have to do anything — the system
           // sends each customer a deposit link to /pay/[leadId].
           const installerBiz = installerProfile?.business_name || installerProfile?.first_name || "Your Installer";
-          for (const lead of waitlistedLeads) {
-            if (!lead.customer_email) continue;
-            const depositAmt = await getDepositAmount(
-              lead.estimated_price ?? 0,
-              userId
-            );
-            // Parse quote_data for the build summary
-            const quoteItems = Array.isArray(lead.quote_data)
-              ? (lead.quote_data as Array<Record<string, unknown>>)
-                  .filter((u) => !("type" in u)) // organizer units only
-                  .map((u) => ({
-                    desc: (u.desc as string) || undefined,
-                    cols: (u.cols as number) || undefined,
-                    rows: (u.rows as number) || undefined,
-                    price: (u.price as number) || undefined,
-                  }))
-              : undefined;
+          await Promise.all(waitlistedLeads.map(async (lead) => {
+            try {
+              if (!lead.customer_email) return;
+              const depositAmt = await getDepositAmount(
+                lead.estimated_price ?? 0,
+                userId
+              );
+              // Parse quote_data for the build summary
+              const quoteItems = Array.isArray(lead.quote_data)
+                ? (lead.quote_data as Array<Record<string, unknown>>)
+                    .filter((u) => !("type" in u)) // organizer units only
+                    .map((u) => ({
+                      desc: (u.desc as string) || undefined,
+                      cols: (u.cols as number) || undefined,
+                      rows: (u.rows as number) || undefined,
+                      price: (u.price as number) || undefined,
+                    }))
+                : undefined;
 
-            sendWaitlistedLeadPaymentReady(lead.customer_email, {
-              customerName: lead.customer_name,
-              installerBusinessName: installerBiz,
-              estimatedPrice: lead.estimated_price ?? 0,
-              depositAmount: depositAmt,
-              leadId: lead.id,
-              quoteData: quoteItems,
-            }).catch((err) =>
-              console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
-            );
-          }
+              sendWaitlistedLeadPaymentReady(lead.customer_email, {
+                customerName: lead.customer_name,
+                installerBusinessName: installerBiz,
+                estimatedPrice: lead.estimated_price ?? 0,
+                depositAmount: depositAmt,
+                leadId: lead.id,
+                quoteData: quoteItems,
+              }).catch((err) =>
+                console.error(`[ProSubscription] Customer payment email failed for lead ${lead.id}:`, err)
+              );
+            } catch (err) {
+              console.error(`[ProSubscription] Failed to process waitlisted lead ${lead.id}:`, err);
+            }
+          }));
         }
       } catch (err) {
         console.error("[ProSubscription] Waitlist unlock failed (non-fatal):", err);

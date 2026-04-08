@@ -88,6 +88,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/partner/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
 
+    // Public pages
+    { url: `${BASE}/installer-network`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/invite`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+
     // About / E-E-A-T cluster
     { url: `${BASE}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/about/scheduling`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },

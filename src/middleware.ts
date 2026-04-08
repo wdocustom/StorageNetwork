@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { siteConfig } from "@/config/site";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Middleware — Rate Limiting + Cache Control + Affiliate Cookie Tracking
+// Middleware — Auth Guard + Rate Limiting + Cache Control + Affiliate Cookies
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Rate limit tiers (requests per 60-second window)
@@ -40,6 +41,28 @@ export async function middleware(request: NextRequest) {
         "X-RateLimit-Remaining": "0",
       },
     });
+  }
+
+  // ── Dashboard Auth Guard ─────────────────────────────────────────────
+  // Server-side redirect — prevents unauthenticated access before any HTML
+  // is sent. Runs on Edge, uses Supabase SSR cookie-based session check.
+  if (pathname.startsWith("/dashboard")) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll().map((c) => ({ name: c.name, value: c.value })),
+          setAll: () => {}, // Read-only in middleware — no cookie writes needed
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   const response = NextResponse.next();
@@ -98,5 +121,7 @@ export const config = {
     "/about/:path*",
     // API routes
     "/api/:path*",
+    // Dashboard (auth-guarded)
+    "/dashboard/:path*",
   ],
 };
