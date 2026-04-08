@@ -878,7 +878,7 @@ export default function DesignConfigurator({
     setDiscountLoading(true);
     setDiscountError("");
     const { validateDiscountCode } = await import("@/app/actions/discount-codes");
-    const result = await validateDiscountCode(discountInput.trim(), installerId, grandTotal);
+    const result = await validateDiscountCode(discountInput.trim(), installerId, grandTotal, { unitCount: orderItems.length });
     setDiscountLoading(false);
     if (result.valid) {
       setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
@@ -1940,6 +1940,7 @@ export default function DesignConfigurator({
           schedulingEnabled={data?.routing.schedulingEnabled ?? true}
           hasWheels={anyHasWheels}
           totalCols={maxCols}
+          unitCount={orderItems.length}
           initialAddress={{
             line1: streetAddress || undefined,
             city: city || undefined,

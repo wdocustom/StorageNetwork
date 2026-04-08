@@ -68,6 +68,8 @@ interface BookingModalProps {
   hasWheels?: boolean;
   schedulingEnabled?: boolean;
   totalCols?: number;
+  /** Number of units in the order (for min_units discount validation) */
+  unitCount?: number;
   /** The portion of totalPrice that is subject to sales tax.
    *  Defaults to totalPrice (full tax). Pass 0 for tax-exempt services.
    *  For cleanouts with a tote organizer, pass only the organizer price. */
@@ -93,6 +95,7 @@ export default function BookingModal({
   hasWheels = false,
   schedulingEnabled = true,
   totalCols = 1,
+  unitCount = 1,
   taxableAmount,
   initialAddress,
   initialScheduledDate,
@@ -186,7 +189,7 @@ export default function BookingModal({
     if (!discountInput.trim() || !installerId) return;
     setDiscountLoading(true);
     setDiscountError("");
-    const result = await validateDiscountCode(discountInput.trim(), installerId, totalPrice);
+    const result = await validateDiscountCode(discountInput.trim(), installerId, totalPrice, { unitCount });
     setDiscountLoading(false);
     if (result.valid) {
       setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });

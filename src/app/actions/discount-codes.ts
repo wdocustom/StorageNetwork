@@ -25,6 +25,7 @@ export interface DiscountCode {
   expires_at: string | null;
   min_order: number | null;
   max_discount: number | null;
+  min_units: number | null;
   created_at: string;
 }
 
@@ -45,7 +46,7 @@ export async function validateDiscountCode(
   code: string,
   installerId: string,
   orderTotal: number,
-  options?: { noDepositCap?: boolean }
+  options?: { noDepositCap?: boolean; unitCount?: number }
 ): Promise<DiscountValidationResult> {
   if (!code?.trim() || !installerId) {
     return { valid: false, discountAmount: 0, error: "Missing code or installer." };
@@ -81,6 +82,15 @@ export async function validateDiscountCode(
       valid: false,
       discountAmount: 0,
       error: `Minimum order of $${Number(data.min_order).toFixed(0)} required for this code.`,
+    };
+  }
+
+  // Check minimum units (bundle/volume discount)
+  if (data.min_units && options?.unitCount !== undefined && options.unitCount < data.min_units) {
+    return {
+      valid: false,
+      discountAmount: 0,
+      error: `This code requires ${data.min_units} or more units in your order. You have ${options.unitCount}.`,
     };
   }
 
@@ -168,8 +178,9 @@ export async function createDiscountCode(input: {
   discountValue: number;
   maxUses?: number | null;
   expiresAt?: string | null;
+  minUnits?: number | null;
 }): Promise<{ success: boolean; code?: DiscountCode; error?: string }> {
-  const { installerId, code, discountType, discountValue, maxUses, expiresAt } = input;
+  const { installerId, code, discountType, discountValue, maxUses, expiresAt, minUnits } = input;
 
   if (!code?.trim()) {
     return { success: false, error: "Code is required." };
@@ -192,6 +203,7 @@ export async function createDiscountCode(input: {
       discount_value: discountValue,
       max_uses: maxUses || null,
       expires_at: expiresAt || null,
+      min_units: minUnits || null,
     })
     .select("*")
     .single();

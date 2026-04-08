@@ -33,6 +33,7 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
   const [discountValue, setDiscountValue] = useState("");
   const [maxUses, setMaxUses] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [minUnits, setMinUnits] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,6 +61,7 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
       discountValue: Number(discountValue),
       maxUses: maxUses ? Number(maxUses) : null,
       expiresAt: expiresAt || null,
+      minUnits: minUnits ? Number(minUnits) : null,
     });
 
     setCreating(false);
@@ -70,6 +72,7 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
       setDiscountValue("");
       setMaxUses("");
       setExpiresAt("");
+      setMinUnits("");
       setShowForm(false);
     } else {
       setError(result.error || "Failed to create code.");
@@ -192,6 +195,22 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
+                Min Units
+              </label>
+              <input
+                type="number"
+                value={minUnits}
+                onChange={(e) => setMinUnits(e.target.value)}
+                placeholder="Any"
+                min="2"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+              />
+              {minUnits && Number(minUnits) >= 2 && (
+                <p className="mt-1 text-[10px] text-stone-600">Requires {minUnits}+ units in order</p>
+              )}
+            </div>
           </div>
 
           {error && (
@@ -278,6 +297,9 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
                   </div>
                   <div className="mt-0.5 flex items-center gap-3 text-[10px] text-stone-500">
                     <span>{code.current_uses}{code.max_uses !== null ? `/${code.max_uses}` : ""} uses</span>
+                    {code.min_units && (
+                      <span>{code.min_units}+ units req.</span>
+                    )}
                     {code.expires_at && (
                       <span>
                         Expires {new Date(code.expires_at).toLocaleDateString("en-US", {
