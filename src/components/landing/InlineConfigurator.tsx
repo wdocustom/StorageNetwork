@@ -212,10 +212,13 @@ export default function InlineConfigurator() {
     params.set("installer", installer.installer_id);
     params.set("from", "network");
 
-    // Only include config if we have tote storage units configured
-    if (units.length > 0) {
-      const first = units[0];
-      params.set("config", btoa(JSON.stringify({ cols: first.cols, rows: first.rows, toteType: "HDX", toteColor: first.toteColor, unitType: "standard", orientation: "standard", hasTotes: first.hasTotes, hasWheels: first.hasWheels, hasTop: first.hasTop })));
+    if (units.length === 1) {
+      const u = units[0];
+      params.set("config", btoa(JSON.stringify({ cols: u.cols, rows: u.rows, toteType: "HDX", toteColor: u.toteColor, unitType: "standard", orientation: "standard", hasTotes: u.hasTotes, hasWheels: u.hasWheels, hasTop: u.hasTop })));
+    } else if (units.length > 1) {
+      params.set("config", btoa(JSON.stringify({
+        units: units.map((u) => ({ cols: u.cols, rows: u.rows, toteType: "HDX", toteColor: u.toteColor, unitType: "standard", orientation: "standard", hasTotes: u.hasTotes, hasWheels: u.hasWheels, hasTop: u.hasTop })),
+      })));
     }
     router.push("/design?" + params.toString());
   }

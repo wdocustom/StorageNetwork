@@ -247,11 +247,48 @@ export default function DesignConfigurator({
   const [presetLoading, setPresetLoading] = useState(false);
   const presetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Apply initial config from AI chatbot URL param ─────────────────────
+  // ── Apply initial config from URL param (single or multi-unit) ──────────
   const configApplied = useRef(false);
   useEffect(() => {
     if (!initialConfig || configApplied.current) return;
     configApplied.current = true;
+
+    // Multi-unit config from landing page: {"units":[...]}
+    if (Array.isArray(initialConfig.units)) {
+      const cfgUnits = initialConfig.units as Array<Record<string, unknown>>;
+      (async () => {
+        for (const u of cfgUnits) {
+          const result = await calculateBuild({
+            cols: (u.cols as number) || 4,
+            rows: (u.rows as number) || 4,
+            toteModel: (u.toteType as "HDX" | "GM") || "HDX",
+            toteColor: (u.toteColor as "black" | "clear") || "black",
+            unitType: (u.unitType as "standard" | "mini") || "standard",
+            orientation: (u.orientation as "standard" | "sideways") || "standard",
+            addOns: { totes: u.hasTotes !== false, wheels: !!u.hasWheels, top: !!u.hasTop },
+            mode: "manual",
+            installerPricing: data?.pricing,
+          });
+          if ("price" in result) {
+            const colorLabel = u.hasTotes !== false && u.toteColor === "clear" ? " (Clear Totes)" : "";
+            setOrderItems((prev) => [...prev, {
+              cols: result.cols, rows: result.rows,
+              toteType: (u.toteType as ToteType) || "HDX",
+              toteColor: (u.toteColor as ToteColor) || "black",
+              unitType: (u.unitType as UnitType) || "standard",
+              orientation: (u.orientation as Orientation) || "standard",
+              hasTotes: u.hasTotes !== false, hasWheels: !!u.hasWheels, hasTop: !!u.hasTop,
+              price: result.price,
+              totalW: result.dimensions.totalW, totalH: result.dimensions.totalH, depth: result.dimensions.depth,
+              desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
+              addons: [],
+            }]);
+          }
+        }
+        setShowMultiUnit3D(true);
+      })();
+      return;
+    }
 
     // Preset shortcut
     if (typeof initialConfig.preset === "string") {
@@ -260,7 +297,7 @@ export default function DesignConfigurator({
       return;
     }
 
-    // Custom build
+    // Single unit — set configurator state
     if (typeof initialConfig.cols === "number") setCols(initialConfig.cols);
     if (typeof initialConfig.rows === "number") setRows(initialConfig.rows);
     if (initialConfig.toteType === "HDX" || initialConfig.toteType === "GM") setToteType(initialConfig.toteType);
@@ -270,7 +307,7 @@ export default function DesignConfigurator({
     if (typeof initialConfig.hasTotes === "boolean") setHasTotes(initialConfig.hasTotes);
     if (typeof initialConfig.hasWheels === "boolean") setHasWheels(initialConfig.hasWheels);
     if (typeof initialConfig.hasTop === "boolean") setHasTop(initialConfig.hasTop);
-  }, [initialConfig]);
+  }, [initialConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Active preset object (null when custom build)
   const activePresetObj = useMemo(() =>
