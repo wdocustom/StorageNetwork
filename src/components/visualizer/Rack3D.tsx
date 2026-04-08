@@ -3,9 +3,9 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
-import { BufferGeometry, BufferAttribute, DoubleSide } from "three";
+import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 
@@ -228,6 +228,30 @@ const PINE_MAT = createDougFirMaterial(42);
 const PLYWOOD_MAT = createPlywoodMaterial(137);
 const PLYWOOD_TOP_MAT = createPlywoodTopMaterial(250);
 
+// ── Cached tote & drawer slide materials (prevents GPU memory leaks) ────
+// Materials are keyed by a hash of their visual properties. Reused across
+// all tote/slide instances instead of creating new ones on every render.
+const _matCache = new Map<string, MeshStandardMaterial>();
+
+function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: { transparent?: boolean; opacity?: number }): MeshStandardMaterial {
+  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}`;
+  let mat = _matCache.get(cacheKey);
+  if (!mat) {
+    mat = new MeshStandardMaterial({
+      color: new Color(color),
+      roughness,
+      metalness,
+      ...(opts?.transparent && { transparent: true, opacity: opts.opacity ?? 1 }),
+    });
+    _matCache.set(cacheKey, mat);
+  }
+  return mat;
+}
+
+// Pre-built drawer slide materials (constant colors, reused by all slides)
+const SLIDE_FIXED_MAT = getCachedMaterial("slide-fixed", "#c0c0c0", 0.25, 0.7);
+const SLIDE_EXTENDING_MAT = getCachedMaterial("slide-ext", "#d4d4d4", 0.15, 0.9);
+
 /** Resolve paint color ID to hex and create/cache a painted material */
 function getPaintMaterial(colorId: PaintColorId | null | undefined): import("three").MeshStandardMaterial | null {
   if (!colorId) return null;
@@ -320,6 +344,14 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
+  // Cached materials — reused across renders and tote instances with same colors
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.3 : 0.35, (isMini || isClear) ? 0.02 : 0.05, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.4, 0.03), [bodyRibColor]);
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.25, 0.06), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.35, 0.04), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.3, 0.04), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.3, 0.05), [rimDarkColor]);
+
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
@@ -410,60 +442,34 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   return (
     <group position={position}>
       {/* ── Body (tapered truncated pyramid) ─────────────────────────── */}
-      <mesh geometry={bodyGeo} castShadow>
-        <meshStandardMaterial
-          color={bodyColor}
-          roughness={(isMini || isClear) ? 0.3 : 0.35}
-          metalness={(isMini || isClear) ? 0.02 : 0.05}
-          transparent={isMini || isClear}
-          opacity={bodyOpacity}
-          side={DoubleSide}
-        />
-      </mesh>
+      <mesh geometry={bodyGeo} material={bodyMat} castShadow />
 
       {/* ── Vertical ribs on body faces ──────────────────────────────── */}
       {ribs.map((rib, i) => (
-        <mesh key={`rib-${i}`} position={rib.pos}>
+        <mesh key={`rib-${i}`} position={rib.pos} material={bodyRibMat}>
           <boxGeometry args={rib.size} />
-          <meshStandardMaterial
-            color={bodyRibColor}
-            roughness={0.4}
-            metalness={0.03}
-            transparent={isMini || isClear}
-            opacity={bodyOpacity}
-          />
         </mesh>
       ))}
 
       {/* ── Bottom rim (thick lip at body top) ───────────────────────── */}
-      <mesh position={[0, toteBodyH - 0.25, 0]}>
+      <mesh position={[0, toteBodyH - 0.25, 0]} material={rimBottomMat}>
         <boxGeometry args={[bodyTopW + 0.3, 0.5, bodyTopD + 0.3]} />
-        <meshStandardMaterial
-          color={bodyColor}
-          roughness={0.3}
-          metalness={0.04}
-          transparent={isMini || isClear}
-          opacity={bodyOpacity}
-        />
       </mesh>
 
       {/* ── Lid base (overhangs body with lip) ───────────────────────── */}
-      <mesh position={[0, toteBodyH + toteRimH / 2, 0]} castShadow>
+      <mesh position={[0, toteBodyH + toteRimH / 2, 0]} material={rimMat} castShadow>
         <boxGeometry args={[rimW + (isMini ? 0 : LID_LIP), toteRimH, rimD + (isMini ? 0 : LID_LIP)]} />
-        <meshStandardMaterial color={rimColor} roughness={0.25} metalness={0.06} />
       </mesh>
 
       {/* ── Lid top surface (slightly inset, forms the tray) ─────────── */}
-      <mesh position={[0, toteBodyH + toteRimH + 0.06, 0]}>
+      <mesh position={[0, toteBodyH + toteRimH + 0.06, 0]} material={rimDarkMat}>
         <boxGeometry args={[rimW - 0.8, 0.12, rimD - 0.8]} />
-        <meshStandardMaterial color={rimDarkColor} roughness={0.35} metalness={0.04} />
       </mesh>
 
       {/* ── Lid grid pattern (rectangular cross-hatch) ─────────────── */}
       {!isMini && lidGrid.map((line, i) => (
-        <mesh key={`grid-${i}`} position={line.pos}>
+        <mesh key={`grid-${i}`} position={line.pos} material={lidGridMat}>
           <boxGeometry args={line.size} />
-          <meshStandardMaterial color={rimDarkColor} roughness={0.3} metalness={0.05} />
         </mesh>
       ))}
     </group>
@@ -471,7 +477,7 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
 }
 
 // ── Hinge Material ──────────────────────────────────────────────────────
-import { MeshStandardMaterial, Color } from "three";
+// (MeshStandardMaterial, Color imported at top of file)
 
 const HINGE_MAT = new MeshStandardMaterial({
   color: new Color("#888888"),
@@ -922,30 +928,26 @@ function RackAssembly({
               // Fixed channel — stays on frame (back portion)
               const fixedLen = unitDepth * 0.4;
               slideElements.push(
-                <mesh key={`sf-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]}>
+                <mesh key={`sf-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]} material={SLIDE_FIXED_MAT}>
                   <boxGeometry args={[slideW, slideH, fixedLen]} />
-                  <meshStandardMaterial color={slideColor} metalness={0.7} roughness={0.25} />
                 </mesh>
               );
               slideElements.push(
-                <mesh key={`sf-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]}>
+                <mesh key={`sf-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth - fixedLen / 2 - POST_D / 2]} material={SLIDE_FIXED_MAT}>
                   <boxGeometry args={[slideW, slideH, fixedLen]} />
-                  <meshStandardMaterial color={slideColor} metalness={0.7} roughness={0.25} />
                 </mesh>
               );
 
               // Extending slide — moves with tote/rail
               const extLen = unitDepth * 0.8;
               slideElements.push(
-                <mesh key={`se-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth / 2 - slideOffset]}>
+                <mesh key={`se-l-${row}-${col}`} position={[leftSlideX, slideCenterY, unitDepth / 2 - slideOffset]} material={SLIDE_EXTENDING_MAT}>
                   <boxGeometry args={[slideW * 0.6, slideH * 0.6, extLen]} />
-                  <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.15} />
                 </mesh>
               );
               slideElements.push(
-                <mesh key={`se-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth / 2 - slideOffset]}>
+                <mesh key={`se-r-${row}-${col}`} position={[rightSlideX, slideCenterY, unitDepth / 2 - slideOffset]} material={SLIDE_EXTENDING_MAT}>
                   <boxGeometry args={[slideW * 0.6, slideH * 0.6, extLen]} />
-                  <meshStandardMaterial color="#d4d4d4" metalness={0.9} roughness={0.15} />
                 </mesh>
               );
             }
@@ -1910,6 +1912,17 @@ function TextureGuard() {
 }
 
 export default function Rack3D(props: Rack3DProps) {
+  // Dispose textures and cached materials when the 3D canvas unmounts
+  // to free GPU memory and prevent leaks on SPA navigation.
+  useEffect(() => {
+    return () => {
+      disposeAllTextures();
+      // Dispose all cached tote/slide materials
+      _matCache.forEach((mat) => mat.dispose());
+      _matCache.clear();
+    };
+  }, []);
+
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isOverhead = !!props.overheadConfig;
   const isRaisedBed = !!props.raisedBedConfig;

@@ -66,6 +66,18 @@ function restoreCanvasIfNeeded(canvas: HTMLCanvasElement): boolean {
 const managedTextures: CanvasTexture[] = [];
 
 /**
+ * Dispose all managed textures and clear caches. Called on 3D canvas
+ * unmount to free GPU memory and prevent leaks on SPA navigation.
+ */
+export function disposeAllTextures(): void {
+  for (const tex of managedTextures) {
+    tex.dispose();
+  }
+  managedTextures.length = 0;
+  textureSnapshots.clear();
+}
+
+/**
  * Restore all managed textures after WebGL context loss or browser
  * canvas GC. Called from Rack3D's context-restore handler.
  */
