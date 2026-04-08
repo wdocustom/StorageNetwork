@@ -202,13 +202,8 @@ export default function BuildConfiguratorPage() {
   const [presetAdded, setPresetAdded] = useState(false);
   const quoteBuilderRef = useRef<HTMLElement>(null);
 
-  // Bestseller / Custom Quote / AI Builder tab state
-  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "custom" | "ai">("bestsellers");
-
-  // Custom Quote state
-  const [customQuoteDesc, setCustomQuoteDesc] = useState("");
-  const [customQuotePrice, setCustomQuotePrice] = useState("");
-  const [customQuoteAdded, setCustomQuoteAdded] = useState(false);
+  // Bestseller / AI Builder tab state
+  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "ai">("bestsellers");
 
   // AI Builder state
   const [aiInput, setAiInput] = useState("");
@@ -217,36 +212,6 @@ export default function BuildConfiguratorPage() {
   const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; customPrice?: number | null; description: string }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
-
-  function handleAddCustomQuote() {
-    const desc = customQuoteDesc.trim();
-    const price = parseFloat(customQuotePrice);
-    if (!desc || isNaN(price) || price <= 0) return;
-    const newUnit: UnitConfig = {
-      id: `custom-${Date.now()}`,
-      cols: 0,
-      rows: 0,
-      toteType: "HDX",
-      unitType: "standard",
-      hasTotes: false,
-      hasWheels: false,
-      hasTop: false,
-      price,
-      totalW: 0,
-      totalH: 0,
-      depth: 0,
-      desc,
-    };
-    setUnits((prev) => [...prev, newUnit]);
-    setCustomQuoteAdded(true);
-    setTimeout(() => setCustomQuoteAdded(false), 2000);
-    setCustomQuoteDesc("");
-    setCustomQuotePrice("");
-    // Scroll to quote builder
-    setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  }
 
   async function handleAiBuild() {
     if (!aiInput.trim() || aiLoading) return;
@@ -1199,10 +1164,10 @@ export default function BuildConfiguratorPage() {
         {/* ── Bestsellers / Custom Quote ────────────────────────────── */}
         <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
           {/* Three-column tab header */}
-          <div className="mb-3 grid grid-cols-3 gap-2">
+          <div className="mb-3 grid grid-cols-2 gap-2">
             <button
               onClick={() => setTopSectionTab("bestsellers")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 topSectionTab === "bestsellers"
                   ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
                   : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
@@ -1212,19 +1177,8 @@ export default function BuildConfiguratorPage() {
               Bestsellers
             </button>
             <button
-              onClick={() => setTopSectionTab("custom")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
-                topSectionTab === "custom"
-                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
-                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
-              }`}
-            >
-              <PenLine className="h-3.5 w-3.5" />
-              Custom
-            </button>
-            <button
               onClick={() => setTopSectionTab("ai")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
                 topSectionTab === "ai"
                   ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
                   : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
@@ -1339,66 +1293,6 @@ export default function BuildConfiguratorPage() {
                 );
               })()}
             </>
-          )}
-
-          {/* ── Custom Quote tab content ── */}
-          {topSectionTab === "custom" && (
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                  Item Description
-                </label>
-                <textarea
-                  value={customQuoteDesc}
-                  onChange={(e) => setCustomQuoteDesc(e.target.value)}
-                  placeholder="e.g. Custom 6×3 tote organizer with doors, painted white…"
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                  Price ($)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={customQuotePrice}
-                    onChange={(e) => setCustomQuotePrice(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={handleAddCustomQuote}
-                disabled={!customQuoteDesc.trim() || !customQuotePrice || parseFloat(customQuotePrice) <= 0}
-                className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                  customQuoteAdded
-                    ? "bg-emerald-500 text-white"
-                    : customQuoteDesc.trim() && customQuotePrice && parseFloat(customQuotePrice) > 0
-                      ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                      : "cursor-not-allowed bg-slate-700 text-stone-500"
-                }`}
-              >
-                {customQuoteAdded ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Added to Quote
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4" />
-                    Add to Quote
-                  </>
-                )}
-              </button>
-            </div>
           )}
 
           {/* ── AI Builder tab content ── */}
