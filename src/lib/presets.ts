@@ -31,6 +31,8 @@ export interface BestsellerPreset {
   dynamicTotePricing?: boolean;
   /** When true, totes cannot be removed — they are part of the system (e.g. drawer slides) */
   totesAreMandatory?: boolean;
+  /** When true, totes are not available — frame only, no tote toggle shown */
+  totesDisabled?: boolean;
   /** Number of bottom rows that have drawer slides (renders slide hardware in 3D) */
   drawerSlideRows?: number;
   /** Column indices that have drawer slides (e.g. [0, 3] = first and last columns) */
@@ -107,6 +109,32 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     drawerSlideLink: "https://amzn.to/4bW48Ln",
     units: [
       { cols: 4, rows: 2, hasTop: true, hasWheels: false },
+    ],
+  },
+  {
+    id: "rack-city-roller",
+    name: "The Rack City Roller",
+    label: "New",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    totesDisabled: true,
+    units: [
+      { cols: 3, rows: 2, hasTop: true, hasWheels: true },
+    ],
+  },
+  {
+    id: "mayor-of-rack-city",
+    name: "The Mayor of Rack City",
+    label: "New",
+    toteModel: "HDX",
+    toteColor: "black",
+    unitType: "standard",
+    orientation: "standard",
+    totesDisabled: true,
+    units: [
+      { cols: 4, rows: 2, hasTop: true, hasWheels: true },
     ],
   },
 ];

@@ -153,6 +153,11 @@ export default function BestsellerDropdown({
                         <Package className="h-3.5 w-3.5 text-yellow-400" />
                         Totes included — drawer slide system
                       </div>
+                    ) : presetDef?.totesDisabled ? (
+                      <div className="flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2 text-[11px] text-zinc-400">
+                        <Package className="h-3.5 w-3.5 text-stone-500" />
+                        Frame only — no totes
+                      </div>
                     ) : (
                       <StudioToggle
                         checked={presetTotes}

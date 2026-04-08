@@ -214,7 +214,7 @@ export default function BuildConfiguratorPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; description: string }> | null>(null);
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; customPrice?: number | null; description: string }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
 
@@ -282,70 +282,69 @@ export default function BuildConfiguratorPage() {
     if (!aiResult) return;
     setAiAdded(false);
     for (const unit of aiResult) {
+      const hasCustomPrice = typeof unit.customPrice === "number" && unit.customPrice > 0;
+
+      // Pure custom line item (no cols/rows, just description + price)
+      if (unit.cols === 0 && unit.rows === 0 && !unit.presetId && hasCustomPrice) {
+        setUnits((prev) => [...prev, {
+          id: `ai-custom-${Date.now()}-${Math.random()}`,
+          cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
+          hasTotes: false, hasWheels: false, hasTop: false,
+          price: unit.customPrice!, totalW: 0, totalH: 0, depth: 0,
+          desc: unit.description,
+        }]);
+        continue;
+      }
+
       // Preset units
       if (unit.presetId) {
+        const preset = BESTSELLER_PRESETS.find((p) => p.id === unit.presetId);
+        const effectiveHasTotes = preset?.totesDisabled ? false : unit.hasTotes;
         const result = await calculateCompoundBuild({
           presetId: unit.presetId,
-          hasTotes: unit.hasTotes,
+          hasTotes: effectiveHasTotes,
           installerPricing: installerPricing || undefined,
         });
-        if ("totalPrice" in result) {
-          const preset = BESTSELLER_PRESETS.find((p) => p.id === unit.presetId);
-          if (preset) {
-            const groupId = `ai-preset-${Date.now()}`;
-            const totalSlots = result.subUnits.reduce((s, u) => s + u.cols * u.rows, 0);
-            result.subUnits.forEach((su, idx) => {
-              const subSlots = su.cols * su.rows;
-              const subPrice = totalSlots > 0 ? Math.round((result.totalPrice * subSlots) / totalSlots) : 0;
-              setUnits((prev) => [...prev, {
-                id: `ai-${Date.now()}-${idx}`,
-                cols: su.cols,
-                rows: su.rows,
-                toteType: "HDX",
-                unitType: "standard",
-                hasTotes: unit.hasTotes,
-                hasWheels: preset.units[idx]?.hasWheels ?? false,
-                hasTop: preset.units[idx]?.hasTop ?? false,
-                price: subPrice,
-                totalW: su.totalW,
-                totalH: su.totalH,
-                depth: 30,
-                slots: subSlots,
-                presetName: preset.name,
-                presetGroup: groupId,
-                desc: `${preset.name} (${su.cols}×${su.rows})`,
-              }]);
-            });
-          }
+        if ("totalPrice" in result && preset) {
+          const groupId = `ai-preset-${Date.now()}`;
+          const totalSlots = result.subUnits.reduce((s, u) => s + u.cols * u.rows, 0);
+          // Use customPrice if specified, otherwise use calculated price
+          const finalTotalPrice = hasCustomPrice ? unit.customPrice! : result.totalPrice;
+          result.subUnits.forEach((su, idx) => {
+            const subSlots = su.cols * su.rows;
+            const subPrice = totalSlots > 0 ? Math.round((finalTotalPrice * subSlots) / totalSlots) : 0;
+            setUnits((prev) => [...prev, {
+              id: `ai-${Date.now()}-${idx}`,
+              cols: su.cols, rows: su.rows,
+              toteType: "HDX", unitType: "standard",
+              hasTotes: effectiveHasTotes,
+              hasWheels: preset.units[idx]?.hasWheels ?? false,
+              hasTop: preset.units[idx]?.hasTop ?? false,
+              price: subPrice,
+              totalW: su.totalW, totalH: su.totalH, depth: 30,
+              slots: subSlots, presetName: preset.name, presetGroup: groupId,
+              desc: `${preset.name} (${su.cols}×${su.rows})`,
+            }]);
+          });
         }
       } else {
-        // Custom unit — calculate with real calculator
+        // Standard unit — calculate with real calculator, then optionally override price
         const result = await calculateBuild({
-          cols: unit.cols,
-          rows: unit.rows,
-          toteModel: "HDX",
-          toteColor: unit.toteColor as "black" | "clear",
-          unitType: "standard",
-          orientation: "standard",
+          cols: unit.cols, rows: unit.rows,
+          toteModel: "HDX", toteColor: unit.toteColor as "black" | "clear",
+          unitType: "standard", orientation: "standard",
           addOns: { totes: unit.hasTotes, wheels: unit.hasWheels, top: unit.hasTop },
-          mode: "manual",
-          installerPricing: installerPricing || undefined,
+          mode: "manual", installerPricing: installerPricing || undefined,
         });
         if ("price" in result) {
           setUnits((prev) => [...prev, {
             id: `ai-${Date.now()}-${Math.random()}`,
-            cols: result.cols,
-            rows: result.rows,
-            toteType: "HDX",
-            unitType: "standard",
-            hasTotes: unit.hasTotes,
-            hasWheels: unit.hasWheels,
-            hasTop: unit.hasTop,
-            price: result.price,
-            totalW: result.dimensions.totalW,
-            totalH: result.dimensions.totalH,
-            depth: result.dimensions.depth,
-            slots: result.config.slots,
+            cols: result.cols, rows: result.rows,
+            toteType: "HDX", unitType: "standard",
+            hasTotes: unit.hasTotes, hasWheels: unit.hasWheels, hasTop: unit.hasTop,
+            price: hasCustomPrice ? unit.customPrice! : result.price,
+            totalW: result.dimensions.totalW, totalH: result.dimensions.totalH,
+            depth: result.dimensions.depth, slots: result.config.slots,
             desc: unit.description,
           }]);
         }
@@ -540,7 +539,7 @@ export default function BuildConfiguratorPage() {
         rows: su.rows,
         toteType: preset.toteModel as ToteType,
         unitType: "standard" as UnitTypeOption,
-        hasTotes: presetHasTotes,
+        hasTotes: preset.totesDisabled ? false : presetHasTotes,
         hasWheels: preset.units[i].hasWheels,
         hasTop: preset.units[i].hasTop,
         price: unitPrice,
@@ -1271,6 +1270,11 @@ export default function BuildConfiguratorPage() {
                       <Package className="h-4 w-4 text-yellow-400" />
                       Totes included — drawer slide system
                     </div>
+                  ) : activePresetObj?.totesDisabled ? (
+                    <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
+                      <Package className="h-4 w-4 text-stone-500" />
+                      Frame only — no totes
+                    </div>
                   ) : (
                     <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
                       <input
@@ -1443,9 +1447,14 @@ export default function BuildConfiguratorPage() {
                     <div key={i} className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-white">{unit.description}</p>
-                        {unit.presetId && (
-                          <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">Preset</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {unit.customPrice && (
+                            <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">${unit.customPrice}</span>
+                          )}
+                          {unit.presetId && (
+                            <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">Preset</span>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
                         {!unit.presetId && <span>{unit.cols}×{unit.rows}</span>}

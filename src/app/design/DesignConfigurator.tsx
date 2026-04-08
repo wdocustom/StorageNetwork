@@ -938,12 +938,19 @@ export default function DesignConfigurator({
     [data?.pricing]
   );
 
+  // Force totes off for presets with totesDisabled
+  useEffect(() => {
+    if (activePresetObj?.totesDisabled && presetTotes) {
+      setPresetTotes(false);
+    }
+  }, [activePresetObj, presetTotes]);
+
   // Re-fetch preset build when totes toggle changes
   useEffect(() => {
     if (activePreset) {
-      fetchPresetBuild(activePreset, presetTotes);
+      fetchPresetBuild(activePreset, activePresetObj?.totesDisabled ? false : presetTotes);
     }
-  }, [activePreset, presetTotes, fetchPresetBuild]);
+  }, [activePreset, presetTotes, fetchPresetBuild, activePresetObj]);
 
   // Fire on every config change (only when cols/rows are valid numbers)
   const numCols = typeof cols === "number" ? cols : parseInt(cols as string) || 0;

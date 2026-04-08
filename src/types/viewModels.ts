@@ -92,6 +92,8 @@ export interface InstallerPricing {
   bestseller_long_ranger?: number;
   bestseller_gas_station?: number;
   bestseller_track_norris?: number;
+  bestseller_rack_city_roller?: number;
+  bestseller_mayor_of_rack_city?: number;
   /** Per-shelving-unit total-price overrides.
    *  Key pattern: shelving_shelf_<width>ft_<height> */
   shelving_shelf_4ft_short?: number;
@@ -115,6 +117,8 @@ export interface InstallerPricing {
   bestseller_long_ranger_disabled?: boolean;
   bestseller_gas_station_disabled?: boolean;
   bestseller_track_norris_disabled?: boolean;
+  bestseller_rack_city_roller_disabled?: boolean;
+  bestseller_mayor_of_rack_city_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
   addon_pricing?: AddonPricing;
   /** When true, the overhead ceiling storage section is shown on the installer's design page (default: off) */

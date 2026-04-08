@@ -31,6 +31,8 @@ export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_long_ranger: 715,
   bestseller_gas_station: 840,
   bestseller_track_norris: 530,
+  bestseller_rack_city_roller: 300,
+  bestseller_mayor_of_rack_city: 400,
 };
 
 /** Open shelving unit total prices */

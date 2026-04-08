@@ -24,6 +24,7 @@ interface ParsedUnit {
   hasWheels: boolean;
   hasTop: boolean;
   presetId?: string | null;
+  customPrice?: number | null;
   description: string;
 }
 
@@ -60,6 +61,8 @@ KNOWN PRESETS (use presetId when referenced by name):
 - "long-ranger": Two units — 2×4 + 4×2. 16 slots.
 - "gas-station" (also "gass station"): Three units — 1×4 + 4×2 + 1×4. 16 slots.
 - "track-norris": Single 4×2 with drawer slides. 8 slots. Totes mandatory.
+- "rack-city-roller" or "Rack City Roller": Single 3×2 with wheels and plywood top. Frame only, NO totes. 6 slots.
+- "mayor-of-rack-city" or "Mayor of Rack City": Single 4×2 with wheels and plywood top. Frame only, NO totes. 8 slots.
 
 RULES:
 - "4x4" = cols:4, rows:4
@@ -71,12 +74,17 @@ RULES:
 - For presets: set presetId and cols:0, rows:0 (server expands presets)
 - For wall dimensions (e.g. "120x75 wall"): set wallWidthInches/wallHeightInches and cols:0, rows:0. NEVER calculate cols from inches.
 - Convert feet to inches: 10ft=120", 8ft=96"
+- CUSTOM PRICING: If the installer specifies a dollar amount (e.g. "4x4 for $500" or "rack city roller at $275"), set customPrice to that number. This overrides any calculated pricing.
+- For custom/arbitrary items with a description and price (e.g. "custom shelf build $200" or "garage cleanout $349"), set cols:0, rows:0, and include the customPrice and description.
 
 RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explanation, just JSON:
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
 
-For presets:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":"indiana-joe","wallWidthInches":null,"wallHeightInches":null,"description":"Indiana Joe (no totes)"}],"notes":null}`;
+With custom price override:
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
+
+For custom line items:
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
