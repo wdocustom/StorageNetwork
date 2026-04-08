@@ -202,8 +202,7 @@ export default function BuildConfiguratorPage() {
   const [presetAdded, setPresetAdded] = useState(false);
   const quoteBuilderRef = useRef<HTMLElement>(null);
 
-  // Bestseller / AI Builder tab state
-  const [topSectionTab, setTopSectionTab] = useState<"bestsellers" | "ai">("bestsellers");
+  // (tab state removed — unified build configurator)
 
   // AI Builder state
   const [aiInput, setAiInput] = useState("");
@@ -1161,38 +1160,17 @@ export default function BuildConfiguratorPage() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Bestsellers / Custom Quote ────────────────────────────── */}
+        {/* ── Build Configurator — unified bestseller + AI builder ── */}
         <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-          {/* Three-column tab header */}
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setTopSectionTab("bestsellers")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
-                topSectionTab === "bestsellers"
-                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
-                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
-              }`}
-            >
-              <Star className="h-3.5 w-3.5" />
-              Bestsellers
-            </button>
-            <button
-              onClick={() => setTopSectionTab("ai")}
-              className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
-                topSectionTab === "ai"
-                  ? "border border-yellow-400/40 bg-yellow-400/10 text-yellow-400"
-                  : "border border-slate-700 bg-slate-800 text-stone-500 hover:text-stone-300"
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Builder
-            </button>
-          </div>
+          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+            <Sparkles className="h-4 w-4 text-yellow-400" />
+            Build Configurator
+          </h2>
 
-          {/* ── Bestsellers tab content ── */}
-          {topSectionTab === "bestsellers" && (
-            <>
-              <select
+          {/* ── Quick-select bestseller dropdown ── */}
+          <div className="mb-3">
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-600">Quick Select — Bestsellers</label>
+            <select
                 value={selectedPreset}
                 onChange={(e) => {
                   setSelectedPreset(e.target.value);
@@ -1292,15 +1270,13 @@ export default function BuildConfiguratorPage() {
                 </div>
                 );
               })()}
-            </>
-          )}
+          </div>
 
-          {/* ── AI Builder tab content ── */}
-          {topSectionTab === "ai" && (
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
-                  Describe the build
+          {/* ── AI Builder — describe anything ── */}
+          <div className="mt-3 border-t border-slate-800 pt-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-600">
+                Or describe what to build
                 </label>
                 <textarea
                   value={aiInput}
@@ -1384,8 +1360,7 @@ export default function BuildConfiguratorPage() {
                   </div>
                 </div>
               )}
-            </div>
-          )}
+          </div>
         </section>
 
         {/* ── Open Shelving ──────────────────────────────────────────── */}
