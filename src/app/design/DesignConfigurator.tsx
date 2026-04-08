@@ -814,6 +814,12 @@ export default function DesignConfigurator({
   // ── Scan Wizard modal ───────────────────────────────────────────────────
   const [showScanWizard, setShowScanWizard] = useState(false);
 
+  // ── Discount code state (declared before grandTotal so it can be deducted) ──
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
+
   const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
 
@@ -824,7 +830,7 @@ export default function DesignConfigurator({
   const paintPanelCost = paintSidePanelColor ? paintDoorsPanelsPrice : 0;
   const paintTotal = paintFramePrice + paintDoorCost + paintPanelCost;
 
-  const grandTotal = buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal;
+  const grandTotal = Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal - (discountApplied?.amount || 0));
 
   // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [depositAmount, setDepositAmount] = useState(0);
@@ -866,12 +872,6 @@ export default function DesignConfigurator({
   const effectiveLeadTime = anyHasWheels
     ? Math.max(data?.routing.leadTime ?? 5, 3)
     : (data?.routing.leadTime ?? 5);
-
-  // ── Discount code (inline in sidebar) ───────────────────────────────
-  const [discountInput, setDiscountInput] = useState("");
-  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(null);
-  const [discountLoading, setDiscountLoading] = useState(false);
-  const [discountError, setDiscountError] = useState("");
 
   async function handleApplyDiscount() {
     if (!discountInput.trim() || !installerId) return;
