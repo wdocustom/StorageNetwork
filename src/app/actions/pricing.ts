@@ -77,7 +77,8 @@ export async function updateInstallerPricing(
       "standard_wheels", "mini_wheels",
       "plywood_top",
       "bestseller_indiana_joe", "bestseller_cornhusker", "bestseller_long_ranger",
-      "bestseller_gas_station",
+      "bestseller_gas_station", "bestseller_track_norris",
+      "bestseller_rack_city_roller", "bestseller_mayor_of_rack_city",
       "shelving_shelf_4ft_short", "shelving_shelf_5ft_short", "shelving_shelf_6ft_short",
       "shelving_shelf_4ft_tall", "shelving_shelf_5ft_tall", "shelving_shelf_6ft_tall",
       "overhead_2x2", "overhead_2x3", "overhead_3x2",
@@ -98,6 +99,9 @@ export async function updateInstallerPricing(
     }
 
     // Carry over boolean toggles if set (opt-in: features are OFF by default)
+    if (pricing.totes_disabled === true) {
+      (validated as Record<string, unknown>).totes_disabled = true;
+    }
     if (pricing.mini_enabled === true) {
       (validated as Record<string, unknown>).mini_enabled = true;
     }
@@ -110,7 +114,7 @@ export async function updateInstallerPricing(
     if (pricing.raised_bed_enabled === true) {
       (validated as Record<string, unknown>).raised_bed_enabled = true;
     }
-    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled", "bestseller_track_norris_disabled"] as const) {
+    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled", "bestseller_track_norris_disabled", "bestseller_rack_city_roller_disabled", "bestseller_mayor_of_rack_city_disabled"] as const) {
       if (pricing[bk] === true) {
         (validated as Record<string, unknown>)[bk] = true;
       }
