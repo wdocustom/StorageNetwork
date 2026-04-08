@@ -268,6 +268,12 @@ export default function InlineConfigurator() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-sm font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300">
             Get Started <ArrowRight className="h-4 w-4" />
           </button>
+          <a
+            href={`/design?installer=${installer.installer_id}&from=network`}
+            className="mt-3 flex items-center justify-center text-xs text-stone-600 transition-colors hover:text-stone-400"
+          >
+            Skip — go straight to the 3D designer
+          </a>
         </div>
       )}
 

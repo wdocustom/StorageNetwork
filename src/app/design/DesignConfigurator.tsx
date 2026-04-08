@@ -1913,6 +1913,7 @@ export default function DesignConfigurator({
       <CustomerChatWidget
         installerId={data?.routing.installerId}
         installerSlug={data?.routing.slug || undefined}
+        skipWelcome={leadSource === "platform" || !!initialConfig}
         installerContext={{
           installerName: data?.branding.title,
           standardSlot: data?.pricing?.standard_slot,

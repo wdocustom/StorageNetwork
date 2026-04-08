@@ -28,6 +28,8 @@ interface CustomerChatWidgetProps {
   installerContext?: InstallerChatContext;
   /** Callback to add configured units directly into the sidebar order */
   onAddUnits?: (configs: RackConfig[]) => void;
+  /** When true, skip the welcome overlay (customer already went through guided flow) */
+  skipWelcome?: boolean;
 }
 
 const GREETING = "Hey! Want help picking the right storage setup? I can walk you through it — just a few quick questions and I'll have a design ready for you.";
@@ -67,10 +69,10 @@ function buildDesignUrl(config: RackConfig, installerId?: string, installerSlug?
   return `/design?${params.toString()}`;
 }
 
-export default function CustomerChatWidget({ installerId, installerSlug, installerContext, onAddUnits }: CustomerChatWidgetProps) {
+export default function CustomerChatWidget({ installerId, installerSlug, installerContext, onAddUnits, skipWelcome }: CustomerChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(!skipWelcome);
   const [welcomeInput, setWelcomeInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
