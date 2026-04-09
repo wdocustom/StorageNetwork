@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { MessageCircle, X, Send, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { BuildManifest } from "@/lib/buildEngine.types";

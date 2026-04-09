@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.22",
+    "@ai-sdk/react": "^2.1.6",
     "@react-email/components": "^1.0.8",
     "@react-email/render": "^2.0.4",
     "@react-three/drei": "^9.117.3",
