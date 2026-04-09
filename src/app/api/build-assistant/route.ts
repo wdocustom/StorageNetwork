@@ -35,11 +35,16 @@ const ActionSchema = z.object({
           "list_presets",
         ])
         .describe("Type of calculation to run"),
-      cols: z.number().optional().describe("Columns (for build/manifest/materials)"),
-      rows: z.number().optional().describe("Rows (for build/manifest/materials)"),
+      cols: z.number().optional().describe("Columns (for manual build/manifest/materials)"),
+      rows: z.number().optional().describe("Rows (for manual build/manifest/materials)"),
+      wallWidth: z.number().optional().describe("Wall width in inches (for wall-fit build mode)"),
+      wallHeight: z.number().optional().describe("Wall height in inches (for wall-fit build mode)"),
       hasTotes: z.boolean().optional(),
       hasWheels: z.boolean().optional(),
       hasTop: z.boolean().optional(),
+      unitType: z.enum(["standard", "mini"]).optional().describe("Unit type (default: standard)"),
+      orientation: z.enum(["standard", "sideways"]).optional().describe("Orientation (default: standard)"),
+      toteModel: z.enum(["HDX", "GM"]).optional().describe("Tote model (default: HDX)"),
       presetId: z
         .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station"])
         .optional()
@@ -68,24 +73,26 @@ async function runCalculations(
     try {
       switch (a.type) {
         case "build": {
+          const isWallFit = !!(a.wallWidth && a.wallHeight);
           const r = await calculateBuild({
-            cols: a.cols ?? 4,
-            rows: a.rows ?? 4,
-            toteModel: "HDX",
+            ...(isWallFit
+              ? { wallWidth: a.wallWidth!, wallHeight: a.wallHeight!, mode: "wallFit" as const }
+              : { cols: a.cols ?? 4, rows: a.rows ?? 4, mode: "manual" as const }),
+            toteModel: a.toteModel ?? "HDX",
             toteColor: "black",
-            unitType: "standard",
-            orientation: "standard",
+            unitType: a.unitType ?? "standard",
+            orientation: a.orientation ?? "standard",
             addOns: {
               totes: a.hasTotes ?? true,
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
-            mode: "manual",
             installerPricing: ctx.installerPricing,
           });
           if (r.success) {
             results.push({
               type: "build",
+              mode: isWallFit ? "wallFit" : "manual",
               cols: r.cols,
               rows: r.rows,
               price: r.price,
@@ -95,6 +102,8 @@ async function runCalculations(
               hasWheels: r.config.hasWheels,
               hasTop: r.config.hasTop,
             });
+          } else {
+            results.push({ type: "build", error: r.error });
           }
           break;
         }
@@ -125,21 +134,20 @@ async function runCalculations(
         }
 
         case "manifest": {
-          const cols = a.cols ?? 4;
-          const rows = a.rows ?? 4;
+          const isWallFitM = !!(a.wallWidth && a.wallHeight);
           const br = await calculateBuild({
-            cols,
-            rows,
-            toteModel: "HDX",
+            ...(isWallFitM
+              ? { wallWidth: a.wallWidth!, wallHeight: a.wallHeight!, mode: "wallFit" as const }
+              : { cols: a.cols ?? 4, rows: a.rows ?? 4, mode: "manual" as const }),
+            toteModel: a.toteModel ?? "HDX",
             toteColor: "black",
-            unitType: "standard",
-            orientation: "standard",
+            unitType: a.unitType ?? "standard",
+            orientation: a.orientation ?? "standard",
             addOns: {
               totes: a.hasTotes ?? true,
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
-            mode: "manual",
             installerPricing: ctx.installerPricing,
           });
           if (br.success) {
@@ -147,7 +155,7 @@ async function runCalculations(
               {
                 cols: br.cols,
                 rows: br.rows,
-                toteType: "HDX" as const,
+                toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: br.config.unitType,
                 orientation: br.config.orientation,
                 hasTotes: br.config.hasTotes,
@@ -162,7 +170,7 @@ async function runCalculations(
             ]);
             results.push({
               type: "manifest",
-              config: `${cols}x${rows}`,
+              config: `${br.cols}x${br.rows}`,
               totals: manifest.totals,
               shopping_list: manifest.shopping_list,
               financials: manifest.financials,
@@ -172,13 +180,26 @@ async function runCalculations(
         }
 
         case "materials": {
+          // If wall dimensions given, first resolve to cols/rows
+          let matCols = a.cols ?? 4;
+          let matRows = a.rows ?? 4;
+          if (a.wallWidth && a.wallHeight) {
+            const fitResult = await calculateBuild({
+              wallWidth: a.wallWidth, wallHeight: a.wallHeight,
+              toteModel: a.toteModel ?? "HDX", toteColor: "black",
+              unitType: a.unitType ?? "standard", orientation: a.orientation ?? "standard",
+              addOns: { totes: a.hasTotes ?? true, wheels: a.hasWheels ?? false, top: a.hasTop ?? true },
+              mode: "wallFit", installerPricing: ctx.installerPricing,
+            });
+            if (fitResult.success) { matCols = fitResult.cols; matRows = fitResult.rows; }
+          }
           const r = await calculateMaterialCostServer(
             [
               {
-                cols: a.cols ?? 4,
-                rows: a.rows ?? 4,
-                toteType: "HDX" as const,
-                unitType: "standard" as const,
+                cols: matCols,
+                rows: matRows,
+                toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
+                unitType: (a.unitType ?? "standard") as "standard" | "mini",
                 hasTotes: a.hasTotes ?? true,
                 hasWheels: a.hasWheels ?? false,
                 hasTop: a.hasTop ?? true,
@@ -188,6 +209,7 @@ async function runCalculations(
           );
           results.push({
             type: "materials",
+            config: `${matCols}x${matRows}`,
             totalCost: r.totalCost,
             items: r.items,
             rawCounts: r.rawCounts,
@@ -270,12 +292,21 @@ export async function POST(request: NextRequest) {
 Given the user's question and the current build context, determine what server-side calculations are needed.
 
 Available calculation types:
-- "build": Calculate price/dimensions for a specific cols x rows unit
+- "build": Calculate price/dimensions for a unit. Two modes:
+  - Wall-fit: provide wallWidth + wallHeight (in inches) — automatically calculates how many cols/rows fit
+  - Manual: provide cols + rows directly
+- "manifest": Get detailed 2x4 board counts, screw counts, plywood sheets, shopping list. USE THIS for any question about lumber, boards, 2x4s, screws, or hardware. Also supports wallWidth/wallHeight for wall-fit.
+- "materials": Get itemized material COSTS (dollar amounts). Also supports wallWidth/wallHeight.
 - "preset": Calculate a bestseller preset (indiana-joe, cornhusker, long-ranger, gas-station)
-- "manifest": Get detailed screw counts, board counts, shopping list for a unit
-- "materials": Get itemized material costs for a unit
 - "profit": Calculate installer profit (needs jobPrice and materialsCost)
 - "list_presets": List available presets
+
+IMPORTANT routing rules:
+- When user gives wall dimensions (e.g. "149 x 89"), use wallWidth/wallHeight — do NOT guess cols/rows
+- When user asks about 2x4s, boards, screws, lumber → use "manifest" (NOT "build")
+- When user asks about material costs/pricing → use "materials"
+- When user asks what fits a wall AND about materials → use BOTH "build" (for dimensions) AND "manifest" (for material counts) with the same wallWidth/wallHeight
+- You can combine multiple actions in the array
 
 Return an EMPTY actions array if the question can be answered from the context below.
 
