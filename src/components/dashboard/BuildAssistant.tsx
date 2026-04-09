@@ -2,28 +2,24 @@
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BUILD ASSISTANT — AI Chat Panel for the Build Configurator
-// Floating FAB that expands to a streaming chat with tool-calling support.
+// Floating FAB that expands to a chat with tool-calling support.
+// Uses plain fetch — no AI SDK client dependency.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useChat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
+import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent } from "react";
 import { MessageCircle, X, Send, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import type { BuildManifest } from "@/lib/buildEngine.types";
 import type { MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import type { BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import type { InstallerPricing } from "@/types/viewModels";
 
-/** Extract concatenated text from a UIMessage's parts array */
-function getMessageText(msg: UIMessage): string {
-  return msg.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("");
-}
+// ── Types ───────────────────────────────────────────────────────────────
 
-// ── Props ────────────────────────────────────────────────────────────────
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+}
 
 interface BuildAssistantProps {
   buildResult?: {
@@ -50,7 +46,10 @@ interface BuildAssistantProps {
   }>;
   materialBreakdown: MaterialBreakdown | null;
   feeBreakdown: BuildFeeBreakdown | null;
-  manifest: BuildManifest | null;
+  manifest: {
+    totals: Record<string, number>;
+    shopping_list: Array<{ name: string; detail: string; qty: number | string }>;
+  } | null;
   installerPricing?: InstallerPricing;
   materialPrices?: MaterialPrices;
   userId?: string | null;
@@ -58,10 +57,7 @@ interface BuildAssistantProps {
 
 // ── Quick-Ask Chips ──────────────────────────────────────────────────────
 
-function useQuickChips(
-  hasBuild: boolean,
-  hasUnits: boolean,
-): string[] {
+function useQuickChips(hasBuild: boolean, hasUnits: boolean): string[] {
   return useMemo(() => {
     const chips: string[] = [];
 
@@ -81,8 +77,13 @@ function useQuickChips(
     chips.push("Indiana Joe profit?");
     chips.push("Compare all presets");
 
-    return chips.slice(0, 6); // Max 6 chips
+    return chips.slice(0, 6);
   }, [hasBuild, hasUnits]);
+}
+
+let msgCounter = 0;
+function nextId() {
+  return `msg-${++msgCounter}-${Date.now()}`;
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -98,10 +99,13 @@ export default function BuildAssistant({
   userId,
 }: BuildAssistantProps) {
   const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Build context sent with every message
+  // Build context sent with every request
   const buildContext = useMemo(
     () => ({
       buildResult,
@@ -114,28 +118,13 @@ export default function BuildAssistant({
           }
         : null,
       feeBreakdown,
-      manifest: manifest
-        ? { totals: manifest.totals, shopping_list: manifest.shopping_list }
-        : null,
+      manifest,
       installerPricing,
       materialPrices,
       installerId: userId,
     }),
     [buildResult, units, materialBreakdown, feeBreakdown, manifest, installerPricing, materialPrices, userId],
   );
-
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setInput,
-    setMessages,
-  } = useChat({
-    api: "/api/build-assistant",
-    body: { buildContext },
-  });
 
   const chips = useQuickChips(!!buildResult, units.length > 0);
 
@@ -144,7 +133,7 @@ export default function BuildAssistant({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   // Focus input when opened
   useEffect(() => {
@@ -153,14 +142,60 @@ export default function BuildAssistant({
     }
   }, [open]);
 
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isLoading) return;
+
+      const userMsg: ChatMessage = { id: nextId(), role: "user", text: trimmed };
+      const updatedMessages = [...messages, userMsg];
+      setMessages(updatedMessages);
+      setInput("");
+      setIsLoading(true);
+
+      try {
+        const res = await fetch("/api/build-assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: updatedMessages.map((m) => ({ role: m.role, text: m.text })),
+            buildContext,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Request failed" }));
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: "assistant", text: err.error || "Something went wrong. Try again." },
+          ]);
+          return;
+        }
+
+        const data = await res.json();
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "assistant", text: data.text || "No response." },
+        ]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: "assistant", text: "Network error. Please try again." },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [messages, buildContext, isLoading],
+  );
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    sendMessage(input);
+  }
+
   function handleChipClick(text: string) {
-    setInput(text);
-    // Submit via form event
-    const form = document.getElementById("build-assistant-form") as HTMLFormElement;
-    if (form) {
-      // Set input then submit on next tick
-      setTimeout(() => form.requestSubmit(), 0);
-    }
+    sendMessage(text);
   }
 
   function handleReset() {
@@ -226,7 +261,6 @@ export default function BuildAssistant({
             <p className="mt-1 text-xs text-slate-500">
               Screws, materials, pricing, profit — I calculate it all
             </p>
-            {/* Quick chips */}
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
               {chips.map((chip) => (
                 <button
@@ -240,30 +274,28 @@ export default function BuildAssistant({
             </div>
           </div>
         ) : (
-          messages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((msg) => (
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
               <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-yellow-400/15 text-yellow-100"
+                    : "bg-slate-800/80 text-slate-300"
+                }`}
               >
-                <div
-                  className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-yellow-400/15 text-yellow-100"
-                      : "bg-slate-800/80 text-slate-300"
-                  }`}
-                >
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
-                      <ReactMarkdown>{getMessageText(msg)}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <span>{getMessageText(msg)}</span>
-                  )}
-                </div>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <span>{msg.text}</span>
+                )}
               </div>
-            ))
+            </div>
+          ))
         )}
 
         {/* Loading indicator */}
@@ -296,7 +328,6 @@ export default function BuildAssistant({
 
       {/* Input */}
       <form
-        id="build-assistant-form"
         onSubmit={handleSubmit}
         className="shrink-0 border-t border-slate-800 bg-slate-900/95 px-3 py-3 backdrop-blur-xl"
       >
@@ -304,7 +335,7 @@ export default function BuildAssistant({
           <input
             ref={inputRef}
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about materials, pricing, profit..."
             className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
             disabled={isLoading}
