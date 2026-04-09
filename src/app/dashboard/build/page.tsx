@@ -59,6 +59,7 @@ import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
+const BuildAssistant = lazy(() => import("@/components/dashboard/BuildAssistant"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Build Configurator — Estimate, Quote & New Build
@@ -2658,6 +2659,22 @@ export default function BuildConfiguratorPage() {
           }}
         />
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          BUILD ASSISTANT — AI Chat FAB
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Suspense fallback={null}>
+        <BuildAssistant
+          buildResult={buildResult}
+          units={units}
+          materialBreakdown={displayMaterials}
+          feeBreakdown={feeBreakdown}
+          manifest={displayManifest}
+          installerPricing={installerPricing}
+          materialPrices={materialPrices}
+          userId={userId}
+        />
+      </Suspense>
     </div>
   );
 }
