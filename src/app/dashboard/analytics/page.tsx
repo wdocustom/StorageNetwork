@@ -17,9 +17,11 @@ import {
   ArrowUpRight,
   Activity,
   ChevronDown,
+  QrCode,
+  MapPin,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { getInstallerAnalytics, type AnalyticsSummary, type GroupedReferrer } from "@/app/actions/analytics";
+import { getInstallerAnalytics, getQRScanAnalytics, type AnalyticsSummary, type QRScanSummary, type GroupedReferrer } from "@/app/actions/analytics";
 import ProPill from "@/components/dashboard/ProPill";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -36,6 +38,7 @@ export default function AnalyticsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AnalyticsSummary | null>(null);
+  const [qrData, setQrData] = useState<QRScanSummary | null>(null);
   const [error, setError] = useState("");
   const [range, setRange] = useState<TimeRange>(30);
 
@@ -51,11 +54,17 @@ export default function AnalyticsPage() {
     setLoading(true);
     setError("");
 
-    const result = await getInstallerAnalytics(user.id, range);
+    const [result, qrResult] = await Promise.all([
+      getInstallerAnalytics(user.id, range),
+      getQRScanAnalytics(user.id, range),
+    ]);
     if (result.success && result.data) {
       setData(result.data);
     } else {
       setError(result.error || "Failed to load analytics.");
+    }
+    if (qrResult.success && qrResult.data) {
+      setQrData(qrResult.data);
     }
     setLoading(false);
   }, [supabase, range]);
@@ -364,6 +373,98 @@ export default function AnalyticsPage() {
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {/* ── QR Code Scans ────────────────────────────────────── */}
+            {qrData && qrData.totalScans > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+                <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                  <QrCode className="h-4 w-4 text-purple-400" />
+                  QR Code Scans
+                  <span className="ml-auto rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-black text-purple-400">
+                    {qrData.totalScans}
+                  </span>
+                </h2>
+
+                {/* Scans by Day chart */}
+                {qrData.scansByDay.length > 0 && (
+                  <div className="mb-4">
+                    {renderBarChart(
+                      qrData.scansByDay.slice(-14).map((d) => ({
+                        label: formatDate(d.date),
+                        value: d.scans,
+                      })),
+                      "bg-purple-500"
+                    )}
+                  </div>
+                )}
+
+                {/* Device + Location side by side */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Device breakdown */}
+                  {qrData.deviceBreakdown.length > 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                        Devices
+                      </h3>
+                      <div className="space-y-1.5">
+                        {qrData.deviceBreakdown.map((d) => {
+                          const Icon = getDeviceIcon(d.device.charAt(0).toUpperCase() + d.device.slice(1));
+                          const pct = qrData.totalScans > 0 ? Math.round((d.count / qrData.totalScans) * 100) : 0;
+                          return (
+                            <div key={d.device} className="flex items-center gap-2">
+                              <Icon className="h-3 w-3 text-stone-500 shrink-0" />
+                              <span className="flex-1 text-[11px] text-stone-400 capitalize">{d.device}</span>
+                              <span className="text-[10px] font-bold text-white">{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top locations */}
+                  {qrData.topLocations.length > 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                        Locations
+                      </h3>
+                      <div className="space-y-1.5">
+                        {qrData.topLocations.slice(0, 5).map((loc) => (
+                          <div key={loc.location} className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3 text-stone-500 shrink-0" />
+                            <span className="flex-1 text-[11px] text-stone-400 truncate">{loc.location}</span>
+                            <span className="text-[10px] font-bold text-white">{loc.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent scans */}
+                {qrData.recentScans.length > 0 && (
+                  <div className="mt-3">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                      Recent Scans
+                    </h3>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {qrData.recentScans.slice(0, 8).map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-1.5">
+                          <QrCode className="h-3 w-3 text-purple-400 shrink-0" />
+                          <span className="flex-1 text-[11px] text-stone-400 capitalize">{s.device_type || "unknown"}</span>
+                          {s.city && (
+                            <span className="text-[10px] text-stone-500 truncate max-w-[100px]">
+                              {s.city}{s.region ? `, ${s.region}` : ""}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-stone-600 shrink-0">{timeAgo(s.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
             )}
 

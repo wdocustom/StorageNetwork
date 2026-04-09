@@ -9,6 +9,7 @@ import PortfolioContact from "./PortfolioContact";
 import CleanOutBooking from "./CleanOutBooking";
 import CustomServiceCard from "./CustomServiceCard";
 import ReviewsSection from "./ReviewsSection";
+import QRScanTracker from "@/components/tracking/QRScanTracker";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Portfolio Page — /p/[slug]
@@ -200,6 +201,9 @@ export default async function InstallerPortfolioPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-[#080c16]">
+      {/* QR scan tracking — fires when ?qr=1 is in URL */}
+      <QRScanTracker installerId={profile.id} pagePath={`/p/${slug}`} />
+
       {/* JSON-LD structured data for AI/GEO crawlers */}
       <script
         type="application/ld+json"

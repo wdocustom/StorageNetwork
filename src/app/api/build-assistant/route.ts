@@ -16,6 +16,7 @@ import {
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { getBuildFeeBreakdown } from "@/app/actions/fee-engine";
+import { getServiceClient } from "@/lib/supabase-server";
 import type { InstallerPricing } from "@/types/viewModels";
 
 export const maxDuration = 30;
@@ -250,12 +251,131 @@ interface ChatMessage {
   text: string;
 }
 
+// ── Learned corrections — fetched from DB, injected into prompt ─────────
+
+async function fetchLearnedCorrections(): Promise<string> {
+  try {
+    const supabase = getServiceClient();
+    const { data } = await supabase
+      .from("build_assistant_logs")
+      .select("user_message, feedback_text")
+      .eq("feedback_score", -1)
+      .not("feedback_text", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (!data || data.length === 0) return "";
+
+    const corrections = data
+      .map((r) => `- When asked "${r.user_message.slice(0, 80)}…" → Correction: ${r.feedback_text}`)
+      .join("\n");
+
+    return `\n\n## Learned Corrections (from past mistakes)\n${corrections}\n`;
+  } catch {
+    return "";
+  }
+}
+
+// ── Silent conversation logging (fire-and-forget) ──────────────────────
+
+// ── Auto-quality detection ──────────────────────────────────────────────
+
+function detectQualityFlags(params: {
+  userMessage: string;
+  previousMessages: ChatMessage[];
+  actions: unknown[];
+  calcResults: Record<string, unknown>[];
+  assistantResponse: string;
+}): Record<string, unknown> {
+  const flags: Record<string, unknown> = {};
+
+  // 1. Calc errors — any action returned an error
+  const calcErrors = params.calcResults.filter((r) => "error" in r);
+  if (calcErrors.length > 0) {
+    flags.calc_errors = calcErrors.length;
+  }
+
+  // 2. Empty classification — AI didn't know what calc to run
+  if (Array.isArray(params.actions) && params.actions.length === 0 && params.userMessage.length > 20) {
+    flags.no_actions_classified = true;
+  }
+
+  // 3. Retry pattern — user is rephrasing a previous question (similar words)
+  const prevUserMsgs = params.previousMessages
+    .filter((m) => m.role === "user")
+    .map((m) => m.text.toLowerCase());
+  const currentLower = params.userMessage.toLowerCase();
+  const currentWords = new Set(currentLower.split(/\s+/).filter((w) => w.length > 3));
+  for (const prev of prevUserMsgs.slice(-3)) {
+    const prevWords = new Set(prev.split(/\s+/).filter((w: string) => w.length > 3));
+    const overlap = Array.from(currentWords).filter((w) => prevWords.has(w)).length;
+    const similarity = currentWords.size > 0 ? overlap / currentWords.size : 0;
+    if (similarity > 0.6 && currentLower !== prev) {
+      flags.possible_retry = true;
+      break;
+    }
+  }
+
+  // 4. Very short response — might indicate the AI didn't have enough context
+  if (params.assistantResponse.length < 50) {
+    flags.short_response = true;
+  }
+
+  // 5. Slow response
+  // (latency is tracked separately, but flag extreme cases here)
+
+  return flags;
+}
+
+function logConversationTurn(params: {
+  installerId?: string;
+  sessionId: string;
+  turnIndex: number;
+  userMessage: string;
+  assistantResponse: string;
+  actions: unknown[];
+  calcResults: Record<string, unknown>[];
+  previousMessages: ChatMessage[];
+  latencyMs: number;
+}) {
+  const qualityFlags = detectQualityFlags({
+    userMessage: params.userMessage,
+    previousMessages: params.previousMessages,
+    actions: params.actions,
+    calcResults: params.calcResults,
+    assistantResponse: params.assistantResponse,
+  });
+
+  // Non-blocking — don't await, don't let failures affect the response
+  try {
+    const supabase = getServiceClient();
+    void supabase
+      .from("build_assistant_logs")
+      .insert({
+        installer_id: params.installerId || null,
+        session_id: params.sessionId,
+        turn_index: params.turnIndex,
+        user_message: params.userMessage.slice(0, 2000),
+        assistant_response: params.assistantResponse.slice(0, 5000),
+        actions_json: params.actions,
+        calc_results_json: params.calcResults,
+        quality_flags: qualityFlags,
+        latency_ms: params.latencyMs,
+      })
+      .then(() => {});
+  } catch {
+    // Swallow — logging must never affect the response
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const startTime = Date.now();
     const body = await request.json();
-    const { messages, buildContext } = body as {
+    const { messages, buildContext, sessionId } = body as {
       messages: ChatMessage[];
       buildContext: Record<string, unknown>;
+      sessionId?: string;
     };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -276,7 +396,10 @@ export async function POST(request: NextRequest) {
       installerId: (buildContext?.installerId as string) ?? undefined,
     };
 
-    const systemPrompt = buildSystemPrompt(buildContext ?? {});
+    // Fetch learned corrections in parallel with prompt build
+    const [learnedCorrections] = await Promise.all([fetchLearnedCorrections()]);
+
+    const systemPrompt = buildSystemPrompt(buildContext ?? {}) + learnedCorrections;
     const recentMessages = messages.slice(-20);
     const conversation = recentMessages
       .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`)
@@ -329,7 +452,27 @@ ${systemPrompt}`,
       prompt: conversation,
     });
 
-    return NextResponse.json({ text: answer.text });
+    // ── Step 4: Silent logging (fire-and-forget) ─────────────────────
+    const latencyMs = Date.now() - startTime;
+    const turnIndex = Math.floor(recentMessages.filter((m) => m.role === "user").length - 1);
+
+    logConversationTurn({
+      installerId: ctx.installerId,
+      sessionId: sessionId || `anon-${Date.now()}`,
+      turnIndex: Math.max(0, turnIndex),
+      userMessage: latestQuestion,
+      assistantResponse: answer.text,
+      actions: plan.object.actions,
+      calcResults,
+      previousMessages: recentMessages.slice(0, -1),
+      latencyMs,
+    });
+
+    return NextResponse.json({
+      text: answer.text,
+      // Return a log reference so the client can submit feedback later
+      logRef: sessionId ? `${sessionId}:${turnIndex}` : undefined,
+    });
   } catch (error: unknown) {
     console.error("Build assistant error:", error);
 

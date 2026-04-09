@@ -105,6 +105,9 @@ export default function BuildAssistant({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Stable session ID for conversation logging
+  const sessionIdRef = useRef(`ba-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
   // Build context sent with every request
   const buildContext = useMemo(
     () => ({
@@ -160,6 +163,7 @@ export default function BuildAssistant({
           body: JSON.stringify({
             messages: updatedMessages.map((m) => ({ role: m.role, text: m.text })),
             buildContext,
+            sessionId: sessionIdRef.current,
           }),
         });
 
@@ -200,6 +204,7 @@ export default function BuildAssistant({
 
   function handleReset() {
     setMessages([]);
+    sessionIdRef.current = `ba-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   // ── FAB (collapsed) ────────────────────────────────────────────────────

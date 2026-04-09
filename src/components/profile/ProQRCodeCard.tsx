@@ -24,8 +24,9 @@ export default function ProQRCodeCard({ slug, businessName, phone, avatarUrl }: 
   const [downloading, setDownloading] = useState(false);
   const [downloadingCard, setDownloadingCard] = useState(false);
 
-  // Construct the full profile URL
+  // Construct the full profile URL (qr=1 enables scan tracking)
   const profileUrl = `${siteConfig.baseUrl}/p/${slug}`;
+  const qrUrl = `${profileUrl}?qr=1`;
   const shortUrl = `storage-network.app/p/${slug}`;
 
   // Copy link to clipboard
@@ -342,7 +343,7 @@ export default function ProQRCodeCard({ slug, businessName, phone, avatarUrl }: 
                 className="relative rounded-xl bg-white p-4 shadow-lg"
               >
                 <QRCode
-                  value={profileUrl}
+                  value={qrUrl}
                   size={180}
                   level="H"
                   bgColor="#FFFFFF"

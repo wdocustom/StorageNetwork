@@ -291,6 +291,84 @@ export async function getInstallerAnalytics(
   }
 }
 
+// ── QR Code Scan Analytics ─────────────────────────────────────────────
+
+export interface QRScanSummary {
+  totalScans: number;
+  scansByDay: { date: string; scans: number }[];
+  deviceBreakdown: { device: string; count: number }[];
+  topLocations: { location: string; count: number }[];
+  recentScans: { created_at: string; device_type: string; city: string | null; region: string | null; country: string | null }[];
+}
+
+export async function getQRScanAnalytics(
+  installerId: string,
+  days: number = 30
+): Promise<{ success: boolean; data?: QRScanSummary; error?: string }> {
+  if (!installerId) return { success: false, error: "No installer ID." };
+
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - days);
+  const since = sinceDate.toISOString();
+
+  try {
+    const [scansRes, recentRes] = await Promise.all([
+      supabase
+        .from("qr_scans")
+        .select("created_at, device_type, city, region, country")
+        .eq("installer_id", installerId)
+        .gte("created_at", since)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("qr_scans")
+        .select("created_at, device_type, city, region, country")
+        .eq("installer_id", installerId)
+        .order("created_at", { ascending: false })
+        .limit(15),
+    ]);
+
+    const scans = scansRes.data || [];
+    const recentScans = recentRes.data || [];
+    const totalScans = scans.length;
+
+    // Scans by day
+    const dayMap: Record<string, number> = {};
+    for (const s of scans) {
+      const day = s.created_at?.slice(0, 10) || "unknown";
+      dayMap[day] = (dayMap[day] || 0) + 1;
+    }
+    const scansByDay = Object.entries(dayMap).map(([date, count]) => ({ date, scans: count }));
+
+    // Device breakdown
+    const deviceMap: Record<string, number> = {};
+    for (const s of scans) {
+      const d = s.device_type || "Unknown";
+      deviceMap[d] = (deviceMap[d] || 0) + 1;
+    }
+    const deviceBreakdown = Object.entries(deviceMap)
+      .map(([device, count]) => ({ device, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Top locations
+    const locMap: Record<string, number> = {};
+    for (const s of scans) {
+      const loc = [s.city, s.region].filter(Boolean).join(", ") || s.country || "Unknown";
+      locMap[loc] = (locMap[loc] || 0) + 1;
+    }
+    const topLocations = Object.entries(locMap)
+      .map(([location, count]) => ({ location, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return {
+      success: true,
+      data: { totalScans, scansByDay, deviceBreakdown, topLocations, recentScans },
+    };
+  } catch {
+    return { success: false, error: "Failed to load QR scan analytics." };
+  }
+}
+
 // ── First-Order Discount Check ──────────────────────────────────────────
 
 // Feature flag — set to true to enable the $25 first-order discount
