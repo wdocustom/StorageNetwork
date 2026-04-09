@@ -2666,7 +2666,7 @@ export default function BuildConfiguratorPage() {
       <Suspense fallback={null}>
         <BuildAssistant
           buildResult={buildResult}
-          units={units}
+          units={units.map(u => ({ ...u, price: u.price ?? 0 }))}
           materialBreakdown={displayMaterials}
           feeBreakdown={feeBreakdown}
           manifest={displayManifest}

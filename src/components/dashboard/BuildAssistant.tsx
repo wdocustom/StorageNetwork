@@ -41,7 +41,7 @@ interface BuildAssistantProps {
     hasTotes: boolean;
     hasWheels: boolean;
     hasTop: boolean;
-    price?: number;
+    price: number;
     desc?: string;
   }>;
   materialBreakdown: MaterialBreakdown | null;
