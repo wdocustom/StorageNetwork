@@ -5,7 +5,12 @@
 
 import { NextRequest } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { streamText, type CoreMessage } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  stepCountIs,
+  type UIMessage,
+} from "ai";
 import { buildSystemPrompt } from "./prompt";
 import { buildTools } from "./tools";
 
@@ -15,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { messages, buildContext } = body as {
-      messages: CoreMessage[];
+      messages: UIMessage[];
       buildContext: Record<string, unknown>;
     };
 
@@ -46,18 +51,19 @@ export async function POST(request: NextRequest) {
     const systemPrompt = buildSystemPrompt(buildContext ?? {});
     const tools = buildTools(toolContext);
 
-    // Limit conversation history to last 20 messages to control token usage
+    // Convert UIMessages from useChat to ModelMessages for streamText
     const recentMessages = messages.slice(-20);
+    const modelMessages = convertToModelMessages(recentMessages);
 
     const result = streamText({
       model: google("gemini-2.0-flash"),
       system: systemPrompt,
-      messages: recentMessages,
+      messages: modelMessages,
       tools,
-      maxSteps: 5, // Allow up to 5 tool calls per response (for multi-part questions)
+      stopWhen: stepCountIs(5),
     });
 
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error: unknown) {
     console.error("Build assistant error:", error);
 

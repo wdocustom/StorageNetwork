@@ -7,12 +7,21 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
 import { MessageCircle, X, Send, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { BuildManifest } from "@/lib/buildEngine.types";
 import type { MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import type { BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import type { InstallerPricing } from "@/types/viewModels";
+
+/** Extract concatenated text from a UIMessage's parts array */
+function getMessageText(msg: UIMessage): string {
+  return msg.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+}
 
 // ── Props ────────────────────────────────────────────────────────────────
 
@@ -247,10 +256,10 @@ export default function BuildAssistant({
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
-                      <ReactMarkdown>{typeof msg.content === "string" ? msg.content : ""}</ReactMarkdown>
+                      <ReactMarkdown>{getMessageText(msg)}</ReactMarkdown>
                     </div>
                   ) : (
-                    <span>{typeof msg.content === "string" ? msg.content : ""}</span>
+                    <span>{getMessageText(msg)}</span>
                   )}
                 </div>
               </div>
