@@ -32,7 +32,7 @@ export function buildTools(ctx: ToolContext) {
     calculate_build: tool({
       description:
         "Calculate pricing and dimensions for a custom tote storage unit. Use this for hypothetical questions like 'what would a 5x3 with wheels cost?' or 'how big is a 4x4?'",
-      parameters: z.object({
+      inputSchema: z.object({
         cols: z.number().min(1).max(20).describe("Number of tote columns (width)"),
         rows: z.number().min(1).max(20).describe("Number of tote rows (height)"),
         toteModel: z.enum(["HDX", "GM"]).default("HDX").describe("HDX = standard 19-3/4 inch, GM = wide 20-3/4 inch"),
@@ -81,7 +81,7 @@ export function buildTools(ctx: ToolContext) {
     calculate_preset: tool({
       description:
         "Calculate pricing for a bestseller preset (Indiana Joe, Cornhusker, Long Ranger, Gas Station). Returns total price and per-sub-unit breakdown.",
-      parameters: z.object({
+      inputSchema: z.object({
         presetId: z
           .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station"])
           .describe("The preset identifier"),
@@ -123,7 +123,7 @@ export function buildTools(ctx: ToolContext) {
     get_build_manifest: tool({
       description:
         "Get detailed material breakdown: exact screw counts by size, lumber boards needed, plywood sheets, shopping list. Use for questions like 'how many screws in a 4x4?' or 'how many 2x4s?'",
-      parameters: z.object({
+      inputSchema: z.object({
         units: z.array(
           z.object({
             cols: z.number().min(1).max(20),
@@ -194,7 +194,7 @@ export function buildTools(ctx: ToolContext) {
     calculate_material_cost: tool({
       description:
         "Calculate the total material cost for a build — itemized line items with quantities and dollar amounts. Use for questions about material cost, profit margins, cost breakdown.",
-      parameters: z.object({
+      inputSchema: z.object({
         units: z.array(
           z.object({
             cols: z.number().min(1).max(20),
@@ -232,7 +232,7 @@ export function buildTools(ctx: ToolContext) {
     calculate_profit: tool({
       description:
         "Calculate installer profit for a job. Shows both network lead and direct lead scenarios with fee breakdowns. Use for 'how much will I make?' questions.",
-      parameters: z.object({
+      inputSchema: z.object({
         jobPrice: z.number().min(1).describe("Total job price (what the customer pays)"),
         materialsCost: z.number().min(0).describe("Total material cost"),
       }),
@@ -250,7 +250,7 @@ export function buildTools(ctx: ToolContext) {
     list_presets: tool({
       description:
         "List all available bestseller presets with their configurations. Use when the installer asks 'what presets are available?' or 'show me bestsellers'.",
-      parameters: z.object({}),
+      inputSchema: z.object({}),
       execute: async () => {
         return BESTSELLER_PRESETS.map((p) => ({
           id: p.id,
