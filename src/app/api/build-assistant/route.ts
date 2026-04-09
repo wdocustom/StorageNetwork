@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     let message: string;
     if (error instanceof Error) {
       message = error.message;
-      if ((error as Record<string, unknown>).cause instanceof Error) {
-        message = ((error as Record<string, unknown>).cause as Error).message;
+      if (error.cause instanceof Error) {
+        message = error.cause.message;
       }
     } else {
       message = String(error);
