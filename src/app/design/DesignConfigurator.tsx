@@ -1578,7 +1578,7 @@ export default function DesignConfigurator({
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ── LEFT SIDEBAR: Premium Configurator ──────────────────────── */}
         <ConfiguratorSidebar
-          initialStep={initialConfig && typeof initialConfig.cols === "number" ? 3 : undefined}
+          initialStep={initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : undefined) : undefined}
           // Step 1: Dimensions
           wallWidth={wallWidth}
           wallHeight={wallHeight}
