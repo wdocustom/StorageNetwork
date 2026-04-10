@@ -9,6 +9,7 @@ import {
   checkTerritoryAvailability,
   assignTerritoryCluster,
   releaseTerritoryCluster,
+  expandTerritoryCluster,
 } from "@/app/actions/territory";
 
 const supabase = getServiceClient();
@@ -113,9 +114,18 @@ export async function updateInstallerProfile(
       .eq("installer_id", installer_id);
 
     coveredZips = existingTerritory?.map((r) => r.zip) ?? [];
-    if (coveredZips.length === 0) {
-      // Fallback: compute from radius (legacy profiles without territory_zips)
-      coveredZips = zipcodes.radius(service_zip, radius) ?? [service_zip];
+
+    if (coveredZips.length <= 1) {
+      // Incomplete cluster (only home ZIP or none) — expand territory
+      // This heals profiles where onboarding partially failed or territory
+      // was created before the cluster expansion system existed.
+      try {
+        const expanded = await expandTerritoryCluster(installer_id, service_zip);
+        coveredZips = expanded.assignedZips;
+      } catch {
+        // Expansion failed — fall back to radius computation
+        coveredZips = zipcodes.radius(service_zip, radius) ?? [service_zip];
+      }
     }
   }
 

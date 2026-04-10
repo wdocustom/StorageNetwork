@@ -321,6 +321,109 @@ export async function getInstallerTerritory(
   };
 }
 
+/**
+ * Expand an incomplete territory cluster.
+ *
+ * If an installer only has their home ZIP (e.g. due to a failed onboarding
+ * or a pre-territory profile), this adds nearby unclaimed ZIPs to fill
+ * the cluster to the expected size for their density tier.
+ *
+ * Idempotent — safe to call multiple times. Skips if cluster already full.
+ */
+export async function expandTerritoryCluster(
+  installerId: string,
+  homeZip: string
+): Promise<{ assignedZips: string[] }> {
+  const trimmed = homeZip.trim();
+  const supabase = getServiceClient();
+
+  // Read current territory
+  const { data: currentRows } = await supabase
+    .from("territory_zips")
+    .select("zip")
+    .eq("installer_id", installerId);
+
+  const currentZips = new Set(currentRows?.map((r) => r.zip) ?? []);
+
+  // If installer has no territory_zips at all, claim home ZIP first
+  if (currentZips.size === 0) {
+    const { error: homeError } = await supabase
+      .from("territory_zips")
+      .insert({ zip: trimmed, installer_id: installerId, is_home_zip: true });
+
+    if (homeError && homeError.code !== "23505") {
+      console.error("[Territory] expandCluster: failed to claim home ZIP:", homeError);
+      return { assignedZips: [trimmed] };
+    }
+    currentZips.add(trimmed);
+  }
+
+  const tier = detectDensityTier(trimmed);
+
+  // Already at or above target — nothing to do
+  if (currentZips.size >= tier.targetZips) {
+    return { assignedZips: Array.from(currentZips) };
+  }
+
+  // Find candidate ZIPs
+  const candidateZips = zipcodes.radius(trimmed, tier.searchRadiusMiles) ?? [];
+
+  // Get already-claimed ZIPs in this radius (by any installer)
+  const { data: claimedRows } = await supabase
+    .from("territory_zips")
+    .select("zip")
+    .in("zip", candidateZips);
+
+  const claimedSet = new Set(claimedRows?.map((r) => r.zip) ?? []);
+
+  // Sort by distance, exclude claimed, take what we still need
+  const slotsNeeded = tier.targetZips - currentZips.size;
+  const newCandidates = candidateZips
+    .filter((z) => !claimedSet.has(z) && !currentZips.has(z))
+    .map((z) => ({ zip: z, dist: zipcodes.distance(trimmed, z) ?? Infinity }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, slotsNeeded);
+
+  if (newCandidates.length > 0) {
+    await supabase
+      .from("territory_zips")
+      .upsert(
+        newCandidates.map((c) => ({
+          zip: c.zip,
+          installer_id: installerId,
+          is_home_zip: false,
+        })),
+        { onConflict: "zip", ignoreDuplicates: true }
+      );
+  }
+
+  // Read back final state
+  const { data: finalRows } = await supabase
+    .from("territory_zips")
+    .select("zip")
+    .eq("installer_id", installerId);
+
+  const assignedZips = finalRows?.map((r) => r.zip) ?? [trimmed];
+
+  // Sync denormalized cache
+  const zipInfo = zipcodes.lookup(trimmed);
+  await supabase
+    .from("profiles")
+    .update({
+      service_zips: assignedZips,
+      latitude: zipInfo?.latitude ?? null,
+      longitude: zipInfo?.longitude ?? null,
+    })
+    .eq("id", installerId);
+
+  console.log(
+    `[Territory] Expanded cluster for ${installerId}: ${currentZips.size} → ${assignedZips.length} ZIPs ` +
+    `(tier: ${tier.label}, home: ${trimmed})`
+  );
+
+  return { assignedZips };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Internal Helpers
 // ═══════════════════════════════════════════════════════════════════════════
