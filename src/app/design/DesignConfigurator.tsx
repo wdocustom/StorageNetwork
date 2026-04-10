@@ -980,18 +980,19 @@ export default function DesignConfigurator({
 
   // Force totes off when installer has totes globally disabled or preset has totesDisabled
   const globalTotesDisabled = data?.pricing?.totes_disabled === true;
+  const globalUse2x4Rails = data?.pricing?.use_2x4_rails === true;
   useEffect(() => {
-    if ((globalTotesDisabled || activePresetObj?.totesDisabled) && presetTotes) {
+    if ((globalTotesDisabled || globalUse2x4Rails || activePresetObj?.totesDisabled) && presetTotes) {
       setPresetTotes(false);
     }
-  }, [activePresetObj, presetTotes, globalTotesDisabled]);
+  }, [activePresetObj, presetTotes, globalTotesDisabled, globalUse2x4Rails]);
 
-  // Force hasTotes off globally
+  // Force hasTotes off globally (also when 2x4 rail mode — totes not relevant)
   useEffect(() => {
-    if (globalTotesDisabled && hasTotes) {
+    if ((globalTotesDisabled || globalUse2x4Rails) && hasTotes) {
       setHasTotes(false);
     }
-  }, [globalTotesDisabled, hasTotes]);
+  }, [globalTotesDisabled, globalUse2x4Rails, hasTotes]);
 
   // Re-fetch preset build when totes toggle changes
   useEffect(() => {
@@ -1610,6 +1611,7 @@ export default function DesignConfigurator({
           effectiveHasTop={effectiveHasTop}
           miniDisabled={data?.pricing?.mini_enabled !== true}
           totesDisabled={data?.pricing?.totes_disabled === true}
+          use2x4Rails={data?.pricing?.use_2x4_rails === true}
 
           // Pricing
           pricing={data?.pricing}
@@ -1975,6 +1977,7 @@ export default function DesignConfigurator({
           miniWheels: data?.pricing?.mini_wheels,
           plywoodTop: data?.pricing?.plywood_top,
           totesDisabled: data?.pricing?.totes_disabled === true,
+          use2x4Rails: data?.pricing?.use_2x4_rails === true,
           miniEnabled: data?.pricing?.mini_enabled === true,
           shelvingEnabled: data?.pricing?.open_shelving_enabled === true,
           overheadEnabled: data?.pricing?.overhead_storage_enabled === true,

@@ -62,10 +62,17 @@ const OPENING_GM = 20.75;
 const MAX_COLS_PER_MOD = 4;
 const MAX_ROWS_PER_TIER = 6;
 
+// 2x4 Rail Construction constants
+const RAILS_2X4_OPENING = 21;
+const RAILS_2X4_TOP_GAP = 2.75;
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
+const RAILS_2X4_MAX_ROWS = 5;
+
 interface ModuleDiagramProps {
   units: { cols: number; rows: number; toteType?: "HDX" | "GM" }[];
   cutPlanModules: CutPlanModule[];
   scrollIdPrefix?: string;
+  use2x4Rails?: boolean;
 }
 
 interface ModuleRect {
@@ -89,6 +96,7 @@ export default function ModuleDiagram({
   units,
   cutPlanModules,
   scrollIdPrefix = "cut-module",
+  use2x4Rails = false,
 }: ModuleDiagramProps) {
   const { rects, totalW, totalH } = useMemo(() => {
     // First pass: create rects in engine order (width-first, then height)
@@ -100,7 +108,10 @@ export default function ModuleDiagram({
 
     for (let ui = 0; ui < units.length; ui++) {
       const unit = units[ui];
-      const opening = (unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
+      const opening = use2x4Rails ? RAILS_2X4_OPENING : ((unit.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX);
+      const topGap = use2x4Rails ? RAILS_2X4_TOP_GAP : TOP_GAP;
+      const maxRowsPerTier = use2x4Rails ? RAILS_2X4_MAX_ROWS : MAX_ROWS_PER_TIER;
+      const effectiveRows = use2x4Rails ? Math.min(unit.rows, RAILS_2X4_MAX_ROWS) : unit.rows;
 
       // Width split
       const widthMods: number[] = [];
@@ -110,11 +121,19 @@ export default function ModuleDiagram({
 
       // Height split
       const heightTiers: number[] = [];
-      let remR = unit.rows;
-      while (remR > MAX_ROWS_PER_TIER) { heightTiers.push(MAX_ROWS_PER_TIER); remR -= MAX_ROWS_PER_TIER; }
+      let remR = effectiveRows;
+      while (remR > maxRowsPerTier) { heightTiers.push(maxRowsPerTier); remR -= maxRowsPerTier; }
       if (remR > 0) heightTiers.push(remR);
 
-      const unitH = unit.rows * TIER_HEIGHT + PLATE_H * 2 + TOP_GAP;
+      // Unit height: 2x4 rail mode uses fixed positions (from bottom of posts + plates)
+      let unitH: number;
+      if (use2x4Rails) {
+        const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1] ?? RAILS_2X4_POSITIONS[0];
+        // Bottom plate (1.5") + post height (railPos + 2.75") + top plate (1.5")
+        unitH = PLATE_H * 2 + topRailPos + RAILS_2X4_TOP_GAP;
+      } else {
+        unitH = unit.rows * TIER_HEIGHT + PLATE_H * 2 + TOP_GAP;
+      }
       if (unitH > maxUnitH) maxUnitH = unitH;
 
       let modColOffset = 0;
@@ -125,14 +144,24 @@ export default function ModuleDiagram({
 
         for (let hti = 0; hti < heightTiers.length; hti++) {
           const tierRows = heightTiers[hti];
-          const tierH = tierRows * TIER_HEIGHT;
 
-          // y: tiers ABOVE this one (higher index = physically higher = top of SVG)
-          // sit above it in the SVG, so sum rows from tiers after this one.
-          const rowsAbove = heightTiers.slice(hti + 1).reduce((s, r) => s + r, 0);
-          // Module frame: top plate + content area + bottom plate
-          const y = PLATE_H + TOP_GAP + rowsAbove * TIER_HEIGHT - PLATE_H;
-          const h = tierH + PLATE_H * 2;
+          let tierH: number;
+          let y: number;
+          let h: number;
+
+          if (use2x4Rails) {
+            // 2x4 mode: single tier, height from rail positions + both plates
+            const topPos = RAILS_2X4_POSITIONS[tierRows - 1] ?? RAILS_2X4_POSITIONS[0];
+            tierH = topPos + RAILS_2X4_TOP_GAP; // post height
+            y = 0;
+            h = PLATE_H * 2 + tierH; // bottom plate + posts + top plate
+          } else {
+            tierH = tierRows * TIER_HEIGHT;
+            // y: tiers ABOVE this one (higher index = physically higher = top of SVG)
+            const rowsAbove = heightTiers.slice(hti + 1).reduce((s, r) => s + r, 0);
+            y = PLATE_H + topGap + rowsAbove * TIER_HEIGHT - PLATE_H;
+            h = tierH + PLATE_H * 2;
+          }
 
           raw.push({
             x: unitOffsetX + modColOffset,
@@ -176,7 +205,7 @@ export default function ModuleDiagram({
 
     const tw = unitOffsetX - (units.length > 1 ? 4 : 0);
     return { rects: allRects, totalW: tw, totalH: maxUnitH };
-  }, [units, cutPlanModules.length]);
+  }, [units, cutPlanModules.length, use2x4Rails]);
 
   // ── Scroll handler ────────────────────────────────────────────────────
   const scrollToModule = useCallback(
@@ -228,7 +257,7 @@ export default function ModuleDiagram({
           {/* ── Render each module as its own colored frame ─────────── */}
           {sortedForRender.map((r) => {
             const color = MODULE_COLORS[r.colorIdx];
-            const opening = (units[r.unitIdx]?.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX;
+            const opening = use2x4Rails ? RAILS_2X4_OPENING : ((units[r.unitIdx]?.toteType ?? "HDX") === "GM" ? OPENING_GM : OPENING_HDX);
             const ox = PAD + r.x;
             const oy = PAD + r.y;
             const postH = r.h - PLATE_H * 2;
@@ -283,12 +312,24 @@ export default function ModuleDiagram({
                 {Array.from({ length: r.cols }, (_, c) =>
                   Array.from({ length: r.rows }, (_, row) => {
                     const slotX = ox + GAP + c * (opening + GAP);
-                    const slotY = contentTop + row * TIER_HEIGHT;
+                    let slotY: number;
+                    let slotH: number;
+                    if (use2x4Rails) {
+                      // 2x4 mode: slots positioned using fixed rail heights (from bottom of unit)
+                      // Each slot spans from one rail to the next (or from bottom plate to first rail)
+                      const railTop = RAILS_2X4_POSITIONS[row];
+                      const prevRailTop = row > 0 ? RAILS_2X4_POSITIONS[row - 1] : 0;
+                      slotY = oy + r.h - railTop; // SVG y is from top, rail positions are from bottom
+                      slotH = railTop - prevRailTop;
+                    } else {
+                      slotY = contentTop + row * TIER_HEIGHT;
+                      slotH = TIER_HEIGHT;
+                    }
                     return (
                       <rect
                         key={`s-${c}-${row}`}
                         x={slotX + 0.5} y={slotY + 0.5}
-                        width={opening - 1} height={TIER_HEIGHT - 1}
+                        width={opening - 1} height={slotH - 1}
                         fill="none" stroke={color.stroke} strokeWidth={0.2}
                         opacity={0.3} rx={0.3}
                       />

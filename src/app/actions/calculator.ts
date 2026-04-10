@@ -185,8 +185,45 @@ const MINI_CONFIG: UnitDimensionConfig = {
   pricePlywoodSheet: 95,       // Same plywood price
 };
 
+// ── 2x4 Rail Construction Mode ──────────────────────────────────────────
+// Uses ripped 2x4s (1-3/4") instead of plywood strips for rails.
+// Fixed rail positions, 21" universal openings, max 5 rows.
+// 6 rails per 2x4x8' piece (ripped in half → 2 strips × 3 cuts at 30" depth).
+const RAILS_2X4_CONFIG: UnitDimensionConfig = {
+  slotWidth: 21,                 // 21" universal opening (tote type irrelevant)
+  verticalSpacing: 15.75,        // Spacing between consecutive rail tops
+  firstRailHeight: 13.75,        // Top of first rail from bottom = 13-3/4"
+  depth: 30,                     // 30" deep (same as standard)
+
+  postWidth: 1.5,                // 2x4 narrow face
+  postDepth: 3.5,                // 2x4 wide face
+  plateHeight: 1.5,              // 2x4 flat (bottom plate)
+  topGap: 2.75,                  // 2-3/4" above top rail to top of vertical post
+
+  railWidth: 1.5,                // 1-1/2" wide (ripped 2x4, narrow face showing)
+  railThickness: 1.75,           // 1-3/4" tall (ripped 2x4 on narrow face)
+
+  toteWidth: 0,                  // N/A — universal frame
+  toteHeight: 0,                 // N/A
+  toteDepth: 0,                  // N/A
+
+  hasTopPlate: true,             // Has both top and bottom 2x4 plates
+  topIsMandatory: false,         // No plywood top by default
+
+  pricePerSlot: 30,              // Same slot pricing as standard
+  pricePerTote: 0,               // No totes
+  priceWheels: 65,               // Same wheel pricing
+  pricePlywoodSheet: 95,         // Same plywood top pricing
+};
+
+// Fixed rail height positions (top of each rail from bottom of vertical posts)
+// Posts sit on a 1.5" bottom plate. These positions do NOT include the plate.
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75]; // inches
+const RAILS_2X4_MAX_ROWS = 5;
+
 // ── Config getter ────────────────────────────────────────────────────────
-function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard"): UnitDimensionConfig {
+function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
+  if (use2x4Rails) return RAILS_2X4_CONFIG;
   if (unitType === "mini") return MINI_CONFIG;
   // Standard unit: check orientation
   return orientation === "sideways" ? SIDEWAYS_CONFIG : STANDARD_CONFIG;
@@ -203,7 +240,10 @@ const WHEEL_HEIGHT = 2.75;       // Industrial caster height for calculations
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 
-function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard"): number {
+function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): number {
+  if (use2x4Rails) {
+    return RAILS_2X4_CONFIG.slotWidth; // 21" universal
+  }
   if (unitType === "mini") {
     return MINI_CONFIG.slotWidth;
   }
@@ -219,14 +259,20 @@ export async function calculateBuild(
 ): Promise<BuildResult | BuildError> {
   const { toteModel, addOns, mode } = input;
   const unitType: UnitType = input.unitType ?? "standard";
-  // Orientation only applies to standard units
-  const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
-  // Tote color only applies to HDX standard units with totes included
-  const toteColor: ToteColor = (toteModel === "HDX" && unitType === "standard" && addOns.totes)
+  const use2x4Rails = input.installerPricing?.use_2x4_rails === true;
+  // Orientation only applies to standard units (not 2x4 rail mode)
+  const orientation: Orientation = (unitType === "standard" && !use2x4Rails) ? (input.orientation ?? "standard") : "standard";
+  // Tote color only applies to HDX standard units with totes included (not 2x4 rail mode)
+  const toteColor: ToteColor = (!use2x4Rails && toteModel === "HDX" && unitType === "standard" && addOns.totes)
     ? (input.toteColor ?? "black")
     : "black";
-  const config = getUnitConfig(unitType, orientation);
-  const opening = getOpening(toteModel, unitType, orientation);
+  const config = getUnitConfig(unitType, orientation, use2x4Rails);
+  const opening = getOpening(toteModel, unitType, orientation, use2x4Rails);
+
+  // In 2x4 rail mode, totes are never included (universal frame)
+  const effectiveAddOns = use2x4Rails
+    ? { ...addOns, totes: false }
+    : addOns;
 
   let cols: number;
   let rows: number;
@@ -237,22 +283,41 @@ export async function calculateBuild(
       return { success: false, error: "Valid wall dimensions are required." };
     }
     // For Mini units, cap the effective wall width at MINI_MAX_WIDTH (96")
-    const effectiveWallWidth = unitType === "mini"
+    const effectiveWallWidth = (unitType === "mini" && !use2x4Rails)
       ? Math.min(wallWidth, MINI_MAX_WIDTH)
       : wallWidth;
 
     // If wheels are enabled, subtract wheel height from available wall height
-    const effectiveWallHeight = addOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
+    const effectiveWallHeight = effectiveAddOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
 
     // Wall fit calculation using config values
     cols = Math.floor((effectiveWallWidth - config.postWidth) / (opening + config.postWidth));
-    const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
-    rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
+
+    if (use2x4Rails) {
+      // 2x4 rails: count how many fixed rail positions fit in the wall height.
+      // Rail positions are from bottom of posts. Posts sit on plates.
+      // Total height = bottom plate + post height (railPos + topGap) + top plate
+      rows = 0;
+      for (const pos of RAILS_2X4_POSITIONS) {
+        const totalH2x4 = config.plateHeight * 2 + pos + config.topGap;
+        if (totalH2x4 <= effectiveWallHeight) {
+          rows++;
+        } else {
+          break;
+        }
+      }
+    } else {
+      const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
+      rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
+    }
+
     if (cols < 1) cols = 1;
     if (rows < 1) rows = 1;
 
-    // Apply Mini max tier constraint
-    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+    // Apply max tier constraints
+    if (use2x4Rails && rows > RAILS_2X4_MAX_ROWS) {
+      rows = RAILS_2X4_MAX_ROWS;
+    } else if (unitType === "mini" && !use2x4Rails && rows > MINI_MAX_TIERS) {
       rows = MINI_MAX_TIERS;
     }
   } else {
@@ -263,8 +328,10 @@ export async function calculateBuild(
     if (rows < 1) rows = 1;
     if (rows > 20) rows = 20;
 
-    // Apply Mini max tier constraint for manual mode too
-    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+    // Apply max tier constraints
+    if (use2x4Rails && rows > RAILS_2X4_MAX_ROWS) {
+      rows = RAILS_2X4_MAX_ROWS;
+    } else if (unitType === "mini" && !use2x4Rails && rows > MINI_MAX_TIERS) {
       rows = MINI_MAX_TIERS;
     }
   }
@@ -272,9 +339,18 @@ export async function calculateBuild(
   // ── Dimensions ─────────────────────────────────────────────────────────
   const totalW = cols * opening + (cols + 1) * config.postWidth;
 
-  // Height calculation differs for Standard vs Mini
+  // Height calculation differs by construction type
   let frameH: number;
-  if (unitType === "mini") {
+  if (use2x4Rails) {
+    // 2x4 rail mode: rail positions are measured from bottom of vertical posts.
+    // Posts sit on a 1.5" bottom plate, and there's a 1.5" top plate.
+    // Post height = top rail position + topGap (2.75" above top rail).
+    // Frame height = bottom plate (1.5") + post height + top plate (1.5").
+    // Example: 4×2 = 1.5 + 29.5 + 2.75 + 1.5 = 35.25" total
+    const topRailPos = RAILS_2X4_POSITIONS[rows - 1];
+    const postHeight = topRailPos + config.topGap;
+    frameH = config.plateHeight * 2 + postHeight;
+  } else if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood
     // No top 2x4 plates, just plywood top
     const lastRailHeight = config.firstRailHeight + (rows - 1) * config.verticalSpacing;
@@ -285,7 +361,7 @@ export async function calculateBuild(
   }
 
   // Total height includes wheel height if wheels are selected
-  const totalH = addOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
+  const totalH = effectiveAddOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
 
   // ── Pricing ────────────────────────────────────────────────────────────
   // Apply installer pricing overrides if provided (Pro feature)
@@ -300,7 +376,7 @@ export async function calculateBuild(
 
   const slots = cols * rows;
   let price = slots * effectiveSlotPrice;
-  if (addOns.totes) {
+  if (effectiveAddOns.totes) {
     let totePrice: number;
     if (toteModel === "HDX" && unitType === "standard" && toteColor === "clear") {
       totePrice = ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE;
@@ -311,11 +387,11 @@ export async function calculateBuild(
     }
     price += slots * totePrice;
   }
-  if (addOns.wheels) price += effectiveWheelsPrice;
+  if (effectiveAddOns.wheels) price += effectiveWheelsPrice;
 
   // Plywood top calculation
   let topSheets = 0;
-  const effectiveHasTop = config.topIsMandatory || addOns.top;
+  const effectiveHasTop = config.topIsMandatory || effectiveAddOns.top;
 
   if (effectiveHasTop) {
     if (unitType === "mini") {
@@ -387,8 +463,8 @@ export async function calculateBuild(
       toteColor,
       unitType,
       orientation,
-      hasTotes: addOns.totes,
-      hasWheels: addOns.wheels,
+      hasTotes: effectiveAddOns.totes,
+      hasWheels: effectiveAddOns.wheels,
       hasTop: effectiveHasTop,
       slots,
       topSheets,

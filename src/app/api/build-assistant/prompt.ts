@@ -25,6 +25,20 @@ const PRODUCT_KNOWLEDGE = `
 - Max 4 tiers, max 96" wide
 - Plywood top is mandatory (structural)
 
+### 2x4 Rail Construction Mode
+- Alternative build method using ripped 2x4 lumber rails instead of plywood strips
+- Universal 21" openings (tote type is irrelevant — no totes included)
+- Rails are ripped 2x4s: 1.5" wide × 1.75" tall, same orientation as posts (narrow face)
+- Fixed rail heights from bottom of vertical posts: 13-3/4", 29-1/2", 45-1/4", 61", 76-3/4"
+- Max 5 rows (each row corresponds to a fixed rail position)
+- 6 rail pieces per 2x4x8' board (ripped in half lengthwise → 2 strips × 3 cuts at 30" depth)
+- Frame height = 1.5" bottom plate + post height + 1.5" top plate (4 plates total: top/bottom × front/back)
+- Post height = top rail position + 2.75" top gap
+- Example: 4×2 unit = 91.5" wide × 35.25" tall (posts = 32.25", + 3" for plates)
+- Rails use 3" screws (not 1-5/8" plywood screws) — 4 screws per rail piece
+- No plywood strip stock needed (only sheets for optional plywood top)
+- Enabled per-installer via pricing settings toggle
+
 ### Add-ons (Organizer Customization)
 - Plywood doors (per-bay or all bays), side panels, shelves, rail removal
 - Concealed hinges (Blum pairs) included with doors
@@ -188,8 +202,9 @@ function formatBuildContext(ctx: BuildContext): string {
   }
 
   if (ctx.installerPricing && Object.keys(ctx.installerPricing).length > 0) {
+    const use2x4 = (ctx.installerPricing as Record<string, unknown>).use_2x4_rails === true;
     parts.push(`## Custom Pricing Active
-The installer has custom pricing overrides configured. Calculations already use these rates.`);
+The installer has custom pricing overrides configured. Calculations already use these rates.${use2x4 ? "\n**2x4 Rail Construction Mode is ENABLED.** All tote rack builds use ripped 2x4 rails instead of plywood strips. Universal 21\" openings, max 5 rows, no totes. Rail boards are counted separately from structural boards." : ""}`);
   }
 
   return parts.length > 0 ? parts.join("\n\n") : "No build configured yet.";

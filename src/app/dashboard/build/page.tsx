@@ -680,6 +680,7 @@ export default function BuildConfiguratorPage() {
         totalH: res.dimensions.totalH,
         depth: res.dimensions.depth,
         desc: `${res.cols} Wide × ${res.rows} High`,
+        use2x4Rails: installerPricing?.use_2x4_rails === true,
       };
       generateBuildManifestServer([unit]).then(setManifest).catch(() => {});
 
@@ -692,6 +693,7 @@ export default function BuildConfiguratorPage() {
         hasTotes,
         hasWheels,
         hasTop: unitType === "mini" ? true : hasTop,
+        use2x4Rails: installerPricing?.use_2x4_rails === true,
       }, materialPrices, installerInventory).then(setMaterialBreakdown).catch(() => {});
     } catch {
       setCalcError("Calculation failed. Please try again.");
@@ -753,6 +755,7 @@ export default function BuildConfiguratorPage() {
       shelvingConfigId: u.shelvingConfigId,
       overheadGridPresetId: u.overheadGridPresetId,
       addons: u.addons,
+      use2x4Rails: installerPricing?.use_2x4_rails === true,
     }));
     calculateMaterialCostServer(configs, materialPrices, installerInventory).then(setAggregateMaterials).catch(() => {});
   }, [units, materialPrices, installerInventory]);
@@ -780,6 +783,7 @@ export default function BuildConfiguratorPage() {
       paintFrameColor: u.paintFrameColor,
       paintDoorColor: u.paintDoorColor,
       paintSidePanelColor: u.paintSidePanelColor,
+      use2x4Rails: installerPricing?.use_2x4_rails === true,
     }));
     generateBuildManifestServer(quoteUnits).then(setAggregateManifest).catch(() => {});
   }, [units]);
@@ -831,6 +835,7 @@ export default function BuildConfiguratorPage() {
           totalH: groupUnits[0].totalH || 0,
           depth: groupUnits[0].depth || 30,
           desc,
+          use2x4Rails: installerPricing?.use_2x4_rails === true,
         });
         continue;
       }
@@ -855,6 +860,7 @@ export default function BuildConfiguratorPage() {
         paintFrameColor: u.paintFrameColor,
         paintDoorColor: u.paintDoorColor,
         paintSidePanelColor: u.paintSidePanelColor,
+        use2x4Rails: installerPricing?.use_2x4_rails === true,
       });
     }
 
@@ -873,6 +879,7 @@ export default function BuildConfiguratorPage() {
         totalH: buildResult.totalH,
         depth: buildResult.depth,
         desc: `${buildResult.cols} Wide × ${buildResult.rows} High`,
+        use2x4Rails: installerPricing?.use_2x4_rails === true,
       });
     }
 
@@ -1198,15 +1205,15 @@ export default function BuildConfiguratorPage() {
                 return (
                 <div className="mt-3 space-y-3">
                   {/* Totes toggle — hidden for mandatory-tote presets like Track Norris */}
-                  {activePresetObj?.totesAreMandatory ? (
+                  {activePresetObj?.totesAreMandatory && installerPricing?.use_2x4_rails !== true ? (
                     <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
                       <Package className="h-4 w-4 text-yellow-400" />
                       Totes included — drawer slide system
                     </div>
-                  ) : activePresetObj?.totesDisabled ? (
+                  ) : activePresetObj?.totesDisabled || installerPricing?.use_2x4_rails === true ? (
                     <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
                       <Package className="h-4 w-4 text-stone-500" />
-                      Frame only — no totes
+                      {installerPricing?.use_2x4_rails ? "2x4 rail construction — universal frame" : "Frame only — no totes"}
                     </div>
                   ) : (
                     <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
@@ -1694,22 +1701,34 @@ export default function BuildConfiguratorPage() {
                     type="number"
                     inputMode="numeric"
                     min="1"
-                    max="20"
+                    max={installerPricing?.use_2x4_rails ? "5" : "20"}
                     value={customRows}
                     onChange={(e) => setCustomRows(e.target.value)}
-                    placeholder="e.g. 5"
+                    placeholder={installerPricing?.use_2x4_rails ? "e.g. 4 (max 5)" : "e.g. 5"}
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
                   />
                 </div>
               </div>
               <p className="mt-2 text-[10px] text-stone-500">
-                Enter the number of tote columns and rows for your unit.
+                {installerPricing?.use_2x4_rails
+                  ? "Enter the number of columns and rows (max 5 tiers for 2x4 rail construction)."
+                  : "Enter the number of tote columns and rows for your unit."}
               </p>
             </>
           )}
 
-          {/* ── Unit Size Toggle (Standard vs Mini) ──────────────── */}
-          {installerPricing?.mini_enabled === true && (
+          {/* ── 2x4 Rail Construction Mode Indicator ─────────────── */}
+          {installerPricing?.use_2x4_rails === true && (
+            <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">2x4 Rail Construction</div>
+              <div className="mt-1 text-xs text-stone-400">
+                21&quot; universal openings &middot; Ripped 2x4 rails &middot; Max 5 tiers
+              </div>
+            </div>
+          )}
+
+          {/* ── Unit Size Toggle (Standard vs Mini) — hidden in 2x4 rail mode ── */}
+          {installerPricing?.mini_enabled === true && installerPricing?.use_2x4_rails !== true && (
             <div className="mt-3">
               <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
                 Unit Size
@@ -1745,8 +1764,8 @@ export default function BuildConfiguratorPage() {
             </div>
           )}
 
-          {/* ── Tote Orientation (Standard units only) ─────────────── */}
-          {unitType === "standard" && (
+          {/* ── Tote Orientation (Standard units only, hidden in 2x4 mode) ── */}
+          {unitType === "standard" && installerPricing?.use_2x4_rails !== true && (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Orientation
@@ -1788,8 +1807,8 @@ export default function BuildConfiguratorPage() {
           </div>
           )}
 
-          {/* ── Tote Size (Standard units only) ────────────────────── */}
-          {unitType === "standard" ? (
+          {/* ── Tote Size (Standard units only, hidden in 2x4 mode) ── */}
+          {installerPricing?.use_2x4_rails !== true && unitType === "standard" ? (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Size
@@ -1846,19 +1865,20 @@ export default function BuildConfiguratorPage() {
               </button>
             </div>
           </div>
-          ) : (
+          ) : installerPricing?.use_2x4_rails !== true ? (
             <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Tote Type</div>
               <div className="mt-1 text-sm font-medium text-stone-300">
                 6.5 Quart Clear Totes (Yellow Lids)
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Toggles */}
           <div className="mt-3 space-y-2">
             {[
-              { val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false },
+              // Hide totes toggle in 2x4 rail mode (frame-only, totes not relevant)
+              ...(installerPricing?.use_2x4_rails !== true ? [{ val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false }] : []),
               { val: hasWheels, set: setHasWheels, label: "Wheels", disabled: false },
               { val: unitType === "mini" ? true : hasTop, set: setHasTop, label: "Plywood Top", disabled: unitType === "mini" },
             ].map(({ val, set, label, disabled }) => (

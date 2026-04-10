@@ -347,6 +347,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   const [overheadEnabled, setOverheadEnabled] = useState(false);
   const [raisedBedEnabled, setRaisedBedEnabled] = useState(false);
   const [totesDisabled, setTotesDisabled] = useState(false);
+  const [use2x4Rails, setUse2x4Rails] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
 
   // ── Collapsible pricing categories ──────────────────────────────────
@@ -377,7 +378,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     }, 800); // 800ms debounce
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, totesDisabled, presetToggles, addonEnabled, addonValues, addonToggles]);
+  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, totesDisabled, use2x4Rails, presetToggles, addonEnabled, addonValues, addonToggles]);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -393,6 +394,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
       setValues(loaded);
       setTotesDisabled(result.pricing.totes_disabled === true);
+      setUse2x4Rails(result.pricing.use_2x4_rails === true);
       setMiniEnabled(result.pricing.mini_enabled === true);
       setShelvingEnabled(result.pricing.open_shelving_enabled === true);
       setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
@@ -460,6 +462,7 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
       }
     }
     if (totesDisabled) pricing.totes_disabled = true;
+    if (use2x4Rails) pricing.use_2x4_rails = true;
     if (miniEnabled) pricing.mini_enabled = true;
     if (shelvingEnabled) pricing.open_shelving_enabled = true;
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
@@ -650,6 +653,31 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           </div>
           <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${totesDisabled ? "bg-red-400" : "bg-slate-600"}`}>
             <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${totesDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+        </button>
+      </div>
+
+      {/* 2x4 Rail Construction Toggle */}
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setUse2x4Rails(!use2x4Rails)}
+          className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 transition-all ${
+            use2x4Rails
+              ? "border-yellow-500/30 bg-yellow-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className="text-left">
+            <p className={`text-xs font-bold ${use2x4Rails ? "text-yellow-400" : "text-stone-400"}`}>
+              2x4 Rail Construction
+            </p>
+            <p className="text-[10px] text-stone-600">
+              {use2x4Rails ? "Using ripped 2x4 rails. 21\" universal openings. Tote type is not relevant." : "Toggle on to use ripped 2x4 rails instead of plywood strips."}
+            </p>
+          </div>
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${use2x4Rails ? "bg-yellow-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${use2x4Rails ? "translate-x-4" : "translate-x-0.5"}`} />
           </div>
         </button>
       </div>

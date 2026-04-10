@@ -29,6 +29,7 @@ export interface InstallerChatContext {
   miniWheels?: number;
   plywoodTop?: number;
   totesDisabled?: boolean;
+  use2x4Rails?: boolean;
   miniEnabled?: boolean;
   shelvingEnabled?: boolean;
   overheadEnabled?: boolean;
@@ -41,8 +42,9 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext): string {
   const name = c.installerName || "your installer";
 
   const forbidden: string[] = [];
-  if (c.totesDisabled) forbidden.push("totes", "tote color", "tote size", "HDX totes", "black or clear totes");
-  if (!c.miniEnabled) forbidden.push("mini totes");
+  if (c.totesDisabled || c.use2x4Rails) forbidden.push("totes", "tote color", "tote size", "HDX totes", "black or clear totes");
+  if (c.use2x4Rails) forbidden.push("mini totes", "tote orientation", "sideways orientation");
+  if (!c.miniEnabled && !c.use2x4Rails) forbidden.push("mini totes");
   if (!c.shelvingEnabled) forbidden.push("open shelving");
   if (!c.overheadEnabled) forbidden.push("overhead storage");
   if (!c.raisedBedEnabled) forbidden.push("raised bed planters");

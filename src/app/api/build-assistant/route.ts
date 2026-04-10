@@ -74,6 +74,7 @@ async function runCalculations(
     try {
       switch (a.type) {
         case "build": {
+          const is2x4Build = ctx.installerPricing?.use_2x4_rails === true;
           const isWallFit = !!(a.wallWidth && a.wallHeight);
           const r = await calculateBuild({
             ...(isWallFit
@@ -84,7 +85,7 @@ async function runCalculations(
             unitType: a.unitType ?? "standard",
             orientation: a.orientation ?? "standard",
             addOns: {
-              totes: a.hasTotes ?? true,
+              totes: is2x4Build ? false : (a.hasTotes ?? true),
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
@@ -110,9 +111,10 @@ async function runCalculations(
         }
 
         case "preset": {
+          const is2x4Preset = ctx.installerPricing?.use_2x4_rails === true;
           const r = await calculateCompoundBuild({
             presetId: a.presetId ?? "indiana-joe",
-            hasTotes: a.hasTotes ?? true,
+            hasTotes: is2x4Preset ? false : (a.hasTotes ?? true),
             installerPricing: ctx.installerPricing,
           });
           if (r.success) {
@@ -135,6 +137,7 @@ async function runCalculations(
         }
 
         case "manifest": {
+          const is2x4Manifest = ctx.installerPricing?.use_2x4_rails === true;
           const isWallFitM = !!(a.wallWidth && a.wallHeight);
           const br = await calculateBuild({
             ...(isWallFitM
@@ -145,7 +148,7 @@ async function runCalculations(
             unitType: a.unitType ?? "standard",
             orientation: a.orientation ?? "standard",
             addOns: {
-              totes: a.hasTotes ?? true,
+              totes: is2x4Manifest ? false : (a.hasTotes ?? true),
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
@@ -159,7 +162,7 @@ async function runCalculations(
                 toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: br.config.unitType,
                 orientation: br.config.orientation,
-                hasTotes: br.config.hasTotes,
+                hasTotes: is2x4Manifest ? false : br.config.hasTotes,
                 hasWheels: br.config.hasWheels,
                 hasTop: br.config.hasTop,
                 price: br.price,
@@ -167,6 +170,7 @@ async function runCalculations(
                 totalH: br.dimensions.totalH,
                 depth: br.dimensions.depth,
                 desc: `${br.cols}W x ${br.rows}H`,
+                use2x4Rails: is2x4Manifest,
               },
             ]);
             results.push({
@@ -181,6 +185,7 @@ async function runCalculations(
         }
 
         case "materials": {
+          const is2x4Materials = ctx.installerPricing?.use_2x4_rails === true;
           // If wall dimensions given, first resolve to cols/rows
           let matCols = a.cols ?? 4;
           let matRows = a.rows ?? 4;
@@ -189,7 +194,7 @@ async function runCalculations(
               wallWidth: a.wallWidth, wallHeight: a.wallHeight,
               toteModel: a.toteModel ?? "HDX", toteColor: "black",
               unitType: a.unitType ?? "standard", orientation: a.orientation ?? "standard",
-              addOns: { totes: a.hasTotes ?? true, wheels: a.hasWheels ?? false, top: a.hasTop ?? true },
+              addOns: { totes: is2x4Materials ? false : (a.hasTotes ?? true), wheels: a.hasWheels ?? false, top: a.hasTop ?? true },
               mode: "wallFit", installerPricing: ctx.installerPricing,
             });
             if (fitResult.success) { matCols = fitResult.cols; matRows = fitResult.rows; }
@@ -201,9 +206,10 @@ async function runCalculations(
                 rows: matRows,
                 toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: (a.unitType ?? "standard") as "standard" | "mini",
-                hasTotes: a.hasTotes ?? true,
+                hasTotes: is2x4Materials ? false : (a.hasTotes ?? true),
                 hasWheels: a.hasWheels ?? false,
                 hasTop: a.hasTop ?? true,
+                use2x4Rails: is2x4Materials,
               },
             ],
             ctx.materialPrices ?? {},

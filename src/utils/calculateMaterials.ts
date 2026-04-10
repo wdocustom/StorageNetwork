@@ -43,6 +43,8 @@ export interface MaterialConfig {
   addons?: import("@/types/viewModels").SectionAddon[];
   /** Compound preset sub-units (old DB records only — new leads expand client-side) */
   presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
+  /** When true, uses ripped 2x4 rails instead of plywood strips */
+  use2x4Rails?: boolean;
 }
 
 export interface MaterialBreakdown {
@@ -66,6 +68,10 @@ export interface MaterialBreakdown {
     lumber_boards: number;
     totes: number;
     wheel_kits: number;
+    /** 2x4 rail construction: individual rail pieces needed */
+    rails_2x4_pieces?: number;
+    /** 2x4 rail construction: total 2x4x8' boards for rails (6 rails per board) */
+    rails_2x4_boards?: number;
     overhead_lag_bolts?: number;
     overhead_structural_screws?: number;
     overhead_plywood_sheets?: number;

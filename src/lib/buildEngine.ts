@@ -72,6 +72,18 @@ const MINI_TIER_HEIGHT = 7; // shorter vertical spacing
 const MINI_DEPTH = 12.75;
 const MINI_FIRST_RAIL_HEIGHT = 5.25;
 
+// ── 2x4 Rail Construction Constants ────────────────────────────────────
+const RAILS_2X4_OPENING = 21;     // universal 21" opening
+const RAILS_2X4_GAP = 1.5;       // post width (same 2x4)
+const RAILS_2X4_DEPTH = 30;
+const RAILS_2X4_PLATE_HEIGHT = 1.5;
+const RAILS_2X4_TOP_GAP = 2.75;
+/** Fixed rail heights from bottom of vertical posts (not bottom of unit) */
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
+const RAILS_2X4_MAX_ROWS = 5;
+/** Each 2x4x8' board ripped in half, then cut at 30" depth = 6 rail pieces */
+const RAILS_2X4_PER_BOARD = 6;
+
 // ── Pricing Constants ───────────────────────────────────────────────────
 const STANDARD_PRICE_PER_SLOT = 30;
 const MINI_PRICE_PER_SLOT = 15;
@@ -210,6 +222,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     orientation: Orientation;
   }[] = [];
 
+  // ── 2x4 Rail Board Accumulator ──────────────────────────────────────
+  let global2x4RailCount = 0;
+
   quoteData.forEach((unit, unitIdx) => {
     const {
       cols: totalCols,
@@ -222,6 +237,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       hasWheels,
       hasTop
     } = unit;
+    const is2x4 = unit.use2x4Rails === true;
 
     // ── Overhead ceiling storage unit path ────────────────────────────────
     // Overhead units have their own hardware (lag bolts, structural screws)
@@ -307,14 +323,17 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
     if (totalCols < 1 || totalRows < 1) return;
 
-    // Get config based on unit type and orientation
-    const opening = getOpening(toteType, unitType, orientation);
-    const gap = getGap(unitType);
+    // Get config based on unit type, orientation, and 2x4 rail mode
+    const opening = is2x4 ? RAILS_2X4_OPENING : getOpening(toteType, unitType, orientation);
+    const gap = is2x4 ? RAILS_2X4_GAP : getGap(unitType);
     const pricePerSlot = unitType === "mini" ? MINI_PRICE_PER_SLOT : STANDARD_PRICE_PER_SLOT;
     const totePrice = unitType === "mini"
       ? MINI_TOTE_PRICE
       : (toteType === "HDX" && toteColor === "clear" ? STANDARD_TOTE_CLEAR_PRICE : STANDARD_TOTE_PRICE);
     const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
+    // In 2x4 mode, clamp rows to max 5 and force totes off
+    const effectiveRows = is2x4 ? Math.min(totalRows, RAILS_2X4_MAX_ROWS) : totalRows;
+    const effectiveHasTotes = is2x4 ? false : hasTotes;
 
     // ── Auto-Split Logic: WIDTH (max 4 cols per module) ─────────────
     const widthModules: number[] = [];
@@ -326,7 +345,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     if (remainingCols > 0) widthModules.push(remainingCols);
 
     // ── Auto-Split Logic: HEIGHT (max rows per tier to fit 8ft stock) ─
-    const heightTiers = splitHeightTiers(totalRows, unitType);
+    // 2x4 rail mode: max 5 rows, always single tier (posts fit within 8ft)
+    const heightTiers = is2x4 ? [effectiveRows] : splitHeightTiers(totalRows, unitType);
 
     // ── Unit-level add-ons ───────────────────────────────────────────
     if (hasWheels) {
@@ -345,7 +365,16 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       heightTiers.forEach((tierRows, heightTierIndex) => {
         const modKey = `${unitIdx}-${widthModIndex}-${heightTierIndex}`;
         const slots = cols * tierRows;
-        const uprightHeight = calcUprightHeight(tierRows, unitType);
+
+        // ── Upright height: 2x4 rail mode uses fixed rail positions ──
+        let uprightHeight: number;
+        if (is2x4) {
+          // Post height = top rail position + topGap
+          const topRailPos = RAILS_2X4_POSITIONS[tierRows - 1];
+          uprightHeight = topRailPos + RAILS_2X4_TOP_GAP;
+        } else {
+          uprightHeight = calcUprightHeight(tierRows, unitType);
+        }
 
         // Collect upright parts for global bin packing
         // Every module is a self-contained frame with its own posts on both ends.
@@ -363,8 +392,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         }
 
         // Top & bottom plates for each tier
-        // Each height tier is a self-contained structural frame
-        const numRailSets = unitType === "mini" ? 2 : 4;
+        // 2x4 rail mode: 4 plates (top front, top back, bottom front, bottom back)
+        // Standard: 4 plates; Mini: 2 plates
+        const numRailSets = is2x4 ? 4 : (unitType === "mini" ? 2 : 4);
         for (let k = 0; k < numRailSets; k++) {
           allParts.push({
             len: modWidth,
@@ -375,23 +405,42 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
           });
         }
 
-        // ── Plywood Strips ────────────────────────────────────────────
-        const numRails = slots * 2;
-        const backSupports = cols <= 4 ? 4 : 6;
-        const modStrips = numRails + backSupports;
-        globalStripCount += modStrips;
+        // ── Rails: 2x4 mode uses ripped 2x4 pieces, standard uses plywood strips ──
+        let modStrips: number;
+        let numRails: number;
+        let backSupports: number;
+        if (is2x4) {
+          // 2x4 rail mode: 2 rails per slot (front + back) — no plywood strips or back supports
+          numRails = 0;
+          backSupports = 0;
+          modStrips = 0;
+          // Each slot has 2 rail pieces (front + back), counted globally
+          global2x4RailCount += slots * 2;
+        } else {
+          numRails = slots * 2;
+          backSupports = cols <= 4 ? 4 : 6;
+          modStrips = numRails + backSupports;
+          globalStripCount += modStrips;
+        }
 
         // ── Screws ────────────────────────────────────────────────────
-        gScrew16 += numRails * 4;
-        gScrew3 += (cols + 1) * 20;
+        if (is2x4) {
+          // 2x4 rails: 3" screws for rail-to-post attachment (4 per rail piece)
+          gScrew3 += slots * 2 * 4;
+          // Structural: posts to plates
+          gScrew3 += (cols + 1) * 20;
+        } else {
+          gScrew16 += numRails * 4;
+          gScrew3 += (cols + 1) * 20;
+        }
 
         // ── Retail (only count once for the full row set across height tiers) ──
         // We'll add retail at tier level to properly track total slots
         let modRetail = slots * pricePerSlot;
-        if (hasTotes) modRetail += slots * totePrice;
+        if (effectiveHasTotes) modRetail += slots * totePrice;
         gRetail += modRetail;
 
-        if (hasTotes) gTotes += slots;
+        if (effectiveHasTotes) gTotes += slots;
 
         moduleMetadata.push({
           unitIdx,
@@ -412,8 +461,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     });
 
     // ── Top Sheets (per unit width) ─────────────────────────────────
-    const effectiveHasTop = unitType === "mini" || hasTop;
-    if (effectiveHasTop) {
+    const effectiveHasTopSheet = unitType === "mini" || hasTop;
+    if (effectiveHasTopSheet) {
       let sheetsForUnit = 0;
       if (unitTotalWidth > 192) sheetsForUnit = 3;
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
@@ -424,7 +473,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       // ONE 4×8 sheet when the unit is ≤5 cols, ≤2 rows, and HDX totes.
       // HDX only: Greenmade's wider opening (20.75") makes Top #2 = 18.25",
       // which exceeds the 18" remainder strip after the 30" rip.
-      if (sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2 && toteType === "HDX") {
+      // Skip this optimization for 2x4 rail mode (no plywood strips to consolidate)
+      if (!is2x4 && sheetsForUnit === 2 && totalCols <= 5 && totalRows <= 2 && toteType === "HDX") {
         sheetsForUnit = 1;
         const unitBackSupports = widthModules.reduce((sum, c) => sum + (c <= 4 ? 4 : 6), 0) * heightTiers.length;
         globalStripCount -= unitBackSupports;
@@ -663,10 +713,21 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   const boxes3 = Math.ceil(gScrew3 / 137);
   const boxes1 = Math.ceil(gScrew1 / 90);
 
+  // ── 2x4 Rail Board Calculation ────────────────────────────────────────
+  const railBoards2x4 = Math.ceil(global2x4RailCount / RAILS_2X4_PER_BOARD);
+
   // ── Shopping List ─────────────────────────────────────────────────────
   const shopping_list: ShoppingItem[] = [
-    { name: "2x4 Lumber", detail: "8 ft Standard", qty: gBoards },
+    { name: "2x4 Lumber", detail: "8 ft Standard (structural)", qty: gBoards },
   ];
+
+  if (railBoards2x4 > 0) {
+    shopping_list.push({
+      name: "2x4 Lumber",
+      detail: `8 ft (ripped for rails — ${global2x4RailCount} pieces, 6 per board)`,
+      qty: railBoards2x4,
+    });
+  }
 
   let plyDetail = "Total Sheets";
   if (shelvingPlywoodSheets > 0 && globalTopSheets > 0) {
@@ -773,7 +834,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       balanceDue,
     },
     totals: {
-      boards: gBoards + overheadNailers,
+      boards: gBoards + railBoards2x4 + overheadNailers,
       sheets: gSheets + addonDoorSheets + addonPanelSheets + addonShelfSheets + overheadPlywoodSheets,
       totes: gTotes + overheadTotes,
       wheelKits: gWheels,

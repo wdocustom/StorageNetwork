@@ -128,6 +128,11 @@ export interface InstallerPricing {
   overhead_storage_enabled?: boolean;
   /** When true, raised bed planters are shown on the installer's design page (default: off) */
   raised_bed_enabled?: boolean;
+  /** When true, builds use ripped 2x4 rails instead of plywood strips.
+   *  Openings are 21" universal (tote type irrelevant). Max 5 rows.
+   *  Rail heights: 13-3/4", 29-1/2", 45-1/4", 61", 76-3/4".
+   *  Also implies totes_disabled behavior (frame-only, universal fit). */
+  use_2x4_rails?: boolean;
   /** Per-overhead-grid total-price overrides (ceiling tote rail system).
    *  Key pattern: overhead_<slotsWide>x<slotsDeep> */
   overhead_2x2?: number;

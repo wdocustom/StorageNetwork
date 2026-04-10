@@ -16,8 +16,8 @@ export default function StepConfiguration({
 }) {
   return (
     <>
-      {/* Unit Size Cards — hidden when totes are globally disabled (frame only) */}
-      {!props.miniDisabled && !props.totesDisabled && (
+      {/* Unit Size Cards — hidden when totes disabled or 2x4 rail mode (universal frame) */}
+      {!props.miniDisabled && !props.totesDisabled && !props.use2x4Rails && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Unit Size
@@ -46,8 +46,8 @@ export default function StepConfiguration({
         </div>
       )}
 
-      {/* Orientation Cards */}
-      {!props.activePreset && props.unitType === "standard" && (
+      {/* Orientation Cards — hidden in 2x4 rail mode (always standard orientation, 30" deep) */}
+      {!props.activePreset && props.unitType === "standard" && !props.use2x4Rails && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             {props.totesDisabled ? "Orientation" : "Tote Orientation"}
@@ -71,8 +71,8 @@ export default function StepConfiguration({
         </div>
       )}
 
-      {/* Tote Size — hidden when totes globally disabled */}
-      {!props.totesDisabled && !props.activePreset && props.unitType === "standard" ? (
+      {/* Tote Size — hidden when totes globally disabled or 2x4 rail mode */}
+      {!props.totesDisabled && !props.use2x4Rails && !props.activePreset && props.unitType === "standard" ? (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Tote Size
@@ -124,7 +124,7 @@ export default function StepConfiguration({
             </SelectionCard>
           </div>
         </div>
-      ) : !props.totesDisabled && !props.activePreset && props.unitType !== "standard" ? (
+      ) : !props.totesDisabled && !props.use2x4Rails && !props.activePreset && props.unitType !== "standard" ? (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
           <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Tote Type</div>
           <div className="mt-1 text-sm font-medium text-zinc-300">

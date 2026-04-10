@@ -74,6 +74,7 @@ interface JobTicketProps {
   installerId?: string | null;
   reviewToken?: string | null;
   reviewSubmitted?: boolean;
+  use2x4Rails?: boolean;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -100,6 +101,7 @@ export default function JobTicket({
   installerId,
   reviewToken,
   reviewSubmitted,
+  use2x4Rails,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -1595,6 +1597,7 @@ export default function JobTicket({
           units={quoteData.map((u) => ({ cols: u.cols, rows: u.rows, toteType: u.toteType }))}
           cutPlanModules={buildManifest.cut_plan_visuals}
           scrollIdPrefix="jt-cut-module"
+          use2x4Rails={use2x4Rails}
         />
       )}
 

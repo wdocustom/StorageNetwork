@@ -87,6 +87,8 @@ export interface ConfiguratorSidebarProps {
   miniDisabled?: boolean;
   /** When true, totes are globally disabled — hide all tote options */
   totesDisabled?: boolean;
+  /** When true, 2x4 rail construction mode is active — 21" universal openings, max 5 rows */
+  use2x4Rails?: boolean;
 
   // Pricing info for toggle labels
   pricing?: {

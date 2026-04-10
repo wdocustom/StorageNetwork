@@ -46,7 +46,20 @@ const MINI_TIER_HEIGHT = 7;
 const MINI_FIRST_RAIL_HEIGHT = 5.25;
 const MINI_MAX_ROWS_PER_TIER = 13; // but mini is capped at 4 anyway
 
-// ── Plywood Strip Yields ─────────────────────────────────────────────────
+// ── 2x4 Rail Construction Constants ────────────────────────────────────
+const RAILS_2X4_OPENING = 21;           // 21" universal opening
+const RAILS_2X4_GAP = 1.5;              // 2x4 post width
+const RAILS_2X4_DEPTH = 30;             // 30" rail depth
+const RAILS_2X4_TOP_GAP = 2.75;         // 2.75" above top rail
+// Fixed rail positions (top of each rail from bottom of unit)
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
+const RAILS_2X4_MAX_ROWS = 5;
+// 6 rails per 2x4x8' piece:
+//   Rip 2x4 in half lengthwise → 2 strips of 1-3/4" wide
+//   Cut each strip into 3 pieces at 30" (+ kerf) → 6 rail pieces
+const RAILS_2X4_PER_BOARD = 6;
+
+// ���─ Plywood Strip Yields ��─────────────��──────────────────────────────────
 // Standard: 1-7/8" wide × 30" long strips
 const STANDARD_STRIPS_PER_STRUCT_SHEET = 72;  // 24 rips × 3 pieces
 const STANDARD_STRIPS_PER_TOP_OFFCUT = 27;
@@ -58,7 +71,12 @@ const MINI_STRIPS_PER_STRUCT_SHEET = 294;
 //   Conservative: 42 rips × 4 pieces from remainder ≈ 200+
 const MINI_STRIPS_PER_TOP_OFFCUT = 200;
 
-function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "standard"): number[] {
+function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "standard", use2x4Rails = false): number[] {
+  if (use2x4Rails) {
+    // 2x4 rail mode: max 5 rows, no height tiering (posts fit within 8')
+    const capped = Math.min(totalRows, RAILS_2X4_MAX_ROWS);
+    return [capped];
+  }
   const maxRows = unitType === "mini" ? MINI_MAX_ROWS_PER_TIER : MAX_ROWS_PER_TIER;
   if (totalRows <= maxRows) return [totalRows];
   const tiers: number[] = [];
@@ -71,7 +89,13 @@ function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "st
   return tiers;
 }
 
-function calcUprightHeight(rows: number, unitType: "standard" | "mini"): number {
+function calcUprightHeight(rows: number, unitType: "standard" | "mini", use2x4Rails = false): number {
+  if (use2x4Rails) {
+    // 2x4 rail mode: post height = top rail position + 2.75" top gap
+    // Rail positions measured from bottom of posts (not bottom of unit/plate)
+    const cappedRows = Math.min(rows, RAILS_2X4_MAX_ROWS);
+    return RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
+  }
   if (unitType === "mini") {
     return MINI_FIRST_RAIL_HEIGHT + (rows - 1) * MINI_TIER_HEIGHT + 2;
   }
@@ -99,6 +123,7 @@ export async function calculateMaterialCostServer(
 
   let globalStripCount = 0;      // standard-width strips (1-7/8")
   let globalMiniStripCount = 0;  // mini-width strips (1")
+  let global2x4RailCount = 0;   // 2x4 rail pieces (ripped from 2x4x8')
   let globalTopSheets = 0;
   let globalMiniTopSheets = 0;
 
@@ -180,7 +205,11 @@ export async function calculateMaterialCostServer(
     const { cols: totalCols, rows: totalRows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
     const unitType = unit.unitType ?? "standard";
     const isMini = unitType === "mini";
+    const is2x4Rails = unit.use2x4Rails === true;
     if (totalCols < 1 || totalRows < 1) continue;
+
+    // In 2x4 rail mode, totes are never included
+    const effectiveHasTotes = is2x4Rails ? false : hasTotes;
 
     const widthModules: number[] = [];
     let remainingCols = totalCols;
@@ -190,7 +219,7 @@ export async function calculateMaterialCostServer(
     }
     if (remainingCols > 0) widthModules.push(remainingCols);
 
-    const heightTiers = splitHeightTiers(totalRows, unitType);
+    const heightTiers = splitHeightTiers(totalRows, unitType, is2x4Rails);
 
     if (hasWheels) {
       totalWheelKits++;
@@ -201,15 +230,15 @@ export async function calculateMaterialCostServer(
 
     for (let modIdx = 0; modIdx < widthModules.length; modIdx++) {
       const cols = widthModules[modIdx];
-      const opening = isMini ? MINI_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM);
-      const gap = isMini ? MINI_GAP : GAP;
+      const opening = is2x4Rails ? RAILS_2X4_OPENING : (isMini ? MINI_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM));
+      const gap = is2x4Rails ? RAILS_2X4_GAP : (isMini ? MINI_GAP : GAP);
       const modWidth = cols * opening + (cols + 1) * gap;
       unitTotalWidth += modWidth;
 
       for (let tierIdx = 0; tierIdx < heightTiers.length; tierIdx++) {
         const tierRows = heightTiers[tierIdx];
         const slots = cols * tierRows;
-        const uprightHeight = calcUprightHeight(tierRows, unitType);
+        const uprightHeight = calcUprightHeight(tierRows, unitType, is2x4Rails);
 
         // Posts: every module has posts on both ends
         const postCount = (cols + 1) * 2;
@@ -217,16 +246,20 @@ export async function calculateMaterialCostServer(
           allParts.push(uprightHeight);
         }
 
-        // Top & bottom plates: mini has 2 (no 2x4 top plate), standard has 4
-        const numPlates = isMini ? 2 : 4;
+        // Plates: 2x4 rail mode has top + bottom plates (4), standard has 4, mini has 2
+        const numPlates = is2x4Rails ? 4 : (isMini ? 2 : 4);
         for (let k = 0; k < numPlates; k++) {
           allParts.push(modWidth);
         }
 
-        // Plywood strips: rails + back supports
+        // Rails and back supports
         const numRails = slots * 2;
         const backSupports = cols <= 4 ? 4 : 6;
-        if (isMini) {
+
+        if (is2x4Rails) {
+          // 2x4 rail mode: rails + back supports are ripped 2x4 pieces
+          global2x4RailCount += numRails + backSupports;
+        } else if (isMini) {
           globalMiniStripCount += numRails + backSupports;
         } else {
           globalStripCount += numRails + backSupports;
@@ -235,13 +268,14 @@ export async function calculateMaterialCostServer(
         totalScrew16 += numRails * 4;
         totalScrew3 += (cols + 1) * 20;
 
-        if (hasTotes) totalTotes += slots;
+        if (effectiveHasTotes) totalTotes += slots;
       }
     }
 
     // ── Top / Plywood Sheets ─────────────────────────────────────────
-    const effectiveHasTop = isMini || hasTop; // mini always has plywood top
-    if (effectiveHasTop) {
+    // 2x4 rail mode: plywood top is optional (same as standard), no special handling
+    const effectiveHasTop = isMini || hasTop;
+    if (effectiveHasTop && !is2x4Rails) {
       let sheetsForUnit = 0;
       if (unitTotalWidth > 192) sheetsForUnit = 3;
       else if (unitTotalWidth > 96) sheetsForUnit = 2;
@@ -264,6 +298,13 @@ export async function calculateMaterialCostServer(
 
         globalTopSheets += sheetsForUnit;
       }
+    } else if (effectiveHasTop && is2x4Rails) {
+      // 2x4 rail mode with plywood top — no strip credit (rails are 2x4, not plywood)
+      let sheetsForUnit = 0;
+      if (unitTotalWidth > 192) sheetsForUnit = 3;
+      else if (unitTotalWidth > 96) sheetsForUnit = 2;
+      else sheetsForUnit = 1;
+      globalTopSheets += sheetsForUnit;
     }
 
     // ── Section Addons (material impact) ──────────────────────────────
@@ -271,8 +312,12 @@ export async function calculateMaterialCostServer(
     for (const addon of unitAddons) {
       switch (addon.type) {
         case "rail_removed":
-          // Saves 2 plywood strips and 8 screws (1⅝")
-          globalStripCount -= 2;
+          // Saves 2 rail pieces and 8 screws (1⅝")
+          if (is2x4Rails) {
+            global2x4RailCount -= 2;
+          } else {
+            globalStripCount -= 2;
+          }
           totalScrew16 -= 8;
           break;
         case "shelf":
@@ -296,6 +341,7 @@ export async function calculateMaterialCostServer(
 
   // Clamp after addon adjustments
   if (globalStripCount < 0) globalStripCount = 0;
+  if (global2x4RailCount < 0) global2x4RailCount = 0;
   if (totalScrew16 < 0) totalScrew16 = 0;
 
   // Addon plywood sheets: doors (~4/sheet), panels (~2/sheet), shelves (~4/sheet)
@@ -366,6 +412,12 @@ export async function calculateMaterialCostServer(
   if (netMiniStrips < 0) netMiniStrips = 0;
   const miniStructSheets = Math.ceil(netMiniStrips / MINI_STRIPS_PER_STRUCT_SHEET);
 
+  // ── 2x4 Rail board calculation ─────────────────────────────────────────
+  // 2x4 rails are ripped from 2x4x8' lumber (6 rails per board).
+  // These are ADDITIONAL lumber boards beyond the structural posts/plates.
+  const railBoards2x4 = global2x4RailCount > 0 ? Math.ceil(global2x4RailCount / RAILS_2X4_PER_BOARD) : 0;
+  totalBoards += railBoards2x4;
+
   totalSheets = structSheets + globalTopSheets + miniStructSheets + globalMiniTopSheets + shelvingPlywoodSheets + totalAddonSheets;
 
   const items: MaterialBreakdown["items"] = [];
@@ -428,6 +480,8 @@ export async function calculateMaterialCostServer(
       plywood_shelving_sheets: shelvingPlywoodSheets,
       plywood_addon_sheets: totalAddonSheets,
       lumber_boards: totalBoards,
+      rails_2x4_pieces: global2x4RailCount,
+      rails_2x4_boards: railBoards2x4,
       totes: totalTotes,
       wheel_kits: totalWheelKits,
       lumber_part_lengths: allParts,
