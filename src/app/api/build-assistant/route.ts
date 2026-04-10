@@ -50,7 +50,7 @@ const ActionSchema = z.object({
       orientation: z.enum(["standard", "sideways"]).optional().describe("Orientation (default: standard)"),
       toteModel: z.enum(["HDX", "GM"]).optional().describe("Tote model (default: HDX)"),
       presetId: z
-        .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station"])
+        .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station", "track-norris", "rack-city-roller", "mayor-of-rack-city"])
         .optional()
         .describe("Preset ID (for preset type)"),
       jobPrice: z.number().optional().describe("Job price (for profit)"),

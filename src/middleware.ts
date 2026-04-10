@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { siteConfig } from "@/config/site";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
@@ -47,13 +47,21 @@ export async function middleware(request: NextRequest) {
   // Server-side redirect — prevents unauthenticated access before any HTML
   // is sent. Runs on Edge, uses Supabase SSR cookie-based session check.
   if (pathname.startsWith("/dashboard")) {
+    let response = NextResponse.next();
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll: () => request.cookies.getAll().map((c) => ({ name: c.name, value: c.value })),
-          setAll: () => {}, // Read-only in middleware — no cookie writes needed
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+            // Write refreshed session cookies back to the response so server
+            // actions (which read from request cookies) always see valid tokens.
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set({ name, value, ...options });
+            });
+          },
         },
       }
     );
@@ -63,6 +71,39 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Rate limit headers
+    response.headers.set("X-RateLimit-Limit", String(limit));
+    response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+
+    // ── Edge Config Cache Control ────────────────────────────────────────
+    if (EDGE_CACHED_PATHS.has(pathname)) {
+      const cacheConfig = await getCacheConfig();
+      const rule = cacheConfig.paths[pathname];
+      if (rule) {
+        response.headers.set("Cache-Control", buildCacheHeader(rule));
+        response.headers.set("CDN-Cache-Control", buildCacheHeader(rule));
+      }
+    }
+
+    // ── Affiliate Cookie Tracking ────────────────────────────────────────
+    const dashInstallerId = request.nextUrl.searchParams.get("installer_id");
+    if (dashInstallerId) {
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidPattern.test(dashInstallerId)) {
+        response.cookies.set({
+          name: siteConfig.cookies.partnerRef.name,
+          value: dashInstallerId,
+          maxAge: siteConfig.cookies.partnerRef.maxAge,
+          path: "/",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+        });
+      }
+    }
+
+    return response;
   }
 
   const response = NextResponse.next();

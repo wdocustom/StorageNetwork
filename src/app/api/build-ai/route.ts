@@ -46,12 +46,27 @@ const PRESET_ALIASES: Record<string, string> = {
   "track-norris": "track-norris",
   "tracknorris": "track-norris",
   "track norris": "track-norris",
+  "rack-city-roller": "rack-city-roller",
+  "rack city roller": "rack-city-roller",
+  "rackcityroller": "rack-city-roller",
+  "mayor-of-rack-city": "mayor-of-rack-city",
+  "mayor of rack city": "mayor-of-rack-city",
+  "mayorofrackcity": "mayor-of-rack-city",
+  "rack city mayor": "mayor-of-rack-city",
+  "rackcitymayor": "mayor-of-rack-city",
 };
+
+// All valid preset IDs (for passthrough when AI returns canonical ID)
+const VALID_PRESET_IDS = new Set([
+  "indiana-joe", "cornhusker", "long-ranger", "gas-station",
+  "track-norris", "rack-city-roller", "mayor-of-rack-city",
+]);
 
 function normalizePresetId(id: string | null | undefined): string | undefined {
   if (!id) return undefined;
-  const normalized = PRESET_ALIASES[id.toLowerCase().trim()];
-  return normalized || undefined;
+  const key = id.toLowerCase().trim();
+  // Check alias map first, then allow passthrough of valid canonical IDs
+  return PRESET_ALIASES[key] || (VALID_PRESET_IDS.has(key) ? key : undefined);
 }
 
 const SYSTEM_PROMPT = `You are a build configuration parser for Storage Network. Parse the installer's natural language into a JSON array of unit configurations.
