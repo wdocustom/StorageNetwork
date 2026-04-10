@@ -46,6 +46,9 @@ const MINI_TIER_HEIGHT = 7;
 const MINI_FIRST_RAIL_HEIGHT = 5.25;
 const MINI_MAX_ROWS_PER_TIER = 13; // but mini is capped at 4 anyway
 
+// ── Sideways Orientation Constants ─────────────────────────────────────
+const SIDEWAYS_OPENING = 30.25;          // Tote depth becomes slot width
+
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
 const RAILS_2X4_OPENING = 21;           // 21" universal opening
 const RAILS_2X4_GAP = 1.5;              // 2x4 post width
@@ -236,7 +239,9 @@ export async function calculateMaterialCostServer(
 
     for (let modIdx = 0; modIdx < widthModules.length; modIdx++) {
       const cols = widthModules[modIdx];
-      const opening = is2x4Rails ? RAILS_2X4_OPENING : (isMini ? MINI_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM));
+      const opening = is2x4Rails
+        ? (orientation === "sideways" ? SIDEWAYS_OPENING : RAILS_2X4_OPENING)
+        : (isMini ? MINI_OPENING : (orientation === "sideways" ? SIDEWAYS_OPENING : (toteType === "HDX" ? OPENING_HDX : OPENING_GM)));
       const gap = is2x4Rails ? RAILS_2X4_GAP : (isMini ? MINI_GAP : GAP);
       const modWidth = cols * opening + (cols + 1) * gap;
       unitTotalWidth += modWidth;

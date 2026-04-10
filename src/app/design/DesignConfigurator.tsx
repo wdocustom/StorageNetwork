@@ -1885,7 +1885,7 @@ export default function DesignConfigurator({
                 {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
                 &times;{" "}
                 {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
-                &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : 30)}&quot; D &nbsp;&mdash;&nbsp;
+                &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : orientation === "sideways" ? 20 : 30)}&quot; D &nbsp;&mdash;&nbsp;
                 <span className="font-bold text-gray-900">
                   {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
                   {build.slots || (numCols || 1) * (numRows || 1)} slots

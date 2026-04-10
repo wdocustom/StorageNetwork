@@ -224,8 +224,8 @@ const RAILS_2X4_MAX_ROWS = 5;
 // ── Config getter ────────────────────────────────────────────────────────
 function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
   if (use2x4Rails) {
-    // Sideways orientation = shallower depth (20" instead of 30")
-    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20 };
+    // Sideways orientation = shallower depth (20" instead of 30") + wider slots (30.25")
+    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20, slotWidth: SIDEWAYS_CONFIG.slotWidth };
     return RAILS_2X4_CONFIG;
   }
   if (unitType === "mini") return MINI_CONFIG;
@@ -246,6 +246,8 @@ const OPENING_GM = 20.75;
 
 function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): number {
   if (use2x4Rails) {
+    // Sideways 2x4: wider slots (30.25") to accommodate rotated totes
+    if (orientation === "sideways") return SIDEWAYS_CONFIG.slotWidth;
     return RAILS_2X4_CONFIG.slotWidth; // 21" universal
   }
   if (unitType === "mini") {
@@ -264,8 +266,8 @@ export async function calculateBuild(
   const { toteModel, addOns, mode } = input;
   const unitType: UnitType = input.unitType ?? "standard";
   const use2x4Rails = input.installerPricing?.use_2x4_rails === true;
-  // Orientation only applies to standard units (not 2x4 rail mode)
-  const orientation: Orientation = (unitType === "standard" && !use2x4Rails) ? (input.orientation ?? "standard") : "standard";
+  // Orientation applies to standard units and 2x4 rail mode (sideways = wider slots, shallower depth)
+  const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
   // Tote color only applies to HDX standard units with totes included (not 2x4 rail mode)
   const toteColor: ToteColor = (!use2x4Rails && toteModel === "HDX" && unitType === "standard" && addOns.totes)
     ? (input.toteColor ?? "black")

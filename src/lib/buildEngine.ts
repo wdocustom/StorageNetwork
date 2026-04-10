@@ -331,7 +331,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     if (totalCols < 1 || totalRows < 1) return;
 
     // Get config based on unit type, orientation, and 2x4 rail mode
-    const opening = is2x4 ? RAILS_2X4_OPENING : getOpening(toteType, unitType, orientation);
+    const opening = is2x4
+      ? (orientation === "sideways" ? SIDEWAYS_OPENING : RAILS_2X4_OPENING)
+      : getOpening(toteType, unitType, orientation);
     const gap = is2x4 ? RAILS_2X4_GAP : getGap(unitType);
     // 2x4 rail depth depends on orientation — affects rail piece length and yield per board
     if (is2x4) {

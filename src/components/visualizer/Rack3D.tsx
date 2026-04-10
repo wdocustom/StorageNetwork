@@ -568,7 +568,9 @@ function RackAssembly({
   const sidePanelMat = getPaintMaterial(paintSidePanelColor) ?? undefined;
   // Rails: 2x4 mode uses lumber material, standard mode uses plywood (or frame paint)
   const railMat = is2x4 ? frameMat : frameMat;
-  const standardBayW = is2x4 ? RAILS_2X4_OPENING : getBayWidth(toteType, unitType, orientation);
+  const standardBayW = is2x4
+    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    : getBayWidth(toteType, unitType, orientation);
   // Drawer columns are 1" wider (0.5" per side for slide hardware)
   const DRAWER_SLIDE_EXTRA = 1.0;
   const colBayWidths = Array.from({ length: cols }, (_, c) =>
@@ -1009,7 +1011,9 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
 
   const isMini = unitType === "mini";
   const is2x4 = use2x4Rails === true;
-  const bayW = is2x4 ? RAILS_2X4_OPENING : getBayWidth(toteType, unitType, orientation);
+  const bayW = is2x4
+    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    : getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
   const unitDepth = is2x4 ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH) : getUnitDepth(unitType, orientation);
   const effectiveRows = is2x4 ? Math.min(rows, RAILS_2X4_POSITIONS.length) : rows;
@@ -1073,29 +1077,41 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
 // ── Compound Preset Assembly ─────────────────────────────────────────────
 // Renders multiple RackAssembly groups side by side as one compound unit.
 
-function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, drawerSlideRows, drawerSlideColumns, drawersOpen }: {
+function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orientation, hasTotes, use2x4Rails, drawerSlideRows, drawerSlideColumns, drawersOpen }: {
   presetUnits: SubUnit3D[];
   toteType: ToteType;
   toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
+  use2x4Rails?: boolean;
   drawerSlideRows?: number;
   drawerSlideColumns?: number[];
   drawersOpen?: boolean;
 }) {
   const isMini = unitType === "mini";
-  const bayW = getBayWidth(toteType, unitType, orientation);
-  const tierSpacing = getTierSpacing(unitType);
-  const firstRailY = getFirstRailY(unitType);
+  const is2x4 = use2x4Rails === true;
+  const bayW = is2x4
+    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    : getBayWidth(toteType, unitType, orientation);
   const GAP_INCHES = 1; // 1" gap between sub-units
 
   // Calculate overallH for each sub-unit and find the tallest
   const unitHeights = presetUnits.map((unit) => {
-    const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
-    const frameH = isMini
-      ? PLATE_H + lastRailY + 2 + PLY_TOP_H
-      : PLATE_H + lastRailY + 3 + PLATE_H;
+    let frameH: number;
+    if (is2x4) {
+      const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
+      const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1];
+      const uprightH = topRailPos + RAILS_2X4_TOP_GAP;
+      frameH = PLATE_H + uprightH + PLATE_H;
+    } else {
+      const tierSpacing = getTierSpacing(unitType);
+      const firstRailY = getFirstRailY(unitType);
+      const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
+      frameH = isMini
+        ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+        : PLATE_H + lastRailY + 3 + PLATE_H;
+    }
     const lift = unit.hasWheels ? CASTER_HEIGHT : 0;
     return frameH + lift;
   });
@@ -1131,6 +1147,7 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
                 hasTotes={hasTotes}
                 hasWheels={unit.hasWheels}
                 hasTop={unit.hasTop}
+                use2x4Rails={use2x4Rails}
                 drawerSlideRows={drawerSlideRows}
                 drawerSlideColumns={drawerSlideColumns}
                 drawersOpen={drawersOpen}
@@ -1145,29 +1162,42 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
 
 // ── Compound Camera Rig ─────────────────────────────────────────────────
 
-function CompoundCameraRig({ presetUnits, toteType, unitType, orientation }: {
+function CompoundCameraRig({ presetUnits, toteType, unitType, orientation, use2x4Rails }: {
   presetUnits: SubUnit3D[];
   toteType: ToteType;
   unitType: UnitType;
   orientation: Orientation;
+  use2x4Rails?: boolean;
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
-  const bayW = getBayWidth(toteType, unitType, orientation);
-  const unitDepth = getUnitDepth(unitType, orientation);
+  const is2x4 = use2x4Rails === true;
+  const bayW = is2x4
+    ? (orientation === "sideways" ? SIDEWAYS_SLOT_W : RAILS_2X4_OPENING)
+    : getBayWidth(toteType, unitType, orientation);
+  const unitDepth = is2x4
+    ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH)
+    : getUnitDepth(unitType, orientation);
   const GAP_INCHES = 1;
 
   let totalW = 0;
   let maxH = 0;
   for (const unit of presetUnits) {
     totalW += unit.cols * bayW + (unit.cols + 1) * POST_W + GAP_INCHES;
-    const tierSpacing = getTierSpacing(unitType);
-    const firstRailY = getFirstRailY(unitType);
-    const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
-    const fH = unitType === "mini"
-      ? PLATE_H + lastRailY + 2 + PLY_TOP_H
-      : PLATE_H + lastRailY + 3 + PLATE_H;
+    let fH: number;
+    if (is2x4) {
+      const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
+      const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1];
+      fH = PLATE_H + topRailPos + RAILS_2X4_TOP_GAP + PLATE_H;
+    } else {
+      const tierSpacing = getTierSpacing(unitType);
+      const firstRailY = getFirstRailY(unitType);
+      const lastRailY = firstRailY + (unit.rows - 1) * tierSpacing;
+      fH = unitType === "mini"
+        ? PLATE_H + lastRailY + 2 + PLY_TOP_H
+        : PLATE_H + lastRailY + 3 + PLATE_H;
+    }
     if (fH > maxH) maxH = fH;
   }
 
@@ -2084,6 +2114,7 @@ export default function Rack3D(props: Rack3DProps) {
               toteType={props.toteType}
               unitType={props.unitType}
               orientation={props.orientation}
+              use2x4Rails={props.use2x4Rails}
             />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <CompoundRackAssembly
@@ -2093,6 +2124,7 @@ export default function Rack3D(props: Rack3DProps) {
                 unitType={props.unitType}
                 orientation={props.orientation}
                 hasTotes={props.hasTotes}
+                use2x4Rails={props.use2x4Rails}
                 drawerSlideRows={props.drawerSlideRows}
                 drawerSlideColumns={props.drawerSlideColumns}
                 drawersOpen={props.drawersOpen}
