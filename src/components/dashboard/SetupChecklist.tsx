@@ -7,8 +7,10 @@ import {
   ChevronRight,
   Rocket,
   Loader2,
+  Check,
 } from "lucide-react";
 import { getSetupStatus, type SetupStatus } from "@/app/actions/setup-checklist";
+import { logInstallerActivity } from "@/app/actions/installer-activity";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Setup Checklist — Persistent onboarding tracker
@@ -20,12 +22,14 @@ import { getSetupStatus, type SetupStatus } from "@/app/actions/setup-checklist"
 
 interface SetupChecklistProps {
   userId: string;
+  bookingLink?: string;
 }
 
-export default function SetupChecklist({ userId }: SetupChecklistProps) {
+export default function SetupChecklist({ userId, bookingLink }: SetupChecklistProps) {
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
   useEffect(() => {
     getSetupStatus(userId)
@@ -35,6 +39,21 @@ export default function SetupChecklist({ userId }: SetupChecklistProps) {
       })
       .catch(() => setLoading(false));
   }, [userId]);
+
+  // Handle inline actions that can be completed directly on the checklist
+  async function handleStepAction(stepId: string) {
+    if (stepId === "copy_link" && bookingLink) {
+      navigator.clipboard.writeText(bookingLink);
+      await logInstallerActivity({ action: "copy_link", pagePath: "/dashboard" });
+      setJustCompleted("copy_link");
+      // Refresh checklist status after a beat
+      setTimeout(() => {
+        getSetupStatus(userId).then(setStatus);
+      }, 500);
+      return true; // handled inline
+    }
+    return false; // navigate to CTA page
+  }
 
   if (loading) {
     return (
@@ -121,9 +140,18 @@ export default function SetupChecklist({ userId }: SetupChecklistProps) {
                     </p>
                   )}
                 </div>
-                {!step.completed && (
-                  <a
-                    href={step.ctaHref}
+                {!step.completed && justCompleted === step.id ? (
+                  <span className="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-400/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                    <Check className="h-3 w-3" /> Done
+                  </span>
+                ) : !step.completed ? (
+                  <button
+                    onClick={async (e) => {
+                      const handled = await handleStepAction(step.id);
+                      if (!handled) {
+                        window.location.href = step.ctaHref;
+                      }
+                    }}
                     className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
                       isNext
                         ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
@@ -131,8 +159,8 @@ export default function SetupChecklist({ userId }: SetupChecklistProps) {
                     }`}
                   >
                     {step.ctaLabel}
-                  </a>
-                )}
+                  </button>
+                ) : null}
               </div>
             );
           })}

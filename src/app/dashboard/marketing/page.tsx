@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
+import { logInstallerActivity } from "@/app/actions/installer-activity";
 import {
   Copy,
   Check,
@@ -88,6 +89,7 @@ export default function MarketingPage() {
     navigator.clipboard.writeText(bookingLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    logInstallerActivity({ action: "copy_link", pagePath: "/dashboard/marketing" });
   }
 
   return (

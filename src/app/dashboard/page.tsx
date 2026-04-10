@@ -378,7 +378,7 @@ export default function DashboardPage() {
         <div className="mx-auto grid w-full max-w-lg gap-4">
           {/* ── Setup Checklist (persistent until all steps done) ── */}
           {profile && (
-            <SetupChecklist userId={profile.id} />
+            <SetupChecklist userId={profile.id} bookingLink={leadLink} />
           )}
 
           {/* ── Action Nudge (contextual coaching card) ───────────── */}

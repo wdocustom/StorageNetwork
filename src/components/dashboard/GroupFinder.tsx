@@ -15,6 +15,7 @@ import {
   Video,
   MessageCircle,
 } from "lucide-react";
+import { logInstallerActivity } from "@/app/actions/installer-activity";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI Group Finder — Gemini-powered local group suggestions
@@ -116,6 +117,7 @@ export default function GroupFinder({
       if (!res.ok) throw new Error(data.error || "Failed to find groups");
       setSuggestions(data.suggestions);
       setExpandedSection("facebook");
+      logInstallerActivity({ action: "group_finder_used", detail: { city, state, zip } });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
