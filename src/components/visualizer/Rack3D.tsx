@@ -127,6 +127,8 @@ interface Rack3DProps {
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
+  /** When true, renders 2x4 ripped rail construction instead of plywood strips */
+  use2x4Rails?: boolean;
   /** Text displayed as a diagonal watermark behind the 3D scene */
   watermarkText?: string;
 }
@@ -171,6 +173,14 @@ const MINI_TOTE_W = 8.0;          // Tote width
 const MINI_TOTE_H = 6.25;         // Tote body height
 const MINI_TOTE_D = 12.75;        // Tote depth (matches unit depth)
 const MINI_TOTE_RIM_H = 0.75;     // Rim/lid height
+
+// ── 2x4 Rail Construction Constants ──────────────────────────────────────
+const RAILS_2X4_OPENING = 21;       // Universal 21" bay width
+const RAILS_2X4_RAIL_W = 1.5;      // Ripped 2x4: 1.5" wide (narrow face)
+const RAILS_2X4_RAIL_H = 1.75;     // Ripped 2x4: 1.75" tall
+const RAILS_2X4_TOP_GAP = 2.75;    // Gap above top rail to top of post
+/** Fixed rail Y positions from bottom of vertical posts (not bottom of unit) */
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
 
 // Inches → scene units
 const S = 1 / 48;
@@ -547,20 +557,22 @@ function SidePanel({ position, height, depth, material }: {
 function RackAssembly({
   cols, rows, toteType, toteColor, unitType, orientation, hasTotes, hasWheels, hasTop, addons,
   paintFrameColor, paintDoorColor, paintSidePanelColor, drawerSlideRows, drawerSlideColumns, drawersOpen,
+  use2x4Rails,
 }: Rack3DProps & { drawerSlideRows?: number; drawerSlideColumns?: number[]; drawersOpen?: boolean }) {
   const isMini = unitType === "mini";
+  const is2x4 = use2x4Rails === true;
 
   // Resolve paint materials (null = use default wood texture)
   const frameMat = getPaintMaterial(paintFrameColor) ?? undefined;
   const doorMat = getPaintMaterial(paintDoorColor) ?? undefined;
   const sidePanelMat = getPaintMaterial(paintSidePanelColor) ?? undefined;
-  // Rails are part of the frame, so they get frame paint
-  const railMat = frameMat;
-  const standardBayW = getBayWidth(toteType, unitType, orientation);
+  // Rails: 2x4 mode uses lumber material, standard mode uses plywood (or frame paint)
+  const railMat = is2x4 ? frameMat : frameMat;
+  const standardBayW = is2x4 ? RAILS_2X4_OPENING : getBayWidth(toteType, unitType, orientation);
   // Drawer columns are 1" wider (0.5" per side for slide hardware)
   const DRAWER_SLIDE_EXTRA = 1.0;
   const colBayWidths = Array.from({ length: cols }, (_, c) =>
-    drawerSlideColumns?.includes(c) ? standardBayW + DRAWER_SLIDE_EXTRA : standardBayW
+    (!is2x4 && drawerSlideColumns?.includes(c)) ? standardBayW + DRAWER_SLIDE_EXTRA : standardBayW
   );
   const bayW = standardBayW; // default for non-per-column calculations
   const totalW = colBayWidths.reduce((sum, w) => sum + w, 0) + (cols + 1) * POST_W;
@@ -577,16 +589,26 @@ function RackAssembly({
   const getColBayW = (c: number) => colBayWidths[c] ?? standardBayW;
 
   // Get unit-specific values
-  const unitDepth = getUnitDepth(unitType, orientation);
-  const railHeight = getRailHeight(unitType);
-  const tierSpacing = getTierSpacing(unitType);
-  const firstRailY = getFirstRailY(unitType);
+  const unitDepth = is2x4 ? RACK_DEPTH : getUnitDepth(unitType, orientation);
+  const railHeight = is2x4 ? RAILS_2X4_RAIL_H : getRailHeight(unitType);
+  const effectiveRailThickness = is2x4 ? RAILS_2X4_RAIL_W : RAIL_THICKNESS;
 
-  const lastRailY = firstRailY + (rows - 1) * tierSpacing;
+  // 2x4 mode: use fixed rail positions; standard: uniform spacing
+  const effectiveRows = is2x4 ? Math.min(rows, RAILS_2X4_POSITIONS.length) : rows;
+  const tierSpacing = is2x4 ? 0 : getTierSpacing(unitType); // unused for 2x4 (positions are fixed)
+  const firstRailY = is2x4 ? RAILS_2X4_POSITIONS[0] : getFirstRailY(unitType);
+  // For 2x4: top rail position from fixed array
+  const lastRailY = is2x4
+    ? RAILS_2X4_POSITIONS[effectiveRows - 1]
+    : firstRailY + (effectiveRows - 1) * tierSpacing;
 
-  // Frame height calculation differs for Mini (no top plates)
+  // Frame height calculation
   let frameH: number;
-  if (isMini) {
+  if (is2x4) {
+    // 2x4 rail: bottom plate + post height + top plate
+    const postHeight = lastRailY + RAILS_2X4_TOP_GAP;
+    frameH = PLATE_H + postHeight + PLATE_H;
+  } else if (isMini) {
     // Mini: bottom plate + rails + clearance above top rail + plywood top
     frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
   } else {
@@ -605,10 +627,12 @@ function RackAssembly({
   // Rails span the full depth
   const railLen = unitDepth;
 
-  // Post height differs for Mini (no top 2x4 plates)
-  const postH = isMini
-    ? lastRailY + 2 // Just past the top rail
-    : frameH - PLATE_H * 2;
+  // Post height differs by mode
+  const postH = is2x4
+    ? lastRailY + RAILS_2X4_TOP_GAP  // 2x4: post = top rail pos + top gap
+    : isMini
+      ? lastRailY + 2 // Mini: just past the top rail
+      : frameH - PLATE_H * 2;
 
   // Tote body height for positioning
   const toteBodyH = isMini ? MINI_TOTE_H : TOTE_BODY_H;
@@ -625,8 +649,8 @@ function RackAssembly({
           <Lumber position={[totalW / 2, PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
           <Lumber position={[totalW / 2, PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
 
-          {/* Top plates — only for Standard units */}
-          {!isMini && (
+          {/* Top plates — Standard and 2x4 rail units (not Mini) */}
+          {(is2x4 || !isMini) && (
             <>
               <Lumber position={[totalW / 2, frameH - PLATE_H / 2, POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
               <Lumber position={[totalW / 2, frameH - PLATE_H / 2, unitDepth - POST_D / 2]} size={[totalW, PLATE_H, POST_D]} material={frameMat} />
@@ -643,17 +667,26 @@ function RackAssembly({
                 <Lumber position={[px, PLATE_H + postH / 2, unitDepth - POST_D / 2]} size={[POST_W, postH, POST_D]} material={frameMat} />
 
                 {/* Right-face rails (serve bay i) — skip if rail_removed addon */}
-                {i < cols && Array.from({ length: rows }).map((_, r) => {
-                  const isRailRemoved = addons?.some(
+                {i < cols && Array.from({ length: effectiveRows }).map((_, r) => {
+                  const isRailRemoved = !is2x4 && addons?.some(
                     (a) => a.type === "rail_removed" && a.target === i && (a.row === undefined || a.row === r)
                   );
                   if (isRailRemoved) return null;
-                  const railY = PLATE_H + firstRailY + r * tierSpacing;
-                  const railX = px + POST_W / 2 + RAIL_THICKNESS / 2;
-                  // Drawer column: rail slides out with tote
-                  const isDrawerCol = drawerSlideColumns?.includes(i) ?? (drawerSlideRows ? r < drawerSlideRows : false);
+                  const railY = is2x4
+                    ? PLATE_H + RAILS_2X4_POSITIONS[r]
+                    : PLATE_H + firstRailY + r * tierSpacing;
+                  const railX = px + POST_W / 2 + effectiveRailThickness / 2;
+                  // Drawer column: rail slides out with tote (not in 2x4 mode)
+                  const isDrawerCol = !is2x4 && (drawerSlideColumns?.includes(i) ?? (drawerSlideRows ? r < drawerSlideRows : false));
                   const railSlideZ = isDrawerCol && drawersOpen ? unitDepth * 0.6 : 0;
-                  return (
+                  return is2x4 ? (
+                    <Lumber
+                      key={`rr-${i}-${r}`}
+                      position={[railX, railY, unitDepth / 2 - railSlideZ]}
+                      size={[RAILS_2X4_RAIL_W, RAILS_2X4_RAIL_H, railLen]}
+                      material={frameMat}
+                    />
+                  ) : (
                     <PlywoodStrip
                       key={`rr-${i}-${r}`}
                       position={[railX, railY, unitDepth / 2 - railSlideZ]}
@@ -665,17 +698,26 @@ function RackAssembly({
                 })}
 
                 {/* Left-face rails (serve bay i-1) — skip if rail_removed addon */}
-                {i > 0 && Array.from({ length: rows }).map((_, r) => {
-                  const isRailRemoved = addons?.some(
+                {i > 0 && Array.from({ length: effectiveRows }).map((_, r) => {
+                  const isRailRemoved = !is2x4 && addons?.some(
                     (a) => a.type === "rail_removed" && a.target === (i - 1) && (a.row === undefined || a.row === r)
                   );
                   if (isRailRemoved) return null;
-                  const railY = PLATE_H + firstRailY + r * tierSpacing;
-                  const railX = px - POST_W / 2 - RAIL_THICKNESS / 2;
-                  // Drawer column: rail slides out with tote
-                  const isDrawerCol = drawerSlideColumns?.includes(i - 1) ?? (drawerSlideRows ? r < drawerSlideRows : false);
+                  const railY = is2x4
+                    ? PLATE_H + RAILS_2X4_POSITIONS[r]
+                    : PLATE_H + firstRailY + r * tierSpacing;
+                  const railX = px - POST_W / 2 - effectiveRailThickness / 2;
+                  // Drawer column: rail slides out with tote (not in 2x4 mode)
+                  const isDrawerCol = !is2x4 && (drawerSlideColumns?.includes(i - 1) ?? (drawerSlideRows ? r < drawerSlideRows : false));
                   const railSlideZ = isDrawerCol && drawersOpen ? unitDepth * 0.6 : 0;
-                  return (
+                  return is2x4 ? (
+                    <Lumber
+                      key={`rl-${i}-${r}`}
+                      position={[railX, railY, unitDepth / 2 - railSlideZ]}
+                      size={[RAILS_2X4_RAIL_W, RAILS_2X4_RAIL_H, railLen]}
+                      material={frameMat}
+                    />
+                  ) : (
                     <PlywoodStrip
                       key={`rl-${i}-${r}`}
                       position={[railX, railY, unitDepth / 2 - railSlideZ]}
@@ -689,8 +731,8 @@ function RackAssembly({
             );
           })}
 
-          {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots) */}
-          {hasTotes && Array.from({ length: cols }).map((_, c) => {
+          {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots, skip for 2x4 mode) */}
+          {hasTotes && !is2x4 && Array.from({ length: cols }).map((_, c) => {
             const leftPostX = getColPostX(c);
             const rightPostX = getColPostX(c + 1);
             const bayCenterX = (leftPostX + rightPostX) / 2;
@@ -961,21 +1003,28 @@ function RackAssembly({
 
 // ── Camera rig ───────────────────────────────────────────────────────────
 
-function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "orientation" | "hasWheels">) {
+function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use2x4Rails }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "orientation" | "hasWheels" | "use2x4Rails">) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
   const isMini = unitType === "mini";
-  const bayW = getBayWidth(toteType, unitType, orientation);
+  const is2x4 = use2x4Rails === true;
+  const bayW = is2x4 ? RAILS_2X4_OPENING : getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
-  const unitDepth = getUnitDepth(unitType, orientation);
-  const tierSpacing = getTierSpacing(unitType);
-  const firstRailY = getFirstRailY(unitType);
+  const unitDepth = is2x4 ? RACK_DEPTH : getUnitDepth(unitType, orientation);
+  const effectiveRows = is2x4 ? Math.min(rows, RAILS_2X4_POSITIONS.length) : rows;
+  const tierSpacing = is2x4 ? 0 : getTierSpacing(unitType);
+  const firstRailY = is2x4 ? RAILS_2X4_POSITIONS[0] : getFirstRailY(unitType);
 
-  const lastRailY = firstRailY + (rows - 1) * tierSpacing;
+  const lastRailY = is2x4
+    ? RAILS_2X4_POSITIONS[effectiveRows - 1]
+    : firstRailY + (effectiveRows - 1) * tierSpacing;
 
   let frameH: number;
-  if (isMini) {
+  if (is2x4) {
+    const postHeight = lastRailY + RAILS_2X4_TOP_GAP;
+    frameH = PLATE_H + postHeight + PLATE_H;
+  } else if (isMini) {
     frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
   } else {
     frameH = PLATE_H + lastRailY + 3 + PLATE_H;
@@ -2059,6 +2108,7 @@ export default function Rack3D(props: Rack3DProps) {
               unitType={props.unitType}
               orientation={props.orientation}
               hasWheels={props.hasWheels}
+              use2x4Rails={props.use2x4Rails}
             />
             <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <RackAssembly {...props} />

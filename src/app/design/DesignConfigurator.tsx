@@ -1819,6 +1819,7 @@ export default function DesignConfigurator({
               overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
               raisedBedConfig={raisedBedPreview || undefined}
               watermarkText={data?.branding.title || "Storage-Network.app"}
+              use2x4Rails={data?.pricing?.use_2x4_rails === true}
               multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
               multiUnitControls={orderItems.length >= 1 ? {
                 showMultiUnit3D,

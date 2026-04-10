@@ -126,6 +126,8 @@ interface RackVisualizerProps {
   watermarkText?: string;
   /** When true, shows an "Open Drawers" button on the 3D canvas */
   hasDrawerSlides?: boolean;
+  /** When true, renders 2x4 ripped rail construction instead of plywood strips */
+  use2x4Rails?: boolean;
 }
 
 /** A completed order item for multi-unit 3D rendering */
@@ -514,6 +516,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   drawerSlideColumns: u.drawerSlideColumns,
                 }))}
                 watermarkText={props.watermarkText}
+                use2x4Rails={props.use2x4Rails}
               />
             </Suspense>
           </div>
