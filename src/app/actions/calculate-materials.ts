@@ -217,8 +217,7 @@ export async function calculateMaterialCostServer(
     const rails2x4Depth = orientation === "sideways" ? RAILS_2X4_DEPTH_SIDEWAYS : RAILS_2X4_DEPTH_STANDARD;
     if (totalCols < 1 || totalRows < 1) continue;
 
-    // In 2x4 rail mode, totes are never included
-    const effectiveHasTotes = is2x4Rails ? false : hasTotes;
+    const effectiveHasTotes = hasTotes;
 
     const widthModules: number[] = [];
     let remainingCols = totalCols;

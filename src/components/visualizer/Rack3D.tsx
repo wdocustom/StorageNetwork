@@ -733,8 +733,8 @@ function RackAssembly({
             );
           })}
 
-          {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots, skip for 2x4 mode) */}
-          {hasTotes && !is2x4 && Array.from({ length: cols }).map((_, c) => {
+          {/* Totes — rim ON TOP of rail, body hangs BELOW (skip for rail-removed slots) */}
+          {hasTotes && Array.from({ length: cols }).map((_, c) => {
             const leftPostX = getColPostX(c);
             const rightPostX = getColPostX(c + 1);
             const bayCenterX = (leftPostX + rightPostX) / 2;

@@ -344,9 +344,9 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       ? MINI_TOTE_PRICE
       : (toteType === "HDX" && toteColor === "clear" ? STANDARD_TOTE_CLEAR_PRICE : STANDARD_TOTE_PRICE);
     const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
-    // In 2x4 mode, clamp rows to max 5 and force totes off
+    // In 2x4 mode, clamp rows to max 5
     const effectiveRows = is2x4 ? Math.min(totalRows, RAILS_2X4_MAX_ROWS) : totalRows;
-    const effectiveHasTotes = is2x4 ? false : hasTotes;
+    const effectiveHasTotes = hasTotes;
 
     // ── Auto-Split Logic: WIDTH (max 4 cols per module) ─────────────
     const widthModules: number[] = [];

@@ -111,10 +111,9 @@ async function runCalculations(
         }
 
         case "preset": {
-          const is2x4Preset = ctx.installerPricing?.use_2x4_rails === true;
           const r = await calculateCompoundBuild({
             presetId: a.presetId ?? "indiana-joe",
-            hasTotes: is2x4Preset ? false : (a.hasTotes ?? true),
+            hasTotes: a.hasTotes ?? true,
             installerPricing: ctx.installerPricing,
           });
           if (r.success) {
@@ -148,7 +147,7 @@ async function runCalculations(
             unitType: a.unitType ?? "standard",
             orientation: a.orientation ?? "standard",
             addOns: {
-              totes: is2x4Manifest ? false : (a.hasTotes ?? true),
+              totes: a.hasTotes ?? true,
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
@@ -162,7 +161,7 @@ async function runCalculations(
                 toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: br.config.unitType,
                 orientation: br.config.orientation,
-                hasTotes: is2x4Manifest ? false : br.config.hasTotes,
+                hasTotes: br.config.hasTotes,
                 hasWheels: br.config.hasWheels,
                 hasTop: br.config.hasTop,
                 price: br.price,
@@ -194,7 +193,7 @@ async function runCalculations(
               wallWidth: a.wallWidth, wallHeight: a.wallHeight,
               toteModel: a.toteModel ?? "HDX", toteColor: "black",
               unitType: a.unitType ?? "standard", orientation: a.orientation ?? "standard",
-              addOns: { totes: is2x4Materials ? false : (a.hasTotes ?? true), wheels: a.hasWheels ?? false, top: a.hasTop ?? true },
+              addOns: { totes: a.hasTotes ?? true, wheels: a.hasWheels ?? false, top: a.hasTop ?? true },
               mode: "wallFit", installerPricing: ctx.installerPricing,
             });
             if (fitResult.success) { matCols = fitResult.cols; matRows = fitResult.rows; }
@@ -207,7 +206,7 @@ async function runCalculations(
                 toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: (a.unitType ?? "standard") as "standard" | "mini",
                 orientation: (a.orientation ?? "standard") as "standard" | "sideways",
-                hasTotes: is2x4Materials ? false : (a.hasTotes ?? true),
+                hasTotes: a.hasTotes ?? true,
                 hasWheels: a.hasWheels ?? false,
                 hasTop: a.hasTop ?? true,
                 use2x4Rails: is2x4Materials,

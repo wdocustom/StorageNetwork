@@ -268,17 +268,14 @@ export async function calculateBuild(
   const use2x4Rails = input.installerPricing?.use_2x4_rails === true;
   // Orientation applies to standard units and 2x4 rail mode (sideways = wider slots, shallower depth)
   const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
-  // Tote color only applies to HDX standard units with totes included (not 2x4 rail mode)
-  const toteColor: ToteColor = (!use2x4Rails && toteModel === "HDX" && unitType === "standard" && addOns.totes)
+  // Tote color only applies to HDX standard units with totes included
+  const toteColor: ToteColor = (toteModel === "HDX" && unitType === "standard" && addOns.totes)
     ? (input.toteColor ?? "black")
     : "black";
   const config = getUnitConfig(unitType, orientation, use2x4Rails);
   const opening = getOpening(toteModel, unitType, orientation, use2x4Rails);
 
-  // In 2x4 rail mode, totes are never included (universal frame)
-  const effectiveAddOns = use2x4Rails
-    ? { ...addOns, totes: false }
-    : addOns;
+  const effectiveAddOns = addOns;
 
   let cols: number;
   let rows: number;
@@ -528,11 +525,11 @@ export async function calculateCompoundBuild(input: {
     return { success: false, error: "Unknown preset." };
   }
 
-  // Installer-level totes_disabled / use_2x4_rails always wins — no totes regardless of preset
+  // Installer-level totes_disabled always wins — no totes regardless of preset
   // Then: preset.totesAreMandatory forces totes ON (e.g. Track Norris drawer slides)
   // Then: preset.totesDisabled forces totes OFF (frame-only presets)
   // Otherwise: use the customer's choice
-  const installerTotesOff = input.installerPricing?.totes_disabled === true || input.installerPricing?.use_2x4_rails === true;
+  const installerTotesOff = input.installerPricing?.totes_disabled === true;
   const hasTotes = installerTotesOff ? false : preset.totesAreMandatory ? true : preset.totesDisabled ? false : input.hasTotes;
 
   // Still calculate each sub-unit for dimensions/slots (pricing may be overridden)

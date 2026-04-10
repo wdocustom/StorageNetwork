@@ -982,17 +982,17 @@ export default function DesignConfigurator({
   const globalTotesDisabled = data?.pricing?.totes_disabled === true;
   const globalUse2x4Rails = data?.pricing?.use_2x4_rails === true;
   useEffect(() => {
-    if ((globalTotesDisabled || globalUse2x4Rails || activePresetObj?.totesDisabled) && presetTotes) {
+    if ((globalTotesDisabled || activePresetObj?.totesDisabled) && presetTotes) {
       setPresetTotes(false);
     }
-  }, [activePresetObj, presetTotes, globalTotesDisabled, globalUse2x4Rails]);
+  }, [activePresetObj, presetTotes, globalTotesDisabled]);
 
-  // Force hasTotes off globally (also when 2x4 rail mode — totes not relevant)
+  // Force hasTotes off when installer has totes globally disabled
   useEffect(() => {
-    if ((globalTotesDisabled || globalUse2x4Rails) && hasTotes) {
+    if (globalTotesDisabled && hasTotes) {
       setHasTotes(false);
     }
-  }, [globalTotesDisabled, globalUse2x4Rails, hasTotes]);
+  }, [globalTotesDisabled, hasTotes]);
 
   // Re-fetch preset build when totes toggle changes
   useEffect(() => {

@@ -1207,15 +1207,15 @@ export default function BuildConfiguratorPage() {
                 return (
                 <div className="mt-3 space-y-3">
                   {/* Totes toggle — hidden for mandatory-tote presets like Track Norris */}
-                  {activePresetObj?.totesAreMandatory && installerPricing?.use_2x4_rails !== true ? (
+                  {activePresetObj?.totesAreMandatory ? (
                     <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
                       <Package className="h-4 w-4 text-yellow-400" />
                       Totes included — drawer slide system
                     </div>
-                  ) : activePresetObj?.totesDisabled || installerPricing?.use_2x4_rails === true ? (
+                  ) : activePresetObj?.totesDisabled ? (
                     <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
                       <Package className="h-4 w-4 text-stone-500" />
-                      {installerPricing?.use_2x4_rails ? "2x4 rail construction — universal frame" : "Frame only — no totes"}
+                      Frame only — no totes
                     </div>
                   ) : (
                     <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
@@ -1766,8 +1766,8 @@ export default function BuildConfiguratorPage() {
             </div>
           )}
 
-          {/* ── Tote Orientation (Standard units only, hidden in 2x4 mode) ── */}
-          {unitType === "standard" && installerPricing?.use_2x4_rails !== true && (
+          {/* ── Orientation (Standard units only) ── */}
+          {unitType === "standard" && (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Orientation
@@ -1809,8 +1809,8 @@ export default function BuildConfiguratorPage() {
           </div>
           )}
 
-          {/* ── Tote Size (Standard units only, hidden in 2x4 mode) ── */}
-          {installerPricing?.use_2x4_rails !== true && unitType === "standard" ? (
+          {/* ── Tote Size (Standard units only) ── */}
+          {unitType === "standard" ? (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Size
@@ -1867,20 +1867,19 @@ export default function BuildConfiguratorPage() {
               </button>
             </div>
           </div>
-          ) : installerPricing?.use_2x4_rails !== true ? (
+          ) : (
             <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Tote Type</div>
               <div className="mt-1 text-sm font-medium text-stone-300">
                 6.5 Quart Clear Totes (Yellow Lids)
               </div>
             </div>
-          ) : null}
+          )}
 
           {/* Toggles */}
           <div className="mt-3 space-y-2">
             {[
-              // Hide totes toggle in 2x4 rail mode (frame-only, totes not relevant)
-              ...(installerPricing?.use_2x4_rails !== true ? [{ val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false }] : []),
+              { val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false },
               { val: hasWheels, set: setHasWheels, label: "Wheels", disabled: false },
               { val: unitType === "mini" ? true : hasTop, set: setHasTop, label: "Plywood Top", disabled: unitType === "mini" },
             ].map(({ val, set, label, disabled }) => (

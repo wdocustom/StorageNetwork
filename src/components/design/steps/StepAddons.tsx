@@ -23,8 +23,8 @@ export default function StepAddons({
 }) {
   return (
     <>
-      {/* HDX Color Cards — hidden when totes globally disabled or 2x4 rail mode */}
-      {!props.totesDisabled && !props.use2x4Rails && props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
+      {/* HDX Color Cards — hidden when totes globally disabled */}
+      {!props.totesDisabled && props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             HDX Tote Style
@@ -71,7 +71,7 @@ export default function StepAddons({
         <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
           Add-ons
         </h3>
-        {!props.totesDisabled && !props.use2x4Rails && (
+        {!props.totesDisabled && (
           <StudioToggle
             checked={props.hasTotes}
             onChange={props.onHasTotesChange}
