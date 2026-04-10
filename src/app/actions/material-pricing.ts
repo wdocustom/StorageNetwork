@@ -129,12 +129,13 @@ export async function saveMaterialPricing(
 
     if (error) {
       console.error("[MaterialPricing] Save failed:", error);
-      return { success: false, error: "Failed to save." };
+      return { success: false, error: `Failed to save: ${error.message}` };
     }
 
     return { success: true, config: validated };
-  } catch {
-    return { success: false, error: "Failed to save material pricing." };
+  } catch (err) {
+    console.error("[MaterialPricing] Exception:", err);
+    return { success: false, error: `Failed to save material pricing: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
