@@ -34,6 +34,7 @@ const ActionSchema = z.object({
           "materials",
           "profit",
           "list_presets",
+          "custom_item",
         ])
         .describe("Type of calculation to run"),
       cols: z.number().optional().describe("Columns (for manual build/manifest/materials)"),
@@ -52,6 +53,8 @@ const ActionSchema = z.object({
         .describe("Preset ID (for preset type)"),
       jobPrice: z.number().optional().describe("Job price (for profit)"),
       materialsCost: z.number().optional().describe("Material cost (for profit)"),
+      customDescription: z.string().optional().describe("Description for custom line item (planter box, cleanout, etc.)"),
+      customPrice: z.number().optional().describe("Price for custom line item"),
     }),
   ).describe("List of calculations needed. Empty array if question can be answered from context alone."),
 });
@@ -74,7 +77,6 @@ async function runCalculations(
     try {
       switch (a.type) {
         case "build": {
-          const is2x4Build = ctx.installerPricing?.use_2x4_rails === true;
           const isWallFit = !!(a.wallWidth && a.wallHeight);
           const r = await calculateBuild({
             ...(isWallFit
@@ -85,7 +87,7 @@ async function runCalculations(
             unitType: a.unitType ?? "standard",
             orientation: a.orientation ?? "standard",
             addOns: {
-              totes: is2x4Build ? false : (a.hasTotes ?? true),
+              totes: a.hasTotes ?? true,
               wheels: a.hasWheels ?? false,
               top: a.hasTop ?? true,
             },
@@ -233,6 +235,17 @@ async function runCalculations(
             );
             results.push({ type: "profit", ...r });
           }
+          break;
+        }
+
+        case "custom_item": {
+          // Custom line item (planter box, cleanout, etc.) — no calculation needed
+          results.push({
+            type: "custom_item",
+            description: a.customDescription || "Custom item",
+            price: a.customPrice || 0,
+            note: "This is a custom line item. The installer can add it to their quote via the AI Builder text box.",
+          });
           break;
         }
 
@@ -429,6 +442,7 @@ Available calculation types:
 - "preset": Calculate a bestseller preset (indiana-joe, cornhusker, long-ranger, gas-station)
 - "profit": Calculate installer profit (needs jobPrice and materialsCost)
 - "list_presets": List available presets
+- "custom_item": For custom products like planter boxes, cleanouts, workbenches, etc. Set customDescription and customPrice. Use this when the user asks about non-standard products.
 
 IMPORTANT routing rules:
 - When user gives wall dimensions (e.g. "149 x 89"), use wallWidth/wallHeight — do NOT guess cols/rows

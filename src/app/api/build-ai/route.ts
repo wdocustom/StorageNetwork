@@ -64,6 +64,13 @@ KNOWN PRESETS (use presetId when referenced by name):
 - "rack-city-roller" or "Rack City Roller": Single 3×2 with wheels and plywood top. Frame only, NO totes. 6 slots.
 - "mayor-of-rack-city" or "Mayor of Rack City": Single 4×2 with wheels and plywood top. Frame only, NO totes. 8 slots.
 
+CUSTOM PRODUCTS (use cols:0, rows:0 with customPrice and description):
+- Raised planter boxes: Cedar or lumber planter boxes of any dimension. Common sizes: 36"×24", 48"×24", 48"×48", 72"×24". Options include: shelf/bottom shelf, legs/raised, liners, casters/wheels. Typical pricing $200-$500 depending on size and features.
+- Garage cleanout / junk removal services
+- Custom shelf builds, floating shelves, wall-mounted storage
+- Workbenches, tool stations, pegboard installations
+- Any other custom service or product the installer describes
+
 RULES:
 - "4x4" = cols:4, rows:4
 - "with totes" = hasTotes:true, "no totes" / "without totes" = hasTotes:false
@@ -75,7 +82,9 @@ RULES:
 - For wall dimensions (e.g. "120x75 wall"): set wallWidthInches/wallHeightInches and cols:0, rows:0. NEVER calculate cols from inches.
 - Convert feet to inches: 10ft=120", 8ft=96"
 - CUSTOM PRICING: If the installer specifies a dollar amount (e.g. "4x4 for $500" or "rack city roller at $275"), set customPrice to that number. This overrides any calculated pricing.
-- For custom/arbitrary items with a description and price (e.g. "custom shelf build $200" or "garage cleanout $349"), set cols:0, rows:0, and include the customPrice and description.
+- For custom/arbitrary items with a description and price (e.g. "planter box 36x24 with shelf $350" or "garage cleanout $349"), set cols:0, rows:0, and include the customPrice and description. Parse dimensions and features into a clear description.
+- For planter boxes: include dimensions, material, and features in the description (e.g. "Raised Planter Box — 36" × 24" w/ Bottom Shelf")
+- If no price is given for a custom item, make a reasonable estimate based on size and features, and note it in the description with "(est.)"
 
 RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explanation, just JSON:
 {"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
@@ -83,8 +92,14 @@ RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explana
 With custom price override:
 {"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
 
+For planter boxes:
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}
+
 For custom line items:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}`;
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}
+
+For mixed quotes (storage + custom items):
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;

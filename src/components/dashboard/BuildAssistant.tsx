@@ -75,7 +75,7 @@ function useQuickChips(hasBuild: boolean, hasUnits: boolean): string[] {
     // Always available
     chips.push("Screws in a 4x4 unit?");
     chips.push("Indiana Joe profit?");
-    chips.push("Compare all presets");
+    chips.push("36×24 planter box with shelf?");
 
     return chips.slice(0, 6);
   }, [hasBuild, hasUnits]);
@@ -231,7 +231,7 @@ export default function BuildAssistant({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">Build Assistant</h3>
-            <p className="text-[10px] text-slate-500">Materials, pricing & profit</p>
+            <p className="text-[10px] text-slate-500">Materials, pricing, profit & custom items</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -264,7 +264,7 @@ export default function BuildAssistant({
               Ask me anything about your builds
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Screws, materials, pricing, profit — I calculate it all
+              Screws, materials, pricing, planter boxes — I know it all
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
               {chips.map((chip) => (
@@ -341,7 +341,7 @@ export default function BuildAssistant({
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about materials, pricing, profit..."
+            placeholder="Materials, pricing, planter boxes..."
             className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
             disabled={isLoading}
           />

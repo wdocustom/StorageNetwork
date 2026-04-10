@@ -1292,7 +1292,7 @@ export default function BuildConfiguratorPage() {
                   value={aiInput}
                   onChange={(e) => { setAiInput(e.target.value); setAiError(""); }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiBuild(); } }}
-                  placeholder='e.g. "4x4 with black totes, wheels, and a top" or "Indiana Joe no totes" or "two units — 3x4 clear totes and a 2x2 with wheels"'
+                  placeholder='e.g. "4x4 with totes and wheels" or "Indiana Joe no totes" or "36x24 raised planter box with shelf $350" or "garage cleanout $200"'
                   rows={3}
                   className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
                   disabled={aiLoading}
@@ -1337,11 +1337,17 @@ export default function BuildConfiguratorPage() {
                         </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
-                        {!unit.presetId && <span>{unit.cols}×{unit.rows}</span>}
-                        {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
-                        {!unit.hasTotes && <span>No totes</span>}
-                        {unit.hasWheels && <span>Wheels</span>}
-                        {unit.hasTop && <span>Top</span>}
+                        {unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
+                          <span>Custom item</span>
+                        ) : (
+                          <>
+                            {!unit.presetId && <span>{unit.cols}×{unit.rows}</span>}
+                            {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
+                            {!unit.hasTotes && <span>No totes</span>}
+                            {unit.hasWheels && <span>Wheels</span>}
+                            {unit.hasTop && <span>Top</span>}
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

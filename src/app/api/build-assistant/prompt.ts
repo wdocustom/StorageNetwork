@@ -39,6 +39,20 @@ const PRODUCT_KNOWLEDGE = `
 - No plywood strip stock needed (only sheets for optional plywood top)
 - Enabled per-installer via pricing settings toggle
 
+### Raised Planter Boxes
+- Custom cedar or lumber planter boxes — any dimension
+- Common sizes: 36"×24", 48"×24", 48"×48", 72"×24"
+- Options: bottom shelf, raised legs, liners, casters/wheels
+- Typical pricing: $200–$500 depending on size and features
+- Added to quotes as custom line items via the AI Builder
+- Example: "36×24 raised planter box with shelf" = ~$350
+
+### Custom Line Items
+- Installers can add ANY custom product or service to quotes via the AI Builder
+- Examples: garage cleanout, custom shelf builds, workbenches, tool stations
+- Each custom item has a description and a price
+- Custom items appear in the quote alongside tote organizer units
+
 ### Add-ons (Organizer Customization)
 - Plywood doors (per-bay or all bays), side panels, shelves, rail removal
 - Concealed hinges (Blum pairs) included with doors
