@@ -522,9 +522,12 @@ export async function calculateCompoundBuild(input: {
     return { success: false, error: "Unknown preset." };
   }
 
-  // Force totes on for mandatory-tote presets (e.g. Track Norris — totes are drawers)
-  // Force totes OFF for totesDisabled presets (frame-only, no tote option)
-  const hasTotes = preset.totesAreMandatory ? true : preset.totesDisabled ? false : input.hasTotes;
+  // Installer-level totes_disabled / use_2x4_rails always wins — no totes regardless of preset
+  // Then: preset.totesAreMandatory forces totes ON (e.g. Track Norris drawer slides)
+  // Then: preset.totesDisabled forces totes OFF (frame-only presets)
+  // Otherwise: use the customer's choice
+  const installerTotesOff = input.installerPricing?.totes_disabled === true || input.installerPricing?.use_2x4_rails === true;
+  const hasTotes = installerTotesOff ? false : preset.totesAreMandatory ? true : preset.totesDisabled ? false : input.hasTotes;
 
   // Still calculate each sub-unit for dimensions/slots (pricing may be overridden)
   const subUnits: CompoundBuildResult["subUnits"] = [];
