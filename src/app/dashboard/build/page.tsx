@@ -2096,7 +2096,7 @@ export default function BuildConfiguratorPage() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          {unit.id.startsWith("custom-") ? (
+                          {unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
                             <>
                               <PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />
                               {unit.desc}
@@ -2113,7 +2113,7 @@ export default function BuildConfiguratorPage() {
                           )}
                         </p>
                         <p className="text-[11px] text-stone-500">
-                          {unit.id.startsWith("custom-") ? (
+                          {unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
                             "Custom item"
                           ) : unit.overheadGridPresetId ? (
                             <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
@@ -2350,7 +2350,15 @@ export default function BuildConfiguratorPage() {
                           }
                           return (
                             <div key={u.id} className="flex justify-between text-sm">
-                              <span className="text-stone-400">Unit {idx + 1}: {u.cols}×{u.rows}</span>
+                              <span className="text-stone-400">
+                                {u.cols === 0 && u.rows === 0 && !u.overheadGridPresetId && !u.shelvingConfigId ? (
+                                  <><PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
+                                ) : u.overheadGridPresetId ? (
+                                  <><ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
+                                ) : (
+                                  <>Unit {idx + 1}: {u.cols}×{u.rows}</>
+                                )}
+                              </span>
                               <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
                             </div>
                           );
