@@ -83,6 +83,10 @@ export async function getLeaderboard(
 
   const monthLabel = periodLabel;
 
+  // Platform owner / demo account — exclude from rankings so seed data
+  // doesn't compete with real installers.
+  const EXCLUDED_IDS = new Set(["cc12ae7c-3ae1-46be-82b7-f7ba276878e5"]);
+
   // Fetch all paid leads this month with installer info
   const { data: paidLeads, error } = await supabase
     .from("leads")
@@ -96,11 +100,11 @@ export async function getLeaderboard(
     return { entries: [], currentUserRank: null, monthLabel, daysLeft, totalDays, scoreBasis: "revenue" };
   }
 
-  // Aggregate per installer
+  // Aggregate per installer (skip excluded accounts)
   const agg = new Map<string, { jobs: number; revenue: number }>();
   for (const lead of paidLeads) {
     const id = lead.installer_id as string;
-    if (!id) continue;
+    if (!id || EXCLUDED_IDS.has(id)) continue;
     const prev = agg.get(id) || { jobs: 0, revenue: 0 };
     prev.jobs += 1;
     prev.revenue += (lead.balance_due as number) || 0;
@@ -120,10 +124,12 @@ export async function getLeaderboard(
 
   // Also fetch top installers by ALL-TIME completed jobs so the board
   // is populated even when few people have jobs this specific month.
+  // Exclude platform owner / demo accounts.
   const { data: topAllTime } = await supabase
     .from("profiles")
     .select("id")
     .gt("completed_jobs", 0)
+    .not("id", "in", `(${Array.from(EXCLUDED_IDS).join(",")})`)
     .order("completed_jobs", { ascending: false })
     .limit(20);
 
@@ -213,9 +219,10 @@ export async function getLeaderboard(
 
   // Build a combined ranking: monthly jobs first, then all-time jobs as tiebreaker.
   // Include all known installers (those with monthly jobs + those with all-time jobs).
+  // Excluded accounts can still VIEW the board but never appear in rankings.
   const allInstallerIds = new Set<string>();
-  for (const [id] of sorted) allInstallerIds.add(id);
-  for (const p of profiles || []) allInstallerIds.add(p.id as string);
+  for (const [id] of sorted) if (!EXCLUDED_IDS.has(id)) allInstallerIds.add(id);
+  for (const p of profiles || []) if (!EXCLUDED_IDS.has(p.id as string)) allInstallerIds.add(p.id as string);
 
   const combined = Array.from(allInstallerIds).map((id) => {
     const monthlyStats = agg.get(id) || { jobs: 0, revenue: 0 };
