@@ -223,7 +223,11 @@ const RAILS_2X4_MAX_ROWS = 5;
 
 // ── Config getter ────────────────────────────────────────────────────────
 function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
-  if (use2x4Rails) return RAILS_2X4_CONFIG;
+  if (use2x4Rails) {
+    // Sideways orientation = shallower depth (20" instead of 30")
+    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20 };
+    return RAILS_2X4_CONFIG;
+  }
   if (unitType === "mini") return MINI_CONFIG;
   // Standard unit: check orientation
   return orientation === "sideways" ? SIDEWAYS_CONFIG : STANDARD_CONFIG;

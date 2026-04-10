@@ -589,7 +589,7 @@ function RackAssembly({
   const getColBayW = (c: number) => colBayWidths[c] ?? standardBayW;
 
   // Get unit-specific values
-  const unitDepth = is2x4 ? RACK_DEPTH : getUnitDepth(unitType, orientation);
+  const unitDepth = is2x4 ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH) : getUnitDepth(unitType, orientation);
   const railHeight = is2x4 ? RAILS_2X4_RAIL_H : getRailHeight(unitType);
   const effectiveRailThickness = is2x4 ? RAILS_2X4_RAIL_W : RAIL_THICKNESS;
 
@@ -1011,7 +1011,7 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
   const is2x4 = use2x4Rails === true;
   const bayW = is2x4 ? RAILS_2X4_OPENING : getBayWidth(toteType, unitType, orientation);
   const totalW = cols * bayW + (cols + 1) * POST_W;
-  const unitDepth = is2x4 ? RACK_DEPTH : getUnitDepth(unitType, orientation);
+  const unitDepth = is2x4 ? (orientation === "sideways" ? SIDEWAYS_DEPTH : RACK_DEPTH) : getUnitDepth(unitType, orientation);
   const effectiveRows = is2x4 ? Math.min(rows, RAILS_2X4_POSITIONS.length) : rows;
   const tierSpacing = is2x4 ? 0 : getTierSpacing(unitType);
   const firstRailY = is2x4 ? RAILS_2X4_POSITIONS[0] : getFirstRailY(unitType);
