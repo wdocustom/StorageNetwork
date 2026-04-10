@@ -12,6 +12,7 @@ import { buildSystemPrompt } from "./prompt";
 import {
   calculateBuild,
   calculateCompoundBuild,
+  calculateOverheadStorageUnit,
 } from "@/app/actions/calculator";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
@@ -35,6 +36,7 @@ const ActionSchema = z.object({
           "profit",
           "list_presets",
           "custom_item",
+          "overhead",
         ])
         .describe("Type of calculation to run"),
       cols: z.number().optional().describe("Columns (for manual build/manifest/materials)"),
@@ -55,6 +57,7 @@ const ActionSchema = z.object({
       materialsCost: z.number().optional().describe("Material cost (for profit)"),
       customDescription: z.string().optional().describe("Description for custom line item (planter box, cleanout, etc.)"),
       customPrice: z.number().optional().describe("Price for custom line item"),
+      overheadGridPresetId: z.enum(["2x2", "2x3", "3x2", "3x3", "3x4", "4x4"]).optional().describe("Overhead ceiling storage grid size"),
     }),
   ).describe("List of calculations needed. Empty array if question can be answered from context alone."),
 });
@@ -246,6 +249,34 @@ async function runCalculations(
             price: a.customPrice || 0,
             note: "This is a custom line item. The installer can add it to their quote via the AI Builder text box.",
           });
+          break;
+        }
+
+        case "overhead": {
+          const gridId = a.overheadGridPresetId ?? "3x3";
+          const toteType = (a.toteModel ?? "HDX") as "HDX" | "GM";
+          const r = await calculateOverheadStorageUnit({
+            config: { gridPresetId: gridId, toteType, hasTotes: a.hasTotes ?? true },
+            installerPricing: ctx.installerPricing,
+          });
+          if (r.success) {
+            results.push({
+              type: "overhead",
+              gridPreset: gridId,
+              slotsWide: r.result.slotsWide,
+              slotsDeep: r.result.slotsDeep,
+              toteCount: r.result.toteCount,
+              toteType: r.result.toteType,
+              hasTotes: r.result.hasTotes,
+              systemWidth: r.result.systemWidthIn,
+              systemDepth: r.result.systemDepthIn,
+              price: r.result.price,
+              totePrice: r.result.totePrice,
+              materials: r.result.materials,
+            });
+          } else {
+            results.push({ type: "overhead", error: r.error });
+          }
           break;
         }
 
@@ -443,12 +474,14 @@ Available calculation types:
 - "profit": Calculate installer profit (needs jobPrice and materialsCost)
 - "list_presets": List available presets
 - "custom_item": For custom products like planter boxes, cleanouts, workbenches, etc. Set customDescription and customPrice. Use this when the user asks about non-standard products.
+- "overhead": Calculate overhead ceiling storage. Provide overheadGridPresetId (2x2, 2x3, 3x2, 3x3, 3x4, 4x4). Keywords: "overhead", "ceiling", "ceiling storage", "ceiling totes". Returns price, materials list, dimensions.
 
 IMPORTANT routing rules:
 - When user gives wall dimensions (e.g. "149 x 89"), use wallWidth/wallHeight — do NOT guess cols/rows
 - When user asks about 2x4s, boards, screws, lumber → use "manifest" (NOT "build")
 - When user asks about material costs/pricing → use "materials"
 - When user asks what fits a wall AND about materials → use BOTH "build" (for dimensions) AND "manifest" (for material counts) with the same wallWidth/wallHeight
+- When user asks about overhead/ceiling storage → use "overhead" with the grid size (overheadGridPresetId). Default to "3x3" if no size specified.
 - You can combine multiple actions in the array
 
 Return an EMPTY actions array if the question can be answered from the context below.

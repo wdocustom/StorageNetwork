@@ -64,8 +64,13 @@ const PRODUCT_KNOWLEDGE = `
 
 ### Overhead Ceiling Storage
 - Ceiling-mounted tote rail system lagged to joists
-- 2x2 through 4x4 grid configurations
-- CAN be mixed with tote organizers
+- 4-layer assembly: nailer (2x4 belly-flat) → 2x padding layers (2x4) → plywood rail strip (6" wide)
+- Total drop from ceiling: 5.25"
+- Grid presets: 2x2 (4 totes), 2x3 (6), 3x2 (6), 3x3 (9), 3x4 (12), 4x4 (16)
+- Tote types: HDX (19-3/4" slot) or Greenmade/Wide (20-3/4" slot)
+- Materials: nailer boards, padding boards, plywood rail strips, lag bolts, structural screws, totes
+- CAN be mixed with tote organizers in the same quote
+- Enabled per-installer via pricing settings toggle
 
 ## Screw Sizes & Usage
 - **1" screws**: Wheel mounting (16 per wheel kit)

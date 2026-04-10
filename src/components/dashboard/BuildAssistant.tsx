@@ -74,7 +74,7 @@ function useQuickChips(hasBuild: boolean, hasUnits: boolean): string[] {
 
     // Always available
     chips.push("Screws in a 4x4 unit?");
-    chips.push("Indiana Joe profit?");
+    chips.push("3x3 overhead ceiling storage?");
     chips.push("36×24 planter box with shelf?");
 
     return chips.slice(0, 6);

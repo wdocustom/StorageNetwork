@@ -24,6 +24,7 @@ interface ParsedUnit {
   hasWheels: boolean;
   hasTop: boolean;
   presetId?: string | null;
+  overheadGridPresetId?: string | null;
   customPrice?: number | null;
   description: string;
 }
@@ -64,6 +65,16 @@ KNOWN PRESETS (use presetId when referenced by name):
 - "rack-city-roller" or "Rack City Roller": Single 3×2 with wheels and plywood top. Frame only, NO totes. 6 slots.
 - "mayor-of-rack-city" or "Mayor of Rack City": Single 4×2 with wheels and plywood top. Frame only, NO totes. 8 slots.
 
+OVERHEAD CEILING STORAGE (use overheadGridPresetId with cols:0, rows:0):
+- Ceiling-mounted tote rail system lagged to joists
+- Grid presets: "2x2" (4 totes), "2x3" (6 totes), "3x2" (6 totes), "3x3" (9 totes), "3x4" (12 totes), "4x4" (16 totes)
+- Format is slotsWide × slotsDeep (e.g. "3x4 overhead" = 3 wide, 4 deep = 12 totes)
+- CAN be mixed with tote organizers and custom items in the same quote
+- Keywords: "overhead", "ceiling", "ceiling storage", "overhead rack", "ceiling totes"
+- Set overheadGridPresetId to the grid size (e.g. "3x4"), cols:0, rows:0
+- Default hasTotes:true for overhead (totes hang from rails)
+- toteColor applies (black or clear)
+
 CUSTOM PRODUCTS (use cols:0, rows:0 with customPrice and description):
 - Raised planter boxes: Cedar or lumber planter boxes of any dimension. Common sizes: 36"×24", 48"×24", 48"×48", 72"×24". Options include: shelf/bottom shelf, legs/raised, liners, casters/wheels. Typical pricing $200-$500 depending on size and features.
 - Garage cleanout / junk removal services
@@ -85,21 +96,25 @@ RULES:
 - For custom/arbitrary items with a description and price (e.g. "planter box 36x24 with shelf $350" or "garage cleanout $349"), set cols:0, rows:0, and include the customPrice and description. Parse dimensions and features into a clear description.
 - For planter boxes: include dimensions, material, and features in the description (e.g. "Raised Planter Box — 36" × 24" w/ Bottom Shelf")
 - If no price is given for a custom item, make a reasonable estimate based on size and features, and note it in the description with "(est.)"
+- OVERHEAD CEILING STORAGE: When the user mentions "overhead", "ceiling storage", or "ceiling totes", set overheadGridPresetId to the grid size (e.g. "3x4") and cols:0, rows:0. Do NOT set presetId or customPrice for overhead units.
 
 RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explanation, just JSON:
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
 
 With custom price override:
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
 
 For planter boxes:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}
 
 For custom line items:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}
 
-For mixed quotes (storage + custom items):
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}`;
+For overhead ceiling storage:
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x4","wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 4 (12 totes)"}],"notes":null}
+
+For mixed quotes (storage + overhead + custom items):
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x3","wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 3 (9 totes)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -155,6 +170,25 @@ export async function POST(req: NextRequest) {
 
       // Normalize tote color
       const toteColor = unit.toteColor === "clear" ? "clear" : "black";
+
+      // Normalize overhead grid preset ID
+      const VALID_OVERHEAD_GRIDS = ["2x2", "2x3", "3x2", "3x3", "3x4", "4x4"];
+      const overheadGridPresetId = unit.overheadGridPresetId && VALID_OVERHEAD_GRIDS.includes(unit.overheadGridPresetId)
+        ? unit.overheadGridPresetId
+        : undefined;
+
+      // Overhead ceiling storage — pass through with validated grid ID
+      if (overheadGridPresetId) {
+        resolvedUnits.push({
+          ...unit,
+          cols: 0,
+          rows: 0,
+          toteColor,
+          overheadGridPresetId,
+          presetId: undefined,
+        });
+        continue;
+      }
 
       // Resolve wall dimensions via real calculator
       if (unit.wallWidthInches && unit.cols === 0) {

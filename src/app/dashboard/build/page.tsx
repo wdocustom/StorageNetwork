@@ -209,7 +209,7 @@ export default function BuildConfiguratorPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; customPrice?: number | null; description: string }> | null>(null);
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; customPrice?: number | null; description: string }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
 
@@ -248,6 +248,32 @@ export default function BuildConfiguratorPage() {
     setAiAdded(false);
     for (const unit of aiResult) {
       const hasCustomPrice = typeof unit.customPrice === "number" && unit.customPrice > 0;
+
+      // Overhead ceiling storage unit
+      if (unit.overheadGridPresetId) {
+        const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === unit.overheadGridPresetId);
+        if (preset) {
+          const toteType = (unit.toteColor === "clear" ? "HDX" : "HDX") as "HDX" | "GM";
+          const overheadResult = await calculateOverheadStorageUnit({
+            config: { gridPresetId: preset.id, toteType, hasTotes: unit.hasTotes },
+            installerPricing: installerPricing || undefined,
+          });
+          if (overheadResult.success && overheadResult.result) {
+            const finalPrice = hasCustomPrice ? unit.customPrice! : overheadResult.result.price;
+            setUnits((prev) => [...prev, {
+              id: `ai-overhead-${Date.now()}-${Math.random()}`,
+              cols: preset.slotsWide, rows: preset.slotsDeep,
+              toteType, unitType: "standard",
+              hasTotes: unit.hasTotes, hasWheels: false, hasTop: false,
+              price: finalPrice, totalW: 0, totalH: 0, depth: 0,
+              slots: preset.toteCount,
+              desc: `Overhead Ceiling Storage: ${preset.label} (${preset.toteCount} totes)`,
+              overheadGridPresetId: preset.id,
+            }]);
+          }
+        }
+        continue;
+      }
 
       // Pure custom line item (no cols/rows, just description + price)
       if (unit.cols === 0 && unit.rows === 0 && !unit.presetId && hasCustomPrice) {
@@ -1354,10 +1380,15 @@ export default function BuildConfiguratorPage() {
                           {unit.presetId && (
                             <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">Preset</span>
                           )}
+                          {unit.overheadGridPresetId && (
+                            <span className="rounded-full bg-blue-400/15 px-2 py-0.5 text-[10px] font-bold text-blue-400">Ceiling</span>
+                          )}
                         </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
-                        {unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
+                        {unit.overheadGridPresetId ? (
+                          <span>Overhead {unit.overheadGridPresetId} grid{unit.hasTotes ? ` • Totes (${unit.toteColor})` : ""}</span>
+                        ) : unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
                           <span>Custom item</span>
                         ) : (
                           <>
@@ -1835,8 +1866,8 @@ export default function BuildConfiguratorPage() {
           </div>
           )}
 
-          {/* ── Tote Size (Standard units only) ── */}
-          {unitType === "standard" ? (
+          {/* ── Tote Size (Standard units only, hidden in 2x4 rail mode) ── */}
+          {installerPricing?.use_2x4_rails !== true && unitType === "standard" ? (
           <div className="mt-3">
             <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
               Tote Size
@@ -1893,14 +1924,14 @@ export default function BuildConfiguratorPage() {
               </button>
             </div>
           </div>
-          ) : (
+          ) : installerPricing?.use_2x4_rails !== true ? (
             <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Tote Type</div>
               <div className="mt-1 text-sm font-medium text-stone-300">
                 6.5 Quart Clear Totes (Yellow Lids)
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Toggles */}
           <div className="mt-3 space-y-2">
