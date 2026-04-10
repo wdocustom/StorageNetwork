@@ -3425,3 +3425,125 @@ export async function sendInventoryAnnouncementEmail(
     html,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Weekly Activity Digest
+// Trigger: Every Monday via /api/cron/weekly-digest
+// Personalized scorecard + contextual CTA + leaderboard social proof
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface WeeklyDigestData {
+  email: string;
+  displayName: string;
+  pageViews: number;
+  quotesCreated: number;
+  leadsReceived: number;
+  jobsCompleted: number;
+  cta: { label: string; href: string; reason: string };
+  topInstallers: Array<{ name: string; score: number }>;
+  unsubscribeUrl: string;
+}
+
+export async function sendWeeklyDigestEmail(
+  data: WeeklyDigestData
+): Promise<SendEmailResult> {
+  const {
+    email,
+    displayName,
+    pageViews,
+    quotesCreated,
+    leadsReceived,
+    jobsCompleted,
+    cta,
+    topInstallers,
+    unsubscribeUrl,
+  } = data;
+
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const totalActivity = pageViews + quotesCreated + leadsReceived + jobsCompleted;
+
+  // Stat card helper
+  const stat = (value: number, label: string, color: string) => `
+    <td style="text-align:center;padding:12px 8px;">
+      <p style="margin:0;font-size:28px;font-weight:900;color:${color};">${value}</p>
+      <p style="margin:4px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">${label}</p>
+    </td>`;
+
+  const leaderboardRows = topInstallers
+    .map(
+      (t, i) => `
+    <tr>
+      <td style="padding:6px 0;color:#facc15;font-size:13px;font-weight:bold;width:24px;">${i + 1}.</td>
+      <td style="padding:6px 0;color:#e2e8f0;font-size:13px;">${t.name}</td>
+      <td style="padding:6px 0;color:#94a3b8;font-size:13px;text-align:right;">${t.score} pts</td>
+    </tr>`
+    )
+    .join("");
+
+  const html = emailShell(
+    "Your Weekly Scorecard",
+    `
+    <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;">
+      Hey <strong>${displayName}</strong>, here's how your week looked:
+    </p>
+
+    ${
+      totalActivity === 0
+        ? `<div style="background-color:#facc150d;border:1px solid #facc1533;border-radius:12px;padding:20px;margin:0 0 20px;text-align:center;">
+            <p style="margin:0;color:#facc15;font-size:14px;font-weight:700;">You haven't logged in this week</p>
+            <p style="margin:8px 0 0;color:#94a3b8;font-size:13px;">Your competitors are posting on Facebook and landing jobs. Don't fall behind!</p>
+          </div>`
+        : ""
+    }
+
+    <!-- Stats Grid -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f172a;border-radius:12px;margin:0 0 24px;">
+      <tr>
+        ${stat(pageViews, "Page Views", "#60a5fa")}
+        ${stat(quotesCreated, "Quotes", "#a78bfa")}
+        ${stat(leadsReceived, "Leads", "#34d399")}
+        ${stat(jobsCompleted, "Jobs Done", "#facc15")}
+      </tr>
+    </table>
+
+    <!-- CTA -->
+    <div style="background-color:#facc150d;border:1px solid #facc1533;border-radius:12px;padding:20px;margin:0 0 24px;">
+      <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Next Step</p>
+      <p style="margin:0 0 12px;color:#e2e8f0;font-size:14px;">${cta.reason}</p>
+      <a href="${cta.href}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:800;font-size:14px;">
+        ${cta.label} &rarr;
+      </a>
+    </div>
+
+    ${
+      topInstallers.length > 0
+        ? `<!-- Leaderboard -->
+    <div style="margin:0 0 24px;">
+      <p style="margin:0 0 12px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Top Installers This Month</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${leaderboardRows}
+      </table>
+    </div>`
+        : ""
+    }
+
+    <div style="text-align:center;margin:24px 0 16px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#334155;color:#e2e8f0;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
+        Open Dashboard
+      </a>
+    </div>
+
+    <div style="border-top:1px solid #334155;margin-top:24px;padding-top:16px;text-align:center;">
+      <a href="${unsubscribeUrl}" style="color:#475569;font-size:11px;text-decoration:underline;">
+        Unsubscribe from weekly digests
+      </a>
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: `Your Weekly Scorecard \u2014 ${pageViews} views, ${leadsReceived} leads, ${jobsCompleted} jobs`,
+    html,
+  });
+}

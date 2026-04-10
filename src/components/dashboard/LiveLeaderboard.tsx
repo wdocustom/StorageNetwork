@@ -71,7 +71,8 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
 
   if (!data) return null;
 
-  const { entries, currentUserRank, monthLabel, daysLeft, totalDays } = data;
+  const { entries, currentUserRank, monthLabel, daysLeft, totalDays, scoreBasis } = data;
+  const isEngagement = scoreBasis === "engagement";
   const top3 = entries.filter((e) => e.rank <= 3);
   const rest = entries.filter((e) => e.rank > 3);
   const leader = entries[0];
@@ -95,7 +96,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
           </div>
           <div>
             <h2 className="text-sm font-black uppercase tracking-wider text-white">
-              Live Leaderboard
+              {isEngagement ? "Activity Leaderboard" : "Live Leaderboard"}
             </h2>
             <p className="text-[10px] font-semibold text-stone-500">
               {monthLabel}
@@ -134,13 +135,13 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
           <div className="flex items-end justify-center gap-3">
             {/* 2nd place (left) */}
             {top3.length >= 2 && (
-              <PodiumSlot entry={top3[1]} position={2} isCurrentUser={top3[1].isCurrentUser} />
+              <PodiumSlot entry={top3[1]} position={2} isCurrentUser={top3[1].isCurrentUser} isEngagement={isEngagement} />
             )}
             {/* 1st place (center, tallest) */}
-            <PodiumSlot entry={top3[0]} position={1} isCurrentUser={top3[0].isCurrentUser} />
+            <PodiumSlot entry={top3[0]} position={1} isCurrentUser={top3[0].isCurrentUser} isEngagement={isEngagement} />
             {/* 3rd place (right) */}
             {top3.length >= 3 && (
-              <PodiumSlot entry={top3[2]} position={3} isCurrentUser={top3[2].isCurrentUser} />
+              <PodiumSlot entry={top3[2]} position={3} isCurrentUser={top3[2].isCurrentUser} isEngagement={isEngagement} />
             )}
           </div>
         </div>
@@ -150,7 +151,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
       {rest.length > 0 && (
         <div className="px-4 py-3">
           <div className="space-y-1">
-            {rest.map((entry, i) => {
+            {rest.map((entry, i: number) => {
               // Show separator before current user if they're not adjacent
               const showSep =
                 entry.isCurrentUser &&
@@ -169,7 +170,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
                       <div className="h-px flex-1 bg-slate-800" />
                     </div>
                   )}
-                  <RankRow entry={entry} />
+                  <RankRow entry={entry} isEngagement={isEngagement} />
                 </div>
               );
             })}
@@ -254,10 +255,12 @@ function PodiumSlot({
   entry,
   position,
   isCurrentUser,
+  isEngagement = false,
 }: {
   entry: LeaderboardEntry;
   position: 1 | 2 | 3;
   isCurrentUser: boolean;
+  isEngagement?: boolean;
 }) {
   const heights = { 1: "h-28", 2: "h-20", 3: "h-16" };
   const avatarSizes = { 1: "h-14 w-14", 2: "h-11 w-11", 3: "h-11 w-11" };
@@ -370,14 +373,16 @@ function PodiumSlot({
           <span className={`text-lg font-black ${
             position === 1 ? "text-yellow-400" : position === 2 ? "text-stone-400" : "text-amber-500"
           }`}>
-            {entry.jobsThisMonth}
+            {isEngagement ? (entry.engagementScore ?? 0) : entry.jobsThisMonth}
           </span>
           <span className="text-[8px] font-bold uppercase tracking-wider text-stone-600">
-            jobs
+            {isEngagement ? "pts" : "jobs"}
           </span>
-          <span className="text-[9px] font-bold text-stone-500 mt-0.5">
-            ${entry.revenueThisMonth.toLocaleString()}
-          </span>
+          {!isEngagement && (
+            <span className="text-[9px] font-bold text-stone-500 mt-0.5">
+              ${entry.revenueThisMonth.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -386,7 +391,7 @@ function PodiumSlot({
 
 // ── Rank Row (4th place and below) ───────────────────────────────────────
 
-function RankRow({ entry }: { entry: LeaderboardEntry }) {
+function RankRow({ entry, isEngagement = false }: { entry: LeaderboardEntry; isEngagement?: boolean }) {
   const initials = entry.businessName
     .split(" ")
     .map((w) => w[0])
@@ -483,10 +488,12 @@ function RankRow({ entry }: { entry: LeaderboardEntry }) {
       <div className="text-right">
         <div className="flex items-center justify-end gap-1">
           <Medal className="h-3 w-3 text-yellow-400" />
-          <span className="text-sm font-black text-white">{entry.jobsThisMonth}</span>
+          <span className="text-sm font-black text-white">
+            {isEngagement ? (entry.engagementScore ?? 0) : entry.jobsThisMonth}
+          </span>
         </div>
         <p className="text-[9px] font-semibold text-stone-600">
-          ${entry.revenueThisMonth.toLocaleString()}
+          {isEngagement ? "activity pts" : `$${entry.revenueThisMonth.toLocaleString()}`}
         </p>
       </div>
 

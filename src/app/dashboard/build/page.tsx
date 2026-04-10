@@ -1288,6 +1288,26 @@ export default function BuildConfiguratorPage() {
               <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-600">
                 Or describe what to build
                 </label>
+                {/* Quick scenario chips */}
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {[
+                    "Indiana Joe with clear totes",
+                    "4x4 on wheels with a top",
+                    "Cornhusker no totes",
+                    "36x24 planter box with shelf $350",
+                    "120x96 wall fit",
+                    "Garage cleanout $349",
+                  ].map((scenario) => (
+                    <button
+                      key={scenario}
+                      type="button"
+                      onClick={() => { setAiInput(scenario); setAiError(""); }}
+                      className="rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[10px] font-medium text-stone-500 transition-all hover:border-yellow-400/40 hover:bg-yellow-400/10 hover:text-yellow-300"
+                    >
+                      {scenario}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={aiInput}
                   onChange={(e) => { setAiInput(e.target.value); setAiError(""); }}

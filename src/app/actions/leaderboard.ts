@@ -25,7 +25,10 @@ export interface LeaderboardEntry {
   allTimeJobs: number;
   streak: number; // consecutive months with at least 1 paid job
   isCurrentUser: boolean;
+  engagementScore?: number; // activity-based score (when scoreBasis is "engagement")
 }
+
+export type ScoreBasis = "revenue" | "engagement";
 
 export interface LeaderboardData {
   entries: LeaderboardEntry[];
@@ -33,6 +36,7 @@ export interface LeaderboardData {
   monthLabel: string;
   daysLeft: number;
   totalDays: number;
+  scoreBasis: ScoreBasis;
 }
 
 /**
@@ -89,7 +93,7 @@ export async function getLeaderboard(
 
   if (error || !paidLeads) {
     console.error("[Leaderboard]", error?.message);
-    return { entries: [], currentUserRank: null, monthLabel, daysLeft, totalDays };
+    return { entries: [], currentUserRank: null, monthLabel, daysLeft, totalDays, scoreBasis: "revenue" };
   }
 
   // Aggregate per installer
@@ -227,6 +231,52 @@ export async function getLeaderboard(
     return b.monthlyRevenue - a.monthlyRevenue;
   });
 
+  // Determine if we have enough monthly job data to rank by revenue,
+  // or if we should fall back to engagement scores from activity logs.
+  const installersWithMonthlyJobs = combined.filter((c) => c.monthlyJobs > 0).length;
+  const useEngagement = installersWithMonthlyJobs < 3;
+  const scoreBasis: ScoreBasis = useEngagement ? "engagement" : "revenue";
+
+  // If engagement mode, fetch activity scores for all known installers
+  const engagementScores = new Map<string, number>();
+  if (useEngagement) {
+    const allIds = Array.from(allInstallerIds);
+    const { data: actLogs } = await supabase
+      .from("installer_activity_log")
+      .select("installer_id, action")
+      .in("installer_id", allIds)
+      .gte("created_at", monthStart)
+      .lt("created_at", monthEnd)
+      .limit(10000);
+
+    // Score: page_view=1, social_generate/social_share=3, quote/build=5
+    for (const log of actLogs || []) {
+      const id = log.installer_id as string;
+      const action = log.action as string;
+      const prev = engagementScores.get(id) || 0;
+      if (action === "page_view") {
+        engagementScores.set(id, prev + 1);
+      } else if (action === "social_generate" || action === "social_share") {
+        engagementScores.set(id, prev + 3);
+      } else {
+        engagementScores.set(id, prev + 2);
+      }
+    }
+    // Add lead-based points (10 per lead received this month)
+    for (const lead of paidLeads) {
+      const id = lead.installer_id as string;
+      engagementScores.set(id, (engagementScores.get(id) || 0) + 10);
+    }
+
+    // Re-sort combined by engagement score
+    combined.sort((a, b) => {
+      const scoreA = engagementScores.get(a.id) || 0;
+      const scoreB = engagementScores.get(b.id) || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return b.allTime - a.allTime;
+    });
+  }
+
   const entries: LeaderboardEntry[] = [];
   let currentUserRank: number | null = null;
 
@@ -237,18 +287,24 @@ export async function getLeaderboard(
   // Top 10
   for (let i = 0; i < Math.min(combined.length, 10); i++) {
     const c = combined[i];
-    entries.push(buildEntry(c.id, i + 1, c.id === currentUserId));
+    const entry = buildEntry(c.id, i + 1, c.id === currentUserId);
+    if (useEngagement) entry.engagementScore = engagementScores.get(c.id) || 0;
+    entries.push(entry);
   }
 
   // If current user is not in top 10, append them
   if (currentUserRank && currentUserRank > 10) {
-    entries.push(buildEntry(currentUserId, currentUserRank, true));
+    const entry = buildEntry(currentUserId, currentUserRank, true);
+    if (useEngagement) entry.engagementScore = engagementScores.get(currentUserId) || 0;
+    entries.push(entry);
   } else if (!currentUserRank) {
     // User has 0 jobs ever — show them at the bottom
     const rank = combined.length + 1;
-    entries.push(buildEntry(currentUserId, rank, true));
+    const entry = buildEntry(currentUserId, rank, true);
+    if (useEngagement) entry.engagementScore = engagementScores.get(currentUserId) || 0;
+    entries.push(entry);
     currentUserRank = rank;
   }
 
-  return { entries, currentUserRank, monthLabel, daysLeft, totalDays };
+  return { entries, currentUserRank, monthLabel, daysLeft, totalDays, scoreBasis };
 }

@@ -26,8 +26,9 @@ import {
   Zap,
   Activity,
 } from "lucide-react";
-import MissionBriefing from "@/components/dashboard/MissionBriefing";
-// import LiveLeaderboard from "@/components/dashboard/LiveLeaderboard";
+import SetupChecklist from "@/components/dashboard/SetupChecklist";
+import ActionNudge from "@/components/dashboard/ActionNudge";
+import LiveLeaderboard from "@/components/dashboard/LiveLeaderboard";
 import NetworkPassiveIncome from "@/components/dashboard/NetworkPassiveIncome";
 import PromoBanner from "@/components/dashboard/PromoBanner";
 import ProPill from "@/components/dashboard/ProPill";
@@ -375,13 +376,16 @@ export default function DashboardPage() {
       {/* ── Tile Grid ───────────────────────────────────────────────── */}
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="mx-auto grid w-full max-w-lg gap-4">
-          {/* ── Mission Briefing (new installers only) ────────────── */}
-          {completedCount === 0 && profile && (
-            <MissionBriefing userId={profile.id} slug={profile.slug} isPro={profile.is_pro} />
+          {/* ── Setup Checklist (persistent until all steps done) ── */}
+          {profile && (
+            <SetupChecklist userId={profile.id} />
           )}
 
-          {/* ── Live Leaderboard (disabled — uncomment to enable) ── */}
-          {/* {profile && <LiveLeaderboard userId={profile.id} />} */}
+          {/* ── Action Nudge (contextual coaching card) ───────────── */}
+          {profile && <ActionNudge userId={profile.id} />}
+
+          {/* ── Live Leaderboard ──────────────────────────────────── */}
+          {profile && <LiveLeaderboard userId={profile.id} />}
 
           {/* ── Sales Stats Bar ─────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
