@@ -206,6 +206,7 @@ async function runCalculations(
                 rows: matRows,
                 toteType: (a.toteModel ?? "HDX") as "HDX" | "GM",
                 unitType: (a.unitType ?? "standard") as "standard" | "mini",
+                orientation: (a.orientation ?? "standard") as "standard" | "sideways",
                 hasTotes: is2x4Materials ? false : (a.hasTotes ?? true),
                 hasWheels: a.hasWheels ?? false,
                 hasTop: a.hasTop ?? true,

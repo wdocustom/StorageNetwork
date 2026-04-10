@@ -49,15 +49,19 @@ const MINI_MAX_ROWS_PER_TIER = 13; // but mini is capped at 4 anyway
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
 const RAILS_2X4_OPENING = 21;           // 21" universal opening
 const RAILS_2X4_GAP = 1.5;              // 2x4 post width
-const RAILS_2X4_DEPTH = 30;             // 30" rail depth
+const RAILS_2X4_DEPTH_STANDARD = 30;    // 30" rail depth (standard orientation)
+const RAILS_2X4_DEPTH_SIDEWAYS = 20;    // 20" rail depth (sideways orientation)
 const RAILS_2X4_TOP_GAP = 2.75;         // 2.75" above top rail
-// Fixed rail positions (top of each rail from bottom of unit)
+// Fixed rail positions (top of each rail from bottom of vertical posts)
 const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
 const RAILS_2X4_MAX_ROWS = 5;
-// 6 rails per 2x4x8' piece:
-//   Rip 2x4 in half lengthwise → 2 strips of 1-3/4" wide
-//   Cut each strip into 3 pieces at 30" (+ kerf) → 6 rail pieces
-const RAILS_2X4_PER_BOARD = 6;
+
+/** Calculate how many rail pieces one 2x4x8' board yields at a given depth.
+ *  Rip the 2x4 in half lengthwise → 2 strips, then crosscut each strip. */
+function rails2x4PerBoard(depth: number): number {
+  const cutsPerStrip = Math.floor(STOCK_LENGTH / (depth + KERF));
+  return 2 * cutsPerStrip; // 2 strips from ripping
+}
 
 // ���─ Plywood Strip Yields ��─────────────��──────────────────────────────────
 // Standard: 1-7/8" wide × 30" long strips
@@ -204,8 +208,10 @@ export async function calculateMaterialCostServer(
 
     const { cols: totalCols, rows: totalRows, toteType = "HDX", hasTotes = false, hasWheels = false, hasTop = false } = unit;
     const unitType = unit.unitType ?? "standard";
+    const orientation = unit.orientation ?? "standard";
     const isMini = unitType === "mini";
     const is2x4Rails = unit.use2x4Rails === true;
+    const rails2x4Depth = orientation === "sideways" ? RAILS_2X4_DEPTH_SIDEWAYS : RAILS_2X4_DEPTH_STANDARD;
     if (totalCols < 1 || totalRows < 1) continue;
 
     // In 2x4 rail mode, totes are never included
@@ -265,7 +271,14 @@ export async function calculateMaterialCostServer(
           globalStripCount += numRails + backSupports;
         }
 
-        totalScrew16 += numRails * 4;
+        if (is2x4Rails) {
+          // 2x4 rails: 3" screws for rail-to-post (4 per rail piece)
+          totalScrew3 += numRails * 4;
+        } else {
+          // Plywood strips: 1⅝" screws (4 per strip)
+          totalScrew16 += numRails * 4;
+        }
+        // Structural: posts to plates (3" screws)
         totalScrew3 += (cols + 1) * 20;
 
         if (effectiveHasTotes) totalTotes += slots;
@@ -413,9 +426,21 @@ export async function calculateMaterialCostServer(
   const miniStructSheets = Math.ceil(netMiniStrips / MINI_STRIPS_PER_STRUCT_SHEET);
 
   // ── 2x4 Rail board calculation ─────────────────────────────────────────
-  // 2x4 rails are ripped from 2x4x8' lumber (6 rails per board).
-  // These are ADDITIONAL lumber boards beyond the structural posts/plates.
-  const railBoards2x4 = global2x4RailCount > 0 ? Math.ceil(global2x4RailCount / RAILS_2X4_PER_BOARD) : 0;
+  // 2x4 rails are ripped from 2x4x8' lumber. Yield depends on rail depth:
+  //   Standard (30"): 2 strips × 3 cuts = 6 per board
+  //   Sideways (20"): 2 strips × 4 cuts = 8 per board
+  // When a job mixes orientations, we use the worst-case (lowest yield).
+  // For now, detect the orientation from the first 2x4 unit in the job.
+  const rails2x4YieldPerBoard = (() => {
+    for (const u of units) {
+      if (u.use2x4Rails) {
+        const d = (u.orientation ?? "standard") === "sideways" ? RAILS_2X4_DEPTH_SIDEWAYS : RAILS_2X4_DEPTH_STANDARD;
+        return rails2x4PerBoard(d);
+      }
+    }
+    return rails2x4PerBoard(RAILS_2X4_DEPTH_STANDARD); // fallback
+  })();
+  const railBoards2x4 = global2x4RailCount > 0 ? Math.ceil(global2x4RailCount / rails2x4YieldPerBoard) : 0;
   totalBoards += railBoards2x4;
 
   totalSheets = structSheets + globalTopSheets + miniStructSheets + globalMiniTopSheets + shelvingPlywoodSheets + totalAddonSheets;

@@ -75,14 +75,19 @@ const MINI_FIRST_RAIL_HEIGHT = 5.25;
 // ── 2x4 Rail Construction Constants ────────────────────────────────────
 const RAILS_2X4_OPENING = 21;     // universal 21" opening
 const RAILS_2X4_GAP = 1.5;       // post width (same 2x4)
-const RAILS_2X4_DEPTH = 30;
+const RAILS_2X4_DEPTH_STANDARD = 30;
+const RAILS_2X4_DEPTH_SIDEWAYS = 20;
 const RAILS_2X4_PLATE_HEIGHT = 1.5;
 const RAILS_2X4_TOP_GAP = 2.75;
 /** Fixed rail heights from bottom of vertical posts (not bottom of unit) */
 const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
 const RAILS_2X4_MAX_ROWS = 5;
-/** Each 2x4x8' board ripped in half, then cut at 30" depth = 6 rail pieces */
-const RAILS_2X4_PER_BOARD = 6;
+
+/** Calculate rail pieces per 2x4x8' board at a given rail depth.
+ *  Rip in half → 2 strips, crosscut each at rail depth + kerf. */
+function rails2x4PerBoard(depth: number): number {
+  return 2 * Math.floor(STOCK_LENGTH / (depth + KERF));
+}
 
 // ── Pricing Constants ───────────────────────────────────────────────────
 const STANDARD_PRICE_PER_SLOT = 30;
@@ -224,6 +229,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
   // ── 2x4 Rail Board Accumulator ──────────────────────────────────────
   let global2x4RailCount = 0;
+  /** Track rail depth for yield calculation (all 2x4 units share depth within a build) */
+  let rails2x4Depth = RAILS_2X4_DEPTH_STANDARD;
 
   quoteData.forEach((unit, unitIdx) => {
     const {
@@ -326,6 +333,10 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     // Get config based on unit type, orientation, and 2x4 rail mode
     const opening = is2x4 ? RAILS_2X4_OPENING : getOpening(toteType, unitType, orientation);
     const gap = is2x4 ? RAILS_2X4_GAP : getGap(unitType);
+    // 2x4 rail depth depends on orientation — affects rail piece length and yield per board
+    if (is2x4) {
+      rails2x4Depth = orientation === "sideways" ? RAILS_2X4_DEPTH_SIDEWAYS : RAILS_2X4_DEPTH_STANDARD;
+    }
     const pricePerSlot = unitType === "mini" ? MINI_PRICE_PER_SLOT : STANDARD_PRICE_PER_SLOT;
     const totePrice = unitType === "mini"
       ? MINI_TOTE_PRICE
@@ -714,7 +725,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   const boxes1 = Math.ceil(gScrew1 / 90);
 
   // ── 2x4 Rail Board Calculation ────────────────────────────────────────
-  const railBoards2x4 = Math.ceil(global2x4RailCount / RAILS_2X4_PER_BOARD);
+  const yieldPerBoard = rails2x4PerBoard(rails2x4Depth);
+  const railBoards2x4 = Math.ceil(global2x4RailCount / yieldPerBoard);
 
   // ── Shopping List ─────────────────────────────────────────────────────
   const shopping_list: ShoppingItem[] = [
@@ -724,7 +736,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
   if (railBoards2x4 > 0) {
     shopping_list.push({
       name: "2x4 Lumber",
-      detail: `8 ft (ripped for rails — ${global2x4RailCount} pieces, 6 per board)`,
+      detail: `8 ft (ripped for ${rails2x4Depth}" rails — ${global2x4RailCount} pieces, ${yieldPerBoard} per board)`,
       qty: railBoards2x4,
     });
   }

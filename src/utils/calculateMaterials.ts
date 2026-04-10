@@ -32,6 +32,7 @@ export interface MaterialConfig {
   rows: number;
   toteType?: "HDX" | "GM";
   unitType?: "standard" | "mini";
+  orientation?: "standard" | "sideways";
   hasTotes?: boolean;
   hasWheels?: boolean;
   hasTop?: boolean;
