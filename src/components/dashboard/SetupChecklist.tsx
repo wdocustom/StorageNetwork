@@ -31,25 +31,43 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
   const [collapsed, setCollapsed] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
+  // Fetch on mount and re-fetch when window regains focus (user returns from another page)
   useEffect(() => {
-    getSetupStatus(userId)
-      .then((s) => {
-        setStatus(s);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    let mounted = true;
+    function refresh() {
+      getSetupStatus(userId)
+        .then((s) => { if (mounted) { setStatus(s); setLoading(false); } })
+        .catch(() => { if (mounted) setLoading(false); });
+    }
+    refresh();
+    function onFocus() { refresh(); }
+    window.addEventListener("focus", onFocus);
+    return () => { mounted = false; window.removeEventListener("focus", onFocus); };
   }, [userId]);
 
   // Handle inline actions that can be completed directly on the checklist
-  async function handleStepAction(stepId: string) {
+  function handleStepAction(stepId: string): boolean {
     if (stepId === "copy_link" && bookingLink) {
-      navigator.clipboard.writeText(bookingLink);
-      await logInstallerActivity({ action: "copy_link", pagePath: "/dashboard" });
+      // Optimistic: show "Done" immediately
       setJustCompleted("copy_link");
-      // Refresh checklist status after a beat
-      setTimeout(() => {
-        getSetupStatus(userId).then(setStatus);
-      }, 500);
+
+      // Copy link to clipboard (best-effort)
+      try {
+        navigator.clipboard.writeText(bookingLink);
+      } catch {
+        // Clipboard API may fail in non-secure contexts
+      }
+
+      // Log activity and refresh checklist (fire-and-forget)
+      logInstallerActivity({ action: "copy_link", pagePath: "/dashboard" })
+        .then(() => {
+          // Refresh checklist status after log is confirmed
+          getSetupStatus(userId).then(setStatus);
+        })
+        .catch(() => {
+          // Even if logging fails, keep the optimistic UI
+        });
+
       return true; // handled inline
     }
     return false; // navigate to CTA page
@@ -146,8 +164,8 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
                   </span>
                 ) : !step.completed ? (
                   <button
-                    onClick={async (e) => {
-                      const handled = await handleStepAction(step.id);
+                    onClick={() => {
+                      const handled = handleStepAction(step.id);
                       if (!handled) {
                         window.location.href = step.ctaHref;
                       }
