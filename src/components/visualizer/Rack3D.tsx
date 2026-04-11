@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useEffect } from "react";
+import { Suspense, useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage, Environment } from "@react-three/drei";
 import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, MeshPhysicalMaterial, Color } from "three";
@@ -245,14 +245,12 @@ PLYWOOD_TOP_MAT.envMapIntensity = 0.5;
 // ── Cached tote & drawer slide materials (prevents GPU memory leaks) ────
 // Materials are keyed by a hash of their visual properties. Reused across
 // all tote/slide instances instead of creating new ones on every render.
-// Uses MeshPhysicalMaterial for clearcoat / transmission on plastics.
+// Uses MeshPhysicalMaterial for transmission on clear plastics.
 const _matCache = new Map<string, MeshPhysicalMaterial>();
 
 interface CachedMatOpts {
   transparent?: boolean;
   opacity?: number;
-  clearcoat?: number;
-  clearcoatRoughness?: number;
   /** Enable true glass/clear-plastic transmission */
   transmission?: number;
   ior?: number;
@@ -260,7 +258,7 @@ interface CachedMatOpts {
 }
 
 function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: CachedMatOpts): MeshPhysicalMaterial {
-  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}:${opts?.clearcoat ?? 0}:${opts?.transmission ?? 0}`;
+  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}:${opts?.transmission ?? 0}`;
   let mat = _matCache.get(cacheKey);
   if (!mat) {
     mat = new MeshPhysicalMaterial({
@@ -268,7 +266,6 @@ function getCachedMaterial(key: string, color: string, roughness: number, metaln
       roughness,
       metalness,
       ...(opts?.transparent && { transparent: true, opacity: opts.opacity ?? 1 }),
-      ...(opts?.clearcoat != null && { clearcoat: opts.clearcoat, clearcoatRoughness: opts.clearcoatRoughness ?? 0.3 }),
       ...(opts?.transmission != null && opts.transmission > 0 && {
         transmission: opts.transmission,
         ior: opts.ior ?? 1.4,
@@ -376,39 +373,31 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#18181b";
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222225";
 
-  // Cached MeshPhysicalMaterials — clearcoat on opaque body, transmission on clear
+  // Cached MeshPhysicalMaterials — transmission on clear, matte plastic on opaque
   const bodyMat = useMemo(() => {
     if (isClear) {
-      // True clear plastic: transmission-based rendering (no fake opacity)
+      // True clear plastic: transmission-based rendering
       return getCachedMaterial("body-clear", "#e4e4e7", 0.15, 0.0, {
         transmission: 0.9, ior: 1.4, thickness: 0.1,
       });
     }
     if (isMini) {
-      // Mini clear shoebox — lighter transmission
+      // Mini clear shoebox
       return getCachedMaterial("body-mini", "#d4d4d8", 0.2, 0.0, {
         transmission: 0.85, ior: 1.4, thickness: 0.08,
       });
     }
-    // Standard opaque body: matte HDPE with subtle clearcoat
-    return getCachedMaterial("body-opaque", bodyColor, 0.65, 0.02, {
-      clearcoat: 0.1, clearcoatRoughness: 0.4,
-    });
+    // Standard opaque body: matte HDPE plastic
+    return getCachedMaterial("body-opaque", bodyColor, 0.85, 0.0);
   }, [bodyColor, isMini, isClear]);
 
-  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.7, 0.02, {
-    clearcoat: 0.05, clearcoatRoughness: 0.5,
-  }), [bodyRibColor]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.85, 0.0), [bodyRibColor]);
 
-  // Rim/lid — glossy injection-molded plastic
-  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.35, 0.04, {
-    clearcoat: 0.15, clearcoatRoughness: 0.25,
-  }), [rimColor]);
-  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.4, 0.03, {
-    clearcoat: 0.1, clearcoatRoughness: 0.3,
-  }), [rimDarkColor]);
-  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.5, 0.02), [bodyColor]);
-  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.45, 0.03), [rimDarkColor]);
+  // Rim/lid — slightly glossier injection-molded plastic
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.4, 0.0), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.5, 0.0), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.6, 0.0), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.55, 0.0), [rimDarkColor]);
 
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
@@ -2109,12 +2098,14 @@ export default function Rack3D(props: Rack3DProps) {
       >
         <TextureGuard />
 
-        {/* ── Photorealistic IBL — city HDR gives warm reflections on plastic ── */}
-        <Environment preset="city" />
+        {/* ── Photorealistic IBL — async HDRI load needs Suspense ── */}
+        <Suspense fallback={null}>
+          <Environment preset="city" />
+        </Suspense>
 
         {/* Single soft key light for cast shadows — IBL handles fill */}
         <directionalLight
-          position={[10, 16, 8]}
+          position={[10, 20, 15]}
           intensity={0.6}
           castShadow
           shadow-mapSize={[2048, 2048]}
@@ -2124,8 +2115,6 @@ export default function Rack3D(props: Rack3DProps) {
           shadow-camera-bottom={-4}
           shadow-bias={-0.0003}
         />
-        {/* Subtle fill from below-rear to prevent pure-black undersides */}
-        <directionalLight position={[-6, 2, -10]} intensity={0.15} />
 
         <ContactShadows
           position={[0, -0.001, 0]}
