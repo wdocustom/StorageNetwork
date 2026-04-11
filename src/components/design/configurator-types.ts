@@ -300,6 +300,9 @@ export interface ConfiguratorSidebarProps {
   // to draw attention to the updated configuration.
   onPulseVisualizerTrigger?: () => void;
 
+  /** Called when the active sidebar step changes (1-4) */
+  onStepChange?: (step: number) => void;
+
   // Trial cap waitlist (installer at 3-job limit — "hostage lead")
   installerAtCapacity: boolean;
   trialCapWaitlistSending: boolean;

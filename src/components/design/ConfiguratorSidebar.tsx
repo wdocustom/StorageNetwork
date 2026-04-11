@@ -33,9 +33,21 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.wallFitMsg]);
 
-  // Scroll to top when step changes
+  // Notify parent when the active step changes
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    props.onStepChange?.(activeStep);
+  }, [activeStep]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll sidebar content to top when step changes.
+  // On desktop (lg+), the scrollRef div is overflow-y-auto.
+  // On mobile, the sidebar isn't independently scrollable — the whole page scrolls,
+  // so we also scrollIntoView the container to bring it to the viewport top.
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      // On mobile, scroll the stepper (top of sidebar) into view
+      scrollRef.current.closest("aside")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [activeStep]);
 
   const numCols = typeof props.cols === "number" ? props.cols : parseInt(props.cols as string) || 0;

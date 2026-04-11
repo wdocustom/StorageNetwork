@@ -285,7 +285,7 @@ export default function DesignConfigurator({
             }]);
           }
         }
-        setShowMultiUnit3D(true);
+        // showMultiUnit3D will be set by the sidebarStep effect when initialStep=4
       })();
       return;
     }
@@ -390,8 +390,7 @@ export default function DesignConfigurator({
     ]);
     setShelvingConfigId(null);
     setShelvingPrice(null);
-    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
-    setShowMultiUnit3D(true);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
   }
 
   // ── Raised Bed Planters ─────────────────────────────────────────────
@@ -426,7 +425,6 @@ export default function DesignConfigurator({
         raisedBedConfig: config,
       } as UnitConfig,
     ]);
-    setShowMultiUnit3D(true);
   }
 
   // ── Overhead Ceiling Storage ──────────────────────────────────────────
@@ -460,8 +458,6 @@ export default function DesignConfigurator({
         overheadStorageConfig: config,
       } as UnitConfig,
     ]);
-    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
-    setShowMultiUnit3D(true);
   }
 
   // ── Multi-unit quote list ─────────────────────────────────────────────
@@ -470,6 +466,19 @@ export default function DesignConfigurator({
   // ── Multi-unit 3D visualization toggles ─────────────────────────────
   const [unitVisibility, setUnitVisibility] = useState<Record<number, boolean>>({});
   const [showMultiUnit3D, setShowMultiUnit3D] = useState(false);
+
+  // Track the sidebar step so the visualizer can switch between single/multi-unit:
+  // Steps 1-3 (configuring) → show the current unit being built (single)
+  // Step 4 (review) → show all added units together (multi-unit)
+  const initialStep = initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : 1) : 1;
+  const [sidebarStep, setSidebarStep] = useState(initialStep);
+  useEffect(() => {
+    if (sidebarStep === 4 && orderItems.length > 0) {
+      setShowMultiUnit3D(true);
+    } else if (sidebarStep <= 3) {
+      setShowMultiUnit3D(false);
+    }
+  }, [sidebarStep, orderItems.length]);
 
   // Build multi-unit items for the visualizer
   const multiUnitItems = useMemo(() => {
@@ -1193,8 +1202,7 @@ export default function DesignConfigurator({
     setHasTotes(true);
     setActivePreset(null);
     setCompoundBuild(null);
-    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
-    setShowMultiUnit3D(true);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
   }
 
   function handleAddPresetUnit() {
@@ -1231,8 +1239,7 @@ export default function DesignConfigurator({
         drawerSlideColumns: activePresetObj.drawerSlideColumns,
       },
     ]);
-    // Auto-enable multi-unit 3D so the visualizer shows the actual added units
-    setShowMultiUnit3D(true);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
   }
 
   function handleRemoveUnit(index: number) {
@@ -1579,7 +1586,7 @@ export default function DesignConfigurator({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         {/* ── SIDEBAR: Configurator (mobile: scrollable drawer below canvas, desktop: left 40%) ── */}
         <ConfiguratorSidebar
-          initialStep={initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : undefined) : undefined}
+          initialStep={initialStep}
           // Step 1: Dimensions
           wallWidth={wallWidth}
           wallHeight={wallHeight}
@@ -1790,6 +1797,9 @@ export default function DesignConfigurator({
 
           // UI Trigger bridge for 3D model animation
           onPulseVisualizerTrigger={() => {}}
+
+          // Step tracking — visualizer shows single unit on steps 1-3, multi-unit on step 4
+          onStepChange={setSidebarStep}
         />
 
         {/* ── 3D VISUALIZER (mobile: sticky top 45vh, desktop: right 60%) ── */}
