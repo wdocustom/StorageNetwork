@@ -749,7 +749,9 @@ function RackAssembly({
               );
               if (isRailRemoved || hasShelfAddon) return null;
 
-              const railCenterY = PLATE_H + firstRailY + r * tierSpacing;
+              const railCenterY = is2x4
+                ? PLATE_H + RAILS_2X4_POSITIONS[r]
+                : PLATE_H + firstRailY + r * tierSpacing;
               const railTop = railCenterY + railHeight / 2;
               const toteGroupY = railTop - toteBodyH;
 
@@ -780,7 +782,9 @@ function RackAssembly({
             const leftPostX = getColPostX(col);
             const rightPostX = getColPostX(col + 1);
             const shelfCenterX = (leftPostX + rightPostX) / 2;
-            const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+            const railCenterY = is2x4
+              ? PLATE_H + RAILS_2X4_POSITIONS[row]
+              : PLATE_H + firstRailY + row * tierSpacing;
             const railTop = railCenterY + railHeight / 2;
             const shelfY = railTop + PLY_TOP_H / 2; // sits on top of rails
             const shelfW = bayW - RAIL_THICKNESS; // fits between the two rail strips
@@ -938,7 +942,9 @@ function RackAssembly({
           const drawerRowCount = rows;
 
           for (let row = 0; row < drawerRowCount; row++) {
-            const railCenterY = PLATE_H + firstRailY + row * tierSpacing;
+            const railCenterY = is2x4
+              ? PLATE_H + RAILS_2X4_POSITIONS[row]
+              : PLATE_H + firstRailY + row * tierSpacing;
             const slideCenterY = railCenterY;
 
             // Cross support backers — at posts adjacent to drawer columns only
