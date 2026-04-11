@@ -368,8 +368,10 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const rimW = toteW;
   const bodyTopW = bayW - (isMini ? BIN_GAP * 2 : 1.5);  // 0.75" clearance per side from posts
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
-  const bodyTopD = toteDepth * 0.92;   // more clearance from front/back rails
-  const bodyBotD = toteDepth * 0.78;
+  // Body must fit between front/back posts (clear depth = unitDepth - 2*POST_D)
+  // TOTE_DEPTH is the lid width which overhangs the posts; body is narrower
+  const bodyTopD = toteDepth * 0.75;   // ~21.5" fits within 23" clear depth
+  const bodyBotD = toteDepth * 0.62;   // ~17.7" tapered bottom
   const rimD = toteDepth;
 
   // Tapered body geometry
