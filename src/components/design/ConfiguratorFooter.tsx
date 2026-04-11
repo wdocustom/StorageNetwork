@@ -27,7 +27,7 @@ export default function ConfiguratorFooter({
 }) {
   return (
     <div
-      className="shrink-0 border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-4 backdrop-blur-xl"
+      className="sticky bottom-0 z-20 shrink-0 border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-4 backdrop-blur-xl"
       style={{
         background: "linear-gradient(to top, rgba(9,9,11,0.95), rgba(9,9,11,0.85))",
         backdropFilter: "blur(20px)",

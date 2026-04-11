@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import ConfiguratorStepper from "./ConfiguratorStepper";
 import ConfiguratorFooter from "./ConfiguratorFooter";
+import AIGuideBar from "./AIGuideBar";
 import StepSize from "./steps/StepSize";
 import StepConfiguration from "./steps/StepConfiguration";
 import StepAddons from "./steps/StepAddons";
@@ -54,14 +55,16 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   const hasWallDimensions = wallW > 0 && wallH > 0;
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col bg-zinc-950 lg:w-[38%] xl:w-[35%]">
+    <aside className="order-2 flex w-full shrink-0 flex-col bg-zinc-950 lg:order-1 lg:h-full lg:w-[40%] xl:w-[38%]">
       <ConfiguratorStepper
         activeStep={activeStep}
         setActiveStep={setActiveStep}
         hasQuoteItems={hasQuoteItems}
       />
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-dark">
+      <AIGuideBar activeStep={activeStep} />
+
+      <div ref={scrollRef} className="flex-1 lg:overflow-y-auto lg:scrollbar-dark">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeStep}

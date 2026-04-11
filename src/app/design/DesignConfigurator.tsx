@@ -1506,15 +1506,15 @@ export default function DesignConfigurator({
       {/* ── Analytics: track page view for installer ────────────────────── */}
       {installerId && <PageViewTracker installerId={installerId} page="/design" />}
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
-        <div className="mx-auto flex max-w-[1800px] items-center gap-3">
+      {/* ── Header (slim on mobile, full on desktop) ──────────────────── */}
+      <header className="shrink-0 border-b-2 border-yellow-400 bg-gray-950 px-3 py-2 lg:border-b-4 lg:px-4 lg:py-3">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-2 lg:gap-3">
           <a
             href="/"
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            <div className="h-12 w-12 overflow-hidden rounded-full border-[3px] border-yellow-400/30 bg-slate-800 shadow-lg shadow-yellow-400/5">
+            <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-yellow-400/30 bg-slate-800 shadow-lg shadow-yellow-400/5 lg:h-12 lg:w-12 lg:border-[3px]">
               {data?.branding.logoUrl ? (
                 <Image
                   src={data.branding.logoUrl}
@@ -1529,11 +1529,11 @@ export default function DesignConfigurator({
               )}
             </div>
           </a>
-          <div className="flex-1">
-            <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate text-sm font-extrabold uppercase tracking-widest text-white lg:text-base">
               {data?.branding.title || "Professional Grade Storage"}
             </h1>
-            <p className="text-[10px] uppercase tracking-wider text-yellow-400">
+            <p className="hidden text-[10px] uppercase tracking-wider text-yellow-400 lg:block">
               {data?.branding.subtitle || "Build Configurator"}
             </p>
           </div>
@@ -1576,8 +1576,8 @@ export default function DesignConfigurator({
       )}
 
       {/* ── Split Layout ────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* ── LEFT SIDEBAR: Premium Configurator ──────────────────────── */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        {/* ── SIDEBAR: Configurator (mobile: scrollable drawer below canvas, desktop: left 40%) ── */}
         <ConfiguratorSidebar
           initialStep={initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : undefined) : undefined}
           // Step 1: Dimensions
@@ -1792,9 +1792,9 @@ export default function DesignConfigurator({
           onPulseVisualizerTrigger={() => {}}
         />
 
-        {/* ── RIGHT: Visualizer (2D/3D Toggle) ────────────────────── */}
-        <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
-          <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
+        {/* ── 3D VISUALIZER (mobile: sticky top 45vh, desktop: right 60%) ── */}
+        <main className="order-1 sticky top-0 z-10 h-[45vh] shrink-0 border-b border-stone-800 bg-white lg:relative lg:order-2 lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
+          <div className="relative h-full w-full overflow-hidden">
             <RackVisualizer
               cols={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
               rows={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
@@ -1830,8 +1830,8 @@ export default function DesignConfigurator({
               } : undefined}
             />
           </div>
-          {/* Dimensions bar */}
-          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
+          {/* Dimensions bar — hidden on mobile to save space */}
+          <div className="hidden shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500 lg:block">
             {overheadPreview ? (
               <>
                 {overheadPreview.slotsWide} &times; {overheadPreview.slotsDeep} grid · {overheadPreview.toteType}

@@ -313,8 +313,8 @@ export interface ConfiguratorSidebarProps {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const STEPS: readonly { id: number; label: string; icon: LucideIcon }[] = [
-  { id: 1, label: "Size / Base", icon: Ruler },
-  { id: 2, label: "Tote Configuration", icon: Settings2 },
-  { id: 3, label: "Add-ons", icon: Palette },
-  { id: 4, label: "Summary", icon: ShoppingCart },
+  { id: 1, label: "Space", icon: Ruler },
+  { id: 2, label: "Totes", icon: Settings2 },
+  { id: 3, label: "Extras", icon: Palette },
+  { id: 4, label: "Review", icon: ShoppingCart },
 ] as const;

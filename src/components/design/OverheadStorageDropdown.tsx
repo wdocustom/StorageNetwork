@@ -146,7 +146,7 @@ export default function OverheadStorageDropdown({
                           : "border-zinc-700 bg-zinc-800/60 text-zinc-400 hover:border-zinc-600"
                       }`}
                     >
-                      {tt === "HDX" ? "HDX 27-Gal" : "Greenmade 27-Gal"}
+                      {tt === "HDX" ? "Standard (Home Depot)" : "Wider (Costco)"}
                     </button>
                   ))}
                 </div>

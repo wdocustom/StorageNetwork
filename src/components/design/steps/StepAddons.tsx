@@ -27,7 +27,7 @@ export default function StepAddons({
       {!props.totesDisabled && props.toteType === "HDX" && props.hasTotes && props.unitType === "standard" && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-            HDX Tote Style
+            Tote Color
           </h3>
           <div className="grid grid-cols-2 gap-3">
             <SelectionCard

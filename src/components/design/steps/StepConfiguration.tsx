@@ -50,7 +50,7 @@ export default function StepConfiguration({
       {!props.activePreset && props.unitType === "standard" && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-            {props.totesDisabled ? "Orientation" : "Tote Orientation"}
+            {props.totesDisabled ? "Orientation" : "Tote Direction"}
           </h3>
           <div className="grid grid-cols-2 gap-3">
             <SelectionCard
@@ -82,20 +82,15 @@ export default function StepConfiguration({
               selected={props.toteType === "HDX"}
               onSelect={() => props.onToteTypeChange("HDX")}
             >
-              <div className="mb-1 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
-                19-3/4&quot; Opening
-              </div>
-              <div className="text-sm font-bold text-zinc-200">Standard</div>
+              <div className="text-sm font-bold text-zinc-200">Standard Totes</div>
+              <div className="mt-1 text-[10px] text-zinc-500">19-3/4&quot; opening</div>
               <div className="mt-2 flex flex-wrap gap-1">
                 <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
-                  HDX
+                  Home Depot
                 </span>
                 <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
-                  Performax
+                  Menards
                 </span>
-              </div>
-              <div className="mt-1.5 text-[9px] text-zinc-600">
-                Home Depot &middot; Menards
               </div>
             </SelectionCard>
 
@@ -106,20 +101,18 @@ export default function StepConfiguration({
                 props.onToteColorChange("black");
               }}
             >
-              <div className="mb-1 text-[9px] font-bold uppercase tracking-wide text-zinc-500">
-                20-3/4&quot; Opening
-              </div>
-              <div className="text-sm font-bold text-zinc-200">Wide</div>
+              <div className="text-sm font-bold text-zinc-200">Wider Totes</div>
+              <div className="mt-1 text-[10px] text-zinc-500">20-3/4&quot; opening</div>
               <div className="mt-2 flex flex-wrap gap-1">
-                <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
-                  GreenMade
-                </span>
                 <span className="inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">
-                  Project Source
+                  Costco
                 </span>
-              </div>
-              <div className="mt-1.5 text-[9px] text-zinc-600">
-                Costco &middot; Lowe&apos;s &middot; Walmart
+                <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
+                  Lowe&apos;s
+                </span>
+                <span className="inline-block rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-400">
+                  Walmart
+                </span>
               </div>
             </SelectionCard>
           </div>

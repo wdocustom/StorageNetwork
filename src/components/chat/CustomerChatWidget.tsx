@@ -72,7 +72,7 @@ function buildDesignUrl(config: RackConfig, installerId?: string, installerSlug?
 export default function CustomerChatWidget({ installerId, installerSlug, installerContext, onAddUnits, skipWelcome }: CustomerChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(!skipWelcome);
+  const [showWelcome] = useState(false); // Welcome overlay removed — FAB only
   const [welcomeInput, setWelcomeInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -84,15 +84,8 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
   const inputRef = useRef<HTMLInputElement>(null);
   const welcomeInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if welcome was already dismissed this session
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem("sn_welcome_dismissed")) setShowWelcome(false);
-    } catch {}
-  }, []);
-
+  // Welcome overlay removed — these are no-ops kept for compatibility
   function dismissWelcome() {
-    setShowWelcome(false);
     try { sessionStorage.setItem("sn_welcome_dismissed", "1"); } catch {}
   }
 
@@ -352,7 +345,7 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
       {!isOpen && !showWelcome && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-yellow-400 px-4 py-3 text-sm font-bold text-slate-900 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
+          className="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-yellow-400 px-4 py-3 text-sm font-bold text-slate-900 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95 lg:bottom-5 lg:right-5"
           aria-label="Design with AI"
         >
           <Sparkles className="h-5 w-5" />
