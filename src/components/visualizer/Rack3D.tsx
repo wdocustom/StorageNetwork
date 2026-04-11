@@ -152,7 +152,7 @@ const TOTE_FULL_W_HDX = 19.75;
 const TOTE_FULL_W_GM = 20.75;
 const TOTE_RIM_H = 1.0;
 const TOTE_BODY_H = 11.0;
-const TOTE_BODY_TAPER = 0.80;
+const TOTE_BODY_TAPER = 0.90;
 const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for equal front/back gap
 
 // ── Sideways Orientation Constants (27 Gallon rotated 90°) ───────────────
@@ -365,14 +365,18 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.3, 0.0), [bodyColor]);
   const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.28, 0.02), [rimDarkColor]);
 
-  const rimW = toteW;
-  const bodyTopW = bayW - (isMini ? BIN_GAP * 2 : 1.5);  // 0.75" clearance per side from posts
+  // Rim/lid dimensions — lid sits ON TOP of rails, overhangs body slightly
+  // Lid width = bayW + small overhang per side (rim hooks over the rail edges)
+  const rimW = isMini ? toteW : bayW + 0.5;
+  // Lid depth — cannot extend past the posts. Rail runs full depth but lid
+  // rests between post tops. Available = unitDepth - 2*POST_D + small overhang
+  const rimD = isMini ? toteDepth : unitDepth - 2 * POST_D + 1.0;  // ~24" for 30" rack
+
+  const bodyTopW = bayW - (isMini ? BIN_GAP * 2 : 0.75);  // 0.375" clearance per side
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
-  // Body must fit between front/back posts (clear depth = unitDepth - 2*POST_D)
-  // TOTE_DEPTH is the lid width which overhangs the posts; body is narrower
-  const bodyTopD = toteDepth * 0.75;   // ~21.5" fits within 23" clear depth
-  const bodyBotD = toteDepth * 0.62;   // ~17.7" tapered bottom
-  const rimD = toteDepth;
+  // Body must fit between front/back posts (clear depth = unitDepth - 2*POST_D = 23")
+  const bodyTopD = isMini ? toteDepth * 0.90 : unitDepth - 2 * POST_D - 0.75;  // ~22.25"
+  const bodyBotD = bodyTopD * (isMini ? 0.88 : TOTE_BODY_TAPER);  // subtle taper
 
   // Tapered body geometry
   const bodyGeo = useMemo(() => {
