@@ -3,21 +3,19 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, ChevronRight, Plus } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
-import { SelectionCard, StudioToggle, RollingPrice } from "../configurator-primitives";
+import { SelectionCard, StudioToggle } from "../configurator-primitives";
 import { OrganizerCustomization } from "../OrganizerCustomization";
 
 export default function StepAddons({
   props,
   numCols,
   numRows,
-  goNext,
   goPrev,
   setActiveStep,
 }: {
   props: ConfiguratorSidebarProps;
   numCols: number;
   numRows: number;
-  goNext: () => void;
   goPrev: () => void;
   setActiveStep: (step: number) => void;
 }) {
@@ -128,30 +126,6 @@ export default function StepAddons({
         />
       )}
 
-      {/* Current Unit Price + Add */}
-      {!props.activePreset && !props.shelvingConfigId && (
-        <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-          <div className="flex-1 text-center">
-            <div className="text-2xl font-black text-white">
-              {props.buildLoading ? "..." : <RollingPrice value={props.build.price} />}
-            </div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              Current Unit
-            </div>
-          </div>
-          <motion.button
-            onClick={() => { props.onAddUnit(); setActiveStep(4); }}
-            disabled={props.buildLoading || props.build.price === 0}
-            className="flex flex-[2] items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus className="h-4 w-4" />
-            Add to Quote
-          </motion.button>
-        </div>
-      )}
-
       {/* Navigation */}
       <div className="flex gap-2">
         <button
@@ -160,15 +134,29 @@ export default function StepAddons({
         >
           Back
         </button>
-        <motion.button
-          onClick={props.activePreset ? () => setActiveStep(4) : goNext}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          {props.activePreset ? "Review Summary" : "Next"}
-          <ChevronRight className="h-4 w-4" />
-        </motion.button>
+        {/* Custom organizers: "Add to Quote" adds the unit and jumps to summary */}
+        {!props.activePreset && !props.shelvingConfigId ? (
+          <motion.button
+            onClick={() => { props.onAddUnit(); setActiveStep(4); }}
+            disabled={props.buildLoading || props.build.price === 0}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Plus className="h-4 w-4" />
+            Add to Quote
+          </motion.button>
+        ) : (
+          <motion.button
+            onClick={() => setActiveStep(4)}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Review Summary
+            <ChevronRight className="h-4 w-4" />
+          </motion.button>
+        )}
       </div>
     </>
   );

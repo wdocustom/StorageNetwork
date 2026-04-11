@@ -99,7 +99,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 props={props}
                 numCols={numCols}
                 numRows={numRows}
-                goNext={goNext}
                 goPrev={goPrev}
                 setActiveStep={setActiveStep}
               />

@@ -138,6 +138,8 @@ export default function BlueprintCanvas({
     const pPlate = RENDER_PLATE * scale;
     const pTopGap = RENDER_TOP_GAP * scale;
     const pTotalW = unitRealW * scale;
+    // Actual post-to-post width (matches where vertical posts are drawn)
+    const pPostToPostW = unitCols * (pBay + pStud) + pStud;
 
     ctx.fillStyle = woodFill;
     ctx.strokeStyle = woodStroke;
@@ -153,20 +155,20 @@ export default function BlueprintCanvas({
       ctx.arc(startX + pStud * 2, wY + wSize / 2, wSize / 2, 0, 2 * Math.PI);
       ctx.fill(); ctx.stroke();
       ctx.beginPath();
-      ctx.arc(startX + pTotalW - pStud * 2, wY + wSize / 2, wSize / 2, 0, 2 * Math.PI);
+      ctx.arc(startX + pPostToPostW - pStud * 2, wY + wSize / 2, wSize / 2, 0, 2 * Math.PI);
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = woodFill;
       ctx.strokeStyle = woodStroke;
     }
 
-    // Bottom plate
-    ctx.fillRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
-    ctx.strokeRect(startX, startY + pFrameH - pPlate, pTotalW, pPlate);
+    // Bottom plate — spans post-to-post (not full totalW which may include overhang)
+    ctx.fillRect(startX, startY + pFrameH - pPlate, pPostToPostW, pPlate);
+    ctx.strokeRect(startX, startY + pFrameH - pPlate, pPostToPostW, pPlate);
 
     // Top 2x4 plate (Standard only)
     if (!isMini) {
-      ctx.fillRect(startX, startY, pTotalW, pPlate);
-      ctx.strokeRect(startX, startY, pTotalW, pPlate);
+      ctx.fillRect(startX, startY, pPostToPostW, pPlate);
+      ctx.strokeRect(startX, startY, pPostToPostW, pPlate);
     }
 
     // Vertical posts
@@ -323,8 +325,8 @@ export default function BlueprintCanvas({
         ctx.strokeStyle = "#d97706";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 2]);
-        ctx.fillRect(startX + pTotalW, panelY, panelW, panelH);
-        ctx.strokeRect(startX + pTotalW, panelY, panelW, panelH);
+        ctx.fillRect(startX + pPostToPostW, panelY, panelW, panelH);
+        ctx.strokeRect(startX + pPostToPostW, panelY, panelW, panelH);
         ctx.setLineDash([]);
         ctx.restore();
       }
@@ -335,8 +337,8 @@ export default function BlueprintCanvas({
       const topThick = PLY_TOP_H * scale;
       ctx.fillStyle = plywoodFill;
       ctx.strokeStyle = woodStroke;
-      ctx.fillRect(startX, startY - topThick, pTotalW, topThick);
-      ctx.strokeRect(startX, startY - topThick, pTotalW, topThick);
+      ctx.fillRect(startX, startY - topThick, pPostToPostW, topThick);
+      ctx.strokeRect(startX, startY - topThick, pPostToPostW, topThick);
     }
   }, [isMini, opening, hasTotes, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
