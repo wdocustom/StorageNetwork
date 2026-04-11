@@ -3,7 +3,7 @@
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
-import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color } from "three";
+import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color, type Side } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
@@ -243,8 +243,8 @@ const PLYWOOD_TOP_MAT = createPlywoodTopMaterial(250);
 // all tote/slide instances instead of creating new ones on every render.
 const _matCache = new Map<string, MeshStandardMaterial>();
 
-function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: { transparent?: boolean; opacity?: number }): MeshStandardMaterial {
-  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}`;
+function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: { transparent?: boolean; opacity?: number; side?: Side }): MeshStandardMaterial {
+  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}:${opts?.side ?? 0}`;
   let mat = _matCache.get(cacheKey);
   if (!mat) {
     mat = new MeshStandardMaterial({
@@ -252,6 +252,7 @@ function getCachedMaterial(key: string, color: string, roughness: number, metaln
       roughness,
       metalness,
       ...(opts?.transparent && { transparent: true, opacity: opts.opacity ?? 1 }),
+      ...(opts?.side !== undefined && { side: opts.side }),
     });
     _matCache.set(cacheKey, mat);
   }
@@ -357,7 +358,7 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   // Cached materials — tuned for HDPE plastic (dielectric, NOT metallic)
   //   Plastic sheen comes from low roughness + Fresnel, NOT metalness.
   //   Metalness must stay near 0 or dark surfaces look transparent.
-  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.15 : 0.3, 0.0, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.15 : 0.3, 0.0, { side: DoubleSide, ...(isMini || isClear ? { transparent: true, opacity: bodyOpacity } : {}) }), [bodyColor, isMini, isClear, bodyOpacity]);
   const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.35, 0.0), [bodyRibColor]);
   const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.2, 0.02), [rimColor]);
   const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.25, 0.02), [rimDarkColor]);
