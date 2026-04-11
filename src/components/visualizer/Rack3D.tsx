@@ -3,9 +3,9 @@
 import { Suspense, useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Stage, Environment } from "@react-three/drei";
-import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, MeshPhysicalMaterial, Color } from "three";
+import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 
@@ -245,33 +245,18 @@ PLYWOOD_TOP_MAT.envMapIntensity = 0.5;
 // ── Cached tote & drawer slide materials (prevents GPU memory leaks) ────
 // Materials are keyed by a hash of their visual properties. Reused across
 // all tote/slide instances instead of creating new ones on every render.
-// Uses MeshPhysicalMaterial for transmission on clear plastics.
-const _matCache = new Map<string, MeshPhysicalMaterial>();
+// Uses stable MeshStandardMaterial — survives 2D↔3D view toggles.
+const _matCache = new Map<string, MeshStandardMaterial>();
 
-interface CachedMatOpts {
-  transparent?: boolean;
-  opacity?: number;
-  /** Enable true glass/clear-plastic transmission */
-  transmission?: number;
-  ior?: number;
-  thickness?: number;
-}
-
-function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: CachedMatOpts): MeshPhysicalMaterial {
-  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}:${opts?.transmission ?? 0}`;
+function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: { transparent?: boolean; opacity?: number }): MeshStandardMaterial {
+  const cacheKey = `${key}:${color}:${roughness}:${metalness}:${opts?.opacity ?? 1}`;
   let mat = _matCache.get(cacheKey);
   if (!mat) {
-    mat = new MeshPhysicalMaterial({
+    mat = new MeshStandardMaterial({
       color: new Color(color),
       roughness,
       metalness,
       ...(opts?.transparent && { transparent: true, opacity: opts.opacity ?? 1 }),
-      ...(opts?.transmission != null && opts.transmission > 0 && {
-        transmission: opts.transmission,
-        ior: opts.ior ?? 1.4,
-        thickness: opts.thickness ?? 0.1,
-        transparent: true,
-      }),
     });
     _matCache.set(cacheKey, mat);
   }
@@ -367,37 +352,20 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
     toteDepth = TOTE_DEPTH;
   }
 
-  // Color logic — rich charcoal instead of pure black for realistic HDPE
+  // Color logic
   const rimColor = "#fbbf24";
   const rimDarkColor = "#d4a017";
-  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#18181b";
-  const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222225";
+  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#2a2a2a";
+  const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
+  const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
-  // Cached MeshPhysicalMaterials — transmission on clear, matte plastic on opaque
-  const bodyMat = useMemo(() => {
-    if (isClear) {
-      // True clear plastic: transmission-based rendering
-      return getCachedMaterial("body-clear", "#e4e4e7", 0.15, 0.0, {
-        transmission: 0.9, ior: 1.4, thickness: 0.1,
-      });
-    }
-    if (isMini) {
-      // Mini clear shoebox
-      return getCachedMaterial("body-mini", "#d4d4d8", 0.2, 0.0, {
-        transmission: 0.85, ior: 1.4, thickness: 0.08,
-      });
-    }
-    // Standard opaque body: matte HDPE plastic
-    return getCachedMaterial("body-opaque", bodyColor, 0.85, 0.0);
-  }, [bodyColor, isMini, isClear]);
-
-  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.85, 0.0), [bodyRibColor]);
-
-  // Rim/lid — slightly glossier injection-molded plastic
-  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.4, 0.0), [rimColor]);
-  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.5, 0.0), [rimDarkColor]);
-  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.6, 0.0), [bodyColor]);
-  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.55, 0.0), [rimDarkColor]);
+  // Cached MeshStandardMaterials — stable singletons that survive 2D↔3D toggles
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.3 : 0.6, (isMini || isClear) ? 0.02 : 0.05, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.65, 0.03), [bodyRibColor]);
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.3, 0.06), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.4, 0.04), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.5, 0.04), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.4, 0.05), [rimDarkColor]);
 
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
@@ -2034,16 +2002,9 @@ function TextureGuard() {
 }
 
 export default function Rack3D(props: Rack3DProps) {
-  // Dispose textures and cached materials when the 3D canvas unmounts
-  // to free GPU memory and prevent leaks on SPA navigation.
-  useEffect(() => {
-    return () => {
-      disposeAllTextures();
-      // Dispose all cached tote/slide materials
-      _matCache.forEach((mat) => mat.dispose());
-      _matCache.clear();
-    };
-  }, []);
+  // Singletons (module-level materials + wood textures) are intentionally
+  // NOT disposed on unmount — they must survive 2D↔3D view toggles.
+  // The WebGL context itself is cleaned up by R3F when <Canvas> unmounts.
 
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isOverhead = !!props.overheadConfig;
