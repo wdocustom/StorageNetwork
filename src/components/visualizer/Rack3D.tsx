@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows, Stage, Environment } from "@react-three/drei";
+import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
 import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 
@@ -237,15 +237,10 @@ const MIN_FIRST_RAIL_Y = TOTE_BODY_H - RAIL_HEIGHT / 2 + 2;
 const PINE_MAT = createDougFirMaterial(42);
 const PLYWOOD_MAT = createPlywoodMaterial(137);
 const PLYWOOD_TOP_MAT = createPlywoodTopMaterial(250);
-// Tame HDR reflections on wood — raw lumber doesn't glare
-PINE_MAT.envMapIntensity = 0.4;
-PLYWOOD_MAT.envMapIntensity = 0.35;
-PLYWOOD_TOP_MAT.envMapIntensity = 0.5;
 
 // ── Cached tote & drawer slide materials (prevents GPU memory leaks) ────
 // Materials are keyed by a hash of their visual properties. Reused across
 // all tote/slide instances instead of creating new ones on every render.
-// Uses stable MeshStandardMaterial — survives 2D↔3D view toggles.
 const _matCache = new Map<string, MeshStandardMaterial>();
 
 function getCachedMaterial(key: string, color: string, roughness: number, metalness: number, opts?: { transparent?: boolean; opacity?: number }): MeshStandardMaterial {
@@ -353,19 +348,19 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   }
 
   // Color logic
-  const rimColor = "#fbbf24";
-  const rimDarkColor = "#d4a017";
-  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#2a2a2a";
+  const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#fbbf24");
+  const rimDarkColor = isMini ? "#d4a017" : (toteType === "HDX" ? "#d4a017" : "#d4a017");
+  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a";
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
   const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
 
-  // Cached MeshStandardMaterials — stable singletons that survive 2D↔3D toggles
-  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.3 : 0.6, (isMini || isClear) ? 0.02 : 0.05, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
-  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.65, 0.03), [bodyRibColor]);
-  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.3, 0.06), [rimColor]);
-  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.4, 0.04), [rimDarkColor]);
-  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.5, 0.04), [bodyColor]);
-  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.4, 0.05), [rimDarkColor]);
+  // Cached materials — reused across renders and tote instances with same colors
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.3 : 0.35, (isMini || isClear) ? 0.02 : 0.05, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.4, 0.03), [bodyRibColor]);
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.25, 0.06), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.35, 0.04), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.3, 0.04), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.3, 0.05), [rimDarkColor]);
 
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
@@ -2002,9 +1997,16 @@ function TextureGuard() {
 }
 
 export default function Rack3D(props: Rack3DProps) {
-  // Singletons (module-level materials + wood textures) are intentionally
-  // NOT disposed on unmount — they must survive 2D↔3D view toggles.
-  // The WebGL context itself is cleaned up by R3F when <Canvas> unmounts.
+  // Dispose textures and cached materials when the 3D canvas unmounts
+  // to free GPU memory and prevent leaks on SPA navigation.
+  useEffect(() => {
+    return () => {
+      disposeAllTextures();
+      // Dispose all cached tote/slide materials
+      _matCache.forEach((mat) => mat.dispose());
+      _matCache.clear();
+    };
+  }, []);
 
   const isMultiUnit = props.multiUnitItems && props.multiUnitItems.length > 0;
   const isOverhead = !!props.overheadConfig;
@@ -2058,59 +2060,56 @@ export default function Rack3D(props: Rack3DProps) {
         }}
       >
         <TextureGuard />
-
-        {/* ── Photorealistic IBL — async HDRI load needs Suspense ── */}
-        <Suspense fallback={null}>
-          <Environment preset="city" />
-        </Suspense>
-
-        {/* Single soft key light for cast shadows — IBL handles fill */}
+        <ambientLight intensity={0.85} />
         <directionalLight
-          position={[10, 20, 15]}
-          intensity={0.6}
+          position={[12, 18, 12]}
+          intensity={1.0}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-4}
           shadow-camera-right={4}
           shadow-camera-top={4}
           shadow-camera-bottom={-4}
-          shadow-bias={-0.0003}
+          shadow-bias={-0.0002}
         />
+        <directionalLight position={[-10, 12, -8]} intensity={0.5} />
+        <directionalLight position={[0, 6, -12]} intensity={0.3} />
+        <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
 
         <ContactShadows
           position={[0, -0.001, 0]}
-          opacity={0.35}
+          opacity={0.2}
           scale={10}
-          blur={2}
-          far={3}
-          color="#333333"
+          blur={2.5}
+          far={4}
+          color="#444444"
         />
 
         {isMultiUnit ? (
           <>
             <MultiUnitCameraRig items={props.multiUnitItems!} />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />
             </Stage>
           </>
         ) : isOverhead ? (
           <>
             <OverheadCameraRig config={props.overheadConfig!} />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <OverheadAssembly config={props.overheadConfig!} />
             </Stage>
           </>
         ) : isRaisedBed ? (
           <>
             <RaisedBedCameraRig config={props.raisedBedConfig!} />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <RaisedBedAssembly config={props.raisedBedConfig!} />
             </Stage>
           </>
         ) : isShelving ? (
           <>
             <ShelvingCameraRig config={props.shelvingConfig!} />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <ShelvingAssembly config={props.shelvingConfig!} />
             </Stage>
           </>
@@ -2123,7 +2122,7 @@ export default function Rack3D(props: Rack3DProps) {
               orientation={props.orientation}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <CompoundRackAssembly
                 presetUnits={props.presetUnits!}
                 toteType={props.toteType}
@@ -2149,7 +2148,7 @@ export default function Rack3D(props: Rack3DProps) {
               hasWheels={props.hasWheels}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.2} environment={null} adjustCamera={false}>
+            <Stage intensity={0.6} environment={null} adjustCamera={false}>
               <RackAssembly {...props} />
             </Stage>
           </>
