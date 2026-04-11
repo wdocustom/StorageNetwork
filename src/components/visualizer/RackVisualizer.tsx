@@ -10,8 +10,7 @@ import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 const Rack3D = lazy(() => import("./Rack3D"));
 
 function getDefaultViewMode(): "2D" | "3D" {
-  if (typeof window === "undefined") return "2D";
-  return window.innerWidth < 768 ? "2D" : "3D";
+  return "3D";
 }
 
 // ── ErrorBoundary for WebGL / Three.js crashes ───────────────────────────
