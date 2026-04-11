@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Check, Share2 } from "lucide-react";
-import { logInstallerActivity } from "@/app/actions/installer-activity";
+import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Social Post Generator — Professional templates for installer promotion
@@ -51,13 +51,13 @@ export default function SocialGenerator({
     navigator.clipboard.writeText(postText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    logInstallerActivity({ action: "social_generate", detail: { tone } });
+    logActivityClient({ action: "social_generate", detail: { tone } });
   }
 
   function handleShare() {
     if (navigator.share) {
       navigator.share({ text: postText }).catch(() => {});
-      logInstallerActivity({ action: "social_share", detail: { tone } });
+      logActivityClient({ action: "social_share", detail: { tone } });
     } else {
       handleCopy();
     }

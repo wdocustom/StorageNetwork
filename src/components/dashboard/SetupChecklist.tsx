@@ -9,7 +9,8 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { getSetupStatus, markChecklistStepComplete, type SetupStatus } from "@/app/actions/setup-checklist";
+import { getSetupStatus, type SetupStatus } from "@/app/actions/setup-checklist";
+import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Setup Checklist — Persistent onboarding tracker
@@ -57,19 +58,16 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
         // Clipboard API may fail in non-secure contexts
       }
 
-      // Log activity via dedicated checklist action, then refresh
-      markChecklistStepComplete(userId, "copy_link")
-        .then((result) => {
-          if (!result.success) {
-            console.error("[SetupChecklist] Failed to mark step:", result.error);
-          }
-          // Always refresh to get latest status
-          return getSetupStatus(userId);
-        })
-        .then((s) => { if (s) setStatus(s); })
-        .catch((err) => {
-          console.error("[SetupChecklist] Error:", err);
-        });
+      // Log activity via browser client (localStorage auth — always works),
+      // then refresh checklist from server to reflect the completion
+      logActivityClient({ action: "copy_link", pagePath: "/dashboard" });
+
+      // Brief delay for the insert to complete, then refresh checklist
+      setTimeout(() => {
+        getSetupStatus(userId)
+          .then((s) => { if (s) setStatus(s); })
+          .catch(() => {});
+      }, 500);
 
       return true; // handled inline
     }

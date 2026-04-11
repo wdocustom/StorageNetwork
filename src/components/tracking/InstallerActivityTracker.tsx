@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { logInstallerActivity } from "@/app/actions/installer-activity";
+import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Activity Tracker
@@ -20,10 +20,7 @@ export default function InstallerActivityTracker() {
     if (!pathname || pathname === lastPath.current) return;
     lastPath.current = pathname;
 
-    logInstallerActivity({
-      action: "page_view",
-      pagePath: pathname,
-    }).catch(() => {});
+    logActivityClient({ action: "page_view", pagePath: pathname });
   }, [pathname]);
 
   return null;

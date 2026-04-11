@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { logInstallerActivity } from "@/app/actions/installer-activity";
+import { logActivityClient } from "@/lib/activity-client";
 import {
   Copy,
   Check,
@@ -287,7 +287,7 @@ export default function AIScriptGenerator({
     const text = getActiveText();
     if (text) {
       copyText(text);
-      logInstallerActivity({ action: "social_generate", pagePath: "/dashboard/marketing" });
+      logActivityClient({ action: "social_generate", pagePath: "/dashboard/marketing" });
     }
   }
 
@@ -295,7 +295,7 @@ export default function AIScriptGenerator({
     navigator.clipboard.writeText(bookingLink);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
-    logInstallerActivity({ action: "copy_link", pagePath: "/dashboard/marketing" });
+    logActivityClient({ action: "copy_link", pagePath: "/dashboard/marketing" });
   }
 
   /**
@@ -313,7 +313,7 @@ export default function AIScriptGenerator({
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
-    logInstallerActivity({ action: "social_share", detail: { platform: "facebook" } });
+    logActivityClient({ action: "social_share", detail: { platform: "facebook" } });
 
     // Open Facebook sharer with the booking link — FB fetches the OG
     // metadata and renders a rich card preview automatically
