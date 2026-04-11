@@ -1793,8 +1793,8 @@ export default function DesignConfigurator({
         />
 
         {/* ── 3D VISUALIZER (mobile: sticky top 45vh, desktop: right 60%) ── */}
-        <main className="order-1 sticky top-0 z-10 flex h-[45vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:relative lg:order-2 lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
-          <div className="relative min-h-0 flex-1 overflow-hidden">
+        <main className="order-1 sticky top-0 z-10 flex h-[45vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
+          <div className="relative min-h-0 flex-1 overflow-hidden lg:min-h-[300px]">
             <RackVisualizer
               cols={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
               rows={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
