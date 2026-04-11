@@ -354,16 +354,15 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#333333";
   const bodyOpacity = (isMini || isClear) ? 0.55 : 1.0;
 
-  // Cached materials — tuned for glossy HDPE plastic look
-  //   Black body:  low roughness (0.18) + moderate metalness (0.12) = plastic sheen with specular highlights
-  //   Clear body:  very low roughness (0.12) + slight metalness = translucent glossy plastic
-  //   Yellow lid:  low roughness (0.14) + moderate metalness (0.1) = vivid glossy snap-on lid
-  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.12 : 0.18, (isMini || isClear) ? 0.05 : 0.12, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
-  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.22, 0.08), [bodyRibColor]);
-  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.14, 0.1), [rimColor]);
-  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.2, 0.08), [rimDarkColor]);
-  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.2, 0.06), [bodyColor]);
-  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.22, 0.08), [rimDarkColor]);
+  // Cached materials — tuned for HDPE plastic (dielectric, NOT metallic)
+  //   Plastic sheen comes from low roughness + Fresnel, NOT metalness.
+  //   Metalness must stay near 0 or dark surfaces look transparent.
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.15 : 0.3, 0.0, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.35, 0.0), [bodyRibColor]);
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.2, 0.02), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.25, 0.02), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.3, 0.0), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.28, 0.02), [rimDarkColor]);
 
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
@@ -1494,12 +1493,12 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
                 {/* Rim/lip resting on top of rail ledges */}
                 <mesh position={[0, 0, 0]} castShadow>
                   <boxGeometry args={[toteW, rimH, TOTE_DEPTH * 0.95]} />
-                  <meshStandardMaterial color="#f5b800" roughness={0.14} metalness={0.1} />
+                  <meshStandardMaterial color="#f5b800" roughness={0.2} metalness={0.02} />
                 </mesh>
                 {/* Tote body hanging below rim */}
                 <mesh position={[0, -rimH / 2 - bodyH / 2, 0]} castShadow>
                   <boxGeometry args={[toteW * TOTE_BODY_TAPER, bodyH, TOTE_DEPTH * 0.9]} />
-                  <meshStandardMaterial color="#2a2a2a" roughness={0.18} metalness={0.12} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.3} metalness={0.0} />
                 </mesh>
               </group>
             );
