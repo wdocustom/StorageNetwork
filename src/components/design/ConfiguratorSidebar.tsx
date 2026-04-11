@@ -39,14 +39,19 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   }, [activeStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll sidebar content to top when step changes.
-  // On desktop (lg+), the scrollRef div is overflow-y-auto.
-  // On mobile, the sidebar isn't independently scrollable — the whole page scrolls,
-  // so we also scrollIntoView the container to bring it to the viewport top.
+  // Desktop (lg+): scrollRef div has overflow-y-auto, scroll it internally.
+  // Mobile: the parent flex-col container scrolls the whole page. The 3D canvas
+  // is sticky at top-0 taking 45vh. Setting the parent's scrollTop=0 positions
+  // the stepper tabs right below the canvas — exactly where the user needs to see them.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-      // On mobile, scroll the stepper (top of sidebar) into view
-      scrollRef.current.closest("aside")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Desktop: scroll sidebar content area to top
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Mobile: scroll the parent page-level scroll container to top
+    // so the stepper tabs appear just below the sticky 45vh canvas
+    const parentScroll = scrollRef.current?.closest("aside")?.parentElement;
+    if (parentScroll && parentScroll.scrollHeight > parentScroll.clientHeight) {
+      parentScroll.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [activeStep]);
 
