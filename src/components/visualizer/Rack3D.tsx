@@ -347,20 +347,23 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
     toteDepth = TOTE_DEPTH;
   }
 
-  // Color logic
-  const rimColor = isMini ? "#fbbf24" : (toteType === "HDX" ? "#fbbf24" : "#fbbf24");
-  const rimDarkColor = isMini ? "#d4a017" : (toteType === "HDX" ? "#d4a017" : "#d4a017");
-  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#1a1a1a";
-  const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#222222";
-  const bodyOpacity = (isMini || isClear) ? 0.7 : 1.0;
+  // Color logic — tuned to match real HDX/Greenmade injection-molded HDPE totes
+  const rimColor = isMini ? "#f5b800" : (toteType === "HDX" ? "#f5b800" : "#f5b800");
+  const rimDarkColor = isMini ? "#c99500" : (toteType === "HDX" ? "#c99500" : "#c99500");
+  const bodyColor = (isMini || isClear) ? "#d4d4d8" : "#2a2a2a";
+  const bodyRibColor = (isMini || isClear) ? "#c0c0c4" : "#333333";
+  const bodyOpacity = (isMini || isClear) ? 0.55 : 1.0;
 
-  // Cached materials — reused across renders and tote instances with same colors
-  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.3 : 0.35, (isMini || isClear) ? 0.02 : 0.05, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
-  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.4, 0.03), [bodyRibColor]);
-  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.25, 0.06), [rimColor]);
-  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.35, 0.04), [rimDarkColor]);
-  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.3, 0.04), [bodyColor]);
-  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.3, 0.05), [rimDarkColor]);
+  // Cached materials — tuned for glossy HDPE plastic look
+  //   Black body:  low roughness (0.18) + moderate metalness (0.12) = plastic sheen with specular highlights
+  //   Clear body:  very low roughness (0.12) + slight metalness = translucent glossy plastic
+  //   Yellow lid:  low roughness (0.14) + moderate metalness (0.1) = vivid glossy snap-on lid
+  const bodyMat = useMemo(() => getCachedMaterial("body", bodyColor, (isMini || isClear) ? 0.12 : 0.18, (isMini || isClear) ? 0.05 : 0.12, (isMini || isClear) ? { transparent: true, opacity: bodyOpacity } : undefined), [bodyColor, isMini, isClear, bodyOpacity]);
+  const bodyRibMat = useMemo(() => getCachedMaterial("rib", bodyRibColor, 0.22, 0.08), [bodyRibColor]);
+  const rimMat = useMemo(() => getCachedMaterial("rim", rimColor, 0.14, 0.1), [rimColor]);
+  const rimDarkMat = useMemo(() => getCachedMaterial("rimDark", rimDarkColor, 0.2, 0.08), [rimDarkColor]);
+  const rimBottomMat = useMemo(() => getCachedMaterial("rimBot", bodyColor, 0.2, 0.06), [bodyColor]);
+  const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.22, 0.08), [rimDarkColor]);
 
   const rimW = toteW;
   const bodyTopW = bayW - BIN_GAP * 2;
@@ -1491,12 +1494,12 @@ function OverheadAssembly({ config }: { config: OverheadConfig3D }) {
                 {/* Rim/lip resting on top of rail ledges */}
                 <mesh position={[0, 0, 0]} castShadow>
                   <boxGeometry args={[toteW, rimH, TOTE_DEPTH * 0.95]} />
-                  <meshStandardMaterial color="#fbbf24" roughness={0.3} />
+                  <meshStandardMaterial color="#f5b800" roughness={0.14} metalness={0.1} />
                 </mesh>
                 {/* Tote body hanging below rim */}
                 <mesh position={[0, -rimH / 2 - bodyH / 2, 0]} castShadow>
                   <boxGeometry args={[toteW * TOTE_BODY_TAPER, bodyH, TOTE_DEPTH * 0.9]} />
-                  <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+                  <meshStandardMaterial color="#2a2a2a" roughness={0.18} metalness={0.12} />
                 </mesh>
               </group>
             );
@@ -2060,10 +2063,11 @@ export default function Rack3D(props: Rack3DProps) {
         }}
       >
         <TextureGuard />
-        <ambientLight intensity={0.85} />
+        <ambientLight intensity={0.7} />
+        {/* Key light — strong top-right, casts primary shadows */}
         <directionalLight
           position={[12, 18, 12]}
-          intensity={1.0}
+          intensity={1.4}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-4}
@@ -2072,44 +2076,49 @@ export default function Rack3D(props: Rack3DProps) {
           shadow-camera-bottom={-4}
           shadow-bias={-0.0002}
         />
+        {/* Fill light — front-below to illuminate tote bodies hanging under rails */}
+        <directionalLight position={[6, 2, 14]} intensity={0.7} />
+        {/* Back fill — separates silhouettes from background */}
         <directionalLight position={[-10, 12, -8]} intensity={0.5} />
-        <directionalLight position={[0, 6, -12]} intensity={0.3} />
-        <hemisphereLight args={["#ffffff", "#f5ead6", 0.5]} />
+        {/* Rim/accent light — adds specular edge highlights on glossy plastic */}
+        <directionalLight position={[0, 8, -14]} intensity={0.4} />
+        {/* Sky/ground color split — warm wood tones + cool shadow fill */}
+        <hemisphereLight args={["#fffaf0", "#e8dcc8", 0.55]} />
 
         <ContactShadows
           position={[0, -0.001, 0]}
-          opacity={0.2}
-          scale={10}
-          blur={2.5}
-          far={4}
-          color="#444444"
+          opacity={0.35}
+          scale={12}
+          blur={2}
+          far={5}
+          color="#333333"
         />
 
         {isMultiUnit ? (
           <>
             <MultiUnitCameraRig items={props.multiUnitItems!} />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />
             </Stage>
           </>
         ) : isOverhead ? (
           <>
             <OverheadCameraRig config={props.overheadConfig!} />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <OverheadAssembly config={props.overheadConfig!} />
             </Stage>
           </>
         ) : isRaisedBed ? (
           <>
             <RaisedBedCameraRig config={props.raisedBedConfig!} />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <RaisedBedAssembly config={props.raisedBedConfig!} />
             </Stage>
           </>
         ) : isShelving ? (
           <>
             <ShelvingCameraRig config={props.shelvingConfig!} />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <ShelvingAssembly config={props.shelvingConfig!} />
             </Stage>
           </>
@@ -2122,7 +2131,7 @@ export default function Rack3D(props: Rack3DProps) {
               orientation={props.orientation}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <CompoundRackAssembly
                 presetUnits={props.presetUnits!}
                 toteType={props.toteType}
@@ -2148,7 +2157,7 @@ export default function Rack3D(props: Rack3DProps) {
               hasWheels={props.hasWheels}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.6} environment={null} adjustCamera={false}>
+            <Stage intensity={0.8} environment={null} adjustCamera={false}>
               <RackAssembly {...props} />
             </Stage>
           </>
