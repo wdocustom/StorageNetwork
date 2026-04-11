@@ -1830,8 +1830,8 @@ export default function DesignConfigurator({
               } : undefined}
             />
           </div>
-          {/* Dimensions bar — hidden on mobile to save space */}
-          <div className="hidden shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500 lg:block">
+          {/* Dimensions bar */}
+          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-2 py-1.5 text-center text-xs font-medium text-stone-500 lg:px-4 lg:py-3 lg:text-sm">
             {overheadPreview ? (
               <>
                 {overheadPreview.slotsWide} &times; {overheadPreview.slotsDeep} grid · {overheadPreview.toteType}
