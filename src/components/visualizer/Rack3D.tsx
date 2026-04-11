@@ -152,7 +152,7 @@ const TOTE_FULL_W_HDX = 19.75;
 const TOTE_FULL_W_GM = 20.75;
 const TOTE_RIM_H = 1.0;
 const TOTE_BODY_H = 11.0;
-const TOTE_BODY_TAPER = 0.85;
+const TOTE_BODY_TAPER = 0.80;
 const TOTE_DEPTH = 28.6;       // Tote lid depth — slightly less than 30" for equal front/back gap
 
 // ── Sideways Orientation Constants (27 Gallon rotated 90°) ───────────────
@@ -366,10 +366,10 @@ function Tote({ position, bayW, toteType, toteColor, unitType, orientation, unit
   const lidGridMat = useMemo(() => getCachedMaterial("grid", rimDarkColor, 0.28, 0.02), [rimDarkColor]);
 
   const rimW = toteW;
-  const bodyTopW = bayW - BIN_GAP * 2;
+  const bodyTopW = bayW - (isMini ? BIN_GAP * 2 : 1.5);  // 0.75" clearance per side from posts
   const bodyBotW = bodyTopW * (isMini ? 0.92 : TOTE_BODY_TAPER);
-  const bodyTopD = toteDepth * 0.95;
-  const bodyBotD = toteDepth * 0.82;
+  const bodyTopD = toteDepth * 0.92;   // more clearance from front/back rails
+  const bodyBotD = toteDepth * 0.78;
   const rimD = toteDepth;
 
   // Tapered body geometry
