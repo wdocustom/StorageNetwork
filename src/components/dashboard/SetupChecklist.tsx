@@ -31,7 +31,8 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
   const [collapsed, setCollapsed] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
-  // Fetch on mount and re-fetch when window regains focus (user returns from another page)
+  // Fetch on mount, re-fetch on window focus, and re-fetch when any activity is logged
+  // (e.g. group_finder_used from GroupFinder, social_share from SocialGenerator)
   useEffect(() => {
     let mounted = true;
     function refresh() {
@@ -41,8 +42,11 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
     }
     refresh();
     function onFocus() { refresh(); }
+    // Activity events are dispatched by logActivityClient after a successful insert
+    function onActivity() { setTimeout(refresh, 300); }
     window.addEventListener("focus", onFocus);
-    return () => { mounted = false; window.removeEventListener("focus", onFocus); };
+    window.addEventListener("installer-activity-logged", onActivity);
+    return () => { mounted = false; window.removeEventListener("focus", onFocus); window.removeEventListener("installer-activity-logged", onActivity); };
   }, [userId]);
 
   // Handle inline actions that can be completed directly on the checklist

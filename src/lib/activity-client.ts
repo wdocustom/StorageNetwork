@@ -37,6 +37,9 @@ export function logActivityClient(input: {
       .then(({ error }) => {
         if (error) {
           console.error("[ActivityClient] Insert failed:", error.message);
+        } else {
+          // Notify listeners (e.g. SetupChecklist) that an activity was logged
+          window.dispatchEvent(new CustomEvent("installer-activity-logged", { detail: { action: input.action } }));
         }
       });
   });
