@@ -27,6 +27,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
+import { recordPayLinkView, recordPayLinkStep } from "@/app/actions/pay-link-tracking";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
 import { getSalesTax, getDepositAmount, type SalesTaxResult } from "@/app/actions/fee-engine";
@@ -114,6 +115,10 @@ export default function ResumePaymentPage() {
       }
 
       setLead(result.lead);
+
+      // Track that the customer opened this pay link
+      recordPayLinkView(leadId).catch(() => {});
+      recordPayLinkStep(leadId, "address").catch(() => {});
 
       // Pre-fill address if available from lead
       if (result.lead.address) {
@@ -240,6 +245,7 @@ export default function ResumePaymentPage() {
     }
     setError(null);
     setStep("review");
+    recordPayLinkStep(leadId, "review").catch(() => {});
   }
 
   // Apply discount code
@@ -371,6 +377,7 @@ export default function ResumePaymentPage() {
 
       setClientSecret(result.clientSecret);
       setStep("payment");
+      recordPayLinkStep(leadId, "payment").catch(() => {});
     } catch (err) {
       setError("Failed to initialize payment. Please try again.");
       console.error("Payment init error:", err);

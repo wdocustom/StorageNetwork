@@ -57,6 +57,7 @@ import type { InstallerPricing } from "@/types/viewModels";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
+import { logActivityClient } from "@/lib/activity-client";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 const BuildAssistant = lazy(() => import("@/components/dashboard/BuildAssistant"));
@@ -1056,6 +1057,10 @@ export default function BuildConfiguratorPage() {
 
       if (result.lead_id) {
         setQuoteLeadId(result.lead_id);
+
+        // Log that the installer created a quote
+        logActivityClient({ action: "quote_created", pagePath: "/build", detail: { lead_id: result.lead_id } });
+
         // Copy link to clipboard (isolated try/catch so clipboard errors
         // don't mask a successful quote creation)
         try {
@@ -1063,6 +1068,9 @@ export default function BuildConfiguratorPage() {
           await navigator.clipboard.writeText(url);
           setQuoteLinkCopied(true);
           setTimeout(() => setQuoteLinkCopied(false), 3000);
+
+          // Log that the pay link was copied
+          logActivityClient({ action: "quote_link_copied", pagePath: "/build", detail: { lead_id: result.lead_id } });
         } catch {
           // Clipboard failed but quote was created — user can still copy manually
         }
@@ -2665,6 +2673,7 @@ export default function BuildConfiguratorPage() {
                           await navigator.clipboard.writeText(url);
                           setQuoteLinkCopied(true);
                           setTimeout(() => setQuoteLinkCopied(false), 2500);
+                          logActivityClient({ action: "quote_link_copied", pagePath: "/build", detail: { lead_id: quoteLeadId } });
                         }}
                         className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
                           quoteLinkCopied

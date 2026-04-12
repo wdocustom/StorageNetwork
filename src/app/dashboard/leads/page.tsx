@@ -33,6 +33,9 @@ interface LeadItem {
   balance_due: number | null;
   created_at: string;
   scheduled_at: string | null;
+  viewed_at: string | null;
+  view_count: number | null;
+  last_step_reached: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -114,7 +117,7 @@ export default function LeadsListPage() {
     const { data: unpaid } = await supabase
       .from("leads")
       .select(
-        "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at"
+        "id, customer_name, customer_email, address, status, source, estimated_price, deposit_paid, balance_due, created_at, scheduled_at, viewed_at, view_count, last_step_reached"
       )
       .eq("installer_id", user.id)
       .eq("deposit_paid", false)
@@ -343,12 +346,15 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
         href={`/dashboard/leads/${lead.id}`}
         className="block p-4 active:scale-[0.99]"
       >
-        {/* Top row: name + source badge */}
+        {/* Top row: name + pills */}
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-bold text-white">
-              {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="truncate text-base font-bold text-white">
+                {lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name}
+              </p>
+              <QuoteStagePill lead={lead} />
+            </div>
             {lead.status === "waitlisted" ? (
               <p className="mt-0.5 truncate text-xs font-semibold text-amber-400">
                 Waitlisted — subscribe to unlock details
@@ -402,6 +408,52 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
         </button>
       )}
     </li>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Quote Stage Pill — Shows pay link engagement status for unpaid quotes
+// ═══════════════════════════════════════════════════════════════════════════
+
+function QuoteStagePill({ lead }: { lead: LeadItem }) {
+  // Only shown for unpaid quotes (pending_payment / waitlisted)
+  if (lead.deposit_paid) return null;
+
+  const daysSinceCreation = Math.floor(
+    (Date.now() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Abandoned: viewed or not, but 3+ days old with no deposit
+  if (daysSinceCreation >= 3) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-red-500/15 px-2.5 py-0.5 text-[10px] font-bold text-red-400">
+        Abandoned
+      </span>
+    );
+  }
+
+  // Viewed: customer opened the pay link
+  if (lead.viewed_at) {
+    const stepLabel = lead.last_step_reached === "payment"
+      ? "At Payment"
+      : lead.last_step_reached === "review"
+        ? "Reviewing"
+        : "Viewed";
+    return (
+      <span className="inline-flex items-center rounded-full bg-blue-500/15 px-2.5 py-0.5 text-[10px] font-bold text-blue-400">
+        {stepLabel}
+        {(lead.view_count ?? 0) > 1 && (
+          <span className="ml-1 text-blue-400/60">({lead.view_count}x)</span>
+        )}
+      </span>
+    );
+  }
+
+  // Quote Sent: no views yet, less than 3 days old
+  return (
+    <span className="inline-flex items-center rounded-full bg-yellow-500/15 px-2.5 py-0.5 text-[10px] font-bold text-yellow-400">
+      Quote Sent
+    </span>
   );
 }
 
