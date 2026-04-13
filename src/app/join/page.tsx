@@ -47,6 +47,7 @@ import { checkTerritoryAvailability } from "@/app/actions/territory";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
+import InstallerTestimonials from "@/components/landing/InstallerTestimonials";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Join the Network — Pro Trial (3 paid jobs + 45-day hidden expiry)
@@ -1391,6 +1392,11 @@ export default function JoinPage() {
           </div>
         </div>
       </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          INSTALLER TESTIMONIALS
+      ══════════════════════════════════════════════════════════════════ */}
+      <InstallerTestimonials />
 
       {/* ── Bottom CTA ───────────────────────────────────────────────── */}
       <section className="border-t border-slate-800 bg-slate-950 px-6 py-16">

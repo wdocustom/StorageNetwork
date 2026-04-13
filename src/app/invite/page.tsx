@@ -31,6 +31,7 @@ import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { checkTerritoryAvailability } from "@/app/actions/territory";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import InstallerTestimonials from "@/components/landing/InstallerTestimonials";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // /invite — High-Converting Installer Acquisition Landing Page
@@ -467,6 +468,11 @@ function InvitePageContent() {
           </button>
         </div>
       </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          INSTALLER TESTIMONIALS
+      ══════════════════════════════════════════════════════════════════ */}
+      <InstallerTestimonials />
 
       {/* ══════════════════════════════════════════════════════════════════
           FAQ — Objection Handling
