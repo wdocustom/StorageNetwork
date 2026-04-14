@@ -405,14 +405,15 @@ export async function POST(request: NextRequest) {
     // STEP 1: FORCE DB UPDATE (Critical Path — isolated try/catch)
     // ═════════════════════════════════════════════════════════════════════
     try {
-      // Fetch estimated_price to recalculate balance_due based on actual deposit
+      // Fetch estimated_price and discount_amount to recalculate balance_due based on actual deposit
       const { data: leadForBalance } = await getDb()
         .from("leads")
-        .select("estimated_price")
+        .select("estimated_price, discount_amount")
         .eq("id", leadId)
         .maybeSingle();
       const estimatedPrice = leadForBalance?.estimated_price ?? 0;
-      const balanceDue = Math.round((estimatedPrice - amountPaid) * 100) / 100;
+      const discountAmt = leadForBalance?.discount_amount ?? 0;
+      const balanceDue = Math.round((estimatedPrice - amountPaid - discountAmt) * 100) / 100;
 
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
@@ -760,14 +761,15 @@ export async function POST(request: NextRequest) {
           // (createDepositIntent). Overwriting with metadata.source can cause issues
           // if metadata is empty/undefined.
 
-          // Fetch estimated_price to recalculate balance_due based on actual deposit
+          // Fetch estimated_price and discount_amount to recalculate balance_due based on actual deposit
           const { data: leadForBalancePI } = await getDb()
             .from("leads")
-            .select("estimated_price")
+            .select("estimated_price, discount_amount")
             .eq("id", leadId)
             .maybeSingle();
           const estimatedPricePI = leadForBalancePI?.estimated_price ?? 0;
-          const balanceDuePI = Math.round((estimatedPricePI - amountPaidPI) * 100) / 100;
+          const discountAmtPI = leadForBalancePI?.discount_amount ?? 0;
+          const balanceDuePI = Math.round((estimatedPricePI - amountPaidPI - discountAmtPI) * 100) / 100;
 
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,

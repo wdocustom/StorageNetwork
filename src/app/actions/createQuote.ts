@@ -13,6 +13,7 @@ import { calculateCompoundBuild } from "@/app/actions/calculator";
 import { calculateBuild } from "@/app/actions/calculator";
 import { recordWaitlistDemand } from "@/app/actions/demand-signals";
 import { getDepositAmount } from "@/app/actions/fee-engine";
+import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -386,7 +387,22 @@ export async function createQuote(
 
     // Use the effective installer's custom deposit config (min 15% enforced by fee engine)
     const depositAmount = await getDepositAmount(finalTotal, effectiveInstallerId);
-    const balanceDue = Math.round((finalTotal - depositAmount) * 100) / 100;
+
+    // ── Validate discount code (if provided) ─────────────────────────
+    let discountAmount = 0;
+    if (discount_code?.trim()) {
+      const discountResult = await validateDiscountCode(
+        discount_code,
+        effectiveInstallerId,
+        finalTotal,
+        { noDepositCap: true, unitCount: effectiveQuoteData.length }
+      );
+      if (discountResult.valid) {
+        discountAmount = discountResult.discountAmount;
+      }
+    }
+
+    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
@@ -406,6 +422,7 @@ export async function createQuote(
         status: "pending_payment",
         deposit_paid: false,
         discount_code: discount_code?.toUpperCase() || null,
+        discount_amount: discountAmount || 0,
         // Delivery / installation address
         delivery_address_line1: delivery_address?.line1 || null,
         delivery_address_line2: delivery_address?.line2 || null,

@@ -75,6 +75,10 @@ interface JobTicketProps {
   reviewToken?: string | null;
   reviewSubmitted?: boolean;
   use2x4Rails?: boolean;
+  /** Discount code saved at quote creation (auto-populated in UI) */
+  savedDiscountCode?: string | null;
+  /** Discount amount already applied at quote creation */
+  savedDiscountAmount?: number | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -102,6 +106,8 @@ export default function JobTicket({
   reviewToken,
   reviewSubmitted,
   use2x4Rails,
+  savedDiscountCode,
+  savedDiscountAmount,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
@@ -141,9 +147,13 @@ export default function JobTicket({
   const [inventoryEmailSent, setInventoryEmailSent] = useState<string | null>(null);
 
   // ── Discount Code State ─────────────────────────────────────────────────
-  const [discountInput, setDiscountInput] = useState("");
+  const [discountInput, setDiscountInput] = useState(savedDiscountCode || "");
   const [discountLoading, setDiscountLoading] = useState(false);
-  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(null);
+  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(
+    savedDiscountAmount && savedDiscountAmount > 0 && savedDiscountCode
+      ? { valid: true, discountAmount: savedDiscountAmount, code: savedDiscountCode }
+      : null
+  );
   const appliedDiscount = discountResult?.valid ? discountResult.discountAmount : 0;
 
   // ── On-the-fly sales tax for unpaid quotes (salesTaxAmount is null) ─────
