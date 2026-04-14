@@ -36,6 +36,8 @@ export interface UnitConfig {
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
   /** When set, this order item is a raised bed planter */
   raisedBedConfig?: import("@/lib/raised-beds").RaisedBedConfig;
+  /** Quantity of this item (defaults to 1) */
+  quantity?: number;
 }
 
 export interface ServerBuild {
@@ -141,6 +143,7 @@ export interface ConfiguratorSidebarProps {
   // Step 4: Summary / Quote
   orderItems: UnitConfig[];
   onRemoveUnit: (index: number) => void;
+  onQuantityChange: (index: number, quantity: number) => void;
   grandTotal: number;
   deliveryFeeAmount: number;
   deliveryFeeResult: { applicable: boolean; fee: number; distance?: number } | null;

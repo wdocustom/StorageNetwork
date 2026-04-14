@@ -51,6 +51,7 @@ export default function StepSummary({
                 item={item}
                 index={index}
                 onRemove={() => props.onRemoveUnit(index)}
+                onQuantityChange={(qty) => props.onQuantityChange(index, qty)}
                 pricing={props.pricing}
                 platformDefaults={props.platformDefaults}
                 addonPricing={props.addonPricing}

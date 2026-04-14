@@ -75,6 +75,8 @@ interface UnitConfig {
   drawerSlideRows?: number;
   /** Column indices that have drawer slides (e.g. [0, 3]) */
   drawerSlideColumns?: number[];
+  /** Quantity of this item (defaults to 1) */
+  quantity?: number;
 }
 
 interface ServerBuild {
@@ -832,7 +834,7 @@ export default function DesignConfigurator({
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
-  const buildTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+  const buildTotal = orderItems.reduce((sum, it) => sum + it.price * (it.quantity || 1), 0);
   const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
 
   // Paint pricing — calculated from installer's addon_pricing or platform defaults
@@ -1244,6 +1246,12 @@ export default function DesignConfigurator({
 
   function handleRemoveUnit(index: number) {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleQuantityChange(index: number, quantity: number) {
+    setOrderItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, quantity } : item))
+    );
   }
 
   async function handleWaitlist() {
@@ -1673,6 +1681,7 @@ export default function DesignConfigurator({
           // Summary
           orderItems={orderItems}
           onRemoveUnit={handleRemoveUnit}
+          onQuantityChange={handleQuantityChange}
           grandTotal={grandTotal}
           deliveryFeeAmount={deliveryFeeAmount}
           deliveryFeeResult={deliveryFeeResult}

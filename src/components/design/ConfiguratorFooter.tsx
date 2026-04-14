@@ -70,7 +70,7 @@ export default function ConfiguratorFooter({
           )}
           {props.orderItems.length > 0 && (
             <div className="text-[10px] text-zinc-600">
-              {props.orderItems.length} unit{props.orderItems.length !== 1 ? "s" : ""}
+              {props.orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0)} unit{props.orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0) !== 1 ? "s" : ""}
             </div>
           )}
         </div>

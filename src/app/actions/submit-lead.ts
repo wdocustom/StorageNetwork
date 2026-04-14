@@ -32,6 +32,7 @@ export interface QuoteUnit {
     row?: number;
     options?: Record<string, string>;
   }>;
+  quantity?: number;
 }
 
 export interface CleanoutServiceItem {

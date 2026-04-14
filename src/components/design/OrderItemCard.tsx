@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X, Minus, Plus } from "lucide-react";
 import type { UnitConfig, ConfiguratorSidebarProps } from "./configurator-types";
 import type { AddonPricing, PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
@@ -12,6 +12,7 @@ export default function OrderItemCard({
   item,
   index,
   onRemove,
+  onQuantityChange,
   pricing,
   platformDefaults,
   addonPricing,
@@ -20,6 +21,7 @@ export default function OrderItemCard({
   item: UnitConfig;
   index: number;
   onRemove: () => void;
+  onQuantityChange?: (quantity: number) => void;
   pricing?: ConfiguratorSidebarProps["pricing"];
   platformDefaults: ConfiguratorSidebarProps["platformDefaults"];
   addonPricing?: AddonPricing;
@@ -145,9 +147,32 @@ export default function OrderItemCard({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3 shrink-0 ml-3">
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          {/* Quantity controls */}
+          {onQuantityChange && (
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onQuantityChange(Math.max(1, (item.quantity || 1) - 1))}
+                disabled={(item.quantity || 1) <= 1}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 text-zinc-400 transition-colors hover:border-zinc-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <span className="w-6 text-center text-xs font-bold text-zinc-200">
+                {item.quantity || 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => onQuantityChange((item.quantity || 1) + 1)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-zinc-700 bg-zinc-800 text-zinc-400 transition-colors hover:border-zinc-600 hover:text-white"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <span className="text-sm font-bold text-white">
-            ${item.price.toLocaleString()}
+            ${(item.price * (item.quantity || 1)).toLocaleString()}
           </span>
           <button
             onClick={onRemove}
