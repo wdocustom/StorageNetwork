@@ -628,14 +628,14 @@ export default function JobTicket({
           </div>
         </div>
 
-        {/* Box 3: Net Profit (green) */}
+        {/* Box 3: Net Profit (green) — subtract discount (installer absorbs it) */}
         <div className="rounded-xl border border-emerald-600/40 bg-emerald-500/5 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
             <TrendingUp className="h-3 w-3" />
             Net Profit
           </div>
           <div className="text-base font-black text-emerald-400 sm:text-lg">
-            {fmt(profit.netProfit)}
+            {fmt(Math.max(0, profit.netProfit - appliedDiscount))}
           </div>
           <div className="mt-1 text-[10px] text-stone-600">after materials & fees</div>
         </div>
