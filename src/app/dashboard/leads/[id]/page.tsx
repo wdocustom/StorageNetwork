@@ -164,10 +164,16 @@ export default function JobTicketPage() {
   // Compute deposit from server (must be above early returns — rules of hooks)
   const totalPrice = lead?.estimated_price || 0;
   useEffect(() => {
-    if (totalPrice > 0) {
+    // Use the actual deposit stored on the lead (reflects custom installer rates
+    // and actual Stripe charge). Only fall back to computed deposit if missing.
+    if (lead?.deposit_amount && lead.deposit_amount > 0) {
+      setDepositAmt(lead.deposit_amount);
+    } else if (totalPrice > 0 && lead?.installer_id) {
+      getDepositAmount(totalPrice, lead.installer_id).then(setDepositAmt);
+    } else if (totalPrice > 0) {
       getDepositAmount(totalPrice).then(setDepositAmt);
     }
-  }, [totalPrice]);
+  }, [totalPrice, lead?.deposit_amount, lead?.installer_id]);
 
   async function handleStartTrip() {
     if (!lead?.installer_id || tripSent || tripSending) return;

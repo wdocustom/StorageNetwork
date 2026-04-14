@@ -198,8 +198,10 @@ export async function getNetProfit(input: {
   materialCost: number;
   source?: string;
   installerId?: string;
+  /** When provided, use this deposit instead of re-computing from config */
+  actualDepositAmount?: number;
 }): Promise<NetProfitResult> {
-  const { totalPrice, materialCost, source, installerId } = input;
+  const { totalPrice, materialCost, source, installerId, actualDepositAmount } = input;
 
   const isDirectLead = source === "partner_link" || source === "installer_manual";
   let feeRate: number;
@@ -215,9 +217,14 @@ export async function getNetProfit(input: {
 
   const feeAmount = Math.round(totalPrice * feeRate * 100) / 100;
 
-  // Use installer's custom deposit config
-  const config = installerId ? await getInstallerDepositConfig(installerId) : null;
-  const depositAmount = computeDeposit(totalPrice, config);
+  // Use actual deposit if provided, otherwise compute from installer's config
+  let depositAmount: number;
+  if (actualDepositAmount !== undefined && actualDepositAmount > 0) {
+    depositAmount = actualDepositAmount;
+  } else {
+    const config = installerId ? await getInstallerDepositConfig(installerId) : null;
+    depositAmount = computeDeposit(totalPrice, config);
+  }
 
   const customerBalance = Math.round((totalPrice - depositAmount) * 100) / 100;
   const installerTakeHome = Math.round((totalPrice - feeAmount) * 100) / 100;

@@ -221,8 +221,10 @@ export default function JobTicket({
       totalPrice,
       materialCost: estMaterials,
       source: source ?? undefined,
+      installerId: installerId ?? undefined,
+      actualDepositAmount: depositAmount > 0 ? depositAmount : undefined,
     }).then(setProfit);
-  }, [totalPrice, estMaterials, source]);
+  }, [totalPrice, estMaterials, source, installerId, depositAmount]);
 
   // Amount the customer actually owes = balance + sales tax - discount
   // When deposit was never paid, collect the FULL price (not just balance)
