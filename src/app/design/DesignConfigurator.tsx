@@ -125,6 +125,68 @@ function getInstallerCookie(): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+// ── Helper: build a single multi-unit 3D item from a UnitConfig ─────────
+function buildMultiUnitItem(
+  item: UnitConfig,
+  expandedIdx: number,
+  unitVisibility: Record<number, boolean>,
+) {
+  const shelvingConfig3D = item.shelvingConfigId
+    ? (() => {
+        const cfg = SHELVING_CONFIGS.find((c) => c.id === item.shelvingConfigId);
+        return cfg ? { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves } : undefined;
+      })()
+    : undefined;
+  return {
+    cols: item.cols,
+    rows: item.rows,
+    toteType: item.toteType,
+    toteColor: item.toteColor,
+    unitType: item.unitType,
+    orientation: item.orientation,
+    hasTotes: item.hasTotes,
+    hasWheels: item.hasWheels,
+    hasTop: item.hasTop,
+    totalW: item.totalW,
+    totalH: item.totalH,
+    depth: item.depth,
+    addons: item.addons,
+    paintFrameColor: item.paintFrameColor,
+    paintDoorColor: item.paintDoorColor,
+    paintSidePanelColor: item.paintSidePanelColor,
+    shelvingConfigId: item.shelvingConfigId,
+    shelvingConfig: shelvingConfig3D,
+    overheadStorageConfig: item.overheadStorageConfig
+      ? (() => {
+          const cfg = item.overheadStorageConfig;
+          const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
+          return preset ? { slotsWide: preset.slotsWide, slotsDeep: preset.slotsDeep, toteType: cfg.toteType } : undefined;
+        })()
+      : undefined,
+    raisedBedConfig: item.raisedBedConfig
+      ? (() => {
+          const bed = RAISED_BED_SIZES.find((s) => s.id === item.raisedBedConfig!.sizeId);
+          return bed ? {
+            widthIn: bed.widthIn,
+            lengthIn: bed.lengthIn,
+            heightIn: bed.heightIn,
+            hasLegs: bed.style === "with_legs",
+            groundClearance: bed.groundClearance,
+            pestCover: item.raisedBedConfig!.pestCover,
+            finish: item.raisedBedConfig!.finish,
+            hasStringLightPost: bed.hasStringLightPost,
+            postHeightIn: bed.postHeightIn,
+          } : undefined;
+        })()
+      : undefined,
+    presetUnits: item.presetUnits,
+    drawerSlideRows: item.drawerSlideRows,
+    drawerSlideColumns: item.drawerSlideColumns,
+    visible: unitVisibility[expandedIdx] !== false,
+    desc: item.desc,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DesignConfigurator — Client Component
 //
@@ -482,67 +544,33 @@ export default function DesignConfigurator({
     }
   }, [sidebarStep, orderItems.length]);
 
-  // Build multi-unit items for the visualizer
+  // Build multi-unit items for the visualizer — expand by quantity
   const multiUnitItems = useMemo(() => {
     if (!showMultiUnit3D || orderItems.length === 0) return undefined;
-    return orderItems.map((item, i) => {
-      // Resolve shelving config for 3D rendering
-      const shelvingConfig3D = item.shelvingConfigId
-        ? (() => {
-            const cfg = SHELVING_CONFIGS.find((c) => c.id === item.shelvingConfigId);
-            return cfg ? { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves } : undefined;
-          })()
-        : undefined;
-      return {
-        cols: item.cols,
-        rows: item.rows,
-        toteType: item.toteType,
-        toteColor: item.toteColor,
-        unitType: item.unitType,
-        orientation: item.orientation,
-        hasTotes: item.hasTotes,
-        hasWheels: item.hasWheels,
-        hasTop: item.hasTop,
-        totalW: item.totalW,
-        totalH: item.totalH,
-        depth: item.depth,
-        addons: item.addons,
-        paintFrameColor: item.paintFrameColor,
-        paintDoorColor: item.paintDoorColor,
-        paintSidePanelColor: item.paintSidePanelColor,
-        shelvingConfigId: item.shelvingConfigId,
-        shelvingConfig: shelvingConfig3D,
-        overheadStorageConfig: item.overheadStorageConfig
-          ? (() => {
-              const cfg = item.overheadStorageConfig;
-              const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
-              return preset ? { slotsWide: preset.slotsWide, slotsDeep: preset.slotsDeep, toteType: cfg.toteType } : undefined;
-            })()
-          : undefined,
-        raisedBedConfig: item.raisedBedConfig
-          ? (() => {
-              const bed = RAISED_BED_SIZES.find((s) => s.id === item.raisedBedConfig!.sizeId);
-              return bed ? {
-                widthIn: bed.widthIn,
-                lengthIn: bed.lengthIn,
-                heightIn: bed.heightIn,
-                hasLegs: bed.style === "with_legs",
-                groundClearance: bed.groundClearance,
-                pestCover: item.raisedBedConfig!.pestCover,
-                finish: item.raisedBedConfig!.finish,
-                hasStringLightPost: bed.hasStringLightPost,
-                postHeightIn: bed.postHeightIn,
-              } : undefined;
-            })()
-          : undefined,
-        presetUnits: item.presetUnits,
-        drawerSlideRows: item.drawerSlideRows,
-        drawerSlideColumns: item.drawerSlideColumns,
-        visible: unitVisibility[i] !== false, // default visible — i is the original orderItems index
-        desc: item.desc,
-      };
-    });
+    const items: Array<ReturnType<typeof buildMultiUnitItem>> = [];
+    let expandedIdx = 0;
+    for (let i = 0; i < orderItems.length; i++) {
+      const item = orderItems[i];
+      const qty = item.quantity || 1;
+      for (let q = 0; q < qty; q++) {
+        items.push(buildMultiUnitItem(item, expandedIdx, unitVisibility));
+        expandedIdx++;
+      }
+    }
+    return items;
   }, [showMultiUnit3D, orderItems, unitVisibility]);
+
+  // Expanded order item descriptions for multi-unit controls overlay
+  const expandedMultiUnitDescs = useMemo(() => {
+    const descs: Array<{ desc: string }> = [];
+    for (const item of orderItems) {
+      const qty = item.quantity || 1;
+      for (let q = 0; q < qty; q++) {
+        descs.push({ desc: qty > 1 ? `${item.desc} (#${q + 1})` : item.desc });
+      }
+    }
+    return descs;
+  }, [orderItems]);
 
   // ── Cleanout service add-on (booked with order, not emailed) ────────
   const [selectedCleanout, setSelectedCleanout] = useState<string | null>(null);
@@ -1675,7 +1703,11 @@ export default function DesignConfigurator({
           onUnitVisibilityChange={(index, visible) => setUnitVisibility((prev) => ({ ...prev, [index]: visible }))}
           onToggleAllUnits={(visible) => {
             const newVis: Record<number, boolean> = {};
-            orderItems.forEach((_, i) => { newVis[i] = visible; });
+            let idx = 0;
+            orderItems.forEach((item) => {
+              const qty = item.quantity || 1;
+              for (let q = 0; q < qty; q++) { newVis[idx++] = visible; }
+            });
             setUnitVisibility(newVis);
           }}
 
@@ -1846,7 +1878,7 @@ export default function DesignConfigurator({
                 onShowMultiUnit3DChange: setShowMultiUnit3D,
                 unitVisibility,
                 onUnitVisibilityChange: (index: number, visible: boolean) => setUnitVisibility((prev) => ({ ...prev, [index]: visible })),
-                orderItems: orderItems.map((item) => ({ desc: item.desc })),
+                orderItems: expandedMultiUnitDescs,
               } : undefined}
             />
           </div>
@@ -1870,7 +1902,7 @@ export default function DesignConfigurator({
               </>
             ) : showMultiUnit3D && orderItems.length > 0 && orderItems.every((it) => it.raisedBedConfig) ? (
               <>
-                {orderItems.length} Raised Bed{orderItems.length > 1 ? "s" : ""}
+                {orderItems.reduce((s, it) => s + (it.quantity || 1), 0)} Raised Bed{orderItems.reduce((s, it) => s + (it.quantity || 1), 0) > 1 ? "s" : ""}
                 <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
                   Planter Order
                 </span>
