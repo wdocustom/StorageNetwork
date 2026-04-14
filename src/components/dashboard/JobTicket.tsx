@@ -156,6 +156,16 @@ export default function JobTicket({
   );
   const appliedDiscount = discountResult?.valid ? discountResult.discountAmount : 0;
 
+  // Auto-validate discount codes from old quotes where discount_amount wasn't calculated
+  useEffect(() => {
+    if (savedDiscountCode && (!savedDiscountAmount || savedDiscountAmount <= 0) && installerId && !discountResult) {
+      validateDiscountCode(savedDiscountCode, installerId, totalPrice, { noDepositCap: !depositPaid })
+        .then((result) => {
+          if (result.valid) setDiscountResult(result);
+        });
+    }
+  }, [savedDiscountCode, savedDiscountAmount, installerId, totalPrice, depositPaid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── On-the-fly sales tax for unpaid quotes (salesTaxAmount is null) ─────
   const [computedTax, setComputedTax] = useState<number>(0);
   useEffect(() => {
