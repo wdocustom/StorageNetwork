@@ -816,7 +816,7 @@ export default function BuildConfiguratorPage() {
   }
 
   // Calculate grand total from all units in Quote Builder only
-  const grandTotal = units.reduce((sum, u) => sum + (u.price || 0), 0);
+  const grandTotal = units.reduce((sum, u) => sum + (u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee : 0), 0);
 
   // Calculate aggregate material breakdown and manifest for all units in Quote Builder
   const [aggregateMaterials, setAggregateMaterials] = useState<MaterialBreakdown | null>(null);
@@ -2153,6 +2153,7 @@ export default function BuildConfiguratorPage() {
                               {groupUnits[0].hasTotes && " • Totes"}
                               {groupUnits.some((u) => u.hasWheels) && " • Wheels"}
                               {groupUnits.some((u) => u.hasTop) && " • Top"}
+                              {groupUnits.some((u) => u.indoorDelivery) && " • Indoor Delivery"}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
@@ -2213,13 +2214,14 @@ export default function BuildConfiguratorPage() {
                               {unit.hasTotes && " • Totes"}
                               {unit.hasWheels && " • Wheels"}
                               {unit.hasTop && " • Top"}
+                              {unit.indoorDelivery && " • Indoor Delivery"}
                             </>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-yellow-400">
-                          ${unit.price?.toLocaleString()}
+                          ${((unit.price || 0) + (unit.indoorDelivery && unit.indoorDeliveryFee ? unit.indoorDeliveryFee : 0)).toLocaleString()}
                         </span>
                         <button
                           onClick={() => handleRemoveUnit(unit.id)}
