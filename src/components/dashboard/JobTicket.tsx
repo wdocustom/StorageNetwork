@@ -219,6 +219,13 @@ export default function JobTicket({
 
   const estMaterials = materialBreakdown?.totalCost ?? 0;
 
+  // Indoor delivery total from quote units
+  const indoorDeliveryTotal = useMemo(() => {
+    if (!quoteData) return 0;
+    return (quoteData as any[]).reduce((sum, u) =>
+      sum + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0), 0);
+  }, [quoteData]);
+
   // ── True Profit Calculation (server-side, black box) ─────────────────
   const [profit, setProfit] = useState<NetProfitResult>({
     totalPrice, depositAmount: 0, feeAmount: 0,
@@ -659,6 +666,14 @@ export default function JobTicket({
             Deposit:{" "}
             <span className="font-bold text-orange-400">
               None
+            </span>
+          </span>
+        )}
+        {indoorDeliveryTotal > 0 && (
+          <span>
+            Indoor Delivery:{" "}
+            <span className="font-bold text-stone-300">
+              {fmt(indoorDeliveryTotal)}
             </span>
           </span>
         )}

@@ -107,6 +107,11 @@ export default function OrderItemCard({
   if (item.paintDoorColor) addOnItems.push({ label: `Paint Doors: ${paintLabel(item.paintDoorColor)}`, price: paintDoorsPanelsPrice });
   if (item.paintSidePanelColor) addOnItems.push({ label: `Paint Side Panels: ${paintLabel(item.paintSidePanelColor)}`, price: paintDoorsPanelsPrice });
 
+  // Indoor delivery fee
+  if (item.indoorDelivery && item.indoorDeliveryFee) {
+    addOnItems.push({ label: "Indoor Delivery", price: item.indoorDeliveryFee });
+  }
+
   const hasAddOns = addOnItems.length > 0;
 
   return (
@@ -172,7 +177,7 @@ export default function OrderItemCard({
             </div>
           )}
           <span className="text-sm font-bold text-white">
-            ${(item.price * (item.quantity || 1)).toLocaleString()}
+            ${((item.price + (item.indoorDelivery && item.indoorDeliveryFee ? item.indoorDeliveryFee : 0)) * (item.quantity || 1)).toLocaleString()}
           </span>
           <button
             onClick={onRemove}

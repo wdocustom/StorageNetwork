@@ -103,6 +103,7 @@ interface Profile {
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
   delivery_fee_config: DeliveryFeeConfig | null;
+  indoor_delivery_fee_config: { enabled: boolean; fee: number } | null;
   deposit_config: DepositConfig | null;
   bio: string | null;
   instagram_url: string | null;
@@ -148,6 +149,10 @@ function ProfilePageInner() {
   const [deliveryTiers, setDeliveryTiers] = useState<DeliveryFeeTier[]>([]);
   const [deliveryFeeSaving, setDeliveryFeeSaving] = useState(false);
   const [deliveryFeeMessage, setDeliveryFeeMessage] = useState("");
+
+  // Indoor delivery fee state
+  const [indoorDeliveryEnabled, setIndoorDeliveryEnabled] = useState(true);
+  const [indoorDeliveryFee, setIndoorDeliveryFee] = useState(19);
 
   // Deposit config state
   const [depositType, setDepositType] = useState<"percentage" | "flat">("percentage");
@@ -204,6 +209,11 @@ function ProfilePageInner() {
       setDeliveryFeeEnabled(p.delivery_fee_config.enabled);
       setDeliveryTiers(p.delivery_fee_config.tiers || []);
     }
+    // Indoor delivery fee config
+    if (p.indoor_delivery_fee_config) {
+      setIndoorDeliveryEnabled(p.indoor_delivery_fee_config.enabled);
+      setIndoorDeliveryFee(p.indoor_delivery_fee_config.fee);
+    }
     // Deposit config
     if (p.deposit_config) {
       setDepositType(p.deposit_config.type);
@@ -222,7 +232,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
       .eq("id", user.id)
       .single();
 
@@ -233,7 +243,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -479,9 +489,17 @@ function ProfilePageInner() {
       tiers: deliveryTiers,
     };
 
+    const indoorConfig = {
+      enabled: indoorDeliveryEnabled,
+      fee: indoorDeliveryFee,
+    };
+
     const { error } = await supabase
       .from("profiles")
-      .update({ delivery_fee_config: config })
+      .update({
+        delivery_fee_config: config,
+        indoor_delivery_fee_config: indoorConfig,
+      })
       .eq("id", profile.id);
 
     if (error) {
@@ -1196,6 +1214,49 @@ function ProfilePageInner() {
               )}
             </>
           )}
+
+          {/* ── Indoor Delivery Fee ─────────────────────────────── */}
+          <div className="mt-6 border-t border-slate-700/50 pt-4">
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+              Indoor Delivery Fee
+            </h4>
+            <p className="mb-3 text-xs text-stone-500">
+              Charge an extra per-item fee when the customer wants a rack brought inside the home instead of the garage or driveway. This fee is assessed per rack.
+            </p>
+
+            {/* Toggle */}
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-400">Offer Indoor Delivery</span>
+              <button
+                onClick={() => setIndoorDeliveryEnabled(!indoorDeliveryEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  indoorDeliveryEnabled ? "bg-yellow-400" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    indoorDeliveryEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {indoorDeliveryEnabled && (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 p-3">
+                <span className="text-xs font-bold text-stone-400">$</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={indoorDeliveryFee}
+                  onChange={(e) => setIndoorDeliveryFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  className="w-20 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                />
+                <span className="text-xs text-stone-500">per item</span>
+              </div>
+            )}
+          </div>
 
           {/* Save */}
           <button

@@ -200,18 +200,25 @@ export default async function DesignPage({ searchParams }: PageProps) {
     viewModel.addonDefaults = { ...ADDON_PLATFORM_DEFAULTS };
   }
 
-  // ── Fresh scheduling_enabled read (bypasses installer cache) ───────
+  // ── Fresh scheduling_enabled + indoor delivery read (bypasses installer cache) ──
   // The installer cache is in-memory and doesn't sync across serverless
   // function instances, so the cached value can be stale. Read directly.
   if (viewModel && rawInstaller?.installer_id) {
     const supabase = getServiceClient();
     const { data: freshProfile } = await supabase
       .from("profiles")
-      .select("scheduling_enabled")
+      .select("scheduling_enabled, indoor_delivery_fee_config")
       .eq("id", rawInstaller.installer_id)
       .maybeSingle();
     if (freshProfile && typeof freshProfile.scheduling_enabled === "boolean") {
       viewModel.routing.schedulingEnabled = freshProfile.scheduling_enabled;
+    }
+    // Inject indoor delivery fee config
+    if (freshProfile?.indoor_delivery_fee_config) {
+      const idc = freshProfile.indoor_delivery_fee_config as { enabled: boolean; fee: number };
+      if (typeof idc.enabled === "boolean" && typeof idc.fee === "number") {
+        viewModel.indoorDeliveryConfig = idc;
+      }
     }
   }
 

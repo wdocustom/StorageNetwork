@@ -77,6 +77,10 @@ interface UnitConfig {
   drawerSlideColumns?: number[];
   /** Quantity of this item (defaults to 1) */
   quantity?: number;
+  /** When true, customer wants this item delivered inside the home */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
 }
 
 interface ServerBuild {
@@ -292,6 +296,7 @@ export default function DesignConfigurator({
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(true);
   const [addons, setAddons] = useState<SectionAddon[]>([]);
+  const [indoorDelivery, setIndoorDelivery] = useState(false);
 
   // ── Paint color state ──────────────────────────────────────────────────
   const [paintFrameColor, setPaintFrameColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
@@ -872,7 +877,8 @@ export default function DesignConfigurator({
   const paintPanelCost = paintSidePanelColor ? paintDoorsPanelsPrice : 0;
   const paintTotal = paintFramePrice + paintDoorCost + paintPanelCost;
 
-  const grandTotal = Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal - (discountApplied?.amount || 0));
+  const indoorDeliveryTotal = orderItems.reduce((sum, it) => sum + (it.indoorDelivery && it.indoorDeliveryFee ? it.indoorDeliveryFee * (it.quantity || 1) : 0), 0);
+  const grandTotal = Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal + indoorDeliveryTotal - (discountApplied?.amount || 0));
 
   // Deposit — computed server-side using installer's custom config (min 15% enforced)
   const [depositAmount, setDepositAmount] = useState(0);
@@ -1220,6 +1226,10 @@ export default function DesignConfigurator({
         paintFrameColor,
         paintDoorColor,
         paintSidePanelColor,
+        ...(indoorDelivery && data?.indoorDeliveryConfig?.enabled ? {
+          indoorDelivery: true,
+          indoorDeliveryFee: data.indoorDeliveryConfig.fee,
+        } : {}),
       },
     ]);
     // Reset step 2/3 customization state so the configurator is fresh for a new unit
@@ -1230,6 +1240,7 @@ export default function DesignConfigurator({
     setHasWheels(true);
     setHasTop(true);
     setHasTotes(true);
+    setIndoorDelivery(false);
     setActivePreset(null);
     setCompoundBuild(null);
     // showMultiUnit3D is set by sidebarStep effect when step advances to 4
@@ -1267,8 +1278,13 @@ export default function DesignConfigurator({
         })),
         drawerSlideRows: activePresetObj.drawerSlideRows,
         drawerSlideColumns: activePresetObj.drawerSlideColumns,
+        ...(indoorDelivery && data?.indoorDeliveryConfig?.enabled ? {
+          indoorDelivery: true,
+          indoorDeliveryFee: data.indoorDeliveryConfig.fee,
+        } : {}),
       },
     ]);
+    setIndoorDelivery(false);
     // showMultiUnit3D is set by sidebarStep effect when step advances to 4
     return true;
   }
@@ -1836,6 +1852,11 @@ export default function DesignConfigurator({
           onPaintFrameColorChange={setPaintFrameColor}
           onPaintDoorColorChange={setPaintDoorColor}
           onPaintSidePanelColorChange={setPaintSidePanelColor}
+
+          // Indoor delivery
+          indoorDeliveryConfig={data?.indoorDeliveryConfig}
+          indoorDelivery={indoorDelivery}
+          onIndoorDeliveryChange={setIndoorDelivery}
 
           // UI Trigger bridge for 3D model animation
           onPulseVisualizerTrigger={() => {}}

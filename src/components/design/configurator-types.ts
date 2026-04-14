@@ -38,6 +38,10 @@ export interface UnitConfig {
   raisedBedConfig?: import("@/lib/raised-beds").RaisedBedConfig;
   /** Quantity of this item (defaults to 1) */
   quantity?: number;
+  /** When true, customer wants this item delivered inside the home */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
 }
 
 export interface ServerBuild {
@@ -287,6 +291,11 @@ export interface ConfiguratorSidebarProps {
   onRaisedBedPriceChange?: (price: number | null) => void;
   onAddRaisedBed: (config: import("@/lib/raised-beds").RaisedBedConfig, price: number, desc: string) => void;
   onRaisedBedPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
+
+  // Indoor delivery fee
+  indoorDeliveryConfig?: { enabled: boolean; fee: number };
+  indoorDelivery: boolean;
+  onIndoorDeliveryChange: (v: boolean) => void;
 
   // Multi-unit 3D visualization
   showMultiUnit3D: boolean;

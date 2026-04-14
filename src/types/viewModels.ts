@@ -219,6 +219,12 @@ export interface DesignPageViewModel {
     built_in: boolean;
   }>;
 
+  /** Indoor delivery fee config — per-item fee for in-home delivery */
+  indoorDeliveryConfig?: {
+    enabled: boolean;
+    fee: number;
+  };
+
   /** Availability metadata */
   available: boolean;
   message: string;

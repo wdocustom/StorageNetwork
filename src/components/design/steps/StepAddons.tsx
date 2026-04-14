@@ -109,6 +109,25 @@ export default function StepAddons({
         )}
       </div>
 
+      {/* Indoor Delivery Toggle */}
+      {props.indoorDeliveryConfig?.enabled && (
+        <div className="space-y-2">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+            Delivery
+          </h3>
+          <StudioToggle
+            checked={props.indoorDelivery}
+            onChange={props.onIndoorDeliveryChange}
+            label={`Indoor Delivery (+$${props.indoorDeliveryConfig.fee}/ea)`}
+          />
+          {props.indoorDelivery && (
+            <p className="ml-1 text-[10px] text-amber-400/80">
+              Built &amp; delivered inside the home
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Organizer Customization (per-section addons) */}
       {!props.activePreset && props.installerId && (props.addonPricing?.organizer_customization_enabled !== false) && (
         <OrganizerCustomization

@@ -161,8 +161,12 @@ export default function ResumePaymentPage() {
   // Delivery fee from the lead (already included in estimated_price, tax-exempt)
   const deliveryFee = lead?.delivery_fee || 0;
 
-  // Build-only price (estimated_price includes delivery fee)
-  const buildTotal = lead ? lead.estimated_price - deliveryFee : 0;
+  // Indoor delivery fees (per-unit, already included in estimated_price)
+  const indoorDeliveryTotal = (Array.isArray(lead?.quote_data) ? lead.quote_data : []).reduce((sum: number, u: any) =>
+    sum + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0), 0);
+
+  // Build-only price (estimated_price includes delivery fee + indoor delivery)
+  const buildTotal = lead ? lead.estimated_price - deliveryFee - indoorDeliveryTotal : 0;
 
   // Add-on totals (selected inline — services added directly to this quote)
   const addonTotal = Array.from(selectedAddons.values()).reduce((s, a) => s + a.price, 0);
@@ -566,6 +570,7 @@ export default function ResumePaymentPage() {
                     group.units[0]?.hasTotes && "Totes",
                     group.units.some((u: any) => u.hasWheels) && "Wheels",
                     group.units.some((u: any) => u.hasTop) && "Top",
+                    group.units.some((u: any) => u.indoorDelivery) && "Indoor Delivery",
                   ].filter(Boolean).join(", ");
 
                   items.push(
@@ -588,7 +593,7 @@ export default function ResumePaymentPage() {
                           Unit #{itemNum}: {unit.desc || `${unit.cols}W × ${unit.rows}H`}
                         </p>
                         <p className="text-xs text-stone-400">
-                          {[unit.hasTotes && "Totes", unit.hasWheels && "Wheels", unit.hasTop && "Top"].filter(Boolean).join(", ") || "Frame Only"}
+                          {[unit.hasTotes && "Totes", unit.hasWheels && "Wheels", unit.hasTop && "Top", unit.indoorDelivery && "Indoor Delivery"].filter(Boolean).join(", ") || "Frame Only"}
                         </p>
                       </div>
                       <span className="text-sm font-bold text-white">{formatCurrency(unit.price || 0)}</span>
@@ -679,13 +684,19 @@ export default function ResumePaymentPage() {
           {/* Totals */}
           <div className="border-t border-slate-700 pt-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-stone-400">{deliveryFee > 0 || addonTotal > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
-              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 || addonTotal > 0 ? buildTotal : lead.estimated_price)}</span>
+              <span className="text-stone-400">{deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0 ? "Build" : "Total"} ({unitCount} unit{unitCount !== 1 ? "s" : ""})</span>
+              <span className="font-bold text-white">{formatCurrency(deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0 ? buildTotal : lead.estimated_price)}</span>
             </div>
             {addonTotal > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-emerald-400">Add-On Services</span>
                 <span className="font-bold text-emerald-400">{formatCurrency(addonTotal)}</span>
+              </div>
+            )}
+            {indoorDeliveryTotal > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-stone-400">Indoor Delivery</span>
+                <span className="font-bold text-white">{formatCurrency(indoorDeliveryTotal)}</span>
               </div>
             )}
             {deliveryFee > 0 && (
@@ -697,7 +708,7 @@ export default function ResumePaymentPage() {
                 <span className="font-bold text-white">{formatCurrency(deliveryFee)}</span>
               </div>
             )}
-            {(deliveryFee > 0 || addonTotal > 0) && (
+            {(deliveryFee > 0 || addonTotal > 0 || indoorDeliveryTotal > 0) && (
               <div className="flex items-center justify-between text-sm border-t border-slate-700/50 pt-2">
                 <span className="text-stone-400">Total</span>
                 <span className="font-bold text-white">{formatCurrency(effectiveEstimatedPrice)}</span>
@@ -988,6 +999,12 @@ export default function ResumePaymentPage() {
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-emerald-400">Add-On Services</span>
                   <span className="text-emerald-400">{formatCurrency(addonTotal)}</span>
+                </div>
+              )}
+              {indoorDeliveryTotal > 0 && (
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-stone-400">Indoor Delivery</span>
+                  <span className="text-white">{formatCurrency(indoorDeliveryTotal)}</span>
                 </div>
               )}
               {deliveryFee > 0 && (

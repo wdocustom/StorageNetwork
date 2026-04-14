@@ -33,6 +33,10 @@ export interface QuoteUnit {
     options?: Record<string, string>;
   }>;
   quantity?: number;
+  /** When true, customer wants this item delivered inside the home */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
 }
 
 export interface CleanoutServiceItem {

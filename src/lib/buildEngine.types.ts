@@ -29,6 +29,10 @@ export interface QuoteUnit {
   paintFrameColor?: PaintColorId | null;
   paintDoorColor?: PaintColorId | null;
   paintSidePanelColor?: PaintColorId | null;
+  /** When true, customer wants this item delivered inside the home (extra per-item fee) */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
   /** When true, this unit uses 2x4 ripped rail construction instead of plywood strips */
   use2x4Rails?: boolean;
   /** When set, this unit is an open shelving unit — routed to shelving cut plan handler */

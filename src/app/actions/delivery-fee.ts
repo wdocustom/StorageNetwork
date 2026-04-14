@@ -25,9 +25,15 @@ export interface DeliveryFeeTier {
   label: string;
 }
 
+export interface IndoorDeliveryConfig {
+  enabled: boolean;
+  fee: number; // per-item fee in dollars (default $19)
+}
+
 export interface DeliveryFeeConfig {
   enabled: boolean;
   tiers: DeliveryFeeTier[];
+  indoor_delivery?: IndoorDeliveryConfig;
 }
 
 export interface DeliveryFeeResult {
@@ -93,5 +99,49 @@ export async function calculateDeliveryFee(
     return noFee;
   } catch {
     return noFee;
+  }
+}
+
+// ── Indoor Delivery Fee ─────────────────────────────────────────────────
+
+const DEFAULT_INDOOR_FEE = 19;
+
+/**
+ * Fetch the installer's indoor delivery fee config.
+ * Returns { enabled, fee } — default $19 per item if no custom config.
+ */
+export async function getIndoorDeliveryConfig(
+  installerId: string
+): Promise<IndoorDeliveryConfig> {
+  const defaultConfig: IndoorDeliveryConfig = { enabled: true, fee: DEFAULT_INDOOR_FEE };
+
+  if (!installerId) return defaultConfig;
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("delivery_fee_config, indoor_delivery_fee_config")
+      .eq("id", installerId)
+      .single();
+
+    // Check the dedicated column first (new schema)
+    if (profile?.indoor_delivery_fee_config) {
+      const cfg = profile.indoor_delivery_fee_config as IndoorDeliveryConfig;
+      if (typeof cfg.enabled === "boolean" && typeof cfg.fee === "number") {
+        return cfg;
+      }
+    }
+
+    // Fall back to sub-object in delivery_fee_config (legacy)
+    if (profile?.delivery_fee_config) {
+      const dfc = profile.delivery_fee_config as DeliveryFeeConfig;
+      if (dfc.indoor_delivery && typeof dfc.indoor_delivery.enabled === "boolean") {
+        return dfc.indoor_delivery;
+      }
+    }
+
+    return defaultConfig;
+  } catch {
+    return defaultConfig;
   }
 }

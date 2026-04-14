@@ -7,7 +7,7 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
-import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
 import { checkProTrial } from "@/app/actions/pro-trial";
@@ -108,6 +108,10 @@ interface UnitConfig {
   paintFrameColor?: import("@/types/viewModels").PaintColorId | null;
   paintDoorColor?: import("@/types/viewModels").PaintColorId | null;
   paintSidePanelColor?: import("@/types/viewModels").PaintColorId | null;
+  /** When true, customer wants this item delivered inside the home */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
 }
 
 export default function BuildConfiguratorPage() {
@@ -191,6 +195,9 @@ export default function BuildConfiguratorPage() {
   // Delivery fee state (calculated when ZIP is entered)
   const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
 
+  // Indoor delivery fee config (fetched from installer profile)
+  const [indoorDeliveryConfig, setIndoorDeliveryConfig] = useState<IndoorDeliveryConfig | null>(null);
+
   // Booking modal state
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -216,7 +223,7 @@ export default function BuildConfiguratorPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; quantity: number } | null; customPrice?: number | null; description: string }> | null>(null);
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; quantity: number } | null; customPrice?: number | null; description: string; indoorDelivery?: boolean }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
 
@@ -373,6 +380,7 @@ export default function BuildConfiguratorPage() {
             totalW: result.dimensions.totalW, totalH: result.dimensions.totalH,
             depth: result.dimensions.depth, slots: result.config.slots,
             desc: unit.description,
+            ...(unit.indoorDelivery && indoorDeliveryConfig?.enabled ? { indoorDelivery: true, indoorDeliveryFee: indoorDeliveryConfig.fee } : {}),
           }]);
         }
       }
@@ -464,6 +472,10 @@ export default function BuildConfiguratorPage() {
         setMaterialPrices(p as MaterialPrices);
       }
     }
+
+    // Fetch indoor delivery config
+    getIndoorDeliveryConfig(user.id).then(setIndoorDeliveryConfig);
+
     setLoading(false);
   }, [supabase]);
 
@@ -900,6 +912,7 @@ export default function BuildConfiguratorPage() {
           depth: groupUnits[0].depth || 30,
           desc,
           use2x4Rails: installerPricing?.use_2x4_rails === true,
+          ...(groupUnits[0].indoorDelivery ? { indoorDelivery: true, indoorDeliveryFee: groupUnits[0].indoorDeliveryFee } : {}),
         });
         continue;
       }
@@ -925,6 +938,7 @@ export default function BuildConfiguratorPage() {
         paintDoorColor: u.paintDoorColor,
         paintSidePanelColor: u.paintSidePanelColor,
         use2x4Rails: installerPricing?.use_2x4_rails === true,
+        ...(u.indoorDelivery ? { indoorDelivery: true, indoorDeliveryFee: u.indoorDeliveryFee } : {}),
       });
     }
 
@@ -979,8 +993,9 @@ export default function BuildConfiguratorPage() {
 
     try {
       const buildTotal = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const indoorTotal = quoteUnits.reduce((sum, u) => sum + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee : 0), 0);
       const deliveryFee = deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0;
-      const totalPrice = buildTotal + deliveryFee;
+      const totalPrice = buildTotal + indoorTotal + deliveryFee;
 
       // Build delivery address object if fields are filled
       let delivery_address: DeliveryAddress | undefined;
@@ -1054,8 +1069,9 @@ export default function BuildConfiguratorPage() {
 
     try {
       const buildTotal = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const indoorTotal = quoteUnits.reduce((sum, u) => sum + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee : 0), 0);
       const deliveryFee = deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0;
-      const totalPrice = buildTotal + deliveryFee;
+      const totalPrice = buildTotal + indoorTotal + deliveryFee;
 
       // Build delivery address object if fields are filled
       let delivery_address: DeliveryAddress | undefined;
@@ -2409,17 +2425,34 @@ export default function BuildConfiguratorPage() {
                             );
                           }
                           return (
-                            <div key={u.id} className="flex justify-between text-sm">
-                              <span className="text-stone-400">
-                                {u.cols === 0 && u.rows === 0 && !u.overheadGridPresetId && !u.shelvingConfigId ? (
-                                  <><PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
-                                ) : u.overheadGridPresetId ? (
-                                  <><ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
-                                ) : (
-                                  <>Unit {idx + 1}: {u.cols}×{u.rows}</>
-                                )}
-                              </span>
-                              <span className="font-semibold text-white">${u.price?.toLocaleString()}</span>
+                            <div key={u.id} className="text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-stone-400">
+                                  {u.cols === 0 && u.rows === 0 && !u.overheadGridPresetId && !u.shelvingConfigId ? (
+                                    <><PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
+                                  ) : u.overheadGridPresetId ? (
+                                    <><ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
+                                  ) : (
+                                    <>Unit {idx + 1}: {u.cols}×{u.rows}</>
+                                  )}
+                                </span>
+                                <span className="font-semibold text-white">
+                                  ${((u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0)).toLocaleString()}
+                                </span>
+                              </div>
+                              {indoorDeliveryConfig?.enabled && (
+                                <label className="mt-0.5 flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!u.indoorDelivery}
+                                    onChange={(e) => {
+                                      setUnits((prev) => prev.map((p, i) => i === idx ? { ...p, indoorDelivery: e.target.checked, indoorDeliveryFee: indoorDeliveryConfig.fee } : p));
+                                    }}
+                                    className="h-3 w-3 rounded border-slate-600 bg-slate-700 text-yellow-400 focus:ring-yellow-400/50"
+                                  />
+                                  <span className="text-[10px] text-stone-500">Indoor delivery (+${indoorDeliveryConfig.fee})</span>
+                                </label>
+                              )}
                             </div>
                           );
                         });
@@ -2438,7 +2471,7 @@ export default function BuildConfiguratorPage() {
                       <div className="flex justify-between">
                         <span className="text-sm font-bold text-stone-400">Total</span>
                         <span className="text-xl font-black text-yellow-400">
-                          ${(units.reduce((sum, u) => sum + (u.price || 0), 0) + (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0)).toLocaleString()}
+                          ${(units.reduce((sum, u) => sum + (u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0), 0) + (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0)).toLocaleString()}
                         </span>
                       </div>
                     </div>

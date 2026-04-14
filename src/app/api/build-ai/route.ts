@@ -38,6 +38,7 @@ interface ParsedUnit {
     quantity: number;
   } | null;
   customPrice?: number | null;
+  indoorDelivery?: boolean;
   description: string;
 }
 
@@ -139,6 +140,7 @@ RULES:
 - For custom/arbitrary items with a description and price (e.g. "planter box 36x24 with shelf $350" or "garage cleanout $349"), set cols:0, rows:0, and include the customPrice and description. Parse dimensions and features into a clear description.
 - For planter boxes: include dimensions, material, and features in the description (e.g. "Raised Planter Box — 36" × 24" w/ Bottom Shelf")
 - If no price is given for a custom item, make a reasonable estimate based on size and features, and note it in the description with "(est.)"
+- INDOOR DELIVERY: When the user mentions "inside", "indoor", "in the house", "in the basement", "bring inside", or "indoor delivery", set indoorDelivery:true on those units. Default is false (omit the field).
 - OVERHEAD CEILING STORAGE: When the user mentions "overhead", "ceiling storage", or "ceiling totes", set overheadGridPresetId to the grid size (e.g. "3x4") and cols:0, rows:0. Do NOT set presetId or customPrice for overhead units.
 
 RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explanation, just JSON:
