@@ -77,14 +77,23 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
     }
 
     if (stepId === "visit_instagram") {
-      setJustCompleted("visit_instagram");
+      // Optimistically mark as completed immediately — no validation needed
+      setStatus((prev) => {
+        if (!prev) return prev;
+        const updatedSteps = prev.steps.map((s) =>
+          s.id === "visit_instagram" ? { ...s, completed: true } : s
+        );
+        const completedCount = updatedSteps.filter((s) => s.completed).length;
+        return {
+          ...prev,
+          steps: updatedSteps,
+          completedCount,
+          allComplete: completedCount === prev.totalSteps,
+        };
+      });
       window.open("https://www.instagram.com/storagenetwork.app/", "_blank", "noopener");
+      // Fire-and-forget: log activity so it stays complete on future loads
       logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
-      setTimeout(() => {
-        getSetupStatus(userId)
-          .then((s) => { if (s) setStatus(s); })
-          .catch(() => {});
-      }, 500);
       return true;
     }
 
