@@ -141,6 +141,7 @@ export default function BuildConfiguratorPage() {
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(false);
+  const [indoorDelivery, setIndoorDelivery] = useState(false);
 
   // Multiple units for quotes
   const [units, setUnits] = useState<UnitConfig[]>([]);
@@ -796,9 +797,11 @@ export default function BuildConfiguratorPage() {
       totalH: buildResult.totalH,
       depth: buildResult.depth,
       slots: buildResult.slots,
+      ...(indoorDelivery && indoorDeliveryConfig?.enabled ? { indoorDelivery: true, indoorDeliveryFee: indoorDeliveryConfig.fee } : {}),
     };
 
     setUnits((prev) => [...prev, newUnit]);
+    setIndoorDelivery(false);
   }
 
   // Remove unit from list — if it's part of a preset group, remove all sub-units
@@ -2027,6 +2030,17 @@ export default function BuildConfiguratorPage() {
                 {disabled && <span className="text-[9px] text-stone-600">(always included)</span>}
               </label>
             ))}
+            {indoorDeliveryConfig?.enabled && (
+              <label className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={indoorDelivery}
+                  onChange={(e) => setIndoorDelivery(e.target.checked)}
+                  className="h-4 w-4 accent-yellow-400"
+                />
+                <span className="text-sm text-stone-300">Indoor Delivery (+${indoorDeliveryConfig.fee})</span>
+              </label>
+            )}
           </div>
 
           <button
