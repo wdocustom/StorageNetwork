@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { calculateBuild } from "@/app/actions/calculator";
+import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { InstallerPricing } from "@/types/viewModels";
 
 export const maxDuration = 15;
@@ -25,6 +26,17 @@ interface ParsedUnit {
   hasTop: boolean;
   presetId?: string | null;
   overheadGridPresetId?: string | null;
+  raisedBedConfig?: {
+    sizeId: string;
+    finish: string;
+    hasLiner: boolean;
+    depthIncrease: boolean;
+    bottomShelf: boolean;
+    pestCover: string;
+    postHeight: number | null;
+    hasHook: boolean;
+    quantity: number;
+  } | null;
   customPrice?: number | null;
   description: string;
 }
@@ -90,12 +102,28 @@ OVERHEAD CEILING STORAGE (use overheadGridPresetId with cols:0, rows:0):
 - Default hasTotes:true for overhead (totes hang from rails)
 - toteColor applies (black or clear)
 
+RAISED BED PLANTERS (use raisedBedConfig with cols:0, rows:0):
+- Set cols:0, rows:0 and include a raisedBedConfig object. Do NOT use customPrice for raised beds — pricing is calculated server-side.
+- Available sizeId values (WITH LEGS): "legs_18x18x16" (18"×18"), "legs_12x48x16" (12"×48"), "legs_24x48x16" (24"×48"), "legs_24x48x30" (24"×48" tall/30"), "legs_24x72x16" (24"×72"), "legs_24x24x16_post" (24"×24" with string light post)
+- Available sizeId values (GROUND LEVEL / WITHOUT LEGS): "ground_24x72x11" (24"×72"×11.5"), "ground_24x72x22" (24"×72"×22.5"), "ground_36x72x22" (36"×72"×22.5"), "ground_48x48x22" (48"×48"×22.5")
+- finish: "natural" (default), "stain" (cedar stain), "painted_white"
+- hasLiner: true/false (landscape liner)
+- depthIncrease: true/false (increase depth to 12" — only for "with legs" sizes)
+- bottomShelf: true/false (only for legs_24x48x30)
+- pestCover: "none", "hoop", "rigid_cage", "cabinet_24", "cabinet_48"
+- postHeight: null, 72 (6' post), or 84 (7' post) — add-on post for hanging plants/lights. Only for legs_18x18x16 and legs_24x24x16_post.
+- hasHook: true/false (hook attachment, requires a post)
+- quantity: number of identical beds (default 1)
+- Match sizes by dimensions mentioned (e.g. "18x18" = legs_18x18x16, "24x72 ground" = ground_24x72x22 or ground_24x72x11)
+- Keywords: "raised bed", "planter", "planter box", "garden bed"
+- "with legs" / "elevated" / "raised" = with_legs style; "ground" / "ground level" = without_legs style
+
 CUSTOM PRODUCTS (use cols:0, rows:0 with customPrice and description):
-- Raised planter boxes: Cedar or lumber planter boxes of any dimension. Common sizes: 36"×24", 48"×24", 48"×48", 72"×24". Options include: shelf/bottom shelf, legs/raised, liners, casters/wheels. Typical pricing $200-$500 depending on size and features.
 - Garage cleanout / junk removal services
 - Custom shelf builds, floating shelves, wall-mounted storage
 - Workbenches, tool stations, pegboard installations
 - Any other custom service or product the installer describes
+- Benches, tables, or other woodworking items
 
 RULES:
 - "4x4" = cols:4, rows:4
@@ -114,22 +142,22 @@ RULES:
 - OVERHEAD CEILING STORAGE: When the user mentions "overhead", "ceiling storage", or "ceiling totes", set overheadGridPresetId to the grid size (e.g. "3x4") and cols:0, rows:0. Do NOT set presetId or customPrice for overhead units.
 
 RESPOND WITH ONLY A JSON OBJECT in this exact format — no markdown, no explanation, just JSON:
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"}],"notes":null}
 
 With custom price override:
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":500,"description":"4×4 w/ Totes, Wheels & Top (custom $500)"}],"notes":null}
 
-For planter boxes:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}
+For raised bed planters:
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":{"sizeId":"legs_18x18x16","finish":"stain","hasLiner":true,"depthIncrease":true,"bottomShelf":false,"pestCover":"none","postHeight":72,"hasHook":true,"quantity":4},"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"18\\"×18\\" Raised Bed (with legs) + Stain + Liner + 12\\" Depth + 6' Post + Hook × 4"}],"notes":null}
 
 For custom line items:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":349,"description":"Garage cleanout — 2 car"}],"notes":null}
 
 For overhead ceiling storage:
-{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x4","wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 4 (12 totes)"}],"notes":null}
+{"units":[{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x4","raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 4 (12 totes)"}],"notes":null}
 
-For mixed quotes (storage + overhead + custom items):
-{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x3","wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 3 (9 totes)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":350,"description":"Raised Planter Box — 36\\" × 24\\" w/ Bottom Shelf"}],"notes":null}`;
+For mixed quotes (storage + overhead + raised beds + custom items):
+{"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x3","raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 3 (9 totes)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":{"sizeId":"legs_24x48x16","finish":"natural","hasLiner":false,"depthIncrease":false,"bottomShelf":false,"pestCover":"none","postHeight":null,"hasHook":false,"quantity":1},"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"24\\"×48\\" Raised Bed (with legs)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":285,"description":"Two benches connecting planter bases"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -201,8 +229,36 @@ export async function POST(req: NextRequest) {
           toteColor,
           overheadGridPresetId,
           presetId: undefined,
+          raisedBedConfig: undefined,
         });
         continue;
+      }
+
+      // Raised bed planter — validate sizeId against known sizes
+      if (unit.raisedBedConfig?.sizeId) {
+        const validSizeIds = new Set(RAISED_BED_SIZES.map((s) => s.id));
+        if (validSizeIds.has(unit.raisedBedConfig.sizeId)) {
+          resolvedUnits.push({
+            ...unit,
+            cols: 0,
+            rows: 0,
+            toteColor,
+            presetId: undefined,
+            overheadGridPresetId: undefined,
+            raisedBedConfig: {
+              sizeId: unit.raisedBedConfig.sizeId,
+              finish: unit.raisedBedConfig.finish || "natural",
+              hasLiner: unit.raisedBedConfig.hasLiner === true,
+              depthIncrease: unit.raisedBedConfig.depthIncrease === true,
+              bottomShelf: unit.raisedBedConfig.bottomShelf === true,
+              pestCover: unit.raisedBedConfig.pestCover || "none",
+              postHeight: unit.raisedBedConfig.postHeight ?? null,
+              hasHook: unit.raisedBedConfig.hasHook === true,
+              quantity: Math.max(1, unit.raisedBedConfig.quantity || 1),
+            },
+          });
+          continue;
+        }
       }
 
       // Resolve wall dimensions via real calculator

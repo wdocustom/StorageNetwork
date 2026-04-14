@@ -8,6 +8,8 @@ import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
+import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
@@ -96,6 +98,10 @@ interface UnitConfig {
   shelvingConfigId?: string;
   /** When set, this unit is an overhead ceiling storage unit */
   overheadGridPresetId?: string;
+  /** When set, this unit is a raised bed planter */
+  raisedBedConfig?: RaisedBedConfig;
+  /** Quantity for this unit (raised beds can have qty > 1) */
+  quantity?: number;
   /** Per-section addons (doors, panels, rail removal, shelves) */
   addons?: import("@/types/viewModels").SectionAddon[];
   /** Paint color selections */
@@ -210,7 +216,7 @@ export default function BuildConfiguratorPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; customPrice?: number | null; description: string }> | null>(null);
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; quantity: number } | null; customPrice?: number | null; description: string }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
 
@@ -273,6 +279,35 @@ export default function BuildConfiguratorPage() {
             }]);
           }
         }
+        continue;
+      }
+
+      // Raised bed planter — calculate price server-side
+      if (unit.raisedBedConfig?.sizeId) {
+        const rbConfig: RaisedBedConfig = {
+          sizeId: unit.raisedBedConfig.sizeId,
+          finish: unit.raisedBedConfig.finish as RaisedBedConfig["finish"],
+          hasLiner: unit.raisedBedConfig.hasLiner,
+          depthIncrease: unit.raisedBedConfig.depthIncrease,
+          bottomShelf: unit.raisedBedConfig.bottomShelf,
+          pestCover: unit.raisedBedConfig.pestCover as RaisedBedConfig["pestCover"],
+          postHeight: unit.raisedBedConfig.postHeight,
+          hasHook: unit.raisedBedConfig.hasHook,
+        };
+        const result = await calculateRaisedBedPriceServer(rbConfig);
+        const qty = unit.raisedBedConfig.quantity || 1;
+        const desc = getRaisedBedDescription(rbConfig);
+        const bed = RAISED_BED_SIZES.find((s) => s.id === rbConfig.sizeId);
+        setUnits((prev) => [...prev, {
+          id: `ai-rb-${Date.now()}-${Math.random()}`,
+          cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
+          hasTotes: false, hasWheels: false, hasTop: false,
+          price: hasCustomPrice ? unit.customPrice! : result.total * qty,
+          totalW: bed?.widthIn ?? 0, totalH: bed?.heightIn ?? 0, depth: bed?.lengthIn ?? 0,
+          desc: qty > 1 ? `${desc} (×${qty})` : desc,
+          raisedBedConfig: rbConfig,
+          quantity: qty,
+        }]);
         continue;
       }
 
@@ -1391,10 +1426,23 @@ export default function BuildConfiguratorPage() {
                           {unit.overheadGridPresetId && (
                             <span className="rounded-full bg-blue-400/15 px-2 py-0.5 text-[10px] font-bold text-blue-400">Ceiling</span>
                           )}
+                          {unit.raisedBedConfig && (
+                            <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">Raised Bed</span>
+                          )}
                         </div>
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
-                        {unit.overheadGridPresetId ? (
+                        {unit.raisedBedConfig ? (
+                          <span>
+                            {(() => { const bed = RAISED_BED_SIZES.find((s) => s.id === unit.raisedBedConfig!.sizeId); return bed ? `${bed.widthIn}"×${bed.lengthIn}"×${bed.heightIn}" ${bed.style === "with_legs" ? "(with legs)" : "(ground)"}` : unit.raisedBedConfig!.sizeId; })()}
+                            {unit.raisedBedConfig.finish !== "natural" && ` • ${unit.raisedBedConfig.finish === "stain" ? "Stain" : "Painted White"}`}
+                            {unit.raisedBedConfig.hasLiner && " • Liner"}
+                            {unit.raisedBedConfig.depthIncrease && " • 12\" Depth"}
+                            {unit.raisedBedConfig.postHeight && ` • ${unit.raisedBedConfig.postHeight === 72 ? "6'" : "7'"} Post`}
+                            {unit.raisedBedConfig.hasHook && " • Hook"}
+                            {unit.raisedBedConfig.quantity > 1 && ` • Qty: ${unit.raisedBedConfig.quantity}`}
+                          </span>
+                        ) : unit.overheadGridPresetId ? (
                           <span>Overhead {unit.overheadGridPresetId} grid{unit.hasTotes ? ` • Totes (${unit.toteColor})` : ""}</span>
                         ) : unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
                           <span>Custom item</span>
@@ -2104,7 +2152,9 @@ export default function BuildConfiguratorPage() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          {unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
+                          {unit.raisedBedConfig ? (
+                            unit.desc
+                          ) : unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
                             <>
                               <PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />
                               {unit.desc}
@@ -2121,7 +2171,9 @@ export default function BuildConfiguratorPage() {
                           )}
                         </p>
                         <p className="text-[11px] text-stone-500">
-                          {unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
+                          {unit.raisedBedConfig ? (
+                            <>Raised Bed{unit.quantity && unit.quantity > 1 ? ` • Qty: ${unit.quantity}` : ""}</>
+                          ) : unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
                             "Custom item"
                           ) : unit.overheadGridPresetId ? (
                             <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
