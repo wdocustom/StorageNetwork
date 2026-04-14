@@ -662,6 +662,14 @@ export default function JobTicket({
             </span>
           </span>
         )}
+        {appliedDiscount > 0 && (
+          <span>
+            Discount ({discountResult?.code}):{" "}
+            <span className="font-bold text-emerald-400">
+              -{fmt(appliedDiscount)}
+            </span>
+          </span>
+        )}
         {tax > 0 && (
           <span>
             Tax:{" "}
