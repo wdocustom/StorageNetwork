@@ -15,6 +15,7 @@ import {
   ADDON_PLATFORM_DEFAULTS,
   RAISED_BED_PRICES,
   PEST_COVER_PRICES,
+  RAISED_BED_POST_PRICES,
 } from "@/lib/server/pricing-constants";
 
 // ── Server-side raised bed price calculator ──────────────────────────────
@@ -26,6 +27,8 @@ export async function calculateRaisedBedPriceServer(config: {
   depthIncrease: boolean;
   bottomShelf: boolean;
   pestCover: string;
+  postHeight?: number | null;
+  hasHook?: boolean;
 }): Promise<{ total: number; breakdown: { label: string; amount: number }[] }> {
   const prices = RAISED_BED_PRICES[config.sizeId];
   if (!prices) return { total: 0, breakdown: [] };
@@ -39,6 +42,11 @@ export async function calculateRaisedBedPriceServer(config: {
   if (config.hasLiner) breakdown.push({ label: "Landscape Liner", amount: prices.linerPrice });
   if (config.depthIncrease && prices.depthIncreasePrice > 0) breakdown.push({ label: "Increase Depth to 12\"", amount: prices.depthIncreasePrice });
   if (config.bottomShelf && prices.bottomShelfPrice > 0) breakdown.push({ label: "Bottom Shelf", amount: prices.bottomShelfPrice });
+
+  if (config.postHeight === 72) breakdown.push({ label: "6' Post", amount: RAISED_BED_POST_PRICES.post_72 });
+  else if (config.postHeight === 84) breakdown.push({ label: "7' Post", amount: RAISED_BED_POST_PRICES.post_84 });
+
+  if (config.hasHook) breakdown.push({ label: "Hook", amount: RAISED_BED_POST_PRICES.hook });
 
   if (config.pestCover && config.pestCover !== "none") {
     const coverPrices = PEST_COVER_PRICES[config.pestCover as keyof typeof PEST_COVER_PRICES];
@@ -64,6 +72,9 @@ export async function getRaisedBedOptionPrices(sizeId: string): Promise<{
   depthIncreasePrice: number;
   bottomShelfPrice: number;
   pestCovers: Record<string, { price_2x4: number; price_2x6: number }>;
+  post72Price: number;
+  post84Price: number;
+  hookPrice: number;
 } | null> {
   const prices = RAISED_BED_PRICES[sizeId];
   if (!prices) return null;
@@ -72,6 +83,9 @@ export async function getRaisedBedOptionPrices(sizeId: string): Promise<{
     pestCovers: Object.fromEntries(
       Object.entries(PEST_COVER_PRICES).map(([k, v]) => [k, { price_2x4: v.price_2x4, price_2x6: v.price_2x6 }])
     ),
+    post72Price: RAISED_BED_POST_PRICES.post_72,
+    post84Price: RAISED_BED_POST_PRICES.post_84,
+    hookPrice: RAISED_BED_POST_PRICES.hook,
   };
 }
 

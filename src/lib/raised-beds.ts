@@ -27,10 +27,12 @@ export interface RaisedBedSize {
   depthIncreaseAvailable: boolean;
   bottomShelfAvailable: boolean;
   pestCoverCategory: "2x4" | "2x6" | "none";
-  /** Center 4x4 post for string lights */
+  /** Center 4x4 post for string lights (built-in, not configurable) */
   hasStringLightPost?: boolean;
   /** Height of string light post in inches (from top of bed) */
   postHeightIn?: number;
+  /** Whether a post add-on can be attached (6' or 7') */
+  postAddonAvailable?: boolean;
   popular?: boolean;
 }
 
@@ -47,12 +49,22 @@ export interface RaisedBedConfig {
   depthIncrease: boolean;
   bottomShelf: boolean;
   pestCover: PestCoverType;
+  /** Post add-on height in inches (72 = 6', 84 = 7'), or null for no post */
+  postHeight: number | null;
+  /** Hook add-on (attaches to post) */
+  hasHook: boolean;
 }
 
 // ── Raised Bed Sizes (structural only — no prices) ───────────────────────
 
 export const RAISED_BED_SIZES: RaisedBedSize[] = [
   // WITH LEGS
+  {
+    id: "legs_18x18x16", label: "18\" × 18\" × 16.5\" Raised Bed", style: "with_legs",
+    widthIn: 18, lengthIn: 18, heightIn: 16.5, internalW: 16, internalL: 16, internalH: 9,
+    groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "none",
+    postAddonAvailable: true,
+  },
   {
     id: "legs_12x48x16", label: "12\" × 48\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 12, lengthIn: 48, heightIn: 16.5, internalW: 12, internalL: 46, internalH: 9,
@@ -131,6 +143,9 @@ export function getRaisedBedDescription(config: RaisedBedConfig): string {
   if (config.hasLiner) parts.push("+ Liner");
   if (config.depthIncrease) parts.push("+ 12\" Depth");
   if (config.bottomShelf) parts.push("+ Bottom Shelf");
+  if (config.postHeight === 72) parts.push("+ 6' Post");
+  else if (config.postHeight === 84) parts.push("+ 7' Post");
+  if (config.hasHook) parts.push("+ Hook");
 
   if (config.pestCover !== "none") {
     const cover = PEST_COVER_OPTIONS.find((c) => c.id === config.pestCover);

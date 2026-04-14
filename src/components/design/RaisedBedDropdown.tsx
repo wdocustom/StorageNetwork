@@ -43,6 +43,8 @@ export default function RaisedBedDropdown({
   const [depthIncrease, setDepthIncrease] = useState(false);
   const [bottomShelf, setBottomShelf] = useState(false);
   const [pestCover, setPestCover] = useState<PestCoverType>("none");
+  const [postHeight, setPostHeight] = useState<number | null>(null);
+  const [hasHook, setHasHook] = useState(false);
 
   const selectedBed = sizeId ? RAISED_BED_SIZES.find((s) => s.id === sizeId) : null;
   const filteredSizes = RAISED_BED_SIZES.filter((s) => s.style === style);
@@ -62,11 +64,11 @@ export default function RaisedBedDropdown({
     if (!sizeId) { setCalculation(null); onPriceChange?.(null); return; }
     let cancelled = false;
     setPriceLoading(true);
-    calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover })
+    calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook })
       .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); onPriceChange?.(result.total); } })
       .catch(() => { if (!cancelled) setPriceLoading(false); });
     return () => { cancelled = true; };
-  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover]);
+  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook]);
 
   // Notify parent of live config for 3D preview on every change
   useEffect(() => {
@@ -84,10 +86,10 @@ export default function RaisedBedDropdown({
       groundClearance: bed.groundClearance,
       pestCover,
       finish,
-      hasStringLightPost: bed.hasStringLightPost,
-      postHeightIn: bed.postHeightIn,
+      hasStringLightPost: bed.hasStringLightPost || !!postHeight,
+      postHeightIn: bed.postHeightIn || postHeight || undefined,
     });
-  }, [sizeId, finish, pestCover, expanded, onConfigPreview]);
+  }, [sizeId, finish, pestCover, postHeight, expanded, onConfigPreview]);
 
   const handleSizeChange = (id: string | null) => {
     setSizeId(id);
@@ -96,6 +98,8 @@ export default function RaisedBedDropdown({
     setBottomShelf(false);
     setPestCover("none");
     setFinish("natural");
+    setPostHeight(null);
+    setHasHook(false);
   };
 
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
@@ -106,21 +110,26 @@ export default function RaisedBedDropdown({
     setBottomShelf(false);
     setPestCover("none");
     setFinish("natural");
+    setPostHeight(null);
+    setHasHook(false);
     onConfigPreview?.(null);
   };
 
   function handleAdd() {
     if (!sizeId || !calculation) return;
-    const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover };
+    const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook };
     const desc = getRaisedBedDescription(config);
     onAddRaisedBed(config, calculation.total, desc);
     // Reset
     onPriceChange?.(null);
     setSizeId(null);
     setFinish("natural");
+    setHasLiner(false);
     setDepthIncrease(false);
     setBottomShelf(false);
     setPestCover("none");
+    setPostHeight(null);
+    setHasHook(false);
     onConfigPreview?.(null);
   }
 
@@ -229,7 +238,7 @@ export default function RaisedBedDropdown({
               {/* Options — only show when a size is selected */}
               {selectedBed && (
                 <>
-                  {/* Finish */}
+                  {/* ── Finish ─────────────────────────────────────────── */}
                   <div>
                     <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
                       Finish
@@ -261,51 +270,110 @@ export default function RaisedBedDropdown({
                     </div>
                   </div>
 
-                  {/* Landscape Liner */}
-                  <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
-                    <div>
-                      <p className="text-xs font-bold text-zinc-300">Add Landscape Liner</p>
-                      <p className="text-[10px] text-zinc-500">+${optionPrices?.linerPrice ?? 0}</p>
+                  {/* ── Add-ons ────────────────────────────────────────── */}
+                  <div>
+                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+                      Add-ons
+                    </label>
+                    <div className="space-y-1.5">
+                      {/* Landscape Liner */}
+                      <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                        <div>
+                          <p className="text-xs font-bold text-zinc-300">Landscape Liner</p>
+                          <p className="text-[10px] text-zinc-500">+${optionPrices?.linerPrice ?? 0}</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={hasLiner}
+                          onChange={(e) => setHasLiner(e.target.checked)}
+                          className="accent-yellow-400"
+                        />
+                      </label>
+
+                      {/* Depth Increase */}
+                      {selectedBed.depthIncreaseAvailable && (
+                        <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                          <div>
+                            <p className="text-xs font-bold text-zinc-300">Increase Planting Depth to 12"</p>
+                            <p className="text-[10px] text-zinc-500">+${optionPrices?.depthIncreasePrice ?? 0}</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={depthIncrease}
+                            onChange={(e) => setDepthIncrease(e.target.checked)}
+                            className="accent-yellow-400"
+                          />
+                        </label>
+                      )}
+
+                      {/* Bottom Shelf */}
+                      {selectedBed.bottomShelfAvailable && (
+                        <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                          <div>
+                            <p className="text-xs font-bold text-zinc-300">Bottom Shelf</p>
+                            <p className="text-[10px] text-zinc-500">+${optionPrices?.bottomShelfPrice ?? 0}</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={bottomShelf}
+                            onChange={(e) => setBottomShelf(e.target.checked)}
+                            className="accent-yellow-400"
+                          />
+                        </label>
+                      )}
+
+                      {/* Post Add-on */}
+                      {selectedBed.postAddonAvailable && (
+                        <div className="rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5">
+                          <p className="text-xs font-bold text-zinc-300 mb-1.5">Post</p>
+                          <div className="flex gap-1.5">
+                            {([
+                              { value: null, label: "None", price: 0 },
+                              { value: 72, label: "6' Post", price: optionPrices?.post72Price ?? 0 },
+                              { value: 84, label: "7' Post", price: optionPrices?.post84Price ?? 0 },
+                            ] as const).map((opt) => (
+                              <button
+                                key={opt.label}
+                                type="button"
+                                onClick={() => {
+                                  setPostHeight(opt.value);
+                                  if (!opt.value) setHasHook(false);
+                                }}
+                                className={`flex-1 rounded-lg border px-2 py-1.5 text-center transition-all ${
+                                  postHeight === opt.value
+                                    ? "border-yellow-400 bg-yellow-400/10"
+                                    : "border-zinc-600 bg-zinc-800 hover:border-zinc-500"
+                                }`}
+                              >
+                                <p className={`text-[11px] font-bold ${postHeight === opt.value ? "text-yellow-400" : "text-zinc-300"}`}>
+                                  {opt.label}
+                                </p>
+                                {opt.price > 0 && (
+                                  <p className="text-[9px] text-zinc-500">+${opt.price}</p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hook — only available when a post is selected */}
+                      {selectedBed.postAddonAvailable && postHeight && (
+                        <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                          <div>
+                            <p className="text-xs font-bold text-zinc-300">Hook</p>
+                            <p className="text-[10px] text-zinc-500">+${optionPrices?.hookPrice ?? 0}</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={hasHook}
+                            onChange={(e) => setHasHook(e.target.checked)}
+                            className="accent-yellow-400"
+                          />
+                        </label>
+                      )}
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={hasLiner}
-                      onChange={(e) => setHasLiner(e.target.checked)}
-                      className="accent-yellow-400"
-                    />
-                  </label>
-
-                  {/* Depth Increase */}
-                  {selectedBed.depthIncreaseAvailable && (
-                    <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
-                      <div>
-                        <p className="text-xs font-bold text-zinc-300">Increase Planting Depth to 12"</p>
-                        <p className="text-[10px] text-zinc-500">+${optionPrices?.depthIncreasePrice ?? 0}</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={depthIncrease}
-                        onChange={(e) => setDepthIncrease(e.target.checked)}
-                        className="accent-yellow-400"
-                      />
-                    </label>
-                  )}
-
-                  {/* Bottom Shelf */}
-                  {selectedBed.bottomShelfAvailable && (
-                    <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
-                      <div>
-                        <p className="text-xs font-bold text-zinc-300">Add Bottom Shelf</p>
-                        <p className="text-[10px] text-zinc-500">+${optionPrices?.bottomShelfPrice ?? 0}</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={bottomShelf}
-                        onChange={(e) => setBottomShelf(e.target.checked)}
-                        className="accent-yellow-400"
-                      />
-                    </label>
-                  )}
+                  </div>
 
                   {/* Pest Protection */}
                   {selectedBed.pestCoverCategory !== "none" && (

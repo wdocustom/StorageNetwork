@@ -78,6 +78,7 @@ export const RAISED_BED_PRICES: Record<string, {
   depthIncreasePrice: number;
   bottomShelfPrice: number;
 }> = {
+  legs_18x18x16: { basePrice: 180, stainPrice: 25, linerPrice: 20, paintedWhitePrice: 75, depthIncreasePrice: 20, bottomShelfPrice: 0 },
   legs_12x48x16: { basePrice: 165, stainPrice: 30, linerPrice: 20, paintedWhitePrice: 80, depthIncreasePrice: 20, bottomShelfPrice: 0 },
   legs_24x48x16: { basePrice: 185, stainPrice: 35, linerPrice: 25, paintedWhitePrice: 90, depthIncreasePrice: 30, bottomShelfPrice: 0 },
   legs_24x48x30: { basePrice: 195, stainPrice: 40, linerPrice: 30, paintedWhitePrice: 95, depthIncreasePrice: 30, bottomShelfPrice: 50 },
@@ -88,6 +89,13 @@ export const RAISED_BED_PRICES: Record<string, {
   ground_36x72x22: { basePrice: 255, stainPrice: 50, linerPrice: 40, paintedWhitePrice: 150, depthIncreasePrice: 0, bottomShelfPrice: 0 },
   ground_48x48x22: { basePrice: 275, stainPrice: 50, linerPrice: 40, paintedWhitePrice: 135, depthIncreasePrice: 0, bottomShelfPrice: 0 },
 };
+
+/** Post add-on prices (6' = 72", 7' = 84") */
+export const RAISED_BED_POST_PRICES = {
+  post_72: 45,
+  post_84: 55,
+  hook: 15,
+} as const;
 
 /** Pest cover prices by type and bed category */
 export const PEST_COVER_PRICES = {
