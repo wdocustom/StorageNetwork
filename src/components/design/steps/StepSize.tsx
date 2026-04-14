@@ -202,7 +202,7 @@ export default function StepSize({
           presetLoading={props.presetLoading}
           presetTotes={props.presetTotes}
           onPresetTotesChange={props.onPresetTotesChange}
-          onAddPresetUnit={() => { props.onAddPresetUnit(); setActiveStep(4); }}
+          onAddPresetUnit={() => { if (props.onAddPresetUnit()) setActiveStep(4); }}
           wallW={wallW}
           wallH={wallH}
           hasWallDimensions={hasWallDimensions}

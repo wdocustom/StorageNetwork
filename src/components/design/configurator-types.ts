@@ -133,7 +133,7 @@ export interface ConfiguratorSidebarProps {
   presetLoading: boolean;
   presetTotes: boolean;
   onPresetTotesChange: (v: boolean) => void;
-  onAddPresetUnit: () => void;
+  onAddPresetUnit: () => boolean;
   activePresetObj: {
     name: string;
     toteColor: string;

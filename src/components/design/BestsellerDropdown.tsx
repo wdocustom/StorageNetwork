@@ -28,7 +28,7 @@ export default function BestsellerDropdown({
   presetLoading: boolean;
   presetTotes: boolean;
   onPresetTotesChange: (v: boolean) => void;
-  onAddPresetUnit: () => void;
+  onAddPresetUnit: () => void | boolean;
   wallW: number;
   wallH: number;
   hasWallDimensions: boolean;

@@ -1207,8 +1207,8 @@ export default function DesignConfigurator({
     // showMultiUnit3D is set by sidebarStep effect when step advances to 4
   }
 
-  function handleAddPresetUnit() {
-    if (!compoundBuild || !activePresetObj) return;
+  function handleAddPresetUnit(): boolean {
+    if (!compoundBuild || !activePresetObj) return false;
 
     const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
     setOrderItems((prev) => [
@@ -1242,6 +1242,7 @@ export default function DesignConfigurator({
       },
     ]);
     // showMultiUnit3D is set by sidebarStep effect when step advances to 4
+    return true;
   }
 
   function handleRemoveUnit(index: number) {
