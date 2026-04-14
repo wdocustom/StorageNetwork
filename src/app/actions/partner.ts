@@ -27,6 +27,7 @@ export interface PlatformUser {
   booking_link: string;
   is_suspended: boolean;
   suspension_reason: "manual" | "payment" | null;
+  stripe_connected: boolean;
 }
 
 export interface PartnerCommission {
@@ -427,7 +428,7 @@ export async function getAdminPlatformUsers(
     const { data: allProfiles, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason"
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason, stripe_account_id"
       )
       .order("created_at", { ascending: false });
 
@@ -481,6 +482,7 @@ export async function getAdminPlatformUsers(
         booking_link: `${baseUrl}/design?${bookingParam}`,
         is_suspended: p.is_suspended ?? false,
         suspension_reason: p.suspension_reason ?? null,
+        stripe_connected: !!p.stripe_account_id,
       };
     });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, ChevronRight, BadgeCheck, Quote } from "lucide-react";
+import { ChevronLeft, ChevronRight, BadgeCheck, Quote, MessageCircle } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Testimonials — Auto-sliding carousel with verified badges
@@ -73,9 +73,18 @@ export default function InstallerTestimonials() {
         <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-yellow-400">
           From Our Installers
         </p>
-        <h2 className="mb-12 text-center text-3xl font-black uppercase text-white sm:text-4xl">
+        <h2 className="mb-4 text-center text-3xl font-black uppercase text-white sm:text-4xl">
           Real <span className="text-yellow-400">Results</span>
         </h2>
+        <p className="mx-auto mb-10 max-w-lg text-center text-sm leading-relaxed text-stone-400">
+          Don&apos;t take our word for it&mdash;these are real installers earning real money on the platform.
+          <span className="mt-1 flex items-center justify-center gap-1.5 text-yellow-400/80">
+            <MessageCircle className="inline h-3.5 w-3.5" />
+            <span className="text-xs font-semibold">
+              Visit their profiles and ask them yourself.
+            </span>
+          </span>
+        </p>
 
         {/* Testimonial Card */}
         <div
@@ -104,12 +113,12 @@ export default function InstallerTestimonials() {
 
             {/* Avatar + Info */}
             <div className="flex flex-col items-center">
-              {/* Avatar Bubble */}
+              {/* Avatar Bubble — leaderboard ring style */}
               <a
                 href={`/p/${t.slug}`}
-                className="group relative mb-3 block"
+                className="group/avatar relative mb-3 block"
               >
-                <div className="h-16 w-16 overflow-hidden rounded-full border-[3px] border-yellow-400/40 bg-slate-800 shadow-lg shadow-yellow-400/10 transition-all group-hover:border-yellow-400 group-hover:shadow-yellow-400/20">
+                <div className="h-16 w-16 overflow-hidden rounded-full ring-[3px] ring-yellow-400 bg-slate-800 shadow-lg shadow-yellow-400/20 transition-transform group-hover/avatar:scale-110">
                   {t.avatarUrl ? (
                     <img
                       src={t.avatarUrl}
@@ -118,15 +127,15 @@ export default function InstallerTestimonials() {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-                      <span className="text-lg font-black text-yellow-400/80">
+                      <span className="text-lg font-black text-yellow-400">
                         {t.initials}
                       </span>
                     </div>
                   )}
                 </div>
                 {/* Verified Badge */}
-                <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-gray-900 bg-emerald-500">
-                  <svg className="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <div className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-gray-900 bg-emerald-500 shadow-sm">
+                  <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -168,20 +177,20 @@ export default function InstallerTestimonials() {
           </button>
         </div>
 
-        {/* Dots + Avatar Row */}
-        <div className="mt-6 flex items-center justify-center gap-4">
+        {/* Avatar Selector Row — leaderboard ring style */}
+        <div className="mt-6 flex items-center justify-center gap-6">
           {TESTIMONIALS.map((testimonial, i) => (
             <button
               key={i}
               onClick={() => setActive(i)}
-              className="group flex flex-col items-center gap-2"
+              className="group/pick flex flex-col items-center gap-2"
               aria-label={`View testimonial from ${testimonial.name}`}
             >
               <div
-                className={`h-10 w-10 overflow-hidden rounded-full border-2 transition-all ${
+                className={`h-11 w-11 overflow-hidden rounded-full transition-all ${
                   i === active
-                    ? "border-yellow-400 shadow-md shadow-yellow-400/20 scale-110"
-                    : "border-stone-700 opacity-50 grayscale hover:opacity-80 hover:grayscale-0"
+                    ? "ring-2 ring-yellow-400 shadow-md shadow-yellow-400/20 scale-110"
+                    : "ring-1 ring-stone-700 opacity-60 hover:opacity-90 group-hover/pick:scale-105"
                 }`}
               >
                 {testimonial.avatarUrl ? (
@@ -198,7 +207,7 @@ export default function InstallerTestimonials() {
                   </div>
                 )}
               </div>
-              <span className={`text-[9px] font-bold transition-colors ${
+              <span className={`text-[10px] font-bold transition-colors ${
                 i === active ? "text-yellow-400" : "text-stone-600"
               }`}>
                 {testimonial.name.split(" ")[0]}

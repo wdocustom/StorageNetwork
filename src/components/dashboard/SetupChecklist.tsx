@@ -75,6 +75,19 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
 
       return true; // handled inline
     }
+
+    if (stepId === "visit_instagram") {
+      setJustCompleted("visit_instagram");
+      window.open("https://www.instagram.com/storagenetwork.app/", "_blank", "noopener");
+      logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
+      setTimeout(() => {
+        getSetupStatus(userId)
+          .then((s) => { if (s) setStatus(s); })
+          .catch(() => {});
+      }, 500);
+      return true;
+    }
+
     return false; // navigate to CTA page
   }
 

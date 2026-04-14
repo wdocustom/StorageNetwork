@@ -35,6 +35,7 @@ const VALID_CHECKLIST_ACTIONS = new Set([
   "social_generate",
   "social_share",
   "group_finder_used",
+  "instagram_visited",
 ]);
 
 /**
@@ -83,7 +84,7 @@ export async function getSetupStatus(userId: string): Promise<SetupStatus> {
       .from("installer_activity_log")
       .select("action, page_path")
       .eq("installer_id", userId)
-      .in("action", ["copy_link", "social_generate", "social_share", "page_view", "group_finder_used"])
+      .in("action", ["copy_link", "social_generate", "social_share", "page_view", "group_finder_used", "instagram_visited"])
       .limit(500),
 
     // Check if installer has any leads (quotes sent)
@@ -120,6 +121,7 @@ export async function getSetupStatus(userId: string): Promise<SetupStatus> {
   const hasSocialShare = actionSet.has("social_generate") || actionSet.has("social_share");
   const hasVisitedBuild = pageSet.has("/dashboard/build") || pageSet.has("/build");
   const hasGroupFinder = actionSet.has("group_finder_used");
+  const hasInstagramVisit = actionSet.has("instagram_visited");
   const hasLeads = (leadsRes.count ?? 0) > 0;
   const hasPaidJob = (paidRes.count ?? 0) > 0;
 
@@ -163,6 +165,14 @@ export async function getSetupStatus(userId: string): Promise<SetupStatus> {
       completed: hasGroupFinder,
       ctaLabel: "Find Groups",
       ctaHref: "/dashboard/marketing",
+    },
+    {
+      id: "visit_instagram",
+      label: "Follow us on Instagram",
+      description: "See builds, tips, and installer highlights from the Storage Network community",
+      completed: hasInstagramVisit,
+      ctaLabel: "Visit Instagram",
+      ctaHref: "https://www.instagram.com/storagenetwork.app/",
     },
     {
       id: "first_job",

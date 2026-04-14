@@ -610,6 +610,13 @@ export default function PartnerDashboardPage() {
                                   LOCKED
                                 </span>
                               )}
+                              <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                u.stripe_connected
+                                  ? "bg-emerald-400/10 text-emerald-400"
+                                  : "bg-red-400/10 text-red-400"
+                              }`}>
+                                STRIPE
+                              </span>
                             </div>
                             <p className="truncate text-[11px] text-stone-500">
                               {u.business_name || u.email || "—"}
