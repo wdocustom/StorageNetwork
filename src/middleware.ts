@@ -72,6 +72,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    // ── Suspension Check ──────────────────────────────────────────────
+    // Locked accounts get redirected to /account-locked on every dashboard request.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_suspended")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.is_suspended) {
+      return NextResponse.redirect(new URL("/account-locked", request.url));
+    }
+
     // Rate limit headers
     response.headers.set("X-RateLimit-Limit", String(limit));
     response.headers.set("X-RateLimit-Remaining", String(result.remaining));

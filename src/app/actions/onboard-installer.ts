@@ -6,6 +6,7 @@ import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
 import { checkTerritoryAvailability, assignTerritoryCluster } from "@/app/actions/territory";
+import { getBlockedEmailDomain } from "@/lib/disposable-emails";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Installer Onboarding — Create Account → Redirect to Dashboard
@@ -48,6 +49,16 @@ export async function onboardInstaller(
   }
   if (password.length < 6) {
     return { success: false, error: "Password must be at least 6 characters." };
+  }
+
+  // Block disposable / alias / privacy-cloaked email domains
+  const blockedDomain = getBlockedEmailDomain(email);
+  if (blockedDomain) {
+    console.warn(`[Onboard] Blocked disposable email domain: ${blockedDomain} (${email})`);
+    return {
+      success: false,
+      error: "Please use a real business or personal email address. Temporary and alias email services are not accepted.",
+    };
   }
 
   try {

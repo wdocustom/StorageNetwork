@@ -39,6 +39,7 @@ import {
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { checkTerritoryAvailability } from "@/app/actions/territory";
+import { isDisposableEmail } from "@/lib/disposable-emails";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PlatformShowcase from "@/components/PlatformShowcase";
@@ -132,6 +133,10 @@ function PartnerJoinPageInner() {
     }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (isDisposableEmail(email)) {
+      setError("Please use a real business or personal email. Temporary and alias email services are not accepted.");
       return;
     }
 
