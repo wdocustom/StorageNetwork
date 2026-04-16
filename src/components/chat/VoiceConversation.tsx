@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, PhoneOff, MessageSquare, Package } from "lucide-react";
+import { Mic, MicOff, PhoneOff, MessageSquare, Package, ShieldAlert } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useVoicePlayback } from "@/hooks/useVoicePlayback";
 import type { RackConfig } from "@/lib/ai/customer-chat-prompt";
@@ -64,6 +64,7 @@ export default function VoiceConversation({
   const [lastAIText, setLastAIText] = useState("");
   const [muted, setMuted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
 
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -90,8 +91,8 @@ export default function VoiceConversation({
     // Request mic permission upfront during this user gesture
     const micAllowed = await speech.requestMicPermission();
     if (!micAllowed) {
-      // Mic denied — gracefully fall back to text chat
-      onSwitchToText();
+      // Mic denied — show instructions instead of silently failing
+      setMicBlocked(true);
       return;
     }
 
@@ -109,7 +110,7 @@ export default function VoiceConversation({
       setVoiceState("listening");
       speech.start();
     }
-  }, [messages, voicePlayback, speech, onSwitchToText]);
+  }, [messages, voicePlayback, speech]);
 
   // ── Handle final transcript → send to AI → speak response ─────────────
   useEffect(() => {
@@ -192,8 +193,40 @@ export default function VoiceConversation({
     <div className="flex flex-col h-full">
       {/* Voice Indicator Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        {/* Mic blocked screen — shown when permission is denied */}
+        {micBlocked && !hasStarted && (
+          <div className="flex flex-col items-center gap-5 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 ring-2 ring-red-500/30">
+              <ShieldAlert className="h-9 w-9 text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Microphone Access Needed</h3>
+              <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-xs">
+                To use voice chat, allow microphone access for this site:
+              </p>
+              <ol className="mt-3 text-sm text-slate-300 text-left space-y-1.5 max-w-xs mx-auto">
+                <li>1. Tap the <span className="font-semibold text-white">lock icon</span> next to the URL</li>
+                <li>2. Tap <span className="font-semibold text-white">Permissions</span> &rarr; <span className="font-semibold text-white">Reset permissions</span></li>
+                <li>3. Reload the page and try again</li>
+              </ol>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-full bg-yellow-400 px-8 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
+            >
+              Reload Page
+            </button>
+            <button
+              onClick={onSwitchToText}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Use text chat instead
+            </button>
+          </div>
+        )}
+
         {/* Start button (shown before conversation begins) */}
-        {!hasStarted && (
+        {!hasStarted && !micBlocked && (
           <div className="flex flex-col items-center gap-6">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-yellow-400/10 ring-2 ring-yellow-400/30">
               <Mic className="h-10 w-10 text-yellow-400" />
