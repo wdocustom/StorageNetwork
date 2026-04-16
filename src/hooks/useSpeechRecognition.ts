@@ -77,7 +77,7 @@ function classifySpeechError(event: any): SpeechError {
 function getErrorMessage(error: SpeechError): string | null {
   switch (error) {
     case "unsupported": return "Voice input is not available in this browser.";
-    case "denied": return "Microphone access was denied. Check your browser settings.";
+    case "denied": return "Microphone blocked. Tap the lock icon next to the URL and allow microphone access, then try again.";
     case "no-speech": return "No speech detected. Try speaking louder or closer to the mic.";
     case "network": return "Speech recognition network error. Check your connection.";
     case "aborted": return null;
