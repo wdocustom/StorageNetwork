@@ -1640,6 +1640,7 @@ export default function DesignConfigurator({
         {/* ── SIDEBAR: Configurator (mobile: scrollable drawer below canvas, desktop: left 40%) ── */}
         <ConfiguratorSidebar
           initialStep={initialStep}
+          forceStep={sidebarStep}
           // Step 1: Dimensions
           wallWidth={wallWidth}
           wallHeight={wallHeight}
@@ -2098,7 +2099,7 @@ export default function DesignConfigurator({
               }]);
             }
           }
-          setShowMultiUnit3D(true);
+          setSidebarStep(4);
         }}
       />
 

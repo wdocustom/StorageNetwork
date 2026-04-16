@@ -27,7 +27,7 @@ interface CustomerChatWidgetProps {
   /** Installer context for tailoring chat responses */
   installerContext?: InstallerChatContext;
   /** Callback to add configured units directly into the sidebar order */
-  onAddUnits?: (configs: RackConfig[]) => void;
+  onAddUnits?: (configs: RackConfig[]) => void | Promise<void>;
   /** When true, skip the welcome overlay (customer already went through guided flow) */
   skipWelcome?: boolean;
 }
@@ -409,8 +409,9 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                     {onAddUnits ? (
                       /* On /design page — add directly to sidebar order */
                       <button
-                        onClick={() => {
-                          onAddUnits(getAllUnits(m.config!));
+                        onClick={async () => {
+                          await onAddUnits(getAllUnits(m.config!));
+                          setIsOpen(false);
                         }}
                         className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
                       >

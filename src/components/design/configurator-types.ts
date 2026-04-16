@@ -315,6 +315,9 @@ export interface ConfiguratorSidebarProps {
   /** Called when the active sidebar step changes (1-4) */
   onStepChange?: (step: number) => void;
 
+  /** Parent-driven step override (e.g., Design Assistant adding units jumps to step 4) */
+  forceStep?: number;
+
   // Trial cap waitlist (installer at 3-job limit — "hostage lead")
   installerAtCapacity: boolean;
   trialCapWaitlistSending: boolean;

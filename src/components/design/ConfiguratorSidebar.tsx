@@ -19,6 +19,13 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   const [dimensionPulsing, setDimensionPulsing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Allow parent to force a step change (e.g., Design Assistant adding units)
+  useEffect(() => {
+    if (props.forceStep != null && props.forceStep !== activeStep) {
+      setActiveStep(props.forceStep);
+    }
+  }, [props.forceStep]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // After "Find Max" is clicked and succeeds, pulse the dimension inputs
   const prevWallFitMsg = useRef(props.wallFitMsg);
   useEffect(() => {
