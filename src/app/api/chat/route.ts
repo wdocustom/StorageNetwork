@@ -17,7 +17,7 @@ import { streamText, stepCountIs } from "ai";
 import { z } from "zod";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
 import { buildCustomerChatPrompt, type InstallerChatContext } from "@/lib/ai/customer-chat-prompt";
-import { calculateBuild, calculateShelvingUnit, calculateOverheadStorageUnit } from "@/app/actions/calculator";
+import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit } from "@/app/actions/calculator";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { lookupPlatformInfo } from "@/lib/ai/platform-registry";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -130,6 +130,34 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           return { error: err instanceof Error ? err.message : "Calculation failed" };
         }
+      },
+    },
+    calculate_bestseller: {
+      description: "Calculate exact price for a bestseller preset configuration. Call before quoting price.",
+      inputSchema: z.object({
+        presetId: z.string().describe("Preset ID: cornhusker, indiana-joe, long-ranger, gas-station, track-norris, rack-city-roller, or mayor-of-rack-city"),
+        hasTotes: z.boolean().describe("Whether to include totes"),
+      }),
+      execute: async (input: { presetId: string; hasTotes: boolean }) => {
+        try {
+          const result = await calculateCompoundBuild({
+            presetId: input.presetId,
+            hasTotes: input.hasTotes,
+            installerPricing,
+          });
+          if ("success" in result && result.success) {
+            return {
+              price: result.totalPrice,
+              presetName: result.presetName,
+              presetId: result.presetId,
+              subUnits: result.subUnits.map((u) => ({ cols: u.cols, rows: u.rows, width: u.totalW, height: u.totalH })),
+              combinedWidth: result.combinedW,
+              maxHeight: result.maxH,
+              totalSlots: result.totalSlots,
+            };
+          }
+          return { error: "error" in result ? result.error : "Calculation failed" };
+        } catch (err) { return { error: err instanceof Error ? err.message : "Failed" }; }
       },
     },
     calculate_overhead: {

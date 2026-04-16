@@ -70,6 +70,30 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext, currentDate?
   if (c.overheadEnabled) products.push("overhead ceiling storage");
   if (c.raisedBedEnabled) products.push("raised bed planters");
 
+  // Build bestseller section — only include presets not disabled by the installer
+  const disabled = new Set(c.disabledPresets || []);
+  const allPresets = [
+    { id: "cornhusker", name: "Cornhusker", desc: "Single 4-column, 4-row rack with wheels and top. 16 tote slots. Our most popular single unit.", width: "~92 inches", height: "~75 inches" },
+    { id: "indiana-joe", name: "Indiana Joe", desc: "Three units side-by-side: 2x4 + 2x2 + 2x4. Total 20 tote slots. Great for filling a full wall.", width: "~141 inches", height: "~70 inches" },
+    { id: "long-ranger", name: "The Long Ranger", desc: "Two units: 2x4 tall + 4x2 short. 16 tote slots. Fits smaller walls with mixed heights.", width: "~141 inches", height: "~70 inches" },
+    { id: "gas-station", name: "The Gass Station", desc: "Three units: 1x4 + 4x2 + 1x4. Tall towers flanking a short center. 16 tote slots.", width: "~141 inches", height: "~70 inches" },
+    { id: "track-norris", name: "Track Norris", desc: "Single 4x2 rack with drawer slides (totes are mandatory, slide in and out). 8 tote slots.", width: "~92 inches", height: "~40 inches" },
+    { id: "rack-city-roller", name: "The Rack City Roller", desc: "Compact 3x2 rolling frame (no totes — frame only). On wheels.", width: "~69 inches", height: "~40 inches" },
+    { id: "mayor-of-rack-city", name: "The Mayor of Rack City", desc: "4x2 rolling frame (no totes — frame only). On wheels.", width: "~92 inches", height: "~40 inches" },
+  ];
+  const availablePresets = allPresets.filter((p) => !disabled.has(p.id));
+
+  let bestsellersFlow = "";
+  if (availablePresets.length > 0) {
+    const presetList = availablePresets.map((p) => `  - "${p.name}" (id: ${p.id}): ${p.desc} Needs ~${p.width} wide, ~${p.height} tall.`).join("\n");
+    bestsellersFlow = `
+BESTSELLER PRESETS:
+Pre-designed configurations customers can choose instead of building custom. If a customer asks about bestsellers, popular options, or prebuilt configs, recommend ones that FIT their wall space.
+${presetList}
+Call calculate_bestseller with the preset id and hasTotes before quoting price. The tool returns the exact price and dimensions.
+If the customer's wall isn't wide enough for a preset, tell them and offer to build a custom unit instead.`;
+  }
+
   // Build product-specific flows
   let overheadFlow = "";
   if (c.overheadEnabled) {
@@ -140,7 +164,7 @@ Need to know: wall width, desired height, totes (yes/no), tote color (black/clea
 Width reference: 4ft is 2 columns, 6ft is 3, 8ft is 4, 10ft is 5, 12ft is 6.
 Height reference: 3ft is 2 tiers, 4.5ft is 3, 5.5ft is 4 (most popular), 7ft is 5.
 Call calculate_price with all selections before quoting.`}
-${overheadFlow}${shelvingFlow}${raisedBedFlow}
+${overheadFlow}${shelvingFlow}${raisedBedFlow}${bestsellersFlow}
 
 AFTER GETTING A PRICE:
 - For TOTE STORAGE: Say the price naturally, then output a config block (see below). Then ask: "Would you like to add any more units, or is that everything?"
@@ -173,7 +197,8 @@ CUSTOMER INFO COLLECTION — CRITICAL RULES:
 Include ONLY fields they explicitly provided. Never fill in blanks with assumptions.
 
 TOOLS:
-- calculate_price — for tote racks. MUST call before stating any price.
+- calculate_price — for custom tote racks. MUST call before stating any price.
+- calculate_bestseller — for bestseller presets. Pass presetId and hasTotes.
 - calculate_overhead — for ceiling storage. Pass gridId (e.g. "3x3"), hasTotes.
 - calculate_shelving — for open shelving. Pass configId (e.g. "shelf-6ft-tall").
 - calculate_raised_bed — for planters. Pass sizeId, finish, hasLiner, pestCover.

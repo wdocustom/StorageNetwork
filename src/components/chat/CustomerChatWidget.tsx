@@ -180,6 +180,9 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
     setInput("");
     setIsLoading(true);
 
+    // Blur input immediately so mobile keyboard dismisses
+    inputRef.current?.blur();
+
     let fullContent = "";
 
     try {
@@ -230,7 +233,6 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
     }
 
     setIsLoading(false);
-    if (!voiceMode) setTimeout(() => inputRef.current?.focus(), 50);
     return stripConfigBlock(fullContent);
   }, [messages, isLoading, voiceMode]);
 
@@ -520,6 +522,15 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
 
               {/* Input */}
               <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-700 bg-slate-800/50 shrink-0">
+                {voiceSupported && (
+                  <button
+                    onClick={() => setVoiceMode(true)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-slate-300 transition-colors hover:bg-slate-600 hover:text-white"
+                    title="Switch to voice chat"
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
+                )}
                 <input
                   ref={inputRef}
                   type="text"
@@ -530,15 +541,6 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
                   className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
                   disabled={isLoading}
                 />
-                {voiceSupported && (
-                  <button
-                    onClick={() => setVoiceMode(true)}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-slate-300 transition-colors hover:bg-slate-600 hover:text-white"
-                    title="Switch to voice chat"
-                  >
-                    <Mic className="h-4 w-4" />
-                  </button>
-                )}
                 <button
                   onClick={() => sendMessage(input)}
                   disabled={isLoading || !input.trim()}
