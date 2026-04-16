@@ -88,10 +88,10 @@ export async function POST(req: NextRequest) {
 // Gemini TTS — tries multiple model versions for compatibility
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Models to try in order — the TTS preview model first, then multimodal fallback
+// Models to try in order — newest TTS-specific models first
 const GEMINI_TTS_MODELS = [
   "gemini-2.5-flash-preview-tts",
-  "gemini-2.0-flash",
+  "gemini-2.5-pro-preview-tts",
 ];
 
 async function geminiTTS(
@@ -114,8 +114,8 @@ async function geminiTTS(
             },
           ],
           generationConfig: {
-            response_modalities: ["AUDIO"],
-            speech_config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
               voiceConfig: {
                 prebuiltVoiceConfig: {
                   voiceName: voice,
@@ -128,7 +128,7 @@ async function geminiTTS(
 
       if (!res.ok) {
         const errText = await res.text();
-        console.error(`[TTS] Gemini ${model} error:`, res.status, errText.slice(0, 200));
+        console.error(`[TTS] Gemini ${model} error: HTTP ${res.status} — ${errText.slice(0, 500)}`);
         continue; // Try next model
       }
 
