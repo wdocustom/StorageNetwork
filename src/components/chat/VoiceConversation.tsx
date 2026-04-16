@@ -83,7 +83,18 @@ export default function VoiceConversation({
   });
 
   // ── Start conversation (called from button click = user gesture) ──────
-  const startConversation = useCallback(() => {
+  // IMPORTANT: This runs in the button click handler, which is a user gesture.
+  // We MUST request mic permission here — Chrome won't show the permission
+  // prompt if it's triggered later (e.g. after TTS finishes playing).
+  const startConversation = useCallback(async () => {
+    // Request mic permission upfront during this user gesture
+    const micAllowed = await speech.requestMicPermission();
+    if (!micAllowed) {
+      // Mic denied — gracefully fall back to text chat
+      onSwitchToText();
+      return;
+    }
+
     setHasStarted(true);
 
     // Find the last assistant message to speak as greeting
@@ -98,7 +109,7 @@ export default function VoiceConversation({
       setVoiceState("listening");
       speech.start();
     }
-  }, [messages, voicePlayback, speech]);
+  }, [messages, voicePlayback, speech, onSwitchToText]);
 
   // ── Handle final transcript → send to AI → speak response ─────────────
   useEffect(() => {
