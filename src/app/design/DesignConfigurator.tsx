@@ -2065,6 +2065,16 @@ export default function DesignConfigurator({
             data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
           ].filter(Boolean),
         }}
+        onCustomerInfo={(info) => {
+          if (info.firstName) setFirstName(info.firstName);
+          if (info.lastName) setLastName(info.lastName);
+          if (info.email) setEmail(info.email);
+          if (info.phone) setPhone(info.phone);
+          if (info.address) setStreetAddress(info.address);
+          if (info.city) setCity(info.city);
+          if (info.state) setAddrState(info.state);
+          if (info.zip) setAddrZip(info.zip);
+        }}
         onAddUnits={async (configs) => {
           for (const cfg of configs) {
             const result = await calculateBuild({

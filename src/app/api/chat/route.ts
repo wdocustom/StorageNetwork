@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const mode: ChatMode = body.mode === "customer" ? "customer" : "installer";
 
-  const maxMessages = mode === "customer" ? 20 : 10;
+  const maxMessages = mode === "customer" ? 40 : 10;
   const truncated = messages.slice(-maxMessages).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
@@ -60,8 +60,12 @@ export async function POST(req: NextRequest) {
   const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
   console.log(`[Chat] Using model: ${model} | Mode: ${mode}`);
 
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+
   const systemPrompt = mode === "customer"
-    ? buildCustomerChatPrompt(body.installerContext)
+    ? buildCustomerChatPrompt(body.installerContext, currentDate)
     : buildInstallerChatPrompt();
 
   // Build installer pricing object for the calculator from the context
