@@ -78,6 +78,12 @@ export async function POST(req: NextRequest) {
     standard_wheels: body.installerContext.standardWheels,
     mini_wheels: body.installerContext.miniWheels,
     plywood_top: body.installerContext.plywoodTop,
+    totes_disabled: body.installerContext.totesDisabled,
+    use_2x4_rails: body.installerContext.use2x4Rails,
+    mini_enabled: body.installerContext.miniEnabled,
+    open_shelving_enabled: body.installerContext.shelvingEnabled,
+    overhead_storage_enabled: body.installerContext.overheadEnabled,
+    raised_bed_enabled: body.installerContext.raisedBedEnabled,
   } : undefined;
 
   // Customer mode gets tool calling for accurate pricing
