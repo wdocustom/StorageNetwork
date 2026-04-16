@@ -10,8 +10,7 @@
  */
 
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
-  // ── Privacy / cloaking aliases (observed on platform) ───────────
-  "clkdmail.com",
+  // ── Privacy / cloaking aliases ──────────────────────────────────
   "cloakedmail.com",
   "burnermail.io",
   "emailmask.com",
