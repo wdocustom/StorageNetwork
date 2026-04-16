@@ -94,6 +94,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [error, setError] = useState<SpeechError>(null);
 
   const recognitionRef = useRef<SpeechRecognitionType | null>(null);
+  const autoRestartRef = useRef(false);
+  const gotResultRef = useRef(false);
 
   // Request mic permission — MUST be called from a user gesture (button click).
   // This triggers the browser's "Allow microphone?" prompt. Once granted,
@@ -120,6 +122,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const startRecognition = useCallback(() => {
     if (!Ctor) return;
 
+    gotResultRef.current = false;
+
     const recognition = new Ctor();
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -133,6 +137,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onresult = (event: any) => {
+      gotResultRef.current = true;
       let interim = "";
       let final = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -154,14 +159,29 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     recognition.onerror = (event: any) => {
       console.error("[STT] Error:", event.error, event.message);
       if (event.error === "aborted") return;
+      // "no-speech" is not a real error in voice mode — just means user
+      // hasn't spoken yet. Don't show error, let auto-restart handle it.
+      if (event.error === "no-speech") return;
       setError(classifySpeechError(event));
       setIsListening(false);
     };
 
     recognition.onend = () => {
-      console.log("[STT] Recognition ended");
-      setIsListening(false);
+      console.log("[STT] Recognition ended, gotResult:", gotResultRef.current, "autoRestart:", autoRestartRef.current);
       recognitionRef.current = null;
+      // If we didn't get a final result and auto-restart is enabled,
+      // restart recognition. This handles the "no-speech" timeout
+      // (Chrome stops after ~10s of silence) and keeps listening.
+      if (!gotResultRef.current && autoRestartRef.current) {
+        console.log("[STT] Auto-restarting (no result received)");
+        setTimeout(() => {
+          if (autoRestartRef.current) {
+            startRecognition();
+          }
+        }, 300);
+        return;
+      }
+      setIsListening(false);
     };
 
     recognitionRef.current = recognition;
@@ -190,10 +210,12 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     setError(null);
     setInterimTranscript("");
     setFinalTranscript("");
+    autoRestartRef.current = true; // Keep listening until stop() is called
     startRecognition();
   }, [Ctor, startRecognition]);
 
   const stop = useCallback(() => {
+    autoRestartRef.current = false; // Disable auto-restart
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();

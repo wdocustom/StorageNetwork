@@ -73,10 +73,12 @@ export default function VoiceConversation({
   const speech = useSpeechRecognition();
   const voicePlayback = useVoicePlayback({
     onFinished: () => {
-      // After AI finishes speaking, auto-activate mic (unless muted)
+      // After AI finishes speaking, auto-activate mic (unless muted).
+      // 800ms delay gives Android time to release the audio output session
+      // (AudioContext is suspended in useVoicePlayback) and switch to mic input.
       if (!mutedRef.current) {
         setVoiceState("listening");
-        setTimeout(() => speech.start(), 300);
+        setTimeout(() => speech.start(), 800);
       } else {
         setVoiceState("idle");
       }
@@ -133,7 +135,7 @@ export default function VoiceConversation({
         // AI returned empty — go back to listening
         if (!mutedRef.current) {
           setVoiceState("listening");
-          setTimeout(() => speech.start(), 300);
+          setTimeout(() => speech.start(), 800);
         } else {
           setVoiceState("idle");
         }

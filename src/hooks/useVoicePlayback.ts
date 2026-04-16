@@ -172,6 +172,12 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
           source.onended = () => {
             sourceRef.current = null;
             setIsSpeaking(false);
+            // Suspend AudioContext to release the audio session — on Android,
+            // an active AudioContext can prevent SpeechRecognition from
+            // accessing the microphone (OS audio session conflict).
+            if (audioCtxRef.current) {
+              audioCtxRef.current.suspend();
+            }
             onFinishedRef.current?.();
           };
 
