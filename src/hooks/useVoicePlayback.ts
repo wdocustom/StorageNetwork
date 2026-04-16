@@ -3,26 +3,36 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// useVoicePlayback — TTS audio playback via Web Audio API
+// useVoicePlayback — TTS audio playback with sentence streaming
 //
-// Sends full text to /api/tts, receives audio, plays via AudioContext.
+// Sends text to /api/tts sentence-by-sentence for low latency.
+// First sentence starts playing while remaining sentences are fetched.
+// Uses Web Audio API (AudioContext) for gapless playback.
 // Falls back to browser speechSynthesis if cloud TTS is unavailable.
-//
-// Flow:
-//   speak(text) → fetch /api/tts → decode audio → play → onFinished
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface UseVoicePlaybackReturn {
   /** Currently playing audio */
   isSpeaking: boolean;
+  /** Elapsed playback time in seconds (updates ~60fps while speaking) */
+  playbackTime: number;
+  /** Total estimated duration of all audio in seconds */
+  totalDuration: number;
   /** Send text to TTS and play the audio response */
   speak: (text: string) => void;
   /** Stop all playback */
   stop: () => void;
 }
 
+/** Split text into sentences for sentence-level TTS streaming */
+function splitSentences(text: string): string[] {
+  const raw = text.match(/[^.!?]+[.!?]+[\s]*/g);
+  if (!raw) return text.trim() ? [text.trim()] : [];
+  return raw.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
 interface PlaybackOptions {
-  /** Called when audio finishes playing */
+  /** Called when all audio finishes playing */
   onFinished?: () => void;
   /** Voice name to pass to TTS API */
   voice?: string;
@@ -31,6 +41,8 @@ interface PlaybackOptions {
 export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybackReturn {
   const { onFinished, voice } = options;
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [playbackTime, setPlaybackTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -38,8 +50,29 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
   const synthUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
+  const rafRef = useRef<number | null>(null);
+  const playStartRef = useRef(0);
+  const elapsedBeforeRef = useRef(0);
 
-  // Lazy-init AudioContext (must be created after user gesture)
+  // Update playback timer via requestAnimationFrame
+  const startTimer = useCallback(() => {
+    playStartRef.current = performance.now();
+    const tick = () => {
+      const elapsed = elapsedBeforeRef.current + (performance.now() - playStartRef.current) / 1000;
+      setPlaybackTime(elapsed);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  // Lazy-init AudioContext
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -50,7 +83,7 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
     return audioCtxRef.current;
   }, []);
 
-  // Fetch TTS audio
+  // Fetch TTS audio for a chunk of text
   const fetchTTS = useCallback(
     async (text: string, signal: AbortSignal): Promise<AudioBuffer | null> => {
       try {
@@ -61,30 +94,17 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
           signal,
         });
         if (!res.ok) {
-          console.error("[VoicePlayback] TTS fetch failed:", res.status, await res.text().catch(() => ""));
+          console.error("[VoicePlayback] TTS fetch failed:", res.status);
           return null;
         }
         const contentType = res.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
-          const err = await res.json();
-          console.error("[VoicePlayback] TTS API error:", err);
           return null;
         }
         const arrayBuffer = await res.arrayBuffer();
-        if (arrayBuffer.byteLength < 100) {
-          console.error("[VoicePlayback] TTS response too small:", arrayBuffer.byteLength, "bytes");
-          return null;
-        }
-        console.log("[VoicePlayback] Decoding audio:", arrayBuffer.byteLength, "bytes, type:", contentType);
+        if (arrayBuffer.byteLength < 100) return null;
         const ctx = getAudioCtx();
-        try {
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-          console.log("[VoicePlayback] Decoded OK:", audioBuffer.duration.toFixed(2) + "s", audioBuffer.sampleRate + "Hz");
-          return audioBuffer;
-        } catch (decodeErr) {
-          console.error("[VoicePlayback] decodeAudioData FAILED:", decodeErr);
-          return null;
-        }
+        return await ctx.decodeAudioData(arrayBuffer.slice(0));
       } catch (err) {
         if ((err as Error).name === "AbortError") return null;
         console.error("[VoicePlayback] TTS error:", err);
@@ -101,19 +121,15 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
       onFinishedRef.current?.();
       return;
     }
-
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
-
     const voices = window.speechSynthesis.getVoices();
     const femaleVoice = voices.find(
       (v) => v.lang.startsWith("en") && /female|samantha|karen|victoria|zira|hazel/i.test(v.name)
     ) || voices.find((v) => v.lang.startsWith("en"));
     if (femaleVoice) utterance.voice = femaleVoice;
-
     utterance.onend = () => {
       synthUtteranceRef.current = null;
       setIsSpeaking(false);
@@ -124,7 +140,6 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
       setIsSpeaking(false);
       onFinishedRef.current?.();
     };
-
     synthUtteranceRef.current = utterance;
     setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
@@ -132,7 +147,7 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
 
   const speak = useCallback(
     (text: string) => {
-      // Abort any in-flight request
+      // Abort any in-flight requests
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -146,55 +161,109 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
         window.speechSynthesis?.cancel();
         synthUtteranceRef.current = null;
       }
+      stopTimer();
+      setPlaybackTime(0);
+      setTotalDuration(0);
+      elapsedBeforeRef.current = 0;
 
       if (!text.trim()) {
         onFinishedRef.current?.();
         return;
       }
 
-      // Initialize AudioContext during user gesture callstack (required for iOS)
+      // Init AudioContext during user gesture callstack
       try { getAudioCtx(); } catch {}
+
+      const sentences = splitSentences(text);
+      if (sentences.length === 0) {
+        onFinishedRef.current?.();
+        return;
+      }
 
       setIsSpeaking(true);
 
-      // Send full text as a single TTS request — ensures consistent voice
-      fetchTTS(text, controller.signal).then((audioBuffer) => {
+      // Sentence-level streaming: fetch all in parallel, play in order
+      const buffers: (AudioBuffer | null)[] = new Array(sentences.length).fill(null);
+      const fetched = new Set<number>();
+      let nextToPlay = 0;
+      let isPlaying = false;
+      let allTTSFailed = true;
+      let accDuration = 0;
+
+      const playNext = () => {
         if (controller.signal.aborted) return;
 
-        if (audioBuffer) {
-          // Play the decoded audio
-          const ctx = getAudioCtx();
-          const source = ctx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(ctx.destination);
-          sourceRef.current = source;
+        // Skip any failed sentences, queue next successful one
+        while (nextToPlay < sentences.length && fetched.has(nextToPlay)) {
+          if (buffers[nextToPlay]) {
+            // Play this buffer
+            const buf = buffers[nextToPlay]!;
+            nextToPlay++;
+            isPlaying = true;
 
-          source.onended = () => {
-            sourceRef.current = null;
-            setIsSpeaking(false);
-            // Suspend AudioContext to release the audio session — on Android,
-            // an active AudioContext can prevent SpeechRecognition from
-            // accessing the microphone (OS audio session conflict).
+            const ctx = getAudioCtx();
+            const source = ctx.createBufferSource();
+            source.buffer = buf;
+            source.connect(ctx.destination);
+            sourceRef.current = source;
+
+            playStartRef.current = performance.now();
+            startTimer();
+
+            source.onended = () => {
+              sourceRef.current = null;
+              stopTimer();
+              elapsedBeforeRef.current += buf.duration;
+              isPlaying = false;
+              playNext();
+            };
+
+            source.start(0);
+            return;
+          }
+          nextToPlay++;
+        }
+
+        // If all sentences fetched and processed
+        if (fetched.size === sentences.length && nextToPlay >= sentences.length) {
+          stopTimer();
+          setIsSpeaking(false);
+          if (allTTSFailed) {
+            speakWithBrowserTTS(text);
+          } else {
+            // Suspend AudioContext to release audio session for mic on Android
             if (audioCtxRef.current) {
               audioCtxRef.current.suspend();
             }
             onFinishedRef.current?.();
-          };
-
-          source.start(0);
-        } else {
-          // Cloud TTS failed — fall back to browser speechSynthesis
-          console.warn("[VoicePlayback] Cloud TTS failed, falling back to browser speechSynthesis");
-          speakWithBrowserTTS(text);
+          }
+          return;
         }
+
+        // Still waiting for more sentences to be fetched
+      };
+
+      sentences.forEach((sentence, i) => {
+        fetchTTS(sentence, controller.signal).then((buf) => {
+          if (controller.signal.aborted) return;
+          fetched.add(i);
+          if (buf) {
+            buffers[i] = buf;
+            allTTSFailed = false;
+            accDuration += buf.duration;
+            setTotalDuration(accDuration);
+          }
+          if (!isPlaying) playNext();
+        });
       });
     },
-    [fetchTTS, getAudioCtx, speakWithBrowserTTS]
+    [fetchTTS, getAudioCtx, speakWithBrowserTTS, startTimer, stopTimer]
   );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    stopTimer();
 
     if (sourceRef.current) {
       try { sourceRef.current.stop(); } catch {}
@@ -205,12 +274,16 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
       synthUtteranceRef.current = null;
     }
     setIsSpeaking(false);
-  }, []);
+    setPlaybackTime(0);
+    setTotalDuration(0);
+    elapsedBeforeRef.current = 0;
+  }, [stopTimer]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      stopTimer();
       if (sourceRef.current) {
         try { sourceRef.current.stop(); } catch {}
       }
@@ -220,7 +293,7 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
         audioCtxRef.current = null;
       }
     };
-  }, []);
+  }, [stopTimer]);
 
-  return { isSpeaking, speak, stop };
+  return { isSpeaking, playbackTime, totalDuration, speak, stop };
 }

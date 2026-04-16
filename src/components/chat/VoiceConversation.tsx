@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Mic, MicOff, PhoneOff, MessageSquare, Package, ShieldAlert } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useVoicePlayback } from "@/hooks/useVoicePlayback";
@@ -8,16 +8,6 @@ import type { RackConfig } from "@/lib/ai/customer-chat-prompt";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VoiceConversation — Full voice-to-voice AI sales conversation
-//
-// Renders inside the chat widget when voice mode is active.
-// Manages the listen → send → receive → speak → listen loop.
-//
-// Flow:
-//   1. User taps "Start Voice Chat" (user gesture — required for AudioContext)
-//   2. AI greeting plays via TTS
-//   3. After greeting → mic auto-activates
-//   4. User speaks → transcript auto-sends → AI responds → TTS plays
-//   5. Loop continues until user ends call
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ChatMessage {
@@ -51,6 +41,13 @@ function getAllUnits(config: RackConfig): RackConfig[] {
   return all || [config];
 }
 
+/** Estimate how many characters should be visible based on playback time.
+ *  Assumes ~14 chars/second speaking rate (~150 WPM). */
+function charsAtTime(text: string, seconds: number): number {
+  const CHARS_PER_SEC = 14;
+  return Math.min(text.length, Math.floor(seconds * CHARS_PER_SEC));
+}
+
 export default function VoiceConversation({
   messages,
   isLoading,
@@ -74,8 +71,6 @@ export default function VoiceConversation({
   const voicePlayback = useVoicePlayback({
     onFinished: () => {
       // After AI finishes speaking, auto-activate mic (unless muted).
-      // 800ms delay gives Android time to release the audio output session
-      // (AudioContext is suspended in useVoicePlayback) and switch to mic input.
       if (!mutedRef.current) {
         setVoiceState("listening");
         setTimeout(() => speech.start(), 800);
@@ -85,22 +80,27 @@ export default function VoiceConversation({
     },
   });
 
+  // Typewriter: show text progressively based on audio playback time
+  const visibleAIText = useMemo(() => {
+    if (voiceState !== "speaking" || !lastAIText) return lastAIText;
+    const chars = charsAtTime(lastAIText, voicePlayback.playbackTime);
+    if (chars >= lastAIText.length) return lastAIText;
+    // Extend to the end of the current word to avoid mid-word cuts
+    const nextSpace = lastAIText.indexOf(" ", chars);
+    if (nextSpace === -1) return lastAIText;
+    return lastAIText.slice(0, nextSpace);
+  }, [voiceState, lastAIText, voicePlayback.playbackTime]);
+
   // ── Start conversation (called from button click = user gesture) ──────
-  // IMPORTANT: This runs in the button click handler, which is a user gesture.
-  // We MUST request mic permission here — Chrome won't show the permission
-  // prompt if it's triggered later (e.g. after TTS finishes playing).
   const startConversation = useCallback(async () => {
-    // Request mic permission upfront during this user gesture
     const micAllowed = await speech.requestMicPermission();
     if (!micAllowed) {
-      // Mic denied — show instructions instead of silently failing
       setMicBlocked(true);
       return;
     }
 
     setHasStarted(true);
 
-    // Find the last assistant message to speak as greeting
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (lastAssistant) {
       const text = stripBlocks(lastAssistant.content);
@@ -108,7 +108,6 @@ export default function VoiceConversation({
       setVoiceState("speaking");
       voicePlayback.speak(text);
     } else {
-      // No greeting yet — go straight to listening
       setVoiceState("listening");
       speech.start();
     }
@@ -124,7 +123,6 @@ export default function VoiceConversation({
     speech.clear();
     setVoiceState("thinking");
 
-    // sendMessage returns the full AI response text
     onSendMessage(text).then((responseText) => {
       isProcessingRef.current = false;
       if (responseText) {
@@ -132,7 +130,6 @@ export default function VoiceConversation({
         setVoiceState("speaking");
         voicePlayback.speak(responseText);
       } else {
-        // AI returned empty — go back to listening
         if (!mutedRef.current) {
           setVoiceState("listening");
           setTimeout(() => speech.start(), 800);
@@ -144,7 +141,7 @@ export default function VoiceConversation({
       isProcessingRef.current = false;
       if (!mutedRef.current) {
         setVoiceState("listening");
-        setTimeout(() => speech.start(), 300);
+        setTimeout(() => speech.start(), 800);
       } else {
         setVoiceState("idle");
       }
@@ -188,6 +185,21 @@ export default function VoiceConversation({
     onClose();
   };
 
+  // ── Add Unit handler — stops voice, adds unit, closes chat ───────────
+  const handleAddUnit = useCallback(async () => {
+    if (!onAddUnits) return;
+    const config = [...messages].reverse().find((m) => m.config)?.config;
+    if (!config) return;
+
+    // Stop all voice activity
+    voicePlayback.stop();
+    speech.stop();
+
+    // Add units and close voice chat so user can see the sidebar
+    await onAddUnits(getAllUnits(config));
+    onClose();
+  }, [messages, voicePlayback, speech, onAddUnits, onClose]);
+
   // Find latest config in messages
   const latestConfig = [...messages].reverse().find((m) => m.config)?.config;
 
@@ -195,7 +207,7 @@ export default function VoiceConversation({
     <div className="flex flex-col h-full">
       {/* Voice Indicator Area */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        {/* Mic blocked screen — shown when permission is denied */}
+        {/* Mic blocked screen */}
         {micBlocked && !hasStarted && (
           <div className="flex flex-col items-center gap-5 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 ring-2 ring-red-500/30">
@@ -227,7 +239,7 @@ export default function VoiceConversation({
           </div>
         )}
 
-        {/* Start button (shown before conversation begins) */}
+        {/* Start button */}
         {!hasStarted && !micBlocked && (
           <div className="flex flex-col items-center gap-6">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-yellow-400/10 ring-2 ring-yellow-400/30">
@@ -287,8 +299,8 @@ export default function VoiceConversation({
               {speech.error && speech.errorMessage && (
                 <p className="text-sm text-red-400">{speech.errorMessage}</p>
               )}
-              {voiceState === "speaking" && lastAIText && (
-                <p className="text-sm text-slate-200">{lastAIText}</p>
+              {voiceState === "speaking" && visibleAIText && (
+                <p className="text-sm text-slate-200">{visibleAIText}</p>
               )}
               {voiceState === "thinking" && (
                 <p className="text-sm text-slate-500 italic">Processing your request...</p>
@@ -302,12 +314,8 @@ export default function VoiceConversation({
             {latestConfig && onAddUnits && (
               <div className="mt-4 w-full">
                 <button
-                  onClick={async () => {
-                    voicePlayback.stop();
-                    speech.stop();
-                    await onAddUnits(getAllUnits(latestConfig));
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400"
+                  onClick={handleAddUnit}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 active:scale-[0.98]"
                 >
                   <Package className="h-4 w-4" />
                   Add {getAllUnits(latestConfig).length > 1
