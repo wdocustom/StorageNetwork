@@ -85,60 +85,82 @@ export async function POST(req: NextRequest) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Gemini TTS — uses the generative language API with audio output
+// Gemini TTS — tries multiple model versions for compatibility
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Models to try in order — the TTS preview model first, then multimodal fallback
+const GEMINI_TTS_MODELS = [
+  "gemini-2.5-flash-preview-tts",
+  "gemini-2.0-flash",
+];
 
 async function geminiTTS(
   text: string,
   voice: string,
   apiKey: string,
 ): Promise<ArrayBuffer | null> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+  for (const model of GEMINI_TTS_MODELS) {
+    try {
+      console.log(`[TTS] Trying Gemini model: ${model}`);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text }],
-        },
-      ],
-      generationConfig: {
-        response_modalities: ["AUDIO"],
-        speech_config: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: voice,
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: `Read this aloud naturally: ${text}` }],
+            },
+          ],
+          generationConfig: {
+            response_modalities: ["AUDIO"],
+            speech_config: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voice,
+                },
+              },
             },
           },
-        },
-      },
-    }),
-  });
+        }),
+      });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("[TTS] Gemini error:", res.status, errText);
-    return null;
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[TTS] Gemini ${model} error:`, res.status, errText.slice(0, 200));
+        continue; // Try next model
+      }
+
+      const data = await res.json();
+
+      // Extract audio from Gemini response
+      const parts = data?.candidates?.[0]?.content?.parts;
+      if (!parts || parts.length === 0) {
+        console.warn(`[TTS] Gemini ${model}: no parts in response`);
+        continue;
+      }
+
+      const audioPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("audio/"));
+      if (!audioPart?.inlineData?.data) {
+        console.warn(`[TTS] Gemini ${model}: no audio part found. Parts:`, parts.map((p: any) => Object.keys(p)));
+        continue;
+      }
+
+      // Gemini returns base64-encoded audio
+      const binaryStr = atob(audioPart.inlineData.data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      console.log(`[TTS] Gemini ${model} success: ${bytes.length} bytes, mime: ${audioPart.inlineData.mimeType}`);
+      return bytes.buffer;
+    } catch (err) {
+      console.error(`[TTS] Gemini ${model} exception:`, err);
+      continue;
+    }
   }
-
-  const data = await res.json();
-
-  // Extract audio from Gemini response
-  const parts = data?.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) return null;
-
-  const audioPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("audio/"));
-  if (!audioPart?.inlineData?.data) return null;
-
-  // Gemini returns base64-encoded audio
-  const binaryStr = atob(audioPart.inlineData.data);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
-  return bytes.buffer;
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

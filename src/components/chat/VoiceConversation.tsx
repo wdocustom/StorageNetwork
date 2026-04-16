@@ -235,8 +235,11 @@ export default function VoiceConversation({
               {voiceState === "listening" && currentTranscript && (
                 <p className="text-sm text-yellow-300 italic">{currentTranscript}</p>
               )}
-              {voiceState === "listening" && !currentTranscript && (
+              {voiceState === "listening" && !currentTranscript && !speech.error && (
                 <p className="text-sm text-slate-500 italic">Say something...</p>
+              )}
+              {speech.error && speech.errorMessage && (
+                <p className="text-sm text-red-400">{speech.errorMessage}</p>
               )}
               {voiceState === "speaking" && lastAIText && (
                 <p className="text-sm text-slate-200">{lastAIText}</p>

@@ -7,11 +7,14 @@ import { useState, useRef, useCallback, useEffect } from "react";
 //
 // Wraps the Web Speech API (SpeechRecognition / webkitSpeechRecognition).
 // Single-utterance mode: auto-stops after user pauses speaking (~1.5s).
-// Mirrors error handling pattern from useCameraStream.ts.
+//
+// iOS Safari fix: calls getUserMedia({ audio: true }) before starting
+// SpeechRecognition to establish mic permission. Without this, iOS
+// SpeechRecognition starts but silently receives no audio.
 //
 // Browser support:
 //   Chrome/Edge — full
-//   Safari 14.1+ — partial (webkit prefix)
+//   Safari 14.1+ — works with getUserMedia pre-flight
 //   Firefox — not supported (isSupported = false)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -28,6 +31,7 @@ export interface UseSpeechRecognitionReturn {
   interimTranscript: string;
   finalTranscript: string;
   error: SpeechError;
+  errorMessage: string | null;
   isSupported: boolean;
   start: () => void;
   stop: () => void;
@@ -47,6 +51,13 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionType) | null {
   );
 }
 
+// Detect iOS (Safari or Chrome-on-iOS both use WebKit)
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 function classifySpeechError(event: any): SpeechError {
   const err = event?.error || event;
   switch (err) {
@@ -63,6 +74,20 @@ function classifySpeechError(event: any): SpeechError {
   }
 }
 
+function getErrorMessage(error: SpeechError): string | null {
+  switch (error) {
+    case "unsupported": return "Voice input is not available in this browser.";
+    case "denied": return "Microphone access was denied. Check your browser settings.";
+    case "no-speech": return "No speech detected. Try speaking louder or closer to the mic.";
+    case "network": return "Speech recognition network error. Check your connection.";
+    case "aborted": return null;
+    case null: return null;
+  }
+}
+
+// Track if we've already done the getUserMedia pre-flight for mic permission
+let micPermissionGranted = false;
+
 export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const Ctor = getSpeechRecognitionCtor();
   const isSupported = Ctor !== null;
@@ -73,22 +98,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [error, setError] = useState<SpeechError>(null);
 
   const recognitionRef = useRef<SpeechRecognitionType | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
 
-  const start = useCallback(() => {
-    if (!Ctor) {
-      setError("unsupported");
-      return;
-    }
-
-    // Tear down any existing instance
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
-    }
-
-    setError(null);
-    setInterimTranscript("");
-    setFinalTranscript("");
+  // Start recognition (after mic permission is established)
+  const startRecognition = useCallback(() => {
+    if (!Ctor) return;
 
     const recognition = new Ctor();
     recognition.continuous = false;   // single utterance — auto-stops on pause
@@ -97,6 +111,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      console.log("[STT] Recognition started");
       setIsListening(true);
       setError(null);
     };
@@ -112,11 +127,16 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
           interim += result[0].transcript;
         }
       }
+      if (interim) console.log("[STT] Interim:", interim);
       setInterimTranscript(interim);
-      if (final) setFinalTranscript(final);
+      if (final) {
+        console.log("[STT] Final:", final);
+        setFinalTranscript(final);
+      }
     };
 
     recognition.onerror = (event: any) => {
+      console.error("[STT] Error:", event.error, event.message);
       // "aborted" fires when we call stop() ourselves — not a real error
       if (event.error === "aborted") return;
       setError(classifySpeechError(event));
@@ -124,8 +144,17 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     };
 
     recognition.onend = () => {
+      console.log("[STT] Recognition ended");
       setIsListening(false);
       recognitionRef.current = null;
+    };
+
+    recognition.onspeechstart = () => {
+      console.log("[STT] Speech detected");
+    };
+
+    recognition.onspeechend = () => {
+      console.log("[STT] Speech ended");
     };
 
     recognitionRef.current = recognition;
@@ -133,11 +162,58 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     try {
       recognition.start();
     } catch (err) {
-      console.error("SpeechRecognition start error:", err);
+      console.error("[STT] Start error:", err);
       setError("unsupported");
       setIsListening(false);
     }
   }, [Ctor]);
+
+  const start = useCallback(async () => {
+    if (!Ctor) {
+      setError("unsupported");
+      return;
+    }
+
+    // Tear down any existing instance
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+
+    setError(null);
+    setInterimTranscript("");
+    setFinalTranscript("");
+
+    // iOS Safari fix: SpeechRecognition needs getUserMedia to be called first
+    // to establish mic permission. Without this, recognition starts but
+    // silently receives no audio data (onresult never fires).
+    if (!micPermissionGranted && (isIOS() || !micPermissionGranted)) {
+      try {
+        console.log("[STT] Requesting mic permission via getUserMedia...");
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStreamRef.current = stream;
+        micPermissionGranted = true;
+        console.log("[STT] Mic permission granted");
+        // Keep the stream alive briefly — iOS needs the permission context active
+        // when SpeechRecognition starts. Release after a short delay.
+        setTimeout(() => {
+          stream.getTracks().forEach((t) => t.stop());
+          micStreamRef.current = null;
+        }, 500);
+      } catch (err) {
+        console.error("[STT] Mic permission denied:", err);
+        setError("denied");
+        return;
+      }
+    }
+
+    // Small delay to let the permission context establish on iOS
+    if (isIOS()) {
+      setTimeout(() => startRecognition(), 200);
+    } else {
+      startRecognition();
+    }
+  }, [Ctor, startRecognition]);
 
   const stop = useCallback(() => {
     if (recognitionRef.current) {
@@ -160,6 +236,10 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         try { recognitionRef.current.abort(); } catch {}
         recognitionRef.current = null;
       }
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((t) => t.stop());
+        micStreamRef.current = null;
+      }
     };
   }, []);
 
@@ -168,6 +248,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     interimTranscript,
     finalTranscript,
     error,
+    errorMessage: getErrorMessage(error),
     isSupported,
     start,
     stop,
