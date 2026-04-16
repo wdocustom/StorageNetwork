@@ -116,8 +116,16 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
           console.error("[VoicePlayback] TTS response too small:", arrayBuffer.byteLength, "bytes");
           return null;
         }
+        console.log("[VoicePlayback] Decoding audio:", arrayBuffer.byteLength, "bytes, type:", contentType);
         const ctx = getAudioCtx();
-        return await ctx.decodeAudioData(arrayBuffer);
+        try {
+          const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+          console.log("[VoicePlayback] Decoded OK:", audioBuffer.duration.toFixed(2) + "s", audioBuffer.sampleRate + "Hz");
+          return audioBuffer;
+        } catch (decodeErr) {
+          console.error("[VoicePlayback] decodeAudioData FAILED:", decodeErr);
+          return null;
+        }
       } catch (err) {
         if ((err as Error).name === "AbortError") return null;
         console.error("[VoicePlayback] TTS error:", err);

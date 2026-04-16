@@ -187,7 +187,10 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     // iOS Safari fix: SpeechRecognition needs getUserMedia to be called first
     // to establish mic permission. Without this, recognition starts but
     // silently receives no audio data (onresult never fires).
-    if (!micPermissionGranted && (isIOS() || !micPermissionGranted)) {
+    // NOTE: Only do this on iOS — Android Chrome's SpeechRecognition handles
+    // its own mic permissions natively. Running getUserMedia on Android
+    // can cause a spurious "denied" error.
+    if (isIOS() && !micPermissionGranted) {
       try {
         console.log("[STT] Requesting mic permission via getUserMedia...");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

@@ -149,12 +149,37 @@ async function geminiTTS(
 
       // Gemini returns base64-encoded audio
       const binaryStr = atob(audioPart.inlineData.data);
-      const bytes = new Uint8Array(binaryStr.length);
+      const pcmBytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
+        pcmBytes[i] = binaryStr.charCodeAt(i);
       }
-      console.log(`[TTS] Gemini ${model} success: ${bytes.length} bytes, mime: ${audioPart.inlineData.mimeType}`);
-      return bytes.buffer;
+
+      const mime: string = audioPart.inlineData.mimeType || "";
+      console.log(`[TTS] Gemini ${model} success: ${pcmBytes.length} bytes, mime: ${mime}`);
+
+      // Check if data already has WAV headers (starts with "RIFF")
+      const hasWavHeader =
+        pcmBytes.length > 44 &&
+        pcmBytes[0] === 0x52 && // R
+        pcmBytes[1] === 0x49 && // I
+        pcmBytes[2] === 0x46 && // F
+        pcmBytes[3] === 0x46;   // F
+
+      if (hasWavHeader) {
+        console.log(`[TTS] Audio already has WAV headers`);
+        return pcmBytes.buffer;
+      }
+
+      // Raw PCM from Gemini — wrap in WAV headers so browsers can decode it.
+      // Gemini TTS returns Linear16 PCM. Parse sample rate from mimeType if
+      // present (e.g. "audio/L16;rate=24000"), otherwise default to 24000 Hz.
+      let sampleRate = 24000;
+      const rateMatch = mime.match(/rate=(\d+)/);
+      if (rateMatch) sampleRate = parseInt(rateMatch[1], 10);
+      console.log(`[TTS] Wrapping raw PCM in WAV headers (rate=${sampleRate})`);
+
+      const wavBytes = wrapPCMInWav(pcmBytes, sampleRate, 1, 16);
+      return wavBytes.buffer as ArrayBuffer;
     } catch (err) {
       console.error(`[TTS] Gemini ${model} exception:`, err);
       continue;
@@ -193,4 +218,55 @@ async function openaiTTS(
   }
 
   return res.arrayBuffer();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WAV header wrapper — turns raw Linear16 PCM into a valid WAV file
+// ═══════════════════════════════════════════════════════════════════════════
+
+function wrapPCMInWav(
+  pcm: Uint8Array,
+  sampleRate: number,
+  numChannels: number,
+  bitsPerSample: number,
+): Uint8Array {
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcm.length;
+  const headerSize = 44;
+  const fileSize = headerSize + dataSize;
+
+  const buffer = new ArrayBuffer(fileSize);
+  const view = new DataView(buffer);
+
+  // RIFF header
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, fileSize - 8, true); // file size minus RIFF header
+  writeString(view, 8, "WAVE");
+
+  // fmt sub-chunk
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true);          // sub-chunk size (16 for PCM)
+  view.setUint16(20, 1, true);           // audio format (1 = PCM)
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+
+  // data sub-chunk
+  writeString(view, 36, "data");
+  view.setUint32(40, dataSize, true);
+
+  // Copy PCM data after the 44-byte header
+  const wav = new Uint8Array(buffer);
+  wav.set(pcm, headerSize);
+
+  return wav;
+}
+
+function writeString(view: DataView, offset: number, str: string) {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
 }
