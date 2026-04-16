@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Mic, MicOff, PhoneOff, MessageSquare, Package, Loader2 } from "lucide-react";
+import { Mic, MicOff, PhoneOff, MessageSquare, Package } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useVoicePlayback } from "@/hooks/useVoicePlayback";
 import type { RackConfig } from "@/lib/ai/customer-chat-prompt";
@@ -11,6 +11,13 @@ import type { RackConfig } from "@/lib/ai/customer-chat-prompt";
 //
 // Renders inside the chat widget when voice mode is active.
 // Manages the listen → send → receive → speak → listen loop.
+//
+// Flow:
+//   1. User taps "Start Voice Chat" (user gesture — required for AudioContext)
+//   2. AI greeting plays via TTS
+//   3. After greeting → mic auto-activates
+//   4. User speaks → transcript auto-sends → AI responds → TTS plays
+//   5. Loop continues until user ends call
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ChatMessage {
@@ -23,14 +30,14 @@ interface ChatMessage {
 interface VoiceConversationProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  /** Must return the AI response text (stripped of config blocks) */
   onSendMessage: (text: string) => Promise<string>;
   onClose: () => void;
   onSwitchToText: () => void;
   onAddUnits?: (configs: RackConfig[]) => void | Promise<void>;
-  installerContext?: any;
 }
 
-type VoiceState = "greeting" | "listening" | "thinking" | "speaking" | "idle";
+type VoiceState = "idle" | "listening" | "thinking" | "speaking";
 
 const CONFIG_REGEX = /```config\n([\s\S]*?)\n```/;
 const CUSTOMER_INFO_REGEX = /```customerInfo\n([\s\S]*?)\n```/;
@@ -52,17 +59,21 @@ export default function VoiceConversation({
   onSwitchToText,
   onAddUnits,
 }: VoiceConversationProps) {
-  const [voiceState, setVoiceState] = useState<VoiceState>("greeting");
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [lastAIText, setLastAIText] = useState("");
   const [muted, setMuted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
 
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  const isProcessingRef = useRef(false);
+
   const speech = useSpeechRecognition();
   const voicePlayback = useVoicePlayback({
     onFinished: () => {
-      // After AI finishes speaking, auto-activate mic
-      if (!muted) {
+      // After AI finishes speaking, auto-activate mic (unless muted)
+      if (!mutedRef.current) {
         setVoiceState("listening");
         setTimeout(() => speech.start(), 300);
       } else {
@@ -71,13 +82,9 @@ export default function VoiceConversation({
     },
   });
 
-  const prevMessagesLen = useRef(messages.length);
-  const isProcessingRef = useRef(false);
-
-  // Start the conversation with a greeting
+  // ── Start conversation (called from button click = user gesture) ──────
   const startConversation = useCallback(() => {
     setHasStarted(true);
-    setVoiceState("greeting");
 
     // Find the last assistant message to speak as greeting
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
@@ -93,62 +100,62 @@ export default function VoiceConversation({
     }
   }, [messages, voicePlayback, speech]);
 
-  // Handle new assistant messages (from streaming completion)
+  // ── Handle final transcript → send to AI → speak response ─────────────
   useEffect(() => {
-    if (messages.length > prevMessagesLen.current) {
-      const newMsg = messages[messages.length - 1];
-      if (newMsg.role === "assistant" && newMsg.content && hasStarted && !isLoading) {
-        const text = stripBlocks(newMsg.content);
-        if (text && text !== lastAIText) {
-          setLastAIText(text);
-          setVoiceState("speaking");
-          voicePlayback.speak(text);
+    if (!speech.finalTranscript || isProcessingRef.current) return;
+
+    isProcessingRef.current = true;
+    const text = speech.finalTranscript;
+    setCurrentTranscript(text);
+    speech.clear();
+    setVoiceState("thinking");
+
+    // sendMessage returns the full AI response text
+    onSendMessage(text).then((responseText) => {
+      isProcessingRef.current = false;
+      if (responseText) {
+        setLastAIText(responseText);
+        setVoiceState("speaking");
+        voicePlayback.speak(responseText);
+      } else {
+        // AI returned empty — go back to listening
+        if (!mutedRef.current) {
+          setVoiceState("listening");
+          setTimeout(() => speech.start(), 300);
+        } else {
+          setVoiceState("idle");
         }
       }
-    }
-    prevMessagesLen.current = messages.length;
-  }, [messages, isLoading, hasStarted, lastAIText, voicePlayback]);
+    }).catch(() => {
+      isProcessingRef.current = false;
+      if (!mutedRef.current) {
+        setVoiceState("listening");
+        setTimeout(() => speech.start(), 300);
+      } else {
+        setVoiceState("idle");
+      }
+    });
+  }, [speech.finalTranscript]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track loading state → thinking animation
-  useEffect(() => {
-    if (isLoading && hasStarted) {
-      setVoiceState("thinking");
-    }
-  }, [isLoading, hasStarted]);
-
-  // When SpeechRecognition produces a final transcript, auto-send it
-  useEffect(() => {
-    if (speech.finalTranscript && !isProcessingRef.current) {
-      isProcessingRef.current = true;
-      const text = speech.finalTranscript;
-      setCurrentTranscript(text);
-      speech.clear();
-      setVoiceState("thinking");
-
-      onSendMessage(text).finally(() => {
-        isProcessingRef.current = false;
-      });
-    }
-  }, [speech.finalTranscript, onSendMessage, speech]);
-
-  // Show interim transcript while listening
+  // ── Show interim transcript while listening ───────────────────────────
   useEffect(() => {
     if (speech.interimTranscript) {
       setCurrentTranscript(speech.interimTranscript);
     }
   }, [speech.interimTranscript]);
 
-  // Update voice state based on speech recognition
+  // ── Sync voice state with speech recognition ─────────────────────────
   useEffect(() => {
-    if (speech.isListening) {
+    if (speech.isListening && voiceState !== "listening") {
       setVoiceState("listening");
     }
-  }, [speech.isListening]);
+  }, [speech.isListening, voiceState]);
 
+  // ── Mute toggle ──────────────────────────────────────────────────────
   const handleMuteToggle = () => {
     if (muted) {
       setMuted(false);
-      if (voiceState === "idle") {
+      if (voiceState === "idle" && !voicePlayback.isSpeaking) {
         setVoiceState("listening");
         speech.start();
       }
@@ -210,12 +217,11 @@ export default function VoiceConversation({
               {voiceState === "listening" && <ListeningIndicator />}
               {voiceState === "thinking" && <ThinkingIndicator />}
               {voiceState === "idle" && <IdleIndicator />}
-              {voiceState === "greeting" && <SpeakingIndicator />}
             </div>
 
             {/* State label */}
             <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-500">
-              {voiceState === "speaking" || voiceState === "greeting"
+              {voiceState === "speaking"
                 ? "Speaking..."
                 : voiceState === "listening"
                 ? "Listening..."
@@ -232,7 +238,7 @@ export default function VoiceConversation({
               {voiceState === "listening" && !currentTranscript && (
                 <p className="text-sm text-slate-500 italic">Say something...</p>
               )}
-              {(voiceState === "speaking" || voiceState === "greeting") && lastAIText && (
+              {voiceState === "speaking" && lastAIText && (
                 <p className="text-sm text-slate-200">{lastAIText}</p>
               )}
               {voiceState === "thinking" && (

@@ -419,7 +419,6 @@ export default function CustomerChatWidget({ installerId, installerSlug, install
               onClose={() => { setIsOpen(false); setVoiceMode(false); }}
               onSwitchToText={() => setVoiceMode(false)}
               onAddUnits={onAddUnits}
-              installerContext={installerContext}
             />
           ) : (
             <>

@@ -35,8 +35,10 @@ export async function POST(req: NextRequest) {
   const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (googleKey) {
     try {
+      console.log("[TTS] Trying Gemini TTS...");
       const audio = await geminiTTS(text, body.voice || GEMINI_VOICE, googleKey);
       if (audio) {
+        console.log("[TTS] Gemini TTS success:", audio.byteLength, "bytes");
         return new Response(audio, {
           headers: {
             "Content-Type": "audio/wav",
@@ -44,17 +46,22 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+      console.warn("[TTS] Gemini TTS returned null");
     } catch (err) {
       console.error("[TTS] Gemini TTS failed, trying fallback:", err);
     }
+  } else {
+    console.warn("[TTS] No GOOGLE_GENERATIVE_AI_API_KEY set");
   }
 
   // ── Fallback to OpenAI TTS ────────────────────────────────────────────
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey) {
     try {
+      console.log("[TTS] Trying OpenAI TTS fallback...");
       const audio = await openaiTTS(text, body.voice || OPENAI_VOICE, openaiKey);
       if (audio) {
+        console.log("[TTS] OpenAI TTS success:", audio.byteLength, "bytes");
         return new Response(audio, {
           headers: {
             "Content-Type": "audio/mpeg",
@@ -62,11 +69,15 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+      console.warn("[TTS] OpenAI TTS returned null");
     } catch (err) {
       console.error("[TTS] OpenAI TTS failed:", err);
     }
+  } else {
+    console.log("[TTS] No OPENAI_API_KEY set, skipping OpenAI fallback");
   }
 
+  console.error("[TTS] All providers failed — returning 503");
   return NextResponse.json(
     { error: "TTS unavailable — no provider configured or all providers failed" },
     { status: 503 }

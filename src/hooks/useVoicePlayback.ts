@@ -7,6 +7,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 //
 // Sends text to /api/tts, receives audio, plays back sentence-by-sentence.
 // Uses Web Audio API (AudioContext) for low-latency, gapless playback.
+// Falls back to browser speechSynthesis if TTS API is unavailable.
 //
 // Flow:
 //   speak(text) → split into sentences → fetch /api/tts per sentence
@@ -46,6 +47,7 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
   const playingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const synthUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
 
@@ -99,20 +101,70 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
           signal,
         });
         if (!res.ok) {
-          console.error("TTS fetch failed:", res.status);
+          console.error("[VoicePlayback] TTS fetch failed:", res.status, await res.text().catch(() => ""));
+          return null;
+        }
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          // API returned an error JSON instead of audio
+          const err = await res.json();
+          console.error("[VoicePlayback] TTS API error:", err);
           return null;
         }
         const arrayBuffer = await res.arrayBuffer();
+        if (arrayBuffer.byteLength < 100) {
+          console.error("[VoicePlayback] TTS response too small:", arrayBuffer.byteLength, "bytes");
+          return null;
+        }
         const ctx = getAudioCtx();
         return await ctx.decodeAudioData(arrayBuffer);
       } catch (err) {
         if ((err as Error).name === "AbortError") return null;
-        console.error("TTS error:", err);
+        console.error("[VoicePlayback] TTS error:", err);
         return null;
       }
     },
     [getAudioCtx, voice]
   );
+
+  // Browser speechSynthesis fallback — used when cloud TTS is unavailable
+  const speakWithBrowserTTS = useCallback((text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      // No TTS available at all — just finish
+      setIsSpeaking(false);
+      onFinishedRef.current?.();
+      return;
+    }
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    // Try to find a female English voice
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(
+      (v) => v.lang.startsWith("en") && /female|samantha|karen|victoria|zira|hazel/i.test(v.name)
+    ) || voices.find((v) => v.lang.startsWith("en"));
+    if (femaleVoice) utterance.voice = femaleVoice;
+
+    utterance.onend = () => {
+      synthUtteranceRef.current = null;
+      setIsSpeaking(false);
+      onFinishedRef.current?.();
+    };
+    utterance.onerror = () => {
+      synthUtteranceRef.current = null;
+      setIsSpeaking(false);
+      onFinishedRef.current?.();
+    };
+
+    synthUtteranceRef.current = utterance;
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }, []);
 
   const speak = useCallback(
     (text: string) => {
@@ -126,8 +178,15 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
         try { sourceRef.current.stop(); } catch {}
         sourceRef.current = null;
       }
+      if (synthUtteranceRef.current) {
+        window.speechSynthesis?.cancel();
+        synthUtteranceRef.current = null;
+      }
       queueRef.current = [];
       playingRef.current = false;
+
+      // Initialize AudioContext during user gesture callstack (required for iOS)
+      try { getAudioCtx(); } catch {}
 
       const sentences = splitSentences(text);
       if (sentences.length === 0) {
@@ -137,44 +196,56 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
 
       setIsSpeaking(true);
 
-      // Fetch all sentences in parallel, but play in order
+      // Track which sentences have been fetched (to distinguish "not fetched" from "fetch failed")
+      const fetchedSet = new Set<number>();
       const buffers: (AudioBuffer | null)[] = new Array(sentences.length).fill(null);
       let nextToPlay = 0;
-      let fetchedCount = 0;
+      let allTTSFailed = true;
 
       const tryPlay = () => {
         if (playingRef.current) return; // already playing, onended will call tryPlay via playNext
         if (controller.signal.aborted) return;
 
-        // Queue up all consecutive ready buffers
-        while (nextToPlay < buffers.length && buffers[nextToPlay] !== null) {
-          queueRef.current.push(buffers[nextToPlay]!);
+        // Advance past all fetched sentences (queue successful ones, skip failed ones)
+        while (nextToPlay < sentences.length && fetchedSet.has(nextToPlay)) {
+          if (buffers[nextToPlay]) {
+            queueRef.current.push(buffers[nextToPlay]!);
+          }
+          // If buffer is null but it was fetched, skip it (TTS failed for this sentence)
           nextToPlay++;
         }
 
         if (queueRef.current.length > 0 && !playingRef.current) {
           playNext();
+          return; // playNext will call tryPlay again when done
         }
 
-        // If all fetched and all played
-        if (fetchedCount === sentences.length && nextToPlay >= sentences.length && queueRef.current.length === 0 && !playingRef.current) {
-          setIsSpeaking(false);
-          onFinishedRef.current?.();
+        // All sentences fetched and processed?
+        if (fetchedSet.size === sentences.length && nextToPlay >= sentences.length && queueRef.current.length === 0 && !playingRef.current) {
+          if (allTTSFailed) {
+            // Cloud TTS completely unavailable — fall back to browser speechSynthesis
+            console.warn("[VoicePlayback] All cloud TTS failed, falling back to browser speechSynthesis");
+            speakWithBrowserTTS(text);
+          } else {
+            setIsSpeaking(false);
+            onFinishedRef.current?.();
+          }
         }
       };
 
       sentences.forEach((sentence, i) => {
         fetchTTS(sentence, controller.signal).then((buf) => {
           if (controller.signal.aborted) return;
-          fetchedCount++;
+          fetchedSet.add(i);
           if (buf) {
             buffers[i] = buf;
+            allTTSFailed = false;
           }
           tryPlay();
         });
       });
     },
-    [fetchTTS, playNext]
+    [fetchTTS, playNext, getAudioCtx, speakWithBrowserTTS]
   );
 
   const stop = useCallback(() => {
@@ -184,6 +255,10 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
     if (sourceRef.current) {
       try { sourceRef.current.stop(); } catch {}
       sourceRef.current = null;
+    }
+    if (synthUtteranceRef.current) {
+      window.speechSynthesis?.cancel();
+      synthUtteranceRef.current = null;
     }
     queueRef.current = [];
     playingRef.current = false;
@@ -197,6 +272,7 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
       if (sourceRef.current) {
         try { sourceRef.current.stop(); } catch {}
       }
+      window.speechSynthesis?.cancel();
       if (audioCtxRef.current) {
         audioCtxRef.current.close();
         audioCtxRef.current = null;
