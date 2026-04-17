@@ -10,6 +10,7 @@ import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatu
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
+import RaisedBedDropdown from "@/components/design/RaisedBedDropdown";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
@@ -680,6 +681,31 @@ export default function BuildConfiguratorPage() {
     setUnits((prev) => [...prev, newUnit]);
     setShelvingAdded(true);
     setTimeout(() => setShelvingAdded(false), 2000);
+    setTimeout(() => {
+      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  function handleAddRaisedBed(config: RaisedBedConfig, price: number, desc: string) {
+    const bed = RAISED_BED_SIZES.find((s) => s.id === config.sizeId);
+    const newUnit: UnitConfig = {
+      id: `raised-bed-${Date.now()}`,
+      cols: 0,
+      rows: 0,
+      toteType: "HDX",
+      unitType: "standard",
+      hasTotes: false,
+      hasWheels: false,
+      hasTop: false,
+      price,
+      totalW: bed?.widthIn ?? 0,
+      totalH: bed?.heightIn ?? 0,
+      depth: bed?.lengthIn ?? 0,
+      slots: 0,
+      desc,
+      raisedBedConfig: config,
+    };
+    setUnits((prev) => [...prev, newUnit]);
     setTimeout(() => {
       quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
@@ -1737,6 +1763,16 @@ export default function BuildConfiguratorPage() {
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {/* ── Raised Bed Planters ──────────────────────────────────────── */}
+        {installerPricing?.raised_bed_enabled === true && (
+          <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
+            <RaisedBedDropdown
+              onAddRaisedBed={handleAddRaisedBed}
+              installerPricing={installerPricing}
+            />
           </section>
         )}
 
