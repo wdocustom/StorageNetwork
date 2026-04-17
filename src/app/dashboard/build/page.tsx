@@ -553,9 +553,6 @@ export default function BuildConfiguratorPage() {
         indoorDeliveryFee: q.indoorDeliveryFee,
       }));
       setUnits(loadedUnits);
-
-      // Open quote modal directly in edit mode
-      setShowQuoteModal(true);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, searchParams]);
@@ -1286,23 +1283,20 @@ export default function BuildConfiguratorPage() {
 
   function resetQuoteModal() {
     setShowQuoteModal(false);
-    setCustomerName("");
-    setCustomerEmail("");
-    setCustomerPhone("");
-    setQuoteDiscountCode("");
     setQuoteSent(false);
     setQuoteError("");
-    setQuoteLeadId(null);
     setQuoteLinkCopied(false);
-    setQuoteReferralStatus("none");
-    setQuoteCoveringName("");
-    setZipCheckStatus("idle");
-    setZipCoveringName("");
-    setDeliveryFeeResult(null);
-    if (editingLeadId) {
-      setEditingLeadId(null);
-      setEditingCustomerName("");
-      window.history.replaceState({}, "", "/dashboard/build");
+    if (!editingLeadId) {
+      setCustomerName("");
+      setCustomerEmail("");
+      setCustomerPhone("");
+      setQuoteDiscountCode("");
+      setQuoteLeadId(null);
+      setQuoteReferralStatus("none");
+      setQuoteCoveringName("");
+      setZipCheckStatus("idle");
+      setZipCoveringName("");
+      setDeliveryFeeResult(null);
     }
   }
 
@@ -2275,11 +2269,15 @@ export default function BuildConfiguratorPage() {
                   Add Unit
                 </button>
                 <button
-                  onClick={() => setShowQuoteModal(true)}
-                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400/10 py-3 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20"
+                  onClick={() => editingLeadId ? setShowQuoteModal(true) : setShowQuoteModal(true)}
+                  className={`flex items-center justify-center gap-2 rounded-lg border-2 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                    editingLeadId
+                      ? "border-emerald-400 bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20"
+                      : "border-yellow-400 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20"
+                  }`}
                 >
-                  <FileText className="h-4 w-4" />
-                  Send Quote
+                  {editingLeadId ? <CheckCircle2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  {editingLeadId ? "Update Quote" : "Send Quote"}
                 </button>
                 <button
                   onClick={() => setShowAssemblyGuide(true)}
@@ -2422,10 +2420,14 @@ export default function BuildConfiguratorPage() {
 
             <button
               onClick={() => setShowQuoteModal(true)}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all ${
+                editingLeadId
+                  ? "bg-emerald-500 text-white hover:bg-emerald-400"
+                  : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+              }`}
             >
-              <FileText className="h-4 w-4" />
-              Send Quote
+              {editingLeadId ? <CheckCircle2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+              {editingLeadId ? "Update Quote" : "Send Quote"}
             </button>
           </section>
         )}
