@@ -113,7 +113,7 @@ RAISED BED PLANTERS (use raisedBedConfig with cols:0, rows:0):
 - depthIncrease: true/false (increase depth to 12" — only for "with legs" sizes)
 - bottomShelf: true/false (only for legs_24x48x30)
 - pestCover: "none", "hoop", "rigid_cage", "cabinet_24", "cabinet_48"
-- postHeight: null, 72 (6' post), 84 (7' post), or 96 (8' post) — add-on post for hanging plants/lights. Available on elevated beds 18x18 and larger, EXCEPT legs_24x24x16_post (which already has a built-in 7' post).
+- postHeight: null, 72 (6' post), 84 (7' post), or 96 (8' post) — add-on post for hanging plants/lights. Available on ALL beds (elevated and ground-level), EXCEPT legs_24x24x16_post (which already has a built-in 7' post).
 - hasHook: true/false (hook attachment, requires a post)
 - highWindWeighted: true/false (high-wind weighted base anchor kit — elevated planters only)
 - quantity: number of identical beds (default 1)

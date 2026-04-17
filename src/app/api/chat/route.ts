@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
         pestCover: z.string().describe("Pest protection: none, hoop, rigid_cage, cabinet_24, or cabinet_48"),
         depthIncrease: z.boolean().optional().describe("Increase planting depth to 12 inches (only available for some elevated beds)"),
         bottomShelf: z.boolean().optional().describe("Bottom shelf (only available on legs_24x48x30)"),
-        postHeight: z.number().nullable().optional().describe("Post add-on height in inches: 72 (6'), 84 (7'), 96 (8'), or null. Only for elevated beds 18x18 and larger (NOT legs_24x24x16_post which has built-in post)"),
+        postHeight: z.number().nullable().optional().describe("Post add-on height in inches: 72 (6'), 84 (7'), 96 (8'), or null. Available on all beds (elevated and ground-level) EXCEPT legs_24x24x16_post which has built-in post"),
         hasHook: z.boolean().optional().describe("Hook add-on — only when post is selected"),
         highWindWeighted: z.boolean().optional().describe("High-wind weighted anchor kit — only for elevated planters"),
       }),

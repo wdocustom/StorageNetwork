@@ -106,28 +106,31 @@ export const RAISED_BED_SIZES: RaisedBedSize[] = [
     id: "ground_18x72x22", label: "18\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
     widthIn: 18, lengthIn: 72, heightIn: 22.5, internalW: 17, internalL: 68, internalH: 22,
     groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
-    bestseller: true,
+    postAddonAvailable: true, bestseller: true,
   },
   {
     id: "ground_24x72x11", label: "24\" × 72\" × 11.5\" Ground Bed", style: "without_legs",
     widthIn: 24, lengthIn: 72, heightIn: 11.5, internalW: 23, internalL: 68, internalH: 11,
     groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+    postAddonAvailable: true,
   },
   {
     id: "ground_24x72x22", label: "24\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
     widthIn: 24, lengthIn: 72, heightIn: 22.5, internalW: 23, internalL: 68, internalH: 22,
     groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
-    bestseller: true, popular: true,
+    postAddonAvailable: true, bestseller: true, popular: true,
   },
   {
     id: "ground_36x72x22", label: "36\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
     widthIn: 36, lengthIn: 72, heightIn: 22.5, internalW: 35, internalL: 68, internalH: 22,
     groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+    postAddonAvailable: true,
   },
   {
     id: "ground_48x48x22", label: "48\" × 48\" × 22.5\" Ground Bed", style: "without_legs",
     widthIn: 48, lengthIn: 48, heightIn: 22.5, internalW: 46, internalL: 46, internalH: 22,
     groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x4",
+    postAddonAvailable: true,
   },
 ];
 

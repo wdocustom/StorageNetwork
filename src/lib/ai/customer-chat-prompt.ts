@@ -125,7 +125,7 @@ Other leg sizes: 18x18, 12x48, 24x48, 24x48 tall (30"), 24x72. Other ground size
 Finishes: natural cedar, stained, or painted white.
 Pest covers: none, hoop net, rigid cage, or cabinet-style doors (24" or 48").
 Add-ons: landscape liner, increase planting depth (some elevated), bottom shelf (24x48 tall only).
-Post add-on (elevated only, 18x18 and larger): 6', 7', or 8' cedar post — great for hanging plants or string lights. Optional hook. (The 24x24 string-light bestseller already includes a 7' post — no separate post add-on for it.)
+Post add-on (all sizes — elevated AND ground-level): 6', 7', or 8' cedar post — great for hanging plants or string lights. Optional hook. (The 24x24 string-light bestseller already includes a 7' post — no separate post add-on for it.)
 High-wind weighted kit (elevated only): anchors the base against tipping — great for windy patios.
 Gather what you can naturally — if they give you multiple details at once, take them all.
 Call calculate_raised_bed before quoting price.`;
