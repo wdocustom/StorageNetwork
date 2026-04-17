@@ -13,6 +13,7 @@ import {
 } from "@/lib/raised-beds";
 import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RollingPrice } from "./configurator-primitives";
+import type { InstallerPricing } from "@/types/viewModels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Raised Bed Planter Dropdown — Design Configurator Step 1
@@ -26,12 +27,14 @@ interface RaisedBedDropdownProps {
   onAddRaisedBed: (config: RaisedBedConfig, price: number, desc: string) => void;
   onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
   onPriceChange?: (price: number | null) => void;
+  installerPricing?: InstallerPricing;
 }
 
 export default function RaisedBedDropdown({
   onAddRaisedBed,
   onConfigPreview,
   onPriceChange,
+  installerPricing,
 }: RaisedBedDropdownProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -45,16 +48,19 @@ export default function RaisedBedDropdown({
   const [pestCover, setPestCover] = useState<PestCoverType>("none");
   const [postHeight, setPostHeight] = useState<number | null>(null);
   const [hasHook, setHasHook] = useState(false);
+  const [highWindWeighted, setHighWindWeighted] = useState(false);
 
   const selectedBed = sizeId ? RAISED_BED_SIZES.find((s) => s.id === sizeId) : null;
   const filteredSizes = RAISED_BED_SIZES.filter((s) => s.style === style);
+  const bestsellerSizes = filteredSizes.filter((s) => s.bestseller);
+  const standardSizes = filteredSizes.filter((s) => !s.bestseller);
 
   // Fetch option prices from server when size changes
   const [optionPrices, setOptionPrices] = useState<Awaited<ReturnType<typeof getRaisedBedOptionPrices>>>(null);
   useEffect(() => {
     if (!sizeId) { setOptionPrices(null); return; }
-    getRaisedBedOptionPrices(sizeId).then(setOptionPrices);
-  }, [sizeId]);
+    getRaisedBedOptionPrices(sizeId, installerPricing).then(setOptionPrices);
+  }, [sizeId, installerPricing]);
 
   // Calculate price via server action
   const [calculation, setCalculation] = useState<{ total: number; breakdown: { label: string; amount: number }[] } | null>(null);
@@ -64,11 +70,11 @@ export default function RaisedBedDropdown({
     if (!sizeId) { setCalculation(null); onPriceChange?.(null); return; }
     let cancelled = false;
     setPriceLoading(true);
-    calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook })
+    calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted, installerPricing })
       .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); onPriceChange?.(result.total); } })
       .catch(() => { if (!cancelled) setPriceLoading(false); });
     return () => { cancelled = true; };
-  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook]);
+  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted, installerPricing]);
 
   // Notify parent of live config for 3D preview on every change
   useEffect(() => {
@@ -100,6 +106,7 @@ export default function RaisedBedDropdown({
     setFinish("natural");
     setPostHeight(null);
     setHasHook(false);
+    setHighWindWeighted(false);
   };
 
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
@@ -112,12 +119,13 @@ export default function RaisedBedDropdown({
     setFinish("natural");
     setPostHeight(null);
     setHasHook(false);
+    setHighWindWeighted(false);
     onConfigPreview?.(null);
   };
 
   function handleAdd() {
     if (!sizeId || !calculation) return;
-    const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook };
+    const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted };
     const desc = getRaisedBedDescription(config);
     onAddRaisedBed(config, calculation.total, desc);
     // Reset
@@ -130,6 +138,7 @@ export default function RaisedBedDropdown({
     setPestCover("none");
     setPostHeight(null);
     setHasHook(false);
+    setHighWindWeighted(false);
     onConfigPreview?.(null);
   }
 
@@ -197,42 +206,68 @@ export default function RaisedBedDropdown({
                 </div>
               </div>
 
-              {/* Size Selection */}
-              <div>
-                <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                  Size
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {filteredSizes.map((bed) => (
-                    <button
-                      key={bed.id}
-                      type="button"
-                      onClick={() => handleSizeChange(bed.id)}
-                      className={`relative rounded-lg border px-3 py-2.5 text-left transition-all ${
-                        sizeId === bed.id
-                          ? "border-yellow-400 bg-yellow-400/10"
-                          : "border-zinc-700 bg-zinc-800/60 hover:border-zinc-600"
-                      }`}
-                    >
-                      {bed.popular && (
-                        <span className="absolute -top-2 right-2 flex items-center gap-0.5 rounded-full bg-yellow-400 px-1.5 py-0.5 text-[8px] font-black text-zinc-900 uppercase">
-                          <Star className="h-2 w-2" /> Popular
-                        </span>
-                      )}
-                      {bed.hasStringLightPost && (
-                        <span className="absolute -top-2 left-2 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[8px] font-black text-zinc-900 uppercase">
-                          String Light Post
-                        </span>
-                      )}
-                      <p className={`text-xs font-bold ${sizeId === bed.id ? "text-yellow-400" : "text-zinc-300"}`}>
-                        {bed.widthIn}" × {bed.lengthIn}"
-                      </p>
-                      <p className="text-[10px] text-zinc-500">
-                        {bed.hasStringLightPost ? "16.5\" + 7' post" : `${bed.heightIn}" tall`}
-                      </p>
-                    </button>
-                  ))}
-                </div>
+              {/* Size Selection — Bestsellers first, then other sizes */}
+              <div className="space-y-3">
+                {bestsellerSizes.length > 0 && (
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-yellow-400">
+                      <Star className="h-2.5 w-2.5" /> Bestsellers
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {bestsellerSizes.map((bed) => (
+                        <button
+                          key={bed.id}
+                          type="button"
+                          onClick={() => handleSizeChange(bed.id)}
+                          className={`relative rounded-lg border px-3 py-2.5 text-left transition-all ${
+                            sizeId === bed.id
+                              ? "border-yellow-400 bg-yellow-400/10"
+                              : "border-yellow-400/40 bg-yellow-400/5 hover:border-yellow-400/70"
+                          }`}
+                        >
+                          {bed.hasStringLightPost && (
+                            <span className="absolute -top-2 left-2 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[8px] font-black text-zinc-900 uppercase">
+                              String Light
+                            </span>
+                          )}
+                          <p className={`text-xs font-bold ${sizeId === bed.id ? "text-yellow-400" : "text-zinc-300"}`}>
+                            {bed.widthIn}" × {bed.lengthIn}"
+                          </p>
+                          <p className="text-[10px] text-zinc-500">
+                            {bed.hasStringLightPost ? "16.5\" + 7' post & cap" : `${bed.heightIn}" tall`}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {standardSizes.length > 0 && (
+                  <div>
+                    <label className="mb-1.5 block text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+                      {bestsellerSizes.length > 0 ? "All Other Sizes" : "Size"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {standardSizes.map((bed) => (
+                        <button
+                          key={bed.id}
+                          type="button"
+                          onClick={() => handleSizeChange(bed.id)}
+                          className={`relative rounded-lg border px-3 py-2.5 text-left transition-all ${
+                            sizeId === bed.id
+                              ? "border-yellow-400 bg-yellow-400/10"
+                              : "border-zinc-700 bg-zinc-800/60 hover:border-zinc-600"
+                          }`}
+                        >
+                          <p className={`text-xs font-bold ${sizeId === bed.id ? "text-yellow-400" : "text-zinc-300"}`}>
+                            {bed.widthIn}" × {bed.lengthIn}"
+                          </p>
+                          <p className="text-[10px] text-zinc-500">{bed.heightIn}" tall</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Options — only show when a size is selected */}
@@ -326,11 +361,12 @@ export default function RaisedBedDropdown({
                       {selectedBed.postAddonAvailable && (
                         <div className="rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5">
                           <p className="text-xs font-bold text-zinc-300 mb-1.5">Post</p>
-                          <div className="flex gap-1.5">
+                          <div className="grid grid-cols-4 gap-1.5">
                             {([
                               { value: null, label: "None", price: 0 },
-                              { value: 72, label: "6' Post", price: optionPrices?.post72Price ?? 0 },
-                              { value: 84, label: "7' Post", price: optionPrices?.post84Price ?? 0 },
+                              { value: 72, label: "6'", price: optionPrices?.post72Price ?? 0 },
+                              { value: 84, label: "7'", price: optionPrices?.post84Price ?? 0 },
+                              { value: 96, label: "8'", price: optionPrices?.post96Price ?? 0 },
                             ] as const).map((opt) => (
                               <button
                                 key={opt.label}
@@ -339,7 +375,7 @@ export default function RaisedBedDropdown({
                                   setPostHeight(opt.value);
                                   if (!opt.value) setHasHook(false);
                                 }}
-                                className={`flex-1 rounded-lg border px-2 py-1.5 text-center transition-all ${
+                                className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
                                   postHeight === opt.value
                                     ? "border-yellow-400 bg-yellow-400/10"
                                     : "border-zinc-600 bg-zinc-800 hover:border-zinc-500"
@@ -368,6 +404,22 @@ export default function RaisedBedDropdown({
                             type="checkbox"
                             checked={hasHook}
                             onChange={(e) => setHasHook(e.target.checked)}
+                            className="accent-yellow-400"
+                          />
+                        </label>
+                      )}
+
+                      {/* High-Wind Weighted Kit — elevated planters only */}
+                      {selectedBed.highWindWeightedAvailable && (
+                        <label className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 cursor-pointer hover:border-zinc-600 transition-colors">
+                          <div>
+                            <p className="text-xs font-bold text-zinc-300">High-Wind Weighted Kit</p>
+                            <p className="text-[10px] text-zinc-500">+${optionPrices?.highWindWeightedPrice ?? 0} &middot; Anchors base against tipping</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={highWindWeighted}
+                            onChange={(e) => setHighWindWeighted(e.target.checked)}
                             className="accent-yellow-400"
                           />
                         </label>

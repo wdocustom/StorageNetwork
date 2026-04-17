@@ -31,8 +31,12 @@ export interface RaisedBedSize {
   hasStringLightPost?: boolean;
   /** Height of string light post in inches (from top of bed) */
   postHeightIn?: number;
-  /** Whether a post add-on can be attached (6' or 7') */
+  /** Whether a post add-on can be attached (6', 7', or 8') */
   postAddonAvailable?: boolean;
+  /** Whether the high-wind weighted kit is available (elevated planters only) */
+  highWindWeightedAvailable?: boolean;
+  /** Marked as a bestseller within its style category */
+  bestseller?: boolean;
   popular?: boolean;
 }
 
@@ -49,10 +53,12 @@ export interface RaisedBedConfig {
   depthIncrease: boolean;
   bottomShelf: boolean;
   pestCover: PestCoverType;
-  /** Post add-on height in inches (72 = 6', 84 = 7'), or null for no post */
+  /** Post add-on height in inches (72 = 6', 84 = 7', 96 = 8'), or null for no post */
   postHeight: number | null;
   /** Hook add-on (attaches to post) */
   hasHook: boolean;
+  /** High-wind weighted kit (elevated planters only) */
+  highWindWeighted?: boolean;
 }
 
 // ── Raised Bed Sizes (structural only — no prices) ───────────────────────
@@ -63,35 +69,45 @@ export const RAISED_BED_SIZES: RaisedBedSize[] = [
     id: "legs_18x18x16", label: "18\" × 18\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 18, lengthIn: 18, heightIn: 16.5, internalW: 16, internalL: 16, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "none",
-    postAddonAvailable: true,
+    postAddonAvailable: true, highWindWeightedAvailable: true,
   },
   {
     id: "legs_12x48x16", label: "12\" × 48\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 12, lengthIn: 48, heightIn: 16.5, internalW: 12, internalL: 46, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "2x4",
+    highWindWeightedAvailable: true,
   },
   {
     id: "legs_24x48x16", label: "24\" × 48\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 24, lengthIn: 48, heightIn: 16.5, internalW: 23, internalL: 46, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "2x4",
+    postAddonAvailable: true, highWindWeightedAvailable: true,
   },
   {
     id: "legs_24x48x30", label: "24\" × 48\" × 30\" Tall Raised Bed", style: "with_legs",
     widthIn: 24, lengthIn: 48, heightIn: 30, internalW: 23, internalL: 46, internalH: 9,
     groundClearance: 18.5, depthIncreaseAvailable: true, bottomShelfAvailable: true, pestCoverCategory: "2x4",
+    postAddonAvailable: true, highWindWeightedAvailable: true,
   },
   {
     id: "legs_24x72x16", label: "24\" × 72\" × 16.5\" Raised Bed", style: "with_legs",
     widthIn: 24, lengthIn: 72, heightIn: 16.5, internalW: 23, internalL: 69, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: true, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+    postAddonAvailable: true, highWindWeightedAvailable: true,
   },
   {
-    id: "legs_24x24x16_post", label: "24\" × 24\" + String Light Post", style: "with_legs",
+    id: "legs_24x24x16_post", label: "24\" × 24\" + 7' String Light Post", style: "with_legs",
     widthIn: 24, lengthIn: 24, heightIn: 16.5, internalW: 22, internalL: 22, internalH: 9,
     groundClearance: 5, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "none",
-    hasStringLightPost: true, postHeightIn: 84,
+    hasStringLightPost: true, postHeightIn: 84, highWindWeightedAvailable: true, bestseller: true,
   },
   // WITHOUT LEGS
+  {
+    id: "ground_18x72x22", label: "18\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
+    widthIn: 18, lengthIn: 72, heightIn: 22.5, internalW: 17, internalL: 68, internalH: 22,
+    groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+    bestseller: true,
+  },
   {
     id: "ground_24x72x11", label: "24\" × 72\" × 11.5\" Ground Bed", style: "without_legs",
     widthIn: 24, lengthIn: 72, heightIn: 11.5, internalW: 23, internalL: 68, internalH: 11,
@@ -100,7 +116,8 @@ export const RAISED_BED_SIZES: RaisedBedSize[] = [
   {
     id: "ground_24x72x22", label: "24\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
     widthIn: 24, lengthIn: 72, heightIn: 22.5, internalW: 23, internalL: 68, internalH: 22,
-    groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6", popular: true,
+    groundClearance: 0, depthIncreaseAvailable: false, bottomShelfAvailable: false, pestCoverCategory: "2x6",
+    bestseller: true, popular: true,
   },
   {
     id: "ground_36x72x22", label: "36\" × 72\" × 22.5\" Ground Bed", style: "without_legs",
@@ -145,7 +162,9 @@ export function getRaisedBedDescription(config: RaisedBedConfig): string {
   if (config.bottomShelf) parts.push("+ Bottom Shelf");
   if (config.postHeight === 72) parts.push("+ 6' Post");
   else if (config.postHeight === 84) parts.push("+ 7' Post");
+  else if (config.postHeight === 96) parts.push("+ 8' Post");
   if (config.hasHook) parts.push("+ Hook");
+  if (config.highWindWeighted) parts.push("+ High-Wind Weighted Kit");
 
   if (config.pestCover !== "none") {
     const cover = PEST_COVER_OPTIONS.find((c) => c.id === config.pestCover);

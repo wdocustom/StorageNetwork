@@ -143,11 +143,13 @@ export interface InstallerPricing {
   overhead_4x4?: number;
   /** Per-raised-bed base price overrides.
    *  Key pattern: raised_bed_<sizeId> */
+  raised_bed_legs_18x18x16?: number;
   raised_bed_legs_12x48x16?: number;
   raised_bed_legs_24x48x16?: number;
   raised_bed_legs_24x48x30?: number;
   raised_bed_legs_24x72x16?: number;
   raised_bed_legs_24x24x16_post?: number;
+  raised_bed_ground_18x72x22?: number;
   raised_bed_ground_24x72x11?: number;
   raised_bed_ground_24x72x22?: number;
   raised_bed_ground_36x72x22?: number;
@@ -158,6 +160,12 @@ export interface InstallerPricing {
   raised_bed_paint_white_addon?: number;
   raised_bed_depth_increase_addon?: number;
   raised_bed_bottom_shelf_addon?: number;
+  /** Post + hardware add-on overrides */
+  raised_bed_post_72_addon?: number;
+  raised_bed_post_84_addon?: number;
+  raised_bed_post_96_addon?: number;
+  raised_bed_hook_addon?: number;
+  raised_bed_high_wind_weighted_addon?: number;
 }
 
 // All platform pricing constants moved to src/app/actions/platform-defaults.ts (server-only)

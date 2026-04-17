@@ -242,6 +242,7 @@ export default function StepSize({
           }}
           onConfigPreview={props.onRaisedBedPreview}
           onPriceChange={props.onRaisedBedPriceChange}
+          installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
         />
       )}
 

@@ -252,6 +252,41 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     defaultValue: defs.raisedBedAddons.raised_bed_bottom_shelf_addon,
     category: "raised_beds_addons" as const,
   },
+  {
+    key: "raised_bed_post_72_addon" as PricingNumericKey,
+    label: "6' Cedar Post",
+    description: `Add-on for 6' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_72_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_post_72_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_post_84_addon" as PricingNumericKey,
+    label: "7' Cedar Post",
+    description: `Add-on for 7' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_84_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_post_84_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_post_96_addon" as PricingNumericKey,
+    label: "8' Cedar Post",
+    description: `Add-on for 8' post on elevated beds (default: $${defs.raisedBedAddons.raised_bed_post_96_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_post_96_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_hook_addon" as PricingNumericKey,
+    label: "Post Hook",
+    description: `Add-on hook for hanging plants from post (default: $${defs.raisedBedAddons.raised_bed_hook_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_hook_addon,
+    category: "raised_beds_addons" as const,
+  },
+  {
+    key: "raised_bed_high_wind_weighted_addon" as PricingNumericKey,
+    label: "High-Wind Weighted Kit",
+    description: `Base anchor kit for windy sites — elevated planters only (default: $${defs.raisedBedAddons.raised_bed_high_wind_weighted_addon})`,
+    defaultValue: defs.raisedBedAddons.raised_bed_high_wind_weighted_addon,
+    category: "raised_beds_addons" as const,
+  },
 ]; }
 
 /** Row component for each addon type — toggle + price input */
@@ -328,6 +363,8 @@ const EMPTY_DEFAULTS = {
   raisedBedAddons: {
     raised_bed_stain_addon: 0, raised_bed_liner_addon: 0, raised_bed_paint_white_addon: 0,
     raised_bed_depth_increase_addon: 0, raised_bed_bottom_shelf_addon: 0,
+    raised_bed_post_72_addon: 0, raised_bed_post_84_addon: 0, raised_bed_post_96_addon: 0,
+    raised_bed_hook_addon: 0, raised_bed_high_wind_weighted_addon: 0,
   },
 };
 

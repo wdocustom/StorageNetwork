@@ -224,7 +224,7 @@ export default function BuildConfiguratorPage() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; quantity: number } | null; customPrice?: number | null; description: string; indoorDelivery?: boolean }> | null>(null);
+  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; highWindWeighted?: boolean; quantity: number } | null; customPrice?: number | null; description: string; indoorDelivery?: boolean }> | null>(null);
   const [aiNotes, setAiNotes] = useState("");
   const [aiAdded, setAiAdded] = useState(false);
 
@@ -301,8 +301,9 @@ export default function BuildConfiguratorPage() {
           pestCover: unit.raisedBedConfig.pestCover as RaisedBedConfig["pestCover"],
           postHeight: unit.raisedBedConfig.postHeight,
           hasHook: unit.raisedBedConfig.hasHook,
+          highWindWeighted: unit.raisedBedConfig.highWindWeighted,
         };
-        const result = await calculateRaisedBedPriceServer(rbConfig);
+        const result = await calculateRaisedBedPriceServer({ ...rbConfig, installerPricing });
         const qty = unit.raisedBedConfig.quantity || 1;
         const desc = getRaisedBedDescription(rbConfig);
         const bed = RAISED_BED_SIZES.find((s) => s.id === rbConfig.sizeId);
@@ -1457,8 +1458,9 @@ export default function BuildConfiguratorPage() {
                             {unit.raisedBedConfig.finish !== "natural" && ` • ${unit.raisedBedConfig.finish === "stain" ? "Stain" : "Painted White"}`}
                             {unit.raisedBedConfig.hasLiner && " • Liner"}
                             {unit.raisedBedConfig.depthIncrease && " • 12\" Depth"}
-                            {unit.raisedBedConfig.postHeight && ` • ${unit.raisedBedConfig.postHeight === 72 ? "6'" : "7'"} Post`}
+                            {unit.raisedBedConfig.postHeight && ` • ${unit.raisedBedConfig.postHeight === 72 ? "6'" : unit.raisedBedConfig.postHeight === 84 ? "7'" : "8'"} Post`}
                             {unit.raisedBedConfig.hasHook && " • Hook"}
+                            {unit.raisedBedConfig.highWindWeighted && " • High-Wind Weighted"}
                             {unit.raisedBedConfig.quantity > 1 && ` • Qty: ${unit.raisedBedConfig.quantity}`}
                           </span>
                         ) : unit.overheadGridPresetId ? (

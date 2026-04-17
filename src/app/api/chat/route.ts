@@ -193,16 +193,27 @@ export async function POST(req: NextRequest) {
     calculate_raised_bed: {
       description: "Calculate exact price for a raised bed planter. Call before quoting price.",
       inputSchema: z.object({
-        sizeId: z.string().describe("Size ID: legs_12x48x16, legs_24x48x16, legs_24x48x30, legs_24x72x16, legs_24x24x16_post, ground_24x72x11, ground_24x72x22, ground_36x72x22, ground_48x48x22"),
+        sizeId: z.string().describe("Size ID: legs_18x18x16, legs_12x48x16, legs_24x48x16, legs_24x48x30, legs_24x72x16, legs_24x24x16_post (bestseller string-light post), ground_18x72x22 (bestseller), ground_24x72x11, ground_24x72x22 (bestseller), ground_36x72x22, ground_48x48x22"),
         finish: z.string().describe("Wood finish: natural, stain, or painted_white"),
         hasLiner: z.boolean().describe("Waterproof liner"),
         pestCover: z.string().describe("Pest protection: none, hoop, rigid_cage, cabinet_24, or cabinet_48"),
+        depthIncrease: z.boolean().optional().describe("Increase planting depth to 12 inches (only available for some elevated beds)"),
+        bottomShelf: z.boolean().optional().describe("Bottom shelf (only available on legs_24x48x30)"),
+        postHeight: z.number().nullable().optional().describe("Post add-on height in inches: 72 (6'), 84 (7'), 96 (8'), or null. Only for elevated beds 18x18 and larger (NOT legs_24x24x16_post which has built-in post)"),
+        hasHook: z.boolean().optional().describe("Hook add-on — only when post is selected"),
+        highWindWeighted: z.boolean().optional().describe("High-wind weighted anchor kit — only for elevated planters"),
       }),
-      execute: async (input: { sizeId: string; finish: string; hasLiner: boolean; pestCover: string }) => {
+      execute: async (input: { sizeId: string; finish: string; hasLiner: boolean; pestCover: string; depthIncrease?: boolean; bottomShelf?: boolean; postHeight?: number | null; hasHook?: boolean; highWindWeighted?: boolean }) => {
         try {
           const result = await calculateRaisedBedPriceServer({
             sizeId: input.sizeId, finish: input.finish, hasLiner: input.hasLiner,
-            depthIncrease: false, bottomShelf: false, pestCover: input.pestCover,
+            depthIncrease: input.depthIncrease ?? false,
+            bottomShelf: input.bottomShelf ?? false,
+            pestCover: input.pestCover,
+            postHeight: input.postHeight ?? null,
+            hasHook: input.hasHook ?? false,
+            highWindWeighted: input.highWindWeighted ?? false,
+            installerPricing,
           });
           return { price: result.total, breakdown: result.breakdown };
         } catch (err) { return { error: err instanceof Error ? err.message : "Failed" }; }

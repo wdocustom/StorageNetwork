@@ -119,11 +119,16 @@ Call calculate_shelving with configId (e.g. "shelf-6ft-tall") before quoting pri
     raisedBedFlow = `
 RAISED BED PLANTERS:
 Need to know: placement (legs for patio/deck, or ground level), size, finish, liner, pest cover.
-Leg sizes: 12x48, 24x48, 24x72, 24x24 (with string light post). Ground sizes: 24x72, 36x72, 48x48. Heights: 16" or 30" (legs), 11" or 22" (ground).
+Elevated bestseller: 24x24 with built-in 7' string light post & cap (great for patios/entertaining).
+Ground-level bestsellers: 18x72x22.5" tall and 24x72x22.5" tall — our most popular garden beds.
+Other leg sizes: 18x18, 12x48, 24x48, 24x48 tall (30"), 24x72. Other ground sizes: 24x72x11 (shorter), 36x72, 48x48.
 Finishes: natural cedar, stained, or painted white.
-Pest covers: none, hoop net, rigid cage, or cabinet-style doors.
+Pest covers: none, hoop net, rigid cage, or cabinet-style doors (24" or 48").
+Add-ons: landscape liner, increase planting depth (some elevated), bottom shelf (24x48 tall only).
+Post add-on (elevated only, 18x18 and larger): 6', 7', or 8' cedar post — great for hanging plants or string lights. Optional hook. (The 24x24 string-light bestseller already includes a 7' post — no separate post add-on for it.)
+High-wind weighted kit (elevated only): anchors the base against tipping — great for windy patios.
 Gather what you can naturally — if they give you multiple details at once, take them all.
-Call calculate_raised_bed with sizeId, finish, hasLiner, pestCover before quoting price.`;
+Call calculate_raised_bed before quoting price.`;
   }
 
   return `You are the design assistant for ${name}. Today is ${dateContext}.

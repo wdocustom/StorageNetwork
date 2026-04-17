@@ -35,6 +35,7 @@ interface ParsedUnit {
     pestCover: string;
     postHeight: number | null;
     hasHook: boolean;
+    highWindWeighted?: boolean;
     quantity: number;
   } | null;
   customPrice?: number | null;
@@ -105,15 +106,16 @@ OVERHEAD CEILING STORAGE (use overheadGridPresetId with cols:0, rows:0):
 
 RAISED BED PLANTERS (use raisedBedConfig with cols:0, rows:0):
 - Set cols:0, rows:0 and include a raisedBedConfig object. Do NOT use customPrice for raised beds — pricing is calculated server-side.
-- Available sizeId values (WITH LEGS): "legs_18x18x16" (18"×18"), "legs_12x48x16" (12"×48"), "legs_24x48x16" (24"×48"), "legs_24x48x30" (24"×48" tall/30"), "legs_24x72x16" (24"×72"), "legs_24x24x16_post" (24"×24" with string light post)
-- Available sizeId values (GROUND LEVEL / WITHOUT LEGS): "ground_24x72x11" (24"×72"×11.5"), "ground_24x72x22" (24"×72"×22.5"), "ground_36x72x22" (36"×72"×22.5"), "ground_48x48x22" (48"×48"×22.5")
+- Available sizeId values (WITH LEGS): "legs_18x18x16" (18"×18"), "legs_12x48x16" (12"×48"), "legs_24x48x16" (24"×48"), "legs_24x48x30" (24"×48" tall/30"), "legs_24x72x16" (24"×72"), "legs_24x24x16_post" (24"×24" + built-in 7' string light post — BESTSELLER)
+- Available sizeId values (GROUND LEVEL / WITHOUT LEGS): "ground_18x72x22" (18"×72"×22.5" — BESTSELLER), "ground_24x72x11" (24"×72"×11.5"), "ground_24x72x22" (24"×72"×22.5" — BESTSELLER), "ground_36x72x22" (36"×72"×22.5"), "ground_48x48x22" (48"×48"×22.5")
 - finish: "natural" (default), "stain" (cedar stain), "painted_white"
 - hasLiner: true/false (landscape liner)
 - depthIncrease: true/false (increase depth to 12" — only for "with legs" sizes)
 - bottomShelf: true/false (only for legs_24x48x30)
 - pestCover: "none", "hoop", "rigid_cage", "cabinet_24", "cabinet_48"
-- postHeight: null, 72 (6' post), or 84 (7' post) — add-on post for hanging plants/lights. Only for legs_18x18x16 and legs_24x24x16_post.
+- postHeight: null, 72 (6' post), 84 (7' post), or 96 (8' post) — add-on post for hanging plants/lights. Available on elevated beds 18x18 and larger, EXCEPT legs_24x24x16_post (which already has a built-in 7' post).
 - hasHook: true/false (hook attachment, requires a post)
+- highWindWeighted: true/false (high-wind weighted base anchor kit — elevated planters only)
 - quantity: number of identical beds (default 1)
 - Match sizes by dimensions mentioned (e.g. "18x18" = legs_18x18x16, "24x72 ground" = ground_24x72x22 or ground_24x72x11)
 - Keywords: "raised bed", "planter", "planter box", "garden bed"
@@ -256,6 +258,7 @@ export async function POST(req: NextRequest) {
               pestCover: unit.raisedBedConfig.pestCover || "none",
               postHeight: unit.raisedBedConfig.postHeight ?? null,
               hasHook: unit.raisedBedConfig.hasHook === true,
+              highWindWeighted: unit.raisedBedConfig.highWindWeighted === true,
               quantity: Math.max(1, unit.raisedBedConfig.quantity || 1),
             },
           });
