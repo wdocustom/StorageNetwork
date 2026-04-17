@@ -48,6 +48,14 @@ function charsAtTime(text: string, seconds: number): number {
   return Math.min(text.length, Math.floor(seconds * CHARS_PER_SEC));
 }
 
+/** Detect in-app browsers (Instagram, Facebook, TikTok, etc.) that don't
+ *  support Web Speech API properly. */
+function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|Line\/|Snapchat|Twitter|TikTok|BytedanceWebview/i.test(ua);
+}
+
 export default function VoiceConversation({
   messages,
   isLoading,
@@ -62,6 +70,7 @@ export default function VoiceConversation({
   const [muted, setMuted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [micBlocked, setMicBlocked] = useState(false);
+  const [inAppBrowser] = useState(() => isInAppBrowser());
 
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -239,8 +248,29 @@ export default function VoiceConversation({
           </div>
         )}
 
+        {/* In-app browser warning */}
+        {!hasStarted && !micBlocked && inAppBrowser && (
+          <div className="flex flex-col items-center gap-5 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10 ring-2 ring-yellow-500/30">
+              <ShieldAlert className="h-9 w-9 text-yellow-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Open in Your Browser</h3>
+              <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-xs">
+                Voice chat works best in Chrome or Safari. Tap the menu (&hellip;) and choose &ldquo;Open in Browser&rdquo; for the best experience.
+              </p>
+            </div>
+            <button
+              onClick={onSwitchToText}
+              className="rounded-full bg-yellow-400 px-8 py-3 text-sm font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:scale-105 active:scale-95"
+            >
+              Use Text Chat Instead
+            </button>
+          </div>
+        )}
+
         {/* Start button */}
-        {!hasStarted && !micBlocked && (
+        {!hasStarted && !micBlocked && !inAppBrowser && (
           <div className="flex flex-col items-center gap-6">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-yellow-400/10 ring-2 ring-yellow-400/30">
               <Mic className="h-10 w-10 text-yellow-400" />

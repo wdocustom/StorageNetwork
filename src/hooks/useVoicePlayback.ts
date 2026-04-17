@@ -24,11 +24,26 @@ export interface UseVoicePlaybackReturn {
   stop: () => void;
 }
 
-/** Split text into sentences for sentence-level TTS streaming */
+/** Split text into sentences, then merge short ones to reduce TTS API calls.
+ *  Aim for chunks of ~80-200 chars each. */
 function splitSentences(text: string): string[] {
   const raw = text.match(/[^.!?]+[.!?]+[\s]*/g);
   if (!raw) return text.trim() ? [text.trim()] : [];
-  return raw.map((s) => s.trim()).filter((s) => s.length > 0);
+  const sentences = raw.map((s) => s.trim()).filter((s) => s.length > 0);
+
+  // Merge short sentences to reduce API calls
+  const merged: string[] = [];
+  let current = "";
+  for (const s of sentences) {
+    if (current && (current.length + s.length) > 200) {
+      merged.push(current);
+      current = s;
+    } else {
+      current = current ? `${current} ${s}` : s;
+    }
+  }
+  if (current) merged.push(current);
+  return merged;
 }
 
 interface PlaybackOptions {
