@@ -132,10 +132,12 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
   // Browser speechSynthesis fallback
   const speakWithBrowserTTS = useCallback((text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis) {
+      console.warn("[VoicePlayback] No speechSynthesis available, skipping fallback");
       setIsSpeaking(false);
       onFinishedRef.current?.();
       return;
     }
+    console.log("[VoicePlayback] Cloud TTS failed, using browser speechSynthesis fallback");
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 1.0;
@@ -150,14 +152,24 @@ export function useVoicePlayback(options: PlaybackOptions = {}): UseVoicePlaybac
       setIsSpeaking(false);
       onFinishedRef.current?.();
     };
-    utterance.onerror = () => {
+    utterance.onerror = (e) => {
+      console.error("[VoicePlayback] Browser TTS error:", e);
       synthUtteranceRef.current = null;
       setIsSpeaking(false);
       onFinishedRef.current?.();
     };
     synthUtteranceRef.current = utterance;
     setIsSpeaking(true);
-    window.speechSynthesis.speak(utterance);
+    // iOS Safari sometimes needs a brief delay before speaking
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.error("[VoicePlayback] speechSynthesis.speak() failed:", err);
+        setIsSpeaking(false);
+        onFinishedRef.current?.();
+      }
+    }, 50);
   }, []);
 
   const speak = useCallback(
