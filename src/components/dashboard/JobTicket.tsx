@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Upload,
   X,
+  PenLine,
 } from "lucide-react";
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
@@ -1453,10 +1454,21 @@ export default function JobTicket({
       {/* ── Unit Summary (directly above purchase list) ───────────── */}
       {quoteData && quoteData.length > 0 && (
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-            <Ruler className="h-4 w-4 text-yellow-400" />
-            Unit Summary
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+              <Ruler className="h-4 w-4 text-yellow-400" />
+              Unit Summary
+            </h2>
+            {!depositPaid && (
+              <a
+                href={`/dashboard/build?edit=${leadId}`}
+                className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
+              >
+                <PenLine className="h-3 w-3" />
+                Edit Quote
+              </a>
+            )}
+          </div>
           <div className="space-y-2">
             {quoteData.map((unit, i) => {
               const u = unit as MaterialConfig & { desc?: string; price?: number; addons?: import("@/types/viewModels").SectionAddon[]; paintFrameColor?: string | null; paintDoorColor?: string | null; paintSidePanelColor?: string | null };

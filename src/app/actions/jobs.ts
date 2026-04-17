@@ -8,6 +8,9 @@ import { updateInventoryAfterJob, getInstallerInventory } from "@/app/actions/in
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { escapeHtml } from "@/utils/escapeHtml";
+import { getDepositAmount } from "@/app/actions/fee-engine";
+import { validateDiscountCode } from "@/app/actions/discount-codes";
+import type { QuoteUnit } from "@/lib/buildEngine.types";
 
 const supabase = getServiceClient();
 
@@ -524,5 +527,119 @@ export async function updateCustomerContact(
   }
 
   console.log(`[UpdateCustomerContact] Lead ${leadId} contact updated`);
+  return { success: true };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// fetchLeadForEdit — Fetch full lead data for the "Edit Quote" flow
+// Requires authentication + lead ownership. Rejects paid quotes.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface LeadForEdit {
+  id: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  quote_data: QuoteUnit[];
+  estimated_price: number;
+  delivery_address_line1: string | null;
+  delivery_address_line2: string | null;
+  delivery_address_city: string | null;
+  delivery_address_state: string | null;
+  delivery_address_zip: string | null;
+  delivery_fee: number | null;
+  discount_code: string | null;
+  deposit_paid: boolean;
+  status: string;
+}
+
+export async function fetchLeadForEdit(
+  leadId: string
+): Promise<{ success: boolean; lead?: LeadForEdit; error?: string }> {
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead, error } = await supabase
+    .from("leads")
+    .select("id, customer_name, customer_email, customer_phone, quote_data, estimated_price, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, delivery_fee, discount_code, deposit_paid, status")
+    .eq("id", leadId)
+    .single();
+
+  if (error || !lead) {
+    return { success: false, error: "Quote not found." };
+  }
+
+  if (lead.deposit_paid) {
+    return { success: false, error: "Cannot edit a quote that has a deposit paid." };
+  }
+
+  return { success: true, lead: lead as LeadForEdit };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// updateQuote — Modify an existing unpaid quote's items and totals
+// Recalculates deposit and balance. Customer pay link stays valid.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function updateQuote(input: {
+  leadId: string;
+  quote_data: QuoteUnit[];
+  grand_total: number;
+  delivery_fee?: number;
+  discount_code?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { leadId, quote_data, grand_total, delivery_fee, discount_code } = input;
+
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+  if (!quote_data || quote_data.length === 0) return { success: false, error: "Quote must have at least one item." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("deposit_paid, installer_id")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { success: false, error: "Quote not found." };
+  if (lead.deposit_paid) return { success: false, error: "Cannot edit a quote that has a deposit paid." };
+
+  const depositAmount = await getDepositAmount(grand_total, lead.installer_id);
+  const balanceDue = grand_total - depositAmount;
+
+  let discountAmount: number | null = null;
+  if (discount_code && lead.installer_id) {
+    const discountResult = await validateDiscountCode(discount_code, lead.installer_id, grand_total);
+    if (discountResult.valid && discountResult.discountAmount > 0) {
+      discountAmount = discountResult.discountAmount;
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("leads")
+    .update({
+      quote_data,
+      estimated_price: grand_total,
+      deposit_amount: depositAmount,
+      balance_due: balanceDue,
+      delivery_fee: delivery_fee ?? 0,
+      discount_code: discount_code || null,
+      discount_amount: discountAmount,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", leadId);
+
+  if (updateError) {
+    console.error("[UpdateQuote] DB error:", updateError);
+    return { success: false, error: "Failed to update quote." };
+  }
+
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "quote_updated", { leadId, grand_total });
+
+  console.log(`[UpdateQuote] Lead ${leadId} updated — total: $${grand_total}, deposit: $${depositAmount}`);
   return { success: true };
 }

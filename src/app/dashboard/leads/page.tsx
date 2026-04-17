@@ -9,6 +9,7 @@ import {
   Loader2,
   Trash2,
   X,
+  PenLine,
 } from "lucide-react";
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -397,15 +398,25 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
         )}
       </a>
 
-      {/* Delete button for unpaid quotes — full-width row below card */}
+      {/* Edit + Delete buttons for unpaid quotes */}
       {showDelete && (
-        <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true); }}
-          className="flex w-full items-center justify-center gap-2 border-t border-slate-800 px-4 py-2.5 text-xs font-semibold text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete Quote
-        </button>
+        <div className="flex border-t border-slate-800">
+          <a
+            href={`/dashboard/build?edit=${lead.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-yellow-400/70 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            Edit Quote
+          </a>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true); }}
+            className="flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete Quote
+          </button>
+        </div>
       )}
     </li>
   );

@@ -1,12 +1,14 @@
 "use client";
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
+import { fetchLeadForEdit, updateQuote } from "@/app/actions/jobs";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
@@ -117,6 +119,11 @@ interface UnitConfig {
 
 export default function BuildConfiguratorPage() {
   const supabase = getSupabaseBrowserClient();
+  const searchParams = useSearchParams();
+
+  // Edit mode — when ?edit={leadId} is in the URL
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+  const [editingCustomerName, setEditingCustomerName] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -485,6 +492,73 @@ export default function BuildConfiguratorPage() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  // ── Edit mode: load existing quote from ?edit={leadId} ────────────────
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || !userId || editingLeadId) return;
+
+    (async () => {
+      const result = await fetchLeadForEdit(editId);
+      if (!result.success || !result.lead) {
+        console.error("[EditMode]", result.error);
+        return;
+      }
+
+      const lead = result.lead;
+      setEditingLeadId(lead.id);
+      setEditingCustomerName(lead.customer_name);
+
+      // Pre-populate customer info
+      setCustomerName(lead.customer_name);
+      setCustomerEmail(lead.customer_email || "");
+      setCustomerPhone(lead.customer_phone || "");
+      if (lead.discount_code) setQuoteDiscountCode(lead.discount_code);
+
+      // Pre-populate delivery address
+      if (lead.delivery_address_line1) {
+        setDeliveryLine1(lead.delivery_address_line1);
+        setDeliveryLine2(lead.delivery_address_line2 || "");
+        setDeliveryCity(lead.delivery_address_city || "");
+        setDeliveryState(lead.delivery_address_state || "");
+        setShowDeliveryAddress(true);
+      }
+      if (lead.delivery_address_zip) {
+        setDeliveryZip(lead.delivery_address_zip);
+      }
+
+      // Reconstruct UnitConfig[] from saved QuoteUnit[]
+      const loadedUnits: UnitConfig[] = (lead.quote_data || []).map((q: any, i: number) => ({
+        id: `edit-${i}-${Date.now()}`,
+        cols: q.cols || 0,
+        rows: q.rows || 0,
+        toteType: (q.toteType || "HDX") as ToteType,
+        unitType: (q.unitType || "standard") as UnitTypeOption,
+        orientation: q.orientation || "standard",
+        hasTotes: q.hasTotes ?? false,
+        hasWheels: q.hasWheels ?? false,
+        hasTop: q.hasTop ?? false,
+        price: q.price || 0,
+        totalW: q.totalW || 0,
+        totalH: q.totalH || 0,
+        depth: q.depth || 0,
+        desc: q.desc || `${q.cols}×${q.rows}`,
+        shelvingConfigId: q.shelvingConfigId,
+        overheadGridPresetId: q.overheadGridPresetId,
+        addons: q.addons,
+        paintFrameColor: q.paintFrameColor,
+        paintDoorColor: q.paintDoorColor,
+        paintSidePanelColor: q.paintSidePanelColor,
+        indoorDelivery: q.indoorDelivery,
+        indoorDeliveryFee: q.indoorDeliveryFee,
+      }));
+      setUnits(loadedUnits);
+
+      // Open quote modal directly in edit mode
+      setShowQuoteModal(true);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, searchParams]);
 
   // ── Bestseller preset calculation ──────────────────────────────────────
   const fetchPresetBuild = useCallback(async (presetId: string, withTotes: boolean) => {
@@ -1168,6 +1242,48 @@ export default function BuildConfiguratorPage() {
     }
   }
 
+  async function handleUpdateQuote() {
+    if (!editingLeadId) return;
+    const quoteUnits = buildQuoteUnits();
+    if (!quoteUnits) {
+      setQuoteError("No items in quote.");
+      return;
+    }
+
+    setQuoteError("");
+    setQuoteSending(true);
+
+    try {
+      const buildTotal = quoteUnits.reduce((sum, u) => sum + u.price, 0);
+      const indoorTotal = quoteUnits.reduce((sum, u) => sum + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee : 0), 0);
+      const deliveryFee = deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0;
+      const totalPrice = buildTotal + indoorTotal + deliveryFee;
+
+      const result = await updateQuote({
+        leadId: editingLeadId,
+        quote_data: quoteUnits,
+        grand_total: totalPrice,
+        delivery_fee: deliveryFee,
+        discount_code: quoteDiscountCode.trim() || undefined,
+      });
+
+      if (!result.success) {
+        setQuoteError(result.error || "Failed to update quote.");
+        return;
+      }
+
+      setQuoteLeadId(editingLeadId);
+      setQuoteSent(true);
+
+      logActivityClient({ action: "quote_updated", pagePath: "/build", detail: { lead_id: editingLeadId } });
+    } catch (err) {
+      console.error("[UpdateQuote] Failed:", err);
+      setQuoteError("Failed to update quote. Please try again.");
+    } finally {
+      setQuoteSending(false);
+    }
+  }
+
   function resetQuoteModal() {
     setShowQuoteModal(false);
     setCustomerName("");
@@ -1183,6 +1299,11 @@ export default function BuildConfiguratorPage() {
     setZipCheckStatus("idle");
     setZipCoveringName("");
     setDeliveryFeeResult(null);
+    if (editingLeadId) {
+      setEditingLeadId(null);
+      setEditingCustomerName("");
+      window.history.replaceState({}, "", "/dashboard/build");
+    }
   }
 
   if (loading) {
@@ -1283,6 +1404,23 @@ export default function BuildConfiguratorPage() {
           <ProPill />
         </div>
       </header>
+
+      {editingLeadId && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+          <div className="mx-auto flex max-w-2xl items-center justify-between">
+            <p className="text-xs font-bold text-amber-300">
+              <PenLine className="mr-1.5 inline h-3.5 w-3.5" />
+              Editing quote for {editingCustomerName}
+            </p>
+            <a
+              href={`/dashboard/leads/${editingLeadId}`}
+              className="text-[10px] font-semibold text-amber-400 hover:text-amber-300"
+            >
+              Back to Job Ticket
+            </a>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ── Build Configurator — unified bestseller + AI builder ── */}
@@ -2447,10 +2585,10 @@ export default function BuildConfiguratorPage() {
                 </div>
 
                 <h3 className="mb-1 text-center text-lg font-bold text-white">
-                  Create Quote
+                  {editingLeadId ? "Update Quote" : "Create Quote"}
                 </h3>
                 <p className="mb-5 text-center text-sm text-stone-400">
-                  Send a professional quote to your customer
+                  {editingLeadId ? `Editing quote for ${editingCustomerName}` : "Send a professional quote to your customer"}
                 </p>
 
                 {/* Quote Details - Show multi-unit summary if units exist, else current build */}
@@ -2717,39 +2855,62 @@ export default function BuildConfiguratorPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-5 flex gap-2">
-                  <button
-                    onClick={handleGetLink}
-                    disabled={quoteSending || zipCheckStatus === "waitlist"}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20 disabled:opacity-50"
-                    title={zipCheckStatus === "waitlist" ? "No installers in this area — use Email Quote to waitlist the customer" : undefined}
-                  >
-                    {quoteSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Link2 className="h-4 w-4" />
-                    )}
-                    Get Link
-                  </button>
-                  <button
-                    onClick={handleSendQuote}
-                    disabled={quoteSending}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
-                      zipCheckStatus === "waitlist"
-                        ? "bg-orange-500 text-white hover:bg-orange-400"
-                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                    }`}
-                  >
-                    {quoteSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : zipCheckStatus === "waitlist" ? (
-                      <Clock className="h-4 w-4" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {zipCheckStatus === "waitlist" ? "Add to Waitlist" : "Email Quote"}
-                  </button>
-                </div>
+                {editingLeadId ? (
+                  <div className="mt-5 flex gap-2">
+                    <button
+                      onClick={() => { resetQuoteModal(); window.location.href = `/dashboard/leads/${editingLeadId}`; }}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-bold uppercase tracking-wider text-stone-400 transition-all hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpdateQuote}
+                      disabled={quoteSending}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {quoteSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      Update Quote
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-5 flex gap-2">
+                    <button
+                      onClick={handleGetLink}
+                      disabled={quoteSending || zipCheckStatus === "waitlist"}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20 disabled:opacity-50"
+                      title={zipCheckStatus === "waitlist" ? "No installers in this area — use Email Quote to waitlist the customer" : undefined}
+                    >
+                      {quoteSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Link2 className="h-4 w-4" />
+                      )}
+                      Get Link
+                    </button>
+                    <button
+                      onClick={handleSendQuote}
+                      disabled={quoteSending}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
+                        zipCheckStatus === "waitlist"
+                          ? "bg-orange-500 text-white hover:bg-orange-400"
+                          : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                      }`}
+                    >
+                      {quoteSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : zipCheckStatus === "waitlist" ? (
+                        <Clock className="h-4 w-4" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {zipCheckStatus === "waitlist" ? "Add to Waitlist" : "Email Quote"}
+                    </button>
+                  </div>
+                )}
 
                 {quoteError && (
                   <p className="mt-3 text-center text-xs font-medium text-red-400">
@@ -2761,20 +2922,24 @@ export default function BuildConfiguratorPage() {
               <div className="py-4 text-center">
                 <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
                 <h3 className="mb-1 text-lg font-bold text-white">
-                  {quoteReferralStatus === "waitlisted"
-                    ? "Customer Waitlisted"
-                    : quoteReferralStatus === "handed_off"
-                      ? "Quote Sent & Referred"
-                      : "Quote Created!"}
+                  {editingLeadId
+                    ? "Quote Updated!"
+                    : quoteReferralStatus === "waitlisted"
+                      ? "Customer Waitlisted"
+                      : quoteReferralStatus === "handed_off"
+                        ? "Quote Sent & Referred"
+                        : "Quote Created!"}
                 </h3>
                 <p className="mb-5 text-sm text-stone-400">
-                  {quoteReferralStatus === "waitlisted"
-                    ? "No installer covers this area yet. The customer has been added to the waitlist and will be notified when one is available. You'll earn the referral bounty when they book."
-                    : quoteReferralStatus === "handed_off"
-                      ? `The quote was handed off to ${quoteCoveringName}. The customer will receive the email from them. You'll earn a referral bounty (30% of deposit, min $15) when they book.`
-                      : customerEmail?.trim()
-                        ? "Your customer will receive an email with their quote and a link to confirm."
-                        : "Copy the link below to send it to your customer via text, message, or any channel."}
+                  {editingLeadId
+                    ? "The quote has been updated. Your customer's pay link will show the new items and total."
+                    : quoteReferralStatus === "waitlisted"
+                      ? "No installer covers this area yet. The customer has been added to the waitlist and will be notified when one is available. You'll earn the referral bounty when they book."
+                      : quoteReferralStatus === "handed_off"
+                        ? `The quote was handed off to ${quoteCoveringName}. The customer will receive the email from them. You'll earn a referral bounty (30% of deposit, min $15) when they book.`
+                        : customerEmail?.trim()
+                          ? "Your customer will receive an email with their quote and a link to confirm."
+                          : "Copy the link below to send it to your customer via text, message, or any channel."}
                 </p>
 
                 {/* Referral bounty info */}
@@ -2836,12 +3001,29 @@ export default function BuildConfiguratorPage() {
                   </div>
                 )}
 
-                <button
-                  onClick={resetQuoteModal}
-                  className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
-                >
-                  Done
-                </button>
+                {editingLeadId ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={resetQuoteModal}
+                      className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
+                    >
+                      Keep Editing
+                    </button>
+                    <a
+                      href={`/dashboard/leads/${editingLeadId}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+                    >
+                      View Job Ticket
+                    </a>
+                  </div>
+                ) : (
+                  <button
+                    onClick={resetQuoteModal}
+                    className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
+                  >
+                    Done
+                  </button>
+                )}
               </div>
             )}
           </div>
