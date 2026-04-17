@@ -16,7 +16,9 @@ export interface GatekeeperResult {
 
 /**
  * Check if any installer covers the given ZIP code.
- * Returns installer_id for routing if found.
+ * Returns the highest-priority installer for routing.
+ *
+ * Tiered priority: is_pro DESC, completed_jobs DESC, current_month_leads ASC
  */
 export async function gatekeeperCheck(
   zip: string
@@ -28,20 +30,30 @@ export async function gatekeeperCheck(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, business_name")
+    .select("id, business_name, is_pro, is_suspended, completed_jobs, current_month_leads, max_monthly_leads")
     .contains("service_zips", [trimmed])
-    .limit(1)
-    .maybeSingle();
+    .neq("is_suspended", true)
+    .order("is_pro", { ascending: false, nullsFirst: false })
+    .order("completed_jobs", { ascending: false, nullsFirst: false })
+    .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-  if (error || !data) {
+  if (error || !data || data.length === 0) {
     return { available: false, installer_id: null, installer_name: null };
   }
 
-  return {
-    available: true,
-    installer_id: data.id,
-    installer_name: data.business_name,
-  };
+  for (const inst of data) {
+    const current = (inst.current_month_leads as number) ?? 0;
+    const max = (inst.max_monthly_leads as number) ?? 25;
+    if (current < max) {
+      return {
+        available: true,
+        installer_id: inst.id,
+        installer_name: inst.business_name,
+      };
+    }
+  }
+
+  return { available: false, installer_id: null, installer_name: null };
 }
 
 /**

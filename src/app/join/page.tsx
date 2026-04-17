@@ -87,9 +87,9 @@ export default function JoinPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Territory availability state
+  // Territory check state
   const [territoryStatus, setTerritoryStatus] = useState<
-    "idle" | "checking" | "available" | "taken"
+    "idle" | "checking" | "available" | "shared" | "invalid"
   >("idle");
   const [territoryMessage, setTerritoryMessage] = useState("");
   const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,17 +104,27 @@ export default function JoinPage() {
     setTerritoryMessage("");
     try {
       const result = await checkTerritoryAvailability(zip);
-      if (result.available) {
-        setTerritoryStatus("available");
-        const preview = result.clusterPreview;
+      if (!result.available) {
+        setTerritoryStatus("invalid");
+        setTerritoryMessage(result.reason || "Invalid ZIP code.");
+        return;
+      }
+      const preview = result.clusterPreview;
+      const existingCount = result.existingInstallerCount ?? 0;
+      if (existingCount > 0) {
+        setTerritoryStatus("shared");
         setTerritoryMessage(
-          preview
-            ? `Territory available! You'll cover ~${preview.estimatedZips} ZIP codes.`
-            : "Territory available!"
+          existingCount === 1
+            ? `1 installer already serves this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
+            : `${existingCount} installers already serve this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
         );
       } else {
-        setTerritoryStatus("taken");
-        setTerritoryMessage(result.reason || "Territory unavailable. Try a different ZIP code.");
+        setTerritoryStatus("available");
+        setTerritoryMessage(
+          preview
+            ? `No installers here yet! You'll be the first, covering ~${preview.estimatedZips} ZIP codes.`
+            : "No installers here yet! You'll be the first."
+        );
       }
     } catch {
       setTerritoryStatus("idle");
@@ -371,14 +381,17 @@ export default function JoinPage() {
                   className={`flex overflow-hidden rounded-lg border bg-slate-800 transition-colors ${
                     territoryStatus === "available"
                       ? "border-emerald-500"
-                      : territoryStatus === "taken"
-                        ? "border-red-500"
-                        : "border-slate-700 focus-within:border-yellow-400"
+                      : territoryStatus === "shared"
+                        ? "border-yellow-500"
+                        : territoryStatus === "invalid"
+                          ? "border-red-500"
+                          : "border-slate-700 focus-within:border-yellow-400"
                   }`}
                 >
                   <div className={`flex items-center pl-3 ${
                     territoryStatus === "available" ? "text-emerald-400"
-                    : territoryStatus === "taken" ? "text-red-400"
+                    : territoryStatus === "shared" ? "text-yellow-400"
+                    : territoryStatus === "invalid" ? "text-red-400"
                     : "text-stone-500"
                   }`}>
                     <MapPin className="h-4 w-4" />
@@ -411,13 +424,18 @@ export default function JoinPage() {
                   {territoryStatus === "available" && (
                     <CheckCircle2 className="mr-3 h-4 w-4 shrink-0 text-emerald-400" />
                   )}
-                  {territoryStatus === "taken" && (
+                  {territoryStatus === "shared" && (
+                    <CheckCircle2 className="mr-3 h-4 w-4 shrink-0 text-yellow-400" />
+                  )}
+                  {territoryStatus === "invalid" && (
                     <XCircle className="mr-3 h-4 w-4 shrink-0 text-red-400" />
                   )}
                 </div>
                 {territoryMessage && (
                   <p className={`mt-1 text-xs font-medium ${
-                    territoryStatus === "available" ? "text-emerald-400" : "text-red-400"
+                    territoryStatus === "available" ? "text-emerald-400"
+                    : territoryStatus === "shared" ? "text-yellow-400"
+                    : "text-red-400"
                   }`}>
                     {territoryMessage}
                   </p>
@@ -431,7 +449,7 @@ export default function JoinPage() {
 
             <button
               onClick={handleSubmit}
-              disabled={loading || territoryStatus === "taken" || territoryStatus === "checking"}
+              disabled={loading || territoryStatus === "invalid" || territoryStatus === "checking"}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-widest text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
             >
               {loading ? (

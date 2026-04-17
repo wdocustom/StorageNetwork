@@ -3,19 +3,35 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { zipCache } from "@/lib/cache";
 
 const INSTALLER_SELECT =
-  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, tier";
+  "id, business_name, stripe_account_id, avatar_url, phone, lead_time_days, working_days, tier, is_pro, is_suspended, completed_jobs, current_month_leads, max_monthly_leads";
 
-/** CDN cache headers: serve cached for 60s, stale up to 5min while revalidating */
 const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
 };
+
+function toInstallerResponse(inst: Record<string, unknown>) {
+  return {
+    available: true,
+    installer: {
+      id: inst.id,
+      name: inst.business_name,
+      stripe_account_id: inst.stripe_account_id,
+      avatar_url: inst.avatar_url,
+      phone: inst.phone,
+      lead_time_days: (inst.lead_time_days as number) ?? 5,
+      working_days: (inst.working_days as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      tier: (inst.tier as string) ?? "standard",
+    },
+    message: `${(inst.business_name as string) ?? "A local installer"} serves your area.`,
+  };
+}
 
 /**
  * GET /api/installers/search?zip=68105
  *
  * Public endpoint: searches for installers by ZIP code.
- * Uses service_zips array first, falls back to service_zip exact match.
- * Responses are cached at both CDN level (s-maxage) and in-memory (60s).
+ * Returns the highest-priority installer via tiered ranking:
+ * is_pro DESC, completed_jobs DESC, current_month_leads ASC
  */
 export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
@@ -30,53 +46,52 @@ export async function GET(req: NextRequest) {
 
   const body = await zipCache.getOrFetch(`api:${zip}`, async () => {
     try {
-      // Primary: search the service_zips array (covers radius)
-      const { data, error } = await supabase
+      const { data: matches, error } = await supabase
         .from("profiles")
         .select(INSTALLER_SELECT)
         .contains("service_zips", [zip])
-        .limit(1)
-        .maybeSingle();
+        .neq("is_suspended", true)
+        .order("is_pro", { ascending: false, nullsFirst: false })
+        .order("completed_jobs", { ascending: false, nullsFirst: false })
+        .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-      if (!error && data) {
+      if (!error && matches && matches.length > 0) {
+        for (const inst of matches) {
+          const current = (inst.current_month_leads as number) ?? 0;
+          const max = (inst.max_monthly_leads as number) ?? 25;
+          if (current < max) {
+            return toInstallerResponse(inst as Record<string, unknown>);
+          }
+        }
         return {
-          available: true,
-          installer: {
-            id: data.id,
-            name: data.business_name,
-            stripe_account_id: data.stripe_account_id,
-            avatar_url: data.avatar_url,
-            phone: data.phone,
-            lead_time_days: data.lead_time_days ?? 5,
-            working_days: data.working_days ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
-            tier: data.tier ?? "standard",
-          },
-          message: `${data.business_name ?? "A local installer"} serves your area.`,
+          available: false,
+          installer: null,
+          message: "All installers in this area are currently at capacity.",
         };
       }
 
       // Fallback: exact match on service_zip
-      const { data: fallback, error: fbErr } = await supabase
+      const { data: fbMatches, error: fbErr } = await supabase
         .from("profiles")
         .select(INSTALLER_SELECT)
         .eq("service_zip", zip)
-        .limit(1)
-        .maybeSingle();
+        .neq("is_suspended", true)
+        .order("is_pro", { ascending: false, nullsFirst: false })
+        .order("completed_jobs", { ascending: false, nullsFirst: false })
+        .order("current_month_leads", { ascending: true, nullsFirst: true });
 
-      if (!fbErr && fallback) {
+      if (!fbErr && fbMatches && fbMatches.length > 0) {
+        for (const inst of fbMatches) {
+          const current = (inst.current_month_leads as number) ?? 0;
+          const max = (inst.max_monthly_leads as number) ?? 25;
+          if (current < max) {
+            return toInstallerResponse(inst as Record<string, unknown>);
+          }
+        }
         return {
-          available: true,
-          installer: {
-            id: fallback.id,
-            name: fallback.business_name,
-            stripe_account_id: fallback.stripe_account_id,
-            avatar_url: fallback.avatar_url,
-            phone: fallback.phone,
-            lead_time_days: fallback.lead_time_days ?? 5,
-            working_days: fallback.working_days ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
-            tier: fallback.tier ?? "standard",
-          },
-          message: `${fallback.business_name ?? "A local installer"} serves your area.`,
+          available: false,
+          installer: null,
+          message: "All installers in this area are currently at capacity.",
         };
       }
 

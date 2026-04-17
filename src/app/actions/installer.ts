@@ -61,14 +61,14 @@ export async function updateInstallerProfile(
 
   const isZipChanging = currentProfile?.service_zip !== service_zip;
 
-  // ── Territory exclusivity check (only if ZIP is changing) ──
+  // ── Validate new ZIP exists (shared territories — no exclusivity block) ──
   if (isZipChanging) {
     const territoryCheck = await checkTerritoryAvailability(service_zip, installer_id);
     if (!territoryCheck.available) {
       return {
         success: false,
         zips_covered: 0,
-        error: territoryCheck.reason || "This ZIP code is already claimed. Choose a different home ZIP.",
+        error: territoryCheck.reason || "Invalid ZIP code.",
       };
     }
   }

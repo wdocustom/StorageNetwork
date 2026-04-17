@@ -4,9 +4,9 @@ import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Territory System — ZIP-Cluster Model
+// Territory System — Shared ZIP-Cluster Model with Tiered Priority
 //
-// Each installer owns an exclusive cluster of ZIP codes. Cluster size
+// Multiple installers can cover the same ZIP codes. Cluster size
 // adapts to population density:
 //
 //   Urban core (NYC, SF):  ~15 ZIPs within ~7 miles
@@ -14,8 +14,12 @@ import zipcodes from "zipcodes";
 //   Suburban:               ~40 ZIPs within ~20 miles
 //   Rural:                  ~60 ZIPs within ~35 miles
 //
-// Exclusivity is enforced by PRIMARY KEY on territory_zips.zip — it is
-// physically impossible for two installers to own the same ZIP code.
+// When multiple installers share a ZIP, leads are routed via tiered
+// priority: Pro > Basic, then by completed_jobs DESC, then by
+// current_month_leads ASC (fair distribution).
+//
+// PRIMARY KEY is (zip, installer_id) — each installer can claim a ZIP
+// once, but multiple installers can share the same ZIP.
 //
 // All customer-facing queries continue to use profiles.service_zips
 // (GIN-indexed array). territory_zips is the source of truth;
@@ -49,6 +53,7 @@ const DENSITY_TIERS: DensityTier[] = [
 export interface TerritoryCheckResult {
   available: boolean;
   reason?: string;
+  existingInstallerCount?: number;
   nearestInstaller?: {
     distance: number;
     city?: string;
@@ -61,11 +66,11 @@ export interface TerritoryCheckResult {
 }
 
 /**
- * Check if a ZIP code is available as a new installer's home base.
+ * Check territory status for a ZIP code.
  *
- * This checks the territory_zips table for the exact ZIP.
- * If available, it also returns a preview of how many ZIPs
- * the installer would get in their cluster.
+ * Shared territories: always returns available=true for valid ZIPs.
+ * Also reports how many installers already cover this ZIP so the
+ * signup UI can show informational messaging.
  */
 export async function checkTerritoryAvailability(
   zip: string,
@@ -73,12 +78,10 @@ export async function checkTerritoryAvailability(
 ): Promise<TerritoryCheckResult> {
   const trimmed = zip.trim();
 
-  // ── Validate ZIP format ──
   if (!/^\d{5}$/.test(trimmed)) {
     return { available: false, reason: "Invalid ZIP code format." };
   }
 
-  // ── Validate ZIP exists ──
   const zipInfo = zipcodes.lookup(trimmed);
   if (!zipInfo) {
     return { available: false, reason: "ZIP code not found." };
@@ -86,7 +89,6 @@ export async function checkTerritoryAvailability(
 
   const supabase = getServiceClient();
 
-  // ── Check if this ZIP is already claimed ──
   let query = supabase
     .from("territory_zips")
     .select("installer_id")
@@ -96,36 +98,22 @@ export async function checkTerritoryAvailability(
     query = query.neq("installer_id", excludeInstallerId);
   }
 
-  const { data: existing, error } = await query.maybeSingle();
+  const { data: existing, error } = await query;
 
   if (error) {
     console.error("[Territory] DB query failed:", error);
-    // Fail closed
     return {
       available: false,
       reason: "Unable to verify territory availability. Please try again.",
     };
   }
 
-  if (existing) {
-    // ZIP is claimed — find who owns it for a helpful message
-    // (Don't reveal the installer's identity, just the general area)
-    return {
-      available: false,
-      reason: `ZIP code ${trimmed} (${zipInfo.city}, ${zipInfo.state}) is already claimed by another installer.`,
-      nearestInstaller: {
-        distance: 0,
-        city: zipInfo.city,
-        state: zipInfo.state,
-      },
-    };
-  }
-
-  // ── ZIP is available — compute cluster preview ──
   const tier = detectDensityTier(trimmed);
+  const existingCount = existing?.length ?? 0;
 
   return {
     available: true,
+    existingInstallerCount: existingCount,
     clusterPreview: {
       estimatedZips: tier.targetZips,
       tier: tier.label,
@@ -145,17 +133,18 @@ export interface ClusterAssignResult {
 }
 
 /**
- * Assign an exclusive ZIP cluster to an installer.
+ * Assign a ZIP cluster to an installer.
+ *
+ * Shared territories: multiple installers can cover the same ZIPs.
+ * The composite PK (zip, installer_id) prevents an installer from
+ * claiming the same ZIP twice, but allows different installers to
+ * share ZIPs freely.
  *
  * Flow:
- * 1. INSERT home ZIP into territory_zips (atomic claim via PRIMARY KEY)
- * 2. If home ZIP is already taken → fail immediately
- * 3. Compute density-aware cluster of nearby unclaimed ZIPs
- * 4. INSERT cluster ZIPs (ON CONFLICT DO NOTHING — skip any claimed)
- * 5. Update profiles.service_zips with actual assigned ZIPs
- *
- * The PRIMARY KEY on territory_zips.zip makes step 1 atomic.
- * No race condition is possible — the DB enforces uniqueness.
+ * 1. INSERT home ZIP into territory_zips
+ * 2. Compute density-aware cluster of nearby ZIPs
+ * 3. INSERT cluster ZIPs (ON CONFLICT DO NOTHING for this installer)
+ * 4. Update profiles.service_zips with assigned ZIPs
  */
 export async function assignTerritoryCluster(
   installerId: string,
@@ -174,23 +163,15 @@ export async function assignTerritoryCluster(
 
   const supabase = getServiceClient();
 
-  // ── Step 1: Claim home ZIP (atomic — PRIMARY KEY prevents duplicates) ──
+  // ── Step 1: Claim home ZIP ──
   const { error: homeError } = await supabase
     .from("territory_zips")
-    .insert({
-      zip: trimmed,
-      installer_id: installerId,
-      is_home_zip: true,
-    });
+    .upsert(
+      { zip: trimmed, installer_id: installerId, is_home_zip: true },
+      { onConflict: "zip,installer_id", ignoreDuplicates: true }
+    );
 
   if (homeError) {
-    // 23505 = unique_violation (ZIP already exists in table)
-    if (homeError.code === "23505") {
-      return {
-        success: false,
-        error: `ZIP code ${trimmed} (${zipInfo.city}, ${zipInfo.state}) is already claimed by another installer.`,
-      };
-    }
     console.error("[Territory] Failed to claim home ZIP:", homeError);
     return { success: false, error: "Failed to claim territory. Please try again." };
   }
@@ -199,27 +180,27 @@ export async function assignTerritoryCluster(
   const tier = detectDensityTier(trimmed);
   const candidateZips = zipcodes.radius(trimmed, tier.searchRadiusMiles) ?? [];
 
-  // Get already-claimed ZIPs in this radius
-  const { data: claimedRows } = await supabase
+  // Get this installer's already-claimed ZIPs in this radius
+  const { data: ownedRows } = await supabase
     .from("territory_zips")
     .select("zip")
+    .eq("installer_id", installerId)
     .in("zip", candidateZips);
 
-  const claimedSet = new Set(claimedRows?.map((r) => r.zip) ?? []);
-  // Home ZIP is already claimed (by us) — don't try to re-insert
-  claimedSet.add(trimmed);
+  const ownedSet = new Set(ownedRows?.map((r) => r.zip) ?? []);
+  ownedSet.add(trimmed);
 
-  // Sort candidates by distance (closest first), exclude claimed
+  // Sort candidates by distance (closest first), exclude already owned by this installer
   const sortedCandidates = candidateZips
-    .filter((z) => !claimedSet.has(z))
+    .filter((z) => !ownedSet.has(z))
     .map((z) => ({
       zip: z,
       dist: zipcodes.distance(trimmed, z) ?? Infinity,
     }))
     .sort((a, b) => a.dist - b.dist)
-    .slice(0, tier.targetZips - 1); // -1 because home ZIP already counts
+    .slice(0, tier.targetZips - 1);
 
-  // ── Step 3: Claim nearby ZIPs (best effort — skip any that got claimed) ──
+  // ── Step 3: Claim nearby ZIPs ──
   if (sortedCandidates.length > 0) {
     const rows = sortedCandidates.map((c) => ({
       zip: c.zip,
@@ -227,12 +208,9 @@ export async function assignTerritoryCluster(
       is_home_zip: false,
     }));
 
-    // upsert with ignoreDuplicates = INSERT ... ON CONFLICT DO NOTHING
-    // If another installer claimed a ZIP between our check and insert,
-    // it's silently skipped — the installer just gets a slightly smaller cluster.
     await supabase
       .from("territory_zips")
-      .upsert(rows, { onConflict: "zip", ignoreDuplicates: true });
+      .upsert(rows, { onConflict: "zip,installer_id", ignoreDuplicates: true });
   }
 
   // ── Step 4: Read back actual assigned ZIPs ──
@@ -324,9 +302,9 @@ export async function getInstallerTerritory(
 /**
  * Expand an incomplete territory cluster.
  *
- * If an installer only has their home ZIP (e.g. due to a failed onboarding
- * or a pre-territory profile), this adds nearby unclaimed ZIPs to fill
- * the cluster to the expected size for their density tier.
+ * Adds nearby ZIPs to fill the cluster to the expected size for the
+ * installer's density tier. Shared territories: other installers may
+ * already cover these ZIPs — that's fine.
  *
  * Idempotent — safe to call multiple times. Skips if cluster already full.
  */
@@ -337,7 +315,6 @@ export async function expandTerritoryCluster(
   const trimmed = homeZip.trim();
   const supabase = getServiceClient();
 
-  // Read current territory
   const { data: currentRows } = await supabase
     .from("territory_zips")
     .select("zip")
@@ -345,41 +322,28 @@ export async function expandTerritoryCluster(
 
   const currentZips = new Set(currentRows?.map((r) => r.zip) ?? []);
 
-  // If installer has no territory_zips at all, claim home ZIP first
   if (currentZips.size === 0) {
-    const { error: homeError } = await supabase
+    await supabase
       .from("territory_zips")
-      .insert({ zip: trimmed, installer_id: installerId, is_home_zip: true });
-
-    if (homeError && homeError.code !== "23505") {
-      console.error("[Territory] expandCluster: failed to claim home ZIP:", homeError);
-      return { assignedZips: [trimmed] };
-    }
+      .upsert(
+        { zip: trimmed, installer_id: installerId, is_home_zip: true },
+        { onConflict: "zip,installer_id", ignoreDuplicates: true }
+      );
     currentZips.add(trimmed);
   }
 
   const tier = detectDensityTier(trimmed);
 
-  // Already at or above target — nothing to do
   if (currentZips.size >= tier.targetZips) {
     return { assignedZips: Array.from(currentZips) };
   }
 
-  // Find candidate ZIPs
   const candidateZips = zipcodes.radius(trimmed, tier.searchRadiusMiles) ?? [];
 
-  // Get already-claimed ZIPs in this radius (by any installer)
-  const { data: claimedRows } = await supabase
-    .from("territory_zips")
-    .select("zip")
-    .in("zip", candidateZips);
-
-  const claimedSet = new Set(claimedRows?.map((r) => r.zip) ?? []);
-
-  // Sort by distance, exclude claimed, take what we still need
+  // Only exclude ZIPs this installer already owns
   const slotsNeeded = tier.targetZips - currentZips.size;
   const newCandidates = candidateZips
-    .filter((z) => !claimedSet.has(z) && !currentZips.has(z))
+    .filter((z) => !currentZips.has(z))
     .map((z) => ({ zip: z, dist: zipcodes.distance(trimmed, z) ?? Infinity }))
     .sort((a, b) => a.dist - b.dist)
     .slice(0, slotsNeeded);
@@ -393,11 +357,10 @@ export async function expandTerritoryCluster(
           installer_id: installerId,
           is_home_zip: false,
         })),
-        { onConflict: "zip", ignoreDuplicates: true }
+        { onConflict: "zip,installer_id", ignoreDuplicates: true }
       );
   }
 
-  // Read back final state
   const { data: finalRows } = await supabase
     .from("territory_zips")
     .select("zip")
@@ -405,7 +368,6 @@ export async function expandTerritoryCluster(
 
   const assignedZips = finalRows?.map((r) => r.zip) ?? [trimmed];
 
-  // Sync denormalized cache
   const zipInfo = zipcodes.lookup(trimmed);
   await supabase
     .from("profiles")

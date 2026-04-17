@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import zipcodes from "zipcodes";
 import { slugify } from "@/lib/utils";
 import { sendInstallerOnboardingEmail } from "@/lib/email";
-import { checkTerritoryAvailability, assignTerritoryCluster } from "@/app/actions/territory";
+import { assignTerritoryCluster } from "@/app/actions/territory";
 import { getBlockedEmailDomain } from "@/lib/disposable-emails";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -62,19 +62,10 @@ export async function onboardInstaller(
   }
 
   try {
-    // 0. Territory exclusivity check — MUST happen before auth user creation
-    //    to prevent orphaned accounts when territory is taken.
+    // 0. Validate ZIP format
     const baseZip = zipCode.trim();
     if (!/^\d{5}$/.test(baseZip)) {
       return { success: false, error: "Please enter a valid 5-digit ZIP code." };
-    }
-
-    const territoryCheck = await checkTerritoryAvailability(baseZip);
-    if (!territoryCheck.available) {
-      return {
-        success: false,
-        error: territoryCheck.reason || "This territory is unavailable. Try a different ZIP code.",
-      };
     }
 
     // 1. Create auth user
@@ -118,18 +109,15 @@ export async function onboardInstaller(
       longitude: zipGeo?.longitude ?? null,
     });
 
-    // 2a. Assign exclusive ZIP cluster (atomic via PRIMARY KEY on territory_zips)
-    //     This is the real territory claim. If it fails (race condition where
-    //     someone claimed the ZIP between our pre-check and now), we clean up.
+    // 2a. Assign ZIP cluster (shared territories — multiple installers can cover same ZIPs)
     const clusterResult = await assignTerritoryCluster(userId, baseZip);
     if (!clusterResult.success) {
-      // Clean up: delete the auth user + profile we just created
       console.error(`[Onboard] Territory claim failed for ${userId}, cleaning up:`, clusterResult.error);
       await supabase.from("profiles").delete().eq("id", userId);
       await supabase.auth.admin.deleteUser(userId);
       return {
         success: false,
-        error: clusterResult.error || "This territory was just claimed. Try a different ZIP code.",
+        error: clusterResult.error || "Failed to set up territory. Please try again.",
       };
     }
 

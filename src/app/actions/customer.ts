@@ -91,9 +91,10 @@ function toResult(
  * Uses service_zips array first, falls back to service_zip exact match.
  * Returns full installer context needed for booking flow.
  *
- * When multiple installers cover a ZIP:
- * - Pro installers get priority over Basic
- * - Among same tier, installer with fewer current leads gets the job
+ * Tiered priority ranking (shared territories):
+ * 1. is_pro DESC — Pro installers beat Basic
+ * 2. completed_jobs DESC — experience wins
+ * 3. current_month_leads ASC — fair monthly distribution
  *
  * The DB query is cached for 60s per ZIP to absorb viral traffic.
  * Lead-cap mutations still execute normally.
@@ -109,14 +110,14 @@ export async function checkAvailability(
   return zipCache.getOrFetch(`avail:${trimmed}`, async () => {
     try {
       // Primary: search the service_zips array (covers radius)
-      // Grade by completed_jobs DESC (experience wins), then current_month_leads ASC (fair monthly balance)
-      // Only include active installers
+      // Tiered priority: is_pro DESC, completed_jobs DESC, current_month_leads ASC
       const { data: matches, error } = await supabase
         .from("profiles")
         .select(INSTALLER_SELECT)
         .contains("service_zips", [trimmed])
-        .neq("active", false)  // Exclude deactivated accounts
-        .neq("is_suspended", true)  // Exclude suspended accounts
+        .neq("active", false)
+        .neq("is_suspended", true)
+        .order("is_pro", { ascending: false, nullsFirst: false })
         .order("completed_jobs", { ascending: false, nullsFirst: false })
         .order("current_month_leads", { ascending: true, nullsFirst: true });
 
@@ -160,6 +161,7 @@ export async function checkAvailability(
         .select(INSTALLER_SELECT)
         .eq("service_zip", trimmed)
         .neq("is_suspended", true)
+        .order("is_pro", { ascending: false, nullsFirst: false })
         .order("completed_jobs", { ascending: false, nullsFirst: false })
         .order("current_month_leads", { ascending: true, nullsFirst: true });
 
@@ -176,7 +178,6 @@ export async function checkAvailability(
         return toResult(null, "All installers in this area are currently at capacity. Join the waitlist?");
       }
 
-      // Record anonymous demand signal — no installer covers this ZIP
       recordAnonymousDemand(trimmed).catch(() => {});
 
       return toResult(
@@ -215,6 +216,7 @@ export async function rerouteToLocalInstaller(
       .neq("id", originalInstallerId)
       .neq("active", false)
       .neq("is_suspended", true)
+      .order("is_pro", { ascending: false, nullsFirst: false })
       .order("completed_jobs", { ascending: false, nullsFirst: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 
@@ -256,6 +258,7 @@ export async function rerouteToLocalInstaller(
       .eq("service_zip", trimmed)
       .neq("id", originalInstallerId)
       .neq("is_suspended", true)
+      .order("is_pro", { ascending: false, nullsFirst: false })
       .order("completed_jobs", { ascending: false, nullsFirst: false })
       .order("current_month_leads", { ascending: true, nullsFirst: true });
 

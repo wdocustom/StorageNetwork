@@ -38,7 +38,7 @@ export const PAGES: PlatformPage[] = [
   { path: "/demo", name: "Book a Demo Call", audience: "both", description: "Free 15-minute live demo call. A real person walks potential installers or curious customers through the entire platform — the 3D configurator, dashboard, marketing tools, everything." },
 
   // Installer-facing (public)
-  { path: "/join", name: "Installer Signup", audience: "installer", description: "Main signup page for new installers. Create account, claim territory, start free trial." },
+  { path: "/join", name: "Installer Signup", audience: "installer", description: "Main signup page for new installers. Create account, set up your service area, start free trial." },
   { path: "/invite", name: "Installer Invite", audience: "installer", description: "Referral-based signup page. Same as /join but tracks which installer referred them." },
   { path: "/partner/join", name: "Partner Signup", audience: "installer", description: "Partner/affiliate signup for installers referred by marketing partners." },
   { path: "/features", name: "Platform Features", audience: "installer", description: "Full feature breakdown showing everything included in the platform — configurator, cut plans, inventory, reviews, AI assistant, marketing tools, and more." },
@@ -144,10 +144,10 @@ export const FEATURES: PlatformFeature[] = [
   },
   {
     id: "territory",
-    name: "Exclusive Territory System",
+    name: "Shared Territory with Tiered Priority",
     audience: "installer",
-    description: "Each installer owns an exclusive cluster of ZIP codes. No competing with 50 other contractors.",
-    details: "Density-aware cluster assignment: urban areas get tighter clusters (~15 ZIPs), suburban gets ~40, rural gets ~60. No two installers share the same ZIP code. Enforced by database constraint. Installer sets their own pricing and controls their own service area.",
+    description: "Multiple installers can serve the same area. Jobs are routed via tiered priority — Pro status, experience, and availability determine who gets the lead.",
+    details: "Density-aware cluster assignment: urban areas get tighter clusters (~15 ZIPs), suburban gets ~40, rural gets ~60. Multiple installers can cover the same ZIPs. When a customer searches a ZIP, the platform ranks matching installers: Pro tier first, then by completed jobs (experience), then by current month lead count (fair distribution). More installers in an area means more marketing investment and more total customers for everyone.",
   },
   {
     id: "multiple-products",
@@ -161,7 +161,7 @@ export const FEATURES: PlatformFeature[] = [
     name: "Referral Bounty Program",
     audience: "installer",
     description: "Refer another installer, earn a bounty when they complete their first job.",
-    details: "Share your referral link. When a new installer signs up through it and completes their first paid job, you earn a bounty. Passive income from growing the network. Also handles out-of-area leads — if a customer uses your link but enters a ZIP outside your territory, the lead routes to the local installer and you get a referral credit.",
+    details: "Share your referral link. When a new installer signs up through it and completes their first paid job, you earn a bounty. Passive income from growing the network. Also handles out-of-area leads — if a customer uses your link but enters a ZIP outside your service area, the lead routes to a local installer and you get a referral credit.",
   },
   {
     id: "custom-services",
@@ -224,7 +224,7 @@ export const FEATURES: PlatformFeature[] = [
     name: "Demand Signals & Waitlist",
     audience: "installer",
     description: "The platform records customer demand from uncovered areas.",
-    details: "When a customer searches a ZIP with no installer, they join a waitlist. Installers can see demand counts for nearby areas. When a new installer claims a territory, waitlisted customers are automatically notified and routed to them. This means new installers in high-demand areas can get jobs from day one.",
+    details: "When a customer searches a ZIP with no installer, they join a waitlist. Installers can see demand counts for nearby areas. When a new installer signs up in that area, waitlisted customers are automatically notified and routed to them. This means new installers in high-demand areas can get jobs from day one.",
   },
   {
     id: "analytics",
@@ -261,9 +261,9 @@ export const FAQ: PlatformFaq[] = [
   { question: "Can I see a demo first?", answer: "Yes! Book a free 15-minute demo call at storage-network.app/demo. A real person walks you through everything live.", audience: "both" },
   { question: "Can I set my own prices?", answer: "100%. You control per-slot pricing, per-tote costs, add-on prices (wheels, plywood top), and even preset pricing overrides. The platform provides defaults but you override them to match your market.", audience: "installer" },
   { question: "What if I don't get any jobs?", answer: "Then you've spent zero dollars. The trial is free. But the installers who succeed put up photos of their work and share their portfolio link.", audience: "installer" },
-  { question: "Are there other installers in my area?", answer: "Each ZIP code is exclusively owned by one installer. No competing for the same customer. More installers in a region means more marketing investment, which brings more total customers.", audience: "installer" },
+  { question: "Are there other installers in my area?", answer: "Multiple installers can serve the same area. When a customer books, jobs are routed via tiered priority: Pro installers first, then by experience (completed jobs), then by who has the fewest leads that month. More installers in a region means more marketing investment and more total customers for everyone.", audience: "installer" },
   { question: "What products can I build?", answer: "Tote storage racks (27-gallon and optional 6.5qt mini), open shelving, overhead ceiling storage, and raised bed planters. Each has its own 3D configurator and material lists. You enable/disable what you offer from your profile.", audience: "installer" },
-  { question: "How do customers find me?", answer: "Customers enter their ZIP code on the landing page. The platform matches them with you based on your territory. They can also reach you directly via your portfolio link (storage-network.app/p/your-name) or QR code.", audience: "installer" },
+  { question: "How do customers find me?", answer: "Customers enter their ZIP code on the landing page. The platform matches them with the highest-priority installer in that area. They can also reach you directly via your portfolio link (storage-network.app/p/your-name) or QR code.", audience: "installer" },
   { question: "How do payments work?", answer: "Customers pay a deposit through the platform via Stripe. You get paid directly to your bank account. No invoicing, no check-chasing. The platform handles all payment processing.", audience: "installer" },
   { question: "What's the AI Design Assistant?", answer: "An AI chatbot on every design page that guides customers through building their storage system. Uses your name, your exact pricing, and only the products you offer. Gives accurate quotes 24/7. Helps convert customers who feel overwhelmed by the 3D configurator.", audience: "both" },
   { question: "Do I need to be tech-savvy?", answer: "No. If you can text and take photos, you can use this. The heavy lifting is on the customer side — they use the 3D designer. You get a notification, look at the build, accept the job, and build it. Cut plans are a PDF. The booking page is just a link you share.", audience: "installer" },
@@ -274,7 +274,7 @@ export const FAQ: PlatformFaq[] = [
   { question: "What bestseller presets are available?", answer: "There are 7 bestseller presets: Indiana Joe (2×4+2×2+2×4), Cornhusker (4×4 on wheels), The Long Ranger (2×4+4×2), The Gass Station (1×4+4×2+1×4), Track Norris (4×2 drawer slides), The Rack City Roller (3×2 frame with wheels and top, no totes), and The Mayor of Rack City (4×2 frame with wheels and top, no totes). Installers can enable/disable each one and override pricing.", audience: "both" },
   { question: "Do you track lumber inventory?", answer: "Yes. The Smart Inventory Manager at /dashboard/inventory tracks your lumber stock across jobs. It has AI-powered receipt scanning — snap a photo of your lumber yard receipt and it reads it automatically. Shows what's in stock vs what you need.", audience: "installer" },
   { question: "How do I see my analytics?", answer: "Your analytics dashboard at /dashboard/analytics shows page views, unique visitors, device breakdown, referrer sources, and conversion rates. You can see where your traffic comes from and what's converting.", audience: "installer" },
-  { question: "What happens in areas with no installer?", answer: "Customers in uncovered areas join a waitlist. The platform tracks demand by ZIP code. When a new installer claims that territory, all waitlisted customers are automatically notified and routed to them — so new installers in high-demand areas can get jobs from day one.", audience: "installer" },
+  { question: "What happens in areas with no installer?", answer: "Customers in uncovered areas join a waitlist. The platform tracks demand by ZIP code. When a new installer signs up in that area, all waitlisted customers are automatically notified and routed to them — so new installers in high-demand areas can get jobs from day one.", audience: "installer" },
 ];
 
 // ── Lookup Function (called by chatbot tools) ────────────────────────────
