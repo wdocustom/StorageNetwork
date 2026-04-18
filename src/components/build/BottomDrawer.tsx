@@ -64,7 +64,7 @@ export default function BottomDrawer({
             onDragEnd={(_, info) => {
               if (info.offset.y > 120 || info.velocity.y > 500) onClose();
             }}
-            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
+            className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90vh] max-w-2xl flex-col rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl sm:border-x"
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-2.5">

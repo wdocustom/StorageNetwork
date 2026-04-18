@@ -182,7 +182,7 @@ export default function CartBar(props: CartBarProps) {
         initial={false}
         animate={{ height: expanded ? "90vh" : "auto" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col border-t border-yellow-400/30 bg-slate-900 shadow-2xl"
+        className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-2xl flex-col border-t border-yellow-400/30 bg-slate-900 shadow-2xl sm:rounded-t-xl sm:border-x"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {/* Collapsed bar — always visible */}
