@@ -1460,13 +1460,29 @@ export default function JobTicket({
               Unit Summary
             </h2>
             {!depositPaid && (
-              <a
-                href={`/dashboard/build?edit=${leadId}`}
-                className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
-              >
-                <PenLine className="h-3 w-3" />
-                Edit Quote
-              </a>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={`/dashboard/build?edit=${leadId}`}
+                  className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
+                >
+                  <PenLine className="h-3 w-3" />
+                  Edit
+                </a>
+                <button
+                  onClick={handleCopyPaymentLink}
+                  className="flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-300 transition-colors hover:bg-slate-700 hover:text-white"
+                >
+                  <Link className="h-3 w-3" />
+                  {copyLinkSuccess ? "Copied!" : "Pay Link"}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-red-400 transition-colors hover:bg-red-500/20"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete
+                </button>
+              </div>
             )}
           </div>
           <div className="space-y-2">
