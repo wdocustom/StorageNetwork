@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
-import { Loader2, Sparkles, Plus, Check, MessageCircle, Send, X, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Loader2, Sparkles, Plus, Check, Send, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 
@@ -40,18 +40,9 @@ interface ChatMessage {
 }
 
 interface AICommandBarProps {
-  aiInput: string;
-  onAiInputChange: (val: string) => void;
-  onBuild: () => void;
-  aiLoading: boolean;
-  aiError: string;
-  aiResult: AiResultUnit[] | null;
-  aiNotes: string;
-  aiAdded: boolean;
-  onAddAiUnits: () => void;
-  onClearResult: () => void;
   buildContext?: Record<string, unknown>;
-  onAssistantAddUnits?: (units: AiResultUnit[]) => void;
+  onAddUnits: (units: AiResultUnit[]) => Promise<void>;
+  disabled?: boolean;
 }
 
 let msgCounter = 0;
@@ -59,50 +50,105 @@ function nextId() {
   return `msg-${++msgCounter}-${Date.now()}`;
 }
 
+function UnitPreviewCard({ unit }: { unit: AiResultUnit }) {
+  return (
+    <div className="rounded-lg border border-slate-600 bg-slate-800/60 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold text-white">{unit.description}</p>
+        <div className="flex shrink-0 items-center gap-1">
+          {unit.customPrice != null && unit.customPrice > 0 && (
+            <span className="rounded-full bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
+              ${unit.customPrice}
+            </span>
+          )}
+          {unit.presetId && (
+            <span className="rounded-full bg-yellow-400/15 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
+              Preset
+            </span>
+          )}
+          {unit.overheadGridPresetId && (
+            <span className="rounded-full bg-blue-400/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">
+              Ceiling
+            </span>
+          )}
+          {unit.raisedBedConfig && (
+            <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+              Raised Bed
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10px] text-stone-500">
+        {unit.raisedBedConfig ? (
+          <span>
+            {(() => {
+              const bed = RAISED_BED_SIZES.find((s) => s.id === unit.raisedBedConfig!.sizeId);
+              return bed
+                ? `${bed.widthIn}"×${bed.lengthIn}"×${bed.heightIn}" ${bed.style === "with_legs" ? "(legs)" : "(ground)"}`
+                : unit.raisedBedConfig!.sizeId;
+            })()}
+            {unit.raisedBedConfig.finish !== "natural" &&
+              ` • ${unit.raisedBedConfig.finish === "stain" ? "Stain" : "Painted White"}`}
+            {unit.raisedBedConfig.hasLiner && " • Liner"}
+            {unit.raisedBedConfig.depthIncrease && ' • 12" Depth'}
+            {unit.raisedBedConfig.postHeight &&
+              ` • ${unit.raisedBedConfig.postHeight === 72 ? "6'" : unit.raisedBedConfig.postHeight === 84 ? "7'" : "8'"} Post`}
+            {unit.raisedBedConfig.hasHook && " • Hook"}
+            {unit.raisedBedConfig.quantity > 1 && ` • Qty: ${unit.raisedBedConfig.quantity}`}
+          </span>
+        ) : unit.overheadGridPresetId ? (
+          <span>
+            {unit.overheadGridPresetId} grid{unit.hasTotes ? ` • Totes (${unit.toteColor})` : ""}
+          </span>
+        ) : unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
+          <span>Custom item</span>
+        ) : (
+          <>
+            {!unit.presetId && (
+              <span>
+                {unit.cols}×{unit.rows}
+              </span>
+            )}
+            {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
+            {!unit.hasTotes && <span>No totes</span>}
+            {unit.hasWheels && <span>Wheels</span>}
+            {unit.hasTop && <span>Top</span>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AICommandBar({
-  aiInput,
-  onAiInputChange,
-  onBuild,
-  aiLoading,
-  aiError,
-  aiResult,
-  aiNotes,
-  aiAdded,
-  onAddAiUnits,
-  onClearResult,
   buildContext,
-  onAssistantAddUnits,
+  onAddUnits,
+  disabled,
 }: AICommandBarProps) {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const chatInputRef = useRef<HTMLInputElement>(null);
-  const sessionIdRef = useRef(`ba-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sessionIdRef = useRef(`ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, chatLoading]);
+  }, [messages, loading]);
 
-  useEffect(() => {
-    if (chatOpen) {
-      setTimeout(() => chatInputRef.current?.focus(), 150);
-    }
-  }, [chatOpen]);
-
-  const sendChatMessage = useCallback(
+  const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || chatLoading) return;
+      if (!trimmed || loading) return;
 
       const userMsg: ChatMessage = { id: nextId(), role: "user", text: trimmed };
-      const updated = [...chatMessages, userMsg];
-      setChatMessages(updated);
-      setChatInput("");
-      setChatLoading(true);
+      const updated = [...messages, userMsg];
+      setMessages(updated);
+      setInput("");
+      setLoading(true);
 
       try {
         const [assistantRes, buildAiRes] = await Promise.allSettled([
@@ -133,362 +179,165 @@ export default function AICommandBar({
             ? buildAiRes.value.units
             : undefined;
 
-        setChatMessages((prev) => [
+        setMessages((prev) => [
           ...prev,
-          {
-            id: nextId(),
-            role: "assistant",
-            text: assistantText,
-            parsedUnits,
-          },
+          { id: nextId(), role: "assistant", text: assistantText, parsedUnits },
         ]);
       } catch {
-        setChatMessages((prev) => [
+        setMessages((prev) => [
           ...prev,
           { id: nextId(), role: "assistant", text: "Network error. Please try again." },
         ]);
       } finally {
-        setChatLoading(false);
+        setLoading(false);
+        setTimeout(() => textareaRef.current?.focus(), 100);
       }
     },
-    [chatMessages, buildContext, chatLoading],
+    [messages, buildContext, loading],
   );
 
-  function handleChatSubmit(e: FormEvent) {
-    e.preventDefault();
-    sendChatMessage(chatInput);
+  async function handleAddFromMessage(msgId: string, units: AiResultUnit[]) {
+    setAddingId(msgId);
+    try {
+      await onAddUnits(units);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, unitsAdded: true } : m)),
+      );
+    } finally {
+      setAddingId(null);
+    }
   }
 
-  function handleAddFromChat(msgId: string, units: AiResultUnit[]) {
-    if (!onAssistantAddUnits) return;
-    onAssistantAddUnits(units);
-    setChatMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, unitsAdded: true } : m)),
-    );
-  }
-
-  function handleResetChat() {
-    setChatMessages([]);
-    sessionIdRef.current = `ba-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  function handleReset() {
+    setMessages([]);
+    sessionIdRef.current = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   return (
     <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-      <h2 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-        <Sparkles className="h-4 w-4 text-yellow-400" />
-        AI Command Center
-      </h2>
-
-      {/* ── Build input ──────────────────────────────────────────── */}
-      <textarea
-        value={aiInput}
-        onChange={(e) => onAiInputChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            onBuild();
-          }
-        }}
-        placeholder='Describe what to build — e.g. "Indiana Joe with clear totes", "4x4 on wheels with a top", "36x24 planter box $350", "garage cleanout $349", "120x96 wall fit"'
-        rows={3}
-        className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
-        disabled={aiLoading}
-      />
-
-      {aiError && <p className="mt-1 text-xs font-medium text-red-400">{aiError}</p>}
-
-      {/* ── Action buttons — Build + Assistant ──────────────────── */}
-      {!aiResult && (
-        <div className="mt-2 flex gap-2">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+          <Sparkles className="h-4 w-4 text-yellow-400" />
+          AI Command Center
+        </h2>
+        {messages.length > 0 && (
           <button
-            onClick={onBuild}
-            disabled={!aiInput.trim() || aiLoading}
-            className={`flex flex-[2] items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-              aiInput.trim() && !aiLoading
-                ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                : "cursor-not-allowed bg-slate-700 text-stone-500"
-            }`}
+            onClick={handleReset}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-stone-600 transition-colors hover:text-stone-300"
+            title="Clear conversation"
           >
-            {aiLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Parsing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Build
-              </>
-            )}
+            <RotateCcw className="h-3 w-3" />
+            Clear
           </button>
-          <button
-            onClick={() => setChatOpen(!chatOpen)}
-            className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-bold transition-all ${
-              chatOpen
-                ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                : "border-slate-700 text-stone-400 hover:border-stone-500 hover:text-stone-300"
-            }`}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Assistant
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* ── Build result preview ─────────────────────────────────── */}
-      {aiResult && (
-        <div className="mt-3 space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
-            Preview — confirm before adding
-          </p>
-          {aiResult.map((unit, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-slate-700 bg-slate-800/50 p-3"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-white">{unit.description}</p>
-                <div className="flex items-center gap-2">
-                  {unit.customPrice && (
-                    <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                      ${unit.customPrice}
-                    </span>
-                  )}
-                  {unit.presetId && (
-                    <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-                      Preset
-                    </span>
-                  )}
-                  {unit.overheadGridPresetId && (
-                    <span className="rounded-full bg-blue-400/15 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-                      Ceiling
-                    </span>
-                  )}
-                  {unit.raisedBedConfig && (
-                    <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                      Raised Bed
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
-                {unit.raisedBedConfig ? (
-                  <span>
-                    {(() => {
-                      const bed = RAISED_BED_SIZES.find(
-                        (s) => s.id === unit.raisedBedConfig!.sizeId
-                      );
-                      return bed
-                        ? `${bed.widthIn}"×${bed.lengthIn}"×${bed.heightIn}" ${
-                            bed.style === "with_legs" ? "(with legs)" : "(ground)"
-                          }`
-                        : unit.raisedBedConfig!.sizeId;
-                    })()}
-                    {unit.raisedBedConfig.finish !== "natural" &&
-                      ` • ${
-                        unit.raisedBedConfig.finish === "stain"
-                          ? "Stain"
-                          : "Painted White"
-                      }`}
-                    {unit.raisedBedConfig.hasLiner && " • Liner"}
-                    {unit.raisedBedConfig.depthIncrease && ' • 12" Depth'}
-                    {unit.raisedBedConfig.postHeight &&
-                      ` • ${
-                        unit.raisedBedConfig.postHeight === 72
-                          ? "6'"
-                          : unit.raisedBedConfig.postHeight === 84
-                            ? "7'"
-                            : "8'"
-                      } Post`}
-                    {unit.raisedBedConfig.hasHook && " • Hook"}
-                    {unit.raisedBedConfig.highWindWeighted && " • High-Wind Weighted"}
-                    {unit.raisedBedConfig.quantity > 1 &&
-                      ` • Qty: ${unit.raisedBedConfig.quantity}`}
-                  </span>
-                ) : unit.overheadGridPresetId ? (
-                  <span>
-                    Overhead {unit.overheadGridPresetId} grid
-                    {unit.hasTotes ? ` • Totes (${unit.toteColor})` : ""}
-                  </span>
-                ) : unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
-                  <span>Custom item</span>
-                ) : (
-                  <>
-                    {!unit.presetId && (
-                      <span>
-                        {unit.cols}��{unit.rows}
-                      </span>
-                    )}
-                    {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
-                    {!unit.hasTotes && <span>No totes</span>}
-                    {unit.hasWheels && <span>Wheels</span>}
-                    {unit.hasTop && <span>Top</span>}
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-          {aiNotes && <p className="text-xs italic text-stone-500">{aiNotes}</p>}
-          <div className="flex gap-2">
-            <button
-              onClick={onClearResult}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
-            >
-              Edit
-            </button>
-            <button
-              onClick={onAddAiUnits}
-              className={`flex flex-[2] items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                aiAdded
-                  ? "bg-emerald-500 text-white"
-                  : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-              }`}
-            >
-              {aiAdded ? (
-                <>
-                  <Check className="h-4 w-4" /> Added to Quote
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" /> Add to Quote
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ── Input ──────────────────────────────────────────────────── */}
+      <div className="flex gap-2">
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send(input);
+            }
+          }}
+          placeholder='Build, ask, or add — e.g. "Indiana Joe no totes", "how many screws for a 4x4?", "add a 3x3 overhead"'
+          rows={2}
+          className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
+          disabled={loading || disabled}
+        />
+        <button
+          onClick={() => send(input)}
+          disabled={!input.trim() || loading || disabled}
+          className={`flex w-12 shrink-0 items-center justify-center rounded-lg transition-all ${
+            input.trim() && !loading
+              ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+              : "bg-slate-700 text-stone-500"
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Send className="h-5 w-5" />
+          )}
+        </button>
+      </div>
 
-      {/* ── Assistant Chat Panel ─────────────────────────────────── */}
-      {chatOpen && (
-        <div className="mt-3 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-800/40">
-          {/* Chat header */}
-          <div className="flex items-center justify-between border-b border-slate-700/50 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
-                Assistant
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              {chatMessages.length > 0 && (
-                <button
-                  onClick={handleResetChat}
-                  className="rounded p-1 text-stone-600 transition-colors hover:text-stone-300"
-                  title="Clear chat"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                onClick={() => setChatOpen(false)}
-                className="rounded p-1 text-stone-600 transition-colors hover:text-stone-300"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div
-            ref={scrollRef}
-            className="scrollbar-dark max-h-[40vh] space-y-2 overflow-y-auto px-3 py-3"
-          >
-            {chatMessages.length === 0 && (
-              <div className="py-4 text-center">
-                <p className="text-xs text-stone-500">
-                  Ask about materials, pricing, screws, profit — or tell me to add items to your quote.
-                </p>
-              </div>
-            )}
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div className="max-w-[90%] space-y-2">
-                  <div
-                    className={`rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-yellow-400/15 text-yellow-100"
-                        : "bg-slate-700/50 text-stone-300"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
-                      </div>
-                    ) : (
-                      <span>{msg.text}</span>
-                    )}
+      {/* ── Conversation ───────────────────────────────────────────── */}
+      {messages.length > 0 && (
+        <div
+          ref={scrollRef}
+          className="scrollbar-dark mt-3 max-h-[50vh] space-y-3 overflow-y-auto"
+        >
+          {messages.map((msg) => (
+            <div key={msg.id}>
+              {msg.role === "user" ? (
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-lg bg-yellow-400/10 px-3 py-2 text-sm text-yellow-100">
+                    {msg.text}
                   </div>
-                  {/* Inline add-to-quote for parsed units */}
-                  {msg.parsedUnits && msg.parsedUnits.length > 0 && onAssistantAddUnits && (
-                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2">
-                      <p className="mb-1.5 text-[10px] font-bold uppercase text-emerald-400">
-                        {msg.parsedUnits.length} item{msg.parsedUnits.length > 1 ? "s" : ""} detected
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Parsed units — show first when available */}
+                  {msg.parsedUnits && msg.parsedUnits.length > 0 && (
+                    <div className="rounded-xl border border-yellow-400/20 bg-slate-800/50 p-3">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                        {msg.parsedUnits.length} item{msg.parsedUnits.length > 1 ? "s" : ""} parsed
                       </p>
-                      {msg.parsedUnits.map((u, i) => (
-                        <p key={i} className="text-[11px] text-stone-400">
-                          • {u.description}
-                        </p>
-                      ))}
+                      <div className="space-y-1.5">
+                        {msg.parsedUnits.map((u, i) => (
+                          <UnitPreviewCard key={i} unit={u} />
+                        ))}
+                      </div>
                       <button
-                        onClick={() => handleAddFromChat(msg.id, msg.parsedUnits!)}
-                        disabled={msg.unitsAdded}
-                        className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                        onClick={() => handleAddFromMessage(msg.id, msg.parsedUnits!)}
+                        disabled={msg.unitsAdded || addingId === msg.id}
+                        className={`mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
                           msg.unitsAdded
                             ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                            : addingId === msg.id
+                              ? "bg-slate-700 text-stone-400"
+                              : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
                         }`}
                       >
                         {msg.unitsAdded ? (
                           <>
-                            <Check className="h-3 w-3" /> Added to Quote
+                            <Check className="h-4 w-4" /> Added to Quote
+                          </>
+                        ) : addingId === msg.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Adding...
                           </>
                         ) : (
                           <>
-                            <Plus className="h-3 w-3" /> Add to Quote
+                            <Plus className="h-4 w-4" /> Add to Quote
                           </>
                         )}
                       </button>
                     </div>
                   )}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-lg bg-slate-700/50 px-3 py-2 text-[13px] text-stone-400">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-yellow-400" />
-                  Thinking...
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Chat input */}
-          <form
-            onSubmit={handleChatSubmit}
-            className="border-t border-slate-700/50 px-3 py-2"
-          >
-            <div className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 transition-colors focus-within:border-yellow-400/50">
-              <input
-                ref={chatInputRef}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask anything or say 'add a 4x4 with totes'..."
-                className="flex-1 bg-transparent text-sm text-white placeholder-stone-600 outline-none"
-                disabled={chatLoading}
-              />
-              <button
-                type="submit"
-                disabled={chatLoading || !chatInput.trim()}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-yellow-400 text-slate-900 transition-all hover:bg-yellow-300 disabled:opacity-30"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
+                  {/* Conversational response */}
+                  <div className="max-w-[95%] rounded-lg bg-slate-800/50 px-3 py-2 text-[13px] leading-relaxed text-stone-300">
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </form>
+          ))}
+
+          {loading && (
+            <div className="flex items-center gap-2 rounded-lg bg-slate-800/50 px-3 py-2.5 text-sm text-stone-400">
+              <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+              Thinking...
+            </div>
+          )}
         </div>
       )}
     </section>

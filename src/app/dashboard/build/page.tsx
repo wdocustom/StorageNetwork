@@ -163,48 +163,9 @@ export default function BuildConfiguratorPage() {
   const [presetAdded, setPresetAdded] = useState(false);
   // (tab state removed — unified build configurator)
 
-  // AI Builder state
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [aiResult, setAiResult] = useState<Array<{ cols: number; rows: number; toteColor: string; hasTotes: boolean; hasWheels: boolean; hasTop: boolean; presetId?: string; overheadGridPresetId?: string; raisedBedConfig?: { sizeId: string; finish: string; hasLiner: boolean; depthIncrease: boolean; bottomShelf: boolean; pestCover: string; postHeight: number | null; hasHook: boolean; highWindWeighted?: boolean; quantity: number } | null; customPrice?: number | null; description: string; indoorDelivery?: boolean }> | null>(null);
-  const [aiNotes, setAiNotes] = useState("");
-  const [aiAdded, setAiAdded] = useState(false);
-
-  async function handleAiBuild() {
-    if (!aiInput.trim() || aiLoading) return;
-    setAiLoading(true);
-    setAiError("");
-    setAiResult(null);
-    setAiNotes("");
-    try {
-      const res = await fetch("/api/build-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: aiInput }),
-      });
-      if (!res.ok) {
-        setAiError("Failed to parse build. Try being more specific.");
-        setAiLoading(false);
-        return;
-      }
-      const data = await res.json();
-      if (data.units && data.units.length > 0) {
-        setAiResult(data.units);
-        if (data.notes) setAiNotes(data.notes);
-      } else {
-        setAiError("Couldn't parse that into a build config. Try something like '4x4 with totes and wheels'.");
-      }
-    } catch {
-      setAiError("Something went wrong. Try again.");
-    }
-    setAiLoading(false);
-  }
-
-  async function handleAddAiUnits(overrideUnits?: AiResultUnit[]) {
-    const unitsToAdd = overrideUnits || aiResult;
-    if (!unitsToAdd) return;
-    setAiAdded(false);
+  // AI Builder — units are added via handleAddAiUnits, called from AICommandBar
+  async function handleAddAiUnits(unitsToAdd: AiResultUnit[]) {
+    if (!unitsToAdd || unitsToAdd.length === 0) return;
     for (const unit of unitsToAdd) {
       const hasCustomPrice = typeof unit.customPrice === "number" && unit.customPrice > 0;
 
@@ -330,10 +291,6 @@ export default function BuildConfiguratorPage() {
           }]);
         }
       }
-    }
-    if (!overrideUnits) {
-      setAiAdded(true);
-      setTimeout(() => { setAiAdded(false); setAiResult(null); setAiInput(""); }, 2000);
     }
   }
 
@@ -1351,16 +1308,6 @@ export default function BuildConfiguratorPage() {
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ── AI Command Center — top of POS layout ─────────────────────── */}
         <AICommandBar
-          aiInput={aiInput}
-          onAiInputChange={(v) => { setAiInput(v); setAiError(""); }}
-          onBuild={handleAiBuild}
-          aiLoading={aiLoading}
-          aiError={aiError}
-          aiResult={aiResult}
-          aiNotes={aiNotes}
-          aiAdded={aiAdded}
-          onAddAiUnits={handleAddAiUnits}
-          onClearResult={() => setAiResult(null)}
           buildContext={{
             buildResult,
             units: units.map(u => ({ ...u, price: u.price ?? 0 })),
@@ -1371,7 +1318,7 @@ export default function BuildConfiguratorPage() {
             materialPrices,
             installerId: userId,
           }}
-          onAssistantAddUnits={(units) => handleAddAiUnits(units)}
+          onAddUnits={handleAddAiUnits}
         />
 
         {/* ── Product Tiles Grid ────────────────────────────────────────── */}
