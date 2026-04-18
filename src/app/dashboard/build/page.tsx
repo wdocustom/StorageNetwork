@@ -1,18 +1,17 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculateOverheadStorageUnit, type CompoundBuildResult } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
-import { OVERHEAD_GRID_PRESETS, type OverheadGridPreset } from "@/lib/overhead-storage";
+import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { fetchLeadForEdit, updateQuote } from "@/app/actions/jobs";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
-import { calculateRaisedBedPriceServer, getRaisedBedOptionPrices } from "@/app/actions/platform-defaults";
+import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
-import RaisedBedDropdown from "@/components/design/RaisedBedDropdown";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { generateBuildManifestServer } from "@/app/actions/build-manifest";
 import type { BuildManifest, QuoteUnit } from "@/lib/buildEngine.types";
@@ -20,49 +19,26 @@ import { type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMa
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { type MaterialInventory, normalizeInventory } from "@/utils/inventoryManager";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
-import { toFraction } from "@/lib/utils";
-import {
-  ArrowLeft,
-  HardHat,
-  Loader2,
-  Maximize2,
-  ShoppingCart,
-  FileText,
-  X,
-  Send,
-  CheckCircle2,
-  Box,
-  Calculator,
-  TrendingUp,
-  Grid3X3,
-  Plus,
-  Trash2,
-  Tag,
-  Settings,
-  DollarSign,
-  ChevronDown,
-  Link2,
-  Copy,
-  Check,
-  Star,
-  AlertTriangle,
-  MapPin,
-  Clock,
-  ArrowUpFromLine,
-  ChevronUp,
-  PenLine,
-  Package,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, HardHat, Loader2, PenLine } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
-import type { BookingAddress } from "@/components/booking/BookingModal";
-import { calculateWeight } from "@/utils/scheduling";
 import type { InstallerPricing } from "@/types/viewModels";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import { logActivityClient } from "@/lib/activity-client";
+
+// POS-style build configurator components
+import AICommandBar from "@/components/build/AICommandBar";
+import ProductTilesGrid, { type DrawerType } from "@/components/build/ProductTilesGrid";
+import BestsellerDrawer from "@/components/build/BestsellerDrawer";
+import CustomUnitDrawer from "@/components/build/CustomUnitDrawer";
+import ShelvingDrawer from "@/components/build/ShelvingDrawer";
+import OverheadDrawer from "@/components/build/OverheadDrawer";
+import RaisedBedDrawer from "@/components/build/RaisedBedDrawer";
+import CartBar from "@/components/build/CartBar";
+import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
+import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 const BuildAssistant = lazy(() => import("@/components/dashboard/BuildAssistant"));
@@ -75,47 +51,8 @@ type ToteType = "HDX" | "GM";
 type UnitTypeOption = "standard" | "mini";
 type InputMode = "wallFit" | "custom";
 
-// Unit configuration for multi-unit quotes
-interface UnitConfig {
-  id: string;
-  cols: number;
-  rows: number;
-  toteType: ToteType;
-  unitType: UnitTypeOption;
-  orientation?: "standard" | "sideways";
-  hasTotes: boolean;
-  hasWheels: boolean;
-  hasTop: boolean;
-  price?: number;
-  totalW?: number;
-  totalH?: number;
-  depth?: number;
-  slots?: number;
-  /** When set, this unit came from a bestseller preset */
-  presetName?: string;
-  /** Human-readable description override */
-  desc?: string;
-  /** Groups multiple sub-units from the same preset together for display */
-  presetGroup?: string;
-  /** When set, this unit is an open shelving unit (not a tote organizer) */
-  shelvingConfigId?: string;
-  /** When set, this unit is an overhead ceiling storage unit */
-  overheadGridPresetId?: string;
-  /** When set, this unit is a raised bed planter */
-  raisedBedConfig?: RaisedBedConfig;
-  /** Quantity for this unit (raised beds can have qty > 1) */
-  quantity?: number;
-  /** Per-section addons (doors, panels, rail removal, shelves) */
-  addons?: import("@/types/viewModels").SectionAddon[];
-  /** Paint color selections */
-  paintFrameColor?: import("@/types/viewModels").PaintColorId | null;
-  paintDoorColor?: import("@/types/viewModels").PaintColorId | null;
-  paintSidePanelColor?: import("@/types/viewModels").PaintColorId | null;
-  /** When true, customer wants this item delivered inside the home */
-  indoorDelivery?: boolean;
-  /** The indoor delivery fee charged for this item (in dollars) */
-  indoorDeliveryFee?: number;
-}
+// Use the shared UnitConfig type (kept in sync across build components)
+type UnitConfig = BuildUnitConfig;
 
 export default function BuildConfiguratorPage() {
   const supabase = getSupabaseBrowserClient();
@@ -124,6 +61,9 @@ export default function BuildConfiguratorPage() {
   // Edit mode — when ?edit={leadId} is in the URL
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [editingCustomerName, setEditingCustomerName] = useState("");
+
+  // POS-style drawer coordination — only one open at a time
+  const [activeDrawer, setActiveDrawer] = useState<DrawerType | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -174,8 +114,7 @@ export default function BuildConfiguratorPage() {
   // Assembly guide overlay
   const [showAssemblyGuide, setShowAssemblyGuide] = useState(false);
 
-  // Quote modal state
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  // Quote state (form is now in CartBar; success is QuoteSuccessModal)
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -224,8 +163,6 @@ export default function BuildConfiguratorPage() {
   const [presetLoading, setPresetLoading] = useState(false);
   const [presetResult, setPresetResult] = useState<CompoundBuildResult | null>(null);
   const [presetAdded, setPresetAdded] = useState(false);
-  const quoteBuilderRef = useRef<HTMLElement>(null);
-
   // (tab state removed — unified build configurator)
 
   // AI Builder state
@@ -397,9 +334,6 @@ export default function BuildConfiguratorPage() {
     }
     setAiAdded(true);
     setTimeout(() => { setAiAdded(false); setAiResult(null); setAiInput(""); }, 2000);
-    setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
   }
 
   // Open Shelving state
@@ -415,7 +349,6 @@ export default function BuildConfiguratorPage() {
   const [overheadPrice, setOverheadPrice] = useState<number | null>(null);
   const [overheadLoading, setOverheadLoading] = useState(false);
   const [overheadAdded, setOverheadAdded] = useState(false);
-  const [overheadCollapsed, setOverheadCollapsed] = useState(false);
 
   // Custom material pricing (loaded from DB material_pricing_config)
   const [materialPrices, setMaterialPrices] = useState<MaterialPrices>({});
@@ -668,12 +601,12 @@ export default function BuildConfiguratorPage() {
 
     setUnits((prev) => [...prev, ...newUnits]);
 
-    // Visual feedback + scroll to quote builder
+    // Visual feedback — briefly show "Added" then close drawer
     setPresetAdded(true);
-    setTimeout(() => setPresetAdded(false), 2000);
     setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+      setPresetAdded(false);
+      setActiveDrawer(null);
+    }, 900);
   }
 
   // ── Open Shelving calculation ──────────────────────────────────────────
@@ -720,11 +653,10 @@ export default function BuildConfiguratorPage() {
     };
     setUnits((prev) => [...prev, newUnit]);
     setOverheadAdded(true);
-    setOverheadCollapsed(true);
-    setTimeout(() => setOverheadAdded(false), 2000);
     setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+      setOverheadAdded(false);
+      setActiveDrawer(null);
+    }, 900);
   }
 
   function handleAddShelving() {
@@ -751,10 +683,10 @@ export default function BuildConfiguratorPage() {
     };
     setUnits((prev) => [...prev, newUnit]);
     setShelvingAdded(true);
-    setTimeout(() => setShelvingAdded(false), 2000);
     setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+      setShelvingAdded(false);
+      setActiveDrawer(null);
+    }, 900);
   }
 
   function handleAddRaisedBed(config: RaisedBedConfig, price: number, desc: string) {
@@ -777,9 +709,7 @@ export default function BuildConfiguratorPage() {
       raisedBedConfig: config,
     };
     setUnits((prev) => [...prev, newUnit]);
-    setTimeout(() => {
-      quoteBuilderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    setActiveDrawer(null);
   }
 
   async function handleCalculate() {
@@ -900,6 +830,7 @@ export default function BuildConfiguratorPage() {
 
     setUnits((prev) => [...prev, newUnit]);
     setIndoorDelivery(false);
+    setActiveDrawer(null);
   }
 
   // Remove unit from list — if it's part of a preset group, remove all sub-units
@@ -1282,7 +1213,6 @@ export default function BuildConfiguratorPage() {
   }
 
   function resetQuoteModal() {
-    setShowQuoteModal(false);
     setQuoteSent(false);
     setQuoteError("");
     setQuoteLinkCopied(false);
@@ -1416,1146 +1346,33 @@ export default function BuildConfiguratorPage() {
         </div>
       )}
 
+
       <main className="mx-auto max-w-2xl space-y-4 p-4">
-        {/* ── Build Configurator — unified bestseller + AI builder ── */}
-        <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-            <Sparkles className="h-4 w-4 text-yellow-400" />
-            Build Configurator
-          </h2>
+        {/* ── AI Command Center — top of POS layout ─────────────────────── */}
+        <AICommandBar
+          aiInput={aiInput}
+          onAiInputChange={(v) => { setAiInput(v); setAiError(""); }}
+          onBuild={handleAiBuild}
+          aiLoading={aiLoading}
+          aiError={aiError}
+          aiResult={aiResult}
+          aiNotes={aiNotes}
+          aiAdded={aiAdded}
+          onAddAiUnits={handleAddAiUnits}
+          onClearResult={() => setAiResult(null)}
+        />
 
-          {/* ── Quick-select bestseller dropdown ── */}
-          <div className="mb-3">
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-600">Quick Select — Bestsellers</label>
-            <select
-                value={selectedPreset}
-                onChange={(e) => {
-                  setSelectedPreset(e.target.value);
-                  setPresetHasTotes(true);
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
-              >
-                <option value="">Choose a bestseller…</option>
-                {BESTSELLER_PRESETS.filter((p) => {
-                  const key = `bestseller_${p.id.replace(/-/g, "_")}_disabled` as keyof InstallerPricing;
-                  return installerPricing?.[key] !== true;
-                }).map((p) => {
-                  const subDesc = p.units.map((u) => `${u.cols}×${u.rows}`).join(" + ");
-                  return (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — {subDesc} ({p.units.reduce((s, u) => s + u.cols * u.rows, 0)} slots)
-                    </option>
-                  );
-                })}
-              </select>
+        {/* ── Product Tiles Grid ────────────────────────────────────────── */}
+        <ProductTilesGrid
+          installerPricing={installerPricing}
+          onTileTap={(type) => setActiveDrawer(type)}
+        />
 
-              {selectedPreset && (() => {
-                const activePresetObj = BESTSELLER_PRESETS.find((p) => p.id === selectedPreset);
-                return (
-                <div className="mt-3 space-y-3">
-                  {/* Totes toggle — hidden for mandatory-tote presets like Track Norris */}
-                  {activePresetObj?.totesAreMandatory ? (
-                    <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
-                      <Package className="h-4 w-4 text-yellow-400" />
-                      Totes included — drawer slide system
-                    </div>
-                  ) : activePresetObj?.totesDisabled ? (
-                    <div className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-stone-400">
-                      <Package className="h-4 w-4 text-stone-500" />
-                      Frame only — no totes
-                    </div>
-                  ) : (
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
-                      <input
-                        type="checkbox"
-                        checked={presetHasTotes}
-                        onChange={(e) => setPresetHasTotes(e.target.checked)}
-                        className="h-4 w-4 accent-yellow-400"
-                      />
-                      <span className="text-sm text-stone-300">Include Totes</span>
-                    </label>
-                  )}
-
-                  {/* Result */}
-                  {presetLoading && (
-                    <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Calculating…
-                    </div>
-                  )}
-
-                  {presetResult && !presetLoading && (
-                    <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
-                      <div className="grid grid-cols-2 gap-3 text-center">
-                        <div className="rounded-lg bg-slate-800 p-2">
-                          <p className="text-lg font-black text-white">{presetResult.totalSlots} slots</p>
-                          <p className="text-[10px] font-bold uppercase text-stone-500">
-                            {presetResult.subUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")}
-                          </p>
-                        </div>
-                        <div className="rounded-lg bg-slate-800 p-2">
-                          <p className="text-lg font-black text-yellow-400">
-                            ${presetResult.totalPrice.toLocaleString()}
-                          </p>
-                          <p className="text-[10px] font-bold uppercase text-stone-500">
-                            {presetResult.presetName}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleAddPreset}
-                        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                          presetAdded
-                            ? "bg-emerald-500 text-white"
-                            : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                        }`}
-                      >
-                        {presetAdded ? (
-                          <>
-                            <Check className="h-4 w-4" />
-                            Added to Quote
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-4 w-4" />
-                            Add to Quote
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                );
-              })()}
-          </div>
-
-          {/* ── AI Builder — describe anything ── */}
-          <div className="mt-3 border-t border-slate-800 pt-3">
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                Or describe what to build
-                </label>
-                {/* Quick scenario chips */}
-                <div className="mb-2 flex flex-wrap gap-1.5">
-                  {[
-                    "Indiana Joe with clear totes",
-                    "4x4 on wheels with a top",
-                    "Cornhusker no totes",
-                    "36x24 planter box with shelf $350",
-                    "120x96 wall fit",
-                    "Garage cleanout $349",
-                  ].map((scenario) => (
-                    <button
-                      key={scenario}
-                      type="button"
-                      onClick={() => { setAiInput(scenario); setAiError(""); }}
-                      className="rounded-full border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[10px] font-medium text-stone-500 transition-all hover:border-yellow-400/40 hover:bg-yellow-400/10 hover:text-yellow-300"
-                    >
-                      {scenario}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={aiInput}
-                  onChange={(e) => { setAiInput(e.target.value); setAiError(""); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiBuild(); } }}
-                  placeholder='e.g. "4x4 with totes and wheels" or "Indiana Joe no totes" or "36x24 raised planter box with shelf $350" or "garage cleanout $200"'
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 focus:border-yellow-400 focus:outline-none"
-                  disabled={aiLoading}
-                />
-              </div>
-
-              {aiError && <p className="text-xs font-medium text-red-400">{aiError}</p>}
-
-              {!aiResult && (
-                <button
-                  onClick={handleAiBuild}
-                  disabled={!aiInput.trim() || aiLoading}
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                    aiInput.trim() && !aiLoading
-                      ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                      : "cursor-not-allowed bg-slate-700 text-stone-500"
-                  }`}
-                >
-                  {aiLoading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Parsing...</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" /> Build</>
-                  )}
-                </button>
-              )}
-
-              {/* AI Result Preview — installer reviews before adding */}
-              {aiResult && (
-                <div className="space-y-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Preview — confirm before adding</p>
-                  {aiResult.map((unit, i) => (
-                    <div key={i} className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-white">{unit.description}</p>
-                        <div className="flex items-center gap-2">
-                          {unit.customPrice && (
-                            <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">${unit.customPrice}</span>
-                          )}
-                          {unit.presetId && (
-                            <span className="rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">Preset</span>
-                          )}
-                          {unit.overheadGridPresetId && (
-                            <span className="rounded-full bg-blue-400/15 px-2 py-0.5 text-[10px] font-bold text-blue-400">Ceiling</span>
-                          )}
-                          {unit.raisedBedConfig && (
-                            <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-400">Raised Bed</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-stone-400">
-                        {unit.raisedBedConfig ? (
-                          <span>
-                            {(() => { const bed = RAISED_BED_SIZES.find((s) => s.id === unit.raisedBedConfig!.sizeId); return bed ? `${bed.widthIn}"×${bed.lengthIn}"×${bed.heightIn}" ${bed.style === "with_legs" ? "(with legs)" : "(ground)"}` : unit.raisedBedConfig!.sizeId; })()}
-                            {unit.raisedBedConfig.finish !== "natural" && ` • ${unit.raisedBedConfig.finish === "stain" ? "Stain" : "Painted White"}`}
-                            {unit.raisedBedConfig.hasLiner && " • Liner"}
-                            {unit.raisedBedConfig.depthIncrease && " • 12\" Depth"}
-                            {unit.raisedBedConfig.postHeight && ` • ${unit.raisedBedConfig.postHeight === 72 ? "6'" : unit.raisedBedConfig.postHeight === 84 ? "7'" : "8'"} Post`}
-                            {unit.raisedBedConfig.hasHook && " • Hook"}
-                            {unit.raisedBedConfig.highWindWeighted && " • High-Wind Weighted"}
-                            {unit.raisedBedConfig.quantity > 1 && ` • Qty: ${unit.raisedBedConfig.quantity}`}
-                          </span>
-                        ) : unit.overheadGridPresetId ? (
-                          <span>Overhead {unit.overheadGridPresetId} grid{unit.hasTotes ? ` • Totes (${unit.toteColor})` : ""}</span>
-                        ) : unit.cols === 0 && unit.rows === 0 && unit.customPrice ? (
-                          <span>Custom item</span>
-                        ) : (
-                          <>
-                            {!unit.presetId && <span>{unit.cols}×{unit.rows}</span>}
-                            {unit.hasTotes && <span>Totes ({unit.toteColor})</span>}
-                            {!unit.hasTotes && <span>No totes</span>}
-                            {unit.hasWheels && <span>Wheels</span>}
-                            {unit.hasTop && <span>Top</span>}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {aiNotes && <p className="text-xs text-stone-500 italic">{aiNotes}</p>}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setAiResult(null); }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={handleAddAiUnits}
-                      className={`flex flex-[2] items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                        aiAdded
-                          ? "bg-emerald-500 text-white"
-                          : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                      }`}
-                    >
-                      {aiAdded ? (
-                        <><Check className="h-4 w-4" /> Added to Quote</>
-                      ) : (
-                        <><Plus className="h-4 w-4" /> Add to Quote</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-          </div>
-        </section>
-
-        {/* ── Open Shelving ──────────────────────────────────────────── */}
-        {installerPricing?.open_shelving_enabled === true && <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-          <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-            <Grid3X3 className="h-4 w-4 text-yellow-400" />
-            Open Shelving
-          </h2>
-
-          <select
-            value={selectedShelving}
-            onChange={(e) => {
-              setSelectedShelving(e.target.value);
-              setShelvingAdded(false);
-            }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
-          >
-            <option value="">Choose a shelving unit…</option>
-            {SHELVING_CONFIGS.map((cfg) => {
-              const heightLabel = cfg.height === "tall" ? `Tall (${cfg.frameH}"H)` : `Short (${cfg.frameH}"H)`;
-              const shelfText = cfg.shelves === 1 ? "1 shelf + top" : `${cfg.shelves} shelves + top`;
-              return (
-                <option key={cfg.id} value={cfg.id}>
-                  {cfg.widthFt}&apos; Wide × {heightLabel} — {shelfText}
-                </option>
-              );
-            })}
-          </select>
-
-          {selectedShelving && (
-            <div className="mt-3 space-y-3">
-              {shelvingLoading && (
-                <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Calculating…
-                </div>
-              )}
-
-              {shelvingPrice != null && !shelvingLoading && (
-                <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="rounded-lg bg-slate-800 p-2">
-                      <p className="text-lg font-black text-white">
-                        {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.widthFt}&apos; × {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.height === "tall" ? "Tall" : "Short"}
-                      </p>
-                      <p className="text-[10px] font-bold uppercase text-stone-500">
-                        {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.widthIn}&quot; × {SHELVING_CONFIGS.find((c) => c.id === selectedShelving)?.frameH}&quot; × 30&quot;
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-slate-800 p-2">
-                      <p className="text-lg font-black text-yellow-400">
-                        ${shelvingPrice.toLocaleString()}
-                      </p>
-                      <p className="text-[10px] font-bold uppercase text-stone-500">
-                        Open Shelving
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleAddShelving}
-                    className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                      shelvingAdded
-                        ? "bg-emerald-500 text-white"
-                        : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                    }`}
-                  >
-                    {shelvingAdded ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Added to Quote
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4" />
-                        Add to Quote
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </section>}
-
-        {/* ── Overhead Ceiling Storage ─────────────────────────────────── */}
-        {installerPricing?.overhead_storage_enabled === true && (
-          <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-            <button
-              onClick={() => setOverheadCollapsed(!overheadCollapsed)}
-              className="flex w-full items-center justify-between"
-            >
-              <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <ArrowUpFromLine className="h-4 w-4 text-yellow-400" />
-                Overhead Ceiling Storage
-              </h2>
-              <div className="flex items-center gap-2">
-                {overheadCollapsed && overheadPresetId && (
-                  <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-                    {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.label} • {overheadToteType}
-                    {overheadHasTotes ? " • Totes" : ""}
-                  </span>
-                )}
-                <ChevronDown className={`h-4 w-4 text-stone-500 transition-transform ${overheadCollapsed ? "" : "rotate-180"}`} />
-              </div>
-            </button>
-
-            {!overheadCollapsed && (
-              <div className="mt-3 space-y-3">
-                {/* Grid preset buttons */}
-                <div>
-                  <label className="mb-2 block text-[10px] font-bold uppercase text-stone-500">
-                    Grid Size
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {OVERHEAD_GRID_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        onClick={() => {
-                          setOverheadPresetId(overheadPresetId === preset.id ? "" : preset.id);
-                          setOverheadAdded(false);
-                        }}
-                        className={`rounded-lg border px-3 py-2.5 text-center transition-colors ${
-                          overheadPresetId === preset.id
-                            ? "border-yellow-400 bg-yellow-400/10"
-                            : "border-slate-700 hover:border-stone-600"
-                        }`}
-                      >
-                        <div className="text-sm font-bold text-white">{preset.label}</div>
-                        <div className="text-[10px] text-stone-500">{preset.toteCount} totes</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tote type toggle */}
-                {overheadPresetId && (
-                  <>
-                    <div>
-                      <label className="mb-2 block text-[10px] font-bold uppercase text-stone-500">
-                        Tote Size
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setOverheadToteType("HDX")}
-                          className={`rounded-lg border px-3 py-2 text-center transition-colors ${
-                            overheadToteType === "HDX"
-                              ? "border-yellow-400 bg-yellow-400/10"
-                              : "border-slate-700 hover:border-stone-600"
-                          }`}
-                        >
-                          <div className="text-xs font-bold text-stone-200">Standard (HDX)</div>
-                          <div className="text-[9px] text-stone-500">19-3/4&quot; slot</div>
-                        </button>
-                        <button
-                          onClick={() => setOverheadToteType("GM")}
-                          className={`rounded-lg border px-3 py-2 text-center transition-colors ${
-                            overheadToteType === "GM"
-                              ? "border-yellow-400 bg-yellow-400/10"
-                              : "border-slate-700 hover:border-stone-600"
-                          }`}
-                        >
-                          <div className="text-xs font-bold text-stone-200">Wide (GM)</div>
-                          <div className="text-[9px] text-stone-500">20-3/4&quot; slot</div>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Include totes toggle */}
-                    <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5">
-                      <input
-                        type="checkbox"
-                        checked={overheadHasTotes}
-                        onChange={(e) => setOverheadHasTotes(e.target.checked)}
-                        className="h-4 w-4 accent-yellow-400"
-                      />
-                      <span className="text-sm text-stone-300">Include Totes</span>
-                    </label>
-
-                    {/* Loading / Result */}
-                    {overheadLoading && (
-                      <div className="flex items-center justify-center gap-2 py-3 text-sm text-stone-500">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Calculating…
-                      </div>
-                    )}
-
-                    {overheadPrice != null && !overheadLoading && (
-                      <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/5 p-3">
-                        <div className="grid grid-cols-2 gap-3 text-center">
-                          <div className="rounded-lg bg-slate-800 p-2">
-                            <p className="text-lg font-black text-white">
-                              {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.label}
-                            </p>
-                            <p className="text-[10px] font-bold uppercase text-stone-500">
-                              {OVERHEAD_GRID_PRESETS.find((p) => p.id === overheadPresetId)?.toteCount} totes • {overheadToteType}
-                            </p>
-                          </div>
-                          <div className="rounded-lg bg-slate-800 p-2">
-                            <p className="text-lg font-black text-yellow-400">
-                              ${overheadPrice.toLocaleString()}
-                            </p>
-                            <p className="text-[10px] font-bold uppercase text-stone-500">
-                              Overhead Storage
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleAddOverhead}
-                          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold uppercase tracking-wider transition-all ${
-                            overheadAdded
-                              ? "bg-emerald-500 text-white"
-                              : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                          }`}
-                        >
-                          {overheadAdded ? (
-                            <>
-                              <Check className="h-4 w-4" />
-                              Added to Quote
-                            </>
-                          ) : (
-                            <>
-                              <Plus className="h-4 w-4" />
-                              Add to Quote
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ── Raised Bed Planters ──────────────────────────────────────── */}
-        {installerPricing?.raised_bed_enabled === true && (
-          <section className="rounded-xl border border-yellow-400/20 bg-slate-900 p-4">
-            <RaisedBedDropdown
-              onAddRaisedBed={handleAddRaisedBed}
-              installerPricing={installerPricing}
-            />
-          </section>
-        )}
-
-        {/* ── Input Card ─────────────────────────────────────────────── */}
-        <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-          {/* Mode Toggle */}
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setInputMode("wallFit")}
-              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
-                inputMode === "wallFit"
-                  ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                  : "border-slate-700 text-stone-400 hover:border-stone-600"
-              }`}
-            >
-              <Maximize2 className="h-4 w-4" />
-              Wall Fit
-            </button>
-            <button
-              onClick={() => setInputMode("custom")}
-              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-bold uppercase transition-colors ${
-                inputMode === "custom"
-                  ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                  : "border-slate-700 text-stone-400 hover:border-stone-600"
-              }`}
-            >
-              <Grid3X3 className="h-4 w-4" />
-              Custom Grid
-            </button>
-          </div>
-
-          {/* Wall Fit Mode */}
-          {inputMode === "wallFit" && (
-            <>
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <Maximize2 className="h-4 w-4 text-yellow-400" />
-                Wall Dimensions
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Width (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallWidth}
-                    onChange={(e) => setWallWidth(e.target.value)}
-                    placeholder="e.g. 120"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Height (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallHeight}
-                    onChange={(e) => setWallHeight(e.target.value)}
-                    placeholder="e.g. 96"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Custom Grid Mode */}
-          {inputMode === "custom" && (
-            <>
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <Grid3X3 className="h-4 w-4 text-yellow-400" />
-                Grid Configuration
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Columns (Wide)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    max="20"
-                    value={customCols}
-                    onChange={(e) => setCustomCols(e.target.value)}
-                    placeholder="e.g. 4"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                    Rows (High)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    max={installerPricing?.use_2x4_rails ? "5" : "20"}
-                    value={customRows}
-                    onChange={(e) => setCustomRows(e.target.value)}
-                    placeholder={installerPricing?.use_2x4_rails ? "e.g. 4 (max 5)" : "e.g. 5"}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <p className="mt-2 text-[10px] text-stone-500">
-                {installerPricing?.use_2x4_rails
-                  ? "Enter the number of columns and rows (max 5 tiers for 2x4 rail construction)."
-                  : "Enter the number of tote columns and rows for your unit."}
-              </p>
-            </>
-          )}
-
-          {/* ── 2x4 Rail Construction Mode Indicator ─────────────── */}
-          {installerPricing?.use_2x4_rails === true && (
-            <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-yellow-400">2x4 Rail Construction</div>
-              <div className="mt-1 text-xs text-stone-400">
-                21&quot; universal openings &middot; Ripped 2x4 rails &middot; Max 5 tiers
-              </div>
-            </div>
-          )}
-
-          {/* ── Unit Size Toggle (Standard vs Mini) — hidden in 2x4 rail mode ── */}
-          {installerPricing?.mini_enabled === true && installerPricing?.use_2x4_rails !== true && (
-            <div className="mt-3">
-              <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                Unit Size
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setUnitType("standard")}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                    unitType === "standard"
-                      ? "border-yellow-400 bg-yellow-400/10"
-                      : "border-slate-700 hover:border-stone-600"
-                  }`}
-                >
-                  <div className="text-sm font-bold text-stone-200">Standard</div>
-                  <div className="mt-0.5 text-[10px] text-stone-500">27 Gallon Totes</div>
-                </button>
-                <button
-                  onClick={() => {
-                    setUnitType("mini");
-                    setHasTop(true);
-                    setOrientation("standard");
-                  }}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                    unitType === "mini"
-                      ? "border-yellow-400 bg-yellow-400/10"
-                      : "border-slate-700 hover:border-stone-600"
-                  }`}
-                >
-                  <div className="text-sm font-bold text-stone-200">Mini</div>
-                  <div className="mt-0.5 text-[10px] text-stone-500">6.5 Quart Totes</div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Orientation (Standard units only) ── */}
-          {unitType === "standard" && (
-          <div className="mt-3">
-            <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-              Tote Orientation
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setOrientation("standard")}
-                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  orientation === "standard"
-                    ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-slate-700 hover:border-stone-600"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-bold text-stone-200">Standard</div>
-                  {orientation === "standard" && (
-                    <svg className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
-                  )}
-                </div>
-                <div className="mt-0.5 text-[10px] text-stone-500">30&quot; Deep</div>
-              </button>
-              <button
-                onClick={() => setOrientation("sideways")}
-                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  orientation === "sideways"
-                    ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-slate-700 hover:border-stone-600"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-bold text-stone-200">Sideways</div>
-                  {orientation === "sideways" && (
-                    <svg className="h-4 w-4 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
-                  )}
-                </div>
-                <div className="mt-0.5 text-[10px] text-stone-500">20&quot; Deep</div>
-              </button>
-            </div>
-          </div>
-          )}
-
-          {/* ── Tote Size (Standard units only, hidden in 2x4 rail mode) ── */}
-          {installerPricing?.use_2x4_rails !== true && unitType === "standard" ? (
-          <div className="mt-3">
-            <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-              Tote Size
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setToteType("HDX")}
-                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  toteType === "HDX"
-                    ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-slate-700 hover:border-stone-600"
-                }`}
-              >
-                <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
-                  19-3/4&quot; Opening
-                </div>
-                <div className="text-sm font-bold text-stone-200">Standard</div>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
-                    HDX
-                  </span>
-                  <span className="inline-block rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-orange-400">
-                    Performax
-                  </span>
-                </div>
-                <div className="mt-1 text-[9px] text-stone-600">
-                  Home Depot &middot; Menards
-                </div>
-              </button>
-
-              <button
-                onClick={() => setToteType("GM")}
-                className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  toteType === "GM"
-                    ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-slate-700 hover:border-stone-600"
-                }`}
-              >
-                <div className="text-[9px] font-bold uppercase tracking-wide text-stone-500">
-                  20-3/4&quot; Opening
-                </div>
-                <div className="text-sm font-bold text-stone-200">Wide</div>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
-                    GreenMade
-                  </span>
-                  <span className="inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">
-                    Project Source
-                  </span>
-                </div>
-                <div className="mt-1 text-[9px] text-stone-600">
-                  Costco &middot; Lowe&apos;s &middot; Walmart
-                </div>
-              </button>
-            </div>
-          </div>
-          ) : installerPricing?.use_2x4_rails !== true ? (
-            <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Tote Type</div>
-              <div className="mt-1 text-sm font-medium text-stone-300">
-                6.5 Quart Clear Totes (Yellow Lids)
-              </div>
-            </div>
-          ) : null}
-
-          {/* Toggles */}
-          <div className="mt-3 space-y-2">
-            {[
-              { val: hasTotes, set: setHasTotes, label: unitType === "mini" ? "Include Clear Totes" : "Totes", disabled: false },
-              { val: hasWheels, set: setHasWheels, label: "Wheels", disabled: false },
-              { val: unitType === "mini" ? true : hasTop, set: setHasTop, label: "Plywood Top", disabled: unitType === "mini" },
-            ].map(({ val, set, label, disabled }) => (
-              <label
-                key={label}
-                className={`flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 ${disabled ? "opacity-60" : "cursor-pointer"}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={val}
-                  onChange={(e) => set(e.target.checked)}
-                  disabled={disabled}
-                  className="h-4 w-4 accent-yellow-400"
-                />
-                <span className="text-sm text-stone-300">{label}</span>
-                {disabled && <span className="text-[9px] text-stone-600">(always included)</span>}
-              </label>
-            ))}
-            {indoorDeliveryConfig?.enabled && (
-              <label className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={indoorDelivery}
-                  onChange={(e) => setIndoorDelivery(e.target.checked)}
-                  className="h-4 w-4 accent-yellow-400"
-                />
-                <span className="text-sm text-stone-300">Indoor Delivery (+${indoorDeliveryConfig.fee})</span>
-              </label>
-            )}
-          </div>
-
-          <button
-            onClick={handleCalculate}
-            disabled={calculating}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
-          >
-            {calculating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <HardHat className="h-4 w-4" />
-            )}
-            {calculating ? "Calculating…" : "Calculate Build"}
-          </button>
-
-          {calcError && (
-            <p className="mt-3 text-xs font-medium text-red-400">{calcError}</p>
-          )}
-        </section>
-
-        {/* ── Results ────────────────────────────────────────────────── */}
-        {buildResult && (
-          <>
-            {/* Specs + Price */}
-            <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="rounded-lg bg-slate-800 p-3">
-                  <p className="text-2xl font-black text-white">
-                    {buildResult.cols} × {buildResult.rows}
-                  </p>
-                  <p className="text-[10px] font-bold uppercase text-stone-500">
-                    Max Fit
-                  </p>
-                </div>
-                <div className="rounded-lg bg-slate-800 p-3">
-                  <p className="text-2xl font-black text-yellow-400">
-                    ${buildResult.price.toLocaleString()}
-                  </p>
-                  <p className="text-[10px] font-bold uppercase text-stone-500">
-                    Est. Price
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 text-center text-xs text-stone-500">
-                {toFraction(buildResult.totalW)}&quot; W × {toFraction(buildResult.totalH)}
-                &quot; H × {toFraction(buildResult.depth)}&quot; D — {buildResult.slots} slots
-              </div>
-
-              {/* ACTION BUTTONS */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <button
-                  onClick={handleAddUnit}
-                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-blue-400 bg-blue-400/10 py-3 text-xs font-bold uppercase tracking-wider text-blue-400 transition-all hover:bg-blue-400/20"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Unit
-                </button>
-                <button
-                  onClick={() => editingLeadId ? setShowQuoteModal(true) : setShowQuoteModal(true)}
-                  className={`flex items-center justify-center gap-2 rounded-lg border-2 py-3 text-xs font-bold uppercase tracking-wider transition-all ${
-                    editingLeadId
-                      ? "border-emerald-400 bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20"
-                      : "border-yellow-400 bg-yellow-400/10 text-yellow-400 hover:bg-yellow-400/20"
-                  }`}
-                >
-                  {editingLeadId ? <CheckCircle2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-                  {editingLeadId ? "Update Quote" : "Send Quote"}
-                </button>
-                <button
-                  onClick={() => setShowAssemblyGuide(true)}
-                  className="flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-400 bg-emerald-400/10 py-3 text-xs font-bold uppercase tracking-wider text-emerald-400 transition-all hover:bg-emerald-400/20"
-                >
-                  <Box className="h-4 w-4" />
-                  How-To Guide
-                </button>
-              </div>
-
-            </section>
-          </>
-        )}
-
-        {/* ── Quote Builder (Multiple Units) ────────────────────────── */}
-        {/* Lives outside buildResult gate so preset-only quotes are visible */}
-        {units.length > 0 && (
-          <section ref={quoteBuilderRef} className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
-              <ShoppingCart className="h-4 w-4" />
-              Quote Builder ({units.length} unit{units.length > 1 ? "s" : ""})
-            </h2>
-
-            <div className="space-y-2">
-              {(() => {
-                const rendered = new Set<string>();
-                return units.map((unit, index) => {
-                  if (unit.presetGroup) {
-                    if (rendered.has(unit.presetGroup)) return null;
-                    rendered.add(unit.presetGroup);
-                    const groupUnits = units.filter((u) => u.presetGroup === unit.presetGroup);
-                    const groupPrice = groupUnits.reduce((s, u) => s + (u.price || 0), 0);
-                    const groupSlots = groupUnits.reduce((s, u) => s + (u.slots || 0), 0);
-                    return (
-                      <div
-                        key={unit.presetGroup}
-                        className="rounded-lg border border-yellow-400/20 bg-slate-800 p-3"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
-                              {unit.presetName}
-                            </p>
-                            <p className="text-[11px] text-stone-500">
-                              {groupUnits.map((u) => `${u.cols}×${u.rows}`).join(" + ")} • {groupSlots} slots
-                              {groupUnits[0].hasTotes && " • Totes"}
-                              {groupUnits.some((u) => u.hasWheels) && " • Wheels"}
-                              {groupUnits.some((u) => u.hasTop) && " • Top"}
-                              {groupUnits.some((u) => u.indoorDelivery) && " • Indoor Delivery"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-yellow-400">
-                              ${groupPrice.toLocaleString()}
-                            </span>
-                            <button
-                              onClick={() => handleRemoveUnit(unit.id)}
-                              className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={unit.id}
-                      className={`flex items-center justify-between rounded-lg border p-3 ${
-                        unit.overheadGridPresetId
-                          ? "border-yellow-400/20 bg-slate-800"
-                          : "border-slate-700 bg-slate-800"
-                      }`}
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {unit.raisedBedConfig ? (
-                            unit.desc
-                          ) : unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
-                            <>
-                              <PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />
-                              {unit.desc}
-                            </>
-                          ) : unit.overheadGridPresetId ? (
-                            <>
-                              <ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />
-                              {unit.desc}
-                            </>
-                          ) : unit.shelvingConfigId ? (
-                            unit.desc
-                          ) : (
-                            <>Unit {index + 1}: {unit.cols} × {unit.rows}</>
-                          )}
-                        </p>
-                        <p className="text-[11px] text-stone-500">
-                          {unit.raisedBedConfig ? (
-                            <>Raised Bed{unit.quantity && unit.quantity > 1 ? ` • Qty: ${unit.quantity}` : ""}</>
-                          ) : unit.cols === 0 && unit.rows === 0 && !unit.overheadGridPresetId && !unit.shelvingConfigId ? (
-                            "Custom item"
-                          ) : unit.overheadGridPresetId ? (
-                            <>{unit.toteType}{unit.hasTotes && " • Totes"}</>
-                          ) : (
-                            <>
-                              {unit.unitType === "mini" ? "Mini" : unit.toteType} • {unit.slots} slots
-                              {unit.hasTotes && " • Totes"}
-                              {unit.hasWheels && " • Wheels"}
-                              {unit.hasTop && " • Top"}
-                              {unit.indoorDelivery && " • Indoor Delivery"}
-                            </>
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-bold text-yellow-400">
-                          ${((unit.price || 0) + (unit.indoorDelivery && unit.indoorDeliveryFee ? unit.indoorDeliveryFee : 0)).toLocaleString()}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveUnit(unit.id)}
-                          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-
-            {/* Grand Total */}
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-yellow-400/30 bg-yellow-400/10 p-3">
-              <span className="text-sm font-bold uppercase text-stone-400">Grand Total</span>
-              <span className="text-xl font-black text-yellow-400">
-                ${grandTotal.toLocaleString()}
-              </span>
-            </div>
-
-            <button
-              onClick={() => setShowQuoteModal(true)}
-              className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all ${
-                editingLeadId
-                  ? "bg-emerald-500 text-white hover:bg-emerald-400"
-                  : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-              }`}
-            >
-              {editingLeadId ? <CheckCircle2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-              {editingLeadId ? "Update Quote" : "Send Quote"}
-            </button>
-          </section>
-        )}
-
-        {(buildResult || units.length > 0) && (
-          <>
-            {/* ── Profit Calculator ────────────────────────────────────── */}
-            <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                <Calculator className="h-4 w-4 text-yellow-400" />
-                Profit Calculator {units.length > 0 && <span className="text-yellow-400">({units.length} units)</span>}
-              </h2>
-
-              {displayMaterials && (
-                <div className="space-y-4">
-                  {/* Material Cost Breakdown */}
-                  <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-stone-500">Est. Material Cost</span>
-                      <span className="text-lg font-black text-orange-400">
-                        ${displayMaterials.totalCost.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-xs text-stone-400">
-                      {displayMaterials.items.map((item, i) => (
-                        <div key={i} className="flex justify-between">
-                          <span>{item.name} × {item.qty}</span>
-                          <span className="font-mono">${item.subtotal.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Custom pricing indicator — configured in Profile > Material Costs */}
-                    {Object.keys(materialPrices).length > 0 && (
-                      <div className="flex items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/20 px-3 py-1.5">
-                        <span className="rounded-full bg-yellow-400/20 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400">
-                          CUSTOM
-                        </span>
-                        <span className="text-[10px] text-stone-500">
-                          Material prices from your profile settings
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Profit Scenarios Grid (values from server, no fee constants in client) */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Network Lead Scenario */}
-                    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
-                      <div className="mb-2 text-center">
-                        <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-                          NETWORK LEAD
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between text-stone-400">
-                          <span>Job Price</span>
-                          <span>${displayPrice.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-red-400">
-                          <span>Network Fee ({feeBreakdown?.networkFeePercent ?? "..."})</span>
-                          <span>-${(feeBreakdown?.networkFeeAmount ?? 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-stone-400">
-                          <span>You Collect</span>
-                          <span>${(feeBreakdown?.networkCollect ?? 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-orange-400">
-                          <span>Materials</span>
-                          <span>-${displayMaterials.totalCost.toLocaleString()}</span>
-                        </div>
-                        <div className="mt-2 border-t border-slate-600 pt-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-stone-300">Net Profit</span>
-                            <span className="text-lg font-black text-emerald-400">
-                              ${(feeBreakdown?.networkNetProfit ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Direct Lead Scenario */}
-                    <div className="relative rounded-lg border p-3 border-yellow-400/50 bg-yellow-400/5">
-                      <div className="mb-2 text-center">
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-yellow-400/20 text-yellow-400">
-                          DIRECT LEAD
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between text-stone-400">
-                          <span>Job Price</span>
-                          <span>${displayPrice.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-red-400">
-                          <span>Maintenance Fee ({feeBreakdown?.directFeePercent ?? "..."})</span>
-                          <span>-${(feeBreakdown?.directFeeAmount ?? 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-stone-400">
-                          <span>You Collect</span>
-                          <span>${(feeBreakdown?.directCollect ?? 0).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between text-orange-400">
-                          <span>Materials</span>
-                          <span>-${displayMaterials.totalCost.toLocaleString()}</span>
-                        </div>
-                        <div className="mt-2 border-t border-slate-600 pt-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-stone-300">Net Profit</span>
-                            <span className="text-lg font-black text-emerald-400">
-                              ${(feeBreakdown?.directNetProfit ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* ── Locked Blueprints Teaser ─────────────────────────────── */}
-            <LockedBlueprintsTeaser />
-          </>
-        )}
+        {/* ── Locked Blueprints Teaser ──────────────────────────────────── */}
+        {(buildResult || units.length > 0) && <LockedBlueprintsTeaser />}
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
-        <div className="pb-8 text-center">
+        <div className="pb-2 text-center">
           <a
             href="/dashboard"
             className="inline-flex items-center gap-1 text-xs font-semibold text-stone-500 hover:text-yellow-400"
@@ -2567,470 +1384,162 @@ export default function BuildConfiguratorPage() {
       </main>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          QUOTE MODAL
+          POS DRAWERS — one open at a time, triggered by tile tap
       ═══════════════════════════════════════════════════════════════════ */}
-      {showQuoteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="scrollbar-dark relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-gray-900 p-6 shadow-2xl">
-            {/* Close button */}
-            <button
-              onClick={resetQuoteModal}
-              className="absolute right-4 top-4 text-stone-500 transition-colors hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
+      <BestsellerDrawer
+        isOpen={activeDrawer === "bestseller"}
+        onClose={() => setActiveDrawer(null)}
+        installerPricing={installerPricing}
+        selectedPreset={selectedPreset}
+        onSelectedPresetChange={setSelectedPreset}
+        presetHasTotes={presetHasTotes}
+        onPresetHasTotesChange={setPresetHasTotes}
+        presetLoading={presetLoading}
+        presetResult={presetResult}
+        presetAdded={presetAdded}
+        onAddPreset={handleAddPreset}
+      />
 
-            {!quoteSent ? (
-              <>
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10">
-                  <FileText className="h-7 w-7 text-yellow-400" />
-                </div>
+      <CustomUnitDrawer
+        isOpen={activeDrawer === "custom"}
+        onClose={() => setActiveDrawer(null)}
+        installerPricing={installerPricing}
+        indoorDeliveryConfig={indoorDeliveryConfig}
+        inputMode={inputMode}
+        onInputModeChange={setInputMode}
+        wallWidth={wallWidth}
+        onWallWidthChange={setWallWidth}
+        wallHeight={wallHeight}
+        onWallHeightChange={setWallHeight}
+        customCols={customCols}
+        onCustomColsChange={setCustomCols}
+        customRows={customRows}
+        onCustomRowsChange={setCustomRows}
+        toteType={toteType}
+        onToteTypeChange={setToteType}
+        orientation={orientation}
+        onOrientationChange={setOrientation}
+        unitType={unitType}
+        onUnitTypeChange={setUnitType}
+        hasTotes={hasTotes}
+        onHasTotesChange={setHasTotes}
+        hasWheels={hasWheels}
+        onHasWheelsChange={setHasWheels}
+        hasTop={hasTop}
+        onHasTopChange={setHasTop}
+        indoorDelivery={indoorDelivery}
+        onIndoorDeliveryChange={setIndoorDelivery}
+        calculating={calculating}
+        calcError={calcError}
+        buildResult={buildResult}
+        onCalculate={handleCalculate}
+        onAddUnit={handleAddUnit}
+        onOpenAssemblyGuide={() => setShowAssemblyGuide(true)}
+      />
 
-                <h3 className="mb-1 text-center text-lg font-bold text-white">
-                  {editingLeadId ? "Update Quote" : "Create Quote"}
-                </h3>
-                <p className="mb-5 text-center text-sm text-stone-400">
-                  {editingLeadId ? `Editing quote for ${editingCustomerName}` : "Send a professional quote to your customer"}
-                </p>
+      <ShelvingDrawer
+        isOpen={activeDrawer === "shelving"}
+        onClose={() => setActiveDrawer(null)}
+        selectedShelving={selectedShelving}
+        onSelectedShelvingChange={(id) => { setSelectedShelving(id); setShelvingAdded(false); }}
+        shelvingPrice={shelvingPrice}
+        shelvingLoading={shelvingLoading}
+        shelvingAdded={shelvingAdded}
+        onAddShelving={handleAddShelving}
+      />
 
-                {/* Quote Details - Show multi-unit summary if units exist, else current build */}
-                {units.length > 0 ? (
-                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
-                    <p className="mb-2 text-xs font-bold uppercase text-stone-500">
-                      {units.length} Unit{units.length > 1 ? "s" : ""} in Quote
-                    </p>
-                    <div className="space-y-1">
-                      {(() => {
-                        const seen = new Set<string>();
-                        return units.map((u, idx) => {
-                          if (u.presetGroup) {
-                            if (seen.has(u.presetGroup)) return null;
-                            seen.add(u.presetGroup);
-                            const group = units.filter((g) => g.presetGroup === u.presetGroup);
-                            const groupPrice = group.reduce((s, g) => s + (g.price || 0), 0);
-                            return (
-                              <div key={u.presetGroup} className="flex justify-between text-sm">
-                                <span className="text-stone-400">
-                                  <Star className="mr-1 inline h-3 w-3 text-yellow-400" />
-                                  {u.presetName} ({group.map((g) => `${g.cols}×${g.rows}`).join(" + ")})
-                                </span>
-                                <span className="font-semibold text-white">${groupPrice.toLocaleString()}</span>
-                              </div>
-                            );
-                          }
-                          return (
-                            <div key={u.id} className="text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-stone-400">
-                                  {u.cols === 0 && u.rows === 0 && !u.overheadGridPresetId && !u.shelvingConfigId ? (
-                                    <><PenLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
-                                  ) : u.overheadGridPresetId ? (
-                                    <><ArrowUpFromLine className="mr-1 inline h-3 w-3 text-yellow-400" />{u.desc}</>
-                                  ) : (
-                                    <>Unit {idx + 1}: {u.cols}×{u.rows}</>
-                                  )}
-                                </span>
-                                <span className="font-semibold text-white">
-                                  ${((u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0)).toLocaleString()}
-                                </span>
-                              </div>
-                              {indoorDeliveryConfig?.enabled && (
-                                <label className="mt-0.5 flex items-center gap-1.5 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={!!u.indoorDelivery}
-                                    onChange={(e) => {
-                                      setUnits((prev) => prev.map((p, i) => i === idx ? { ...p, indoorDelivery: e.target.checked, indoorDeliveryFee: indoorDeliveryConfig.fee } : p));
-                                    }}
-                                    className="h-3 w-3 rounded border-slate-600 bg-slate-700 text-yellow-400 focus:ring-yellow-400/50"
-                                  />
-                                  <span className="text-[10px] text-stone-500">Indoor delivery (+${indoorDeliveryConfig.fee})</span>
-                                </label>
-                              )}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                    <div className="mt-2 border-t border-slate-700 pt-2 space-y-1">
-                      {deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-400">
-                            <MapPin className="mr-1 inline h-3 w-3 text-yellow-400" />
-                            Delivery Fee ({deliveryFeeResult.distance} mi)
-                          </span>
-                          <span className="font-semibold text-white">${deliveryFeeResult.fee.toLocaleString()}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-sm font-bold text-stone-400">Total</span>
-                        <span className="text-xl font-black text-yellow-400">
-                          ${(units.reduce((sum, u) => sum + (u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee * (u.quantity || 1) : 0), 0) + (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 ? deliveryFeeResult.fee : 0)).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : buildResult && (
-                  <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-center">
-                    <p className="text-sm text-stone-400">
-                      {buildResult.cols}×{buildResult.rows} Unit
-                    </p>
-                    <p className="text-2xl font-black text-yellow-400">
-                      ${buildResult.price.toLocaleString()}
-                    </p>
-                  </div>
-                )}
+      <OverheadDrawer
+        isOpen={activeDrawer === "overhead"}
+        onClose={() => setActiveDrawer(null)}
+        overheadPresetId={overheadPresetId}
+        onOverheadPresetIdChange={(id) => { setOverheadPresetId(id); setOverheadAdded(false); }}
+        overheadToteType={overheadToteType}
+        onOverheadToteTypeChange={setOverheadToteType}
+        overheadHasTotes={overheadHasTotes}
+        onOverheadHasTotesChange={setOverheadHasTotes}
+        overheadPrice={overheadPrice}
+        overheadLoading={overheadLoading}
+        overheadAdded={overheadAdded}
+        onAddOverhead={handleAddOverhead}
+      />
 
-                {/* Customer Form */}
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Customer Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="John Smith"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Email {zipCheckStatus === "waitlist" ? "*" : "(optional)"}
-                    </label>
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="john@email.com"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Phone (optional)
-                    </label>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="(555) 123-4567"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
-                      Customer ZIP Code *
-                    </label>
-                    <input
-                      type="text"
-                      value={deliveryZip}
-                      onChange={(e) => setDeliveryZip(e.target.value)}
-                      placeholder="e.g. 30301"
-                      maxLength={5}
-                      className="w-32 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <p className="mt-1 text-[10px] text-stone-600">
-                      Used to verify installer coverage for this customer.
-                    </p>
+      <RaisedBedDrawer
+        isOpen={activeDrawer === "raisedBed"}
+        onClose={() => setActiveDrawer(null)}
+        installerPricing={installerPricing}
+        onAddRaisedBed={handleAddRaisedBed}
+      />
 
-                    {/* ── Real-time ZIP area check feedback ── */}
-                    {zipCheckStatus === "checking" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-stone-500">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Checking service area...
-                      </div>
-                    )}
-                    {zipCheckStatus === "in_area" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-emerald-400">
-                        <MapPin className="h-3 w-3" />
-                        This ZIP is in your service area.
-                      </div>
-                    )}
-                    {deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0 && zipCheckStatus !== "checking" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-yellow-400">
-                        <DollarSign className="h-3 w-3" />
-                        Delivery fee: ${deliveryFeeResult.fee} ({deliveryFeeResult.tierLabel} — {deliveryFeeResult.distance} mi)
-                      </div>
-                    )}
-                    {deliveryFeeResult?.applicable && deliveryFeeResult.fee === 0 && zipCheckStatus === "in_area" && (
-                      <div className="mt-1 flex items-center gap-1.5 text-[10px] text-stone-500">
-                        Free delivery ({deliveryFeeResult.distance} mi)
-                      </div>
-                    )}
-                    {zipCheckStatus === "referral" && (
-                      <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
-                          <div>
-                            <p className="text-[11px] font-semibold text-amber-300">
-                              Outside your service area
-                            </p>
-                            <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
-                              <strong className="text-white">{zipCoveringName}</strong> covers this area.
-                              The quote will be handed off to them and you&apos;ll earn a referral bounty (30% of deposit, min $15).
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {zipCheckStatus === "waitlist" && (
-                      <div className="mt-2 rounded-lg border border-orange-500/30 bg-orange-500/10 p-2.5">
-                        <div className="flex items-start gap-2">
-                          <Clock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                          <div>
-                            <p className="text-[11px] font-semibold text-orange-300">
-                              No installer in this area yet
-                            </p>
-                            <p className="mt-0.5 text-[10px] leading-relaxed text-stone-400">
-                              The customer will be added to the waitlist and notified when an installer is available. You&apos;ll still earn referral credit.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500">
-                      <Tag className="h-3 w-3" />
-                      Discount Code (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={quoteDiscountCode}
-                      onChange={(e) => setQuoteDiscountCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. SPRING25"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <p className="mt-1 text-[10px] text-stone-600">
-                      Attach a promo code — customer can apply it at checkout.
-                    </p>
-                  </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          STICKY CART BAR — bottom of screen
+      ═══════════════════════════════════════════════════════════════════ */}
+      <CartBar
+        units={units}
+        grandTotal={grandTotal}
+        onRemoveUnit={handleRemoveUnit}
+        onToggleIndoorDelivery={(idx, enabled) => {
+          setUnits((prev) =>
+            prev.map((p, i) =>
+              i === idx
+                ? {
+                    ...p,
+                    indoorDelivery: enabled,
+                    indoorDeliveryFee: indoorDeliveryConfig?.fee,
+                  }
+                : p
+            )
+          );
+        }}
+        indoorDeliveryConfig={indoorDeliveryConfig}
+        editingLeadId={editingLeadId}
+        editingCustomerName={editingCustomerName}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        customerEmail={customerEmail}
+        onCustomerEmailChange={setCustomerEmail}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
+        deliveryZip={deliveryZip}
+        onDeliveryZipChange={setDeliveryZip}
+        zipCheckStatus={zipCheckStatus}
+        zipCoveringName={zipCoveringName}
+        deliveryFeeResult={deliveryFeeResult}
+        quoteDiscountCode={quoteDiscountCode}
+        onQuoteDiscountCodeChange={setQuoteDiscountCode}
+        showDeliveryAddress={showDeliveryAddress}
+        onShowDeliveryAddressChange={setShowDeliveryAddress}
+        deliveryLine1={deliveryLine1}
+        onDeliveryLine1Change={setDeliveryLine1}
+        deliveryLine2={deliveryLine2}
+        onDeliveryLine2Change={setDeliveryLine2}
+        deliveryCity={deliveryCity}
+        onDeliveryCityChange={setDeliveryCity}
+        deliveryState={deliveryState}
+        onDeliveryStateChange={setDeliveryState}
+        onSendQuote={handleSendQuote}
+        onGetLink={handleGetLink}
+        onUpdateQuote={handleUpdateQuote}
+        quoteSending={quoteSending}
+        quoteError={quoteError}
+        displayPrice={displayPrice}
+        displayMaterials={displayMaterials}
+        feeBreakdown={feeBreakdown}
+        materialPrices={materialPrices}
+      />
 
-                  {/* Delivery Address (collapsible) — street/city/state only, ZIP is above */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeliveryAddress(!showDeliveryAddress)}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-stone-500 hover:text-stone-400"
-                    >
-                      <ChevronDown className={`h-3 w-3 transition-transform ${showDeliveryAddress ? "rotate-180" : ""}`} />
-                      Delivery / Install Address (optional)
-                    </button>
-                    {showDeliveryAddress && (
-                      <div className="mt-2 space-y-2 rounded-lg border border-slate-700/50 bg-slate-800/40 p-3">
-                        <input
-                          type="text"
-                          value={deliveryLine1}
-                          onChange={(e) => setDeliveryLine1(e.target.value)}
-                          placeholder="Street address"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={deliveryLine2}
-                          onChange={(e) => setDeliveryLine2(e.target.value)}
-                          placeholder="Apt / Suite (optional)"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                        />
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={deliveryCity}
-                            onChange={(e) => setDeliveryCity(e.target.value)}
-                            placeholder="City"
-                            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={deliveryState}
-                            onChange={(e) => setDeliveryState(e.target.value.toUpperCase())}
-                            placeholder="ST"
-                            maxLength={2}
-                            className="w-16 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+      {/* ═══════════════════════════════════════════════════════════════════
+          QUOTE SUCCESS MODAL — shown after successful create/update
+      ═══════════════════════════════════════════════════════════════════ */}
+      <QuoteSuccessModal
+        isOpen={quoteSent}
+        onClose={resetQuoteModal}
+        editingLeadId={editingLeadId}
+        quoteLeadId={quoteLeadId}
+        quoteReferralStatus={quoteReferralStatus}
+        quoteCoveringName={quoteCoveringName}
+        customerEmail={customerEmail}
+      />
 
-                {/* Action Buttons */}
-                {editingLeadId ? (
-                  <div className="mt-5 flex gap-2">
-                    <button
-                      onClick={() => { resetQuoteModal(); window.location.href = `/dashboard/leads/${editingLeadId}`; }}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-bold uppercase tracking-wider text-stone-400 transition-all hover:text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleUpdateQuote}
-                      disabled={quoteSending}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
-                    >
-                      {quoteSending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      Update Quote
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-5 flex gap-2">
-                    <button
-                      onClick={handleGetLink}
-                      disabled={quoteSending || zipCheckStatus === "waitlist"}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-yellow-400/40 bg-yellow-400/10 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:bg-yellow-400/20 disabled:opacity-50"
-                      title={zipCheckStatus === "waitlist" ? "No installers in this area — use Email Quote to waitlist the customer" : undefined}
-                    >
-                      {quoteSending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Link2 className="h-4 w-4" />
-                      )}
-                      Get Link
-                    </button>
-                    <button
-                      onClick={handleSendQuote}
-                      disabled={quoteSending}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50 ${
-                        zipCheckStatus === "waitlist"
-                          ? "bg-orange-500 text-white hover:bg-orange-400"
-                          : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                      }`}
-                    >
-                      {quoteSending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : zipCheckStatus === "waitlist" ? (
-                        <Clock className="h-4 w-4" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                      {zipCheckStatus === "waitlist" ? "Add to Waitlist" : "Email Quote"}
-                    </button>
-                  </div>
-                )}
-
-                {quoteError && (
-                  <p className="mt-3 text-center text-xs font-medium text-red-400">
-                    {quoteError}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
-                <h3 className="mb-1 text-lg font-bold text-white">
-                  {editingLeadId
-                    ? "Quote Updated!"
-                    : quoteReferralStatus === "waitlisted"
-                      ? "Customer Waitlisted"
-                      : quoteReferralStatus === "handed_off"
-                        ? "Quote Sent & Referred"
-                        : "Quote Created!"}
-                </h3>
-                <p className="mb-5 text-sm text-stone-400">
-                  {editingLeadId
-                    ? "The quote has been updated. Your customer's pay link will show the new items and total."
-                    : quoteReferralStatus === "waitlisted"
-                      ? "No installer covers this area yet. The customer has been added to the waitlist and will be notified when one is available. You'll earn the referral bounty when they book."
-                      : quoteReferralStatus === "handed_off"
-                        ? `The quote was handed off to ${quoteCoveringName}. The customer will receive the email from them. You'll earn a referral bounty (30% of deposit, min $15) when they book.`
-                        : customerEmail?.trim()
-                          ? "Your customer will receive an email with their quote and a link to confirm."
-                          : "Copy the link below to send it to your customer via text, message, or any channel."}
-                </p>
-
-                {/* Referral bounty info */}
-                {quoteReferralStatus === "handed_off" && (
-                  <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left">
-                    <p className="text-[11px] font-semibold text-amber-300">
-                      Referral Bounty Pending
-                    </p>
-                    <p className="mt-1 text-[10px] text-stone-400">
-                      Track your referrals and bounty earnings in your <strong className="text-white">Referrals</strong> dashboard.
-                    </p>
-                  </div>
-                )}
-
-                {/* ── Shareable Quote Link ── */}
-                {quoteLeadId && (
-                  <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left">
-                    <div className="mb-2 flex items-center gap-1.5">
-                      <Link2 className="h-3.5 w-3.5 text-yellow-400" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                        Quote Link
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
-                        <p className="truncate text-xs text-stone-300">
-                          {typeof window !== "undefined"
-                            ? `${window.location.origin}/pay/${quoteLeadId}`
-                            : `/pay/${quoteLeadId}`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          const url = `${window.location.origin}/pay/${quoteLeadId}`;
-                          await navigator.clipboard.writeText(url);
-                          setQuoteLinkCopied(true);
-                          setTimeout(() => setQuoteLinkCopied(false), 2500);
-                          logActivityClient({ action: "quote_link_copied", pagePath: "/build", detail: { lead_id: quoteLeadId } });
-                        }}
-                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
-                          quoteLinkCopied
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                        }`}
-                      >
-                        {quoteLinkCopied ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            Copy
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {editingLeadId ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={resetQuoteModal}
-                      className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
-                    >
-                      Keep Editing
-                    </button>
-                    <a
-                      href={`/dashboard/leads/${editingLeadId}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-400 px-6 py-2.5 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
-                    >
-                      View Job Ticket
-                    </a>
-                  </div>
-                ) : (
-                  <button
-                    onClick={resetQuoteModal}
-                    className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-600"
-                  >
-                    Done
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           ASSEMBLY GUIDE OVERLAY
