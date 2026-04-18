@@ -453,7 +453,7 @@ export default function CustomUnitDrawer({
               className="flex items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-xs font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
             >
               <Plus className="h-4 w-4" />
-              Add to Cart
+              Add to Quote
             </button>
             <button
               onClick={onOpenAssemblyGuide}

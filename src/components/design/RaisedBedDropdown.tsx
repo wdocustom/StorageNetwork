@@ -28,6 +28,7 @@ interface RaisedBedDropdownProps {
   onConfigPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
   onPriceChange?: (price: number | null) => void;
   installerPricing?: InstallerPricing;
+  defaultExpanded?: boolean;
 }
 
 export default function RaisedBedDropdown({
@@ -35,8 +36,9 @@ export default function RaisedBedDropdown({
   onConfigPreview,
   onPriceChange,
   installerPricing,
+  defaultExpanded = false,
 }: RaisedBedDropdownProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Config state
   const [style, setStyle] = useState<"with_legs" | "without_legs">("without_legs");

@@ -149,12 +149,12 @@ export default function OverheadDrawer({
                   {overheadAdded ? (
                     <>
                       <Check className="h-4 w-4" />
-                      Added to Cart
+                      Added to Quote
                     </>
                   ) : (
                     <>
                       <Plus className="h-4 w-4" />
-                      Add to Cart
+                      Add to Quote
                     </>
                   )}
                 </button>

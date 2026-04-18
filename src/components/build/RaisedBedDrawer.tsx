@@ -30,6 +30,7 @@ export default function RaisedBedDrawer({
       <RaisedBedDropdown
         onAddRaisedBed={onAddRaisedBed}
         installerPricing={installerPricing}
+        defaultExpanded
       />
     </BottomDrawer>
   );

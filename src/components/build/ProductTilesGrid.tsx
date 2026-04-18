@@ -62,6 +62,9 @@ export default function ProductTilesGrid({
       <h2 className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
         <Hammer className="h-3.5 w-3.5 text-yellow-400" />
         Products
+        <span className="ml-1 font-normal normal-case italic tracking-normal text-stone-600">
+          — add more from your profile
+        </span>
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <ProductTile

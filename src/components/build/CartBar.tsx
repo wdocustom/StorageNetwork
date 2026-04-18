@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShoppingCart,
+  FileText,
   ChevronUp,
   X,
   Loader2,
@@ -163,7 +163,7 @@ export default function CartBar(props: CartBarProps) {
   return (
     <>
       {/* Spacer so content isn't hidden behind the bar */}
-      <div className="h-20" aria-hidden="true" />
+      <div className="h-28" aria-hidden="true" />
 
       <AnimatePresence>
         {expanded && (
@@ -191,7 +191,7 @@ export default function CartBar(props: CartBarProps) {
           className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800/50"
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
-            <ShoppingCart className="h-5 w-5 text-yellow-400" />
+            <FileText className="h-5 w-5 text-yellow-400" />
             {itemCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-black text-gray-950">
                 {itemCount}
@@ -204,7 +204,7 @@ export default function CartBar(props: CartBarProps) {
                 {editingLeadId
                   ? `Editing ${editingCustomerName || "Quote"}`
                   : itemCount === 0
-                    ? "Cart is empty"
+                    ? "Quote is empty"
                     : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
               </p>
             </div>
@@ -239,7 +239,7 @@ export default function CartBar(props: CartBarProps) {
               <div className="mx-auto max-w-2xl space-y-4 p-4">
                 <div className="flex items-center justify-between">
                   <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-white">
-                    <ShoppingCart className="h-4 w-4 text-yellow-400" />
+                    <FileText className="h-4 w-4 text-yellow-400" />
                     {editingLeadId ? "Edit Quote" : "Review & Send"}
                   </h2>
                   <button
@@ -255,7 +255,7 @@ export default function CartBar(props: CartBarProps) {
                 {units.length > 0 && (
                   <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-blue-400">
-                      {units.length} unit{units.length > 1 ? "s" : ""} in cart
+                      {units.length} unit{units.length > 1 ? "s" : ""} in quote
                     </p>
                     <CartLineItems
                       units={units}
@@ -296,7 +296,7 @@ export default function CartBar(props: CartBarProps) {
                 {units.length === 0 && editingLeadId && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-center">
                     <p className="text-sm text-amber-300">
-                      Cart is empty. Add items from the tiles above to update the quote.
+                      Quote is empty. Add items from the tiles above to update the quote.
                     </p>
                   </div>
                 )}

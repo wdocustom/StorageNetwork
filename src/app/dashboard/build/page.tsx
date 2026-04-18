@@ -23,13 +23,12 @@ import { ArrowLeft, HardHat, Loader2, PenLine } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
 import type { InstallerPricing } from "@/types/viewModels";
-import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import ProPill from "@/components/dashboard/ProPill";
 import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import { logActivityClient } from "@/lib/activity-client";
 
 // POS-style build configurator components
-import AICommandBar from "@/components/build/AICommandBar";
+import AICommandBar, { type AiResultUnit } from "@/components/build/AICommandBar";
 import ProductTilesGrid, { type DrawerType } from "@/components/build/ProductTilesGrid";
 import BestsellerDrawer from "@/components/build/BestsellerDrawer";
 import CustomUnitDrawer from "@/components/build/CustomUnitDrawer";
@@ -41,7 +40,6 @@ import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
-const BuildAssistant = lazy(() => import("@/components/dashboard/BuildAssistant"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Build Configurator — Estimate, Quote & New Build
@@ -203,10 +201,11 @@ export default function BuildConfiguratorPage() {
     setAiLoading(false);
   }
 
-  async function handleAddAiUnits() {
-    if (!aiResult) return;
+  async function handleAddAiUnits(overrideUnits?: AiResultUnit[]) {
+    const unitsToAdd = overrideUnits || aiResult;
+    if (!unitsToAdd) return;
     setAiAdded(false);
-    for (const unit of aiResult) {
+    for (const unit of unitsToAdd) {
       const hasCustomPrice = typeof unit.customPrice === "number" && unit.customPrice > 0;
 
       // Overhead ceiling storage unit
@@ -332,8 +331,10 @@ export default function BuildConfiguratorPage() {
         }
       }
     }
-    setAiAdded(true);
-    setTimeout(() => { setAiAdded(false); setAiResult(null); setAiInput(""); }, 2000);
+    if (!overrideUnits) {
+      setAiAdded(true);
+      setTimeout(() => { setAiAdded(false); setAiResult(null); setAiInput(""); }, 2000);
+    }
   }
 
   // Open Shelving state
@@ -1360,6 +1361,17 @@ export default function BuildConfiguratorPage() {
           aiAdded={aiAdded}
           onAddAiUnits={handleAddAiUnits}
           onClearResult={() => setAiResult(null)}
+          buildContext={{
+            buildResult,
+            units: units.map(u => ({ ...u, price: u.price ?? 0 })),
+            materialBreakdown: displayMaterials ? { totalCost: displayMaterials.totalCost, items: displayMaterials.items, rawCounts: displayMaterials.rawCounts } : null,
+            feeBreakdown,
+            manifest: displayManifest,
+            installerPricing,
+            materialPrices,
+            installerId: userId,
+          }}
+          onAssistantAddUnits={(units) => handleAddAiUnits(units)}
         />
 
         {/* ── Product Tiles Grid ────────────────────────────────────────── */}
@@ -1367,9 +1379,6 @@ export default function BuildConfiguratorPage() {
           installerPricing={installerPricing}
           onTileTap={(type) => setActiveDrawer(type)}
         />
-
-        {/* ── Locked Blueprints Teaser ──────────────────────────────────── */}
-        {(buildResult || units.length > 0) && <LockedBlueprintsTeaser />}
 
         {/* ── Back Link ──────────────────────────────────────────────── */}
         <div className="pb-2 text-center">
@@ -1587,21 +1596,7 @@ export default function BuildConfiguratorPage() {
         />
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          BUILD ASSISTANT — AI Chat FAB
-      ═══════════════════════════════════════════════════════════════════ */}
-      <Suspense fallback={null}>
-        <BuildAssistant
-          buildResult={buildResult}
-          units={units.map(u => ({ ...u, price: u.price ?? 0 }))}
-          materialBreakdown={displayMaterials}
-          feeBreakdown={feeBreakdown}
-          manifest={displayManifest}
-          installerPricing={installerPricing}
-          materialPrices={materialPrices}
-          userId={userId}
-        />
-      </Suspense>
+      {/* BuildAssistant FAB removed — assistant integrated into AI Command Center */}
     </div>
   );
 }
