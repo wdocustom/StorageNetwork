@@ -48,6 +48,7 @@ interface LeadDetail {
   quote_data: QuoteUnit[] | null;
   created_at: string;
   scheduled_at: string | null;
+  time_preference: string | null;
   installer_id: string | null;
   address_line1: string | null;
   address_city: string | null;
@@ -112,7 +113,7 @@ export default function JobTicketPage() {
     // Fetch lead and verify it belongs to this installer
     const { data, error: err } = await supabase
       .from("leads")
-      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount")
+      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, time_preference, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount")
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();
@@ -530,6 +531,7 @@ export default function JobTicketPage() {
           customerName={lead.status === "waitlisted" ? maskName(lead.customer_name) : lead.customer_name}
           customerPhone={lead.status === "waitlisted" ? null : lead.customer_phone}
           scheduledAt={lead.scheduled_at}
+          timePreference={lead.time_preference}
           installerStripeId={installerStripeId}
           source={lead.source}
           inventory={installerInventory}

@@ -571,6 +571,7 @@ export interface DepositIntentInput {
   customerEmail?: string;
   customerName?: string;
   scheduledAt?: string;
+  timePreference?: string;           // "morning" | "afternoon" | undefined
   // Tax info for installer records
   salesTaxAmount?: number;           // Tax amount in dollars (on build price only, NOT delivery fee)
   billingState?: string;             // 2-letter state code
@@ -596,6 +597,7 @@ const depositIntentSchema = z.object({
   customerEmail: z.union([z.email("Invalid email"), z.literal("")]).optional().transform(v => v || undefined),
   customerName: z.string().max(200).optional(),
   scheduledAt: z.string().max(30).optional(),
+  timePreference: z.enum(["morning", "afternoon"]).optional(),
   salesTaxAmount: z.number().min(0).max(100_000).optional(),
   billingState: z.string().max(2).optional(),
   discountCode: z.string().max(50).optional(),
@@ -612,7 +614,7 @@ export async function createDepositIntent(
     return { success: false, error: "Invalid input: " + parsed.error.issues[0]?.message };
   }
 
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = parsed.data;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = parsed.data;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
 
@@ -861,6 +863,7 @@ export async function createDepositIntent(
     const leadUpdate: Record<string, unknown> = {
       source,
       scheduled_at: scheduledAt || null,
+      time_preference: timePreference || null,
       sales_tax_amount: salesTaxAmount || null,
       billing_state: billingState || null,
       ...(customerEmail && { customer_email: customerEmail }),

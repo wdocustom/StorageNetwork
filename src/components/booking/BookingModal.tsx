@@ -25,6 +25,7 @@ import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
 import { getDepositAmount, getSalesTax, type SalesTaxResult } from "@/app/actions/fee-engine";
 import { getBlackoutDates } from "@/app/actions/blackout-dates";
+import { getBlockAvailability } from "@/app/actions/schedule-overrides";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
 
@@ -117,6 +118,8 @@ export default function BookingModal({
     zip: initialAddress?.zip || "",
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(initialScheduledDate || null);
+  const [timePreference, setTimePreference] = useState<"morning" | "afternoon" | null>(null);
+  const [blockAvailability, setBlockAvailability] = useState<Record<string, { morning: boolean; afternoon: boolean }>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
@@ -130,13 +133,18 @@ export default function BookingModal({
   const [deliveryFee, setDeliveryFee] = useState<DeliveryFeeResult | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
 
-  // Fetch blackout dates when modal opens
+  // Fetch blackout dates and block availability when modal opens
   useEffect(() => {
     if (!isOpen || !installerId) return;
+    const today = new Date().toISOString().split("T")[0];
+    const future = new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0];
     getBlackoutDates(installerId).then((result) => {
       if (result.success) {
         setBlackoutDates(result.dates.map(d => ({ start_date: d.start_date, end_date: d.end_date })));
       }
+    });
+    getBlockAvailability(installerId, today, future).then((result) => {
+      if (result.success) setBlockAvailability(result.blocks);
     });
   }, [isOpen, installerId]);
 
@@ -253,6 +261,7 @@ export default function BookingModal({
       customerEmail,
       customerName,
       scheduledAt: selectedDate || undefined,
+      timePreference: timePreference || undefined,
       // Tax info for installer records (collected at installation — on build price only)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
@@ -271,7 +280,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, schedulingEnabled, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
+  }, [selectedDate, timePreference, schedulingEnabled, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
 
   // Auto-init payment when both address and date are pre-filled from sidebar
   const autoInitRef = useRef(false);
@@ -362,6 +371,11 @@ export default function BookingModal({
                     month: "long",
                     day: "numeric",
                   })}
+                  {timePreference && (
+                    <span className="ml-1 text-stone-400">
+                      ({timePreference === "morning" ? "Morning" : "Afternoon"})
+                    </span>
+                  )}
                 </p>
               ) : (
                 <p className="text-sm font-semibold text-yellow-400">
@@ -487,8 +501,11 @@ export default function BookingModal({
                     leadTimeDays={effectiveLeadTime}
                     workingDays={installerWorkingDays}
                     blackoutDates={blackoutDates}
+                    blockAvailability={blockAvailability}
                     selectedDate={selectedDate}
-                    onSelectDate={setSelectedDate}
+                    onSelectDate={(d) => { setSelectedDate(d); setTimePreference(null); }}
+                    timePreference={timePreference}
+                    onSelectTime={setTimePreference}
                   />
                 </>
               ) : (

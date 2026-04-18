@@ -66,6 +66,7 @@ interface JobTicketProps {
   customerName: string;
   customerPhone?: string | null;
   scheduledAt?: string | null;
+  timePreference?: string | null;
   installerStripeId?: string | null; // Deprecated — server actions look up Stripe account directly
   source?: string | null;
   inventory?: MaterialInventory | null;
@@ -97,6 +98,7 @@ export default function JobTicket({
   customerName,
   customerPhone,
   scheduledAt,
+  timePreference,
   installerStripeId,
   source,
   inventory,
@@ -1447,6 +1449,11 @@ export default function JobTicket({
               month: "short",
               day: "numeric",
             })}
+            {timePreference && (
+              <span className="ml-1 text-stone-400">
+                ({timePreference === "morning" ? "Morning" : "Afternoon"})
+              </span>
+            )}
           </span>
         </div>
       )}
