@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
   PenLine,
+  Link,
 } from "lucide-react";
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -302,6 +303,20 @@ export default function LeadsListPage() {
 function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: boolean; onDelete?: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  async function handleCopyPayLink(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/payment/collect/${lead.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this payment link:", url);
+    }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -409,6 +424,13 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
             <PenLine className="h-3.5 w-3.5" />
             Edit Quote
           </a>
+          <button
+            onClick={handleCopyPayLink}
+            className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-emerald-400/70 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+          >
+            <Link className="h-3.5 w-3.5" />
+            {linkCopied ? "Copied!" : "Pay Link"}
+          </button>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(true); }}
             className="flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
