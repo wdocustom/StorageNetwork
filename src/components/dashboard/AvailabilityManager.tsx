@@ -63,6 +63,7 @@ export default function AvailabilityManager() {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [blackouts, setBlackouts] = useState<BlackoutDate[]>([]);
   const [savingBlock, setSavingBlock] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   // Compute the 14-day window based on weekOffset
   const { windowStart, windowEnd, days } = useMemo(() => {
@@ -324,12 +325,12 @@ export default function AvailabilityManager() {
         </div>
       </div>
 
-      {/* ── 2-Week Visual Calendar ────────────────────────────────── */}
+      {/* ── 2-Week Grid Calendar ─────────────────────────────────── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900">
-        {/* Week navigation */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
+        {/* Navigation header */}
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <button
-            onClick={() => setWeekOffset(Math.max(weekOffset - 2, 0))}
+            onClick={() => { setWeekOffset(Math.max(weekOffset - 2, 0)); setSelectedDay(null); }}
             disabled={weekOffset === 0}
             className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-30"
           >
@@ -337,173 +338,168 @@ export default function AvailabilityManager() {
           </button>
           <div className="text-center">
             <h3 className="text-sm font-bold text-white">{weekLabel}</h3>
-            <p className="text-[10px] text-stone-500">Tap blocks to toggle availability</p>
+            <p className="text-[10px] text-stone-500">Tap a day to set AM / PM</p>
           </div>
           <button
-            onClick={() => setWeekOffset(weekOffset + 2)}
+            onClick={() => { setWeekOffset(weekOffset + 2); setSelectedDay(null); }}
             className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Day rows */}
-        <div className="divide-y divide-slate-800/50">
-          {days.map((day) => {
-            const state = getBlockState(day.dateStr, day.dayName);
-            const dayJobs = getJobsForDate(day.dateStr);
-            const morningJobs = dayJobs.filter(j => j.time_preference === "morning");
-            const afternoonJobs = dayJobs.filter(j => j.time_preference === "afternoon");
-            const anyTimeJobs = dayJobs.filter(j => !j.time_preference);
-            const totalWeight = dayJobs.reduce((sum, j) => sum + (j.weight || 1), 0);
-            const isOff = !state.morning && !state.afternoon;
-            const isSaving = savingBlock?.startsWith(day.dateStr);
-
-            return (
-              <div
-                key={day.dateStr}
-                className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                  day.isPast ? "opacity-40" : ""
-                } ${day.isToday ? "bg-yellow-400/5" : ""}`}
-              >
-                {/* Date label */}
-                <button
-                  onClick={() => !day.isPast && !state.isBlackout && toggleFullDay(day.dateStr, day.dayName)}
-                  disabled={day.isPast || state.isBlackout}
-                  className={`flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 transition-all ${
-                    day.isToday
-                      ? "bg-yellow-400 text-slate-900"
-                      : isOff
-                        ? "bg-slate-800/50 text-stone-600"
-                        : "bg-slate-800 text-stone-300"
-                  } ${!day.isPast && !state.isBlackout ? "hover:ring-1 hover:ring-yellow-400/30" : ""}`}
-                >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">
-                    {day.dayName}
-                  </span>
-                  <span className={`text-lg font-black leading-tight ${day.isToday ? "text-slate-900" : ""}`}>
-                    {day.date.getDate()}
-                  </span>
-                </button>
-
-                {/* Time blocks */}
-                {state.isBlackout ? (
-                  <div className="flex flex-1 items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 py-3">
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
-                      <CalendarOff className="h-3 w-3" />
-                      Blackout
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex flex-1 gap-2">
-                    {/* Morning block */}
-                    <button
-                      onClick={() => !day.isPast && toggleBlock(day.dateStr, day.dayName, "morning")}
-                      disabled={day.isPast || isSaving}
-                      className={`group relative flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                        state.morning
-                          ? "border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-400/50"
-                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                      }`}
-                    >
-                      <Sun className={`h-3.5 w-3.5 shrink-0 ${state.morning ? "text-emerald-400" : "text-stone-600"}`} />
-                      <div className="min-w-0 flex-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          state.morning ? "text-emerald-400" : "text-stone-600"
-                        }`}>
-                          AM
-                        </span>
-                        {(morningJobs.length > 0 || (anyTimeJobs.length > 0 && afternoonJobs.length === 0)) && (
-                          <div className="mt-0.5 flex items-center gap-1">
-                            <Users className="h-2.5 w-2.5 text-yellow-400" />
-                            <span className="truncate text-[9px] text-yellow-400">
-                              {morningJobs.length > 0
-                                ? morningJobs.map(j => j.customer_name.split(" ")[0]).join(", ")
-                                : `${anyTimeJobs.length} job${anyTimeJobs.length > 1 ? "s" : ""}`}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {savingBlock === `${day.dateStr}-morning` && (
-                        <Loader2 className="absolute right-2 top-2 h-3 w-3 animate-spin text-stone-500" />
-                      )}
-                    </button>
-
-                    {/* Afternoon block */}
-                    <button
-                      onClick={() => !day.isPast && toggleBlock(day.dateStr, day.dayName, "afternoon")}
-                      disabled={day.isPast || isSaving}
-                      className={`group relative flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                        state.afternoon
-                          ? "border-emerald-500/30 bg-emerald-500/10 hover:border-emerald-400/50"
-                          : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
-                      }`}
-                    >
-                      <Sunset className={`h-3.5 w-3.5 shrink-0 ${state.afternoon ? "text-emerald-400" : "text-stone-600"}`} />
-                      <div className="min-w-0 flex-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          state.afternoon ? "text-emerald-400" : "text-stone-600"
-                        }`}>
-                          PM
-                        </span>
-                        {(afternoonJobs.length > 0 || (anyTimeJobs.length > 0 && morningJobs.length === 0 && afternoonJobs.length === 0)) && (
-                          <div className="mt-0.5 flex items-center gap-1">
-                            <Users className="h-2.5 w-2.5 text-yellow-400" />
-                            <span className="truncate text-[9px] text-yellow-400">
-                              {afternoonJobs.length > 0
-                                ? afternoonJobs.map(j => j.customer_name.split(" ")[0]).join(", ")
-                                : anyTimeJobs.length > 0 && morningJobs.length === 0
-                                  ? `${anyTimeJobs.length} job${anyTimeJobs.length > 1 ? "s" : ""}`
-                                  : ""}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {savingBlock === `${day.dateStr}-afternoon` && (
-                        <Loader2 className="absolute right-2 top-2 h-3 w-3 animate-spin text-stone-500" />
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* Capacity indicator */}
-                {totalWeight > 0 && !state.isBlackout && (
-                  <div className="flex shrink-0 flex-col items-center">
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3].map(i => (
-                        <div
-                          key={i}
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            i <= totalWeight ? "bg-yellow-400" : "bg-slate-700"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="mt-0.5 text-[8px] font-bold text-stone-600">{totalWeight}/3</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        {/* Column headers */}
+        <div className="grid grid-cols-7 border-b border-slate-800/50 px-2 pt-3 pb-1.5">
+          {ALL_DAYS.map(d => (
+            <div key={d} className="text-center text-[9px] font-bold uppercase tracking-widest text-stone-600">{d}</div>
+          ))}
         </div>
 
+        {/* Week rows */}
+        {[0, 1].map(weekIdx => {
+          const weekDays = days.slice(weekIdx * 7, weekIdx * 7 + 7);
+          const selectedInThisWeek = weekDays.find(d => d.dateStr === selectedDay);
+
+          return (
+            <div key={weekIdx} className={weekIdx === 1 ? "border-t border-slate-800/50" : ""}>
+              {/* 7-day grid */}
+              <div className="grid grid-cols-7 gap-1 px-2 py-2">
+                {weekDays.map(day => {
+                  const state = getBlockState(day.dateStr, day.dayName);
+                  const dayJobs = getJobsForDate(day.dateStr);
+                  const isOff = !state.morning && !state.afternoon;
+                  const isSelected = selectedDay === day.dateStr;
+                  const hasJobs = dayJobs.length > 0;
+
+                  return (
+                    <button
+                      key={day.dateStr}
+                      onClick={() => {
+                        if (day.isPast) return;
+                        setSelectedDay(isSelected ? null : day.dateStr);
+                      }}
+                      disabled={day.isPast}
+                      className={`relative flex flex-col items-center rounded-lg py-1.5 transition-all ${
+                        day.isPast
+                          ? "opacity-30"
+                          : isSelected
+                            ? "ring-2 ring-yellow-400 bg-yellow-400/10"
+                            : day.isToday
+                              ? "bg-yellow-400 text-slate-900"
+                              : state.isBlackout
+                                ? "bg-red-500/10"
+                                : isOff
+                                  ? "bg-slate-800/30"
+                                  : "bg-slate-800 hover:bg-slate-700"
+                      }`}
+                    >
+                      <span className={`text-lg font-black leading-tight ${
+                        day.isToday && !isSelected ? "text-slate-900" : isOff || state.isBlackout ? "text-stone-600" : "text-white"
+                      }`}>
+                        {day.date.getDate()}
+                      </span>
+                      {/* Status dots */}
+                      <div className="mt-0.5 flex gap-0.5">
+                        {state.isBlackout ? (
+                          <div className="h-1 w-1 rounded-full bg-red-400" />
+                        ) : (
+                          <>
+                            <div className={`h-1 w-1 rounded-full ${state.morning ? "bg-emerald-400" : "bg-slate-700"}`} />
+                            <div className={`h-1 w-1 rounded-full ${state.afternoon ? "bg-emerald-400" : "bg-slate-700"}`} />
+                          </>
+                        )}
+                        {hasJobs && <div className="h-1 w-1 rounded-full bg-yellow-400" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Expanded AM/PM controls for selected day */}
+              {selectedInThisWeek && (() => {
+                const day = selectedInThisWeek;
+                const state = getBlockState(day.dateStr, day.dayName);
+                const dayJobs = getJobsForDate(day.dateStr);
+                const isSaving = savingBlock?.startsWith(day.dateStr);
+
+                if (state.isBlackout) {
+                  return (
+                    <div className="mx-2 mb-2 flex items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
+                      <CalendarOff className="mr-1.5 h-3 w-3 text-red-400" />
+                      <span className="text-[10px] font-bold text-red-400">Blackout — remove from blackout dates to enable</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="mx-2 mb-2 rounded-lg border border-slate-700 bg-slate-800/50 p-2.5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                        {day.dayName} {day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                      {isSaving && <Loader2 className="h-3 w-3 animate-spin text-stone-500" />}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => toggleBlock(day.dateStr, day.dayName, "morning")}
+                        disabled={isSaving}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border py-2 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          state.morning
+                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                            : "border-slate-600 bg-slate-800 text-stone-600 hover:border-slate-500"
+                        }`}
+                      >
+                        <Sun className="h-3 w-3" />
+                        AM
+                      </button>
+                      <button
+                        onClick={() => toggleBlock(day.dateStr, day.dayName, "afternoon")}
+                        disabled={isSaving}
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border py-2 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          state.afternoon
+                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                            : "border-slate-600 bg-slate-800 text-stone-600 hover:border-slate-500"
+                        }`}
+                      >
+                        <Sunset className="h-3 w-3" />
+                        PM
+                      </button>
+                    </div>
+                    {dayJobs.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {dayJobs.map(j => (
+                          <span key={j.id} className="inline-flex items-center gap-1 rounded bg-yellow-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-400">
+                            <Users className="h-2 w-2" />
+                            {j.customer_name.split(" ")[0]}
+                            {j.time_preference && <span className="text-yellow-400/60">({j.time_preference === "morning" ? "AM" : "PM"})</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })}
+
         {/* Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-slate-800 px-4 py-3">
-          <span className="flex items-center gap-1.5 text-[10px] text-stone-500">
-            <div className="h-2.5 w-2.5 rounded border border-emerald-500/30 bg-emerald-500/10" />
-            Available
+        <div className="flex items-center justify-center gap-4 border-t border-slate-800 px-4 py-2.5">
+          <span className="flex items-center gap-1 text-[9px] text-stone-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            On
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-stone-500">
-            <div className="h-2.5 w-2.5 rounded border border-slate-700 bg-slate-800/50" />
+          <span className="flex items-center gap-1 text-[9px] text-stone-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-700" />
             Off
           </span>
-          <span className="flex items-center gap-1.5 text-[10px] text-stone-500">
-            <div className="flex gap-0.5">
-              <div className="h-2 w-2 rounded-full bg-yellow-400" />
-              <div className="h-2 w-2 rounded-full bg-slate-700" />
-              <div className="h-2 w-2 rounded-full bg-slate-700" />
-            </div>
-            Capacity
+          <span className="flex items-center gap-1 text-[9px] text-stone-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+            Booked
+          </span>
+          <span className="flex items-center gap-1 text-[9px] text-stone-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-red-400" />
+            Blackout
           </span>
         </div>
       </div>
