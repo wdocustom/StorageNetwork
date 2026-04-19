@@ -72,6 +72,9 @@ interface CartBarProps {
   displayMaterials: MaterialBreakdown | null;
   feeBreakdown: BuildFeeBreakdown | null;
   materialPrices: MaterialPrices;
+
+  // Estimated sales tax (derived from delivery ZIP). Optional — line is hidden when absent.
+  estimatedTax?: { amount: number; rate: number; stateCode: string } | null;
 }
 
 export default function CartBar(props: CartBarProps) {
@@ -94,6 +97,7 @@ export default function CartBar(props: CartBarProps) {
     displayMaterials,
     feeBreakdown,
     materialPrices,
+    estimatedTax,
   } = props;
 
   const [expanded, setExpanded] = useState(false);
@@ -142,7 +146,8 @@ export default function CartBar(props: CartBarProps) {
     deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0
       ? deliveryFeeResult.fee
       : 0;
-  const totalWithDelivery = grandTotal + deliveryFee;
+  const taxAmount = estimatedTax?.amount && estimatedTax.amount > 0 ? estimatedTax.amount : 0;
+  const totalWithDelivery = grandTotal + deliveryFee + taxAmount;
 
   const isWaitlist = zipCheckStatus === "waitlist";
 
@@ -216,7 +221,7 @@ export default function CartBar(props: CartBarProps) {
           </div>
           <div className="flex items-center gap-2">
             <p className="text-xl font-black text-yellow-400">
-              ${totalWithDelivery.toLocaleString()}
+              ${totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: taxAmount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
             </p>
             <ChevronUp
               className={`h-5 w-5 text-stone-500 transition-transform ${
@@ -281,12 +286,22 @@ export default function CartBar(props: CartBarProps) {
                           </span>
                         </div>
                       )}
+                      {estimatedTax && estimatedTax.amount > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-stone-400">
+                            Est. Sales Tax ({estimatedTax.stateCode}, {(estimatedTax.rate * 100).toFixed(2)}%)
+                          </span>
+                          <span className="font-semibold text-white">
+                            ${estimatedTax.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold uppercase text-stone-400">
                           Grand Total
                         </span>
                         <span className="text-xl font-black text-yellow-400">
-                          ${totalWithDelivery.toLocaleString()}
+                          ${totalWithDelivery.toLocaleString(undefined, { minimumFractionDigits: estimatedTax && estimatedTax.amount > 0 ? 2 : 0, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>

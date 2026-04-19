@@ -1297,10 +1297,17 @@ export interface QuoteEmailData {
   depositAmount: number;
   checkoutUrl: string;
   cleanoutServices?: Array<{ id: string; name: string; description: string; price: number }>;
+  /** Estimated sales tax (derived from quote ZIP). Recalculated at checkout from billing state. */
+  estimatedTax?: { amount: number; rate: number; stateCode: string } | null;
+  /** Distance-based delivery fee (tax-exempt). When provided, included in the breakdown. */
+  deliveryFee?: number;
 }
 
 export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
-  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices } = data;
+  const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices, estimatedTax, deliveryFee } = data;
+  const taxAmount = estimatedTax?.amount && estimatedTax.amount > 0 ? estimatedTax.amount : 0;
+  const deliveryAmount = deliveryFee && deliveryFee > 0 ? deliveryFee : 0;
+  const grandTotalWithTax = totalPrice + deliveryAmount + taxAmount;
 
   const firstName = customerName.split(" ")[0] || customerName;
   const sigName = installerFirstName || businessName;
@@ -1330,9 +1337,13 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     </table>
     <div style="background-color:#0f172a;border-radius:12px;padding:20px;margin-bottom:16px;border:1px solid #334155;">
       <table style="width:100%;">
-        <tr><td style="color:#94a3b8;font-size:14px;">Total Estimate</td><td style="text-align:right;color:#facc15;font-size:24px;font-weight:800;">$${totalPrice.toFixed(2)}</td></tr>
-        <tr><td style="color:#94a3b8;font-size:14px;padding-top:12px;border-top:1px dashed #475569;">Deposit Due (15%)</td><td style="text-align:right;color:#facc15;font-size:18px;font-weight:700;padding-top:12px;border-top:1px dashed #475569;">$${depositAmount.toFixed(2)}</td></tr>
+        <tr><td style="color:#94a3b8;font-size:14px;">Subtotal</td><td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;">$${totalPrice.toFixed(2)}</td></tr>
+        ${deliveryAmount > 0 ? `<tr><td style="color:#94a3b8;font-size:14px;padding-top:8px;">Delivery Fee</td><td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;padding-top:8px;">$${deliveryAmount.toFixed(2)}</td></tr>` : ""}
+        ${taxAmount > 0 ? `<tr><td style="color:#94a3b8;font-size:14px;padding-top:8px;">Est. Sales Tax (${estimatedTax!.stateCode}, ${(estimatedTax!.rate * 100).toFixed(2)}%)</td><td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;padding-top:8px;">$${taxAmount.toFixed(2)}</td></tr>` : ""}
+        <tr><td style="color:#94a3b8;font-size:14px;padding-top:12px;border-top:1px dashed #475569;">Total Estimate</td><td style="text-align:right;color:#facc15;font-size:24px;font-weight:800;padding-top:12px;border-top:1px dashed #475569;">$${grandTotalWithTax.toFixed(2)}</td></tr>
+        <tr><td style="color:#94a3b8;font-size:14px;padding-top:12px;border-top:1px dashed #475569;">Deposit Due Now</td><td style="text-align:right;color:#facc15;font-size:18px;font-weight:700;padding-top:12px;border-top:1px dashed #475569;">$${depositAmount.toFixed(2)}</td></tr>
       </table>
+      ${taxAmount > 0 ? `<p style="margin:12px 0 0;color:#64748b;font-size:11px;font-style:italic;">Final tax confirmed at checkout based on your billing address.</p>` : ""}
     </div>
     <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">To officially get your project on my schedule, please click the secure link below to review your order details and place the initial deposit. Once that is locked in, I will reserve your spot on the calendar, prep your materials, and we will be ready for installation day!</p>
     <div style="text-align:center;margin-bottom:28px;">
@@ -1381,7 +1392,9 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     </div>
 
     <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
-      *Sales tax (if applicable) will be collected by your installer at the time of installation.
+      ${taxAmount > 0
+        ? "*Sales tax shown is an estimate based on your delivery ZIP. The final amount is confirmed at checkout from your billing address and collected by your installer at installation."
+        : "*Sales tax (if applicable) will be collected by your installer at the time of installation."}
     </p>
     `
   );

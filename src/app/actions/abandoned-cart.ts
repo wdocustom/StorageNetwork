@@ -27,6 +27,10 @@ export interface PendingLeadDetails {
   status: string;
   discount_code: string | null;
   delivery_fee: number;
+  /** Estimated sales tax saved at quote creation (recomputed at checkout if billing state differs) */
+  sales_tax_amount: number;
+  /** State code derived from quote ZIP at creation time (overridden at checkout) */
+  billing_state: string | null;
   /** Installer's available services (for cleanout upsell on pay page) */
   installer_services?: Array<{ id: string; name: string; description: string; price: number }>;
 }
@@ -64,7 +68,9 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         created_at,
         status,
         discount_code,
-        delivery_fee
+        delivery_fee,
+        sales_tax_amount,
+        billing_state
       `)
       .eq("id", leadId)
       .single();

@@ -12,7 +12,7 @@ import { rerouteToLocalInstaller } from "@/app/actions/customer";
 import { calculateCompoundBuild } from "@/app/actions/calculator";
 import { calculateBuild } from "@/app/actions/calculator";
 import { recordWaitlistDemand } from "@/app/actions/demand-signals";
-import { getDepositAmount } from "@/app/actions/fee-engine";
+import { getDepositAmount, getEstimatedSalesTax } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
 
@@ -406,7 +406,23 @@ export async function createQuote(
       }
     }
 
-    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount) * 100) / 100;
+    // ── Estimated Sales Tax ─────────────────────────────────────────────
+    // Derive state from the entered ZIP and compute tax at quote time.
+    // finalTotal is sum(unit.price) — already excludes delivery fees and
+    // indoor delivery (those are tracked separately and are tax-exempt).
+    // Cleanout / custom_service items are also tax-exempt (labor).
+    const hasServiceItem = effectiveQuoteData.some(
+      (u) => u.toteType === "cleanout" || u.toteType === "custom_service"
+    );
+    const taxableAmount = hasServiceItem
+      ? effectiveQuoteData
+          .filter((u) => u.toteType !== "cleanout" && u.toteType !== "custom_service")
+          .reduce((sum, u) => sum + (u.price || 0), 0)
+      : finalTotal;
+
+    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip);
+
+    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount + taxQuote.taxAmount) * 100) / 100;
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
@@ -435,6 +451,9 @@ export async function createQuote(
         delivery_address_zip: delivery_address?.zip || null,
         // Distance-based delivery fee (tax-exempt, included in estimated_price)
         delivery_fee: delivery_fee || 0,
+        // Estimated sales tax (recomputed at /pay from customer's billing state)
+        sales_tax_amount: taxQuote.taxAmount,
+        billing_state: taxQuote.stateCode,
         // Network Referral Bounty tracking
         // Soft-locked installers (trial expired, active jobs in grace period)
         // don't earn new bounties — that's a paid-subscriber benefit.
@@ -494,6 +513,10 @@ export async function createQuote(
         depositAmount,
         checkoutUrl,
         cleanoutServices: cleanoutServices.length > 0 ? cleanoutServices : undefined,
+        estimatedTax: taxQuote.stateCode && taxQuote.taxAmount > 0
+          ? { amount: taxQuote.taxAmount, rate: taxQuote.taxRate, stateCode: taxQuote.stateCode }
+          : null,
+        deliveryFee: delivery_fee || 0,
       });
 
       const bizName = effectiveBusinessName || "Your Installer";

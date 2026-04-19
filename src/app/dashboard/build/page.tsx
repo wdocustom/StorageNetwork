@@ -24,7 +24,7 @@ import { ArrowLeft, HardHat, Loader2, PenLine } from "lucide-react";
 import BookingModal from "@/components/booking/BookingModal";
 import type { InstallerPricing } from "@/types/viewModels";
 import ProPill from "@/components/dashboard/ProPill";
-import { getBuildFeeBreakdown, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
+import { getBuildFeeBreakdown, getEstimatedSalesTax, type BuildFeeBreakdown } from "@/app/actions/fee-engine";
 import { logActivityClient } from "@/lib/activity-client";
 
 // POS-style build configurator components
@@ -140,6 +140,7 @@ export default function BuildConfiguratorPage() {
 
   // Delivery fee state (calculated when ZIP is entered)
   const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
+  const [estimatedTax, setEstimatedTax] = useState<{ amount: number; rate: number; stateCode: string } | null>(null);
 
   // Indoor delivery fee config (fetched from installer profile)
   const [indoorDeliveryConfig, setIndoorDeliveryConfig] = useState<IndoorDeliveryConfig | null>(null);
@@ -804,6 +805,40 @@ export default function BuildConfiguratorPage() {
 
   // Calculate grand total from all units in Quote Builder only
   const grandTotal = units.reduce((sum, u) => sum + (u.price || 0) + (u.indoorDelivery && u.indoorDeliveryFee ? u.indoorDeliveryFee : 0), 0);
+
+  // ── Estimated Sales Tax Preview ─────────────────────────────────────────
+  // Recompute whenever ZIP or units change. Taxable amount = sum(unit.price),
+  // which already excludes distance delivery fees and indoor delivery fees
+  // (those are tracked separately and are tax-exempt). Cleanout/custom_service
+  // items don't appear in this build flow's UnitConfig so no service-item
+  // filter is needed here — server-side createQuote applies it as a safety net.
+  useEffect(() => {
+    const zip = deliveryZip.trim();
+    if (!zip || !/^\d{5}$/.test(zip) || units.length === 0) {
+      setEstimatedTax(null);
+      return;
+    }
+
+    const taxable = units.reduce((sum, u) => sum + (u.price || 0), 0);
+
+    let cancelled = false;
+    getEstimatedSalesTax(taxable, zip).then((result) => {
+      if (cancelled) return;
+      if (!result.stateCode || result.taxAmount <= 0) {
+        setEstimatedTax(null);
+        return;
+      }
+      setEstimatedTax({
+        amount: result.taxAmount,
+        rate: result.taxRate,
+        stateCode: result.stateCode,
+      });
+    }).catch(() => {
+      if (!cancelled) setEstimatedTax(null);
+    });
+
+    return () => { cancelled = true; };
+  }, [deliveryZip, units]);
 
   // Calculate aggregate material breakdown and manifest for all units in Quote Builder
   const [aggregateMaterials, setAggregateMaterials] = useState<MaterialBreakdown | null>(null);
@@ -1481,6 +1516,7 @@ export default function BuildConfiguratorPage() {
         displayMaterials={displayMaterials}
         feeBreakdown={feeBreakdown}
         materialPrices={materialPrices}
+        estimatedTax={estimatedTax}
       />
 
       {/* ═══════════════════════════════════════════════════════════════════

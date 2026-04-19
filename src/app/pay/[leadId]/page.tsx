@@ -200,18 +200,28 @@ export default function ResumePaymentPage() {
       .reduce((sum: number, u: any) => sum + (u.price || 0), 0);
   })();
 
-  // Sales tax — computed server-side (tax rates stay in the black box)
+  // Sales tax — computed server-side (tax rates stay in the black box).
+  // Effective state = customer's typed billing state (if valid) else the
+  // state derived from the quote's delivery ZIP at creation time. This lets
+  // the customer see the estimate immediately AND have it recalc if their
+  // billing address ends up in a different state.
   const [taxInfo, setTaxInfo] = useState<SalesTaxResult | null>(null);
   useEffect(() => {
-    if (!lead || !address.state || address.state.length !== 2) {
+    if (!lead) {
+      setTaxInfo(null);
+      return;
+    }
+    const enteredState = address.state && address.state.length === 2 ? address.state : null;
+    const effectiveState = enteredState || lead.billing_state || null;
+    if (!effectiveState) {
       setTaxInfo(null);
       return;
     }
     if (taxableAmount <= 0) {
-      setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: address.state });
+      setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: effectiveState });
       return;
     }
-    getSalesTax(taxableAmount, address.state).then(setTaxInfo);
+    getSalesTax(taxableAmount, effectiveState).then(setTaxInfo);
   }, [lead, taxableAmount, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.

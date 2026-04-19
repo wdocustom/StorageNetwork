@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import zipcodes from "zipcodes";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -186,6 +187,40 @@ export async function getSalesTax(
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
   return { taxRate, taxAmount, subtotal, total, stateName: state };
+}
+
+/**
+ * Look up the US state code for a 5-digit ZIP. Returns null if invalid
+ * or if the ZIP isn't in the dataset (e.g. typo, P.O. box prefix).
+ */
+export async function getStateFromZip(zip: string): Promise<string | null> {
+  if (!zip || !/^\d{5}$/.test(zip.trim())) return null;
+  const info = zipcodes.lookup(zip.trim());
+  return info?.state ?? null;
+}
+
+/**
+ * Estimate sales tax at quote-creation time, deriving the state from a ZIP.
+ * Returns the same shape as getSalesTax, plus the resolved stateCode (or null
+ * when the ZIP can't be mapped to a state).
+ */
+export async function getEstimatedSalesTax(
+  taxableAmount: number,
+  zip: string
+): Promise<SalesTaxResult & { stateCode: string | null }> {
+  const stateCode = await getStateFromZip(zip);
+  if (!stateCode) {
+    return {
+      taxRate: 0,
+      taxAmount: 0,
+      subtotal: taxableAmount,
+      total: taxableAmount,
+      stateName: "",
+      stateCode: null,
+    };
+  }
+  const result = await getSalesTax(taxableAmount, stateCode);
+  return { ...result, stateCode };
 }
 
 /**
