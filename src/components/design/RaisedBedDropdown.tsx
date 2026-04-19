@@ -41,8 +41,11 @@ export default function RaisedBedDropdown({
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   // Config state
+  const DEFAULT_ELEVATED = "legs_24x24x16_post";
+  const DEFAULT_GROUND = "ground_18x72x22";
+
   const [style, setStyle] = useState<"with_legs" | "without_legs">("without_legs");
-  const [sizeId, setSizeId] = useState<string | null>(null);
+  const [sizeId, setSizeId] = useState<string | null>(DEFAULT_GROUND);
   const [finish, setFinish] = useState<RaisedBedFinish>("natural");
   const [hasLiner, setHasLiner] = useState(false);
   const [depthIncrease, setDepthIncrease] = useState(false);
@@ -113,8 +116,7 @@ export default function RaisedBedDropdown({
 
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
     setStyle(s);
-    const defaultSize = s === "with_legs" ? "legs_24x24x16_post" : "ground_18x72x22";
-    setSizeId(defaultSize);
+    setSizeId(s === "with_legs" ? DEFAULT_ELEVATED : DEFAULT_GROUND);
     setHasLiner(false);
     setDepthIncrease(false);
     setBottomShelf(false);
@@ -130,9 +132,9 @@ export default function RaisedBedDropdown({
     const config: RaisedBedConfig = { sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted };
     const desc = getRaisedBedDescription(config);
     onAddRaisedBed(config, calculation.total, desc);
-    // Reset
+    // Reset to current style's default
     onPriceChange?.(null);
-    setSizeId(null);
+    setSizeId(style === "with_legs" ? DEFAULT_ELEVATED : DEFAULT_GROUND);
     setFinish("natural");
     setHasLiner(false);
     setDepthIncrease(false);
@@ -141,7 +143,6 @@ export default function RaisedBedDropdown({
     setPostHeight(null);
     setHasHook(false);
     setHighWindWeighted(false);
-    onConfigPreview?.(null);
   }
 
   return (
