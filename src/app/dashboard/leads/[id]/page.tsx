@@ -111,20 +111,41 @@ export default function JobTicketPage() {
     }
 
     // Fetch lead and verify it belongs to this installer
-    const { data, error: err } = await supabase
+    // Try with time_preference first, fall back without it if column doesn't exist yet
+    let data: Record<string, unknown> | null = null;
+    let err: unknown = null;
+
+    const baseColumns = "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount";
+
+    const result = await supabase
       .from("leads")
-      .select("id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, time_preference, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount")
+      .select(`${baseColumns}, time_preference`)
       .eq("id", leadId)
       .eq("installer_id", user.id)
       .single();
 
+    if (result.error && result.error.message?.includes("time_preference")) {
+      const fallback = await supabase
+        .from("leads")
+        .select(baseColumns)
+        .eq("id", leadId)
+        .eq("installer_id", user.id)
+        .single();
+      data = fallback.data as Record<string, unknown> | null;
+      err = fallback.error;
+    } else {
+      data = result.data as Record<string, unknown> | null;
+      err = result.error;
+    }
+
     if (err || !data) {
+      console.error("[JobTicket] Lead fetch error:", err);
       setError("Lead not found or access denied.");
       setLoading(false);
       return;
     }
 
-    const leadData = data as LeadDetail;
+    const leadData = data as unknown as LeadDetail;
     setLead(leadData);
     setTripSent(!!leadData.en_route_notified);
 
