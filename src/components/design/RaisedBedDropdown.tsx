@@ -113,7 +113,8 @@ export default function RaisedBedDropdown({
 
   const handleStyleChange = (s: "with_legs" | "without_legs") => {
     setStyle(s);
-    setSizeId(null);
+    const defaultSize = s === "with_legs" ? "legs_24x24x16_post" : "ground_18x72x22";
+    setSizeId(defaultSize);
     setHasLiner(false);
     setDepthIncrease(false);
     setBottomShelf(false);
@@ -122,7 +123,6 @@ export default function RaisedBedDropdown({
     setPostHeight(null);
     setHasHook(false);
     setHighWindWeighted(false);
-    onConfigPreview?.(null);
   };
 
   function handleAdd() {
