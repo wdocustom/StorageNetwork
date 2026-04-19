@@ -785,35 +785,62 @@ export async function sendProWelcomeEmail(
   const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
 
   const html = emailShell(
-    "Welcome to Pro!",
+    "Let's Get to Work!",
     `
     <div style="text-align:center;margin-bottom:24px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#9733;
+      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:72px;height:72px;line-height:72px;font-size:32px;">
+        &#128170;
       </div>
     </div>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
-      You&rsquo;re now a <strong style="color:#facc15;">Pro Partner</strong>! Here&rsquo;s what you&rsquo;ve unlocked:
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:18px;font-weight:800;text-align:center;">
+      Let&rsquo;s get to work, ${data.name}!
+    </p>
+    <p style="margin:0 0 24px;color:#cbd5e1;font-size:15px;text-align:center;line-height:1.7;">
+      You&rsquo;ve unlocked the <strong style="color:#facc15;">ONLY platform</strong> specifically designed for you
+      and what you build. No more chasing leads through DMs, sketching layouts on paper,
+      or losing out-of-area customers. Everything you need to book more jobs, collect deposits,
+      and grow your business is right here.
     </p>
 
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;width:24px;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:10px 0;"><strong>Low Fees</strong> — Only 3% maintenance fee on your direct leads</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:10px 0;"><strong>Your Partner Link</strong> — Share your custom URL with customers</td>
-        </tr>
-        <tr>
-          <td style="padding:10px 0;vertical-align:top;color:#16a34a;font-size:18px;">&#10003;</td>
-          <td style="padding:10px 0;"><strong>White-Label Experience</strong> — Your branding, your customers</td>
-        </tr>
-      </table>
+    <div style="background:linear-gradient(135deg,#0f172a,#1a2744);border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:22px;font-weight:900;">
+        Let&rsquo;s make this your best year.
+      </p>
+      <p style="margin:0;color:#94a3b8;font-size:13px;">
+        Every tool below is live and ready for you right now.
+      </p>
     </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="padding:12px;background:#0f172a;border-radius:10px;border:1px solid #334155;">
+          <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">&#9889; 3D Configurator</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">Customers build their own unit, see real pricing, and book instantly.</p>
+        </td>
+      </tr>
+      <tr><td style="height:8px;"></td></tr>
+      <tr>
+        <td style="padding:12px;background:#0f172a;border-radius:10px;border:1px solid #334155;">
+          <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">&#128279; Your Partner Link</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">One link to share everywhere &mdash; social, texts, cards. Customers land on YOUR branded page.</p>
+        </td>
+      </tr>
+      <tr><td style="height:8px;"></td></tr>
+      <tr>
+        <td style="padding:12px;background:#0f172a;border-radius:10px;border:1px solid #334155;">
+          <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">&#128176; Deposit Collection</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">Secure deposits before you even show up. No more no-shows or price hagglers.</p>
+        </td>
+      </tr>
+      <tr><td style="height:8px;"></td></tr>
+      <tr>
+        <td style="padding:12px;background:#0f172a;border-radius:10px;border:1px solid #334155;">
+          <p style="margin:0 0 4px;color:#facc15;font-size:13px;font-weight:800;">&#127758; Network Referrals</p>
+          <p style="margin:0;color:#94a3b8;font-size:12px;">Out-of-area leads pay YOU a 30% referral cut. Passive income from jobs you can&rsquo;t drive to.</p>
+        </td>
+      </tr>
+    </table>
 
     <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 8px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Your Partner Link</p>
@@ -821,13 +848,13 @@ export async function sendProWelcomeEmail(
     </div>
 
     <div style="text-align:center;margin-bottom:24px;">
-      <a href="${dashboardUrl}/marketing" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">
-        View Marketing Tools
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">
+        Open Your Dashboard &rarr;
       </a>
     </div>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Share your link with customers to start earning more on every job.
+    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+      Post your link on Facebook, TikTok, or text it to customers &mdash; and watch the bookings roll in.
     </p>
     `
   );
@@ -835,7 +862,112 @@ export async function sendProWelcomeEmail(
   return sendTransactionalEmail({
     to: email,
     toName: data.name,
-    subject: "Welcome to Pro — Your Partner Link is Live!",
+    subject: "Let's get to work \u2014 Your Pro tools are live!",
+    html,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template: Pro Renewal Receipt
+// Trigger: Monthly subscription renewal (not the first activation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendProRenewalReceipt(
+  email: string,
+  data: {
+    name: string;
+    slug: string;
+    totalJobs: number;
+    totalRevenue: number;
+    totalProfit: number;
+    periodStart: string;
+    periodEnd: string;
+    amountPaid: number;
+  }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
+
+  const fmtMoney = (cents: number) => {
+    const dollars = cents / 100;
+    return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const stat = (value: string, label: string, color: string) => `
+    <td style="text-align:center;padding:16px 8px;">
+      <p style="margin:0;font-size:26px;font-weight:900;color:${color};">${value}</p>
+      <p style="margin:4px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">${label}</p>
+    </td>`;
+
+  const html = emailShell(
+    "Pro Subscription Receipt",
+    `
+    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;">
+      Your Pro subscription has been renewed. Here&rsquo;s your receipt and a snapshot of your progress.
+    </p>
+
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#cbd5e1;">
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Plan</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;color:#facc15;">Storage Network Pro</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Amount</td>
+          <td style="padding:8px 0;text-align:right;font-weight:700;">${fmtMoney(data.amountPaid)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#94a3b8;">Period</td>
+          <td style="padding:8px 0;text-align:right;">${fmtDate(data.periodStart)} &mdash; ${fmtDate(data.periodEnd)}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="margin:0 0 12px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+      Your Stats So Far
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;border-radius:12px;margin:0 0 24px;">
+      <tr>
+        ${stat(String(data.totalJobs), "Jobs Completed", "#34d399")}
+        ${stat(fmtMoney(data.totalRevenue), "Total Revenue", "#60a5fa")}
+        ${stat(fmtMoney(data.totalProfit), "Your Profit", "#facc15")}
+      </tr>
+    </table>
+
+    ${data.totalJobs === 0
+      ? `<div style="background:#facc150d;border:1px solid #facc1533;border-radius:12px;padding:20px;margin:0 0 24px;text-align:center;">
+          <p style="margin:0 0 4px;color:#facc15;font-size:14px;font-weight:700;">Time to land your first Pro job!</p>
+          <p style="margin:0;color:#94a3b8;font-size:13px;">Share your partner link on social media &mdash; the configurator does the selling for you.</p>
+        </div>`
+      : `<div style="background:#16a34a0d;border:1px solid #16a34a33;border-radius:12px;padding:20px;margin:0 0 24px;text-align:center;">
+          <p style="margin:0 0 4px;color:#34d399;font-size:14px;font-weight:700;">Keep the momentum going!</p>
+          <p style="margin:0;color:#94a3b8;font-size:13px;">Every job you complete builds your reputation on the platform. Post your link, stack those bookings.</p>
+        </div>`
+    }
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:800;font-size:14px;">
+        Open Dashboard &rarr;
+      </a>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:10px;padding:16px;text-align:center;">
+      <p style="margin:0 0 6px;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;">Your Partner Link</p>
+      <p style="margin:0;color:#facc15;font-size:14px;font-weight:700;word-break:break-all;">${partnerLinkUrl}</p>
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: `Pro Receipt \u2014 ${fmtMoney(data.amountPaid)} | ${data.totalJobs} jobs completed`,
     html,
   });
 }

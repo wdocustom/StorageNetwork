@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -584,49 +584,106 @@ export async function POST(request: NextRequest) {
   if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
     const userId = subscription.metadata?.userId;
+    const isFirstActivation = event.type === "customer.subscription.created";
 
     if (userId && subscription.status === "active") {
-      console.log("[Webhook] Pro subscription activated for user:", userId);
+      console.log(`[Webhook] Pro subscription ${isFirstActivation ? "created" : "renewed"} for user:`, userId);
       const result = await activateProSubscription(userId, subscription.id);
       if (result.success && result.slug) {
         console.log("[Webhook] Pro activated, slug:", result.slug);
 
-        // Fire-and-forget: Pro welcome email + referral activation
-        fireAndForget("pro_welcome", async () => {
-          const { data: profile } = await getDb()
-            .from("profiles")
-            .select("first_name, last_name, business_name")
-            .eq("id", userId)
-            .single();
+        if (isFirstActivation) {
+          // First subscription — send motivational welcome email
+          fireAndForget("pro_welcome", async () => {
+            const { data: profile } = await getDb()
+              .from("profiles")
+              .select("first_name, last_name, business_name")
+              .eq("id", userId)
+              .single();
 
-          const { data: authUser } = await getDb().auth.admin.getUserById(userId);
-          const email = authUser?.user?.email;
+            const { data: authUser } = await getDb().auth.admin.getUserById(userId);
+            const email = authUser?.user?.email;
 
-          if (email && profile) {
-            const name = profile.business_name ||
-              [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
-              "Partner";
+            if (email && profile) {
+              const name = profile.business_name ||
+                [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+                "Partner";
 
-            await sendProWelcomeEmail(email, { name, slug: result.slug! });
-            console.log("[Webhook] Pro welcome email sent to:", email);
-          }
+              await sendProWelcomeEmail(email, { name, slug: result.slug! });
+              console.log("[Webhook] Pro welcome email sent to:", email);
+            }
 
-          // Activate affiliate referral if one exists
-          const { data: pendingRef } = await getDb()
-            .from("referrals")
-            .select("id")
-            .eq("installer_id", userId)
-            .in("status", ["pending", "inactive"])
-            .maybeSingle();
-
-          if (pendingRef) {
-            await getDb()
+            // Activate affiliate referral if one exists
+            const { data: pendingRef } = await getDb()
               .from("referrals")
-              .update({ status: "active" })
-              .eq("id", pendingRef.id);
-            console.log("[Webhook] Referral activated for installer:", userId);
-          }
-        });
+              .select("id")
+              .eq("installer_id", userId)
+              .in("status", ["pending", "inactive"])
+              .maybeSingle();
+
+            if (pendingRef) {
+              await getDb()
+                .from("referrals")
+                .update({ status: "active" })
+                .eq("id", pendingRef.id);
+              console.log("[Webhook] Referral activated for installer:", userId);
+            }
+          });
+        } else {
+          // Renewal — send receipt with sales recap
+          fireAndForget("pro_renewal_receipt", async () => {
+            const { data: profile } = await getDb()
+              .from("profiles")
+              .select("first_name, last_name, business_name")
+              .eq("id", userId)
+              .single();
+
+            const { data: authUser } = await getDb().auth.admin.getUserById(userId);
+            const email = authUser?.user?.email;
+
+            if (email && profile) {
+              const name = profile.business_name ||
+                [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+                "Partner";
+
+              // Query lifetime stats from completed jobs
+              const { data: completedJobs } = await getDb()
+                .from("leads")
+                .select("estimated_price, deposit_amount")
+                .eq("installer_id", userId)
+                .eq("status", "completed");
+
+              const totalJobs = completedJobs?.length ?? 0;
+              const totalRevenue = (completedJobs ?? []).reduce(
+                (sum: number, j: { estimated_price: number | null }) =>
+                  sum + (j.estimated_price ?? 0), 0
+              );
+              // Profit = revenue minus platform fees (3% maintenance)
+              const totalProfit = Math.round(totalRevenue * 0.97);
+
+              // Get billing period from the subscription
+              const periodEnd = subscription.items.data[0]?.current_period_end;
+              const periodStart = subscription.items.data[0]?.current_period_start;
+              const amountPaid = subscription.items.data[0]?.price?.unit_amount ?? 4900;
+
+              await sendProRenewalReceipt(email, {
+                name,
+                slug: result.slug!,
+                totalJobs,
+                totalRevenue: totalRevenue * 100,
+                totalProfit: totalProfit * 100,
+                periodStart: periodStart
+                  ? new Date(periodStart * 1000).toISOString()
+                  : new Date().toISOString(),
+                periodEnd: periodEnd
+                  ? new Date(periodEnd * 1000).toISOString()
+                  : new Date().toISOString(),
+                amountPaid,
+              });
+              console.log("[Webhook] Pro renewal receipt sent to:", email);
+            }
+          });
+        }
       } else {
         console.error("[Webhook] Pro activation failed:", result.error);
       }
