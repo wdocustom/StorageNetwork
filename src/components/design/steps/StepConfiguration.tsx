@@ -46,8 +46,8 @@ export default function StepConfiguration({
         </div>
       )}
 
-      {/* Orientation Cards */}
-      {!props.activePreset && props.unitType === "standard" && (
+      {/* Orientation Cards — hidden for 2x4 rail construction (universal 21" opening) */}
+      {!props.activePreset && props.unitType === "standard" && !props.use2x4Rails && (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             {props.totesDisabled ? "Orientation" : "Tote Direction"}
@@ -71,8 +71,8 @@ export default function StepConfiguration({
         </div>
       )}
 
-      {/* Tote Size — hidden when totes globally disabled */}
-      {!props.totesDisabled && !props.activePreset && props.unitType === "standard" ? (
+      {/* Tote Size — hidden when totes globally disabled or 2x4 rails (universal 21" opening, HDX default) */}
+      {!props.totesDisabled && !props.activePreset && props.unitType === "standard" && !props.use2x4Rails ? (
         <div>
           <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
             Tote Size
