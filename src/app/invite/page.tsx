@@ -240,7 +240,7 @@ function InvitePageContent() {
       {/* ══════════════════════════════════════════════════════════════════
           HERO — Money-First Headline
       ══════════════════════════════════════════════════════════════════ */}
-      <section className="relative flex min-h-[90vh] flex-col items-center justify-center overflow-hidden px-4 py-20">
+      <section className="relative flex flex-col items-center justify-center overflow-hidden px-4 py-20 pt-24 sm:pt-28">
         {/* Radial glow */}
         <div
           className="pointer-events-none absolute inset-0"
@@ -307,6 +307,20 @@ function InvitePageContent() {
             </span>
           </div>
         </div>
+
+        {/* Hero product shot */}
+        <div className="relative z-10 mx-auto mt-12 w-full max-w-4xl overflow-hidden rounded-2xl border border-stone-800 shadow-2xl shadow-yellow-400/5">
+          <div className="relative aspect-video bg-gray-800">
+            <Image
+              src="/invite/hero-install.jpg"
+              alt="Completed tote-rack garage storage installation"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 896px"
+              priority
+            />
+          </div>
+        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
@@ -356,10 +370,86 @@ function InvitePageContent() {
           SOCIAL PROOF — Numbers That Matter
       ══════════════════════════════════════════════════════════════════ */}
       <section className="border-t border-stone-800/50 px-4 py-16">
-        <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-3">
-          <StatCard value="$400–600" label="Per Install" icon={DollarSign} />
-          <StatCard value="3–4 hrs" label="Average Job Time" icon={Clock} />
-          <StatCard value="2×4 + Totes" label="Materials Needed" icon={Package} />
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-stone-800 bg-gray-900">
+          <div className="grid divide-y divide-stone-800 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {[
+              { icon: DollarSign, value: "$400–600", label: "Per Install" },
+              { icon: Clock, value: "3–4 hrs", label: "Average Job Time" },
+              { icon: Package, value: "2×4 + Totes", label: "Materials Needed" },
+            ].map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center gap-1 px-4 py-6">
+                <div className="flex items-center gap-2">
+                  <stat.icon className="h-5 w-5 text-yellow-400" />
+                  <span className="text-2xl font-black text-white">{stat.value}</span>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TECH SHOWCASE — The Ultimate Unfair Advantage
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800/50 px-4 py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="mb-4 text-center text-3xl font-black uppercase text-white sm:text-4xl">
+            The Ultimate Unfair{" "}
+            <span className="text-yellow-400">Advantage</span>
+          </h2>
+          <p className="mx-auto mb-12 max-w-xl text-center text-sm text-stone-500">
+            While other installers are quoting, marketing, and chasing leads
+            — you&apos;re building.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {[
+              {
+                title: "3D Configurator",
+                image: "/invite/configurator-preview.png",
+                caption:
+                  "Customers design their own system. You get an exact build spec.",
+              },
+              {
+                title: "Auto-Generated Cut Lists",
+                image: "/invite/cut-list-preview.png",
+                caption:
+                  "Bin-packed lumber cuts. Zero math. Zero waste.",
+              },
+              {
+                title: "Pre-Sold Lead Queue",
+                image: "/invite/dashboard-leads.png",
+                caption:
+                  "Deposits collected. Addresses confirmed. Just show up and build.",
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className="overflow-hidden rounded-2xl border border-stone-800 bg-gray-900 transition-colors hover:border-yellow-400/20"
+              >
+                <div className="relative aspect-video bg-gray-800">
+                  <Image
+                    src={card.image}
+                    alt={card.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="mb-1.5 text-sm font-extrabold uppercase text-white">
+                    {card.title}
+                  </h3>
+                  <p className="text-xs leading-relaxed text-stone-500">
+                    {card.caption}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -430,8 +520,8 @@ function InvitePageContent() {
             />
             <FeatureCard
               icon={MapPin}
-              title="Territory Protection"
-              desc="Limited installers per area. No competing with 20 other contractors."
+              title="Capped Territories"
+              desc="We limit installer density per area so the math always works in your favor."
             />
             <FeatureCard
               icon={TrendingUp}
@@ -747,26 +837,6 @@ function InvitePageContent() {
 // ═══════════════════════════════════════════════════════════════════════════
 // Sub-Components
 // ═══════════════════════════════════════════════════════════════════════════
-
-function StatCard({
-  value,
-  label,
-  icon: Icon,
-}: {
-  value: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="rounded-xl border border-stone-800 bg-gray-900 p-6 text-center">
-      <Icon className="mx-auto mb-2 h-6 w-6 text-yellow-400" />
-      <div className="text-2xl font-black text-white">{value}</div>
-      <div className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-        {label}
-      </div>
-    </div>
-  );
-}
 
 function FeatureCard({
   icon: Icon,
