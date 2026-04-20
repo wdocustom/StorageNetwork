@@ -9,7 +9,7 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { getSetupStatus, type SetupStatus } from "@/app/actions/setup-checklist";
+import { getSetupStatus, completeChecklistStep, type SetupStatus } from "@/app/actions/setup-checklist";
 import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -52,32 +52,32 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
   // Handle inline actions that can be completed directly on the checklist
   function handleStepAction(stepId: string): boolean {
     if (stepId === "copy_link" && bookingLink) {
-      // Optimistic: show "Done" immediately
       setJustCompleted("copy_link");
 
-      // Copy link to clipboard (best-effort)
       try {
         navigator.clipboard.writeText(bookingLink);
       } catch {
         // Clipboard API may fail in non-secure contexts
       }
 
-      // Log activity via browser client (localStorage auth — always works),
-      // then refresh checklist from server to reflect the completion
-      logActivityClient({ action: "copy_link", pagePath: "/dashboard" });
+      // Use server action (service_role) — immune to stale browser auth sessions
+      completeChecklistStep(userId, "copy_link").then((ok) => {
+        if (!ok) {
+          logActivityClient({ action: "copy_link", pagePath: "/dashboard" });
+        }
+        // Refresh checklist from server to reflect completion
+        setTimeout(() => {
+          getSetupStatus(userId)
+            .then((s) => { if (s) setStatus(s); })
+            .catch(() => {});
+        }, 300);
+      });
 
-      // Brief delay for the insert to complete, then refresh checklist
-      setTimeout(() => {
-        getSetupStatus(userId)
-          .then((s) => { if (s) setStatus(s); })
-          .catch(() => {});
-      }, 500);
-
-      return true; // handled inline
+      return true;
     }
 
     if (stepId === "visit_instagram") {
-      // Optimistically mark as completed immediately — no validation needed
+      setJustCompleted("visit_instagram");
       setStatus((prev) => {
         if (!prev) return prev;
         const updatedSteps = prev.steps.map((s) =>
@@ -92,8 +92,13 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
         };
       });
       window.open("https://www.instagram.com/storagenetwork.app/", "_blank", "noopener");
-      // Fire-and-forget: log activity so it stays complete on future loads
-      logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
+      // Use server action (service_role) — immune to stale browser auth sessions
+      completeChecklistStep(userId, "instagram_visited").then((ok) => {
+        if (!ok) {
+          // Fallback to browser client if server action fails
+          logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
+        }
+      });
       return true;
     }
 
