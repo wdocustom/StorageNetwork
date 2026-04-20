@@ -21,7 +21,10 @@ export function getChatModel(overrideModel?: string): LanguageModel {
     throw new Error("AI chat provider not configured — GROQ_API_KEY missing");
   }
   const groq = createGroq({ apiKey });
-  return groq(overrideModel || process.env.AI_CHAT_MODEL || DEFAULT_CHAT_MODEL);
+  const envModel = process.env.AI_CHAT_MODEL;
+  // Ignore stale Google model names left in env vars
+  const isGroqModel = envModel && !envModel.startsWith("gemini");
+  return groq(overrideModel || (isGroqModel ? envModel : DEFAULT_CHAT_MODEL));
 }
 
 export function hasChatProvider(): boolean {
