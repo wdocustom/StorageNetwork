@@ -430,14 +430,16 @@ function InvitePageContent() {
                 key={card.title}
                 className="overflow-hidden rounded-2xl border border-stone-800 bg-gray-900 transition-colors hover:border-yellow-400/20"
               >
-                <div className="relative aspect-video bg-gray-800">
-                  <Image
-                    src={card.image}
-                    alt={card.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                  />
+                <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-stone-950 to-gray-900 p-4">
+                  <div className="relative h-full w-full overflow-hidden rounded-lg bg-stone-950/50 ring-1 ring-stone-800/50">
+                    <Image
+                      src={card.image}
+                      alt={card.title}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                    />
+                  </div>
                 </div>
                 <div className="p-6">
                   <h3 className="mb-1.5 text-sm font-extrabold uppercase text-white">
