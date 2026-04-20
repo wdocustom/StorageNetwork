@@ -3,8 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import {
   buildSystemMessage,
   buildLocationContext,
@@ -97,7 +96,7 @@ Write the full structured post now.`;
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await generateText({
+        const result = await generateTextWithFallback({
           model,
           system: systemMessage,
           prompt: userMessage,

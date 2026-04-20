@@ -4,8 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 
 // TODO: Implement Gemini automated moderation and quality scoring
 
@@ -63,7 +62,7 @@ ${threadText}`;
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await generateText({
+        const result = await generateTextWithFallback({
           model,
           system: systemMessage,
           prompt: userMessage,

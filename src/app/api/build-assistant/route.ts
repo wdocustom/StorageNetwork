@@ -5,8 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
 import {
@@ -456,7 +455,7 @@ export async function POST(request: NextRequest) {
     const latestQuestion = recentMessages[recentMessages.length - 1]?.text ?? "";
 
     // ── Step 1: Classify what calculations are needed ────────────────
-    const classifyResult = await generateText({
+    const classifyResult = await generateTextWithFallback({
       model,
       system: `You are a routing assistant for a storage unit build calculator.
 Given the user's question and the current build context, determine what server-side calculations are needed.
@@ -518,7 +517,7 @@ ${systemPrompt}`,
         ? `\n\n## Fresh Calculation Results\n\`\`\`json\n${JSON.stringify(calcResults, null, 2)}\n\`\`\``
         : "";
 
-    const answer = await generateText({
+    const answer = await generateTextWithFallback({
       model,
       system: systemPrompt + calcContext,
       prompt: conversation,

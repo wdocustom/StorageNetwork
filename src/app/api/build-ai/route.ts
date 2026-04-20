@@ -7,8 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import { calculateBuild } from "@/app/actions/calculator";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -181,7 +180,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await generateText({
+    const result = await generateTextWithFallback({
       model: getChatModel(),
       system: SYSTEM_PROMPT,
       prompt: input,
