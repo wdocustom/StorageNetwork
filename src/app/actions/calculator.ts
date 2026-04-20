@@ -5,8 +5,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type ToteModel = "HDX" | "GM";
+export type ToteColor = "black" | "clear";
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
+
+import type { InstallerPricing, SectionAddon, AddonPricing } from "@/types/viewModels";
+import { PLATFORM_BESTSELLER_DEFAULTS, PLATFORM_SHELVING_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing-constants";
 
 interface CalculateBuildInput {
   wallWidth?: number;
@@ -14,6 +18,7 @@ interface CalculateBuildInput {
   cols?: number;
   rows?: number;
   toteModel: ToteModel;
+  toteColor?: ToteColor; // Only applies to HDX standard units
   unitType?: UnitType;
   orientation?: Orientation; // Only applies to standard units
   addOns: {
@@ -22,6 +27,10 @@ interface CalculateBuildInput {
     top: boolean;
   };
   mode: "wallFit" | "manual";
+  /** Optional installer pricing overrides (Pro feature) */
+  installerPricing?: InstallerPricing;
+  /** Per-section addons (Organizer Customization) */
+  sectionAddons?: SectionAddon[];
 }
 
 interface BuildResult {
@@ -29,9 +38,11 @@ interface BuildResult {
   cols: number;
   rows: number;
   price: number;
+  addonPrice: number;
   dimensions: { totalW: number; totalH: number; depth: number };
   config: {
     toteModel: ToteModel;
+    toteColor: ToteColor;
     unitType: UnitType;
     orientation: Orientation;
     hasTotes: boolean;
@@ -84,6 +95,10 @@ interface UnitDimensionConfig {
   pricePlywoodSheet: number;
 }
 
+// ── Tote Pricing Constants ────────────────────────────────────────────────
+const STANDARD_TOTE_BLACK_PRICE = 12;    // HDX Black/Yellow totes
+const STANDARD_TOTE_CLEAR_PRICE = 20;    // HDX Clear/Yellow totes (+$8)
+
 // ── Standard Unit (27 Gallon Totes) ──────────────────────────────────────
 const STANDARD_CONFIG: UnitDimensionConfig = {
   slotWidth: 0,                // Calculated from tote model (HDX/GM)
@@ -107,9 +122,9 @@ const STANDARD_CONFIG: UnitDimensionConfig = {
   topIsMandatory: false,
 
   pricePerSlot: 30,
-  pricePerTote: 10,
-  priceWheels: 50,
-  pricePlywoodSheet: 75,
+  pricePerTote: 12,            // Base price (black), clear uses STANDARD_TOTE_CLEAR_PRICE
+  priceWheels: 65,
+  pricePlywoodSheet: 95,
 };
 
 // ── Standard Unit SIDEWAYS Orientation (27 Gallon Totes rotated 90°) ─────
@@ -137,9 +152,9 @@ const SIDEWAYS_CONFIG: UnitDimensionConfig = {
 
   // Same pricing as standard (for now)
   pricePerSlot: 30,
-  pricePerTote: 10,
-  priceWheels: 50,
-  pricePlywoodSheet: 75,
+  pricePerTote: 12,
+  priceWheels: 65,
+  pricePlywoodSheet: 95,
 };
 
 // ── Mini Unit (6.5 Quart Totes) ──────────────────────────────────────────
@@ -167,11 +182,52 @@ const MINI_CONFIG: UnitDimensionConfig = {
   pricePerSlot: 15,            // Lower price for mini
   pricePerTote: 4,             // 6.5qt totes are cheaper
   priceWheels: 40,             // Slightly cheaper wheels
-  pricePlywoodSheet: 75,       // Same plywood price
+  pricePlywoodSheet: 95,       // Same plywood price
 };
 
+// ── 2x4 Rail Construction Mode ──────────────────────────────────────────
+// Uses ripped 2x4s (1-3/4") instead of plywood strips for rails.
+// Fixed rail positions, 21" universal openings, max 5 rows.
+// 6 rails per 2x4x8' piece (ripped in half → 2 strips × 3 cuts at 30" depth).
+const RAILS_2X4_CONFIG: UnitDimensionConfig = {
+  slotWidth: 21,                 // 21" universal opening (tote type irrelevant)
+  verticalSpacing: 15.75,        // Spacing between consecutive rail tops
+  firstRailHeight: 13.75,        // Top of first rail from bottom = 13-3/4"
+  depth: 30,                     // 30" deep (same as standard)
+
+  postWidth: 1.5,                // 2x4 narrow face
+  postDepth: 3.5,                // 2x4 wide face
+  plateHeight: 1.5,              // 2x4 flat (bottom plate)
+  topGap: 2.75,                  // 2-3/4" above top rail to top of vertical post
+
+  railWidth: 1.5,                // 1-1/2" wide (ripped 2x4, narrow face showing)
+  railThickness: 1.75,           // 1-3/4" tall (ripped 2x4 on narrow face)
+
+  toteWidth: 0,                  // N/A — universal frame
+  toteHeight: 0,                 // N/A
+  toteDepth: 0,                  // N/A
+
+  hasTopPlate: true,             // Has both top and bottom 2x4 plates
+  topIsMandatory: false,         // No plywood top by default
+
+  pricePerSlot: 30,              // Same slot pricing as standard
+  pricePerTote: 0,               // No totes
+  priceWheels: 65,               // Same wheel pricing
+  pricePlywoodSheet: 95,         // Same plywood top pricing
+};
+
+// Fixed rail height positions (top of each rail from bottom of vertical posts)
+// Posts sit on a 1.5" bottom plate. These positions do NOT include the plate.
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75]; // inches
+const RAILS_2X4_MAX_ROWS = 5;
+
 // ── Config getter ────────────────────────────────────────────────────────
-function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard"): UnitDimensionConfig {
+function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
+  if (use2x4Rails) {
+    // Sideways orientation = shallower depth (20" instead of 30") + wider slots (30.25")
+    if (orientation === "sideways") return { ...RAILS_2X4_CONFIG, depth: 20, slotWidth: SIDEWAYS_CONFIG.slotWidth };
+    return RAILS_2X4_CONFIG;
+  }
   if (unitType === "mini") return MINI_CONFIG;
   // Standard unit: check orientation
   return orientation === "sideways" ? SIDEWAYS_CONFIG : STANDARD_CONFIG;
@@ -188,7 +244,12 @@ const WHEEL_HEIGHT = 2.75;       // Industrial caster height for calculations
 const OPENING_HDX = 19.75;
 const OPENING_GM = 20.75;
 
-function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard"): number {
+function getOpening(model: ToteModel, unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): number {
+  if (use2x4Rails) {
+    // Sideways 2x4: wider slots (30.25") to accommodate rotated totes
+    if (orientation === "sideways") return SIDEWAYS_CONFIG.slotWidth;
+    return RAILS_2X4_CONFIG.slotWidth; // 21" universal
+  }
   if (unitType === "mini") {
     return MINI_CONFIG.slotWidth;
   }
@@ -204,10 +265,17 @@ export async function calculateBuild(
 ): Promise<BuildResult | BuildError> {
   const { toteModel, addOns, mode } = input;
   const unitType: UnitType = input.unitType ?? "standard";
-  // Orientation only applies to standard units
+  const use2x4Rails = input.installerPricing?.use_2x4_rails === true;
+  // Orientation applies to standard units and 2x4 rail mode (sideways = wider slots, shallower depth)
   const orientation: Orientation = unitType === "standard" ? (input.orientation ?? "standard") : "standard";
-  const config = getUnitConfig(unitType, orientation);
-  const opening = getOpening(toteModel, unitType, orientation);
+  // Tote color only applies to HDX standard units with totes included
+  const toteColor: ToteColor = (toteModel === "HDX" && unitType === "standard" && addOns.totes)
+    ? (input.toteColor ?? "black")
+    : "black";
+  const config = getUnitConfig(unitType, orientation, use2x4Rails);
+  const opening = getOpening(toteModel, unitType, orientation, use2x4Rails);
+
+  const effectiveAddOns = addOns;
 
   let cols: number;
   let rows: number;
@@ -218,22 +286,41 @@ export async function calculateBuild(
       return { success: false, error: "Valid wall dimensions are required." };
     }
     // For Mini units, cap the effective wall width at MINI_MAX_WIDTH (96")
-    const effectiveWallWidth = unitType === "mini"
+    const effectiveWallWidth = (unitType === "mini" && !use2x4Rails)
       ? Math.min(wallWidth, MINI_MAX_WIDTH)
       : wallWidth;
 
     // If wheels are enabled, subtract wheel height from available wall height
-    const effectiveWallHeight = addOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
+    const effectiveWallHeight = effectiveAddOns.wheels ? wallHeight - WHEEL_HEIGHT : wallHeight;
 
     // Wall fit calculation using config values
     cols = Math.floor((effectiveWallWidth - config.postWidth) / (opening + config.postWidth));
-    const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
-    rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
+
+    if (use2x4Rails) {
+      // 2x4 rails: count how many fixed rail positions fit in the wall height.
+      // Rail positions are from bottom of posts. Posts sit on plates.
+      // Total height = bottom plate + post height (railPos + topGap) + top plate
+      rows = 0;
+      for (const pos of RAILS_2X4_POSITIONS) {
+        const totalH2x4 = config.plateHeight * 2 + pos + config.topGap;
+        if (totalH2x4 <= effectiveWallHeight) {
+          rows++;
+        } else {
+          break;
+        }
+      }
+    } else {
+      const usableHeight = effectiveWallHeight - config.plateHeight - (config.hasTopPlate ? config.plateHeight : 0) - config.firstRailHeight;
+      rows = Math.floor(usableHeight / config.verticalSpacing) + 1;
+    }
+
     if (cols < 1) cols = 1;
     if (rows < 1) rows = 1;
 
-    // Apply Mini max tier constraint
-    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+    // Apply max tier constraints
+    if (use2x4Rails && rows > RAILS_2X4_MAX_ROWS) {
+      rows = RAILS_2X4_MAX_ROWS;
+    } else if (unitType === "mini" && !use2x4Rails && rows > MINI_MAX_TIERS) {
       rows = MINI_MAX_TIERS;
     }
   } else {
@@ -244,8 +331,10 @@ export async function calculateBuild(
     if (rows < 1) rows = 1;
     if (rows > 20) rows = 20;
 
-    // Apply Mini max tier constraint for manual mode too
-    if (unitType === "mini" && rows > MINI_MAX_TIERS) {
+    // Apply max tier constraints
+    if (use2x4Rails && rows > RAILS_2X4_MAX_ROWS) {
+      rows = RAILS_2X4_MAX_ROWS;
+    } else if (unitType === "mini" && !use2x4Rails && rows > MINI_MAX_TIERS) {
       rows = MINI_MAX_TIERS;
     }
   }
@@ -253,9 +342,18 @@ export async function calculateBuild(
   // ── Dimensions ─────────────────────────────────────────────────────────
   const totalW = cols * opening + (cols + 1) * config.postWidth;
 
-  // Height calculation differs for Standard vs Mini
+  // Height calculation differs by construction type
   let frameH: number;
-  if (unitType === "mini") {
+  if (use2x4Rails) {
+    // 2x4 rail mode: rail positions are measured from bottom of vertical posts.
+    // Posts sit on a 1.5" bottom plate, and there's a 1.5" top plate.
+    // Post height = top rail position + topGap (2.75" above top rail).
+    // Frame height = bottom plate (1.5") + post height + top plate (1.5").
+    // Example: 4×2 = 1.5 + 29.5 + 2.75 + 1.5 = 35.25" total
+    const topRailPos = RAILS_2X4_POSITIONS[rows - 1];
+    const postHeight = topRailPos + config.topGap;
+    frameH = config.plateHeight * 2 + postHeight;
+  } else if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood
     // No top 2x4 plates, just plywood top
     const lastRailHeight = config.firstRailHeight + (rows - 1) * config.verticalSpacing;
@@ -266,17 +364,37 @@ export async function calculateBuild(
   }
 
   // Total height includes wheel height if wheels are selected
-  const totalH = addOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
+  const totalH = effectiveAddOns.wheels ? frameH + WHEEL_HEIGHT : frameH;
 
   // ── Pricing ────────────────────────────────────────────────────────────
+  // Apply installer pricing overrides if provided (Pro feature)
+  const ip = input.installerPricing;
+  const effectiveSlotPrice = unitType === "mini"
+    ? (ip?.mini_slot ?? config.pricePerSlot)
+    : (ip?.standard_slot ?? config.pricePerSlot);
+  const effectiveWheelsPrice = unitType === "mini"
+    ? (ip?.mini_wheels ?? config.priceWheels)
+    : (ip?.standard_wheels ?? config.priceWheels);
+  const effectiveTopPrice = ip?.plywood_top ?? config.pricePlywoodSheet;
+
   const slots = cols * rows;
-  let price = slots * config.pricePerSlot;
-  if (addOns.totes) price += slots * config.pricePerTote;
-  if (addOns.wheels) price += config.priceWheels;
+  let price = slots * effectiveSlotPrice;
+  if (effectiveAddOns.totes) {
+    let totePrice: number;
+    if (toteModel === "HDX" && unitType === "standard" && toteColor === "clear") {
+      totePrice = ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE;
+    } else if (unitType === "mini") {
+      totePrice = ip?.mini_tote ?? config.pricePerTote;
+    } else {
+      totePrice = ip?.standard_tote ?? config.pricePerTote;
+    }
+    price += slots * totePrice;
+  }
+  if (effectiveAddOns.wheels) price += effectiveWheelsPrice;
 
   // Plywood top calculation
   let topSheets = 0;
-  const effectiveHasTop = config.topIsMandatory || addOns.top;
+  const effectiveHasTop = config.topIsMandatory || effectiveAddOns.top;
 
   if (effectiveHasTop) {
     if (unitType === "mini") {
@@ -294,24 +412,311 @@ export async function calculateBuild(
       else if (totalW > 96) topSheets = 2;
       else topSheets = 1;
     }
-    price += topSheets * config.pricePlywoodSheet;
+    price += topSheets * effectiveTopPrice;
   }
+
+  // ── Section Addon Pricing (Organizer Customization) ──────────────────
+  let addonPrice = 0;
+  const sectionAddons = input.sectionAddons ?? [];
+  if (sectionAddons.length > 0) {
+    const ap = ip?.addon_pricing;
+    const doorPrice = ap?.plywood_door ?? ADDON_PLATFORM_DEFAULTS.plywood_door;
+    const sidePanelPrice = ap?.side_panel ?? ADDON_PLATFORM_DEFAULTS.side_panel;
+    const railRemovalPrice = ap?.rail_removal ?? ADDON_PLATFORM_DEFAULTS.rail_removal;
+    const shelfPrice = ap?.shelf ?? ADDON_PLATFORM_DEFAULTS.shelf;
+
+    for (const addon of sectionAddons) {
+      switch (addon.type) {
+        case "plywood_door":
+          // "doors_on" = all columns get a door (retail-facing: total price for on/off)
+          if (addon.target === "doors_on") {
+            addonPrice += doorPrice * cols;
+          } else {
+            addonPrice += doorPrice;
+          }
+          break;
+        case "side_panel":
+          addonPrice += sidePanelPrice;
+          break;
+        case "hinge_concealed":
+          // Concealed hinges are included in door price for retail customers
+          // Only charge separately if added individually
+          addonPrice += ap?.concealed_hinge_pair ?? ADDON_PLATFORM_DEFAULTS.concealed_hinge_pair;
+          break;
+        case "rail_removed":
+          addonPrice += railRemovalPrice;
+          break;
+        case "shelf":
+          addonPrice += shelfPrice;
+          break;
+      }
+    }
+  }
+  price += addonPrice;
 
   return {
     success: true,
     cols,
     rows,
     price,
+    addonPrice,
     dimensions: { totalW, totalH, depth: config.depth },
     config: {
       toteModel,
+      toteColor,
       unitType,
       orientation,
-      hasTotes: addOns.totes,
-      hasWheels: addOns.wheels,
+      hasTotes: effectiveAddOns.totes,
+      hasWheels: effectiveAddOns.wheels,
       hasTop: effectiveHasTop,
       slots,
       topSheets,
     },
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bestseller Presets — imported from shared lib (safe for client import)
+// ═══════════════════════════════════════════════════════════════════════════
+import { BESTSELLER_PRESETS } from "@/lib/presets";
+export type { PresetSubUnit, BestsellerPreset } from "@/lib/presets";
+
+import { SHELVING_CONFIGS } from "@/lib/shelving";
+export type { ShelvingConfig, ShelvingWidth, ShelvingHeight } from "@/lib/shelving";
+
+export interface CompoundBuildResult {
+  success: true;
+  presetId: string;
+  presetName: string;
+  totalPrice: number;
+  subUnits: {
+    cols: number;
+    rows: number;
+    price: number;
+    totalW: number;
+    totalH: number;
+    depth: number;
+    slots: number;
+  }[];
+  /** Combined width of all sub-units placed side-by-side */
+  combinedW: number;
+  /** Height of the tallest sub-unit */
+  maxH: number;
+  depth: number;
+  totalSlots: number;
+}
+
+export interface CompoundBuildError {
+  success: false;
+  error: string;
+}
+
+/**
+ * Calculate pricing and dimensions for a compound bestseller preset.
+ * Runs calculateBuild for each sub-unit and aggregates.
+ */
+export async function calculateCompoundBuild(input: {
+  presetId: string;
+  hasTotes: boolean;
+  installerPricing?: InstallerPricing;
+}): Promise<CompoundBuildResult | CompoundBuildError> {
+  const preset = BESTSELLER_PRESETS.find((p) => p.id === input.presetId);
+  if (!preset) {
+    return { success: false, error: "Unknown preset." };
+  }
+
+  // Installer-level totes_disabled always wins — no totes regardless of preset
+  // Then: preset.totesAreMandatory forces totes ON (e.g. Track Norris drawer slides)
+  // Then: preset.totesDisabled forces totes OFF (frame-only presets)
+  // Otherwise: use the customer's choice
+  const installerTotesOff = input.installerPricing?.totes_disabled === true;
+  const hasTotes = installerTotesOff ? false : preset.totesAreMandatory ? true : preset.totesDisabled ? false : input.hasTotes;
+
+  // Still calculate each sub-unit for dimensions/slots (pricing may be overridden)
+  const subUnits: CompoundBuildResult["subUnits"] = [];
+  let combinedW = 0;
+  let maxH = 0;
+  let depth = 0;
+  let totalSlots = 0;
+
+  for (const unit of preset.units) {
+    const result = await calculateBuild({
+      cols: unit.cols,
+      rows: unit.rows,
+      toteModel: preset.toteModel,
+      toteColor: preset.toteColor,
+      unitType: preset.unitType,
+      orientation: preset.orientation,
+      addOns: {
+        totes: hasTotes,
+        wheels: unit.hasWheels,
+        top: unit.hasTop,
+      },
+      mode: "manual",
+      installerPricing: input.installerPricing,
+    });
+
+    if (!result.success) {
+      return { success: false, error: "Calculation failed for sub-unit." };
+    }
+
+    subUnits.push({
+      cols: result.cols,
+      rows: result.rows,
+      price: result.price,
+      totalW: result.dimensions.totalW,
+      totalH: result.dimensions.totalH,
+      depth: result.dimensions.depth,
+      slots: result.config.slots,
+    });
+
+    combinedW += result.dimensions.totalW;
+    maxH = Math.max(maxH, result.dimensions.totalH);
+    depth = Math.max(depth, result.dimensions.depth);
+    totalSlots += result.config.slots;
+  }
+
+  // ── Pricing ──────────────────────────────────────────────────────────
+  // Always dynamically calculated from the installer's rates (or platform
+  // defaults when no custom pricing is set).  Fixed marketing prices on the
+  // preset definition (basePrice / withTotesPrice) are no longer used for
+  // customer-facing pricing — every installer gets their own price.
+  //
+  // Priority:
+  //   1. Per-bestseller total-price override (installer set a flat price for
+  //      this specific preset, WITH totes included).  If customer toggles
+  //      totes off, we subtract the tote cost at the installer's tote rate.
+  //   2. Dynamic sum of sub-unit prices (slot × rate + plywood + wheels +
+  //      totes if selected).
+  //
+  // Totes are always priced using the installer's tote rate (or platform
+  // default) so the customer sees a consistent per-tote cost.
+
+  const ip = input.installerPricing;
+  const bestsellerKey = `bestseller_${preset.id.replace(/-/g, "_")}` as keyof InstallerPricing;
+  const installerOverride = ip?.[bestsellerKey] as number | undefined;
+  // Fallback: platform default bestseller price (e.g., $950 for Indiana Joe)
+  const platformDefault = PLATFORM_BESTSELLER_DEFAULTS[bestsellerKey];
+  // Installer override takes priority, then platform default, then dynamic calc
+  const bestsellerOverride = (installerOverride !== undefined && installerOverride !== null)
+    ? installerOverride
+    : platformDefault;
+
+  // Calculate what the tote add-on costs (used by both paths)
+  const effectiveTotePrice =
+    preset.toteColor === "clear" && preset.toteModel === "HDX" && preset.unitType === "standard"
+      ? (ip?.standard_tote_clear ?? STANDARD_TOTE_CLEAR_PRICE)
+      : preset.unitType === "mini"
+        ? (ip?.mini_tote ?? MINI_CONFIG.pricePerTote)
+        : (ip?.standard_tote ?? STANDARD_CONFIG.pricePerTote);
+
+  let totalPrice: number;
+
+  if (bestsellerOverride !== undefined && bestsellerOverride !== null) {
+    // Path 1: Bestseller total price — installer override or platform default.
+    // When customer toggles totes OFF → subtract tote cost at installer's rate.
+    // BUT: for totesDisabled presets, the default price already excludes totes,
+    // so don't subtract again.
+    totalPrice = bestsellerOverride;
+    if (!hasTotes && !preset.totesDisabled) {
+      totalPrice -= totalSlots * effectiveTotePrice;
+    }
+  } else {
+    // Path 2: No bestseller override and no platform default — dynamically
+    // calculate from sub-units.  Sub-unit prices include totes when hasTotes
+    // is true.
+    totalPrice = subUnits.reduce((sum, su) => sum + su.price, 0);
+  }
+
+  return {
+    success: true,
+    presetId: preset.id,
+    presetName: preset.name,
+    totalPrice,
+    subUnits,
+    combinedW,
+    maxH,
+    depth,
+    totalSlots,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Open Shelving Unit Calculator
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ShelvingBuildResult {
+  success: true;
+  configId: string;
+  label: string;
+  price: number;
+  widthIn: number;
+  frameH: number;
+  depth: number;
+  shelves: number;
+}
+
+export interface ShelvingBuildError {
+  success: false;
+  error: string;
+}
+
+/**
+ * Calculate pricing for an open shelving unit.
+ * Uses installer override if set, otherwise falls back to the platform default.
+ */
+export async function calculateShelvingUnit(input: {
+  configId: string;
+  installerPricing?: InstallerPricing;
+}): Promise<ShelvingBuildResult | ShelvingBuildError> {
+  const config = SHELVING_CONFIGS.find((c) => c.id === input.configId);
+  if (!config) {
+    return { success: false, error: "Unknown shelving configuration." };
+  }
+
+  // Pricing key: shelving_<id_with_underscores> e.g. "shelving_shelf_4ft_short"
+  const pricingKey = `shelving_${config.id.replace(/-/g, "_")}` as keyof InstallerPricing;
+  const installerOverride = input.installerPricing?.[pricingKey] as number | undefined;
+  const pricingKeyForDefault = `shelving_${config.id.replace(/-/g, "_")}`;
+  const platformDefault = PLATFORM_SHELVING_DEFAULTS[pricingKeyForDefault] ?? 0;
+  const price = (installerOverride !== undefined && installerOverride !== null)
+    ? installerOverride
+    : platformDefault;
+
+  return {
+    success: true,
+    configId: config.id,
+    label: config.label,
+    price,
+    widthIn: config.widthIn,
+    frameH: config.frameH,
+    depth: config.depth,
+    shelves: config.shelves,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Overhead Ceiling Storage Calculator
+// ═══════════════════════════════════════════════════════════════════════════
+
+import {
+  calculateOverheadStorage as calcOverhead,
+  type OverheadStorageConfig,
+  type OverheadStorageResult,
+  type OverheadToteType,
+} from "@/lib/overhead-storage";
+
+export type { OverheadStorageConfig, OverheadStorageResult, OverheadToteType };
+
+export async function calculateOverheadStorageUnit(input: {
+  config: OverheadStorageConfig;
+  installerPricing?: InstallerPricing;
+}): Promise<{ success: true; result: OverheadStorageResult } | { success: false; error: string }> {
+  try {
+    const { PLATFORM_OVERHEAD_DEFAULTS: ohDefaults, OVERHEAD_BASE_PRICE_PER_SLOT: ohSlotPrice, PLATFORM_DEFAULTS: pd } = await import("@/lib/server/pricing-constants");
+    const result = calcOverhead(input.config, input.installerPricing as Record<string, number | boolean | undefined>, ohDefaults, ohSlotPrice, pd.standard_tote);
+    return { success: true, result };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Calculation failed" };
+  }
 }

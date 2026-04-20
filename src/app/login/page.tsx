@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { Loader2, Mail, ArrowLeft } from "lucide-react";
+import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
+import { getPaymentRecoveryUrl } from "@/app/actions/pro-subscription";
+import { Loader2, Mail, ArrowLeft, KeyRound, ShieldOff } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Login Page — Supabase Magic Link Auth
+// Login Page — Supabase Email/Password Auth with Forgot Password
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function LoginPage() {
@@ -16,10 +19,17 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [suspension, setSuspension] = useState<{
+    blocked: boolean;
+    reason: "manual" | "payment" | null;
+    userId: string | null;
+  }>({ blocked: false, reason: null, userId: null });
+  const [recoveryUrl, setRecoveryUrl] = useState<string | null>(null);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   async function handleEmailAuth() {
     const trimmedEmail = email.trim().toLowerCase();
@@ -33,26 +43,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (mode === "signup") {
-        // Sign up with email + password
-        if (password.length < 6) {
-          setError("Password must be at least 6 characters.");
-          setLoading(false);
-          return;
-        }
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+      if (mode === "forgot") {
+        // Send password reset email
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          trimmedEmail,
+          {
+            redirectTo: `${window.location.origin}/reset-password`,
+          }
+        );
 
-        if (signUpError) {
-          setError(signUpError.message);
+        if (resetError) {
+          setError(resetError.message);
         } else {
           setMessage(
-            "Check your email for a confirmation link, then come back and sign in."
+            "Check your email for a password reset link."
           );
         }
       } else {
@@ -62,7 +66,7 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
@@ -70,6 +74,30 @@ export default function LoginPage() {
         if (signInError) {
           setError(signInError.message);
         } else {
+          // Check suspension before allowing dashboard access
+          if (signInData.user) {
+            const status = await checkSuspensionStatus(signInData.user.id);
+            if (status.suspended) {
+              const suspendedUserId = signInData.user.id;
+              // Sign out immediately — they cannot use the dashboard
+              await supabase.auth.signOut();
+              setSuspension({
+                blocked: true,
+                reason: status.reason,
+                userId: suspendedUserId,
+              });
+              // If payment issue, generate billing portal URL
+              if (status.reason === "payment") {
+                const recovery = await getPaymentRecoveryUrl(suspendedUserId);
+                if (recovery.success && recovery.url) {
+                  setRecoveryUrl(recovery.url);
+                }
+              }
+              setLoading(false);
+              return;
+            }
+            await stampLastLogin(signInData.user.id);
+          }
           window.location.href = redirectTo;
         }
       }
@@ -84,14 +112,115 @@ export default function LoginPage() {
     if (e.key === "Enter") handleEmailAuth();
   }
 
+  // ── Locked Account Blocked Screen ────────────────────────────────────
+  if (suspension.blocked) {
+    const isPayment = suspension.reason === "payment";
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <Image
+              src="/landing_page_logo.png"
+              alt="Storage Network"
+              width={128}
+              height={128}
+              className="mx-auto mb-4 h-32 w-auto object-contain"
+            />
+          </div>
+
+          <div className="rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center">
+            <ShieldOff className="mx-auto mb-3 h-10 w-10 text-red-400" />
+            <h2 className="text-lg font-bold text-white">Account Locked</h2>
+
+            {isPayment ? (
+              <>
+                <p className="mt-3 text-sm text-stone-400">
+                  Your account has been locked due to a missing subscription
+                  payment. Please reconcile your payment to regain access.
+                </p>
+                {recoveryUrl ? (
+                  <a
+                    href={recoveryUrl}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                  >
+                    Manage Subscription
+                  </a>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      if (!suspension.userId) return;
+                      setRecoveryLoading(true);
+                      const result = await getPaymentRecoveryUrl(suspension.userId);
+                      if (result.success && result.url) {
+                        setRecoveryUrl(result.url);
+                        window.open(result.url, "_blank");
+                      }
+                      setRecoveryLoading(false);
+                    }}
+                    disabled={recoveryLoading}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                  >
+                    {recoveryLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Manage Subscription"
+                    )}
+                  </button>
+                )}
+                <p className="mt-3 text-xs text-stone-500">
+                  If you need help, contact{" "}
+                  <a
+                    href="mailto:support@storage-network.app"
+                    className="font-semibold text-yellow-400 hover:text-yellow-300"
+                  >
+                    support@storage-network.app
+                  </a>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-sm text-stone-400">
+                  Your account has been locked. Please contact support to
+                  regain access.
+                </p>
+                <a
+                  href="mailto:support@storage-network.app"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                >
+                  Contact support@storage-network.app
+                </a>
+              </>
+            )}
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setSuspension({ blocked: false, reason: null, userId: null });
+                setRecoveryUrl(null);
+              }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 hover:text-yellow-400"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <img
-            src="/logo-storage-network.png"
+          <Image
+            src="/landing_page_logo.png"
             alt="Storage Network"
+            width={128}
+            height={128}
             className="mx-auto mb-4 h-32 w-auto object-contain"
           />
           <h1 className="text-lg font-bold uppercase tracking-wider text-white">
@@ -100,7 +229,7 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-stone-500">
             {mode === "login"
               ? "Sign in to your installer dashboard"
-              : "Create your installer account"}
+              : "Reset your password"}
           </p>
         </div>
 
@@ -131,24 +260,26 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder={mode === "signup" ? "Min 6 characters" : "Your password"}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              />
-            </div>
+            {/* Password - hidden in forgot mode */}
+            {mode !== "forgot" && (
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Your password"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
           </div>
 
           {error && (
@@ -170,29 +301,43 @@ export default function LoginPage() {
             ) : mode === "login" ? (
               "Sign In"
             ) : (
-              "Create Account"
+              <>
+                <KeyRound className="h-4 w-4" />
+                Send Reset Link
+              </>
             )}
           </button>
 
           {/* Toggle mode */}
-          <div className="mt-4 text-center">
-            {mode === "login" ? (
+          <div className="mt-4 space-y-2 text-center">
+            {mode === "login" && (
+              <>
+                <p className="text-xs text-stone-500">
+                  <button
+                    onClick={() => {
+                      setMode("forgot");
+                      setError("");
+                      setMessage("");
+                    }}
+                    className="font-semibold text-stone-400 hover:text-yellow-400"
+                  >
+                    Forgot Password?
+                  </button>
+                </p>
+                <p className="text-xs text-stone-500">
+                  Don&apos;t have an account?{" "}
+                  <a
+                    href="/partner/join"
+                    className="font-semibold text-yellow-400 hover:text-yellow-300"
+                  >
+                    Join the Network
+                  </a>
+                </p>
+              </>
+            )}
+            {mode === "forgot" && (
               <p className="text-xs text-stone-500">
-                Don&apos;t have an account?{" "}
-                <button
-                  onClick={() => {
-                    setMode("signup");
-                    setError("");
-                    setMessage("");
-                  }}
-                  className="font-semibold text-yellow-400 hover:text-yellow-300"
-                >
-                  Sign Up
-                </button>
-              </p>
-            ) : (
-              <p className="text-xs text-stone-500">
-                Already have an account?{" "}
+                Remember your password?{" "}
                 <button
                   onClick={() => {
                     setMode("login");

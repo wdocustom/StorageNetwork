@@ -1,0 +1,45 @@
+-- Migration 055: Add services_config JSONB column to profiles
+-- Stores an array of service offerings each installer can toggle on/off
+-- with custom names and pricing. Built-in services (tote_storage, cleanout)
+-- use well-known IDs; custom services get UUIDs.
+--
+-- Schema:
+-- [
+--   {
+--     "id": "tote_storage",
+--     "name": "Custom Tote Storage",
+--     "description": "Design in 3D, get instant pricing, book installation.",
+--     "price": null,
+--     "enabled": true,
+--     "built_in": true
+--   },
+--   {
+--     "id": "cleanout_1car",
+--     "name": "1-Car Garage Clean Out",
+--     "description": "Single bay / small basement",
+--     "price": 349,
+--     "enabled": true,
+--     "built_in": true
+--   },
+--   {
+--     "id": "cleanout_2car",
+--     "name": "2-Car Garage Clean Out",
+--     "description": "Double bay / large basement",
+--     "price": 549,
+--     "enabled": true,
+--     "built_in": true
+--   },
+--   {
+--     "id": "<uuid>",
+--     "name": "Shelf Installation",
+--     "description": "Custom shelving for your garage",
+--     "price": 199,
+--     "enabled": true,
+--     "built_in": false
+--   }
+-- ]
+--
+-- NULL = all built-in services enabled at default prices (backwards compatible)
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS services_config jsonb DEFAULT NULL;

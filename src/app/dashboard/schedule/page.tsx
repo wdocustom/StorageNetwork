@@ -2,6 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import AvailabilityManager from "@/components/dashboard/AvailabilityManager";
+import ProPill from "@/components/dashboard/ProPill";
 
 export default function SchedulePage() {
   return (
@@ -14,9 +15,10 @@ export default function SchedulePage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </a>
-          <h1 className="text-sm font-bold uppercase tracking-wider text-white">
+          <h1 className="flex-1 text-sm font-bold uppercase tracking-wider text-white">
             Schedule Settings
           </h1>
+          <ProPill />
         </div>
       </header>
 

@@ -1,16 +1,13 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import Stripe from "stripe";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Connect — Onboarding & Account Management for Installers
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 // Initialize Stripe only if key is present
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -226,9 +223,11 @@ export async function getStripeDashboardLink(userId: string): Promise<ConnectRes
       url: loginLink.url,
     };
   } catch (err) {
+    console.error("[StripeDashboard] Login link creation failed:", err);
+    // Fallback: link to Stripe's direct dashboard
     return {
-      success: false,
-      error: "Failed to create dashboard link",
+      success: true,
+      url: "https://dashboard.stripe.com/",
     };
   }
 }

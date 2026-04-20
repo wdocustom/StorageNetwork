@@ -5,7 +5,12 @@ import { ArrowLeft } from "lucide-react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata = {
-  title: "Terms of Service | The Storage-Network",
+  title: "Terms of Service | Storage Network",
+  description:
+    "Terms of Service for Storage Network. Covers installer accounts, customer bookings, payment processing, platform usage, and dispute resolution for tote rack installation services.",
+  alternates: {
+    canonical: "/legal/terms",
+  },
 };
 
 export default function TermsPage() {
@@ -64,6 +69,39 @@ export default function TermsPage() {
             <li>A platform service fee of up to 15% is applied to each transaction, depending on the installer&apos;s plan and lead source.</li>
             <li>All prices quoted through the configurator are estimates; final pricing may vary
               based on site conditions.</li>
+          </ul>
+
+          <h2 className="mt-8 text-lg font-bold text-white">
+            3b. Upsell Services &amp; Network Lead Fees
+          </h2>
+          <p>
+            The Platform may offer optional add-on services (&quot;Upsell Services&quot;) to Customers
+            in connection with a scheduled installation. These include, but are not limited to,
+            garage cleanout services offered prior to an installation date.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <strong>Network Lead Fee:</strong> A <strong>10% network lead fee</strong> is applied
+              to all Upsell Services facilitated through the Platform. This fee is calculated on the
+              total price of the upsell item and is deducted from the transaction before installer
+              payout.
+            </li>
+            <li>
+              <strong>Upsell Deposit:</strong> Customers may be required to pay a 50% deposit at
+              the time of confirming an Upsell Service. The remaining balance is collected at the
+              time of service.
+            </li>
+            <li>
+              <strong>Installer Payout:</strong> After the 10% network lead fee is deducted, the
+              installer receives their share of the upsell payment according to the Platform&apos;s
+              standard payout schedule.
+            </li>
+            <li>
+              <strong>Applicable Services:</strong> The 10% network lead fee applies to all
+              Platform-facilitated upsell items including, but not limited to: garage cleanout
+              services, organizational add-ons, and any additional services offered through the
+              Platform&apos;s automated upsell system.
+            </li>
           </ul>
 
           <h2 className="mt-8 text-lg font-bold text-white">4. Cancellation &amp; Refund Policy</h2>
@@ -129,7 +167,7 @@ export default function TermsPage() {
           <h2 className="mt-8 text-lg font-bold text-white">8. Intellectual Property</h2>
           <p>
             All content on the Platform, including the build configurator, 3D visualizer,
-            cut plan algorithms, and brand assets, is the property of WDO Custom LLC and
+            cut plan algorithms, and brand assets, is the property of Storage-Network.app and
             is protected by applicable intellectual property laws. You may not reproduce,
             distribute, or create derivative works without written permission.
           </p>
@@ -158,7 +196,7 @@ export default function TermsPage() {
 
           <div className="mt-12 rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <p className="text-xs text-stone-500">
-              &copy; {new Date().getFullYear()} WDO Custom LLC. All rights reserved.
+              &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
             </p>
           </div>
         </div>

@@ -1,16 +1,13 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Photo Upload — Server action using service role key
 // Ensures the job-photos bucket exists and handles upload server-side.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 const BUCKET = "job-photos";
 

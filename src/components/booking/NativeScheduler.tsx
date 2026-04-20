@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Sun, Sunset } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // NativeScheduler — Installer-Aware Calendar Picker
@@ -16,22 +16,39 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+interface BlackoutDateRange {
+  start_date: string;
+  end_date: string;
+}
+
 interface NativeSchedulerProps {
   /** Installer's required lead time in days (default 5) */
   leadTimeDays?: number;
   /** Installer's working days, e.g. ["Mon", "Tue", "Wed", "Thu", "Fri"] */
   workingDays?: string[];
+  /** Blackout date ranges when installer is unavailable */
+  blackoutDates?: BlackoutDateRange[];
+  /** Per-date block availability from installer overrides */
+  blockAvailability?: Record<string, { morning: boolean; afternoon: boolean }>;
   /** Currently selected date */
   selectedDate: string | null;
   /** Callback when a date is selected (ISO date string YYYY-MM-DD) */
   onSelectDate: (date: string) => void;
+  /** Currently selected time preference */
+  timePreference?: string | null;
+  /** Callback when a time preference is selected */
+  onSelectTime?: (pref: "morning" | "afternoon") => void;
 }
 
 export default function NativeScheduler({
   leadTimeDays = 5,
   workingDays = ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  blackoutDates = [],
+  blockAvailability = {},
   selectedDate,
   onSelectDate,
+  timePreference,
+  onSelectTime,
 }: NativeSchedulerProps) {
   const today = useMemo(() => {
     const d = new Date();
@@ -57,14 +74,27 @@ export default function NativeScheduler({
     return new Set(workingDays.map((d) => map[d] ?? -1));
   }, [workingDays]);
 
+  // Check if a date string is within any blackout range
+  const isBlackedOut = useMemo(() => {
+    return (dateStr: string): boolean => {
+      for (const range of blackoutDates) {
+        if (dateStr >= range.start_date && dateStr <= range.end_date) {
+          return true;
+        }
+      }
+      return false;
+    };
+  }, [blackoutDates]);
+
   // Auto-select first available date on mount
   useEffect(() => {
     if (selectedDate) return; // already selected
     const d = new Date(firstAvailable);
-    // Walk forward until we find a working day (max 30 day scan)
-    for (let i = 0; i < 30; i++) {
-      if (workingDayIndices.has(d.getDay())) {
-        onSelectDate(toDateStr(d));
+    // Walk forward until we find a working day that's not blacked out (max 60 day scan)
+    for (let i = 0; i < 60; i++) {
+      const dateStr = toDateStr(d);
+      if (workingDayIndices.has(d.getDay()) && !isBlackedOut(dateStr)) {
+        onSelectDate(dateStr);
         // Ensure calendar shows this month
         setViewMonth(d.getMonth());
         setViewYear(d.getFullYear());
@@ -111,11 +141,14 @@ export default function NativeScheduler({
       const dateStr = toDateStr(d);
       const isPastLeadTime = d >= firstAvailable;
       const isWorkDay = workingDayIndices.has(d.getDay());
+      const isNotBlackedOut = !isBlackedOut(dateStr);
+      const blocks = blockAvailability[dateStr];
+      const hasAnyBlock = !blocks || blocks.morning || blocks.afternoon;
       days.push({
         date: d,
         dayOfMonth: day,
         isCurrentMonth: true,
-        isAvailable: isPastLeadTime && isWorkDay,
+        isAvailable: isPastLeadTime && isWorkDay && isNotBlackedOut && hasAnyBlock,
         isSelected: dateStr === selectedDate,
         isToday: d.getTime() === today.getTime(),
         dateStr,
@@ -138,7 +171,7 @@ export default function NativeScheduler({
     }
 
     return days;
-  }, [viewYear, viewMonth, firstAvailable, workingDayIndices, selectedDate, today]);
+  }, [viewYear, viewMonth, firstAvailable, workingDayIndices, isBlackedOut, blockAvailability, selectedDate, today]);
 
   function prevMonth() {
     if (viewMonth === 0) {
@@ -235,18 +268,62 @@ export default function NativeScheduler({
         ))}
       </div>
 
-      {/* Selected date display */}
+      {/* Selected date + time block picker */}
       {selectedDate && (
-        <div className="mt-3 rounded-lg bg-yellow-400/10 px-3 py-2 text-center">
-          <span className="text-xs font-bold text-yellow-400">
-            Scheduled:{" "}
-            {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
+        <div className="mt-3 space-y-2">
+          <div className="rounded-lg bg-yellow-400/10 px-3 py-2 text-center">
+            <span className="text-xs font-bold text-yellow-400">
+              {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+
+          {/* AM / PM block selector */}
+          {onSelectTime && (() => {
+            const blocks = blockAvailability[selectedDate];
+            const morningOk = !blocks || blocks.morning;
+            const afternoonOk = !blocks || blocks.afternoon;
+            return (
+              <div>
+                <p className="mb-1.5 text-center text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                  Preferred Time
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => morningOk && onSelectTime("morning")}
+                    disabled={!morningOk}
+                    className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                      timePreference === "morning"
+                        ? "border-yellow-400 bg-yellow-400/15 text-yellow-400 shadow-sm shadow-yellow-400/10"
+                        : morningOk
+                          ? "border-slate-700 bg-slate-800 text-stone-300 hover:border-yellow-400/30 hover:text-white"
+                          : "border-slate-800 bg-slate-800/50 text-stone-700 cursor-not-allowed"
+                    }`}
+                  >
+                    <Sun className="h-4 w-4" />
+                    Morning
+                  </button>
+                  <button
+                    onClick={() => afternoonOk && onSelectTime("afternoon")}
+                    disabled={!afternoonOk}
+                    className={`flex items-center justify-center gap-2 rounded-lg border py-3 text-xs font-bold uppercase tracking-wider transition-all ${
+                      timePreference === "afternoon"
+                        ? "border-yellow-400 bg-yellow-400/15 text-yellow-400 shadow-sm shadow-yellow-400/10"
+                        : afternoonOk
+                          ? "border-slate-700 bg-slate-800 text-stone-300 hover:border-yellow-400/30 hover:text-white"
+                          : "border-slate-800 bg-slate-800/50 text-stone-700 cursor-not-allowed"
+                    }`}
+                  >
+                    <Sunset className="h-4 w-4" />
+                    Afternoon
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

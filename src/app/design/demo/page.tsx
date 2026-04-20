@@ -17,10 +17,12 @@ export default function DemoPage() {
   const demoViewModel: DesignPageViewModel = {
     routing: {
       installerId: "demo-platform",
+      slug: null,
       stripeAccountId: "demo_stripe_placeholder",
       phone: null,
       leadTime: 5,
       workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      schedulingEnabled: true,
     },
     branding: {
       title: "Professional Grade Storage",

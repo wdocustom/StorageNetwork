@@ -1,0 +1,100 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// AI Bio Generator — Gemini-powered professional bio for installer profiles
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { NextRequest, NextResponse } from "next/server";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { generateText } from "ai";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { businessName, firstName, city, state, existingBio } = body as {
+      businessName?: string;
+      firstName?: string;
+      city?: string;
+      state?: string;
+      existingBio?: string;
+    };
+
+    if (!businessName && !firstName) {
+      return NextResponse.json(
+        { error: "Business name or first name is required" },
+        { status: 400 }
+      );
+    }
+
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "AI API key not configured" },
+        { status: 500 }
+      );
+    }
+
+    const google = createGoogleGenerativeAI({ apiKey });
+
+    const location = [city, state].filter(Boolean).join(", ");
+    const name = businessName || firstName || "our company";
+
+    const systemMessage = `You are a professional copywriter for home service contractors. Write a compelling, concise bio for a storage system installer's public portfolio page. This bio will be seen by homeowners considering hiring this installer.
+
+Rules:
+- Keep it under 250 characters total. This is critical — count carefully.
+- Write in first person ("We" for businesses, "I" for individuals).
+- Sound professional, confident, and approachable — like a trusted local contractor.
+- Mention the location if provided.
+- Mention custom tote storage systems / garage organization as the specialty.
+- Do NOT use emojis, hashtags, or marketing fluff.
+- Do NOT use quotes around the output.
+- Output ONLY the bio text, nothing else.`;
+
+    const userMessage = existingBio
+      ? `Rewrite and improve this installer bio for ${name}${location ? ` in ${location}` : ""}. Keep the same general message but make it more professional and concise (under 250 characters):\n\n"${existingBio}"`
+      : `Write a professional bio for ${name}${location ? `, a storage system installer in ${location}` : ", a storage system installer"}.`;
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await generateText({
+          model: google("gemini-2.0-flash"),
+          system: systemMessage,
+          prompt: userMessage,
+        });
+
+        return NextResponse.json({ bio: result.text.trim() });
+      } catch (err: unknown) {
+        lastError = err;
+        const errMsg =
+          err instanceof Error ? err.message : JSON.stringify(err);
+        const isRateLimit =
+          errMsg.includes("429") ||
+          errMsg.includes("quota") ||
+          errMsg.includes("RESOURCE_EXHAUSTED");
+        if (!isRateLimit || attempt === 2) throw err;
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+      }
+    }
+    throw lastError;
+  } catch (error: unknown) {
+    console.error("Bio generation error:", error);
+    const message =
+      error instanceof Error ? error.message : String(error);
+
+    if (
+      message.includes("429") ||
+      message.includes("quota") ||
+      message.includes("rate")
+    ) {
+      return NextResponse.json(
+        { error: "AI rate limit reached. Please try again shortly." },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: `Bio generation failed: ${message}` },
+      { status: 500 }
+    );
+  }
+}

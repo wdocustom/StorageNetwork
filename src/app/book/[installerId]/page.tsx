@@ -8,10 +8,17 @@ import {
   useState,
 } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
+import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
+import type { InstallerPricing } from "@/types/viewModels";
+import PageViewTracker from "@/components/tracking/PageViewTracker";
 import {
+  AlertTriangle,
   CheckCircle2,
+  Clock,
   Loader2,
   Plus,
   Send,
@@ -83,9 +90,25 @@ function BookingPageInner() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [addressZip, setAddressZip] = useState("");
+  const [zipOutOfArea, setZipOutOfArea] = useState(false);
+  const [zipCheckMsg, setZipCheckMsg] = useState("");
+  const [waitlistSending, setWaitlistSending] = useState(false);
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // ── Installer pricing (Pro feature) ──────────────────────────────────
+  const [installerPricing, setInstallerPricing] = useState<InstallerPricing | undefined>();
+
+  useEffect(() => {
+    if (!installerId) return;
+    getInstallerPricing(installerId).then((res) => {
+      if (res.success && res.pricing) setInstallerPricing(res.pricing);
+    });
+  }, [installerId]);
 
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
 
@@ -101,6 +124,7 @@ function BookingPageInner() {
           const res = await calculateBuild({
             cols: c, rows: r, toteModel: model,
             addOns: { totes, wheels, top }, mode: "manual",
+            installerPricing,
           });
           if (res.success) {
             setBuild({
@@ -112,12 +136,50 @@ function BookingPageInner() {
         } catch { /* keep previous */ }
         finally { setBuildLoading(false); }
       }, 500);
-    }, []
+    }, [installerPricing]
   );
 
   useEffect(() => {
     fetchBuild(cols, rows, toteType, hasTotes, hasWheels, hasTop);
   }, [cols, rows, toteType, hasTotes, hasWheels, hasTop, fetchBuild]);
+
+  // ── Real-time ZIP service-area check ────────────────────────────────
+  const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+
+    const zip = addressZip.trim();
+    if (!zip || zip.length < 5) {
+      setZipOutOfArea(false);
+      setZipCheckMsg("");
+      return;
+    }
+
+    zipCheckRef.current = setTimeout(async () => {
+      try {
+        const result = await validateServiceArea(installerId, zip);
+        if (!result.inArea) {
+          setZipOutOfArea(true);
+          setZipCheckMsg(
+            result.radiusMiles
+              ? `ZIP ${zip} is outside this installer's ${result.radiusMiles}-mile service area.`
+              : `ZIP ${zip} is outside this installer's service area.`
+          );
+        } else {
+          setZipOutOfArea(false);
+          setZipCheckMsg("");
+        }
+      } catch {
+        setZipOutOfArea(false);
+        setZipCheckMsg("");
+      }
+    }, 600);
+
+    return () => {
+      if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    };
+  }, [addressZip, installerId]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
 
@@ -147,6 +209,10 @@ function BookingPageInner() {
       setSubmitError("Add at least one unit to your quote.");
       return;
     }
+    if (zipOutOfArea) {
+      setSubmitError("This installer does not service your ZIP code. Please verify your installation address.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -155,6 +221,7 @@ function BookingPageInner() {
         customer_email: email,
         customer_phone: phone,
         address,
+        address_zip: addressZip || undefined,
         quote_data: orderItems,
         grand_total: grandTotal,
         // ─── SELF-LEAD: inject installer_id + source ───────────────
@@ -168,18 +235,50 @@ function BookingPageInner() {
     }
   }
 
+  async function handleWaitlist() {
+    setWaitlistError("");
+    if (!name.trim() || !email.trim()) {
+      setWaitlistError("Name and email are required to join the waitlist.");
+      return;
+    }
+    setWaitlistSending(true);
+    try {
+      const res = await submitWaitlistRequest({
+        installer_id: installerId,
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone || undefined,
+        customer_zip: addressZip,
+      });
+      if (res.success) {
+        setWaitlistSent(true);
+      } else {
+        setWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setWaitlistSending(false);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
     <div className="min-h-screen bg-gray-950">
+      {/* ── Analytics: track page view for installer ────────────────── */}
+      {installerId && <PageViewTracker installerId={installerId} page="/book" />}
+
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto max-w-lg text-center">
-          <img
-            src="/logo-storage-network.png"
+          <Image
+            src="/Header_avatar_logo.png"
             alt="Storage Network"
+            width={56}
+            height={56}
             className="mx-auto mb-1 h-14 w-auto object-contain"
           />
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
@@ -358,34 +457,84 @@ function BookingPageInner() {
                       className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone"
-                      className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
-                    />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Address"
-                      className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                      placeholder="Installation address"
+                      className="col-span-2 w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={5}
+                      value={addressZip}
+                      onChange={(e) => setAddressZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                      placeholder="ZIP *"
+                      className={`w-full rounded-lg border px-3 py-2 text-sm text-white placeholder-stone-500 focus:outline-none ${
+                        zipOutOfArea
+                          ? "border-red-500 bg-red-950/30 focus:border-red-400"
+                          : "border-stone-700 bg-slate-800 focus:border-yellow-400"
+                      }`}
                     />
                   </div>
-                  <button
-                    onClick={handleBookDeposit}
-                    disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 disabled:opacity-50"
-                  >
-                    {submitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {submitting ? "Submitting…" : "Book & Pay Deposit"}
-                  </button>
+                  {zipOutOfArea && zipCheckMsg && !waitlistSent && (
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3">
+                      <div className="mb-2 flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+                        <p className="text-xs leading-relaxed text-amber-300">{zipCheckMsg}</p>
+                      </div>
+                      <p className="mb-3 text-xs text-stone-400">
+                        Want this installer to know you&rsquo;re interested? Join the waitlist and they&rsquo;ll be notified.
+                      </p>
+                      <button
+                        onClick={handleWaitlist}
+                        disabled={waitlistSending}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-sm font-bold text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                      >
+                        {waitlistSending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                        {waitlistSending ? "Sending…" : "Join Waitlist"}
+                      </button>
+                      {waitlistError && (
+                        <p className="mt-2 text-xs font-medium text-red-400">{waitlistError}</p>
+                      )}
+                    </div>
+                  )}
+                  {waitlistSent && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4 text-center">
+                      <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                      <p className="text-sm font-semibold text-white">Waitlist Request Sent</p>
+                      <p className="mt-1 text-xs text-stone-400">
+                        The installer has been notified. They&rsquo;ll reach out if they can accommodate your area.
+                      </p>
+                    </div>
+                  )}
+                  {!zipOutOfArea && (
+                    <button
+                      onClick={handleBookDeposit}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      {submitting ? "Submitting…" : "Book & Pay Deposit"}
+                    </button>
+                  )}
                   {submitError && (
                     <p className="text-xs font-medium text-red-400">{submitError}</p>
                   )}
@@ -406,7 +555,7 @@ function BookingPageInner() {
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
       <footer className="border-t border-stone-800 px-4 py-6 text-center">
-        <img src="/logo-storage-network.png" alt="Storage Network" className="mx-auto mb-2 h-10 w-auto object-contain" />
+        <Image src="/Header_avatar_logo.png" alt="Storage Network" width={40} height={40} className="mx-auto mb-2 h-10 w-auto object-contain" />
         <p className="text-[10px] text-stone-700">
           Powered by The Storage-Network Partner Program
         </p>

@@ -37,7 +37,7 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     configKey: "HDX",
   },
 
-  // Greenmade 27 Gallon (Costco)
+  // Greenmade 27 Gallon (Costco) — Multiple UPCs
   "760655026216": {
     id: "greenmade-27-gal",
     brand: "Greenmade",
@@ -48,8 +48,18 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     height: 15.0,
     configKey: "GM",
   },
+  "737839436020": {
+    id: "greenmade-27-gal",
+    brand: "Greenmade",
+    name: "27 Gallon Storage Tote",
+    retailer: "Costco",
+    width: 30.5,
+    depth: 20.5,
+    height: 15.0,
+    configKey: "GM",
+  },
 
-  // Project Source 27 Gallon (Lowe's)
+  // Project Source 27 Gallon (Lowe's) — Multiple UPCs
   "840059628008": {
     id: "project-source-27-gal",
     brand: "Project Source",
@@ -58,7 +68,48 @@ export const TOTE_DATABASE: Record<string, ScanToteData> = {
     width: 30.5,
     depth: 20.5,
     height: 14.75,
-    configKey: "HDX", // Similar dimensions to HDX
+    configKey: "GM",
+  },
+  "840059616984": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
+  "075457685703": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
+  "079682126115": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
+  },
+  // Project Source Commander 27 Gallon (Lowe's) — Centrex Plastics
+  "899441002823": {
+    id: "project-source-27-gal",
+    brand: "Project Source",
+    name: "27 Gallon Storage Tote",
+    retailer: "Lowe's",
+    width: 30.5,
+    depth: 20.5,
+    height: 14.75,
+    configKey: "GM",
   },
 };
 

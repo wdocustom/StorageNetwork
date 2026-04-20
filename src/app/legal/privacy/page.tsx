@@ -5,7 +5,12 @@ import { ArrowLeft } from "lucide-react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata = {
-  title: "Privacy Policy | The Storage-Network",
+  title: "Privacy Policy | Storage Network",
+  description:
+    "How Storage Network collects, uses, and protects your data. Covers installer accounts, customer booking information, payment processing via Stripe, and cookie usage.",
+  alternates: {
+    canonical: "/legal/privacy",
+  },
 };
 
 export default function PrivacyPage() {
@@ -34,7 +39,7 @@ export default function PrivacyPage() {
           <h2 className="mt-8 text-lg font-bold text-white">1. Introduction</h2>
           <p>
             The Storage-Network (&quot;Platform,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;),
-            operated by WDO Custom LLC, is committed to protecting your privacy. This Privacy Policy
+            operated by Storage-Network.app, is committed to protecting your privacy. This Privacy Policy
             explains how we collect, use, disclose, and safeguard your information when you use our
             website and services.
           </p>
@@ -219,7 +224,7 @@ export default function PrivacyPage() {
           </p>
           <div className="mt-2 rounded-lg bg-slate-900 p-4">
             <p className="text-sm">
-              <strong className="text-white">WDO Custom LLC</strong><br />
+              <strong className="text-white">Storage-Network.app</strong><br />
               Email:{" "}
               <a href="mailto:privacy@storage-network.app" className="text-yellow-400 hover:underline">
                 privacy@storage-network.app
@@ -233,7 +238,7 @@ export default function PrivacyPage() {
 
           <div className="mt-12 rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
             <p className="text-xs text-stone-500">
-              &copy; {new Date().getFullYear()} WDO Custom LLC. All rights reserved.
+              &copy; {new Date().getFullYear()} Storage-Network.app. All rights reserved.
             </p>
           </div>
         </div>

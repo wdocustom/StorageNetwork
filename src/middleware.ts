@@ -1,29 +1,152 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { siteConfig } from "@/config/site";
+import { rateLimit } from "@/lib/rate-limit";
+import { getCacheConfig, buildCacheHeader } from "@/lib/edge-config";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Middleware — Affiliate Cookie Tracking
-// When ?installer_id=UUID is present, save to cookie for 30-day attribution
+// Middleware — Auth Guard + Rate Limiting + Cache Control + Affiliate Cookies
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function middleware(request: NextRequest) {
+// Rate limit tiers (requests per 60-second window)
+const API_LIMIT = 100; // API routes — tuned for 2.5M subscriber base
+const PAGE_LIMIT = 200; // Page requests — generous for viral traffic
+
+// Paths whose Cache-Control is driven by Edge Config
+const EDGE_CACHED_PATHS = new Set(["/design", "/join"]);
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Rate Limiting ────────────────────────────────────────────────────────
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+
+  const isApi = pathname.startsWith("/api/");
+  const limit = isApi ? API_LIMIT : PAGE_LIMIT;
+  const tier = isApi ? "api" as const : "page" as const;
+  const key = `${ip}:${tier}`;
+
+  const result = await rateLimit(key, limit, 60_000, tier);
+
+  if (!result.allowed) {
+    return new NextResponse("Too many requests. Please try again shortly.", {
+      status: 429,
+      headers: {
+        "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
+        "X-RateLimit-Limit": String(limit),
+        "X-RateLimit-Remaining": "0",
+      },
+    });
+  }
+
+  // ── Dashboard Auth Guard ─────────────────────────────────────────────
+  // Server-side redirect — prevents unauthenticated access before any HTML
+  // is sent. Runs on Edge, uses Supabase SSR cookie-based session check.
+  if (pathname.startsWith("/dashboard")) {
+    let response = NextResponse.next();
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll().map((c) => ({ name: c.name, value: c.value })),
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+            // Write refreshed session cookies back to the response so server
+            // actions (which read from request cookies) always see valid tokens.
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set({ name, value, ...options });
+            });
+          },
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // ── Suspension Check ──────────────────────────────────────────────
+    // Locked accounts get redirected to /account-locked on every dashboard request.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_suspended")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.is_suspended) {
+      return NextResponse.redirect(new URL("/account-locked", request.url));
+    }
+
+    // Rate limit headers
+    response.headers.set("X-RateLimit-Limit", String(limit));
+    response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+
+    // ── Edge Config Cache Control ────────────────────────────────────────
+    if (EDGE_CACHED_PATHS.has(pathname)) {
+      const cacheConfig = await getCacheConfig();
+      const rule = cacheConfig.paths[pathname];
+      if (rule) {
+        response.headers.set("Cache-Control", buildCacheHeader(rule));
+        response.headers.set("CDN-Cache-Control", buildCacheHeader(rule));
+      }
+    }
+
+    // ── Affiliate Cookie Tracking ────────────────────────────────────────
+    const dashInstallerId = request.nextUrl.searchParams.get("installer_id");
+    if (dashInstallerId) {
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidPattern.test(dashInstallerId)) {
+        response.cookies.set({
+          name: siteConfig.cookies.partnerRef.name,
+          value: dashInstallerId,
+          maxAge: siteConfig.cookies.partnerRef.maxAge,
+          path: "/",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+        });
+      }
+    }
+
+    return response;
+  }
+
   const response = NextResponse.next();
 
-  // Check for installer_id in query params
+  // Rate limit headers (informational)
+  response.headers.set("X-RateLimit-Limit", String(limit));
+  response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+
+  // ── Edge Config Cache Control ──────────────────────────────────────────
+  // Dynamic cache headers for /design and /join — tunable from Vercel dashboard
+  if (EDGE_CACHED_PATHS.has(pathname)) {
+    const cacheConfig = await getCacheConfig();
+    const rule = cacheConfig.paths[pathname];
+    if (rule) {
+      response.headers.set("Cache-Control", buildCacheHeader(rule));
+      response.headers.set("CDN-Cache-Control", buildCacheHeader(rule));
+    }
+  }
+
+  // ── Affiliate Cookie Tracking ──────────────────────────────────────────
   const installerId = request.nextUrl.searchParams.get("installer_id");
 
   if (installerId) {
-    // Validate UUID format (basic check)
     const uuidPattern =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     if (uuidPattern.test(installerId)) {
-      // Set the affiliate cookie
       response.cookies.set({
         name: siteConfig.cookies.partnerRef.name,
         value: installerId,
-        maxAge: siteConfig.cookies.partnerRef.maxAge, // 30 days
+        maxAge: siteConfig.cookies.partnerRef.maxAge,
         path: "/",
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -35,7 +158,23 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Only run middleware on design and checkout pages
+// Run middleware on all public pages + API routes
 export const config = {
-  matcher: ["/design/:path*", "/checkout/:path*"],
+  matcher: [
+    // Public pages
+    "/",
+    "/design/:path*",
+    "/checkout/:path*",
+    "/partner/join",
+    "/p/:path*",
+    "/join",
+    "/demo",
+    "/features",
+    "/technology",
+    "/about/:path*",
+    // API routes
+    "/api/:path*",
+    // Dashboard (auth-guarded)
+    "/dashboard/:path*",
+  ],
 };

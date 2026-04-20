@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getServiceClient } from "@/lib/supabase-server";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Auth Callback — Handles Supabase email confirmation redirects
+// Auth Callback — Handles Supabase email confirmation & password recovery
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
@@ -19,11 +20,31 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    await supabase.auth.exchangeCodeForSession(code);
+    const { data } = await supabase.auth.exchangeCodeForSession(code);
+
+    // Stamp login for the authenticated user
+    if (data?.user?.id) {
+      const serviceClient = getServiceClient();
+      await serviceClient
+        .from("profiles")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", data.user.id);
+    }
+
+    // Redirect to reset-password page for recovery flow, dashboard otherwise
+    if (type === "recovery") {
+      return NextResponse.redirect(`${origin}/reset-password`);
+    }
     return NextResponse.redirect(`${origin}/dashboard`);
   }
 
   if (token_hash && type) {
+    // Password recovery flow — redirect to reset password page
+    if (type === "recovery") {
+      return NextResponse.redirect(
+        `${origin}/reset-password#access_token=${token_hash}&type=${type}`
+      );
+    }
     // Magic link / email confirmation flow
     return NextResponse.redirect(
       `${origin}/dashboard#access_token=${token_hash}&type=${type}`

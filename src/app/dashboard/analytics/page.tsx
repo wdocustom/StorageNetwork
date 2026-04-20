@@ -1,0 +1,575 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  BarChart3,
+  Eye,
+  ShoppingCart,
+  TrendingUp,
+  DollarSign,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Globe,
+  Loader2,
+  Calendar,
+  ArrowUpRight,
+  Activity,
+  ChevronDown,
+  QrCode,
+  MapPin,
+} from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { getInstallerAnalytics, getQRScanAnalytics, type AnalyticsSummary, type QRScanSummary, type GroupedReferrer } from "@/app/actions/analytics";
+import ProPill from "@/components/dashboard/ProPill";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Installer Analytics Dashboard
+//
+// Shows page views, conversions, referrer breakdown, device split,
+// and recent activity for the logged-in installer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+type TimeRange = 7 | 30 | 90;
+
+export default function AnalyticsPage() {
+  const supabase = getSupabaseBrowserClient();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AnalyticsSummary | null>(null);
+  const [qrData, setQrData] = useState<QRScanSummary | null>(null);
+  const [error, setError] = useState("");
+  const [range, setRange] = useState<TimeRange>(30);
+
+  const fetchAnalytics = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+    setUserId(user.id);
+    setLoading(true);
+    setError("");
+
+    const [result, qrResult] = await Promise.all([
+      getInstallerAnalytics(user.id, range),
+      getQRScanAnalytics(user.id, range),
+    ]);
+    if (result.success && result.data) {
+      setData(result.data);
+    } else {
+      setError(result.error || "Failed to load analytics.");
+    }
+    if (qrResult.success && qrResult.data) {
+      setQrData(qrResult.data);
+    }
+    setLoading(false);
+  }, [supabase, range]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  function getDeviceIcon(device: string) {
+    if (device === "Mobile") return Smartphone;
+    if (device === "Tablet") return Tablet;
+    return Monitor;
+  }
+
+  function formatDate(dateStr: string): string {
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function timeAgo(dateStr: string): string {
+    const now = new Date();
+    const then = new Date(dateStr);
+    const diffMs = now.getTime() - then.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay === 1) return "Yesterday";
+    return `${diffDay}d ago`;
+  }
+
+  // ── Bar chart helper: max value for scaling ────────────────────────────
+  function renderBarChart(
+    items: { label: string; value: number }[],
+    color: string
+  ) {
+    const maxVal = Math.max(...items.map((i) => i.value), 1);
+    return (
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center gap-2">
+            <span className="w-16 text-right text-[10px] text-stone-500 shrink-0">
+              {item.label}
+            </span>
+            <div className="flex-1 h-5 bg-slate-800 rounded overflow-hidden">
+              <div
+                className={`h-full rounded ${color} transition-all duration-500`}
+                style={{ width: `${(item.value / maxVal) * 100}%` }}
+              />
+            </div>
+            <span className="w-8 text-right text-xs font-bold text-white shrink-0">
+              {item.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
+        <div className="mx-auto flex max-w-lg items-center gap-3">
+          <a
+            href="/dashboard"
+            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </a>
+          <div className="flex-1">
+            <h1 className="text-sm font-bold uppercase tracking-wider text-white">
+              Analytics
+            </h1>
+            <p className="text-[11px] text-stone-500">Link Performance & Conversions</p>
+          </div>
+          <ProPill />
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-lg space-y-4 p-4">
+        {/* ── Time Range Selector ─────────────────────────────────────── */}
+        <div className="flex gap-2">
+          {([7, 30, 90] as TimeRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition-all ${
+                range === r
+                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                  : "bg-slate-800 text-stone-500 border border-slate-700 hover:text-white"
+              }`}
+            >
+              {r}D
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6 text-center">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        ) : data ? (
+          <>
+            {/* ══════════════════════════════════════════════════════════
+                KPI Cards
+            ══════════════════════════════════════════════════════════ */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Page Views */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+                <Eye className="mx-auto mb-1.5 h-5 w-5 text-blue-400" />
+                <p className="text-2xl font-black text-white">
+                  {data.totalViews.toLocaleString()}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                  Page Views
+                </p>
+              </div>
+
+              {/* Orders */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+                <ShoppingCart className="mx-auto mb-1.5 h-5 w-5 text-emerald-400" />
+                <p className="text-2xl font-black text-white">
+                  {data.totalOrders.toLocaleString()}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                  Orders
+                </p>
+              </div>
+
+              {/* Conversion Rate */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+                <TrendingUp className="mx-auto mb-1.5 h-5 w-5 text-purple-400" />
+                <p className="text-2xl font-black text-white">
+                  {data.conversionRate}%
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                  Conversion
+                </p>
+              </div>
+
+              {/* Revenue */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+                <DollarSign className="mx-auto mb-1.5 h-5 w-5 text-yellow-400" />
+                <p className="text-2xl font-black text-white">
+                  ${data.totalRevenue.toLocaleString()}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
+                  Revenue
+                </p>
+              </div>
+            </div>
+
+            {/* Avg Order Value */}
+            {data.totalOrders > 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpRight className="h-4 w-4 text-yellow-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                      Avg Order Value
+                    </span>
+                  </div>
+                  <span className="text-lg font-black text-white">
+                    ${data.avgOrderValue.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════
+                Views by Day (Bar Chart)
+            ══════════════════════════════════════════════════════════ */}
+            {data.viewsByDay.length > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-blue-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Daily Views
+                  </h2>
+                </div>
+                {renderBarChart(
+                  data.viewsByDay.slice(-14).map((d) => ({
+                    label: formatDate(d.date),
+                    value: d.views,
+                  })),
+                  "bg-blue-500"
+                )}
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════
+                Orders by Day
+            ══════════════════════════════════════════════════════════ */}
+            {data.ordersByDay.length > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-emerald-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Daily Orders
+                  </h2>
+                </div>
+                {renderBarChart(
+                  data.ordersByDay.slice(-14).map((d) => ({
+                    label: formatDate(d.date),
+                    value: d.orders,
+                  })),
+                  "bg-emerald-500"
+                )}
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════
+                Traffic Sources — Grouped Tiles
+            ══════════════════════════════════════════════════════════ */}
+            {data.groupedReferrers && data.groupedReferrers.length > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-amber-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Traffic Sources
+                  </h2>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {data.groupedReferrers.map((group) => (
+                    <TrafficSourceTile
+                      key={group.group}
+                      group={group}
+                      totalViews={data.totalViews}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════
+                Device Breakdown
+            ══════════════════════════════════════════════════════════ */}
+            {data.deviceBreakdown.length > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-cyan-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Devices
+                  </h2>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {data.deviceBreakdown.map((d) => {
+                    const Icon = getDeviceIcon(d.device);
+                    const pct = data.totalViews > 0
+                      ? Math.round((d.count / data.totalViews) * 100)
+                      : 0;
+                    return (
+                      <div
+                        key={d.device}
+                        className="rounded-lg bg-slate-800/50 p-3 text-center"
+                      >
+                        <Icon className="mx-auto mb-1 h-5 w-5 text-cyan-400" />
+                        <p className="text-lg font-black text-white">{pct}%</p>
+                        <p className="text-[10px] text-stone-500">{d.device}</p>
+                        <p className="text-[10px] text-stone-600">{d.count} visits</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════
+                Recent Activity
+            ══════════════════════════════════════════════════════════ */}
+            {data.recentViews.length > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-purple-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Recent Activity
+                  </h2>
+                </div>
+                <div className="space-y-2">
+                  {data.recentViews.map((v, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg bg-slate-800/30 px-3 py-2"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                        <Eye className="h-3.5 w-3.5 text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate">
+                          {v.page === "/design" ? "Design Page" : v.page === "/book" ? "Booking Page" : v.page}
+                        </p>
+                        <p className="text-[10px] text-stone-500 truncate">
+                          {v.referrer ? cleanReferrerDisplay(v.referrer) : "Direct"} · {v.device}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-stone-600 shrink-0">
+                        {timeAgo(v.created_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── QR Code Scans ────────────────────────────────────── */}
+            {qrData && qrData.totalScans > 0 && (
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+                <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                  <QrCode className="h-4 w-4 text-purple-400" />
+                  QR Code Scans
+                  <span className="ml-auto rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-black text-purple-400">
+                    {qrData.totalScans}
+                  </span>
+                </h2>
+
+                {/* Scans by Day chart */}
+                {qrData.scansByDay.length > 0 && (
+                  <div className="mb-4">
+                    {renderBarChart(
+                      qrData.scansByDay.slice(-14).map((d) => ({
+                        label: formatDate(d.date),
+                        value: d.scans,
+                      })),
+                      "bg-purple-500"
+                    )}
+                  </div>
+                )}
+
+                {/* Device + Location side by side */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Device breakdown */}
+                  {qrData.deviceBreakdown.length > 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                        Devices
+                      </h3>
+                      <div className="space-y-1.5">
+                        {qrData.deviceBreakdown.map((d) => {
+                          const Icon = getDeviceIcon(d.device.charAt(0).toUpperCase() + d.device.slice(1));
+                          const pct = qrData.totalScans > 0 ? Math.round((d.count / qrData.totalScans) * 100) : 0;
+                          return (
+                            <div key={d.device} className="flex items-center gap-2">
+                              <Icon className="h-3 w-3 text-stone-500 shrink-0" />
+                              <span className="flex-1 text-[11px] text-stone-400 capitalize">{d.device}</span>
+                              <span className="text-[10px] font-bold text-white">{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top locations */}
+                  {qrData.topLocations.length > 0 && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                        Locations
+                      </h3>
+                      <div className="space-y-1.5">
+                        {qrData.topLocations.slice(0, 5).map((loc) => (
+                          <div key={loc.location} className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3 text-stone-500 shrink-0" />
+                            <span className="flex-1 text-[11px] text-stone-400 truncate">{loc.location}</span>
+                            <span className="text-[10px] font-bold text-white">{loc.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recent scans */}
+                {qrData.recentScans.length > 0 && (
+                  <div className="mt-3">
+                    <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                      Recent Scans
+                    </h3>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {qrData.recentScans.slice(0, 8).map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-1.5">
+                          <QrCode className="h-3 w-3 text-purple-400 shrink-0" />
+                          <span className="flex-1 text-[11px] text-stone-400 capitalize">{s.device_type || "unknown"}</span>
+                          {s.city && (
+                            <span className="text-[10px] text-stone-500 truncate max-w-[100px]">
+                              {s.city}{s.region ? `, ${s.region}` : ""}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-stone-600 shrink-0">{timeAgo(s.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── Empty State ──────────────────────────────────────── */}
+            {data.totalViews === 0 && data.totalOrders === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center">
+                <BarChart3 className="mx-auto mb-3 h-10 w-10 text-stone-600" />
+                <h3 className="mb-2 text-sm font-bold text-white">
+                  No data yet
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Share your installer link to start tracking visits and conversions.
+                  Analytics will appear here as customers interact with your pages.
+                </p>
+              </div>
+            )}
+          </>
+        ) : null}
+      </main>
+    </div>
+  );
+}
+
+function cleanReferrerDisplay(referrer: string | null): string {
+  if (!referrer || referrer === "") return "Direct";
+  try {
+    const url = new URL(referrer);
+    return url.hostname.replace("www.", "");
+  } catch {
+    return referrer.slice(0, 30);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Traffic Source Tile — Expandable grouped referrer
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SOURCE_COLORS: Record<string, string> = {
+  Facebook: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  Instagram: "bg-pink-500/15 text-pink-400 border-pink-500/20",
+  Google: "bg-red-500/15 text-red-400 border-red-500/20",
+  YouTube: "bg-red-500/15 text-red-400 border-red-500/20",
+  TikTok: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
+  "X / Twitter": "bg-sky-500/15 text-sky-400 border-sky-500/20",
+  LinkedIn: "bg-blue-600/15 text-blue-300 border-blue-600/20",
+  Nextdoor: "bg-green-500/15 text-green-400 border-green-500/20",
+  Pinterest: "bg-red-400/15 text-red-300 border-red-400/20",
+  Reddit: "bg-orange-500/15 text-orange-400 border-orange-500/20",
+  Direct: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  Bing: "bg-teal-500/15 text-teal-400 border-teal-500/20",
+  Yahoo: "bg-purple-500/15 text-purple-400 border-purple-500/20",
+};
+
+const DEFAULT_COLOR = "bg-slate-700/30 text-stone-300 border-slate-600/30";
+
+function TrafficSourceTile({
+  group,
+  totalViews,
+}: {
+  group: GroupedReferrer;
+  totalViews: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const colorClass = SOURCE_COLORS[group.group] || DEFAULT_COLOR;
+  const pct = totalViews > 0 ? Math.round((group.totalCount / totalViews) * 100) : 0;
+  const hasDetails = group.details.length > 1 || (group.details.length === 1 && group.group !== group.details[0].url);
+
+  return (
+    <div
+      className={`col-span-1 rounded-xl border p-3 transition-all ${colorClass} ${
+        hasDetails ? "cursor-pointer hover:brightness-110" : ""
+      } ${expanded ? "col-span-2" : ""}`}
+      onClick={() => hasDetails && setExpanded(!expanded)}
+    >
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold truncate">{group.group}</p>
+          <p className="text-[10px] opacity-70">
+            {group.totalCount} {group.totalCount === 1 ? "visit" : "visits"} · {pct}%
+          </p>
+        </div>
+        {hasDetails && (
+          <ChevronDown
+            className={`h-3.5 w-3.5 shrink-0 opacity-50 transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+        )}
+      </div>
+
+      {/* Expanded details */}
+      {expanded && hasDetails && (
+        <div className="mt-2 space-y-1 border-t border-current/10 pt-2">
+          {group.details.map((d) => (
+            <div
+              key={d.url}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="truncate text-[11px] opacity-80">{d.url}</span>
+              <span className="shrink-0 text-[10px] font-bold">{d.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

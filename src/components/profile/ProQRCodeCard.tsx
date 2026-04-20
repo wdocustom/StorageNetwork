@@ -2,26 +2,32 @@
 
 import { useCallback, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { Check, Copy, Download, QrCode } from "lucide-react";
+import { Check, Copy, Download, Image as ImageIcon, QrCode, X } from "lucide-react";
 import { siteConfig } from "@/config/site";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Pro QR Code Card — Generate QR codes for installer profile links
+// Pro QR Code Card — Opens as a modal overlay from a trigger button
 // Exclusive to Pro subscribers
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ProQRCodeCardProps {
   slug: string;
   businessName?: string;
+  phone?: string;
+  avatarUrl?: string;
 }
 
-export default function ProQRCodeCard({ slug, businessName }: ProQRCodeCardProps) {
+export default function ProQRCodeCard({ slug, businessName, phone, avatarUrl }: ProQRCodeCardProps) {
   const qrRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingCard, setDownloadingCard] = useState(false);
 
-  // Construct the full profile URL
+  // Construct the full profile URL (qr=1 enables scan tracking)
   const profileUrl = `${siteConfig.baseUrl}/p/${slug}`;
+  const qrUrl = `${profileUrl}?qr=1`;
+  const shortUrl = `storage-network.app/p/${slug}`;
 
   // Copy link to clipboard
   const handleCopyLink = useCallback(async () => {
@@ -44,43 +50,58 @@ export default function ProQRCodeCard({ slug, businessName }: ProQRCodeCardProps
       const svg = qrRef.current.querySelector("svg");
       if (!svg) throw new Error("SVG not found");
 
-      // Get SVG dimensions
       const svgData = new XMLSerializer().serializeToString(svg);
       const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
       const svgUrl = URL.createObjectURL(svgBlob);
 
-      // Create high-res canvas (4x for crisp output)
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      const img = new Image();
+      const img = new window.Image();
 
       img.onload = () => {
-        // Set canvas size (high resolution)
         const scale = 4;
         const size = 256;
         canvas.width = size * scale;
         canvas.height = size * scale;
 
         if (ctx) {
-          // White background
           ctx.fillStyle = "#FFFFFF";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Draw QR code
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // Convert to PNG and download
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.download = `storage-network-qr-${slug}.png`;
-              link.href = url;
-              link.click();
-              URL.revokeObjectURL(url);
-            }
-            setDownloading(false);
-          }, "image/png", 1.0);
+          const finalize = () => {
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.download = `storage-network-qr-${slug}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+              }
+              setDownloading(false);
+            }, "image/png", 1.0);
+          };
+
+          // Overlay installer logo if available
+          if (avatarUrl) {
+            const logo = new window.Image();
+            logo.crossOrigin = "anonymous";
+            logo.onload = () => {
+              const logoSize = canvas.width * 0.22;
+              const pad = 8;
+              const cx = (canvas.width - logoSize) / 2;
+              const cy = (canvas.height - logoSize) / 2;
+              ctx.fillStyle = "#FFFFFF";
+              ctx.fillRect(cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2);
+              ctx.drawImage(logo, cx, cy, logoSize, logoSize);
+              finalize();
+            };
+            logo.onerror = () => finalize();
+            logo.src = avatarUrl;
+          } else {
+            finalize();
+          }
         }
 
         URL.revokeObjectURL(svgUrl);
@@ -97,91 +118,313 @@ export default function ProQRCodeCard({ slug, businessName }: ProQRCodeCardProps
       console.error("Download failed:", err);
       setDownloading(false);
     }
-  }, [slug]);
+  }, [slug, avatarUrl]);
+
+  // Download branded share card (1080x1350 — optimized for FB/IG posts)
+  const handleDownloadShareCard = useCallback(async () => {
+    if (!qrRef.current) return;
+
+    setDownloadingCard(true);
+
+    try {
+      const svg = qrRef.current.querySelector("svg");
+      if (!svg) throw new Error("SVG not found");
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      const qrImg = new window.Image();
+
+      qrImg.onload = () => {
+        const W = 1080;
+        const H = 1350;
+        const canvas = document.createElement("canvas");
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { setDownloadingCard(false); return; }
+
+        // ── Background: dark slate gradient ──
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, "#0f172a");   // slate-900
+        grad.addColorStop(1, "#020617");   // slate-950
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // ── Top accent bar ──
+        ctx.fillStyle = "#facc15"; // yellow-400
+        ctx.fillRect(0, 0, W, 6);
+
+        // ── Business name ──
+        const displayName = businessName || slug;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 52px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayName, W / 2, 120, W - 120);
+
+        // ── Headline ──
+        ctx.fillStyle = "#94a3b8"; // stone-400
+        ctx.font = "32px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Design & Price Your", W / 2, 200);
+        ctx.fillText("Garage Storage System", W / 2, 244);
+
+        // ── Divider line ──
+        ctx.strokeStyle = "#334155"; // slate-700
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.2, 300);
+        ctx.lineTo(W * 0.8, 300);
+        ctx.stroke();
+
+        // ── QR code (centered, on white card) ──
+        const qrSize = 420;
+        const qrPadding = 40;
+        const cardSize = qrSize + qrPadding * 2;
+        const cardX = (W - cardSize) / 2;
+        const cardY = 340;
+
+        // White rounded card behind QR
+        ctx.fillStyle = "#FFFFFF";
+        const r = 24;
+        ctx.beginPath();
+        ctx.moveTo(cardX + r, cardY);
+        ctx.lineTo(cardX + cardSize - r, cardY);
+        ctx.arcTo(cardX + cardSize, cardY, cardX + cardSize, cardY + r, r);
+        ctx.lineTo(cardX + cardSize, cardY + cardSize - r);
+        ctx.arcTo(cardX + cardSize, cardY + cardSize, cardX + cardSize - r, cardY + cardSize, r);
+        ctx.lineTo(cardX + r, cardY + cardSize);
+        ctx.arcTo(cardX, cardY + cardSize, cardX, cardY + cardSize - r, r);
+        ctx.lineTo(cardX, cardY + r);
+        ctx.arcTo(cardX, cardY, cardX + r, cardY, r);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw QR code inside white card
+        ctx.drawImage(qrImg, cardX + qrPadding, cardY + qrPadding, qrSize, qrSize);
+
+        // Draw installer logo centered on QR if available
+        const drawRestOfCard = () => {
+
+        // ── URL CTA (primary — drives traffic to the platform) ──
+        let nextY = cardY + cardSize + 45;
+
+        ctx.fillStyle = "#64748b"; // slate-500
+        ctx.font = "26px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Scan the code or visit:", W / 2, nextY);
+
+        ctx.fillStyle = "#facc15"; // yellow-400
+        ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText(shortUrl, W / 2, nextY + 56);
+
+        if (phone) {
+          // ── Small divider ──
+          nextY += 110;
+          ctx.strokeStyle = "#334155";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(W * 0.3, nextY);
+          ctx.lineTo(W * 0.7, nextY);
+          ctx.stroke();
+
+          // ── Phone (secondary — "or call") ──
+          nextY += 36;
+          ctx.fillStyle = "#64748b";
+          ctx.font = "22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+          ctx.fillText("Or call/text for a free quote:", W / 2, nextY);
+
+          ctx.fillStyle = "#94a3b8"; // slate-400
+          ctx.font = "bold 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+          ctx.fillText(phone, W / 2, nextY + 40);
+        }
+
+        // ── Bottom tagline ──
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "24px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Free 3D Preview  \u2022  Instant Pricing  \u2022  Book Online", W / 2, H - 105);
+
+        // ── Powered by line ──
+        ctx.fillStyle = "#475569"; // slate-600
+        ctx.font = "20px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        ctx.fillText("Powered by The Storage-Network", W / 2, H - 55);
+
+        // ── Download ──
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.download = `${slug}-share-card.png`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+          }
+          setDownloadingCard(false);
+        }, "image/png", 1.0);
+
+        }; // end drawRestOfCard
+
+        // Overlay installer logo on share card QR if available
+        if (avatarUrl) {
+          const logo = new window.Image();
+          logo.crossOrigin = "anonymous";
+          logo.onload = () => {
+            const logoSize = qrSize * 0.22;
+            const pad = 10;
+            const cx = cardX + qrPadding + (qrSize - logoSize) / 2;
+            const cy = cardY + qrPadding + (qrSize - logoSize) / 2;
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2);
+            ctx.drawImage(logo, cx, cy, logoSize, logoSize);
+            drawRestOfCard();
+          };
+          logo.onerror = () => drawRestOfCard();
+          logo.src = avatarUrl;
+        } else {
+          drawRestOfCard();
+        }
+
+        URL.revokeObjectURL(svgUrl);
+      };
+
+      qrImg.onerror = () => {
+        console.error("Failed to load QR SVG for share card");
+        setDownloadingCard(false);
+        URL.revokeObjectURL(svgUrl);
+      };
+
+      qrImg.src = svgUrl;
+    } catch (err) {
+      console.error("Share card download failed:", err);
+      setDownloadingCard(false);
+    }
+  }, [slug, businessName, phone, shortUrl, avatarUrl]);
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <QrCode className="h-4 w-4 text-yellow-400" />
-        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-          Partner QR Code
-        </h2>
-        <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-          PRO
-        </span>
-      </div>
+    <>
+      {/* Trigger Button — compact tile in the quick-access bar */}
+      <button
+        onClick={() => setOpen(true)}
+        className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+      >
+        <QrCode className="h-5 w-5" />
+        <span className="text-[10px] font-bold uppercase tracking-wider">QR Code</span>
+      </button>
 
-      {/* QR Code Display */}
-      <div className="mb-4 flex justify-center">
+      {/* Modal Overlay */}
+      {open && (
         <div
-          ref={qrRef}
-          className="rounded-xl bg-white p-4 shadow-lg"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
+          }}
         >
-          <QRCode
-            value={profileUrl}
-            size={180}
-            level="H"
-            bgColor="#FFFFFF"
-            fgColor="#1e293b"
-          />
+          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            {/* Modal Header */}
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-yellow-400" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                  Your QR Code
+                </h2>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* QR Code Display */}
+            <div className="mb-4 flex justify-center">
+              <div
+                ref={qrRef}
+                className="relative rounded-xl bg-white p-4 shadow-lg"
+              >
+                <QRCode
+                  value={qrUrl}
+                  size={180}
+                  level="H"
+                  bgColor="#FFFFFF"
+                  fgColor="#1e293b"
+                />
+                {avatarUrl && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <div className="rounded-lg bg-white p-1 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-10 w-10 rounded object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Profile URL Display */}
+            <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Your Portfolio Link
+              </p>
+              <p className="break-all text-sm font-medium text-yellow-400">
+                {profileUrl}
+              </p>
+              {businessName && (
+                <p className="mt-1 text-xs text-stone-500">
+                  Customers who scan this code will see your branded booking page
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    <span className="text-emerald-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy Link
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                {downloading ? "Saving..." : "QR Only"}
+              </button>
+            </div>
+
+            {/* Share Card Download — branded image for social media */}
+            <button
+              onClick={handleDownloadShareCard}
+              disabled={downloadingCard}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-xs font-bold text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
+            >
+              <ImageIcon className="h-4 w-4" />
+              {downloadingCard ? "Generating..." : "Download Share Card for Facebook"}
+            </button>
+            <p className="mt-1.5 text-center text-[10px] text-stone-600">
+              Branded image with QR code + readable URL — perfect for posts where links don&apos;t work
+            </p>
+          </div>
         </div>
-      </div>
-
-      {/* Profile URL Display */}
-      <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
-          Your Partner Link
-        </p>
-        <p className="break-all text-sm font-medium text-yellow-400">
-          {profileUrl}
-        </p>
-        {businessName && (
-          <p className="mt-1 text-xs text-stone-500">
-            Customers who scan this code will see your branded booking page
-          </p>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={handleCopyLink}
-          className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-700"
-        >
-          {copied ? (
-            <>
-              <Check className="h-4 w-4 text-emerald-400" />
-              <span className="text-emerald-400">Copied!</span>
-            </>
-          ) : (
-            <>
-              <Copy className="h-4 w-4" />
-              Copy Link
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleDownload}
-          disabled={downloading}
-          className="flex items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-xs font-bold text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          {downloading ? "Saving..." : "Download PNG"}
-        </button>
-      </div>
-
-      {/* Usage Tips */}
-      <div className="mt-4 rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2">
-          How to use your QR code
-        </p>
-        <ul className="space-y-1 text-xs text-stone-400">
-          <li>• Print on business cards or flyers</li>
-          <li>• Display at job sites and showrooms</li>
-          <li>• Add to your vehicle wrap or signage</li>
-          <li>• Share in social media posts</li>
-        </ul>
-      </div>
-    </section>
+      )}
+    </>
   );
 }

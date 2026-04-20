@@ -3,6 +3,54 @@
     {
       "path": "/api/cron/abandoned-cart",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/onboarding-drip",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/prewarm",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/cleanout-upsell",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/feature-announcement",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/bounty-announcement",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/overhead-announcement",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/jig-announcement",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/feedback-call-invite",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/inventory-announcement",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/review-announcement",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/chatbot-announcement",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 9 * * 1"
     }
   ]
 }

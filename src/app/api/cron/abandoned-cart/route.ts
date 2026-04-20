@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAbandonedCarts, cleanupExpiredLeads } from "@/app/actions/abandoned-cart";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // POST /api/cron/abandoned-cart
 // Processes abandoned cart emails and cleans up expired leads

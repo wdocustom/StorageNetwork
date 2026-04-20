@@ -4,15 +4,12 @@ import Stripe from "stripe";
 import { sendInstallerWelcome } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
 
+export const dynamic = "force-dynamic";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Callback — Return URL after Stripe Connect onboarding
 // Verifies the account, marks onboarding complete, sends welcome email.
 // ═══════════════════════════════════════════════════════════════════════════
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -20,6 +17,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 export async function GET(request: NextRequest) {
   const baseUrl = getAppUrl();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   try {
     const accountId = request.nextUrl.searchParams.get("account_id");

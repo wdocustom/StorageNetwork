@@ -1,0 +1,75 @@
+"use server";
+
+import { getServiceClient } from "@/lib/supabase-server";
+import { unstable_cache } from "next/cache";
+import zipcodes from "zipcodes";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Installer Map — Public data for the interactive network map
+//
+// Fetches all active installers with their base ZIP, geocodes them
+// server-side using the `zipcodes` package, and returns lightweight
+// pin data for the SVG map. No lat/lng stored in DB — computed on read.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface MapInstaller {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  lat: number;
+  lng: number;
+  radiusMiles: number;
+  isPro: boolean;
+  avatarUrl: string | null;
+}
+
+/**
+ * Fetch all active installers with geocoded positions for the network map.
+ * Cached for 5 min via unstable_cache to allow ISR on the page level.
+ */
+export const getMapInstallers = unstable_cache(
+  async (): Promise<MapInstaller[]> => {
+    const supabase = getServiceClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, business_name, slug, city, state, service_zip, service_radius_miles, is_pro, avatar_url, is_suspended"
+      )
+      .not("service_zip", "is", null)
+      .eq("is_suspended", false);
+
+    if (error || !data) {
+      console.error("[getMapInstallers]", error?.message);
+      return [];
+    }
+
+    const results: MapInstaller[] = [];
+
+    for (const row of data) {
+      const zip = row.service_zip as string;
+      if (!zip) continue;
+
+      const geo = zipcodes.lookup(zip);
+      if (!geo) continue;
+
+      results.push({
+        id: row.id as string,
+        name: (row.business_name as string) || "Storage Network Installer",
+        slug: (row.slug as string) || null,
+        city: (row.city as string) || geo.city || null,
+        state: (row.state as string) || geo.state || null,
+        lat: geo.latitude,
+        lng: geo.longitude,
+        radiusMiles: (row.service_radius_miles as number) || 25,
+        isPro: !!(row.is_pro),
+        avatarUrl: (row.avatar_url as string) || null,
+      });
+    }
+
+    return results;
+  },
+  ["map-installers"],
+  { revalidate: 300 }
+);

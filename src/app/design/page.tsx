@@ -7,6 +7,11 @@ import {
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapToDesignViewModel } from "@/lib/mappers/installerMapper";
+import { PLATFORM_DEFAULTS, ADDON_PLATFORM_DEFAULTS } from "@/lib/server/pricing-constants";
+import { generateHowToJsonLd } from "@/lib/schema/howto";
+import { getSavedQuoteFromSignal } from "@/app/actions/demand-signals";
+import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
+import { getServiceClient } from "@/lib/supabase-server";
 import DesignConfigurator from "./DesignConfigurator";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -26,6 +31,9 @@ export const metadata: Metadata = {
     "HDX tote system",
     "basement storage design",
   ],
+  alternates: {
+    canonical: "/design",
+  },
   openGraph: {
     title: "Free 3D Tote Storage Designer",
     description:
@@ -128,6 +136,17 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const zip = typeof params.zip === "string" ? params.zip : "";
   const mode = typeof params.mode === "string" ? params.mode : "";
   const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
+  const fromChat = params.from === "chat"; // Came from AI chat configurator
+  const signalId = typeof params.signal_id === "string" ? params.signal_id : "";
+  const refInstaller = typeof params.ref_installer === "string" ? params.ref_installer : "";
+
+  // Decode chat config if present (base64-encoded JSON from AI chatbot)
+  let chatConfig: Record<string, unknown> | null = null;
+  if (typeof params.config === "string") {
+    try {
+      chatConfig = JSON.parse(Buffer.from(params.config, "base64").toString());
+    } catch {}
+  }
 
   // UUID detection — route ?installer=UUID to getInstallerById, not slug lookup
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -150,16 +169,70 @@ export default async function DesignPage({ searchParams }: PageProps) {
     if (res.available) rawInstaller = res;
   }
 
+  // ── Waitlist re-engagement: fetch saved quote from demand signal ──────
+  // When a waitlisted customer clicks the activation email, the link includes
+  // signal_id (their demand signal) and ref_installer (original referrer).
+  // We fetch their saved build so the configurator can pre-populate it.
+  const savedSignal = signalId ? await getSavedQuoteFromSignal(signalId) : null;
+
   // Determine lead source:
   // - Direct lead (partner_link): customer used installer's custom link (ref param or slug)
   // - Network lead (platform): customer found installer via platform ZIP lookup (from=network)
   // If from=network is set, it's always a platform lead even if installer param exists
   const isDirectLead = !fromNetwork && !!(rawInstaller && (ref || installerId || installerParam));
 
+  // ── Trial cap check — is the installer at their 3-job limit? ────────
+  // If so, we pass a flag to the configurator so it can swap the booking
+  // CTA with a waitlist flow. Runs in parallel with saved signal fetch.
+  const capacityStatus = rawInstaller?.installer_id
+    ? await checkInstallerAtCapacity(rawInstaller.installer_id)
+    : null;
+
   // ── Map to View Model — branding gate applied here ──────────────────
   // The raw installer object dies here. Only the view model is serialized
   // to the client. Free installers get platform branding; Pro gets theirs.
   const viewModel = mapToDesignViewModel(rawInstaller);
+
+  // Inject server-only pricing defaults into the view model
+  // These values NEVER appear in the client bundle — they're serialized as data, not code
+  if (viewModel) {
+    viewModel.platformDefaults = { ...PLATFORM_DEFAULTS };
+    viewModel.addonDefaults = { ...ADDON_PLATFORM_DEFAULTS };
+  }
+
+  // ── Fresh scheduling_enabled + indoor delivery read (bypasses installer cache) ──
+  // The installer cache is in-memory and doesn't sync across serverless
+  // function instances, so the cached value can be stale. Read directly.
+  if (viewModel && rawInstaller?.installer_id) {
+    const supabase = getServiceClient();
+    const { data: freshProfile } = await supabase
+      .from("profiles")
+      .select("scheduling_enabled, indoor_delivery_fee_config")
+      .eq("id", rawInstaller.installer_id)
+      .maybeSingle();
+    if (freshProfile && typeof freshProfile.scheduling_enabled === "boolean") {
+      viewModel.routing.schedulingEnabled = freshProfile.scheduling_enabled;
+    }
+    // Inject indoor delivery fee config
+    if (freshProfile?.indoor_delivery_fee_config) {
+      const idc = freshProfile.indoor_delivery_fee_config as { enabled: boolean; fee: number };
+      if (typeof idc.enabled === "boolean" && typeof idc.fee === "number") {
+        viewModel.indoorDeliveryConfig = idc;
+      }
+    }
+  }
+
+  // ── HowTo JSON-LD — standard 5×4 build for rich snippet eligibility ──
+  // This generates a generic HowTo for the default build configuration.
+  // For /p/[slug] partner pages, the description field can be enriched
+  // with a Gemini-generated project summary per-installer.
+  const howToSchema = generateHowToJsonLd({
+    cols: 5,
+    rows: 4,
+    hasWheels: true,
+    hasTop: false,
+    installerName: rawInstaller?.installer_name || undefined,
+  });
 
   return (
     <>
@@ -172,6 +245,10 @@ export default async function DesignPage({ searchParams }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+      />
 
       <Suspense>
         <DesignConfigurator
@@ -179,8 +256,25 @@ export default async function DesignPage({ searchParams }: PageProps) {
           initialZip={zip}
           mode={mode}
           leadSource={isDirectLead ? "partner_link" : "platform"}
+          initialInstallerAtCapacity={capacityStatus?.atCapacity ?? false}
+          initialConfig={chatConfig}
+          savedSignal={savedSignal ? {
+            quoteData: savedSignal.quoteData,
+            sourceInstallerId: savedSignal.sourceInstallerId || refInstaller || null,
+            customerName: savedSignal.customerName,
+            customerEmail: savedSignal.customerEmail,
+            customerPhone: savedSignal.customerPhone,
+          } : refInstaller ? {
+            quoteData: null,
+            sourceInstallerId: refInstaller,
+            customerName: null,
+            customerEmail: null,
+            customerPhone: null,
+          } : undefined}
         />
       </Suspense>
+
+      {/* AI Design Assistant is rendered inside DesignConfigurator */}
     </>
   );
 }

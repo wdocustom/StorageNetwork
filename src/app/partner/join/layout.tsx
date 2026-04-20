@@ -37,7 +37,7 @@ const jobPostingSchema = {
     "@type": "Organization",
     name: "Storage Network",
     sameAs: "https://storage-network.app",
-    logo: "https://storage-network.app/logo-storage-network.png",
+    logo: "https://storage-network.app/landing_page_logo.png",
   },
   jobBenefits:
     "Flexible schedule, no sales or quoting, pre-calculated materials, instant payouts",

@@ -1,12 +1,9 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { sendTransactionalEmail } from "@/lib/email";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
 
 export async function sendTestEmail(toEmail: string): Promise<{ success: boolean; error?: string }> {
   console.log("[Debug] sendTestEmail called for:", toEmail);

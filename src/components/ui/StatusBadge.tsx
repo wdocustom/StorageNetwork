@@ -27,7 +27,7 @@ export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
   if (isPendingPayment) {
     return (
       <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-        Abandoned
+        Unpaid Quote
       </span>
     );
   }
@@ -43,7 +43,7 @@ export default function StatusBadge({ status, depositPaid }: StatusBadgeProps) {
   if (isPaymentPending) {
     return (
       <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-        Awaiting Payment
+        Pending
       </span>
     );
   }

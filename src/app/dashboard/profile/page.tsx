@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   updateProfile,
@@ -25,14 +26,29 @@ import {
   CreditCard,
   User,
   Save,
-  Upload,
+  KeyRound,
   Zap,
   MapPin,
   Target,
+  X,
+  Handshake,
+  Truck,
+  Plus,
+  Trash2,
+  Percent,
+  DollarSign,
 } from "lucide-react";
-import ProUpgradeCTA from "@/components/dashboard/ProUpgradeCTA";
+import ProPill from "@/components/dashboard/ProPill";
+import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
 import ProSubscriptionCard from "@/components/dashboard/ProSubscriptionCard";
+import PricingSettings from "@/components/dashboard/PricingSettings";
+import MaterialCostSettings from "@/components/dashboard/MaterialCostSettings";
+import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 import ProQRCodeCard from "@/components/profile/ProQRCodeCard";
+import PortfolioSection from "@/components/profile/PortfolioSection";
+import ServicesSection from "@/components/profile/ServicesSection";
+import type { PortfolioPhoto } from "@/app/actions/profile";
+import type { ServiceOffering } from "@/config/services";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile & Settings Page
@@ -44,6 +60,26 @@ export default function ProfilePage() {
       <ProfilePageInner />
     </Suspense>
   );
+}
+
+/** A single distance-based delivery fee tier */
+export interface DeliveryFeeTier {
+  max_miles: number;
+  fee: number;
+  enabled: boolean;
+  label: string;
+}
+
+/** Delivery fee configuration stored in profiles.delivery_fee_config */
+export interface DeliveryFeeConfig {
+  enabled: boolean;
+  tiers: DeliveryFeeTier[];
+}
+
+/** Deposit configuration stored in profiles.deposit_config */
+interface DepositConfig {
+  type: "percentage" | "flat";
+  value: number;
 }
 
 interface Profile {
@@ -58,12 +94,23 @@ interface Profile {
   service_radius_miles: number | null;
   city: string | null;
   state: string | null;
+  address_line1: string | null;
   avatar_url: string | null;
   slug: string | null;
   subscription_tier: string;
   is_pro: boolean;
+  is_partner: boolean;
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
+  delivery_fee_config: DeliveryFeeConfig | null;
+  indoor_delivery_fee_config: { enabled: boolean; fee: number } | null;
+  deposit_config: DepositConfig | null;
+  bio: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  portfolio_photos: PortfolioPhoto[] | null;
+  services_config: ServiceOffering[] | null;
+  show_reviews: boolean;
 }
 
 function ProfilePageInner() {
@@ -75,6 +122,12 @@ function ProfilePageInner() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // ── Coordinated section collapse — only one open at a time ──────────
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const toggleSection = (id: string) => (open: boolean) => {
+    setActiveSection(open ? id : null);
+  };
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -88,7 +141,24 @@ function ProfilePageInner() {
   const [serviceZip, setServiceZip] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Delivery fee state
+  const [deliveryFeeEnabled, setDeliveryFeeEnabled] = useState(false);
+  const [deliveryTiers, setDeliveryTiers] = useState<DeliveryFeeTier[]>([]);
+  const [deliveryFeeSaving, setDeliveryFeeSaving] = useState(false);
+  const [deliveryFeeMessage, setDeliveryFeeMessage] = useState("");
+
+  // Indoor delivery fee state
+  const [indoorDeliveryEnabled, setIndoorDeliveryEnabled] = useState(true);
+  const [indoorDeliveryFee, setIndoorDeliveryFee] = useState(19);
+
+  // Deposit config state
+  const [depositType, setDepositType] = useState<"percentage" | "flat">("percentage");
+  const [depositValue, setDepositValue] = useState<number>(15);
+  const [depositSaving, setDepositSaving] = useState(false);
+  const [depositMessage, setDepositMessage] = useState("");
 
   // Service radius state
   const [serviceRadius, setServiceRadius] = useState(25);
@@ -112,6 +182,45 @@ function ProfilePageInner() {
   // Pro subscription state
   const [proMessage, setProMessage] = useState("");
 
+  // Change password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const applyProfile = useCallback((p: Profile) => {
+    setProfile(p);
+    setFirstName(p.first_name || "");
+    setLastName(p.last_name || "");
+    setBusinessName(p.business_name || "");
+    setTradeName(p.trade_name || "");
+    setPhone(p.phone || "");
+    setServiceZip(p.service_zip || "");
+    setServiceRadius(p.service_radius_miles ?? 25);
+    setCity(p.city || "");
+    setState(p.state || "");
+    setAddressLine1(p.address_line1 || "");
+    setAvatarUrl(p.avatar_url);
+    // Delivery fee config
+    if (p.delivery_fee_config) {
+      setDeliveryFeeEnabled(p.delivery_fee_config.enabled);
+      setDeliveryTiers(p.delivery_fee_config.tiers || []);
+    }
+    // Indoor delivery fee config
+    if (p.indoor_delivery_fee_config) {
+      setIndoorDeliveryEnabled(p.indoor_delivery_fee_config.enabled);
+      setIndoorDeliveryFee(p.indoor_delivery_fee_config.fee);
+    }
+    // Deposit config
+    if (p.deposit_config) {
+      setDepositType(p.deposit_config.type);
+      setDepositValue(p.deposit_config.value);
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     const {
       data: { user },
@@ -121,32 +230,45 @@ function ProfilePageInner() {
       return;
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
       .eq("id", user.id)
       .single();
 
+    if (error) {
+      console.error("[Profile] Query failed:", error.message, error.code, error.details);
+      // Retry once after refreshing the session
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (!refreshErr) {
+        const retry = await supabase
+          .from("profiles")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+          .eq("id", user.id)
+          .single();
+        if (retry.data) {
+          console.log("[Profile] Retry succeeded after session refresh");
+          applyProfile(retry.data as Profile);
+          const status = await getStripeStatus(user.id);
+          setStripeStatus(status);
+          setLoading(false);
+          return;
+        }
+        if (retry.error) {
+          console.error("[Profile] Retry also failed:", retry.error.message);
+        }
+      }
+    }
+
     if (data) {
-      const p = data as Profile;
-      setProfile(p);
-      setFirstName(p.first_name || "");
-      setLastName(p.last_name || "");
-      setBusinessName(p.business_name || "");
-      setTradeName(p.trade_name || "");
-      setPhone(p.phone || "");
-      setServiceZip(p.service_zip || "");
-      setServiceRadius(p.service_radius_miles ?? 25);
-      setCity(p.city || "");
-      setState(p.state || "");
-      setAvatarUrl(p.avatar_url);
+      applyProfile(data as Profile);
       // Fetch Stripe status
       const status = await getStripeStatus(user.id);
       setStripeStatus(status);
     }
 
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, applyProfile]);
 
   useEffect(() => {
     fetchData();
@@ -279,6 +401,7 @@ function ProfilePageInner() {
       service_zip: serviceZip || undefined,
       city: city.trim(),
       state: state.trim(),
+      address_line1: addressLine1.trim() || undefined,
     });
 
     if (result.success) {
@@ -297,11 +420,17 @@ function ProfilePageInner() {
     setStripeLoading(true);
     setStripeMessage("");
 
-    const result = await connectStripe(profile.id);
-    if (result.success && result.url) {
-      window.location.href = result.url;
-    } else {
-      setStripeMessage(result.error || "Failed to start Stripe setup.");
+    try {
+      const result = await connectStripe(profile.id);
+      if (result.success && result.url) {
+        window.location.href = result.url;
+      } else {
+        setStripeMessage(result.error || "Failed to start Stripe setup.");
+        setStripeLoading(false);
+      }
+    } catch (err) {
+      console.error("Stripe connect error:", err);
+      setStripeMessage("Connection error. Please try again.");
       setStripeLoading(false);
     }
   }
@@ -309,12 +438,19 @@ function ProfilePageInner() {
   async function handleStripeDashboard() {
     if (!profile) return;
     setStripeLoading(true);
+    setStripeMessage("");
 
-    const result = await getStripeDashboardLink(profile.id);
-    if (result.success && result.url) {
-      window.open(result.url, "_blank");
-    } else {
-      setStripeMessage("Failed to open Stripe dashboard.");
+    try {
+      const result = await getStripeDashboardLink(profile.id);
+      if (result.success && result.url) {
+        // Use location.href instead of window.open to avoid popup blockers
+        window.location.href = result.url;
+      } else {
+        setStripeMessage(result.error || "Failed to open Stripe dashboard.");
+      }
+    } catch (err) {
+      console.error("Stripe dashboard error:", err);
+      setStripeMessage("Connection error. Please try again.");
     }
     setStripeLoading(false);
   }
@@ -343,6 +479,139 @@ function ProfilePageInner() {
     setRadiusSaving(false);
   }
 
+  async function handleSaveDeliveryFees() {
+    if (!profile) return;
+    setDeliveryFeeSaving(true);
+    setDeliveryFeeMessage("");
+
+    const config: DeliveryFeeConfig = {
+      enabled: deliveryFeeEnabled,
+      tiers: deliveryTiers,
+    };
+
+    const indoorConfig = {
+      enabled: indoorDeliveryEnabled,
+      fee: indoorDeliveryFee,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        delivery_fee_config: config,
+        indoor_delivery_fee_config: indoorConfig,
+      })
+      .eq("id", profile.id);
+
+    if (error) {
+      setDeliveryFeeMessage("Failed to save delivery fees.");
+    } else {
+      setDeliveryFeeMessage("Delivery fees saved!");
+      setTimeout(() => setDeliveryFeeMessage(""), 3000);
+    }
+    setDeliveryFeeSaving(false);
+  }
+
+  async function handleSaveDepositConfig() {
+    if (!profile) return;
+    setDepositSaving(true);
+    setDepositMessage("");
+
+    // Validate: percentage must be >= 15
+    if (depositType === "percentage" && depositValue < 15) {
+      setDepositMessage("Minimum deposit is 15% to cover network lead fees.");
+      setDepositSaving(false);
+      return;
+    }
+    // Validate: flat must be > 0
+    if (depositType === "flat" && depositValue <= 0) {
+      setDepositMessage("Deposit amount must be greater than $0.");
+      setDepositSaving(false);
+      return;
+    }
+
+    // If it's the default (percentage, 15%), store null to use system default
+    const isDefault = depositType === "percentage" && depositValue === 15;
+    const config: DepositConfig | null = isDefault ? null : { type: depositType, value: depositValue };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ deposit_config: config })
+      .eq("id", profile.id);
+
+    if (error) {
+      setDepositMessage("Failed to save deposit settings.");
+    } else {
+      setDepositMessage("Deposit settings saved!");
+      setTimeout(() => setDepositMessage(""), 3000);
+    }
+    setDepositSaving(false);
+  }
+
+  function addDeliveryTier() {
+    const lastMax = deliveryTiers.length > 0 ? deliveryTiers[deliveryTiers.length - 1].max_miles : 0;
+    const newMax = Math.min(lastMax + 25, serviceRadius || 85);
+    setDeliveryTiers([
+      ...deliveryTiers,
+      { max_miles: newMax, fee: 0, enabled: true, label: `${lastMax}-${newMax} mi` },
+    ]);
+  }
+
+  function removeDeliveryTier(idx: number) {
+    setDeliveryTiers(deliveryTiers.filter((_, i) => i !== idx));
+  }
+
+  function updateDeliveryTier(idx: number, updates: Partial<DeliveryFeeTier>) {
+    setDeliveryTiers(deliveryTiers.map((t, i) => {
+      if (i !== idx) return t;
+      const updated = { ...t, ...updates };
+      // Auto-update label based on distance
+      const prevMax = idx > 0 ? deliveryTiers[idx - 1].max_miles : 0;
+      updated.label = `${prevMax}-${updated.max_miles} mi`;
+      return updated;
+    }));
+  }
+
+  async function handleChangePassword() {
+    // Validate inputs
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+
+    setPasswordError("");
+    setPasswordMessage("");
+    setPasswordLoading(true);
+
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setPasswordError(updateError.message);
+      } else {
+        setPasswordMessage("Password updated successfully!");
+        // Clear form and close modal after a moment
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+          setPasswordMessage("");
+        }, 2000);
+      }
+    } catch {
+      setPasswordError("Something went wrong. Please try again.");
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   // ═════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═════════════════════════════════════════════════════════════════════════
@@ -355,9 +624,8 @@ function ProfilePageInner() {
     );
   }
 
-  // isPro: true if database says so OR if just returned from successful checkout
-  // (webhook may still be processing, so we trust the success redirect)
-  const isPro = profile?.is_pro === true || proParam === "success";
+  // Import icons for quick-access tiles
+  const portfolioUrl = profile?.slug ? `/p/${profile.slug}` : null;
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -370,29 +638,93 @@ function ProfilePageInner() {
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-sm font-bold uppercase tracking-wider text-white">
               Profile & Settings
             </h1>
             <p className="text-[11px] text-stone-500">
-              Manage your account
+              {profile?.business_name || profile?.first_name || "Manage your account"}
             </p>
           </div>
+          <ProPill />
         </div>
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 p-4">
+
+        {/* ── Quick-Access Toolbar ─────────────────────────────────────── */}
+        {profile?.slug && (
+          <div className="grid grid-cols-3 gap-2">
+            <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} phone={profile.phone || undefined} avatarUrl={profile.avatar_url || undefined} />
+            <a
+              href={portfolioUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+            >
+              <ExternalLink className="h-5 w-5" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Portfolio</span>
+            </a>
+            {stripeStatus?.charges_enabled ? (
+              <button
+                onClick={handleStripeDashboard}
+                disabled={stripeLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
+              >
+                {stripeLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CreditCard className="h-5 w-5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {stripeLoading ? "Loading..." : "Stripe"}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={handleStripeConnect}
+                disabled={stripeLoading}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
+              >
+                {stripeLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CreditCard className="h-5 w-5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {stripeLoading ? "Loading..." : "Payouts"}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+        {/* Stripe toolbar feedback */}
+        {stripeMessage && (
+          <p className={`text-center text-xs font-medium ${
+            stripeMessage.includes("error") || stripeMessage.includes("Failed") || stripeMessage.includes("interrupted")
+              ? "text-red-400"
+              : "text-emerald-400"
+          }`}>
+            {stripeMessage}
+          </p>
+        )}
+        {/* ── Group: Business ──────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Business</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A: Personal & Business Info
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <User className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Personal & Business Info
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          isOpen={activeSection === "business"}
+          onToggle={toggleSection("business")}
+          icon={User}
+          title="Personal & Business Info"
+          description="Business name, contact details, address, and photo"
+        >
           {/* Avatar with Upload */}
           <div className="mb-5 flex items-center gap-4">
             <div className="relative">
@@ -407,10 +739,13 @@ function ProfilePageInner() {
               {/* Avatar display - strictly circular */}
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-slate-700 bg-slate-800">
                 {avatarUrl ? (
-                  <img
+                  <Image
                     src={avatarUrl}
                     alt="Avatar"
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover aspect-square rounded-full"
+                    unoptimized
                   />
                 ) : (
                   <User className="h-8 w-8 text-stone-600" />
@@ -436,12 +771,11 @@ function ProfilePageInner() {
               </p>
               <p className="text-stone-500">{profile?.email}</p>
               <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingPhoto}
+                onClick={() => setShowPasswordModal(true)}
                 className="mt-1 flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300"
               >
-                <Upload className="h-3 w-3" />
-                {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+                <KeyRound className="h-3 w-3" />
+                Change Password
               </button>
             </div>
           </div>
@@ -532,6 +866,20 @@ function ProfilePageInner() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Street Address
+              </label>
+              <input
+                type="text"
+                value={addressLine1}
+                onChange={(e) => setAddressLine1(e.target.value)}
+                placeholder="1234 Main St"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+              />
+              <p className="mt-0.5 text-[10px] text-stone-600">Used for delivery distance calculations</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -587,19 +935,25 @@ function ProfilePageInner() {
               {saveMessage}
             </p>
           )}
-        </section>
+        </CollapsibleSection>
+
+        {/* ── Group: Coverage ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Coverage</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A.5: Service Area Radius
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Target className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Service Area
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          isOpen={activeSection === "servicearea"}
+          onToggle={toggleSection("servicearea")}
+          icon={Target}
+          title="Service Area"
+          description={`${serviceRadius} mile radius from ZIP ${serviceZip || "—"}${zipsCovered ? ` (${zipsCovered.toLocaleString()} ZIPs)` : ""}`}
+        >
           {/* Current ZIP Display */}
           <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between">
@@ -645,14 +999,14 @@ function ProfilePageInner() {
                 {/* Filled portion */}
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-400"
-                  style={{ width: `${((serviceRadius - 5) / 95) * 100}%` }}
+                  style={{ width: `${((serviceRadius - 5) / 80) * 100}%` }}
                 />
               </div>
               {/* Hidden range input */}
               <input
                 type="range"
                 min={5}
-                max={100}
+                max={85}
                 step={5}
                 value={serviceRadius}
                 onChange={(e) => setServiceRadius(Number(e.target.value))}
@@ -661,13 +1015,13 @@ function ProfilePageInner() {
               {/* Custom thumb */}
               <div
                 className="pointer-events-none absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-yellow-400 bg-slate-900 shadow-lg transition-all"
-                style={{ left: `calc(${((serviceRadius - 5) / 95) * 100}% - 12px)` }}
+                style={{ left: `calc(${((serviceRadius - 5) / 80) * 100}% - 12px)` }}
               />
             </div>
 
             {/* Preset Quick Buttons */}
             <div className="mt-4 flex flex-wrap gap-2">
-              {[10, 25, 50, 75, 100].map((preset) => (
+              {[10, 25, 50, 75, 85].map((preset) => (
                 <button
                   key={preset}
                   onClick={() => setServiceRadius(preset)}
@@ -728,19 +1082,224 @@ function ProfilePageInner() {
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
-        </section>
+        </CollapsibleSection>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION A.6: Delivery Fee Tiers
+        ═══════════════════════════════════════════════════════════════ */}
+        <CollapsibleSection
+          isOpen={activeSection === "delivery"}
+          onToggle={toggleSection("delivery")}
+          icon={Truck}
+          title="Delivery Fees"
+          description={deliveryFeeEnabled ? `${deliveryTiers.length} distance tier${deliveryTiers.length !== 1 ? "s" : ""} configured` : "Disabled — no delivery fees charged"}
+        >
+          {/* Master Toggle */}
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-xs font-semibold text-stone-400">Charge Delivery Fees</span>
+            <button
+              onClick={() => setDeliveryFeeEnabled(!deliveryFeeEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                deliveryFeeEnabled ? "bg-yellow-400" : "bg-slate-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  deliveryFeeEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <p className="mb-4 text-xs text-stone-500">
+            Charge delivery fees based on distance from your home base ZIP. Fees are added to the customer&apos;s total and are <span className="font-semibold text-stone-400">not subject to sales tax</span>.
+          </p>
+
+          {deliveryFeeEnabled && (
+            <>
+              {/* Tier List */}
+              <div className="space-y-2">
+                {deliveryTiers.map((tier, idx) => {
+                  const prevMax = idx > 0 ? deliveryTiers[idx - 1].max_miles : 0;
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        tier.enabled
+                          ? "border-slate-700 bg-slate-800"
+                          : "border-slate-800 bg-slate-800/30 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Tier toggle */}
+                        <button
+                          onClick={() => updateDeliveryTier(idx, { enabled: !tier.enabled })}
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                            tier.enabled ? "bg-yellow-400" : "bg-slate-600"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                              tier.enabled ? "translate-x-5" : "translate-x-1"
+                            }`}
+                          />
+                        </button>
+
+                        {/* Distance label */}
+                        <span className="text-xs font-semibold text-stone-400 whitespace-nowrap">
+                          {prevMax}–
+                        </span>
+
+                        {/* Max miles input */}
+                        <input
+                          type="number"
+                          min={prevMax + 1}
+                          max={serviceRadius || 85}
+                          value={tier.max_miles}
+                          onChange={(e) => updateDeliveryTier(idx, { max_miles: e.target.value === "" ? 0 : Number(e.target.value) })}
+                          onBlur={(e) => {
+                            const v = Number(e.target.value);
+                            if (!v || v <= prevMax) updateDeliveryTier(idx, { max_miles: prevMax + 1 });
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                        />
+                        <span className="text-xs text-stone-500">mi</span>
+
+                        <span className="text-xs text-stone-600 mx-1">=</span>
+
+                        {/* Fee input */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-stone-400">$</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={5}
+                            value={tier.fee}
+                            onChange={(e) => updateDeliveryTier(idx, { fee: e.target.value === "" ? 0 : Number(e.target.value) })}
+                            onFocus={(e) => e.target.select()}
+                            className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                          />
+                        </div>
+
+                        {/* Delete tier */}
+                        <button
+                          onClick={() => removeDeliveryTier(idx)}
+                          className="ml-auto rounded p-1 text-stone-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {tier.fee === 0 && tier.enabled && (
+                        <p className="mt-1 ml-12 text-[10px] text-emerald-500">Free delivery</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add Tier button */}
+              <button
+                onClick={addDeliveryTier}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 py-2 text-xs font-semibold text-stone-500 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Distance Tier
+              </button>
+
+              {deliveryTiers.length === 0 && (
+                <p className="mt-2 text-center text-xs text-stone-600">
+                  No tiers yet. Add a distance tier to start charging delivery fees.
+                </p>
+              )}
+            </>
+          )}
+
+          {/* ── Indoor Delivery Fee ─────────────────────────────── */}
+          <div className="mt-6 border-t border-slate-700/50 pt-4">
+            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+              Indoor Delivery Fee
+            </h4>
+            <p className="mb-3 text-xs text-stone-500">
+              Charge an extra per-item fee when the customer wants a rack brought inside the home instead of the garage or driveway. This fee is assessed per rack.
+            </p>
+
+            {/* Toggle */}
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-400">Offer Indoor Delivery</span>
+              <button
+                onClick={() => setIndoorDeliveryEnabled(!indoorDeliveryEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  indoorDeliveryEnabled ? "bg-yellow-400" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    indoorDeliveryEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {indoorDeliveryEnabled && (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 p-3">
+                <span className="text-xs font-bold text-stone-400">$</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={indoorDeliveryFee}
+                  onChange={(e) => setIndoorDeliveryFee(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  className="w-20 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                />
+                <span className="text-xs text-stone-500">per item</span>
+              </div>
+            )}
+          </div>
+
+          {/* Save */}
+          <button
+            onClick={handleSaveDeliveryFees}
+            disabled={deliveryFeeSaving}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+          >
+            {deliveryFeeSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Truck className="h-4 w-4" />
+            )}
+            {deliveryFeeSaving ? "Saving..." : "Save Delivery Fees"}
+          </button>
+
+          {deliveryFeeMessage && (
+            <p
+              className={`mt-2 text-center text-xs font-medium ${
+                deliveryFeeMessage.includes("saved") ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {deliveryFeeMessage}
+            </p>
+          )}
+        </CollapsibleSection>
+
+        {/* ── Group: Payments ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Payments</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION B: Stripe Connect (Payouts)
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-yellow-400" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Payouts (Stripe Connect)
-            </h2>
-          </div>
-
+        <CollapsibleSection
+          isOpen={activeSection === "stripe"}
+          onToggle={toggleSection("stripe")}
+          icon={CreditCard}
+          title="Payouts (Stripe Connect)"
+          description={stripeStatus?.charges_enabled ? "Connected — deposits go to your bank" : "Not connected — set up to receive payments"}
+        >
           {/* Status Card */}
           <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between">
@@ -814,14 +1373,7 @@ function ProfilePageInner() {
               Contractor Agreement
             </a>.
           </p>
-        </section>
-
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION C: Pro Upgrade CTA (Non-Pro users only)
-        ═══════════════════════════════════════════════════════════════ */}
-        {!isPro && profile && (
-          <ProUpgradeCTA userId={profile.id} />
-        )}
+        </CollapsibleSection>
 
         {/* Pro Upgrade Success/Cancel Message */}
         {proMessage && (
@@ -851,15 +1403,254 @@ function ProfilePageInner() {
           </div>
         )}
 
-        {/* Pro Subscription Management (Pro users only) */}
-        {isPro && profile && (
+        {/* Pro Subscription Management */}
+        {profile && (
           <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
         )}
 
-        {/* Pro QR Code Generator (Pro users with slug only) */}
-        {isPro && profile?.slug && (
-          <ProQRCodeCard slug={profile.slug} businessName={profile.business_name || undefined} />
+        {/* ── Group: Portfolio ───────────────────────────────────────── */}
+        {profile?.slug && (
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Portfolio</span>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          </div>
         )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C.5: Portfolio & Social
+        ═══════════════════════════════════════════════════════════════ */}
+        {profile?.slug && (
+          <PortfolioSection
+            userId={profile.id}
+            slug={profile.slug}
+            initialBio={profile.bio || ""}
+            initialInstagram={profile.instagram_url || ""}
+            initialFacebook={profile.facebook_url || ""}
+            initialPhotos={(profile.portfolio_photos as PortfolioPhoto[]) || []}
+            businessName={profile.business_name || undefined}
+            firstName={profile.first_name || undefined}
+            city={profile.city || undefined}
+            state={profile.state || undefined}
+          />
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION C.6: Customer Reviews Toggle
+        ═══════════════════════════════════════════════════════════════ */}
+        {profile?.slug && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Customer Reviews</p>
+                  <p className="text-[11px] text-stone-500">
+                    Show verified customer reviews on your portfolio page
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const newValue = !(profile.show_reviews ?? true);
+                  const { toggleShowReviews } = await import("@/app/actions/reviews");
+                  await toggleShowReviews(profile.id, newValue);
+                  setProfile({ ...profile, show_reviews: newValue });
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                    (profile.show_reviews ?? true) ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Group: Services ────────────────────────────────────────── */}
+        {profile?.slug && (
+          <>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Services</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            </div>
+
+            <ServicesSection
+              userId={profile.id}
+              initialServices={profile.services_config}
+            />
+          </>
+        )}
+
+        {/* ── Group: Pricing ─────────────────────────────────────────── */}
+        {profile && (
+          <>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Pricing</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+            </div>
+
+            {/* SECTION D: Custom Pricing */}
+            <PricingSettings userId={profile.id} />
+
+            {/* SECTION D.2: Material Costs & Screw Packaging */}
+            <MaterialCostSettings userId={profile.id} />
+
+            {/* SECTION D.5: Custom Deposit */}
+            <CollapsibleSection
+              isOpen={activeSection === "deposit"}
+              onToggle={toggleSection("deposit")}
+              icon={DollarSign}
+              title="Customer Deposit"
+              description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
+            >
+              <p className="mb-4 text-xs text-stone-500">
+                Set how much your customers pay upfront when booking. Minimum is <span className="font-semibold text-stone-400">15%</span> to cover
+                the network lead fee. You can require a higher percentage or a flat dollar amount.
+              </p>
+
+              {/* Deposit Type Selector */}
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={() => { setDepositType("percentage"); if (depositValue < 15) setDepositValue(15); }}
+                  className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+                    depositType === "percentage"
+                      ? "bg-yellow-400 text-gray-950"
+                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <Percent className="h-3.5 w-3.5" />
+                  Percentage
+                </button>
+                <button
+                  onClick={() => setDepositType("flat")}
+                  className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+                    depositType === "flat"
+                      ? "bg-yellow-400 text-gray-950"
+                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                  }`}
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Flat Amount
+                </button>
+              </div>
+
+              {/* Deposit Value Input */}
+              <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+                <div className="flex items-center gap-3">
+                  {depositType === "flat" && (
+                    <span className="text-lg font-bold text-stone-400">$</span>
+                  )}
+                  <input
+                    type="number"
+                    min={depositType === "percentage" ? 15 : 1}
+                    max={depositType === "percentage" ? 100 : 99999}
+                    step={depositType === "percentage" ? 5 : 25}
+                    value={depositValue}
+                    onChange={(e) => setDepositValue(e.target.value === "" ? 0 : Number(e.target.value))}
+                    onBlur={() => {
+                      if (depositType === "percentage" && depositValue < 15) setDepositValue(15);
+                      if (depositType === "flat" && depositValue < 1) setDepositValue(1);
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    className="w-24 rounded border border-slate-600 bg-slate-700 px-3 py-2 text-center text-lg font-bold text-white outline-none focus:border-yellow-400"
+                  />
+                  {depositType === "percentage" && (
+                    <span className="text-lg font-bold text-stone-400">%</span>
+                  )}
+                  <span className="ml-2 text-xs text-stone-500">
+                    {depositType === "percentage"
+                      ? depositValue === 15
+                        ? "Default — standard 15% deposit"
+                        : `Customer pays ${depositValue}% of build total upfront`
+                      : `Customer pays $${depositValue} upfront (min 15% of total enforced)`
+                    }
+                  </span>
+                </div>
+                {depositType === "flat" && (
+                  <p className="mt-2 text-[10px] text-amber-400/80">
+                    If 15% of the build total exceeds this amount, the deposit will automatically increase to cover the network fee.
+                  </p>
+                )}
+                {depositType === "percentage" && depositValue > 15 && (
+                  <p className="mt-2 text-[10px] text-emerald-400/80">
+                    You&apos;ll collect {depositValue}% upfront. The remaining {100 - depositValue}% is due at installation.
+                  </p>
+                )}
+              </div>
+
+              {/* Save */}
+              <button
+                onClick={handleSaveDepositConfig}
+                disabled={depositSaving}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {depositSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <DollarSign className="h-4 w-4" />
+                )}
+                {depositSaving ? "Saving..." : "Save Deposit Settings"}
+              </button>
+
+              {depositMessage && (
+                <p
+                  className={`mt-2 text-center text-xs font-medium ${
+                    depositMessage.includes("saved") ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {depositMessage}
+                </p>
+              )}
+            </CollapsibleSection>
+
+            {/* SECTION E: Discount Codes */}
+            <DiscountCodesCard userId={profile.id} />
+          </>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PARTNER PORTAL (Partners only — gated by is_partner flag)
+        ═══════════════════════════════════════════════════════════════ */}
+        {profile?.is_partner && (
+          <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+            <div className="p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Handshake className="h-4 w-4 text-yellow-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                  Affiliate Partner
+                </h2>
+              </div>
+              <p className="mb-4 text-sm text-stone-400">
+                View your referral dashboard, track commissions, and manage your installer network.
+              </p>
+              <a
+                href="/dashboard/partner"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+              >
+                <Handshake className="h-4 w-4" />
+                Open Partner Portal
+              </a>
+            </div>
+          </section>
+        )}
+
+        {/* ── Group: Account ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Account</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+        </div>
 
         {/* ── Danger Zone ─────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
@@ -916,19 +1707,123 @@ function ProfilePageInner() {
           )}
         </section>
 
-        {/* ── Plan Badge ────────────────────────────────────────────────── */}
-        <div className="text-center">
-          <span
-            className={`inline-block rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
-              isPro
-                ? "bg-yellow-400/10 text-yellow-400"
-                : "bg-slate-800 text-stone-500"
-            }`}
-          >
-            {isPro ? "Pro Plan" : "Free Plan"}
-          </span>
-        </div>
       </main>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          Change Password Modal
+      ═══════════════════════════════════════════════════════════════════ */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6">
+            {/* Modal Header */}
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-yellow-400" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                  Change Password
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordError("");
+                  setPasswordMessage("");
+                }}
+                className="rounded-lg p-1 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Success Message */}
+            {passwordMessage && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <p className="text-xs font-medium text-emerald-400">
+                  {passwordMessage}
+                </p>
+              </div>
+            )}
+
+            {/* Form */}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  placeholder="Min 6 characters"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete="new-password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  placeholder="Re-enter password"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {passwordError && (
+              <p className="mt-3 text-xs font-medium text-red-400">
+                {passwordError}
+              </p>
+            )}
+
+            {/* Buttons */}
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {passwordLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                {passwordLoading ? "Updating..." : "Update Password"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordError("");
+                  setPasswordMessage("");
+                }}
+                disabled={passwordLoading}
+                className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

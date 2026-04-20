@@ -1,15 +1,44 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
+import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { TtlCache, invalidateInstallerCacheForUser } from "@/lib/cache";
+import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Profile — Server actions for profile management
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServiceClient();
+
+/**
+ * Verify the authenticated caller matches the target user_id.
+ * Returns the user ID on success, or an error message.
+ */
+async function requireSelf(targetUserId: string): Promise<{ userId: string } | { error: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { error: "Not authenticated." };
+  if (user.id !== targetUserId) return { error: "Not authorized." };
+  return { userId: user.id };
+}
+
+/** Cache for public profile reads (60s TTL) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const profileCache = new TtlCache<any>(60_000);
+
+/** Revalidate the public portfolio page and bust installer cache. */
+async function revalidatePortfolio(userId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("slug, ref_slug")
+    .eq("id", userId)
+    .single();
+  if (data?.slug) {
+    revalidatePath(`/p/${data.slug}`);
+  }
+  await invalidateInstallerCacheForUser(userId, data?.slug, data?.ref_slug);
+}
 
 export interface ProfileUpdateInput {
   user_id: string;
@@ -21,6 +50,7 @@ export interface ProfileUpdateInput {
   service_zip?: string;
   city?: string;
   state?: string;
+  address_line1?: string;
   avatar_url?: string;
 }
 
@@ -30,12 +60,53 @@ export interface ProfileUpdateResult {
 }
 
 /**
+ * Stamp the last login timestamp for a user.
+ * Uses service role to bypass RLS so it never fails silently.
+ */
+export async function stampLastLogin(userId: string): Promise<void> {
+  await supabase
+    .from("profiles")
+    .update({ last_login_at: new Date().toISOString() })
+    .eq("id", userId);
+}
+
+/**
+ * Check if an installer account is suspended.
+ * Returns suspension details including reason and Stripe subscription info
+ * so the login page can show the appropriate remediation UI.
+ */
+export async function checkSuspensionStatus(userId: string): Promise<{
+  suspended: boolean;
+  reason: "manual" | "payment" | null;
+  stripeSubscriptionId: string | null;
+}> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("is_suspended, suspension_reason, stripe_subscription_id")
+    .eq("id", userId)
+    .single();
+
+  if (!data || !data.is_suspended) {
+    return { suspended: false, reason: null, stripeSubscriptionId: null };
+  }
+
+  return {
+    suspended: true,
+    reason: data.suspension_reason ?? null,
+    stripeSubscriptionId: data.stripe_subscription_id ?? null,
+  };
+}
+
+/**
  * Update user profile information.
  */
 export async function updateProfile(
   input: ProfileUpdateInput
 ): Promise<ProfileUpdateResult> {
   const { user_id, ...updates } = input;
+
+  const auth = await requireSelf(user_id);
+  if ("error" in auth) return { success: false, error: auth.error };
 
   // Convert undefined values to null (Supabase rejects undefined)
   const cleanUpdates: Record<string, string | null> = {};
@@ -67,7 +138,13 @@ export async function updateProfile(
     return { success: false, error: error.message };
   }
 
+  await revalidatePortfolio(user_id);
   console.log("[Profile Update] Success");
+
+  // Log activity
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(user_id, "profile_edit", { fields: Object.keys(cleanUpdates) });
+
   return { success: true };
 }
 
@@ -126,12 +203,15 @@ export interface SlugUpdateResult {
 }
 
 /**
- * Update user's custom booking slug (PRO only).
+ * Update user's custom booking slug.
  */
 export async function updateSlug(
   userId: string,
   slug: string
 ): Promise<SlugUpdateResult> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   // Normalize
   const normalized = slug
     .toLowerCase()
@@ -143,17 +223,6 @@ export async function updateSlug(
   const check = await checkSlugAvailability(normalized, userId);
   if (!check.available) {
     return { success: false, error: check.error };
-  }
-
-  // Check if user is PRO
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("subscription_tier")
-    .eq("id", userId)
-    .single();
-
-  if (profile?.subscription_tier !== "pro") {
-    return { success: false, error: "Custom slugs require a Pro subscription." };
   }
 
   // Update
@@ -187,6 +256,198 @@ export async function getProfileBySlug(slug: string) {
 }
 
 /**
+ * Get full profile by slug (for the public portfolio page).
+ * Cached for 60s to absorb viral traffic on /p/[slug] pages.
+ */
+export async function getFullProfileBySlug(slug: string) {
+  const key = `fullprofile:${slug.trim().toLowerCase()}`;
+
+  return profileCache.getOrFetch(key, async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, first_name, last_name, business_name, trade_name, phone, city, state, avatar_url, slug, is_pro, is_partner, bio, instagram_url, facebook_url, portfolio_photos, lead_time_days, working_days, scheduling_enabled, services_config, pro_trial_ends_at, stripe_subscription_id, show_reviews"
+      )
+      .ilike("slug", slug.trim())
+      .single();
+
+    if (error || !data) {
+      console.error("[getFullProfileBySlug]", slug, error?.message);
+      return null;
+    }
+
+    // Ensure portfolio_photos is always an array (handles string-encoded JSON)
+    if (data.portfolio_photos && typeof data.portfolio_photos === "string") {
+      try {
+        data.portfolio_photos = JSON.parse(data.portfolio_photos);
+      } catch {
+        data.portfolio_photos = [];
+      }
+    }
+
+    return data;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Portfolio Management — Bio, social links, and portfolio photos
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PortfolioPhoto {
+  url: string;
+  caption?: string;
+}
+
+/**
+ * Update portfolio settings (bio, social links).
+ */
+export async function updatePortfolioSettings(input: {
+  user_id: string;
+  bio?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { user_id, ...updates } = input;
+
+  const auth = await requireSelf(user_id);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const cleanUpdates: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      cleanUpdates[key] = value?.trim() || null;
+    }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(cleanUpdates)
+    .eq("id", user_id);
+
+  if (error) {
+    console.error("[Portfolio Settings] Update error:", error);
+    return { success: false, error: error.message };
+  }
+
+  await revalidatePortfolio(user_id);
+  return { success: true };
+}
+
+/**
+ * Upload a portfolio photo to storage and add to the JSONB array.
+ */
+export async function uploadPortfolioPhoto(
+  userId: string,
+  base64Data: string,
+  fileExt: string,
+  caption?: string
+): Promise<{ success: boolean; photo?: PortfolioPhoto; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
+  if (!allowedExts.includes(fileExt)) {
+    return { success: false, error: "Invalid file type. Use JPG, PNG, GIF, or WebP." };
+  }
+
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+  const path = `${userId}/${filename}`;
+
+  try {
+    const buffer = Buffer.from(base64Data, "base64");
+    const mimeType = fileExt === "jpg" ? "image/jpeg" : `image/${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("portfolio")
+      .upload(path, buffer, { contentType: mimeType, upsert: false });
+
+    if (uploadError) {
+      console.error("[Portfolio Upload] Storage error:", uploadError);
+      return { success: false, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    const { data: urlData } = supabase.storage.from("portfolio").getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
+
+    const newPhoto: PortfolioPhoto = { url: publicUrl, caption: caption || "" };
+
+    // Fetch current photos, append, save
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("portfolio_photos")
+      .eq("id", userId)
+      .single();
+
+    const currentPhotos: PortfolioPhoto[] = (profile?.portfolio_photos as PortfolioPhoto[]) || [];
+    currentPhotos.push(newPhoto);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ portfolio_photos: currentPhotos })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("[Portfolio Upload] Profile update error:", updateError);
+      return { success: false, error: "Photo uploaded but failed to save to profile." };
+    }
+
+    await revalidatePortfolio(userId);
+    return { success: true, photo: newPhoto };
+  } catch (err) {
+    console.error("[Portfolio Upload] Unexpected error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Upload error: ${msg}` };
+  }
+}
+
+/**
+ * Delete a portfolio photo from storage and remove from the JSONB array.
+ */
+export async function deletePortfolioPhoto(
+  userId: string,
+  photoUrl: string
+): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  try {
+    // Extract storage path from URL
+    const bucketUrl = supabase.storage.from("portfolio").getPublicUrl("").data.publicUrl;
+    const storagePath = photoUrl.replace(bucketUrl, "").replace(/^\//, "");
+
+    if (storagePath) {
+      await supabase.storage.from("portfolio").remove([storagePath]);
+    }
+
+    // Remove from JSONB array
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("portfolio_photos")
+      .eq("id", userId)
+      .single();
+
+    const currentPhotos: PortfolioPhoto[] = (profile?.portfolio_photos as PortfolioPhoto[]) || [];
+    const updatedPhotos = currentPhotos.filter((p) => p.url !== photoUrl);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ portfolio_photos: updatedPhotos })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("[Portfolio Delete] Profile update error:", updateError);
+      return { success: false, error: "Failed to update profile." };
+    }
+
+    await revalidatePortfolio(userId);
+    return { success: true };
+  } catch (err) {
+    console.error("[Portfolio Delete] Unexpected error:", err);
+    return { success: false, error: "Unexpected error during deletion." };
+  }
+}
+
+/**
  * Upload avatar and return the public URL.
  * This generates a signed upload URL for the client to use.
  */
@@ -194,6 +455,9 @@ export async function getAvatarUploadUrl(
   userId: string,
   fileName: string
 ): Promise<{ success: boolean; url?: string; path?: string; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const fileExt = fileName.split(".").pop()?.toLowerCase() || "jpg";
   const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
 
@@ -249,6 +513,9 @@ export async function uploadAvatarServerSide(
   base64Data: string,
   fileExt: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
   const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
   if (!allowedExts.includes(fileExt)) {
     return { success: false, error: "Invalid file type." };
@@ -302,4 +569,58 @@ export async function uploadAvatarServerSide(
     console.error("[Avatar Server Upload] Unexpected error:", err);
     return { success: false, error: "Unexpected error during upload." };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Services Config — Manage service offerings shown on portfolio page
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Read services config for an installer, falling back to defaults if NULL */
+export async function getServicesConfig(userId: string): Promise<ServiceOffering[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("services_config")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data?.services_config) {
+    return DEFAULT_SERVICES;
+  }
+
+  return data.services_config as ServiceOffering[];
+}
+
+/** Save services config and revalidate the portfolio page */
+export async function updateServicesConfig(
+  userId: string,
+  services: ServiceOffering[]
+): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ services_config: services })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("[updateServicesConfig]", error);
+    return { success: false, error: "Failed to save services." };
+  }
+
+  // Bust cache and revalidate public portfolio
+  profileCache.clear();
+  await revalidatePortfolio(userId);
+
+  return { success: true };
+}
+
+/**
+ * Bust installer caches after a profile setting change (e.g. scheduling toggle).
+ * Called from client components that write directly to the DB via browser client.
+ */
+export async function invalidateInstallerCache(userId: string): Promise<void> {
+  const auth = await requireSelf(userId);
+  if ("error" in auth) return;
+  await revalidatePortfolio(userId);
 }

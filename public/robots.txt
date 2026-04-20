@@ -1,0 +1,124 @@
+# Storage Network — Crawler Policy
+# Allow search engines, block AI scrapers and competitor tools.
+
+# ── AI Crawlers — BLOCKED ─────────────────────────────────────────────
+# These bots scrape content to train AI models or feed AI chat tools.
+# Blocking prevents automated feature/pricing extraction.
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Cohere-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /
+
+# ── Search Engines — ALLOWED (SEO) ───────────────────────────────────
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /design
+Disallow: /build
+Disallow: /login
+Disallow: /auth/
+Disallow: /_next/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /design
+Disallow: /build
+Disallow: /login
+Disallow: /auth/
+Disallow: /_next/
+
+# ── All Other Bots — Restricted ──────────────────────────────────────
+
+User-agent: *
+Allow: /
+Allow: /technology
+Allow: /features
+Allow: /about
+Allow: /about/*
+Allow: /join
+Allow: /partner/join
+Allow: /installers/
+Allow: /installers/*
+Allow: /become-installer/
+Allow: /become-installer/*
+Allow: /p/
+Allow: /p/*
+Allow: /legal/
+Allow: /legal/*
+
+# Block proprietary tools, dashboard, API, and internal routes
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /dashboard/*
+Disallow: /design
+Disallow: /design/*
+Disallow: /build
+Disallow: /pay/
+Disallow: /pay/*
+Disallow: /checkout/
+Disallow: /checkout/*
+Disallow: /upload/
+Disallow: /upload/*
+Disallow: /login
+Disallow: /reset-password
+Disallow: /auth/
+Disallow: /auth/*
+Disallow: /success/
+Disallow: /book/
+Disallow: /book/*
+Disallow: /payment/
+Disallow: /payment/*
+Disallow: /community
+Disallow: /community/*
+Disallow: /upgrade
+Disallow: /demo
+Disallow: /_next/
+Disallow: /rack/
+Disallow: /review/
+
+Sitemap: https://storage-network.app/sitemap.xml

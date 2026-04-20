@@ -1,6 +1,6 @@
 "use client";
 
-import * as THREE from "three";
+import { MeshStandardMaterial, Color } from "three";
 import { useMemo } from "react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -52,8 +52,8 @@ const FORK_ARM_OFFSET_X = WHEEL_W / 2 + FORK_ARM_W / 2 + 0.1;
 function useSteelMat() {
   return useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color("#B0B0B0"),
+      new MeshStandardMaterial({
+        color: new Color("#B0B0B0"),
         roughness: 0.25,
         metalness: 0.88,
       }),
@@ -64,8 +64,8 @@ function useSteelMat() {
 function useRedWheelMat() {
   return useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color("#C0392B"),
+      new MeshStandardMaterial({
+        color: new Color("#C0392B"),
         roughness: 0.7,
         metalness: 0.05,
       }),
@@ -76,8 +76,8 @@ function useRedWheelMat() {
 function useGreyHubMat() {
   return useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color("#888888"),
+      new MeshStandardMaterial({
+        color: new Color("#888888"),
         roughness: 0.35,
         metalness: 0.6,
       }),
@@ -88,8 +88,8 @@ function useGreyHubMat() {
 function useDarkSteelMat() {
   return useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color("#555555"),
+      new MeshStandardMaterial({
+        color: new Color("#555555"),
         roughness: 0.4,
         metalness: 0.7,
       }),

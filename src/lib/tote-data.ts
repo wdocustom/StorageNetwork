@@ -42,7 +42,7 @@ export const TOTE_DATABASE: ToteDefinition[] = [
     name: "27 Gallon Storage Tote",
     retailer: "Costco",
     capacity: "27 Gallon",
-    upcs: ["760655026216"],
+    upcs: ["760655026216", "737839436020"],
     dimensions: {
       width: 30.5,
       depth: 20.5,
@@ -57,14 +57,44 @@ export const TOTE_DATABASE: ToteDefinition[] = [
     name: "27 Gallon Storage Tote",
     retailer: "Lowe's",
     capacity: "27 Gallon",
-    upcs: ["840059628008"],
+    upcs: ["840059628008", "840059616984", "075457685703", "079682126115", "899441002823"],
     dimensions: {
       width: 30.5,
       depth: 20.5,
       height: 14.75,
     },
     color: "Yellow/Black",
-    configKey: "HDX", // Similar dimensions to HDX
+    configKey: "GM", // 20-3/4" opening — same size class as GreenMade
+  },
+  {
+    id: "performax-27-gal",
+    brand: "Performax",
+    name: "27 Gallon Storage Tote",
+    retailer: "Menards",
+    capacity: "27 Gallon",
+    upcs: [],
+    dimensions: {
+      width: 30.25,
+      depth: 20.5,
+      height: 14.5,
+    },
+    color: "Yellow/Black",
+    configKey: "HDX", // 19-3/4" opening — same size class as HDX
+  },
+  {
+    id: "hyper-tough-27-gal",
+    brand: "Hyper Tough",
+    name: "27 Gallon Storage Tote",
+    retailer: "Walmart / Sam's Club",
+    capacity: "27 Gallon",
+    upcs: [],
+    dimensions: {
+      width: 30.5,
+      depth: 20.5,
+      height: 14.75,
+    },
+    color: "Yellow/Black",
+    configKey: "GM", // 20-3/4" opening — same size class as GreenMade
   },
 ];
 

@@ -1,41 +1,54 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import {
   checkAvailability,
+  rerouteToLocalInstaller,
   type AvailabilityResult,
 } from "@/app/actions/customer";
 import { mapAvailabilityToViewModel } from "@/lib/mappers/installerMapper";
-import type { DesignPageViewModel } from "@/types/viewModels";
-import { submitNetworkLead } from "@/app/actions/submit-lead";
-import { calculateBuild, type UnitType, type Orientation } from "@/app/actions/calculator";
+import { type DesignPageViewModel } from "@/types/viewModels";
+import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
+import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
+import { checkInstallerAtCapacity } from "@/app/actions/pro-trial";
+import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, type UnitType, type Orientation, type CompoundBuildResult } from "@/app/actions/calculator";
+import { SHELVING_CONFIGS, type ShelvingConfig } from "@/lib/shelving";
+import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/delivery-fee";
+import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
+import { contactInstaller } from "@/app/actions/contact-installer";
+import { BESTSELLER_PRESETS } from "@/lib/presets";
+import { RAISED_BED_SIZES, type RaisedBedConfig } from "@/lib/raised-beds";
+import { expandPresetUnits } from "@/lib/buildEngine.types";
+import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import RackVisualizer from "@/components/visualizer/RackVisualizer";
+import type { VisualizerSubUnit, ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
+import type { SectionAddon, AddonPricing, PaintColorId } from "@/types/viewModels";
+// ADDON_PLATFORM_DEFAULTS removed — using data.addonDefaults from server
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
+import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
+import DatePickerDrawer from "@/components/design/DatePickerDrawer";
+import PageViewTracker from "@/components/tracking/PageViewTracker";
+import dynamic from "next/dynamic";
+const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import {
-  MapPin,
-  CheckCircle2,
   AlertTriangle,
-  Loader2,
-  Send,
-  Plus,
-  X,
-  Maximize2,
   ArrowLeft,
   User,
-  CreditCard,
-  Scan,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (display-only — no pricing or math constants)
 // ═══════════════════════════════════════════════════════════════════════════
 type ToteType = "HDX" | "GM";
+type ToteColor = "black" | "clear";
 
 interface UnitConfig {
   cols: number;
   rows: number;
   toteType: ToteType;
+  toteColor: ToteColor;
   unitType: UnitType;
   orientation: Orientation;
   hasTotes: boolean;
@@ -46,6 +59,28 @@ interface UnitConfig {
   totalH: number;
   depth: number;
   desc: string;
+  addons: SectionAddon[];
+  paintFrameColor?: PaintColorId | null;
+  paintDoorColor?: PaintColorId | null;
+  paintSidePanelColor?: PaintColorId | null;
+  /** When set, this order item is an open shelving unit (not a tote organizer) */
+  shelvingConfigId?: string;
+  /** When set, this order item is an overhead ceiling storage unit */
+  overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
+  /** When set, this order item is a compound preset with sub-units (e.g. Indiana Joe) */
+  presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
+  /** When set, this order item is a raised bed planter */
+  raisedBedConfig?: RaisedBedConfig;
+  /** Number of bottom rows with drawer slides */
+  drawerSlideRows?: number;
+  /** Column indices that have drawer slides (e.g. [0, 3]) */
+  drawerSlideColumns?: number[];
+  /** Quantity of this item (defaults to 1) */
+  quantity?: number;
+  /** When true, customer wants this item delivered inside the home */
+  indoorDelivery?: boolean;
+  /** The indoor delivery fee charged for this item (in dollars) */
+  indoorDeliveryFee?: number;
 }
 
 interface ServerBuild {
@@ -64,12 +99,23 @@ interface ServerBuild {
 // Props — accepts a DesignPageViewModel from the server.
 // The client NEVER sees is_pro, business_name, or raw logo_url.
 // ═══════════════════════════════════════════════════════════════════════════
+interface SavedSignalData {
+  quoteData: unknown[] | null;
+  sourceInstallerId: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+}
+
 interface DesignConfiguratorProps {
   initialData: DesignPageViewModel | null;
   initialZip: string;
   mode: string;
   isDemo?: boolean;
   leadSource?: "platform" | "partner_link";
+  savedSignal?: SavedSignalData;
+  initialInstallerAtCapacity?: boolean;
+  initialConfig?: Record<string, unknown> | null;
 }
 
 // ── Cookie helpers (installer attribution) ─────────────────────────────
@@ -81,6 +127,68 @@ function setInstallerCookie(id: string) {
 function getInstallerCookie(): string {
   const match = document.cookie.match(/(?:^|;\s*)installer_id=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : "";
+}
+
+// ── Helper: build a single multi-unit 3D item from a UnitConfig ─────────
+function buildMultiUnitItem(
+  item: UnitConfig,
+  expandedIdx: number,
+  unitVisibility: Record<number, boolean>,
+) {
+  const shelvingConfig3D = item.shelvingConfigId
+    ? (() => {
+        const cfg = SHELVING_CONFIGS.find((c) => c.id === item.shelvingConfigId);
+        return cfg ? { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves } : undefined;
+      })()
+    : undefined;
+  return {
+    cols: item.cols,
+    rows: item.rows,
+    toteType: item.toteType,
+    toteColor: item.toteColor,
+    unitType: item.unitType,
+    orientation: item.orientation,
+    hasTotes: item.hasTotes,
+    hasWheels: item.hasWheels,
+    hasTop: item.hasTop,
+    totalW: item.totalW,
+    totalH: item.totalH,
+    depth: item.depth,
+    addons: item.addons,
+    paintFrameColor: item.paintFrameColor,
+    paintDoorColor: item.paintDoorColor,
+    paintSidePanelColor: item.paintSidePanelColor,
+    shelvingConfigId: item.shelvingConfigId,
+    shelvingConfig: shelvingConfig3D,
+    overheadStorageConfig: item.overheadStorageConfig
+      ? (() => {
+          const cfg = item.overheadStorageConfig;
+          const preset = OVERHEAD_GRID_PRESETS.find((p) => p.id === cfg.gridPresetId);
+          return preset ? { slotsWide: preset.slotsWide, slotsDeep: preset.slotsDeep, toteType: cfg.toteType } : undefined;
+        })()
+      : undefined,
+    raisedBedConfig: item.raisedBedConfig
+      ? (() => {
+          const bed = RAISED_BED_SIZES.find((s) => s.id === item.raisedBedConfig!.sizeId);
+          return bed ? {
+            widthIn: bed.widthIn,
+            lengthIn: bed.lengthIn,
+            heightIn: bed.heightIn,
+            hasLegs: bed.style === "with_legs",
+            groundClearance: bed.groundClearance,
+            pestCover: item.raisedBedConfig!.pestCover,
+            finish: item.raisedBedConfig!.finish,
+            hasStringLightPost: bed.hasStringLightPost,
+            postHeightIn: bed.postHeightIn,
+          } : undefined;
+        })()
+      : undefined,
+    presetUnits: item.presetUnits,
+    drawerSlideRows: item.drawerSlideRows,
+    drawerSlideColumns: item.drawerSlideColumns,
+    visible: unitVisibility[expandedIdx] !== false,
+    desc: item.desc,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,6 +203,9 @@ export default function DesignConfigurator({
   mode,
   isDemo = false,
   leadSource = "platform",
+  savedSignal,
+  initialInstallerAtCapacity = false,
+  initialConfig,
 }: DesignConfiguratorProps) {
   // ── Demo mode toast ────────────────────────────────────────────────
   const [demoToast, setDemoToast] = useState(false);
@@ -106,13 +217,11 @@ export default function DesignConfigurator({
   const [installerLoading] = useState(false);
 
   // Set cookie on mount if installer was resolved server-side
+  // Do NOT restore from cookie when landing fresh (no installer params) —
+  // the customer should start with a clean configurator showing only basic options.
   useEffect(() => {
     if (initialData?.routing.installerId) {
       setInstallerCookie(initialData.routing.installerId);
-    } else {
-      // No installer from server — check cookie fallback
-      const cookieId = getInstallerCookie();
-      if (cookieId) setInstallerId(cookieId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,6 +251,10 @@ export default function DesignConfigurator({
           setData(vm);
           setInstallerId(vm.routing.installerId);
           setInstallerCookie(vm.routing.installerId);
+          // Check if this installer is at their trial job cap
+          checkInstallerAtCapacity(vm.routing.installerId).then((cap) => {
+            setInstallerAtCapacity(cap.atCapacity);
+          }).catch(() => {});
         }
       }
     } catch {
@@ -149,13 +262,17 @@ export default function DesignConfigurator({
         available: false,
         installer_id: null,
         installer_name: null,
+        installer_slug: null,
         installer_stripe_id: null,
         installer_avatar_url: null,
         installer_phone: null,
         installer_lead_time: 5,
         installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        installer_scheduling_enabled: true,
         installer_is_pro: false,
         installer_logo_url: null,
+        installer_pricing: null,
+        installer_services_config: null,
         message: "Unable to check availability.",
       });
     } finally {
@@ -174,9 +291,17 @@ export default function DesignConfigurator({
   const [cols, setCols] = useState<number | string>(4);
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
+  const [toteColor, setToteColor] = useState<ToteColor>("black");
   const [hasTotes, setHasTotes] = useState(true);
   const [hasWheels, setHasWheels] = useState(true);
   const [hasTop, setHasTop] = useState(true);
+  const [addons, setAddons] = useState<SectionAddon[]>([]);
+  const [indoorDelivery, setIndoorDelivery] = useState(false);
+
+  // ── Paint color state ──────────────────────────────────────────────────
+  const [paintFrameColor, setPaintFrameColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
+  const [paintDoorColor, setPaintDoorColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
+  const [paintSidePanelColor, setPaintSidePanelColor] = useState<import("@/types/viewModels").PaintColorId | null>(null);
 
   // ── Server-provided build result ──────────────────────────────────────
   const [build, setBuild] = useState<ServerBuild>({
@@ -184,13 +309,287 @@ export default function DesignConfigurator({
   });
   const [buildLoading, setBuildLoading] = useState(false);
 
+  // ── Bestseller preset state ────────────────────────────────────────────
+  const [activePreset, setActivePreset] = useState<string | null>(null); // null = custom, "indiana-joe" = preset
+  const [compoundBuild, setCompoundBuild] = useState<CompoundBuildResult | null>(null);
+  const [presetTotes, setPresetTotes] = useState(true);
+  const [presetLoading, setPresetLoading] = useState(false);
+  const presetDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Apply initial config from URL param (single or multi-unit) ──────────
+  const configApplied = useRef(false);
+  useEffect(() => {
+    if (!initialConfig || configApplied.current) return;
+    configApplied.current = true;
+
+    // Multi-unit config from landing page: {"units":[...]}
+    if (Array.isArray(initialConfig.units)) {
+      const cfgUnits = initialConfig.units as Array<Record<string, unknown>>;
+      (async () => {
+        for (const u of cfgUnits) {
+          const result = await calculateBuild({
+            cols: (u.cols as number) || 4,
+            rows: (u.rows as number) || 4,
+            toteModel: (u.toteType as "HDX" | "GM") || "HDX",
+            toteColor: (u.toteColor as "black" | "clear") || "black",
+            unitType: (u.unitType as "standard" | "mini") || "standard",
+            orientation: (u.orientation as "standard" | "sideways") || "standard",
+            addOns: { totes: u.hasTotes !== false, wheels: !!u.hasWheels, top: !!u.hasTop },
+            mode: "manual",
+            installerPricing: data?.pricing,
+          });
+          if ("price" in result) {
+            const colorLabel = u.hasTotes !== false && u.toteColor === "clear" ? " (Clear Totes)" : "";
+            setOrderItems((prev) => [...prev, {
+              cols: result.cols, rows: result.rows,
+              toteType: (u.toteType as ToteType) || "HDX",
+              toteColor: (u.toteColor as ToteColor) || "black",
+              unitType: (u.unitType as UnitType) || "standard",
+              orientation: (u.orientation as Orientation) || "standard",
+              hasTotes: u.hasTotes !== false, hasWheels: !!u.hasWheels, hasTop: !!u.hasTop,
+              price: result.price,
+              totalW: result.dimensions.totalW, totalH: result.dimensions.totalH, depth: result.dimensions.depth,
+              desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
+              addons: [],
+            }]);
+          }
+        }
+        // showMultiUnit3D will be set by the sidebarStep effect when initialStep=4
+      })();
+      return;
+    }
+
+    // Preset shortcut
+    if (typeof initialConfig.preset === "string") {
+      setActivePreset(initialConfig.preset);
+      if (typeof initialConfig.hasTotes === "boolean") setPresetTotes(initialConfig.hasTotes);
+      return;
+    }
+
+    // Single unit — set configurator state
+    if (typeof initialConfig.cols === "number") setCols(initialConfig.cols);
+    if (typeof initialConfig.rows === "number") setRows(initialConfig.rows);
+    if (initialConfig.toteType === "HDX" || initialConfig.toteType === "GM") setToteType(initialConfig.toteType);
+    if (initialConfig.toteColor === "black" || initialConfig.toteColor === "clear") setToteColor(initialConfig.toteColor);
+    if (initialConfig.unitType === "standard" || initialConfig.unitType === "mini") setUnitType(initialConfig.unitType);
+    if (initialConfig.orientation === "standard" || initialConfig.orientation === "sideways") setOrientation(initialConfig.orientation);
+    if (typeof initialConfig.hasTotes === "boolean") setHasTotes(initialConfig.hasTotes);
+    if (typeof initialConfig.hasWheels === "boolean") setHasWheels(initialConfig.hasWheels);
+    if (typeof initialConfig.hasTop === "boolean") setHasTop(initialConfig.hasTop);
+  }, [initialConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Active preset object (null when custom build)
+  const activePresetObj = useMemo(() =>
+    activePreset ? BESTSELLER_PRESETS.find((p) => p.id === activePreset) ?? null : null,
+    [activePreset]
+  );
+
+  // Derived: VisualizerSubUnit[] for the visualizer from compoundBuild
+  const presetVisUnits: VisualizerSubUnit[] | undefined = useMemo(() => {
+    if (!compoundBuild || !activePresetObj) return undefined;
+    return compoundBuild.subUnits.map((su, i) => ({
+      cols: su.cols,
+      rows: su.rows,
+      totalW: su.totalW,
+      totalH: su.totalH,
+      hasTop: activePresetObj.units[i].hasTop,
+      hasWheels: activePresetObj.units[i].hasWheels,
+    }));
+  }, [compoundBuild, activePresetObj]);
+
+  // ── Filtered presets & shelving visibility based on installer pricing ──
+  const filteredPresets = useMemo(() => {
+    const p = data?.pricing;
+    if (!p) return BESTSELLER_PRESETS;
+    return BESTSELLER_PRESETS.filter((preset) => {
+      const key = `bestseller_${preset.id.replace(/-/g, "_")}_disabled` as keyof typeof p;
+      return p[key] !== true;
+    });
+  }, [data?.pricing]);
+
+  const shelvingEnabled = data?.pricing?.open_shelving_enabled === true;
+
+  // ── Open Shelving add-on state ───────────────────────────────────────
+  const [shelvingConfigId, setShelvingConfigId] = useState<string | null>(null);
+  const [shelvingPrice, setShelvingPrice] = useState<number | null>(null);
+  const [shelvingLoading, setShelvingLoading] = useState(false);
+
+  // Calculate shelving price when selection changes
+  useEffect(() => {
+    if (!shelvingConfigId) { setShelvingPrice(null); return; }
+    setShelvingLoading(true);
+    calculateShelvingUnit({ configId: shelvingConfigId, installerPricing: data?.pricing })
+      .then((res) => { if (res.success) setShelvingPrice(res.price); })
+      .finally(() => setShelvingLoading(false));
+  }, [shelvingConfigId, data?.pricing]);
+
+  // Derive a ShelvingConfig3D for the visualizer when a shelving option is selected
+  const activeShelvingConfig: ShelvingConfig3D | undefined = useMemo(() => {
+    if (!shelvingConfigId) return undefined;
+    const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
+    if (!cfg) return undefined;
+    return { widthIn: cfg.widthIn, frameH: cfg.frameH, depth: cfg.depth, shelves: cfg.shelves };
+  }, [shelvingConfigId]);
+
+  function handleAddShelvingUnit() {
+    if (!shelvingConfigId || shelvingPrice == null) return;
+    const cfg = SHELVING_CONFIGS.find((c) => c.id === shelvingConfigId);
+    if (!cfg) return;
+    const heightLabel = cfg.height === "tall" ? "Tall" : "Short";
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: true,
+        price: shelvingPrice,
+        totalW: cfg.widthIn,
+        totalH: cfg.frameH,
+        depth: cfg.depth,
+        desc: `Open Shelving: ${cfg.widthFt}' × ${heightLabel} (${cfg.shelves} ${cfg.shelves === 1 ? "shelf" : "shelves"})`,
+        addons: [],
+        shelvingConfigId: cfg.id,
+      },
+    ]);
+    setShelvingConfigId(null);
+    setShelvingPrice(null);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
+  }
+
+  // ── Raised Bed Planters ─────────────────────────────────────────────
+  const raisedBedEnabled = data?.pricing?.raised_bed_enabled === true;
+  const [raisedBedPreview, setRaisedBedPreview] = useState<{ widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null>(null);
+  const [raisedBedPreviewPrice, setRaisedBedPreviewPrice] = useState<number | null>(null);
+
+  function handleAddRaisedBed(
+    config: RaisedBedConfig,
+    price: number,
+    desc: string,
+  ) {
+    const bed = RAISED_BED_SIZES.find((s) => s.id === config.sizeId);
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: false,
+        price,
+        totalW: bed?.lengthIn || 48,
+        totalH: bed?.heightIn || 16.5,
+        depth: bed?.widthIn || 24,
+        desc,
+        addons: [],
+        raisedBedConfig: config,
+      } as UnitConfig,
+    ]);
+  }
+
+  // ── Overhead Ceiling Storage ──────────────────────────────────────────
+  const overheadStorageEnabled = data?.pricing?.overhead_storage_enabled === true;
+  const [overheadPreview, setOverheadPreview] = useState<{ slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes: boolean } | null>(null);
+
+  function handleAddOverheadUnit(
+    result: import("@/lib/overhead-storage").OverheadStorageResult,
+    config: import("@/lib/overhead-storage").OverheadStorageConfig,
+  ) {
+    const desc = `Ceiling Tote Rail: ${result.slotsWide}×${result.slotsDeep} (${result.toteCount} totes, ${result.toteType})`;
+
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: result.toteType as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: config.hasTotes,
+        hasWheels: false,
+        hasTop: false,
+        price: result.price,
+        totalW: result.systemWidthIn,
+        totalH: 10, // Approximate visual height for the rail system
+        depth: result.systemDepthIn,
+        desc,
+        addons: [],
+        overheadStorageConfig: config,
+      } as UnitConfig,
+    ]);
+  }
+
   // ── Multi-unit quote list ─────────────────────────────────────────────
   const [orderItems, setOrderItems] = useState<UnitConfig[]>([]);
+
+  // ── Multi-unit 3D visualization toggles ─────────────────────────────
+  const [unitVisibility, setUnitVisibility] = useState<Record<number, boolean>>({});
+  const [showMultiUnit3D, setShowMultiUnit3D] = useState(false);
+
+  // Track the sidebar step so the visualizer can switch between single/multi-unit:
+  // Steps 1-3 (configuring) → show the current unit being built (single)
+  // Step 4 (review) → show all added units together (multi-unit)
+  const initialStep = initialConfig ? (Array.isArray(initialConfig.units) ? 4 : typeof initialConfig.cols === "number" ? 3 : 1) : 1;
+  const [sidebarStep, setSidebarStep] = useState(initialStep);
+  useEffect(() => {
+    if (sidebarStep === 4 && orderItems.length > 0) {
+      setShowMultiUnit3D(true);
+    } else if (sidebarStep <= 3) {
+      setShowMultiUnit3D(false);
+    }
+  }, [sidebarStep, orderItems.length]);
+
+  // Build multi-unit items for the visualizer — expand by quantity
+  const multiUnitItems = useMemo(() => {
+    if (!showMultiUnit3D || orderItems.length === 0) return undefined;
+    const items: Array<ReturnType<typeof buildMultiUnitItem>> = [];
+    let expandedIdx = 0;
+    for (let i = 0; i < orderItems.length; i++) {
+      const item = orderItems[i];
+      const qty = item.quantity || 1;
+      for (let q = 0; q < qty; q++) {
+        items.push(buildMultiUnitItem(item, expandedIdx, unitVisibility));
+        expandedIdx++;
+      }
+    }
+    return items;
+  }, [showMultiUnit3D, orderItems, unitVisibility]);
+
+  // Expanded order item descriptions for multi-unit controls overlay
+  const expandedMultiUnitDescs = useMemo(() => {
+    const descs: Array<{ desc: string }> = [];
+    for (const item of orderItems) {
+      const qty = item.quantity || 1;
+      for (let q = 0; q < qty; q++) {
+        descs.push({ desc: qty > 1 ? `${item.desc} (#${q + 1})` : item.desc });
+      }
+    }
+    return descs;
+  }, [orderItems]);
+
+  // ── Cleanout service add-on (booked with order, not emailed) ────────
+  const [selectedCleanout, setSelectedCleanout] = useState<string | null>(null);
+  const cleanoutPrice = useMemo(() => {
+    if (!selectedCleanout || !data?.servicesConfig) return 0;
+    const svc = data.servicesConfig.find((s) => s.id === selectedCleanout);
+    return svc?.price ?? 0;
+  }, [selectedCleanout, data?.servicesConfig]);
 
   // ── Booking form ──────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const [phone, setPhone] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [city, setCity] = useState("");
@@ -207,14 +606,291 @@ export default function DesignConfigurator({
   const [submitError, setSubmitError] = useState("");
   const [leadId, setLeadId] = useState<string | null>(null);
 
+  // ── Contact installer (email inquiry) ──────────────────────────────
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSending, setContactSending] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState("");
+
+  // Auto-dismiss "Message Sent" after 5 seconds
+  useEffect(() => {
+    if (!contactSent) return;
+    const timer = setTimeout(() => {
+      setContactSent(false);
+      setShowContactForm(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [contactSent]);
+
+  // ── Service area validation ─────────────────────────────────────────
+  const [zipOutOfArea, setZipOutOfArea] = useState(false);
+  const [zipCheckMsg, setZipCheckMsg] = useState("");
+  const [waitlistSending, setWaitlistSending] = useState(false);
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
+  const zipCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Trial cap waitlist (installer at 3-job limit) ──────────────────
+  const [installerAtCapacity, setInstallerAtCapacity] = useState(initialInstallerAtCapacity);
+  const [trialCapWaitlistSending, setTrialCapWaitlistSending] = useState(false);
+  const [trialCapWaitlistSent, setTrialCapWaitlistSent] = useState(false);
+  const [trialCapWaitlistError, setTrialCapWaitlistError] = useState("");
+
+  // ── Delivery fee (distance-based) ──────────────────────────────────
+  const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
+
+  // ── Network Referral Bounty ─────────────────────────────────────────
+  // When the customer's installation ZIP is outside the original installer's
+  // area, we re-route to a local installer and track the original as referrer.
+  const [referringInstallerId, setReferringInstallerId] = useState<string | null>(null);
+  // Track the original installer ID from the URL so we don't re-validate
+  // against the swapped-in local installer (which would loop).
+  const originalInstallerId = useRef(initialData?.routing.installerId || "");
+  // Whether a hand-off happened (shows info banner instead of blocking)
+  const [handedOff, setHandedOff] = useState(false);
+  const [handoffInstallerName, setHandoffInstallerName] = useState("");
+
+  // ── Waitlist re-engagement: hydrate saved build + contact info ────────
+  // When a waitlisted customer clicks the activation email, savedSignal
+  // contains their previous configurator build and referrer attribution.
+  const savedSignalHydrated = useRef(false);
+  useEffect(() => {
+    if (!savedSignal || savedSignalHydrated.current) return;
+    savedSignalHydrated.current = true;
+
+    // Restore referrer attribution so the bounty chain is preserved
+    if (savedSignal.sourceInstallerId) {
+      setReferringInstallerId(savedSignal.sourceInstallerId);
+    }
+
+    // Restore contact info
+    if (savedSignal.customerName) {
+      const parts = savedSignal.customerName.split(" ");
+      setFirstName(parts[0] || "");
+      setLastName(parts.slice(1).join(" ") || "");
+    }
+    if (savedSignal.customerEmail) setEmail(savedSignal.customerEmail);
+    if (savedSignal.customerPhone) setPhone(savedSignal.customerPhone);
+
+    // Restore saved quote items
+    if (Array.isArray(savedSignal.quoteData) && savedSignal.quoteData.length > 0) {
+      const restored = savedSignal.quoteData
+        .map((raw) => {
+          const u = raw as Record<string, unknown>;
+          if (typeof u.cols !== "number" || typeof u.rows !== "number") return null;
+          return {
+            cols: u.cols,
+            rows: u.rows,
+            toteType: (u.toteType as ToteType) || "HDX",
+            toteColor: (u.toteColor as ToteColor) || "black",
+            unitType: (u.unitType as UnitType) || "standard",
+            orientation: (u.orientation as Orientation) || "landscape",
+            hasTotes: u.hasTotes === true,
+            hasWheels: u.hasWheels === true,
+            hasTop: u.hasTop === true,
+            price: typeof u.price === "number" ? u.price : 0,
+            totalW: typeof u.totalW === "number" ? u.totalW : 0,
+            totalH: typeof u.totalH === "number" ? u.totalH : 0,
+            depth: typeof u.depth === "number" ? u.depth : 0,
+            desc: typeof u.desc === "string" ? u.desc : `${u.cols}×${u.rows}`,
+          } as UnitConfig;
+        })
+        .filter((u): u is UnitConfig => u !== null);
+
+      if (restored.length > 0) {
+        setOrderItems(restored);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Real-time ZIP validation when user enters installation ZIP
+  // If "installation address is different" is checked, validate that ZIP instead
+  useEffect(() => {
+    if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    setZipOutOfArea(false);
+    setZipCheckMsg("");
+    setWaitlistSent(false);
+    setWaitlistError("");
+    setDeliveryFeeResult(null);
+
+    const zipToCheck = hasDifferentDelivery ? deliveryZip : addrZip;
+    // Validate against the ORIGINAL installer (from URL), not a swapped-in one
+    const validationTargetId = originalInstallerId.current;
+    if (!validationTargetId || !zipToCheck || zipToCheck.trim().length !== 5) return;
+
+    // Stale-response guard: if the effect re-fires (user types quickly),
+    // isActive is set to false by cleanup, preventing stale async results
+    // from overwriting fresh state.
+    let isActive = true;
+
+    zipCheckRef.current = setTimeout(async () => {
+      const trimmedZip = zipToCheck.trim();
+      const result = await validateServiceArea(validationTargetId, trimmedZip);
+      if (!isActive) return;
+
+      if (!result.inArea) {
+        // ── Network Referral Bounty: re-route to local installer ──────
+        const localResult = await rerouteToLocalInstaller(trimmedZip, validationTargetId);
+        if (!isActive) return;
+
+        if (localResult.available && localResult.installer_id) {
+          setReferringInstallerId(validationTargetId);
+          setHandedOff(true);
+          setHandoffInstallerName(localResult.installer_name || "a local installer");
+          const vm = mapAvailabilityToViewModel(localResult);
+          if (vm) {
+            setData(vm);
+            setInstallerId(vm.routing.installerId);
+            calculateDeliveryFee(vm.routing.installerId, trimmedZip)
+              .then((r) => { if (isActive) setDeliveryFeeResult(r); })
+              .catch(() => {});
+          }
+        } else {
+          setZipOutOfArea(true);
+          setHandedOff(false);
+          setReferringInstallerId(null);
+          setZipCheckMsg(
+            "We don't have an installer in your area yet, but we'll notify you as soon as one is available."
+          );
+        }
+      } else {
+        setReferringInstallerId(null);
+        setHandedOff(false);
+        setHandoffInstallerName("");
+        calculateDeliveryFee(validationTargetId, trimmedZip)
+          .then((r) => { if (isActive) setDeliveryFeeResult(r); })
+          .catch(() => {});
+      }
+    }, 600);
+
+    return () => {
+      isActive = false;
+      if (zipCheckRef.current) clearTimeout(zipCheckRef.current);
+    };
+  // Validate against the original installer — installerId is NOT a dep here
+  // because it changes during handoff and would cause a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addrZip, deliveryZip, hasDifferentDelivery]);
+
+  // ── Re-price existing order items after handoff ─────────────────────
+  // When the installer changes during a referral handoff, existing items
+  // in the quote still carry the originating installer's pricing.  This
+  // effect detects the handoff and recalculates every item using the
+  // covering installer's pricing_config so the customer sees accurate
+  // rates for the installer who will actually do the work.
+  const prevPricingRef = useRef(data?.pricing);
+  useEffect(() => {
+    const newPricing = data?.pricing;
+    // Only fire when pricing actually changes AND there are items to reprice
+    if (newPricing === prevPricingRef.current || orderItems.length === 0) {
+      prevPricingRef.current = newPricing;
+      return;
+    }
+    prevPricingRef.current = newPricing;
+
+    if (!handedOff) return; // Only reprice during a handoff, not on initial load
+
+    (async () => {
+      const repriced: UnitConfig[] = [];
+
+      for (const item of orderItems) {
+        // Check if this is a preset (compound) item by matching its desc
+        // against known preset names.  Preset descs look like
+        // "Indiana Joe (2x4 + 2x2 + 2x4)"
+        const matchedPreset = BESTSELLER_PRESETS.find((p) =>
+          item.desc.startsWith(p.name)
+        );
+
+        if (matchedPreset) {
+          // Re-price via compound build with the new installer's pricing
+          try {
+            const result = await calculateCompoundBuild({
+              presetId: matchedPreset.id,
+              hasTotes: item.hasTotes,
+              installerPricing: newPricing,
+            });
+            if (result.success) {
+              repriced.push({ ...item, price: result.totalPrice });
+            } else {
+              repriced.push(item); // Keep original on failure
+            }
+          } catch {
+            repriced.push(item);
+          }
+        } else {
+          // Re-price via standard calculateBuild
+          try {
+            const result = await calculateBuild({
+              cols: item.cols,
+              rows: item.rows,
+              toteModel: item.toteType as "HDX" | "GM",
+              toteColor: item.toteColor,
+              unitType: item.unitType,
+              orientation: item.orientation,
+              addOns: {
+                totes: item.hasTotes,
+                wheels: item.hasWheels,
+                top: item.hasTop,
+              },
+              mode: "manual",
+              installerPricing: newPricing,
+            });
+            if (result.success) {
+              repriced.push({ ...item, price: result.price });
+            } else {
+              repriced.push(item);
+            }
+          } catch {
+            repriced.push(item);
+          }
+        }
+      }
+
+      setOrderItems(repriced);
+    })();
+  // orderItems is intentionally NOT a dep — we read it once when pricing
+  // changes and write back.  Including it would cause an infinite loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.pricing, handedOff]);
+
   // ── Booking modal ─────────────────────────────────────────────────────
   const [showBookingModal, setShowBookingModal] = useState(false);
 
   // ── Scan Wizard modal ───────────────────────────────────────────────────
   const [showScanWizard, setShowScanWizard] = useState(false);
 
-  const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
-  const depositAmount = Math.round(grandTotal * 0.15 * 100) / 100;
+  // ── Discount code state (declared before grandTotal so it can be deducted) ──
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountApplied, setDiscountApplied] = useState<{ code: string; amount: number; discountType?: "fixed" | "percentage"; discountValue?: number } | null>(null);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountError, setDiscountError] = useState("");
+
+  const buildTotal = orderItems.reduce((sum, it) => sum + it.price * (it.quantity || 1), 0);
+  const deliveryFeeAmount = (deliveryFeeResult?.applicable && deliveryFeeResult.fee > 0) ? deliveryFeeResult.fee : 0;
+
+  // Paint pricing — calculated from installer's addon_pricing or platform defaults
+  const paintFramePrice = paintFrameColor ? (data?.pricing?.addon_pricing?.paint_frame_price ?? data?.addonDefaults?.paint_frame_price ?? 75) : 0;
+  const paintDoorsPanelsPrice = data?.pricing?.addon_pricing?.paint_doors_panels_price ?? data?.addonDefaults?.paint_doors_panels_price ?? 30;
+  const paintDoorCost = paintDoorColor ? paintDoorsPanelsPrice : 0;
+  const paintPanelCost = paintSidePanelColor ? paintDoorsPanelsPrice : 0;
+  const paintTotal = paintFramePrice + paintDoorCost + paintPanelCost;
+
+  const indoorDeliveryTotal = orderItems.reduce((sum, it) => sum + (it.indoorDelivery && it.indoorDeliveryFee ? it.indoorDeliveryFee * (it.quantity || 1) : 0), 0);
+  const grandTotal = Math.max(0, buildTotal + deliveryFeeAmount + cleanoutPrice + paintTotal + indoorDeliveryTotal - (discountApplied?.amount || 0));
+
+  // Deposit — computed server-side using installer's custom config (min 15% enforced)
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [depositLabelText, setDepositLabelText] = useState("15%");
+  useEffect(() => {
+    if (grandTotal > 0) {
+      getDepositAmount(grandTotal, installerId || undefined).then(setDepositAmount);
+    }
+  }, [grandTotal, installerId]);
+  useEffect(() => {
+    getDepositLabel(installerId || undefined).then(setDepositLabelText);
+  }, [installerId]);
 
   // Does any unit have wheels?
   const anyHasWheels = orderItems.some((it) => it.hasWheels);
@@ -224,6 +900,49 @@ export default function DesignConfigurator({
   // ── Convenience: routing shortcuts ──────────────────────────────────
   const stripeAccountId = data?.routing.stripeAccountId || null;
 
+  // ── Scheduler (inline in sidebar) ────────────────────────────────────
+  const [scheduledDate, setScheduledDate] = useState<string | null>(null);
+  const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
+
+  // Fetch blackout dates when installer is known
+  useEffect(() => {
+    if (!installerId) return;
+    (async () => {
+      const { getBlackoutDates } = await import("@/app/actions/blackout-dates");
+      const result = await getBlackoutDates(installerId);
+      if (result.success) {
+        setBlackoutDates(result.dates.map((d: { start_date: string; end_date: string }) => ({ start_date: d.start_date, end_date: d.end_date })));
+      }
+    })();
+  }, [installerId]);
+
+  // Effective lead time: 3-day minimum for caster add-ons
+  const effectiveLeadTime = anyHasWheels
+    ? Math.max(data?.routing.leadTime ?? 5, 3)
+    : (data?.routing.leadTime ?? 5);
+
+  async function handleApplyDiscount() {
+    if (!discountInput.trim() || !installerId) return;
+    setDiscountLoading(true);
+    setDiscountError("");
+    const { validateDiscountCode } = await import("@/app/actions/discount-codes");
+    const result = await validateDiscountCode(discountInput.trim(), installerId, grandTotal, { unitCount: orderItems.length });
+    setDiscountLoading(false);
+    if (result.valid) {
+      setDiscountApplied({ code: result.code!, amount: result.discountAmount, discountType: result.discountType, discountValue: result.discountValue });
+      setDiscountError("");
+    } else {
+      setDiscountApplied(null);
+      setDiscountError(result.error || "Invalid code.");
+    }
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(null);
+    setDiscountInput("");
+    setDiscountError("");
+  }
+
   // ── Debounced server call ─────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -232,11 +951,13 @@ export default function DesignConfigurator({
       c: number,
       r: number,
       model: ToteType,
+      color: ToteColor,
       unit: UnitType,
       orient: Orientation,
       totes: boolean,
       wheels: boolean,
-      top: boolean
+      top: boolean,
+      sectionAddons?: SectionAddon[]
     ) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(async () => {
@@ -246,10 +967,13 @@ export default function DesignConfigurator({
             cols: c,
             rows: r,
             toteModel: model,
+            toteColor: color,
             unitType: unit,
             orientation: orient,
             addOns: { totes, wheels, top },
             mode: "manual",
+            installerPricing: data?.pricing,
+            sectionAddons,
           });
           if (res.success) {
             setBuild({
@@ -271,24 +995,75 @@ export default function DesignConfigurator({
         }
       }, 500);
     },
-    []
+    [data?.pricing]
   );
+
+  // ── Fetch compound build for presets ──────────────────────────────────
+  const fetchPresetBuild = useCallback(
+    (presetId: string, totes: boolean) => {
+      if (presetDebounceRef.current) clearTimeout(presetDebounceRef.current);
+      presetDebounceRef.current = setTimeout(async () => {
+        setPresetLoading(true);
+        try {
+          const res = await calculateCompoundBuild({
+            presetId,
+            hasTotes: totes,
+            installerPricing: data?.pricing,
+          });
+          if (res.success) {
+            setCompoundBuild(res);
+          }
+        } catch {
+          // keep previous build on error
+        } finally {
+          setPresetLoading(false);
+        }
+      }, 300);
+    },
+    [data?.pricing]
+  );
+
+  // Force totes off when installer has totes globally disabled or preset has totesDisabled
+  const globalTotesDisabled = data?.pricing?.totes_disabled === true;
+  const globalUse2x4Rails = data?.pricing?.use_2x4_rails === true;
+  useEffect(() => {
+    if ((globalTotesDisabled || activePresetObj?.totesDisabled) && presetTotes) {
+      setPresetTotes(false);
+    }
+  }, [activePresetObj, presetTotes, globalTotesDisabled]);
+
+  // Force hasTotes off when installer has totes globally disabled
+  useEffect(() => {
+    if (globalTotesDisabled && hasTotes) {
+      setHasTotes(false);
+    }
+  }, [globalTotesDisabled, hasTotes]);
+
+  // Re-fetch preset build when totes toggle changes
+  useEffect(() => {
+    if (activePreset) {
+      fetchPresetBuild(activePreset, activePresetObj?.totesDisabled ? false : presetTotes);
+    }
+  }, [activePreset, presetTotes, fetchPresetBuild, activePresetObj]);
 
   // Fire on every config change (only when cols/rows are valid numbers)
   const numCols = typeof cols === "number" ? cols : parseInt(cols as string) || 0;
   const numRows = typeof rows === "number" ? rows : parseInt(rows as string) || 0;
 
   // For mini units, plywood top is always included (mandatory)
-  const effectiveHasTop = unitType === "mini" ? true : hasTop;
+  const effectiveHasTop = useMemo(() => unitType === "mini" ? true : hasTop, [unitType, hasTop]);
 
   // Effective orientation: only applies to standard units
-  const effectiveOrientation: Orientation = unitType === "standard" ? orientation : "standard";
+  const effectiveOrientation: Orientation = useMemo(() => unitType === "standard" ? orientation : "standard", [unitType, orientation]);
+
+  // Effective tote color: only applies to HDX standard units with totes included
+  const effectiveToteColor: ToteColor = useMemo(() => (toteType === "HDX" && unitType === "standard" && hasTotes) ? toteColor : "black", [toteType, unitType, hasTotes, toteColor]);
 
   useEffect(() => {
     if (numCols >= 1 && numRows >= 1) {
-      fetchBuild(numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop);
+      fetchBuild(numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, addons);
     }
-  }, [numCols, numRows, toteType, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, fetchBuild]);
+  }, [numCols, numRows, toteType, effectiveToteColor, unitType, effectiveOrientation, hasTotes, hasWheels, effectiveHasTop, addons, fetchBuild]);
 
   // ── Smart Unit Type Switching: Re-trigger Auto-Fit when unitType changes ──
   const prevUnitTypeRef = useRef(unitType);
@@ -340,10 +1115,12 @@ export default function DesignConfigurator({
         wallWidth: wW,
         wallHeight: wH,
         toteModel: toteType,
+        toteColor: effectiveToteColor,
         unitType,
         orientation: effectiveOrientation,
         addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
         mode: "wallFit",
+        installerPricing: data?.pricing,
       });
       if (res.success) {
         setCols(res.cols);
@@ -371,19 +1148,50 @@ export default function DesignConfigurator({
   }
 
   // Handler for ScanWizard completion
-  function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
-    // Set wall dimensions from AI measurement
+  async function handleScanWizardComplete(width: number, height: number | undefined, toteConfigKey: "HDX" | "GM") {
+    // Set wall dimensions from AI measurement (default height to 96" if not detected)
+    const effectiveHeight = height ?? 96;
     setWallWidth(width.toFixed(1));
-    if (height) {
-      setWallHeight(height.toFixed(1));
-    }
+    setWallHeight(effectiveHeight.toFixed(1));
     // Set tote type based on scanned tote
     setToteType(toteConfigKey);
-    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide${height ? ` × ${height.toFixed(1)}" tall` : ""}`);
-    // Trigger auto-fit if we have both dimensions
-    if (height) {
-      // Small delay to let state update, then trigger auto-fit
-      setTimeout(() => handleWallFit(), 100);
+    setWallFitMsg(`AI measured: ${width.toFixed(1)}" wide × ${effectiveHeight.toFixed(1)}" tall${!height ? " (default height)" : ""}`);
+    // Call calculateBuild directly with the known values to avoid stale state
+    setBuildLoading(true);
+    try {
+      const res = await calculateBuild({
+        wallWidth: width,
+        wallHeight: effectiveHeight,
+        toteModel: toteConfigKey,
+        toteColor: effectiveToteColor,
+        unitType,
+        orientation: effectiveOrientation,
+        addOns: { totes: hasTotes, wheels: hasWheels, top: effectiveHasTop },
+        mode: "wallFit",
+        installerPricing: data?.pricing,
+      });
+      if (res.success) {
+        setCols(res.cols);
+        setRows(res.rows);
+        setBuild({
+          cols: res.cols,
+          rows: res.rows,
+          price: res.price,
+          totalW: res.dimensions.totalW,
+          totalH: res.dimensions.totalH,
+          depth: res.dimensions.depth,
+          slots: res.config.slots,
+          unitType: res.config.unitType,
+          orientation: res.config.orientation,
+        });
+        setWallFitMsg(
+          `AI measured: ${width.toFixed(1)}" × ${effectiveHeight.toFixed(1)}"${!height ? " (default height)" : ""} — Max fit: ${res.cols} Wide × ${res.rows} High`
+        );
+      }
+    } catch {
+      // keep previous state on error
+    } finally {
+      setBuildLoading(false);
     }
   }
 
@@ -392,12 +1200,18 @@ export default function DesignConfigurator({
     if (unitType === "standard" && effectiveOrientation === "sideways") {
       unitLabel = "Standard (Sideways)";
     }
+    // Add tote color to description if clear totes are selected
+    let toteDesc = "";
+    if (hasTotes && toteType === "HDX" && unitType === "standard" && effectiveToteColor === "clear") {
+      toteDesc = " (Clear Totes)";
+    }
     setOrderItems((prev) => [
       ...prev,
       {
         cols: build.cols,
         rows: build.rows,
         toteType,
+        toteColor: effectiveToteColor,
         unitType,
         orientation: effectiveOrientation,
         hasTotes,
@@ -407,13 +1221,127 @@ export default function DesignConfigurator({
         totalW: build.totalW,
         totalH: build.totalH,
         depth: build.depth,
-        desc: `${unitLabel}: ${build.cols}W × ${build.rows}H`,
+        desc: `${unitLabel}: ${build.cols}W × ${build.rows}H${toteDesc}`,
+        addons: [...addons],
+        paintFrameColor,
+        paintDoorColor,
+        paintSidePanelColor,
+        ...(indoorDelivery && data?.indoorDeliveryConfig?.enabled ? {
+          indoorDelivery: true,
+          indoorDeliveryFee: data.indoorDeliveryConfig.fee,
+        } : {}),
       },
     ]);
+    // Reset step 2/3 customization state so the configurator is fresh for a new unit
+    setAddons([]);
+    setPaintFrameColor(null);
+    setPaintDoorColor(null);
+    setPaintSidePanelColor(null);
+    setHasWheels(true);
+    setHasTop(true);
+    setHasTotes(true);
+    setIndoorDelivery(false);
+    setActivePreset(null);
+    setCompoundBuild(null);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
+  }
+
+  function handleAddPresetUnit(): boolean {
+    if (!compoundBuild || !activePresetObj) return false;
+
+    const subDesc = compoundBuild.subUnits.map((su) => `${su.cols}x${su.rows}`).join(" + ");
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: compoundBuild.subUnits.reduce((s, u) => s + u.cols, 0),
+        rows: Math.max(...compoundBuild.subUnits.map((u) => u.rows)),
+        toteType: activePresetObj.toteModel as ToteType,
+        toteColor: activePresetObj.toteColor as ToteColor,
+        unitType: activePresetObj.unitType,
+        orientation: activePresetObj.orientation,
+        hasTotes: presetTotes,
+        hasWheels: activePresetObj.units.some((u) => u.hasWheels),
+        hasTop: activePresetObj.units.some((u) => u.hasTop),
+        price: compoundBuild.totalPrice,
+        totalW: compoundBuild.combinedW,
+        totalH: compoundBuild.maxH,
+        depth: compoundBuild.depth,
+        desc: `${activePresetObj.name} (${subDesc})`,
+        addons: [],
+        presetUnits: compoundBuild.subUnits.map((su, idx) => ({
+          cols: su.cols,
+          rows: su.rows,
+          totalW: su.totalW,
+          totalH: su.totalH,
+          hasTop: activePresetObj.units[idx]?.hasTop ?? false,
+          hasWheels: activePresetObj.units[idx]?.hasWheels ?? false,
+        })),
+        drawerSlideRows: activePresetObj.drawerSlideRows,
+        drawerSlideColumns: activePresetObj.drawerSlideColumns,
+        ...(indoorDelivery && data?.indoorDeliveryConfig?.enabled ? {
+          indoorDelivery: true,
+          indoorDeliveryFee: data.indoorDeliveryConfig.fee,
+        } : {}),
+      },
+    ]);
+    setIndoorDelivery(false);
+    // showMultiUnit3D is set by sidebarStep effect when step advances to 4
+    return true;
   }
 
   function handleRemoveUnit(index: number) {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleQuantityChange(index: number, quantity: number) {
+    setOrderItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, quantity } : item))
+    );
+  }
+
+  async function handleWaitlist() {
+    setWaitlistError("");
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+    if (!fullName || !email.trim()) {
+      setWaitlistError("Name and email are required to join the waitlist.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setWaitlistError("Please enter a valid email address.");
+      return;
+    }
+    const zip = hasDifferentDelivery ? deliveryZip.trim() : addrZip.trim();
+    if (!zip) {
+      setWaitlistError("ZIP code is required.");
+      return;
+    }
+    setWaitlistSending(true);
+    try {
+      const res = await submitWaitlistRequest({
+        installer_id: installerId,
+        customer_name: fullName,
+        customer_email: email.trim(),
+        customer_phone: phone.trim() || undefined,
+        customer_zip: zip,
+        quote_data: orderItems.length > 0 ? (() => {
+          const items: unknown[] = [...expandPresetUnits(orderItems)];
+          if (selectedCleanout && cleanoutPrice > 0) {
+            const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+            items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
+          }
+          return items;
+        })() : undefined,
+      });
+      if (res.success) {
+        setWaitlistSent(true);
+      } else {
+        setWaitlistError(res.error || "Something went wrong.");
+      }
+    } catch {
+      setWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setWaitlistSending(false);
+    }
   }
 
   async function handleBookDeposit() {
@@ -422,8 +1350,16 @@ export default function DesignConfigurator({
       setSubmitError("First name, last name, email, and phone are required.");
       return;
     }
+    if (!emailRegex.test(email.trim())) {
+      setSubmitError("Please enter a valid email address.");
+      return;
+    }
     if (orderItems.length === 0) {
       setSubmitError("Add at least one unit to your quote first.");
+      return;
+    }
+    if (zipOutOfArea) {
+      setSubmitError(zipCheckMsg || "Installation ZIP is outside the service area.");
       return;
     }
 
@@ -444,9 +1380,34 @@ export default function DesignConfigurator({
         address_state: addrState,
         address_zip: addrZip,
         delivery_address: deliveryAddress,
-        quote_data: orderItems,
+        quote_data: (() => {
+          const expandedUnits = expandPresetUnits(orderItems);
+          const items: QuoteItem[] = [...expandedUnits];
+          if (selectedCleanout && cleanoutPrice > 0) {
+            const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+            items.push({
+              type: "cleanout_service",
+              serviceId: selectedCleanout,
+              name: svc?.name || selectedCleanout,
+              price: cleanoutPrice,
+            });
+          }
+          if (paintTotal > 0) {
+            const paintParts: string[] = [];
+            if (paintFrameColor) paintParts.push(`Frame: ${paintFrameColor}`);
+            if (paintDoorColor) paintParts.push(`Doors: ${paintDoorColor}`);
+            if (paintSidePanelColor) paintParts.push(`Panels: ${paintSidePanelColor}`);
+            items.push({
+              type: "paint",
+              name: `Paint (${paintParts.join(", ")})`,
+              price: paintTotal,
+            });
+          }
+          return items;
+        })(),
         grand_total: grandTotal,
         installer_id: installerId || undefined,
+        referring_installer_id: referringInstallerId || undefined,
         source: leadSource,
       });
 
@@ -475,35 +1436,164 @@ export default function DesignConfigurator({
     }
   }
 
+  // ── Trial cap waitlist handler (hostage lead) ─────────────────────
+  // Creates a REAL lead in the leads table with status "waitlisted".
+  // The installer sees it in their dashboard but can't act on it until
+  // they subscribe. Sends emails to both parties.
+  async function handleJoinTrialCapWaitlist() {
+    setTrialCapWaitlistError("");
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+    if (!fullName || !email.trim() || !phone.trim()) {
+      setTrialCapWaitlistError("Name, email, and phone are required.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setTrialCapWaitlistError("Please enter a valid email address.");
+      return;
+    }
+    if (orderItems.length === 0) {
+      setTrialCapWaitlistError("Add at least one unit to your quote first.");
+      return;
+    }
+
+    setTrialCapWaitlistSending(true);
+    try {
+      const compositeAddress = [streetAddress, city, addrState, addrZip].filter(Boolean).join(", ");
+      const deliveryAddress = hasDifferentDelivery
+        ? [deliveryStreet, deliveryCity, deliveryState, deliveryZip].filter(Boolean).join(", ")
+        : undefined;
+
+      // Build quote items with cleanout/paint add-ons
+      const items: QuoteItem[] = [...orderItems];
+      if (selectedCleanout && cleanoutPrice > 0) {
+        const svc = data?.servicesConfig?.find((s) => s.id === selectedCleanout);
+        items.push({ type: "cleanout_service", serviceId: selectedCleanout, name: svc?.name || selectedCleanout, price: cleanoutPrice });
+      }
+      if (paintTotal > 0) {
+        const paintParts: string[] = [];
+        if (paintFrameColor) paintParts.push(`Frame: ${paintFrameColor}`);
+        if (paintDoorColor) paintParts.push(`Doors: ${paintDoorColor}`);
+        if (paintSidePanelColor) paintParts.push(`Panels: ${paintSidePanelColor}`);
+        items.push({ type: "paint", name: `Paint (${paintParts.join(", ")})`, price: paintTotal });
+      }
+
+      // Create real lead with status "waitlisted" (bypasses trial cap block)
+      const result = await submitNetworkLead({
+        customer_name: fullName,
+        customer_email: email.trim(),
+        customer_phone: phone.trim(),
+        address: compositeAddress,
+        address_line1: streetAddress,
+        address_city: city,
+        address_state: addrState,
+        address_zip: addrZip,
+        delivery_address: deliveryAddress,
+        quote_data: items,
+        grand_total: grandTotal,
+        installer_id: installerId || undefined,
+        referring_installer_id: referringInstallerId || undefined,
+        source: leadSource,
+        waitlisted: true,
+      });
+
+      if (!result.success || !result.id) {
+        setTrialCapWaitlistError(result.error || "Something went wrong.");
+        return;
+      }
+
+      setTrialCapWaitlistSent(true);
+    } catch {
+      setTrialCapWaitlistError("Something went wrong. Please try again.");
+    } finally {
+      setTrialCapWaitlistSending(false);
+    }
+  }
+
+  // ── Contact installer handler ──────────────────────────────────────
+  async function handleContactInstaller() {
+    if (!contactMessage.trim()) {
+      setContactError("Please enter a message.");
+      return;
+    }
+    if (!email.trim()) {
+      setContactError("Please enter your email so the installer can reply.");
+      return;
+    }
+    if (!emailRegex.test(email.trim())) {
+      setContactError("Please enter a valid email address.");
+      return;
+    }
+    if (!installerId) {
+      setContactError("No installer assigned yet.");
+      return;
+    }
+
+    setContactSending(true);
+    setContactError("");
+    try {
+      const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || "Customer";
+      const result = await contactInstaller({
+        installerId,
+        customerName: fullName,
+        customerEmail: email.trim(),
+        customerPhone: phone.trim() || undefined,
+        message: contactMessage.trim(),
+        quoteTotal: grandTotal > 0 ? grandTotal : undefined,
+        quoteData: orderItems.length > 0 ? orderItems : undefined,
+        zip: zip || undefined,
+      });
+
+      if (!result.success) {
+        setContactError(result.error || "Failed to send message.");
+        return;
+      }
+
+      setContactSent(true);
+      setContactMessage("");
+    } catch {
+      setContactError("Failed to send message. Please try again.");
+    } finally {
+      setContactSending(false);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // RENDER — The client blindly renders the view model. No is_pro checks.
   // ═══════════════════════════════════════════════════════════════════════
 
   return (
     <div className="flex h-screen flex-col bg-gray-950">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
-        <div className="mx-auto flex max-w-[1800px] items-center gap-3">
+      {/* ── Analytics: track page view for installer ────────────────────── */}
+      {installerId && <PageViewTracker installerId={installerId} page="/design" />}
+
+      {/* ── Header (slim on mobile, full on desktop) ──────────────────── */}
+      <header className="shrink-0 border-b-2 border-yellow-400 bg-gray-950 px-3 py-2 lg:border-b-4 lg:px-4 lg:py-3">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-2 lg:gap-3">
           <a
             href="/"
             className="shrink-0 transition-transform hover:scale-105"
             title="Back to Home"
           >
-            {data?.branding.logoUrl ? (
-              <img
-                src={data.branding.logoUrl}
-                alt={data.branding.title}
-                className="h-14 w-auto object-contain"
-              />
-            ) : (
-              <img src="/logo-storage-network.png" alt="Storage Network" className="h-14 w-auto object-contain" />
-            )}
+            <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-yellow-400/30 bg-slate-800 shadow-lg shadow-yellow-400/5 lg:h-12 lg:w-12 lg:border-[3px]">
+              {data?.branding.logoUrl ? (
+                <Image
+                  src={data.branding.logoUrl}
+                  alt={data.branding.title}
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <Image src="/Header_avatar_logo.png" alt="Storage Network" width={48} height={48} className="h-full w-full object-cover" />
+              )}
+            </div>
           </a>
-          <div className="flex-1">
-            <h1 className="text-base font-extrabold uppercase tracking-widest text-white">
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate text-sm font-extrabold uppercase tracking-widest text-white lg:text-base">
               {data?.branding.title || "Professional Grade Storage"}
             </h1>
-            <p className="text-[10px] uppercase tracking-wider text-yellow-400">
+            <p className="hidden text-[10px] uppercase tracking-wider text-yellow-400 lg:block">
               {data?.branding.subtitle || "Build Configurator"}
             </p>
           </div>
@@ -535,598 +1625,351 @@ export default function DesignConfigurator({
         </div>
       )}
 
+      {/* ── Trial cap banner — installer at full capacity ────────────── */}
+      {installerAtCapacity && !trialCapWaitlistSent && (
+        <div className="shrink-0 bg-amber-600/90 px-4 py-2 text-center">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            This installer is at full capacity — design your build &amp; join the waitlist
+          </span>
+        </div>
+      )}
+
       {/* ── Split Layout ────────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* ── LEFT SIDEBAR: Controls ──────────────────────────────────── */}
-        <aside className="flex w-full shrink-0 flex-col lg:w-[38%] xl:w-[35%]">
-          <div className="flex-1 space-y-4 overflow-y-auto bg-stone-100 p-4">
-            {/* ── Find My Local Pro (hidden when installer locked) ──── */}
-            {!installerLocked && (
-              <section className="rounded-xl border-2 border-dashed border-yellow-400 bg-yellow-50 p-4">
-                <h2 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                  <MapPin className="h-4 w-4 text-yellow-600" />
-                  Find My Local Pro
-                </h2>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    value={zip}
-                    onChange={(e) => {
-                      setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                      setZipResult(null);
-                    }}
-                    placeholder="ZIP Code"
-                    className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                  <button
-                    onClick={handleZipCheck}
-                    disabled={zip.length < 5 || zipChecking}
-                    className="shrink-0 rounded-lg bg-gray-950 px-4 py-2 text-xs font-bold uppercase text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-                  >
-                    {zipChecking ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Check"
-                    )}
-                  </button>
-                </div>
-                {zipResult?.available && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    {zipResult.message}
-                  </div>
-                )}
-                {zipResult && !zipResult.available && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-700">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    {zipResult.message}
-                  </div>
-                )}
-              </section>
-            )}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        {/* ── SIDEBAR: Configurator (mobile: scrollable drawer below canvas, desktop: left 40%) ── */}
+        <ConfiguratorSidebar
+          initialStep={initialStep}
+          forceStep={sidebarStep}
+          // Step 1: Dimensions
+          wallWidth={wallWidth}
+          wallHeight={wallHeight}
+          onWallWidthChange={(v) => { setWallWidth(v); setWallFitMsg(""); }}
+          onWallHeightChange={(v) => { setWallHeight(v); setWallFitMsg(""); }}
+          onWallFit={handleWallFit}
+          wallFitMsg={wallFitMsg}
+          buildLoading={buildLoading}
+          cols={cols}
+          rows={rows}
+          onColsChange={setCols}
+          onRowsChange={setRows}
 
-            {/* ── Installer loading state ──────────────────────────── */}
-            {installerLoading && (
-              <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 p-4 text-xs font-semibold text-stone-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading installer profile…
-              </div>
-            )}
+          // Step 2: Configuration
+          unitType={unitType}
+          orientation={orientation}
+          onUnitTypeChange={setUnitType}
+          onOrientationChange={setOrientation}
+          toteType={toteType}
+          toteColor={toteColor}
+          onToteTypeChange={setToteType}
+          onToteColorChange={setToteColor}
+          hasTotes={hasTotes}
+          hasWheels={hasWheels}
+          hasTop={hasTop}
+          onHasTotesChange={setHasTotes}
+          onHasWheelsChange={setHasWheels}
+          onHasTopChange={setHasTop}
+          effectiveHasTop={effectiveHasTop}
+          miniDisabled={data?.pricing?.mini_enabled !== true}
+          totesDisabled={data?.pricing?.totes_disabled === true}
+          use2x4Rails={data?.pricing?.use_2x4_rails === true}
 
-            {/* ── Auto-Fit Wall Calculator ──────────────────────────── */}
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                <Maximize2 className="h-4 w-4 text-yellow-600" />
-                Auto-Fit Wall Calculator
-              </h2>
+          // Pricing
+          pricing={data?.pricing}
+          platformDefaults={data?.platformDefaults || { standard_slot: 0, mini_slot: 0, standard_tote: 0, standard_tote_clear: 0, mini_tote: 0, standard_wheels: 0, mini_wheels: 0, plywood_top: 0 }}
 
-              {/* Scan Wall Button - Coming Soon */}
-              <div className="relative mb-3">
-                <button
-                  disabled
-                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border-2 border-dashed border-stone-300 bg-stone-100 py-3 text-sm font-bold uppercase tracking-wide text-stone-400"
-                >
-                  <Scan className="h-5 w-5" />
-                  Scan Wall with AI
-                </button>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-gray-900 shadow-lg">
-                    Coming Soon
-                  </span>
-                </div>
-              </div>
+          // Build
+          build={build}
+          onAddUnit={handleAddUnit}
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Width (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallWidth}
-                    onChange={(e) => {
-                      setWallWidth(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 100"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Wall Height (in)
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={wallHeight}
-                    onChange={(e) => {
-                      setWallHeight(e.target.value);
-                      setWallFitMsg("");
-                    }}
-                    placeholder="e.g. 96"
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={handleWallFit}
-                disabled={!wallWidth || !wallHeight || buildLoading}
-                className="mt-3 w-full rounded-lg bg-gray-950 py-2.5 text-xs font-bold uppercase tracking-wide text-yellow-400 transition-colors hover:bg-gray-800 disabled:opacity-40"
-              >
-                {buildLoading ? "Calculating…" : "Find Max Size →"}
-              </button>
-              {wallFitMsg && (
-                <p className="mt-2 text-center text-xs font-semibold text-emerald-600">
-                  {wallFitMsg}
-                </p>
-              )}
-            </section>
+          // Presets
+          activePreset={activePreset}
+          onPresetChange={(v) => { setActivePreset(v); setCompoundBuild(null); }}
+          presetOptions={filteredPresets}
+          compoundBuild={compoundBuild}
+          presetLoading={presetLoading}
+          presetTotes={presetTotes}
+          onPresetTotesChange={setPresetTotes}
+          onAddPresetUnit={handleAddPresetUnit}
+          activePresetObj={activePresetObj}
 
-            {/* ── Manual Configuration ──────────────────────────────── */}
-            <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
-                Manual Configuration
-              </h2>
+          // Shelving
+          shelvingConfigId={shelvingConfigId}
+          onShelvingConfigChange={setShelvingConfigId}
+          shelvingPrice={shelvingPrice}
+          shelvingLoading={shelvingLoading}
+          onAddShelvingUnit={handleAddShelvingUnit}
+          shelvingHidden={!shelvingEnabled}
 
-              {/* Unit Size Selector */}
-              <div className="mb-4">
-                <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                  Unit Size
-                </label>
-                <select
-                  value={unitType}
-                  onChange={(e) => {
-                    setUnitType(e.target.value as UnitType);
-                    // Reset orientation when switching unit types
-                    if (e.target.value === "mini") {
-                      setOrientation("standard");
-                    }
-                  }}
-                  className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                >
-                  <option value="standard">Standard (27 Gallon Totes)</option>
-                  <option value="mini">Mini (6.5 Quart Totes)</option>
-                </select>
-                {unitType === "mini" && (
-                  <p className="mt-1 text-[10px] italic text-amber-600">
-                    Mini units use compact 6.5qt shoebox totes with 1&quot; plywood rails.
-                  </p>
-                )}
-              </div>
+          // Overhead ceiling storage
+          overheadStorageHidden={!overheadStorageEnabled}
+          onAddOverheadUnit={handleAddOverheadUnit}
+          onOverheadConfigPreview={setOverheadPreview}
 
-              {/* Orientation Selector - Only for Standard units */}
-              {unitType === "standard" && (
-                <div className="mb-4">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Orientation
-                  </label>
-                  <select
-                    value={orientation}
-                    onChange={(e) => setOrientation(e.target.value as Orientation)}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="standard">Standard (30&quot; Deep)</option>
-                    <option value="sideways">Sideways (20&quot; Deep)</option>
-                  </select>
-                  {orientation === "sideways" && (
-                    <p className="mt-1 text-[10px] italic text-amber-600">
-                      Sideways orientation: Totes rotated 90° for shallower depth (20&quot;).
-                    </p>
-                  )}
-                </div>
-              )}
+          // Raised Bed Planters
+          raisedBedHidden={!raisedBedEnabled}
+          raisedBedPreviewPrice={raisedBedPreviewPrice}
+          onRaisedBedPriceChange={setRaisedBedPreviewPrice}
+          onAddRaisedBed={handleAddRaisedBed}
+          onRaisedBedPreview={setRaisedBedPreview}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Columns
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={cols}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setCols(v === "" ? "" : parseInt(v) || "");
-                    }}
-                    onBlur={() => {
-                      const n = typeof cols === "number" ? cols : parseInt(cols as string);
-                      setCols(Math.min(12, Math.max(1, n || 1)));
-                    }}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tiers High
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={unitType === "mini" ? 4 : 10}
-                    value={rows}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setRows(v === "" ? "" : parseInt(v) || "");
-                    }}
-                    onBlur={() => {
-                      const n = typeof rows === "number" ? rows : parseInt(rows as string);
-                      const maxTiers = unitType === "mini" ? 4 : 10;
-                      setRows(Math.min(maxTiers, Math.max(1, n || 1)));
-                    }}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  />
-                  {unitType === "mini" && (
-                    <p className="mt-1 text-[10px] italic text-amber-600">
-                      Max 4 tiers to prevent tipping. Taller units require custom anchoring.
-                    </p>
-                  )}
-                </div>
-              </div>
+          // Multi-unit 3D visualization
+          showMultiUnit3D={showMultiUnit3D}
+          onShowMultiUnit3DChange={setShowMultiUnit3D}
+          unitVisibility={unitVisibility}
+          onUnitVisibilityChange={(index, visible) => setUnitVisibility((prev) => ({ ...prev, [index]: visible }))}
+          onToggleAllUnits={(visible) => {
+            const newVis: Record<number, boolean> = {};
+            let idx = 0;
+            orderItems.forEach((item) => {
+              const qty = item.quantity || 1;
+              for (let q = 0; q < qty; q++) { newVis[idx++] = visible; }
+            });
+            setUnitVisibility(newVis);
+          }}
 
-              {/* Tote Model - Only show for Standard units */}
-              {unitType === "standard" ? (
-                <div className="mt-3">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Model
-                  </label>
-                  <select
-                    value={toteType}
-                    onChange={(e) => setToteType(e.target.value as ToteType)}
-                    className="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-sm font-medium text-gray-900 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  >
-                    <option value="HDX">HDX / Standard (19.75&quot; Wide)</option>
-                    <option value="GM">Greenmade / Large (20.75&quot; Wide)</option>
-                  </select>
-                  <p className="mt-1 text-[10px] italic text-stone-400">
-                    *Have your own? Measure top width rim-to-rim. Select closest
-                    size.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3">
-                  <label className="mb-0.5 block text-[10px] font-semibold uppercase text-stone-500">
-                    Tote Type
-                  </label>
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-gray-700">
-                    6.5 Quart Clear Totes (Yellow Lids)
-                  </div>
-                  <p className="mt-1 text-[10px] italic text-stone-400">
-                    Mini units use standard 6.5qt shoebox totes (8&quot; × 12.75&quot; × 6.25&quot;).
-                  </p>
-                </div>
-              )}
+          // Summary
+          orderItems={orderItems}
+          onRemoveUnit={handleRemoveUnit}
+          onQuantityChange={handleQuantityChange}
+          grandTotal={grandTotal}
+          deliveryFeeAmount={deliveryFeeAmount}
+          deliveryFeeResult={deliveryFeeResult}
+          depositAmount={depositAmount}
+          depositLabelText={depositLabelText}
+          stripeAccountId={stripeAccountId}
 
-              {/* Toggles */}
-              <div className="mt-4 space-y-2">
-                <Toggle
-                  checked={hasTotes}
-                  onChange={setHasTotes}
-                  label={unitType === "mini" ? "Include Clear Totes (Yellow Lids)" : "Totes"}
-                />
-                <Toggle
-                  checked={hasWheels}
-                  onChange={setHasWheels}
-                  label={unitType === "mini" ? "Wheels (+$40)" : "Wheels"}
-                />
-                {unitType === "standard" ? (
-                  <Toggle
-                    checked={hasTop}
-                    onChange={setHasTop}
-                    label="Plywood Top"
-                  />
-                ) : (
-                  <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded border border-emerald-400 bg-emerald-400">
-                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="flex-1 text-sm font-medium text-emerald-800">
-                      Plywood Top (Included)
-                    </span>
-                  </div>
-                )}
-              </div>
+          // Booking form
+          firstName={firstName}
+          lastName={lastName}
+          email={email}
+          phone={phone}
+          onFirstNameChange={setFirstName}
+          onLastNameChange={setLastName}
+          onEmailChange={setEmail}
+          onPhoneChange={setPhone}
 
-              {/* Price + Add to Quote */}
-              <div className="mt-5 flex items-center gap-3 border-t border-stone-200 pt-4">
-                <div className="flex-1 text-center">
-                  <div className="text-2xl font-black text-gray-900">
-                    {buildLoading ? "…" : `$${build.price.toLocaleString()}`}
-                  </div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                    Current Unit
-                  </div>
-                </div>
-                <button
-                  onClick={handleAddUnit}
-                  disabled={buildLoading || build.price === 0}
-                  className="flex flex-[2] items-center justify-center gap-2 rounded-lg border-2 border-yellow-400 bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote
-                </button>
-              </div>
-            </section>
+          // Address
+          streetAddress={streetAddress}
+          city={city}
+          addrState={addrState}
+          addrZip={addrZip}
+          onStreetAddressChange={setStreetAddress}
+          onCityChange={setCity}
+          onAddrStateChange={setAddrState}
+          onAddrZipChange={setAddrZip}
 
-            {/* ── Quote List ────────────────────────────────────────── */}
-            {orderItems.length > 0 && (
-              <section className="rounded-xl border border-stone-300 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 border-b border-stone-200 pb-2 text-xs font-extrabold uppercase tracking-wider text-gray-700">
-                  Your Quote List
-                </h2>
+          // Delivery address
+          hasDifferentDelivery={hasDifferentDelivery}
+          onHasDifferentDeliveryChange={setHasDifferentDelivery}
+          deliveryStreet={deliveryStreet}
+          deliveryCity={deliveryCity}
+          deliveryState={deliveryState}
+          deliveryZip={deliveryZip}
+          onDeliveryStreetChange={setDeliveryStreet}
+          onDeliveryCityChange={setDeliveryCity}
+          onDeliveryStateChange={setDeliveryState}
+          onDeliveryZipChange={setDeliveryZip}
 
-                <ul className="space-y-2">
-                  {orderItems.map((item, index) => {
-                    const extras: string[] = [];
-                    if (item.hasTotes) extras.push("Totes");
-                    if (item.hasWheels) extras.push("Wheels");
-                    if (item.hasTop) extras.push("Top");
-                    const extraStr =
-                      extras.length > 0 ? extras.join(", ") : "Frame Only";
+          // Submit
+          submitting={submitting}
+          submitted={submitted}
+          submitError={submitError}
+          onBookDeposit={isDemo ? () => setDemoToast(true) : handleBookDeposit}
+          isDemo={isDemo}
+          onDemoToast={() => setDemoToast(true)}
 
-                    return (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">
-                            Unit #{index + 1}: {item.desc}
-                          </p>
-                          <p className="text-[11px] text-stone-500">
-                            {extraStr}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-gray-900">
-                            ${item.price.toLocaleString()}
-                          </span>
-                          <button
-                            onClick={() => handleRemoveUnit(index)}
-                            className="text-red-400 transition-colors hover:text-red-600"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+          // ZIP check
+          zip={zip}
+          onZipChange={setZip}
+          onZipCheck={handleZipCheck}
+          zipChecking={zipChecking}
+          zipResult={zipResult as { available: boolean; message?: string } | null}
+          onZipResultClear={() => setZipResult(null)}
+          installerLocked={installerLocked}
 
-                {/* Grand Total */}
-                <div className="mt-4 border-t-2 border-dashed border-stone-300 pt-4 text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
-                    Estimated Grand Total
-                  </div>
-                  <div className="mt-1 text-4xl font-black text-gray-900">
-                    ${grandTotal.toLocaleString()}
-                  </div>
-                  {stripeAccountId && (
-                    <div className="mt-1 text-xs text-stone-500">
-                      Deposit (15%):{" "}
-                      <span className="font-bold text-yellow-600">
-                        ${depositAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
+          // Waitlist
+          zipOutOfArea={zipOutOfArea}
+          zipCheckMsg={zipCheckMsg}
+          handedOff={handedOff}
+          handoffInstallerName={handoffInstallerName}
+          waitlistSending={waitlistSending}
+          waitlistSent={waitlistSent}
+          waitlistError={waitlistError}
+          onWaitlist={handleWaitlist}
 
-                {/* Booking Form */}
-                <div className="mt-4 border-t border-stone-200 pt-4">
-                  {!submitted ? (
-                    <div className="space-y-2">
-                      {/* Name fields */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="First Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Last Name *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Contact info */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Email *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Phone *"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Billing address */}
-                      <div className="pt-1">
-                        <label className="mb-1 block text-[10px] font-semibold uppercase text-stone-500">
-                          Billing Address
-                        </label>
-                        <input
-                          type="text"
-                          value={streetAddress}
-                          onChange={(e) => setStreetAddress(e.target.value)}
-                          placeholder="Street Address"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <input
-                          type="text"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="City"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={addrState}
-                          onChange={(e) => setAddrState(e.target.value)}
-                          placeholder="State"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                        <input
-                          type="text"
-                          value={addrZip}
-                          onChange={(e) => setAddrZip(e.target.value)}
-                          placeholder="Zip"
-                          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                        />
-                      </div>
-                      {/* Installation address toggle */}
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 transition-colors hover:bg-stone-100">
-                        <input
-                          type="checkbox"
-                          checked={hasDifferentDelivery}
-                          onChange={(e) => setHasDifferentDelivery(e.target.checked)}
-                          className="h-4 w-4 rounded border-stone-300 accent-yellow-400"
-                        />
-                        <span className="text-xs font-medium text-stone-600">
-                          Installation address is different from billing
-                        </span>
-                      </label>
-                      {/* Installation address fields (conditional) */}
-                      {hasDifferentDelivery && (
-                        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                          <label className="block text-[10px] font-semibold uppercase text-amber-700">
-                            Installation Address
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryStreet}
-                            onChange={(e) => setDeliveryStreet(e.target.value)}
-                            placeholder="Street Address"
-                            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                          />
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="text"
-                              value={deliveryCity}
-                              onChange={(e) => setDeliveryCity(e.target.value)}
-                              placeholder="City"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                            <input
-                              type="text"
-                              value={deliveryState}
-                              onChange={(e) => setDeliveryState(e.target.value)}
-                              placeholder="State"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                            <input
-                              type="text"
-                              value={deliveryZip}
-                              onChange={(e) => setDeliveryZip(e.target.value)}
-                              placeholder="Zip"
-                              className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-stone-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <button
-                        onClick={isDemo ? () => setDemoToast(true) : handleBookDeposit}
-                        disabled={submitting}
-                        className={`flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
-                          isDemo
-                            ? "bg-stone-400 text-white shadow-stone-400/20 cursor-not-allowed"
-                            : "bg-yellow-400 text-gray-950 shadow-yellow-400/30 hover:bg-yellow-300 hover:-translate-y-0.5"
-                        }`}
-                      >
-                        {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : stripeAccountId ? (
-                          <CreditCard className="h-4 w-4" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
-                        {isDemo
-                          ? "Demo Mode — No Payment"
-                          : submitting
-                          ? "Submitting…"
-                          : stripeAccountId
-                          ? "Pay Deposit & Book"
-                          : "Submit Quote Request"}
-                      </button>
-                      <p className="text-[11px] text-stone-500 text-center">
-                        By placing this order, you agree to our{" "}
-                        <a href="/terms" className="underline hover:text-yellow-600">
-                          Terms of Service
-                        </a>.
-                      </p>
-                      {submitError && (
-                        <p className="text-xs font-medium text-red-600">
-                          {submitError}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-emerald-500" />
-                      <p className="font-bold text-gray-900">
-                        Booking Received!
-                      </p>
-                      <p className="mt-0.5 text-xs text-stone-500">
-                        We&apos;ll reach out within 24 hours.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-          </div>
-        </aside>
+          // Trial cap waitlist (hostage lead)
+          installerAtCapacity={installerAtCapacity}
+          trialCapWaitlistSending={trialCapWaitlistSending}
+          trialCapWaitlistSent={trialCapWaitlistSent}
+          trialCapWaitlistError={trialCapWaitlistError}
+          onJoinTrialCapWaitlist={handleJoinTrialCapWaitlist}
 
-        {/* ── RIGHT: Visualizer (2D/3D Toggle) ────────────────────── */}
-        <main className="flex flex-1 flex-col border-l border-stone-200 bg-white">
-          <div className="relative flex-1 overflow-hidden" style={{ minHeight: "300px" }}>
+          // Installer services (cleanout — adds to order)
+          servicesConfig={data?.servicesConfig}
+          selectedCleanout={selectedCleanout}
+          onCleanoutChange={setSelectedCleanout}
+
+          // Contact installer
+          installerId={installerId}
+          installerSlug={data?.routing.slug ?? null}
+          installerPhone={data?.routing.phone ?? null}
+          brandingTitle={data?.branding.title || ""}
+          showContactForm={showContactForm}
+          onShowContactFormChange={setShowContactForm}
+          contactMessage={contactMessage}
+          onContactMessageChange={setContactMessage}
+          contactSending={contactSending}
+          contactSent={contactSent}
+          contactError={contactError}
+          onContactInstaller={handleContactInstaller}
+
+          // Scheduler (inline in sidebar)
+          schedulingEnabled={data?.routing.schedulingEnabled ?? true}
+          scheduledDate={scheduledDate}
+          onScheduledDateChange={setScheduledDate}
+          installerLeadTime={effectiveLeadTime}
+          installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          blackoutDates={blackoutDates}
+
+          // Discount code (inline in sidebar)
+          discountInput={discountInput}
+          onDiscountInputChange={(v) => { setDiscountInput(v); setDiscountError(""); }}
+          discountApplied={discountApplied}
+          discountLoading={discountLoading}
+          discountError={discountError}
+          onApplyDiscount={handleApplyDiscount}
+          onRemoveDiscount={handleRemoveDiscount}
+
+          // Organizer Customization (per-section addons)
+          addons={addons}
+          onAddonsChange={setAddons}
+          addonPricing={data?.pricing?.addon_pricing}
+
+          // Paint options
+          paintFrameColor={paintFrameColor}
+          paintDoorColor={paintDoorColor}
+          paintSidePanelColor={paintSidePanelColor}
+          onPaintFrameColorChange={setPaintFrameColor}
+          onPaintDoorColorChange={setPaintDoorColor}
+          onPaintSidePanelColorChange={setPaintSidePanelColor}
+
+          // Indoor delivery
+          indoorDeliveryConfig={data?.indoorDeliveryConfig}
+          indoorDelivery={indoorDelivery}
+          onIndoorDeliveryChange={setIndoorDelivery}
+
+          // UI Trigger bridge for 3D model animation
+          onPulseVisualizerTrigger={() => {}}
+
+          // Step tracking — visualizer shows single unit on steps 1-3, multi-unit on step 4
+          onStepChange={setSidebarStep}
+        />
+
+        {/* ── 3D VISUALIZER (mobile: sticky top 45vh, desktop: right 60%) ── */}
+        <main className="order-1 sticky top-0 z-10 flex h-[45vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
+          <div className="relative min-h-0 flex-1 overflow-hidden lg:min-h-[300px]">
             <RackVisualizer
-              cols={build.cols || numCols || 1}
-              rows={build.rows || numRows || 1}
-              toteType={toteType}
-              unitType={unitType}
-              orientation={effectiveOrientation}
-              hasTotes={hasTotes}
-              hasWheels={hasWheels}
-              hasTop={effectiveHasTop}
-              totalW={build.totalW}
-              totalH={build.totalH}
+              cols={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}
+              rows={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].rows : (build.rows || numRows || 1)}
+              toteType={activePresetObj ? activePresetObj.toteModel as ToteType : toteType}
+              toteColor={activePresetObj ? activePresetObj.toteColor as ToteColor : effectiveToteColor}
+              unitType={activePresetObj ? activePresetObj.unitType : unitType}
+              orientation={activePresetObj ? activePresetObj.orientation : effectiveOrientation}
+              hasTotes={activePresetObj ? presetTotes : hasTotes}
+              hasWheels={activePresetObj ? activePresetObj.units.some((u) => u.hasWheels) : hasWheels}
+              hasTop={activePresetObj ? activePresetObj.units.some((u) => u.hasTop) : effectiveHasTop}
+              totalW={activePresetObj && compoundBuild ? compoundBuild.combinedW : build.totalW}
+              totalH={activePresetObj && compoundBuild ? compoundBuild.maxH : build.totalH}
+              presetUnits={presetVisUnits}
+              drawerSlideRows={activePresetObj?.drawerSlideRows}
+              drawerSlideColumns={activePresetObj?.drawerSlideColumns}
+              hasDrawerSlides={(activePresetObj?.drawerSlideColumns?.length ?? 0) > 0 || (activePresetObj?.drawerSlideRows ?? 0) > 0}
+              addons={activePresetObj ? undefined : addons}
+              paintFrameColor={activePresetObj ? null : paintFrameColor}
+              paintDoorColor={activePresetObj ? null : paintDoorColor}
+              paintSidePanelColor={activePresetObj ? null : paintSidePanelColor}
+              shelvingConfig={activeShelvingConfig}
+              overheadConfig={overheadPreview ? { slotsWide: overheadPreview.slotsWide, slotsDeep: overheadPreview.slotsDeep, toteType: overheadPreview.toteType, hasTotes: overheadPreview.hasTotes } : undefined}
+              raisedBedConfig={raisedBedPreview || undefined}
+              watermarkText={data?.branding.title || "Storage-Network.app"}
+              use2x4Rails={data?.pricing?.use_2x4_rails === true}
+              multiUnitItems={multiUnitItems as import("@/components/visualizer/RackVisualizer").MultiUnitItem[] | undefined}
+              multiUnitControls={orderItems.length >= 1 ? {
+                showMultiUnit3D,
+                onShowMultiUnit3DChange: setShowMultiUnit3D,
+                unitVisibility,
+                onUnitVisibilityChange: (index: number, visible: boolean) => setUnitVisibility((prev) => ({ ...prev, [index]: visible })),
+                orderItems: expandedMultiUnitDescs,
+              } : undefined}
             />
           </div>
           {/* Dimensions bar */}
-          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-medium text-stone-500">
-            {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
-            &times;{" "}
-            {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
-            &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : 30)}&quot; D &nbsp;&mdash;&nbsp;
-            <span className="font-bold text-gray-900">
-              {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
-              {build.slots || (numCols || 1) * (numRows || 1)} slots
-            </span>
-            {unitType === "mini" && (
-              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                MINI
-              </span>
+          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-2 py-1.5 text-center text-xs font-medium text-stone-500 lg:px-4 lg:py-3 lg:text-sm">
+            {overheadPreview ? (
+              <>
+                {overheadPreview.slotsWide} &times; {overheadPreview.slotsDeep} grid · {overheadPreview.toteType}
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Ceiling Tote Rail
+                </span>
+              </>
+            ) : raisedBedPreview ? (
+              <>
+                {raisedBedPreview.widthIn}&quot; &times;{" "}
+                {raisedBedPreview.lengthIn}&quot; &times;{" "}
+                {raisedBedPreview.heightIn}&quot;
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Raised Bed
+                </span>
+              </>
+            ) : showMultiUnit3D && orderItems.length > 0 && orderItems.every((it) => it.raisedBedConfig) ? (
+              <>
+                {orderItems.reduce((s, it) => s + (it.quantity || 1), 0)} Raised Bed{orderItems.reduce((s, it) => s + (it.quantity || 1), 0) > 1 ? "s" : ""}
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Planter Order
+                </span>
+              </>
+            ) : activeShelvingConfig ? (
+              <>
+                {activeShelvingConfig.widthIn}&quot; W &times;{" "}
+                {activeShelvingConfig.frameH}&quot; H &times;{" "}
+                {activeShelvingConfig.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {activeShelvingConfig.shelves} {activeShelvingConfig.shelves === 1 ? "shelf" : "shelves"} + top
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Open Shelving
+                </span>
+              </>
+            ) : activePresetObj && compoundBuild ? (
+              <>
+                {compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
+                {compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
+                {compoundBuild.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {compoundBuild.subUnits.map((su) => `${su.cols}×${su.rows}`).join(" + ")} ={" "}
+                  {compoundBuild.totalSlots} slots
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  {compoundBuild.presetName}
+                </span>
+              </>
+            ) : (
+              <>
+                {build.totalW > 0 ? build.totalW.toFixed(1) : "—"}&quot; W
+                &times;{" "}
+                {build.totalH > 0 ? build.totalH.toFixed(1) : "—"}&quot; H
+                &times; {build.depth > 0 ? build.depth : (unitType === "mini" ? 12.75 : orientation === "sideways" ? 20 : 30)}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {build.cols || numCols || 1} &times; {build.rows || numRows || 1} ={" "}
+                  {build.slots || (numCols || 1) * (numRows || 1)} slots
+                </span>
+                {unitType === "mini" && (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                    MINI
+                  </span>
+                )}
+              </>
             )}
           </div>
         </main>
@@ -1160,8 +2003,10 @@ export default function DesignConfigurator({
         <BookingModal
           isOpen={showBookingModal}
           onClose={() => {
+            // Customer closed the modal without paying — reset so they can
+            // modify their order or try again. Do NOT mark as submitted.
             setShowBookingModal(false);
-            setSubmitted(true);
+            setLeadId(null);
           }}
           leadId={leadId}
           depositAmount={depositAmount}
@@ -1172,14 +2017,18 @@ export default function DesignConfigurator({
           customerName={[firstName.trim(), lastName.trim()].filter(Boolean).join(" ") || undefined}
           installerLeadTime={data?.routing.leadTime ?? 5}
           installerWorkingDays={data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          schedulingEnabled={data?.routing.schedulingEnabled ?? true}
           hasWheels={anyHasWheels}
           totalCols={maxCols}
+          unitCount={orderItems.length}
           initialAddress={{
             line1: streetAddress || undefined,
             city: city || undefined,
             state: addrState || undefined,
             zip: addrZip || zip || undefined,
           }}
+          initialScheduledDate={scheduledDate}
+          initialDiscount={discountApplied}
           onSuccess={() => {
             setShowBookingModal(false);
             setSubmitted(true);
@@ -1187,39 +2036,84 @@ export default function DesignConfigurator({
         />
       )}
 
-      {/* ── Scan-to-Build Wizard ───────────────────────────────────────── */}
-      <ScanWizard
-        isOpen={showScanWizard}
-        onClose={() => setShowScanWizard(false)}
-        onComplete={handleScanWizardComplete}
+      {/* AI Design Assistant — with direct add-to-order callback */}
+      <CustomerChatWidget
+        installerId={data?.routing.installerId}
+        installerSlug={data?.routing.slug || undefined}
+        skipWelcome={leadSource === "platform" || !!initialConfig}
+        installerContext={{
+          installerName: data?.branding.title,
+          standardSlot: data?.pricing?.standard_slot,
+          miniSlot: data?.pricing?.mini_slot,
+          standardTote: data?.pricing?.standard_tote,
+          standardToteClear: data?.pricing?.standard_tote_clear,
+          miniTote: data?.pricing?.mini_tote,
+          standardWheels: data?.pricing?.standard_wheels,
+          miniWheels: data?.pricing?.mini_wheels,
+          plywoodTop: data?.pricing?.plywood_top,
+          totesDisabled: data?.pricing?.totes_disabled === true,
+          use2x4Rails: data?.pricing?.use_2x4_rails === true,
+          miniEnabled: data?.pricing?.mini_enabled === true,
+          shelvingEnabled: data?.pricing?.open_shelving_enabled === true,
+          overheadEnabled: data?.pricing?.overhead_storage_enabled === true,
+          raisedBedEnabled: data?.pricing?.raised_bed_enabled === true,
+          disabledPresets: [
+            data?.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
+            data?.pricing?.bestseller_cornhusker_disabled ? "cornhusker" : "",
+            data?.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
+            data?.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
+            data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",
+          ].filter(Boolean),
+        }}
+        onCustomerInfo={(info) => {
+          if (info.firstName) setFirstName(info.firstName);
+          if (info.lastName) setLastName(info.lastName);
+          if (info.email) setEmail(info.email);
+          if (info.phone) setPhone(info.phone);
+          if (info.address) setStreetAddress(info.address);
+          if (info.city) setCity(info.city);
+          if (info.state) setAddrState(info.state);
+          if (info.zip) setAddrZip(info.zip);
+        }}
+        onAddUnits={async (configs) => {
+          for (const cfg of configs) {
+            const result = await calculateBuild({
+              cols: cfg.cols,
+              rows: cfg.rows,
+              toteModel: cfg.toteType || "HDX",
+              toteColor: cfg.toteColor || "black",
+              unitType: cfg.unitType || "standard",
+              orientation: cfg.orientation || "standard",
+              addOns: { totes: cfg.hasTotes, wheels: cfg.hasWheels, top: cfg.hasTop },
+              mode: "manual",
+              installerPricing: data?.pricing,
+            });
+            if ("price" in result) {
+              const colorLabel = cfg.hasTotes && cfg.toteColor === "clear" ? " (Clear Totes)" : "";
+              setOrderItems((prev) => [...prev, {
+                cols: result.cols,
+                rows: result.rows,
+                toteType: cfg.toteType || "HDX",
+                toteColor: cfg.toteColor || "black",
+                unitType: cfg.unitType || "standard",
+                orientation: cfg.orientation || "standard",
+                hasTotes: cfg.hasTotes,
+                hasWheels: cfg.hasWheels,
+                hasTop: cfg.hasTop,
+                price: result.price,
+                totalW: result.dimensions.totalW,
+                totalH: result.dimensions.totalH,
+                depth: result.dimensions.depth,
+                desc: `Standard: ${result.cols}W × ${result.rows}H${colorLabel}`,
+                addons: [],
+              }]);
+            }
+          }
+          setSidebarStep(4);
+        }}
       />
+
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Toggle component (no pricing details exposed)
-// ═══════════════════════════════════════════════════════════════════════════
-function Toggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5 transition-colors hover:bg-stone-100">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5 rounded border-stone-300 accent-yellow-400 focus:ring-yellow-400"
-      />
-      <span className="flex-1 text-sm font-medium text-gray-800">
-        {label}
-      </span>
-    </label>
-  );
-}

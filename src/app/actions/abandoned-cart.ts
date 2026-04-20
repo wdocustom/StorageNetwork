@@ -1,12 +1,10 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient } from "@/lib/supabase-server";
 import { sendAbandonedCartEmail } from "@/lib/email";
+import { siteConfig } from "@/config/site";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const db = getServiceClient;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -27,6 +25,14 @@ export interface PendingLeadDetails {
   source: string;
   created_at: string;
   status: string;
+  discount_code: string | null;
+  delivery_fee: number;
+  /** Estimated sales tax saved at quote creation (recomputed at checkout if billing state differs) */
+  sales_tax_amount: number;
+  /** State code derived from quote ZIP at creation time (overridden at checkout) */
+  billing_state: string | null;
+  /** Installer's available services (for cleanout upsell on pay page) */
+  installer_services?: Array<{ id: string; name: string; description: string; price: number }>;
 }
 
 export interface FetchPendingLeadResult {
@@ -46,7 +52,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
 
   try {
     // Fetch the lead
-    const { data: lead, error } = await supabase
+    const { data: lead, error } = await db()
       .from("leads")
       .select(`
         id,
@@ -60,7 +66,11 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         installer_id,
         source,
         created_at,
-        status
+        status,
+        discount_code,
+        delivery_fee,
+        sales_tax_amount,
+        billing_state
       `)
       .eq("id", leadId)
       .single();
@@ -86,7 +96,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     const daysSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceCreation > 7) {
       // Mark as expired
-      await supabase
+      await db()
         .from("leads")
         .update({ status: "expired" })
         .eq("id", leadId);
@@ -96,17 +106,24 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
     // Fetch installer details if assigned
     let installerName: string | null = null;
     let installerStripeId: string | null = null;
+    let installerServices: Array<{ id: string; name: string; description: string; price: number }> = [];
 
     if (lead.installer_id) {
-      const { data: installer } = await supabase
+      const { data: installer } = await db()
         .from("profiles")
-        .select("business_name, first_name, stripe_account_id")
+        .select("business_name, first_name, stripe_account_id, services_config")
         .eq("id", lead.installer_id)
         .single();
 
       if (installer) {
         installerName = installer.business_name || installer.first_name || null;
         installerStripeId = installer.stripe_account_id || null;
+        // Extract enabled cleanout services for upsell
+        if (installer.services_config && Array.isArray(installer.services_config)) {
+          installerServices = (installer.services_config as Array<{ id: string; name: string; description: string; price: number | null; enabled: boolean }>)
+            .filter((s) => s.enabled && s.price && s.price > 0 && s.id.startsWith("cleanout_"))
+            .map((s) => ({ id: s.id, name: s.name, description: s.description, price: s.price! }));
+        }
       }
     }
 
@@ -116,6 +133,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         ...lead,
         installer_name: installerName,
         installer_stripe_id: installerStripeId,
+        installer_services: installerServices.length > 0 ? installerServices : undefined,
       } as PendingLeadDetails,
     };
   } catch (err) {
@@ -147,7 +165,7 @@ export async function processAbandonedCarts(): Promise<{
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: abandonedLeads, error } = await supabase
+    const { data: abandonedLeads, error } = await db()
       .from("leads")
       .select(`
         id,
@@ -182,20 +200,20 @@ export async function processAbandonedCarts(): Promise<{
       }
 
       try {
-        // Get installer name if assigned
+        // Get installer name if assigned — skip if installer is suspended
         let installerName: string | null = null;
         if (lead.installer_id) {
-          const { data: installer } = await supabase
+          const { data: installer } = await db()
             .from("profiles")
-            .select("business_name, first_name")
+            .select("business_name, first_name, is_suspended")
             .eq("id", lead.installer_id)
             .single();
+          if (installer?.is_suspended) continue;
           installerName = installer?.business_name || installer?.first_name || null;
         }
 
-        // Generate resume URL
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://storagenetwork.io";
-        const resumeUrl = `${baseUrl}/pay/${lead.id}`;
+        // Generate resume URL (uses same domain resolution as rest of app)
+        const resumeUrl = `${siteConfig.baseUrl}/pay/${lead.id}`;
 
         // Send the email
         await sendAbandonedCartEmail(lead.customer_email, {
@@ -207,7 +225,7 @@ export async function processAbandonedCarts(): Promise<{
         });
 
         // Mark as sent
-        await supabase
+        await db()
           .from("leads")
           .update({ abandoned_email_sent: true })
           .eq("id", lead.id);
@@ -236,7 +254,7 @@ export async function cleanupExpiredLeads(): Promise<{ updated: number }> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await db()
       .from("leads")
       .update({ status: "expired" })
       .eq("status", "pending_payment")
