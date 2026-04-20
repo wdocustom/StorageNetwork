@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
-import { generateText, generateObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
 import {
@@ -456,9 +456,8 @@ export async function POST(request: NextRequest) {
     const latestQuestion = recentMessages[recentMessages.length - 1]?.text ?? "";
 
     // ── Step 1: Classify what calculations are needed ────────────────
-    const plan = await generateObject({
+    const classifyResult = await generateText({
       model,
-      schema: ActionSchema,
       system: `You are a routing assistant for a storage unit build calculator.
 Given the user's question and the current build context, determine what server-side calculations are needed.
 
@@ -484,9 +483,31 @@ IMPORTANT routing rules:
 
 Return an EMPTY actions array if the question can be answered from the context below.
 
+Respond ONLY with valid JSON matching this schema (no markdown, no explanation):
+{"actions":[{"type":"build|preset|manifest|materials|profit|list_presets|custom_item|overhead","cols":4,"rows":4,"wallWidth":null,"wallHeight":null,"hasTotes":true,"hasWheels":false,"hasTop":true,"unitType":"standard","orientation":"standard","toteModel":"HDX","presetId":null,"jobPrice":null,"materialsCost":null,"customDescription":null,"customPrice":null,"overheadGridPresetId":null}]}
+Only include fields relevant to each action type. For an empty plan: {"actions":[]}
+
 ${systemPrompt}`,
       prompt: `Latest question: ${latestQuestion}\n\nFull conversation:\n${conversation}`,
     });
+
+    let planActions: z.infer<typeof ActionSchema>["actions"] = [];
+    try {
+      let jsonStr = classifyResult.text.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+      }
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = ActionSchema.safeParse(JSON.parse(jsonMatch[0]));
+        if (parsed.success) {
+          planActions = parsed.data.actions;
+        }
+      }
+    } catch {
+      // Classification failed — fall through with empty actions (answer from context)
+    }
+    const plan = { object: { actions: planActions } };
 
     // ── Step 2: Run calculations ─────────────────────────────────────
     const calcResults = await runCalculations(plan.object.actions, ctx);

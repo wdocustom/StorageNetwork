@@ -141,7 +141,7 @@ Write the full structured post now.`;
 
     if (message.includes("API key") || message.includes("apiKey") || message.includes("API_KEY_INVALID")) {
       return NextResponse.json(
-        { error: "Google AI API key is invalid or not configured. Please check GOOGLE_GENERATIVE_AI_API_KEY in your environment." },
+        { error: "AI API key is invalid or not configured. Please check GROQ_API_KEY in your environment." },
         { status: 500 }
       );
     }
