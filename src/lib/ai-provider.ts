@@ -8,7 +8,7 @@
 import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 
-const DEFAULT_CHAT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_CHAT_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 /**
  * Returns the configured chat model for generateText / streamText / generateObject.
