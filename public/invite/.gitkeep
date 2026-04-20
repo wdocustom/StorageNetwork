@@ -1,0 +1,11 @@
+# Drop media assets here — see plan file for the shot list.
+#
+# Required files (reference these names in src/app/invite/page.tsx):
+#   hero-install.jpg            — Hero product shot (16:9)
+#   configurator-preview.png    — 3D configurator screenshot (16:10)
+#   cut-list-preview.png        — Auto-generated cut list (3:4)
+#   dashboard-leads.png         — Installer lead queue (16:10)
+#
+# Optional:
+#   payout-confirmation.png     — Stripe payout confirmation (16:10)
+#   quote-email.png             — Customer quote email (phone-width)
