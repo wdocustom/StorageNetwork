@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
+import { formatAssistantResponse } from "./response-templates";
 import {
   calculateBuild,
   calculateCompoundBuild,
@@ -511,17 +512,21 @@ ${systemPrompt}`,
     // ── Step 2: Run calculations ─────────────────────────────────────
     const calcResults = await runCalculations(plan.object.actions, ctx);
 
-    // ── Step 3: Generate final answer ────────────────────────────────
-    const calcContext =
-      calcResults.length > 0
-        ? `\n\n## Fresh Calculation Results\n\`\`\`json\n${JSON.stringify(calcResults, null, 2)}\n\`\`\``
-        : "";
+    // ── Step 3: Format response ───────────────────────────────────────
+    let responseText: string;
 
-    const answer = await generateTextWithFallback({
-      model,
-      system: systemPrompt + calcContext,
-      prompt: conversation,
-    });
+    if (calcResults.length > 0) {
+      // Deterministic templates — instant, free, consistent
+      responseText = formatAssistantResponse(calcResults);
+    } else {
+      // No calculations — use AI for conversational answers
+      const answer = await generateTextWithFallback({
+        model,
+        system: systemPrompt,
+        prompt: conversation,
+      });
+      responseText = answer.text;
+    }
 
     // ── Step 4: Silent logging (fire-and-forget) ─────────────────────
     const latencyMs = Date.now() - startTime;
@@ -532,7 +537,7 @@ ${systemPrompt}`,
       sessionId: sessionId || `anon-${Date.now()}`,
       turnIndex: Math.max(0, turnIndex),
       userMessage: latestQuestion,
-      assistantResponse: answer.text,
+      assistantResponse: responseText,
       actions: plan.object.actions,
       calcResults,
       previousMessages: recentMessages.slice(0, -1),
@@ -540,8 +545,7 @@ ${systemPrompt}`,
     });
 
     return NextResponse.json({
-      text: answer.text,
-      // Return a log reference so the client can submit feedback later
+      text: responseText,
       logRef: sessionId ? `${sessionId}:${turnIndex}` : undefined,
     });
   } catch (error: unknown) {
