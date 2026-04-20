@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
 import { generateText } from "ai";
 import {
   buildSystemMessage,
@@ -39,12 +39,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking link is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    if (!hasChatProvider()) {
       return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
+    const model = getChatModel();
 
     const isFacebook = platform.startsWith("facebook-");
     const locationContext = buildLocationContext(city, state, zip);
@@ -99,7 +98,7 @@ Write the full structured post now.`;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const result = await generateText({
-          model: google("gemini-2.0-flash"),
+          model,
           system: systemMessage,
           prompt: userMessage,
         });

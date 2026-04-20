@@ -12,7 +12,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
 import { streamText, stepCountIs } from "ai";
 import { z } from "zod";
 import { buildInstallerChatPrompt } from "@/lib/ai/installer-chat-prompt";
@@ -27,8 +27,7 @@ export const maxDuration = 30;
 type ChatMode = "installer" | "customer";
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) {
+  if (!hasChatProvider()) {
     return new Response("AI not configured", { status: 500 });
   }
 
@@ -56,9 +55,8 @@ export async function POST(req: NextRequest) {
     content: m.content,
   }));
 
-  const google = createGoogleGenerativeAI({ apiKey });
-  const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
-  console.log(`[Chat] Using model: ${model} | Mode: ${mode}`);
+  const model = getChatModel();
+  console.log(`[Chat] Using Groq model | Mode: ${mode}`);
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
@@ -243,7 +241,7 @@ export async function POST(req: NextRequest) {
   };
 
   const result = streamText({
-    model: google(model),
+    model,
     system: systemPrompt,
     messages: truncated,
     tools,

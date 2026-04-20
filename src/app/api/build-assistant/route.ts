@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { getChatModel, hasChatProvider } from "@/lib/ai-provider";
 import { generateText, generateObject } from "ai";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
@@ -432,13 +432,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    if (!hasChatProvider()) {
       return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
-    const model = google("gemini-2.0-flash");
+    const model = getChatModel();
 
     const ctx: ToolContext = {
       installerPricing: (buildContext?.installerPricing as InstallerPricing) ?? undefined,
