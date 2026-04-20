@@ -3,8 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import {
   buildSystemMessage,
   buildLocationContext,
@@ -39,12 +38,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking link is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    if (!hasChatProvider()) {
       return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
+    const model = getChatModel();
 
     const isFacebook = platform.startsWith("facebook-");
     const locationContext = buildLocationContext(city, state, zip);
@@ -98,8 +96,8 @@ Write the full structured post now.`;
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await generateText({
-          model: google("gemini-2.0-flash"),
+        const result = await generateTextWithFallback({
+          model,
           system: systemMessage,
           prompt: userMessage,
         });
@@ -142,7 +140,7 @@ Write the full structured post now.`;
 
     if (message.includes("API key") || message.includes("apiKey") || message.includes("API_KEY_INVALID")) {
       return NextResponse.json(
-        { error: "Google AI API key is invalid or not configured. Please check GOOGLE_GENERATIVE_AI_API_KEY in your environment." },
+        { error: "AI API key is invalid or not configured. Please check GROQ_API_KEY in your environment." },
         { status: 500 }
       );
     }

@@ -5,10 +5,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, generateObject } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import { z } from "zod";
 import { buildSystemPrompt } from "./prompt";
+import { formatAssistantResponse } from "./response-templates";
 import {
   calculateBuild,
   calculateCompoundBuild,
@@ -432,13 +432,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Messages required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    if (!hasChatProvider()) {
       return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
-    const model = google("gemini-2.0-flash");
+    const model = getChatModel();
 
     const ctx: ToolContext = {
       installerPricing: (buildContext?.installerPricing as InstallerPricing) ?? undefined,
@@ -458,9 +456,8 @@ export async function POST(request: NextRequest) {
     const latestQuestion = recentMessages[recentMessages.length - 1]?.text ?? "";
 
     // ── Step 1: Classify what calculations are needed ────────────────
-    const plan = await generateObject({
+    const classifyResult = await generateTextWithFallback({
       model,
-      schema: ActionSchema,
       system: `You are a routing assistant for a storage unit build calculator.
 Given the user's question and the current build context, determine what server-side calculations are needed.
 
@@ -486,24 +483,50 @@ IMPORTANT routing rules:
 
 Return an EMPTY actions array if the question can be answered from the context below.
 
+Respond ONLY with valid JSON matching this schema (no markdown, no explanation):
+{"actions":[{"type":"build|preset|manifest|materials|profit|list_presets|custom_item|overhead","cols":4,"rows":4,"wallWidth":null,"wallHeight":null,"hasTotes":true,"hasWheels":false,"hasTop":true,"unitType":"standard","orientation":"standard","toteModel":"HDX","presetId":null,"jobPrice":null,"materialsCost":null,"customDescription":null,"customPrice":null,"overheadGridPresetId":null}]}
+Only include fields relevant to each action type. For an empty plan: {"actions":[]}
+
 ${systemPrompt}`,
       prompt: `Latest question: ${latestQuestion}\n\nFull conversation:\n${conversation}`,
     });
 
+    let planActions: z.infer<typeof ActionSchema>["actions"] = [];
+    try {
+      let jsonStr = classifyResult.text.trim();
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+      }
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = ActionSchema.safeParse(JSON.parse(jsonMatch[0]));
+        if (parsed.success) {
+          planActions = parsed.data.actions;
+        }
+      }
+    } catch {
+      // Classification failed — fall through with empty actions (answer from context)
+    }
+    const plan = { object: { actions: planActions } };
+
     // ── Step 2: Run calculations ─────────────────────────────────────
     const calcResults = await runCalculations(plan.object.actions, ctx);
 
-    // ── Step 3: Generate final answer ────────────────────────────────
-    const calcContext =
-      calcResults.length > 0
-        ? `\n\n## Fresh Calculation Results\n\`\`\`json\n${JSON.stringify(calcResults, null, 2)}\n\`\`\``
-        : "";
+    // ── Step 3: Format response ───────────────────────────────────────
+    let responseText: string;
 
-    const answer = await generateText({
-      model,
-      system: systemPrompt + calcContext,
-      prompt: conversation,
-    });
+    if (calcResults.length > 0) {
+      // Deterministic templates — instant, free, consistent
+      responseText = formatAssistantResponse(calcResults);
+    } else {
+      // No calculations — use AI for conversational answers
+      const answer = await generateTextWithFallback({
+        model,
+        system: systemPrompt,
+        prompt: conversation,
+      });
+      responseText = answer.text;
+    }
 
     // ── Step 4: Silent logging (fire-and-forget) ─────────────────────
     const latencyMs = Date.now() - startTime;
@@ -514,7 +537,7 @@ ${systemPrompt}`,
       sessionId: sessionId || `anon-${Date.now()}`,
       turnIndex: Math.max(0, turnIndex),
       userMessage: latestQuestion,
-      assistantResponse: answer.text,
+      assistantResponse: responseText,
       actions: plan.object.actions,
       calcResults,
       previousMessages: recentMessages.slice(0, -1),
@@ -522,8 +545,7 @@ ${systemPrompt}`,
     });
 
     return NextResponse.json({
-      text: answer.text,
-      // Return a log reference so the client can submit feedback later
+      text: responseText,
       logRef: sessionId ? `${sessionId}:${turnIndex}` : undefined,
     });
   } catch (error: unknown) {

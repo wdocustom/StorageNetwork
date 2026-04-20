@@ -4,8 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 
 // TODO: Implement Gemini automated moderation and quality scoring
 
@@ -25,15 +24,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
+    if (!hasChatProvider()) {
       return NextResponse.json(
         { error: "AI API key not configured" },
         { status: 500 }
       );
     }
 
-    const google = createGoogleGenerativeAI({ apiKey });
+    const model = getChatModel();
 
     const systemMessage = `You are a thread summarizer for a professional community forum used by storage system installers and builders. Your job is to generate a concise, useful "TL;DR" summary that helps busy professionals understand the key points of a lengthy discussion thread.
 
@@ -64,8 +62,8 @@ ${threadText}`;
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const result = await generateText({
-          model: google("gemini-2.0-flash"),
+        const result = await generateTextWithFallback({
+          model,
           system: systemMessage,
           prompt: userMessage,
         });

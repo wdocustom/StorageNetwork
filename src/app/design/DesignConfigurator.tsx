@@ -1684,7 +1684,7 @@ export default function DesignConfigurator({
 
           // Presets
           activePreset={activePreset}
-          onPresetChange={(v) => { setActivePreset(v); setCompoundBuild(null); }}
+          onPresetChange={(v) => { setActivePreset(v); setCompoundBuild(null); setRaisedBedPreview(null); setOverheadPreview(null); }}
           presetOptions={filteredPresets}
           compoundBuild={compoundBuild}
           presetLoading={presetLoading}
@@ -1704,14 +1704,14 @@ export default function DesignConfigurator({
           // Overhead ceiling storage
           overheadStorageHidden={!overheadStorageEnabled}
           onAddOverheadUnit={handleAddOverheadUnit}
-          onOverheadConfigPreview={setOverheadPreview}
+          onOverheadConfigPreview={(v) => { setOverheadPreview(v); if (v) { setRaisedBedPreview(null); setActivePreset(null); setCompoundBuild(null); } }}
 
           // Raised Bed Planters
           raisedBedHidden={!raisedBedEnabled}
           raisedBedPreviewPrice={raisedBedPreviewPrice}
           onRaisedBedPriceChange={setRaisedBedPreviewPrice}
           onAddRaisedBed={handleAddRaisedBed}
-          onRaisedBedPreview={setRaisedBedPreview}
+          onRaisedBedPreview={(v) => { setRaisedBedPreview(v); if (v) { setOverheadPreview(null); setActivePreset(null); setCompoundBuild(null); } }}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={showMultiUnit3D}

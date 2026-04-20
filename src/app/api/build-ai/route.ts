@@ -7,8 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
 import { calculateBuild } from "@/app/actions/calculator";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -164,8 +163,7 @@ For mixed quotes (storage + overhead + raised beds + custom items):
 {"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x3","raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 3 (9 totes)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":{"sizeId":"legs_24x48x16","finish":"natural","hasLiner":false,"depthIncrease":false,"bottomShelf":false,"pestCover":"none","postHeight":null,"hasHook":false,"quantity":1},"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"24\\"×48\\" Raised Bed (with legs)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":285,"description":"Two benches connecting planter bases"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) {
+  if (!hasChatProvider()) {
     return NextResponse.json({ error: "AI not configured" }, { status: 500 });
   }
 
@@ -182,11 +180,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const google = createGoogleGenerativeAI({ apiKey });
-    const model = process.env.AI_CHAT_MODEL || "gemini-2.0-flash";
-
-    const result = await generateText({
-      model: google(model),
+    const result = await generateTextWithFallback({
+      model: getChatModel(),
       system: SYSTEM_PROMPT,
       prompt: input,
     });
