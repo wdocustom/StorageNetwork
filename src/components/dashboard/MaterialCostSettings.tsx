@@ -27,6 +27,7 @@ import { DEFAULT_MATERIAL_PRICES } from "@/utils/calculateMaterials";
 
 interface Props {
   userId: string;
+  embedded?: boolean;
 }
 
 // Default box/package sizes for display
@@ -53,7 +54,7 @@ const SCREW_FIELDS: { key: string; label: string; description: string; usedFor: 
   { key: "overhead_structural_screw", label: '3" Structural Screws', description: "Frame assembly — overhead storage", usedFor: "Overhead Storage" },
 ];
 
-export default function MaterialCostSettings({ userId }: Props) {
+export default function MaterialCostSettings({ userId, embedded }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -208,7 +209,11 @@ export default function MaterialCostSettings({ userId }: Props) {
   }
 
   if (loading) {
-    return (
+    return embedded ? (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+      </div>
+    ) : (
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
@@ -217,21 +222,8 @@ export default function MaterialCostSettings({ userId }: Props) {
     );
   }
 
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      {/* Header */}
-      <div className="mb-4 flex items-center gap-2">
-        <Package className="h-4 w-4 text-yellow-400" />
-        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-          Material Costs
-        </h2>
-        {hasCustomValues() && (
-          <span className="ml-auto rounded-full bg-yellow-400/20 px-2 py-0.5 text-[9px] font-bold text-yellow-400">
-            CUSTOM
-          </span>
-        )}
-      </div>
-
+  const body = (
+    <>
       {/* Info Banner */}
       <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
@@ -420,6 +412,25 @@ export default function MaterialCostSettings({ userId }: Props) {
           {message}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Package className="h-4 w-4 text-yellow-400" />
+        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+          Material Costs
+        </h2>
+        {hasCustomValues() && (
+          <span className="ml-auto rounded-full bg-yellow-400/20 px-2 py-0.5 text-[9px] font-bold text-yellow-400">
+            CUSTOM
+          </span>
+        )}
+      </div>
+      {body}
     </section>
   );
 }

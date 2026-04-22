@@ -37,6 +37,8 @@ import {
   Trash2,
   Percent,
   DollarSign,
+  Tag,
+  Package,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
@@ -1530,10 +1532,28 @@ function ProfilePageInner() {
             </div>
 
             {/* SECTION D: Custom Pricing */}
-            <PricingSettings userId={profile.id} />
+            <CollapsibleSection
+              isOpen={activeSection === "pricing"}
+              onToggle={toggleSection("pricing")}
+              icon={DollarSign}
+              title="Custom Pricing"
+              description="Override platform default prices for your customers"
+              badge="Pro"
+            >
+              <PricingSettings userId={profile.id} embedded />
+            </CollapsibleSection>
 
             {/* SECTION D.2: Material Costs & Screw Packaging */}
-            <MaterialCostSettings userId={profile.id} />
+            <CollapsibleSection
+              isOpen={activeSection === "materials"}
+              onToggle={toggleSection("materials")}
+              icon={Package}
+              title="Material Costs"
+              description="Your wholesale costs for profit calculations"
+              badge="Pro"
+            >
+              <MaterialCostSettings userId={profile.id} embedded />
+            </CollapsibleSection>
 
             {/* SECTION D.5: Custom Deposit */}
             <CollapsibleSection
@@ -1687,7 +1707,15 @@ function ProfilePageInner() {
             </div>
 
             {/* SECTION E: Discount Codes */}
-            <DiscountCodesCard userId={profile.id} />
+            <CollapsibleSection
+              isOpen={activeSection === "discounts"}
+              onToggle={toggleSection("discounts")}
+              icon={Tag}
+              title="Discount Codes"
+              description="Custom promo codes for your customers"
+            >
+              <DiscountCodesCard userId={profile.id} embedded />
+            </CollapsibleSection>
           </>
         )}
 

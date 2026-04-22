@@ -37,6 +37,7 @@ import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 
 interface PricingSettingsProps {
   userId: string;
+  embedded?: boolean;
 }
 
 type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
@@ -368,7 +369,7 @@ const EMPTY_DEFAULTS = {
   },
 };
 
-export default function PricingSettings({ userId }: PricingSettingsProps) {
+export default function PricingSettings({ userId, embedded }: PricingSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -584,7 +585,11 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
   }
 
   if (loading) {
-    return (
+    return embedded ? (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
+      </div>
+    ) : (
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
@@ -647,18 +652,8 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
     },
   ];
 
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <DollarSign className="h-4 w-4 text-yellow-400" />
-        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-          Custom Pricing
-        </h2>
-        <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
-          Pro
-        </span>
-      </div>
-
+  const body = (
+    <>
       {/* Info Banner */}
       <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
@@ -1138,6 +1133,23 @@ export default function PricingSettings({ userId }: PricingSettingsProps) {
           </button>
         )}
       </div>
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <DollarSign className="h-4 w-4 text-yellow-400" />
+        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+          Custom Pricing
+        </h2>
+        <span className="ml-auto rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+          Pro
+        </span>
+      </div>
+      {body}
     </section>
   );
 }
