@@ -1449,6 +1449,21 @@ export default function JoinPage() {
         </div>
       </section>
 
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-800 bg-slate-950 px-4 py-8">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <p className="text-xs text-stone-700">
+            &copy; {new Date().getFullYear()} Storage-Network.app
+          </p>
+          <a
+            href="/login"
+            className="text-[11px] text-stone-600 transition-colors hover:text-yellow-400"
+          >
+            Partner Login
+          </a>
+        </div>
+      </footer>
+
       {/* AI Sales Chatbot */}
       <InstallerChatWidget />
     </div>

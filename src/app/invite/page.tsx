@@ -824,6 +824,12 @@ function InvitePageContent() {
             >
               Terms
             </a>
+            <a
+              href="/login"
+              className="text-[11px] text-stone-600 hover:text-yellow-400"
+            >
+              Partner Login
+            </a>
           </div>
         </div>
       </footer>

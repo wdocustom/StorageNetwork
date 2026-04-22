@@ -155,16 +155,10 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="/demo"
+              href="/invite"
               className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
             >
-              Book a Demo
-            </a>
-            <a
-              href="/login"
-              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
-            >
-              Partner Login
+              Become a Builder
             </a>
           </div>
         </div>
