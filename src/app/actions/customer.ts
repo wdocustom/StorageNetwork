@@ -21,6 +21,7 @@ export interface AvailabilityResult {
   installer_working_days: string[];
   installer_scheduling_enabled: boolean;
   installer_is_pro: boolean;
+  installer_completed_jobs: number;
   installer_logo_url: string | null;
   installer_pricing: InstallerPricing | null;
   installer_services_config: ServiceOffering[] | null;
@@ -58,6 +59,7 @@ function toResult(
       installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       installer_scheduling_enabled: true,
       installer_is_pro: false,
+      installer_completed_jobs: 0,
       installer_logo_url: null,
       installer_pricing: null,
       installer_services_config: null,
@@ -79,6 +81,7 @@ function toResult(
       (data.working_days as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri"],
     installer_scheduling_enabled: (data.scheduling_enabled as boolean) ?? true,
     installer_is_pro: !!(data.is_pro),
+    installer_completed_jobs: (data.completed_jobs as number) ?? 0,
     installer_logo_url: (data.logo_url as string) ?? null,
     installer_pricing: (data.pricing_config as InstallerPricing) ?? null,
     installer_services_config: (data.services_config as ServiceOffering[]) ?? null,

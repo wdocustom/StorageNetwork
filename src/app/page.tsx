@@ -4,6 +4,7 @@ import {
   Shield, Flag, Weight, Truck, Star,
 } from "lucide-react";
 import InlineConfigurator from "@/components/landing/InlineConfigurator";
+import { AnimatedBadge } from "@/components/landing/AnimatedTrustBadges";
 
 export const metadata: Metadata = {
   title: "Storage Network | Professional Tote Storage Systems — Design, Build & Install",
@@ -88,8 +89,8 @@ export default function LandingPage() {
               </h1>
 
               <p className="mx-auto mb-8 max-w-lg text-base font-medium text-stone-400 sm:text-lg">
-                Heavy-duty tote shelving designed, built &amp; installed by
-                certified local pros.
+                Custom tote storage — designed in 3D, built &amp; installed
+                by your local pro.
               </p>
 
               {/* ── ZIP Entry → Installer → 3D Configurator ──────── */}
@@ -104,36 +105,49 @@ export default function LandingPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <section className="border-t border-stone-800 bg-gray-950 px-4 py-20">
         <div className="mx-auto max-w-4xl">
+          <p className="mb-2 text-center text-sm font-semibold text-yellow-400">
+            2,400+ systems designed and counting
+          </p>
           <p className="mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
             Why Homeowners Trust Us
           </p>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            <TrustBadge
-              icon={<Shield className="h-7 w-7" />}
-              title="Lifetime Warranty"
-              desc="Built to last. Every shelf system is backed by our lifetime structural warranty."
-            />
-            <TrustBadge
-              icon={<Flag className="h-7 w-7" />}
-              title="Made in USA"
-              desc="Designed and assembled in America using domestically sourced lumber."
-            />
-            <TrustBadge
-              icon={<Weight className="h-7 w-7" />}
-              title="2,000 lb Capacity"
-              desc="Heavy-duty construction rated for up to 2,000 lbs per unit."
-            />
-            <TrustBadge
-              icon={<Truck className="h-7 w-7" />}
-              title="Pro Installation"
-              desc="Certified local installers handle everything. You don't lift a finger."
-            />
-            <TrustBadge
-              icon={<Star className="h-7 w-7" />}
-              title="Verified Reviews"
-              desc="Real reviews from real customers, verified by the platform. Read before you book."
-            />
+            <AnimatedBadge index={0}>
+              <TrustBadge
+                icon={<Shield className="h-7 w-7" />}
+                title="Lifetime Warranty"
+                desc="Built to last. Every shelf system is backed by our lifetime structural warranty."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={1}>
+              <TrustBadge
+                icon={<Flag className="h-7 w-7" />}
+                title="Made in USA"
+                desc="Designed and assembled in America using domestically sourced lumber."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={2}>
+              <TrustBadge
+                icon={<Weight className="h-7 w-7" />}
+                title="2,000 lb Capacity"
+                desc="Heavy-duty construction rated for up to 2,000 lbs per unit."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={3}>
+              <TrustBadge
+                icon={<Truck className="h-7 w-7" />}
+                title="Pro Installation"
+                desc="Certified local installers handle everything. You don't lift a finger."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={4}>
+              <TrustBadge
+                icon={<Star className="h-7 w-7" />}
+                title="Verified Reviews"
+                desc="Real reviews from real customers, verified by the platform. Read before you book."
+              />
+            </AnimatedBadge>
           </div>
         </div>
       </section>

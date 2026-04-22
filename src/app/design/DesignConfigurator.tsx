@@ -270,6 +270,7 @@ export default function DesignConfigurator({
         installer_working_days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
         installer_scheduling_enabled: true,
         installer_is_pro: false,
+        installer_completed_jobs: 0,
         installer_logo_url: null,
         installer_pricing: null,
         installer_services_config: null,
