@@ -54,7 +54,7 @@ export default function LandingPage() {
         {/* Hero rack image — positioned left on desktop, centered behind on mobile */}
         <div className="pointer-events-none absolute inset-0">
           <Image
-            src="/images/hero-rack.png"
+            src="/hero-rack.png"
             alt=""
             fill
             priority
