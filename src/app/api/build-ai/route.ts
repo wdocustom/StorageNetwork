@@ -104,7 +104,8 @@ OVERHEAD CEILING STORAGE (use overheadGridPresetId with cols:0, rows:0):
 - toteColor applies (black or clear)
 
 RAISED BED PLANTERS (use raisedBedConfig with cols:0, rows:0):
-- Set cols:0, rows:0 and include a raisedBedConfig object. Do NOT use customPrice for raised beds — pricing is calculated server-side.
+- Set cols:0, rows:0 and include a raisedBedConfig object. Do NOT use customPrice for standard raised beds — pricing is calculated server-side.
+- IMPORTANT: If the dimensions don't match ANY sizeId listed below, OR if the installer specifies a custom price (e.g. "$395 each"), create a CUSTOM PRODUCT instead (cols:0, rows:0, raisedBedConfig:null, customPrice set). Include "Raised Planter" in the description.
 - Available sizeId values (WITH LEGS): "legs_18x18x16" (18"×18"), "legs_12x48x16" (12"×48"), "legs_24x48x16" (24"×48"), "legs_24x48x30" (24"×48" tall/30"), "legs_24x72x16" (24"×72"), "legs_24x24x16_post" (24"×24" + built-in 7' string light post — BESTSELLER)
 - Available sizeId values (GROUND LEVEL / WITHOUT LEGS): "ground_18x72x22" (18"×72"×22.5" — BESTSELLER), "ground_24x72x11" (24"×72"×11.5"), "ground_24x72x22" (24"×72"×22.5" — BESTSELLER), "ground_36x72x22" (36"×72"×22.5"), "ground_48x48x22" (48"×48"×22.5")
 - finish: "natural" (default), "stain" (cedar stain), "painted_white"
@@ -126,6 +127,9 @@ CUSTOM PRODUCTS (use cols:0, rows:0 with customPrice and description):
 - Workbenches, tool stations, pegboard installations
 - Any other custom service or product the installer describes
 - Benches, tables, or other woodworking items
+- Raised bed planters that DON'T match a standard sizeId above (e.g. "18x42", non-standard dimensions)
+- Raised bed planters where the installer specifies a custom price (e.g. "$395 each") — use customPrice, NOT raisedBedConfig
+- When an installer provides a per-unit price and quantity, set customPrice to (per-unit price × quantity) and note the breakdown in the description
 
 RULES:
 - "4x4" = cols:4, rows:4
@@ -237,6 +241,7 @@ export async function POST(req: NextRequest) {
       if (unit.raisedBedConfig?.sizeId) {
         const validSizeIds = new Set(RAISED_BED_SIZES.map((s) => s.id));
         if (validSizeIds.has(unit.raisedBedConfig.sizeId)) {
+          const qty = Math.max(1, unit.raisedBedConfig.quantity || 1);
           resolvedUnits.push({
             ...unit,
             cols: 0,
@@ -255,11 +260,26 @@ export async function POST(req: NextRequest) {
               postHeight: unit.raisedBedConfig.postHeight ?? null,
               hasHook: unit.raisedBedConfig.hasHook === true,
               highWindWeighted: unit.raisedBedConfig.highWindWeighted === true,
-              quantity: Math.max(1, unit.raisedBedConfig.quantity || 1),
+              quantity: qty,
             },
           });
           continue;
         }
+        // Invalid sizeId — convert to custom line item so it still shows "Add to Quote"
+        const qty = Math.max(1, unit.raisedBedConfig.quantity || 1);
+        const perUnit = unit.customPrice ? Math.round(unit.customPrice / (unit.customPrice > 1000 ? qty : 1)) : null;
+        resolvedUnits.push({
+          ...unit,
+          cols: 0,
+          rows: 0,
+          toteColor,
+          presetId: undefined,
+          overheadGridPresetId: undefined,
+          raisedBedConfig: null,
+          customPrice: perUnit ? perUnit * qty : unit.customPrice,
+          description: unit.description || `Custom Raised Planter${qty > 1 ? ` × ${qty}` : ""}`,
+        });
+        continue;
       }
 
       // Resolve wall dimensions via real calculator

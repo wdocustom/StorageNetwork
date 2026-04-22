@@ -211,13 +211,25 @@ export default function BuildConfiguratorPage() {
         };
         const result = await calculateRaisedBedPriceServer({ ...rbConfig, installerPricing });
         const qty = unit.raisedBedConfig.quantity || 1;
+        const calculatedPrice = result.total * qty;
+        // If server returns $0 (invalid config), fall back to customPrice
+        if (calculatedPrice === 0 && hasCustomPrice) {
+          setUnits((prev) => [...prev, {
+            id: `ai-custom-${Date.now()}-${Math.random()}`,
+            cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
+            hasTotes: false, hasWheels: false, hasTop: false,
+            price: unit.customPrice!, totalW: 0, totalH: 0, depth: 0,
+            desc: unit.description,
+          }]);
+          continue;
+        }
         const desc = getRaisedBedDescription(rbConfig);
         const bed = RAISED_BED_SIZES.find((s) => s.id === rbConfig.sizeId);
         setUnits((prev) => [...prev, {
           id: `ai-rb-${Date.now()}-${Math.random()}`,
           cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
           hasTotes: false, hasWheels: false, hasTop: false,
-          price: result.total * qty,
+          price: calculatedPrice,
           totalW: bed?.widthIn ?? 0, totalH: bed?.heightIn ?? 0, depth: bed?.lengthIn ?? 0,
           desc: qty > 1 ? `${desc} (×${qty})` : desc,
           raisedBedConfig: rbConfig,
