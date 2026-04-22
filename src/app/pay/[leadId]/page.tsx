@@ -221,7 +221,7 @@ export default function ResumePaymentPage() {
       setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: effectiveState });
       return;
     }
-    getSalesTax(taxableAmount, effectiveState).then(setTaxInfo);
+    getSalesTax(taxableAmount, effectiveState, lead?.installer_id || undefined).then(setTaxInfo);
   }, [lead, taxableAmount, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.

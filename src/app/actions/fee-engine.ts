@@ -54,6 +54,17 @@ export interface DepositConfig {
   value: number; // percentage (e.g. 25 = 25%) or flat dollar amount
 }
 
+// ── Sales Tax Toggle ─────────────────────────────────────────────────────
+
+async function isInstallerTaxEnabled(installerId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("sales_tax_enabled")
+    .eq("id", installerId)
+    .single();
+  return data?.sales_tax_enabled !== false;
+}
+
 // ── Shared Types (safe to export — these are just shapes, no values) ────
 
 export interface SalesTaxResult {
@@ -177,12 +188,23 @@ export async function getDepositLabel(installerId?: string): Promise<string> {
 /**
  * Calculate sales tax for a given subtotal and state.
  * All 50 state tax rates stay server-side.
+ * If installerId is provided, returns zero tax when the installer has
+ * disabled sales tax in their profile settings.
  */
 export async function getSalesTax(
   subtotal: number,
-  stateCode: string
+  stateCode: string,
+  installerId?: string
 ): Promise<SalesTaxResult> {
   const state = stateCode.toUpperCase().trim();
+
+  if (installerId) {
+    const enabled = await isInstallerTaxEnabled(installerId);
+    if (!enabled) {
+      return { taxRate: 0, taxAmount: 0, subtotal, total: subtotal, stateName: state };
+    }
+  }
+
   const taxRate = STATE_TAX_RATES[state] ?? 0;
   const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
   const total = Math.round((subtotal + taxAmount) * 100) / 100;
@@ -203,10 +225,12 @@ export async function getStateFromZip(zip: string): Promise<string | null> {
  * Estimate sales tax at quote-creation time, deriving the state from a ZIP.
  * Returns the same shape as getSalesTax, plus the resolved stateCode (or null
  * when the ZIP can't be mapped to a state).
+ * If installerId is provided, respects the installer's sales_tax_enabled flag.
  */
 export async function getEstimatedSalesTax(
   taxableAmount: number,
-  zip: string
+  zip: string,
+  installerId?: string
 ): Promise<SalesTaxResult & { stateCode: string | null }> {
   const stateCode = await getStateFromZip(zip);
   if (!stateCode) {
@@ -219,7 +243,7 @@ export async function getEstimatedSalesTax(
       stateCode: null,
     };
   }
-  const result = await getSalesTax(taxableAmount, stateCode);
+  const result = await getSalesTax(taxableAmount, stateCode, installerId);
   return { ...result, stateCode };
 }
 

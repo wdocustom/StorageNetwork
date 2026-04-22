@@ -420,7 +420,7 @@ export async function createQuote(
           .reduce((sum, u) => sum + (u.price || 0), 0)
       : finalTotal;
 
-    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip);
+    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip, installer_id);
 
     const balanceDue = Math.round((finalTotal - depositAmount - discountAmount + taxQuote.taxAmount) * 100) / 100;
 

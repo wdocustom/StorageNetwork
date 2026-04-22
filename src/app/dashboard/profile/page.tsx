@@ -105,6 +105,7 @@ interface Profile {
   delivery_fee_config: DeliveryFeeConfig | null;
   indoor_delivery_fee_config: { enabled: boolean; fee: number } | null;
   deposit_config: DepositConfig | null;
+  sales_tax_enabled: boolean;
   bio: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
@@ -159,6 +160,11 @@ function ProfilePageInner() {
   const [depositValue, setDepositValue] = useState<number>(15);
   const [depositSaving, setDepositSaving] = useState(false);
   const [depositMessage, setDepositMessage] = useState("");
+
+  // Sales tax toggle state
+  const [salesTaxEnabled, setSalesTaxEnabled] = useState(true);
+  const [salesTaxSaving, setSalesTaxSaving] = useState(false);
+  const [salesTaxMessage, setSalesTaxMessage] = useState("");
 
   // Service radius state
   const [serviceRadius, setServiceRadius] = useState(25);
@@ -219,6 +225,8 @@ function ProfilePageInner() {
       setDepositType(p.deposit_config.type);
       setDepositValue(p.deposit_config.value);
     }
+    // Sales tax toggle
+    setSalesTaxEnabled(p.sales_tax_enabled !== false);
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -232,7 +240,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, sales_tax_enabled, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
       .eq("id", user.id)
       .single();
 
@@ -243,7 +251,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, sales_tax_enabled, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -545,6 +553,27 @@ function ProfilePageInner() {
       setTimeout(() => setDepositMessage(""), 3000);
     }
     setDepositSaving(false);
+  }
+
+  async function handleToggleSalesTax() {
+    if (!profile) return;
+    setSalesTaxSaving(true);
+    setSalesTaxMessage("");
+    const newValue = !salesTaxEnabled;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ sales_tax_enabled: newValue })
+      .eq("id", profile.id);
+
+    if (error) {
+      setSalesTaxMessage("Failed to update sales tax setting.");
+    } else {
+      setSalesTaxEnabled(newValue);
+      setSalesTaxMessage(newValue ? "Sales tax enabled." : "Sales tax disabled.");
+      setTimeout(() => setSalesTaxMessage(""), 3000);
+    }
+    setSalesTaxSaving(false);
   }
 
   function addDeliveryTier() {
@@ -1613,6 +1642,49 @@ function ProfilePageInner() {
                 </p>
               )}
             </CollapsibleSection>
+
+            {/* SECTION D.6: Sales Tax Toggle */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800">
+                    <Percent className="h-4 w-4 text-stone-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Sales Tax</p>
+                    <p className="text-[11px] text-stone-500">
+                      {salesTaxEnabled
+                        ? "Estimated tax shown to customers based on their state"
+                        : "No sales tax added to customer quotes"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleSalesTax}
+                  disabled={salesTaxSaving}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                    salesTaxEnabled ? "bg-yellow-400" : "bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                      salesTaxEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {salesTaxMessage && (
+                <p
+                  className={`mt-2 text-center text-xs font-medium ${
+                    salesTaxMessage.includes("enabled") || salesTaxMessage.includes("disabled")
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {salesTaxMessage}
+                </p>
+              )}
+            </div>
 
             {/* SECTION E: Discount Codes */}
             <DiscountCodesCard userId={profile.id} />

@@ -173,9 +173,9 @@ export default function JobTicket({
   const [computedTax, setComputedTax] = useState<number>(0);
   useEffect(() => {
     if (salesTaxAmount == null && addressState && totalPrice > 0) {
-      getSalesTax(totalPrice, addressState).then((r) => setComputedTax(r.taxAmount));
+      getSalesTax(totalPrice, addressState, installerId || undefined).then((r) => setComputedTax(r.taxAmount));
     }
-  }, [salesTaxAmount, addressState, totalPrice]);
+  }, [salesTaxAmount, addressState, totalPrice, installerId]);
 
   // ── Cut List Checkbox State (persisted to localStorage) ────────────────
   const storageKey = `cutlist-${leadId}`;

@@ -822,7 +822,7 @@ export default function BuildConfiguratorPage() {
     const taxable = units.reduce((sum, u) => sum + (u.price || 0), 0);
 
     let cancelled = false;
-    getEstimatedSalesTax(taxable, zip).then((result) => {
+    getEstimatedSalesTax(taxable, zip, userId || undefined).then((result) => {
       if (cancelled) return;
       if (!result.stateCode || result.taxAmount <= 0) {
         setEstimatedTax(null);
