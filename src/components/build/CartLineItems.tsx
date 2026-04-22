@@ -149,13 +149,24 @@ export default function CartLineItems({
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-yellow-400">
-                $
-                {(
-                  (unit.price || 0) +
-                  (unit.indoorDelivery && unit.indoorDeliveryFee
-                    ? unit.indoorDeliveryFee
-                    : 0)
-                ).toLocaleString()}
+                {unit.quantity && unit.quantity > 1 && unit.raisedBedConfig ? (
+                  <>
+                    <span className="text-[10px] font-normal text-stone-400">
+                      ${Math.round((unit.price || 0) / unit.quantity).toLocaleString()} × {unit.quantity} ={" "}
+                    </span>
+                    ${(unit.price || 0).toLocaleString()}
+                  </>
+                ) : (
+                  <>
+                    $
+                    {(
+                      (unit.price || 0) +
+                      (unit.indoorDelivery && unit.indoorDeliveryFee
+                        ? unit.indoorDeliveryFee
+                        : 0)
+                    ).toLocaleString()}
+                  </>
+                )}
               </span>
               <button
                 onClick={() => onRemoveUnit(unit.id)}

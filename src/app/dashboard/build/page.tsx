@@ -217,7 +217,7 @@ export default function BuildConfiguratorPage() {
           id: `ai-rb-${Date.now()}-${Math.random()}`,
           cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
           hasTotes: false, hasWheels: false, hasTop: false,
-          price: hasCustomPrice ? unit.customPrice! : result.total * qty,
+          price: result.total * qty,
           totalW: bed?.widthIn ?? 0, totalH: bed?.heightIn ?? 0, depth: bed?.lengthIn ?? 0,
           desc: qty > 1 ? `${desc} (×${qty})` : desc,
           raisedBedConfig: rbConfig,

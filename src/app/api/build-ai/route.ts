@@ -244,6 +244,7 @@ export async function POST(req: NextRequest) {
             toteColor,
             presetId: undefined,
             overheadGridPresetId: undefined,
+            customPrice: null,
             raisedBedConfig: {
               sizeId: unit.raisedBedConfig.sizeId,
               finish: unit.raisedBedConfig.finish || "natural",
