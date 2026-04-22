@@ -155,13 +155,13 @@ export default function InstallerChatWidget() {
     <>
       {/* Floating Chat Button + Teaser */}
       {!isOpen && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-end gap-3">
+        <div className="fixed bottom-5 left-5 z-50 flex items-end gap-3">
           {/* Teaser bubble */}
           {showTeaser && !teaserDismissed && (
             <div className="animate-fadeInUp mb-1 max-w-[220px]">
               <button
                 onClick={() => setIsOpen(true)}
-                className="relative rounded-2xl rounded-br-md bg-slate-800 border border-slate-700 px-4 py-3 text-left shadow-xl shadow-black/30 transition-all hover:border-yellow-400/50 group"
+                className="relative rounded-2xl rounded-bl-md bg-slate-800 border border-slate-700 px-4 py-3 text-left shadow-xl shadow-black/30 transition-all hover:border-yellow-400/50 group"
               >
                 <p className="text-[11px] font-bold text-yellow-400 mb-0.5 flex items-center gap-1">
                   <Sparkles className="h-3 w-3" /> Ask me anything
@@ -171,7 +171,7 @@ export default function InstallerChatWidget() {
                 </p>
                 <button
                   onClick={(e) => { e.stopPropagation(); setTeaserDismissed(true); }}
-                  className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-stone-500 text-[10px] hover:bg-slate-600 hover:text-white transition-colors"
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-stone-500 text-[10px] hover:bg-slate-600 hover:text-white transition-colors"
                 >
                   &times;
                 </button>
@@ -195,7 +195,7 @@ export default function InstallerChatWidget() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 z-50 flex flex-col sm:bottom-5 sm:right-5 sm:rounded-2xl w-full sm:w-[380px] h-[85vh] sm:h-[480px] bg-slate-900 border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="fixed bottom-0 left-0 z-50 flex flex-col sm:bottom-5 sm:left-5 sm:rounded-2xl w-full sm:w-[380px] h-[85vh] sm:h-[480px] bg-slate-900 border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
             <div className="flex items-center gap-2">
