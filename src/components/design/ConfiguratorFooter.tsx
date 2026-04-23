@@ -45,10 +45,10 @@ export default function ConfiguratorFooter({
       <div className="mb-3 flex items-end justify-between">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            {hasQuoteItems ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : props.raisedBedPreviewPrice != null ? "Raised Bed" : props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
+            {hasQuoteItems ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : activeStep === 1 && props.raisedBedPreviewPrice != null ? "Raised Bed" : activeStep === 1 && props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
           </div>
           <div className="text-3xl font-black text-white">
-            <RollingPrice value={hasQuoteItems ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
+            <RollingPrice value={hasQuoteItems ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : activeStep === 1 && props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : activeStep === 1 && props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
           </div>
           {/* Deposit anchoring — show prominent deposit below total */}
           {props.stripeAccountId && hasQuoteItems && (
