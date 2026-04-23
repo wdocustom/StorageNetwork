@@ -29,7 +29,6 @@ const WHEEL_PRICE = { standard: 65, mini: 40 };
 const TOP_PRICE = 95;
 const PRESET_PRICES: Record<string, number> = {
   "indiana-joe": 950,
-  "cornhusker": 660,
   "long-ranger": 715,
   "gas-station": 840,
   "track-norris": 530,
@@ -67,7 +66,6 @@ function describeConfig(config: QuoteConfig): string {
   if (config.preset) {
     const names: Record<string, string> = {
       "indiana-joe": "Indiana Joe (2×4 + 2×2 + 2×4)",
-      "cornhusker": "Cornhusker (4×4 on wheels)",
       "long-ranger": "The Long Ranger (2×4 + 4×2)",
       "gas-station": "The Gas Station (1×4 + 4×2 + 1×4)",
       "track-norris": "Track Norris (4×2 with drawer slides)",

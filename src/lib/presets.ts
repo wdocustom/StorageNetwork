@@ -57,19 +57,6 @@ export const BESTSELLER_PRESETS: BestsellerPreset[] = [
     ],
   },
   {
-    id: "cornhusker",
-    name: "Cornhusker",
-    label: "Bestseller",
-    toteModel: "HDX",
-    toteColor: "black",
-    unitType: "standard",
-    orientation: "standard",
-    dynamicTotePricing: true,
-    units: [
-      { cols: 4, rows: 4, hasTop: true, hasWheels: true },
-    ],
-  },
-  {
     id: "long-ranger",
     name: "The Long Ranger",
     label: "Bestseller",

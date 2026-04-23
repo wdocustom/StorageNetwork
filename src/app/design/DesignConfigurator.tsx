@@ -2060,7 +2060,6 @@ export default function DesignConfigurator({
           raisedBedEnabled: data?.pricing?.raised_bed_enabled === true,
           disabledPresets: [
             data?.pricing?.bestseller_indiana_joe_disabled ? "indiana-joe" : "",
-            data?.pricing?.bestseller_cornhusker_disabled ? "cornhusker" : "",
             data?.pricing?.bestseller_long_ranger_disabled ? "long-ranger" : "",
             data?.pricing?.bestseller_gas_station_disabled ? "gas-station" : "",
             data?.pricing?.bestseller_track_norris_disabled ? "track-norris" : "",

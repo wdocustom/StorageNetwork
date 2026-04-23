@@ -40,7 +40,7 @@ interface PricingSettingsProps {
   embedded?: boolean;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -439,7 +439,6 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       setRaisedBedEnabled(result.pricing.raised_bed_enabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
-        cornhusker: result.pricing.bestseller_cornhusker_disabled !== true,
         long_ranger: result.pricing.bestseller_long_ranger_disabled !== true,
         gas_station: result.pricing.bestseller_gas_station_disabled !== true,
       });
@@ -506,7 +505,6 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
     if (raisedBedEnabled) pricing.raised_bed_enabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
-    if (presetToggles.cornhusker === false) pricing.bestseller_cornhusker_disabled = true;
     if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
     if (presetToggles.gas_station === false) pricing.bestseller_gas_station_disabled = true;
 

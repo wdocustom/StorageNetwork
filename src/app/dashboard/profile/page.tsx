@@ -1322,7 +1322,6 @@ function ProfilePageInner() {
           icon={DollarSign}
           title="Custom Pricing"
           description="Override platform default prices for your customers"
-          badge="Pro"
         >
           <PricingSettings userId={profile.id} embedded />
         </CollapsibleSection>
@@ -1334,7 +1333,6 @@ function ProfilePageInner() {
           icon={Package}
           title="Material Costs"
           description="Your wholesale costs for profit calculations"
-          badge="Pro"
         >
           <MaterialCostSettings userId={profile.id} embedded />
         </CollapsibleSection>

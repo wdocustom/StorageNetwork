@@ -47,7 +47,6 @@ const PRESET_ALIASES: Record<string, string> = {
   "indiana-joe": "indiana-joe",
   "indianajoe": "indiana-joe",
   "indiana joe": "indiana-joe",
-  "cornhusker": "cornhusker",
   "long-ranger": "long-ranger",
   "longranger": "long-ranger",
   "long ranger": "long-ranger",
@@ -71,7 +70,7 @@ const PRESET_ALIASES: Record<string, string> = {
 
 // All valid preset IDs (for passthrough when AI returns canonical ID)
 const VALID_PRESET_IDS = new Set([
-  "indiana-joe", "cornhusker", "long-ranger", "gas-station",
+  "indiana-joe", "long-ranger", "gas-station",
   "track-norris", "rack-city-roller", "mayor-of-rack-city",
 ]);
 
@@ -86,7 +85,6 @@ const SYSTEM_PROMPT = `You are a build configuration parser for Storage Network.
 
 KNOWN PRESETS (use presetId when referenced by name):
 - "indiana-joe": Three units — 2×4 + 2×2 + 2×4. 20 slots.
-- "cornhusker": Single 4×4 on wheels with a top. 16 slots.
 - "long-ranger": Two units — 2×4 + 4×2. 16 slots.
 - "gas-station" (also "gass station"): Three units — 1×4 + 4×2 + 1×4. 16 slots.
 - "track-norris": Single 4×2 with drawer slides. 8 slots. Totes mandatory.

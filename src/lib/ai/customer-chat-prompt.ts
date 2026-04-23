@@ -73,7 +73,6 @@ export function buildCustomerChatPrompt(ctx?: InstallerChatContext, currentDate?
   // Build bestseller section — only include presets not disabled by the installer
   const disabled = new Set(c.disabledPresets || []);
   const allPresets = [
-    { id: "cornhusker", name: "Cornhusker", desc: "Single 4-column, 4-row rack with wheels and top. 16 tote slots. Our most popular single unit.", width: "~92 inches", height: "~75 inches" },
     { id: "indiana-joe", name: "Indiana Joe", desc: "Three units side-by-side: 2x4 + 2x2 + 2x4. Total 20 tote slots. Great for filling a full wall.", width: "~141 inches", height: "~70 inches" },
     { id: "long-ranger", name: "The Long Ranger", desc: "Two units: 2x4 tall + 4x2 short. 16 tote slots. Fits smaller walls with mixed heights.", width: "~141 inches", height: "~70 inches" },
     { id: "gas-station", name: "The Gass Station", desc: "Three units: 1x4 + 4x2 + 1x4. Tall towers flanking a short center. 16 tote slots.", width: "~141 inches", height: "~70 inches" },

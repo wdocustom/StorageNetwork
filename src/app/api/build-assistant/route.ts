@@ -50,7 +50,7 @@ const ActionSchema = z.object({
       orientation: z.enum(["standard", "sideways"]).optional().describe("Orientation (default: standard)"),
       toteModel: z.enum(["HDX", "GM"]).optional().describe("Tote model (default: HDX)"),
       presetId: z
-        .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station", "track-norris", "rack-city-roller", "mayor-of-rack-city"])
+        .enum(["indiana-joe", "long-ranger", "gas-station", "track-norris", "rack-city-roller", "mayor-of-rack-city"])
         .optional()
         .describe("Preset ID (for preset type)"),
       jobPrice: z.number().optional().describe("Job price (for profit)"),
@@ -467,7 +467,7 @@ Available calculation types:
   - Manual: provide cols + rows directly
 - "manifest": Get detailed 2x4 board counts, screw counts, plywood sheets, shopping list. USE THIS for any question about lumber, boards, 2x4s, screws, or hardware. Also supports wallWidth/wallHeight for wall-fit.
 - "materials": Get itemized material COSTS (dollar amounts). Also supports wallWidth/wallHeight.
-- "preset": Calculate a bestseller preset (indiana-joe, cornhusker, long-ranger, gas-station)
+- "preset": Calculate a bestseller preset (indiana-joe, long-ranger, gas-station, track-norris)
 - "profit": Calculate installer profit (needs jobPrice and materialsCost)
 - "list_presets": List available presets
 - "custom_item": For custom products like planter boxes, cleanouts, workbenches, raised beds with custom pricing, etc. Set customDescription and customPrice. Use this when the user asks about non-standard products or specifies a custom price. When the user says "2 items at $X each", create ONE action with customPrice set to the PER-UNIT price and include the quantity in the description (e.g. "(2) 18x42 Raised Planters at $395 each").
