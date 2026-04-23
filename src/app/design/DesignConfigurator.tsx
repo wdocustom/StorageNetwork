@@ -1622,6 +1622,16 @@ export default function DesignConfigurator({
           <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
             <User className="h-3.5 w-3.5" />
             Designing with {data.branding.title}
+            {data.socialProof && data.socialProof.totalReviews > 0 && (
+              <span className="ml-1 opacity-90">
+                · {data.socialProof.averageRating.toFixed(1)}★ ({data.socialProof.totalReviews} review{data.socialProof.totalReviews !== 1 ? "s" : ""})
+              </span>
+            )}
+            {data.socialProof && data.socialProof.completedJobs > 0 && (
+              <span className="ml-1 opacity-90">
+                · {data.socialProof.completedJobs} builds completed
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -1868,7 +1878,7 @@ export default function DesignConfigurator({
         />
 
         {/* ── 3D VISUALIZER (mobile: sticky top 45vh, desktop: right 60%) ── */}
-        <main className="order-1 sticky top-0 z-10 flex h-[45vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
+        <main className="order-1 sticky top-0 z-10 flex h-[35vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
           <div className="relative min-h-0 flex-1 overflow-hidden lg:min-h-[300px]">
             <RackVisualizer
               cols={activePresetObj && compoundBuild ? compoundBuild.subUnits[0].cols : (build.cols || numCols || 1)}

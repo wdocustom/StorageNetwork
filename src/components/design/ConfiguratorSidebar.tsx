@@ -147,6 +147,7 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
         props={props}
         activeStep={activeStep}
         detailsFilled={detailsFilled}
+        setActiveStep={setActiveStep}
       />
     </aside>
   );

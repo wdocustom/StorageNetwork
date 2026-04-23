@@ -231,6 +231,13 @@ export interface DesignPageViewModel {
     fee: number;
   };
 
+  /** Social proof data for trust signals on the design page */
+  socialProof?: {
+    completedJobs: number;
+    averageRating: number;
+    totalReviews: number;
+  };
+
   /** Availability metadata */
   available: boolean;
   message: string;
