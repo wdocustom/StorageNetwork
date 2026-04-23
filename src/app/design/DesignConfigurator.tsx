@@ -1856,6 +1856,7 @@ export default function DesignConfigurator({
           addons={addons}
           onAddonsChange={setAddons}
           addonPricing={data?.pricing?.addon_pricing}
+          addonDefaults={data?.addonDefaults}
 
           // Paint options
           paintFrameColor={paintFrameColor}

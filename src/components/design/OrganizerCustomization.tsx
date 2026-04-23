@@ -112,6 +112,7 @@ export function OrganizerCustomization({
   }
 
   if (cols < 1 || rows < 1) return null;
+  if (!showDoor && !showSidePanel && !showSlotGrid && !showPaint) return null;
 
   return (
     <div className="space-y-2">

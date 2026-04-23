@@ -66,6 +66,7 @@ export default function StepSummary({
                 pricing={props.pricing}
                 platformDefaults={props.platformDefaults}
                 addonPricing={props.addonPricing}
+                addonDefaults={props.addonDefaults}
               />
             ))}
           </AnimatePresence>

@@ -261,6 +261,7 @@ export interface ConfiguratorSidebarProps {
   addons: SectionAddon[];
   onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
+  addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
 
   // Paint options
   paintFrameColor: PaintColorId | null;

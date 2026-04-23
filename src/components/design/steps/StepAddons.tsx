@@ -145,6 +145,7 @@ export default function StepAddons({
           addons={props.addons}
           onAddonsChange={props.onAddonsChange}
           addonPricing={props.addonPricing}
+          addonDefaults={props.addonDefaults}
           paintFrameColor={props.paintFrameColor}
           paintDoorColor={props.paintDoorColor}
           paintSidePanelColor={props.paintSidePanelColor}
