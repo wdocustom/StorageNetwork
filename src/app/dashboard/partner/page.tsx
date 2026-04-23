@@ -610,6 +610,11 @@ export default function PartnerDashboardPage() {
                                   LOCKED
                                 </span>
                               )}
+                              {u.trial_expired && (
+                                <span className="flex-shrink-0 rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+                                  TRIAL EXPIRED
+                                </span>
+                              )}
                               <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
                                 u.stripe_connected
                                   ? "bg-emerald-400/10 text-emerald-400"
@@ -731,6 +736,19 @@ export default function PartnerDashboardPage() {
                                 </a>
                               </div>
                             </div>
+
+                            {/* Trial-expired soft lock banner */}
+                            {u.trial_expired && (
+                              <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                                <p className="text-xs font-semibold text-amber-300">
+                                  Pro trial expired — no active subscription
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-stone-400">
+                                  Their booking link falls back to generic platform branding (no logo, no custom pricing).
+                                  They need to subscribe or have their trial extended to re-enable their branded page.
+                                </p>
+                              </div>
+                            )}
 
                             {/* Account Lock Toggle */}
                             <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
