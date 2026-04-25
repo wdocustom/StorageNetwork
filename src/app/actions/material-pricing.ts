@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Material Pricing — Server actions for installer material cost configuration
@@ -94,7 +95,7 @@ export async function saveMaterialPricing(
         if (isNaN(num) || num < 0) {
           return { success: false, error: `Invalid value for ${key}.` };
         }
-        validated[key] = Math.round(num * 100) / 100;
+        validated[key] = roundMoney(num);
       }
     }
 
@@ -112,7 +113,7 @@ export async function saveMaterialPricing(
         }
         validated[key] = {
           count: Math.round(count),
-          price: Math.round(price * 100) / 100,
+          price: roundMoney(price),
           label: pkg.label?.trim() || undefined,
         };
       }

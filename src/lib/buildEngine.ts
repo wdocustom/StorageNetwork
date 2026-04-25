@@ -41,6 +41,7 @@ import type {
   BuildManifest,
 } from "@/lib/buildEngine.types";
 
+import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getShelvingConfig } from "@/lib/shelving";
 import {
   OVERHEAD_GRID_PRESETS,
@@ -833,8 +834,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
 
   // ── Financials ────────────────────────────────────────────────────────
   const effectiveRate = customDepositRate ?? DEPOSIT_RATE;
-  const depositAmount = Math.round(gRetail * effectiveRate * 100) / 100;
-  const balanceDue = Math.round((gRetail - depositAmount) * 100) / 100;
+  const depositAmount = roundMoney(gRetail * effectiveRate);
+  const balanceDue = calculateBalanceDue(gRetail, depositAmount);
 
   return {
     shopping_list,

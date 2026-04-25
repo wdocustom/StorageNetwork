@@ -26,6 +26,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
+import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { recordPayLinkView, recordPayLinkStep } from "@/app/actions/pay-link-tracking";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
@@ -260,8 +261,7 @@ export default function ResumePaymentPage() {
     }
     // Validate email if the lead doesn't already have one
     if (!lead?.customer_email && customerEmailInput.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(customerEmailInput.trim())) {
+      if (!EMAIL_VALIDATION_REGEX.test(customerEmailInput.trim())) {
         setError("Please enter a valid email address.");
         return;
       }

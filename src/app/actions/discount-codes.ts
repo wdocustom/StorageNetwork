@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Discount Code Validation — Server Action
@@ -97,7 +98,7 @@ export async function validateDiscountCode(
   // Calculate discount amount
   let discountAmount: number;
   if (data.discount_type === "percentage" || data.discount_type === "percent") {
-    discountAmount = Math.round(orderTotal * (Number(data.discount_value) / 100) * 100) / 100;
+    discountAmount = roundMoney(orderTotal * (Number(data.discount_value) / 100));
     // Apply cap if set
     if (data.max_discount && discountAmount > Number(data.max_discount)) {
       discountAmount = Number(data.max_discount);
@@ -110,7 +111,7 @@ export async function validateDiscountCode(
   // For unpaid quotes (no deposit), allow discount on full amount
   const maxDiscountable = options?.noDepositCap
     ? orderTotal
-    : Math.round(orderTotal * 0.85 * 100) / 100;
+    : roundMoney(orderTotal * 0.85);
   discountAmount = Math.min(discountAmount, maxDiscountable);
 
   return {

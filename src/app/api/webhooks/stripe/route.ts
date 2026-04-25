@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/pro-subscription";
 import { getServiceClient } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -413,7 +414,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       const estimatedPrice = leadForBalance?.estimated_price ?? 0;
       const discountAmt = leadForBalance?.discount_amount ?? 0;
-      const balanceDue = Math.round((estimatedPrice - amountPaid - discountAmt) * 100) / 100;
+      const balanceDue = roundMoney(estimatedPrice - amountPaid - discountAmt);
 
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
@@ -826,7 +827,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
           const estimatedPricePI = leadForBalancePI?.estimated_price ?? 0;
           const discountAmtPI = leadForBalancePI?.discount_amount ?? 0;
-          const balanceDuePI = Math.round((estimatedPricePI - amountPaidPI - discountAmtPI) * 100) / 100;
+          const balanceDuePI = roundMoney(estimatedPricePI - amountPaidPI - discountAmtPI);
 
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,

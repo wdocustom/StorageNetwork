@@ -18,6 +18,8 @@
 
 // ── Tote & Slot Dimensions (shared with wall-unit system) ────────────────
 
+import { roundMoney } from "@/utils/mathHelpers";
+
 export type OverheadToteType = "HDX" | "GM";
 
 /** Full tote width including lip/rim */
@@ -181,8 +183,8 @@ export function calculateOverheadStorage(
     toteCount,
     toteType,
     hasTotes: config.hasTotes,
-    systemWidthIn: Math.round(systemWidthIn * 100) / 100,
-    systemDepthIn: Math.round(systemDepthIn * 100) / 100,
+    systemWidthIn: roundMoney(systemWidthIn),
+    systemDepthIn: roundMoney(systemDepthIn),
     price,
     totePrice,
     materials,

@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { roundMoney } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
 
@@ -223,7 +224,7 @@ export async function activateDemandSignals(
         const hasSavedBuild = quoteItems.length > 0;
         const totalPrice = quoteItems.reduce((sum: number, u: Record<string, unknown>) =>
           sum + (typeof u.price === "number" ? u.price : 0), 0);
-        const depositAmount = Math.round(totalPrice * 0.15 * 100) / 100;
+        const depositAmount = roundMoney(totalPrice * 0.15);
         const firstName = (signal.customer_name || "").split(" ")[0] || "there";
 
         const buildSummaryHtml = hasSavedBuild

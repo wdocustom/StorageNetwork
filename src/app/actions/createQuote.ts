@@ -15,6 +15,7 @@ import { recordWaitlistDemand } from "@/app/actions/demand-signals";
 import { getDepositAmount, getEstimatedSalesTax } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
@@ -422,7 +423,7 @@ export async function createQuote(
 
     const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip, installer_id);
 
-    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount + taxQuote.taxAmount) * 100) / 100;
+    const balanceDue = roundMoney(finalTotal - depositAmount - discountAmount + taxQuote.taxAmount);
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
@@ -550,7 +551,7 @@ export async function createQuote(
 
           if (referrer?.email) {
             const estimatedBounty = Math.max(
-              Math.round(depositAmount * 0.30 * 100) / 100,
+              roundMoney(depositAmount * 0.30),
               15
             );
 

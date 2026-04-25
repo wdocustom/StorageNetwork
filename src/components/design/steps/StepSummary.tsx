@@ -20,6 +20,8 @@ import {
 import NativeScheduler from "@/components/booking/NativeScheduler";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
 import OrderItemCard from "../OrderItemCard";
+import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
+import { formatCurrency } from "@/utils/paymentHelpers";
 
 function fieldBorder(value: string, validate?: (v: string) => boolean): string {
   if (!value.trim()) return "border-zinc-700";
@@ -27,7 +29,7 @@ function fieldBorder(value: string, validate?: (v: string) => boolean): string {
   return "border-emerald-500/30";
 }
 
-const isValidEmail = (v: string) => v.includes("@") && v.includes(".");
+const isValidEmail = (v: string) => EMAIL_VALIDATION_REGEX.test(v);
 const isValidPhone = (v: string) => v.replace(/\D/g, "").length >= 10;
 
 export default function StepSummary({
@@ -425,7 +427,7 @@ export default function StepSummary({
                   : props.submitting
                   ? "Submitting..."
                   : props.stripeAccountId
-                  ? `Reserve with $${props.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Deposit`
+                  ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
                   : "Submit My Design"}
               </motion.button>
             )}

@@ -42,6 +42,7 @@ import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/Modul
 import { createRacksForJob, getRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
+import { roundMoney } from "@/utils/mathHelpers";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -251,8 +252,8 @@ export default function JobTicket({
   // Use computedTax for unpaid quotes where salesTaxAmount wasn't stored
   const tax = salesTaxAmount ?? computedTax;
   const collectFromCustomer = depositPaid
-    ? Math.round((profit.customerBalance + tax - appliedDiscount) * 100) / 100
-    : Math.round((totalPrice + tax - appliedDiscount) * 100) / 100;
+    ? roundMoney(profit.customerBalance + tax - appliedDiscount)
+    : roundMoney(totalPrice + tax - appliedDiscount);
 
   const isPaid = status === "paid";
   // Show GET PAID panel if status is payment_pending OR if proof photo exists (fallback)

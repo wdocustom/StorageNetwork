@@ -6,6 +6,7 @@ import { getAppUrl } from "@/lib/url-helper";
 import { sendWaitlistedLeadsUnlocked, sendWaitlistedLeadPaymentReady } from "@/lib/email";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import Stripe from "stripe";
+import { roundMoney } from "@/utils/mathHelpers";
 
 const db = getServiceClient;
 
@@ -459,13 +460,13 @@ export async function getPendingBountySummary(
   // Estimate bounty: 30% of deposit, min $15 per lead
   const estimatedValue = pendingLeads.reduce((sum: number, lead: { deposit_amount: number | null; estimated_price: number | null }) => {
     const deposit = lead.deposit_amount ?? (lead.estimated_price ? lead.estimated_price * 0.15 : 0);
-    const bounty = Math.max(Math.round(deposit * 0.30 * 100) / 100, 15);
+    const bounty = Math.max(roundMoney(deposit * 0.30), 15);
     return sum + bounty;
   }, 0);
 
   return {
     count: pendingLeads.length,
-    estimatedValue: Math.round(estimatedValue * 100) / 100,
+    estimatedValue: roundMoney(estimatedValue),
   };
 }
 

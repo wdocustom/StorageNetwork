@@ -3,6 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { verifyLeadOwnership } from "@/lib/auth";
+import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
 
@@ -61,7 +62,7 @@ export async function processCheckout(
 
   // Use installer's custom deposit config (min 15% enforced by fee engine)
   const depositAmount = await getDepositAmount(grand_total, installer_id || undefined);
-  const balanceDue = Math.round((grand_total - depositAmount) * 100) / 100;
+  const balanceDue = calculateBalanceDue(grand_total, depositAmount);
 
   let stripeAccountId: string | null = null;
   let payoutTo: "platform" | "installer" | "split" = "platform";
@@ -91,13 +92,13 @@ export async function processCheckout(
       if (rawRate !== overrideRate) {
         console.warn(`[Checkout] Fee override out of bounds: ${rawRate} → clamped to ${overrideRate}`);
       }
-      platformAmount = Math.round(grand_total * overrideRate * 100) / 100;
+      platformAmount = roundMoney(grand_total * overrideRate);
       installerAmount = depositAmount - platformAmount;
       payoutTo = "split";
     } else if (isPro && stripeAccountId) {
       // Pro installer with Stripe connected: split deposit
-      platformAmount = Math.round(grand_total * PRO_PLATFORM_RATE * 100) / 100;
-      installerAmount = Math.round(grand_total * PRO_INSTALLER_RATE * 100) / 100;
+      platformAmount = roundMoney(grand_total * PRO_PLATFORM_RATE);
+      installerAmount = roundMoney(grand_total * PRO_INSTALLER_RATE);
       payoutTo = "split";
     } else {
       // No Stripe connected: platform keeps 100%

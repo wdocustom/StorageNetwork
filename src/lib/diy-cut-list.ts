@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { toFraction } from "@/lib/utils";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ── Dimension constants (match Rack3D.tsx / generate-plan.ts) ───────────
 
@@ -233,7 +234,7 @@ export function generateCutList(config: CutListConfig): CutListResult {
     boardIndex: i + 1,
     stockLength: STOCK_LENGTH,
     cuts: bin.cuts,
-    remainder: Math.round(bin.remaining * 100) / 100,
+    remainder: roundMoney(bin.remaining),
   }));
 
   // ── Plywood notes ───────────────────────────────────────────────────

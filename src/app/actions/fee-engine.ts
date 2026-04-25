@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
+import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -130,17 +131,17 @@ async function getInstallerDepositConfig(installerId: string): Promise<DepositCo
  * the platform's network lead fee.
  */
 function computeDeposit(grandTotal: number, config: DepositConfig | null): number {
-  const minimumDeposit = Math.round(grandTotal * DEPOSIT_RATE * 100) / 100;
+  const minimumDeposit = roundMoney(grandTotal * DEPOSIT_RATE);
 
   if (!config) return minimumDeposit;
 
   let customDeposit: number;
   if (config.type === "flat") {
-    customDeposit = Math.round(config.value * 100) / 100;
+    customDeposit = roundMoney(config.value);
   } else {
     // percentage — stored as whole number (e.g. 25 = 25%)
     const rate = config.value / 100;
-    customDeposit = Math.round(grandTotal * rate * 100) / 100;
+    customDeposit = roundMoney(grandTotal * rate);
   }
 
   // Floor: deposit must cover the platform's 15% network fee
@@ -167,7 +168,7 @@ function depositLabel(config: DepositConfig | null): string {
  */
 export async function getDepositAmount(grandTotal: number, installerId?: string): Promise<number> {
   if (!installerId) {
-    return Math.round(grandTotal * DEPOSIT_RATE * 100) / 100;
+    return roundMoney(grandTotal * DEPOSIT_RATE);
   }
 
   const config = await getInstallerDepositConfig(installerId);
@@ -206,8 +207,8 @@ export async function getSalesTax(
   }
 
   const taxRate = STATE_TAX_RATES[state] ?? 0;
-  const taxAmount = Math.round(subtotal * taxRate * 100) / 100;
-  const total = Math.round((subtotal + taxAmount) * 100) / 100;
+  const taxAmount = roundMoney(subtotal * taxRate);
+  const total = roundMoney(subtotal + taxAmount);
   return { taxRate, taxAmount, subtotal, total, stateName: state };
 }
 
@@ -274,7 +275,7 @@ export async function getNetProfit(input: {
     feeLabel = "Maintenance Fee (3%)";
   }
 
-  const feeAmount = Math.round(totalPrice * feeRate * 100) / 100;
+  const feeAmount = roundMoney(totalPrice * feeRate);
 
   // Use actual deposit if provided, otherwise compute from installer's config
   let depositAmount: number;
@@ -285,9 +286,9 @@ export async function getNetProfit(input: {
     depositAmount = computeDeposit(totalPrice, config);
   }
 
-  const customerBalance = Math.round((totalPrice - depositAmount) * 100) / 100;
-  const installerTakeHome = Math.round((totalPrice - feeAmount) * 100) / 100;
-  const netProfit = Math.max(0, Math.round((installerTakeHome - materialCost) * 100) / 100);
+  const customerBalance = calculateBalanceDue(totalPrice, depositAmount);
+  const installerTakeHome = roundMoney(totalPrice - feeAmount);
+  const netProfit = Math.max(0, roundMoney(installerTakeHome - materialCost));
 
   return {
     totalPrice,
@@ -313,8 +314,8 @@ export async function getBuildFeeBreakdown(
   materialsCost: number,
   installerId?: string
 ): Promise<BuildFeeBreakdown> {
-  const networkFee = Math.round(jobPrice * NETWORK_FEE_RATE * 100) / 100;
-  const directFee = Math.round(jobPrice * MAINTENANCE_FEE_RATE * 100) / 100;
+  const networkFee = roundMoney(jobPrice * NETWORK_FEE_RATE);
+  const directFee = roundMoney(jobPrice * MAINTENANCE_FEE_RATE);
 
   // Use installer's custom deposit config
   const config = installerId ? await getInstallerDepositConfig(installerId) : null;

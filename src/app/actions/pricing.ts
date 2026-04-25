@@ -3,6 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import type { InstallerPricing } from "@/types/viewModels";
 import { invalidateInstallerCacheForUser } from "@/lib/cache";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing — Server actions for installer custom pricing
@@ -93,7 +94,7 @@ export async function updateInstallerPricing(
           return { success: false, error: `Invalid value for ${field}. Must be a positive number.` };
         }
         // Round to 2 decimal places
-        (validated as Record<string, number>)[field] = Math.round(num * 100) / 100;
+        (validated as Record<string, number>)[field] = roundMoney(num);
       }
       // undefined/null fields are omitted — they'll use platform defaults
     }
@@ -137,7 +138,7 @@ export async function updateInstallerPricing(
           if (isNaN(num) || num < 0) {
             return { success: false, error: `Invalid addon pricing value for ${field}. Must be a non-negative number.` };
           }
-          validatedAddon[field] = Math.round(num * 100) / 100;
+          validatedAddon[field] = roundMoney(num);
         }
       }
 

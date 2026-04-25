@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { MaterialConfig, MaterialPrices } from "@/utils/calculateMaterials";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
+import { roundMoney } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
 
@@ -151,7 +152,7 @@ export async function getSalesInsights(
     // Calculate platform fee based on lead source
     const isNetworkLead = lead.source === "network" || lead.source === "referral";
     const feeRate = isNetworkLead ? NETWORK_FEE_RATE : MAINTENANCE_FEE_RATE;
-    const feeAmount = Math.round(totalPrice * feeRate * 100) / 100;
+    const feeAmount = roundMoney(totalPrice * feeRate);
 
     totalSales += totalPrice;
     totalCOGS += materialCost;

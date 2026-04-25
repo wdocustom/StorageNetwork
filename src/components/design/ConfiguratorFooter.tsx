@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
+import { formatCurrency } from "@/utils/paymentHelpers";
 
 export default function ConfiguratorFooter({
   props,
@@ -54,7 +55,7 @@ export default function ConfiguratorFooter({
           {props.stripeAccountId && hasQuoteItems && (
             <div className="mt-0.5">
               <span className="text-sm font-bold text-yellow-400">
-                Book today for ${props.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} deposit
+                Book today for {formatCurrency(props.depositAmount)} deposit
               </span>
               <div className="text-[10px] text-zinc-500">
                 Remaining balance paid after installation
@@ -113,7 +114,7 @@ export default function ConfiguratorFooter({
             : props.submitting
             ? "Submitting..."
             : props.stripeAccountId
-            ? `Reserve with $${props.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Deposit`
+            ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
             : "Submit My Design"}
         </motion.button>
       )}
