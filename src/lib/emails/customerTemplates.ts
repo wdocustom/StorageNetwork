@@ -314,25 +314,16 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
   const sigName = installerFirstName || businessName;
   const phoneLine = installerPhone ? `<br/>${installerPhone}` : "";
 
-  const snapshotHtml = buildSnapshotUrl
-    ? `
-    <div style="margin-bottom:24px;text-align:center;">
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:4px;display:inline-block;">
-        <img src="${buildSnapshotUrl}" alt="Your Custom Build" style="max-width:100%;border-radius:10px;display:block;" />
-      </div>
-      <p style="margin:8px 0 0;color:#64748b;font-size:11px;font-style:italic;">Your custom 3D design</p>
-    </div>
-    `
-    : "";
+  const imageUrl = buildSnapshotUrl || "https://placehold.co/600x350/1a1a1a/facc15?text=2D+Blueprint+Render+Goes+Here";
 
   const itemsHtml = quoteItems
     .map(
       (item, i) => `
       <tr>
-        <td style="padding:14px 16px;border-bottom:1px solid #1e293b;color:#e2e8f0;font-size:14px;">
+        <td style="padding:12px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;font-weight:500;">
           <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${item.description}
         </td>
-        <td style="padding:14px 16px;border-bottom:1px solid #1e293b;text-align:right;font-weight:700;color:#e2e8f0;font-size:14px;white-space:nowrap;">$${item.price.toFixed(2)}</td>
+        <td style="padding:12px 0;border-bottom:1px solid #222;text-align:right;font-weight:700;color:#ffffff;font-size:14px;white-space:nowrap;">$${item.price.toFixed(2)}</td>
       </tr>`
     )
     .join("");
@@ -343,65 +334,63 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     <p style="margin:0 0 8px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
     <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">Here&rsquo;s the custom quote for your storage system. Everything below is built to your exact wall dimensions.</p>
 
-    ${snapshotHtml}
+    <!-- Blueprint Image — always visible -->
+    <img src="${imageUrl}" alt="Custom Build Blueprint" style="width:100%;border-radius:8px;border:1px solid #333;margin-bottom:28px;display:block;" />
 
     <!-- Itemized Build -->
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:20px;">
-      <div style="padding:14px 16px;border-bottom:1px solid #334155;">
-        <p style="margin:0;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Build</p>
-      </div>
+    <div style="border-top:1px solid #333;padding-top:16px;margin-bottom:24px;">
+      <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
       <table style="width:100%;border-collapse:collapse;">
         ${itemsHtml}
       </table>
     </div>
 
     <!-- Pricing Breakdown -->
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:20px;">
+    <div style="border-top:1px solid #333;padding-top:16px;margin-bottom:8px;">
       <table style="width:100%;">
         <tr>
           <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Subtotal</td>
-          <td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;padding:6px 0;">$${totalPrice.toFixed(2)}</td>
+          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${totalPrice.toFixed(2)}</td>
         </tr>
         ${deliveryAmount > 0 ? `<tr>
           <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Delivery Fee</td>
-          <td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;padding:6px 0;">$${deliveryAmount.toFixed(2)}</td>
+          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${deliveryAmount.toFixed(2)}</td>
         </tr>` : ""}
         ${taxAmount > 0 ? `<tr>
           <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Est. Sales Tax (${estimatedTax!.stateCode}, ${(estimatedTax!.rate * 100).toFixed(2)}%)</td>
-          <td style="text-align:right;color:#e2e8f0;font-size:14px;font-weight:600;padding:6px 0;">$${taxAmount.toFixed(2)}</td>
+          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${taxAmount.toFixed(2)}</td>
         </tr>` : ""}
+      </table>
+    </div>
+
+    <!-- Total Estimate -->
+    <div style="border-top:1px solid #333;padding:20px 0;margin-bottom:4px;">
+      <table style="width:100%;">
         <tr>
-          <td colspan="2" style="padding:12px 0 0;">
-            <div style="border-top:1px dashed #475569;"></div>
-          </td>
-        </tr>
-        <tr>
-          <td style="color:#94a3b8;font-size:14px;padding:12px 0 4px;font-weight:600;">Total Estimate</td>
-          <td style="text-align:right;color:#facc15;font-size:28px;font-weight:900;padding:12px 0 4px;">$${grandTotalWithTax.toFixed(2)}</td>
+          <td style="color:#94a3b8;font-size:14px;font-weight:600;vertical-align:bottom;">Total Estimate</td>
+          <td style="text-align:right;color:#facc15;font-size:32px;font-weight:900;line-height:1;">$${grandTotalWithTax.toFixed(2)}</td>
         </tr>
       </table>
-      ${taxAmount > 0 ? `<p style="margin:8px 0 0;color:#64748b;font-size:11px;font-style:italic;">Final tax confirmed at checkout based on your billing address.</p>` : ""}
+      ${taxAmount > 0 ? `<p style="margin:8px 0 0;color:#555;font-size:11px;font-style:italic;">Final tax confirmed at checkout based on your billing address.</p>` : ""}
     </div>
 
-    <!-- Deposit Callout -->
-    <div style="background:linear-gradient(135deg,#422006,#451a03);border:2px solid #f59e0b;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 4px;color:#fbbf24;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Deposit to Reserve</p>
-      <p style="margin:0 0 4px;color:#ffffff;font-size:32px;font-weight:900;">$${depositAmount.toFixed(2)}</p>
-      <p style="margin:0;color:#fbbf24;font-size:13px;">Remaining <strong>$${balanceDue.toFixed(2)}</strong> paid after installation</p>
+    <!-- Deposit -->
+    <div style="border-top:1px solid #333;padding:20px 0 24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 4px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Deposit to Reserve</p>
+      <p style="margin:0 0 4px;color:#ffffff;font-size:36px;font-weight:900;">$${depositAmount.toFixed(2)}</p>
+      <p style="margin:0;color:#777;font-size:13px;">Remaining <strong style="color:#94a3b8;">$${balanceDue.toFixed(2)}</strong> paid after installation</p>
     </div>
-
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">To officially get your project on my schedule, please click the secure link below to review your order details and place the initial deposit. Once that is locked in, I will reserve your spot on the calendar, prep your materials, and we will be ready for installation day!</p>
 
     <!-- CTA -->
-    <div style="text-align:center;margin-bottom:16px;">
-      <a href="${checkoutUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(250,204,21,0.25);">
+    <div style="text-align:center;margin-bottom:12px;">
+      <a href="${checkoutUrl}" style="display:inline-block;width:100%;max-width:480px;background-color:#facc15;color:#0a0a0a;padding:20px 32px;border-radius:8px;text-decoration:none;font-weight:900;font-size:17px;text-transform:uppercase;letter-spacing:1px;text-align:center;">
         Review Quote &amp; Secure Installation
       </a>
     </div>
 
     <!-- Trust Signals -->
     <div style="margin-bottom:28px;">
-      <table style="width:100%;font-size:11px;color:#64748b;">
+      <table style="width:100%;font-size:11px;color:#555;">
         <tr>
           <td style="text-align:center;padding:4px;">&#128274; Secure Checkout</td>
           <td style="text-align:center;padding:4px;">&#128176; Deposit Only</td>
@@ -410,46 +399,48 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
       </table>
     </div>
 
+    <p style="margin:0 0 28px;color:#777;font-size:14px;line-height:1.7;">To officially get your project on my schedule, click the button above to review your order and place the initial deposit. Once locked in, I&rsquo;ll reserve your spot, prep materials, and we&rsquo;ll be ready for installation day.</p>
+
     ${cleanoutServices && cleanoutServices.length > 0 ? `
-    <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #22c55e40;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 4px;color:#22c55e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">&#10024; Add-On Service</p>
-      <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;font-weight:700;">Want us to clean out your space first?</p>
-      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">Get the most out of your new storage &mdash; we&rsquo;ll sort, organize, and haul away the clutter before your installation. Available as an add-on at checkout.</p>
+    <div style="border-top:1px solid #333;padding-top:20px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;color:#22c55e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#10024; Add-On Service</p>
+      <p style="margin:0 0 12px;color:#ffffff;font-size:16px;font-weight:700;">Want us to clean out your space first?</p>
+      <p style="margin:0 0 16px;color:#777;font-size:13px;">Get the most out of your new storage &mdash; we&rsquo;ll sort, organize, and haul away the clutter before installation.</p>
       ${cleanoutServices.map((svc) => `
-      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;margin-bottom:8px;">
+      <div style="border-bottom:1px solid #222;padding:12px 0;">
         <table style="width:100%;"><tr>
           <td style="vertical-align:top;">
-            <p style="margin:0 0 2px;color:#e2e8f0;font-size:14px;font-weight:600;">${svc.name}</p>
-            <p style="margin:0;color:#94a3b8;font-size:12px;">${svc.description}</p>
+            <p style="margin:0 0 2px;color:#ffffff;font-size:14px;font-weight:600;">${svc.name}</p>
+            <p style="margin:0;color:#777;font-size:12px;">${svc.description}</p>
           </td>
           <td style="text-align:right;vertical-align:middle;white-space:nowrap;padding-left:16px;">
             <span style="color:#facc15;font-size:16px;font-weight:700;">$${svc.price}</span>
           </td>
         </tr></table>
       </div>`).join("")}
-      <p style="margin:12px 0 0;color:#64748b;font-size:11px;text-align:center;">You can add cleanout service during checkout. 50% deposit, remainder at service.</p>
+      <p style="margin:12px 0 0;color:#555;font-size:11px;text-align:center;">Add cleanout service during checkout. 50% deposit, remainder at service.</p>
     </div>
     ` : ""}
 
     <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">Looking forward to getting your space organized!</p>
-    <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">
+    <p style="margin:0 0 28px;color:#e2e8f0;font-size:15px;">
       Best,<br/>${sigName}<br/>${businessName}${phoneLine}
     </p>
 
-    <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+    <div style="border-top:1px solid #333;padding-top:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 8px;color:#facc15;font-size:13px;font-weight:700;">Have Questions?</p>
-      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">Reach out directly &mdash; we&rsquo;re happy to help.</p>
+      <p style="margin:0 0 16px;color:#777;font-size:13px;">Reach out directly &mdash; we&rsquo;re happy to help.</p>
       <div style="display:inline-block;">
-        <a href="mailto:?subject=Re:%20My%20Storage%20Quote%20from%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#1e293b;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #475569;margin:0 4px;">
+        <a href="mailto:?subject=Re:%20My%20Storage%20Quote%20from%20${encodeURIComponent(businessName)}" style="display:inline-block;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
           &#9993; Reply to This Email
         </a>
-        ${installerPhone ? `<a href="tel:${installerPhone}" style="display:inline-block;background-color:#1e293b;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #475569;margin:0 4px;">
+        ${installerPhone ? `<a href="tel:${installerPhone}" style="display:inline-block;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
           &#9742; Call ${installerPhone}
         </a>` : ""}
       </div>
     </div>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;font-style:italic;">
       ${taxAmount > 0
         ? "*Sales tax shown is an estimate based on your delivery ZIP. The final amount is confirmed at checkout from your billing address and collected by your installer at installation."
         : "*Sales tax (if applicable) will be collected by your installer at the time of installation."}
