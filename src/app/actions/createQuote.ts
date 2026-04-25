@@ -80,6 +80,7 @@ export interface CreateQuoteInput {
   discount_code?: string;
   delivery_address?: DeliveryAddress;
   delivery_fee?: number;          // Distance-based delivery fee (already included in grand_total)
+  build_snapshot_url?: string;    // 3D canvas capture URL for email blueprint image
 }
 
 export type ReferralStatus =
@@ -179,6 +180,7 @@ export async function createQuote(
     discount_code,
     delivery_address,
     delivery_fee,
+    build_snapshot_url,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -518,6 +520,7 @@ export async function createQuote(
           ? { amount: taxQuote.taxAmount, rate: taxQuote.taxRate, stateCode: taxQuote.stateCode }
           : null,
         deliveryFee: delivery_fee || 0,
+        buildSnapshotUrl: build_snapshot_url || undefined,
       });
 
       const bizName = effectiveBusinessName || "Your Installer";

@@ -1,4 +1,5 @@
 import { sendTransactionalEmail, emailShell, type SendEmailResult } from "./core";
+import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
 export interface BookingConfirmationData {
@@ -313,9 +314,10 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
   const firstName = customerName.split(" ")[0] || customerName;
   const sigName = installerFirstName || businessName;
   const phoneLine = installerPhone ? `<br/>${installerPhone}` : "";
-  const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
 
-  const imageUrl = buildSnapshotUrl || "https://placehold.co/600x350/111111/facc15?text=2D+Blueprint+Render";
+  const blueprintHtml = buildSnapshotUrl
+    ? `<img src="${buildSnapshotUrl}" alt="Your Custom Build" style="width:100%;border-radius:6px;border:1px solid #222;margin-bottom:28px;display:block;" />`
+    : "";
 
   const itemsHtml = quoteItems
     .map(
@@ -329,30 +331,15 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     )
     .join("");
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Quote from ${businessName}</title>
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#000000;line-height:1.6;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px;background-color:#000000;">
-
-    <!-- Header -->
-    <div style="text-align:center;padding:0 0 32px;">
-      <img src="${logoUrl}" alt="Storage Network" style="max-width:100px;max-height:100px;width:auto;height:auto;margin-bottom:16px;" />
-      <h1 style="margin:0;color:#facc15;font-size:22px;font-weight:800;letter-spacing:-0.3px;">Your Quote from ${businessName}</h1>
-      <div style="margin:12px auto 0;width:40px;height:2px;background:#facc15;border-radius:1px;"></div>
-    </div>
-
+  return masterEmailLayout(
+    `Your Quote from ${businessName}`,
+    `
     <!-- Greeting -->
     <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
     <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">Here&rsquo;s the custom quote for your storage system. Everything below is built to your exact wall dimensions.</p>
 
-    <!-- Blueprint Image -->
-    <img src="${imageUrl}" alt="Custom Build Blueprint" style="width:100%;border-radius:8px;border:1px solid #333;margin-top:4px;margin-bottom:28px;display:block;" />
+    <!-- Blueprint Image (dynamic — only rendered when URL is provided) -->
+    ${blueprintHtml}
 
     <!-- Itemized Build -->
     <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
@@ -463,17 +450,8 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
         ? "*Sales tax shown is an estimate based on your delivery ZIP. The final amount is confirmed at checkout from your billing address and collected by your installer at installation."
         : "*Sales tax (if applicable) will be collected by your installer at the time of installation."}
     </p>
-
-    <!-- Footer -->
-    <div style="border-top:1px solid #222;padding:20px 0 0;text-align:center;">
-      <p style="margin:0;color:#333;font-size:11px;">
-        Sent by <a href="${getAppUrl()}" style="color:#555;text-decoration:none;font-weight:600;">Storage Network</a> &bull; storage-network.app
-      </p>
-    </div>
-
-  </div>
-</body>
-</html>`.trim();
+    `
+  );
 }
 
 export async function sendAbandonedCartEmail(
