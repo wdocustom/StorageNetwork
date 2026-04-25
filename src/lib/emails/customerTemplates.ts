@@ -313,61 +313,74 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
   const firstName = customerName.split(" ")[0] || customerName;
   const sigName = installerFirstName || businessName;
   const phoneLine = installerPhone ? `<br/>${installerPhone}` : "";
+  const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
 
-  const imageUrl = buildSnapshotUrl || "https://placehold.co/600x350/1a1a1a/facc15?text=2D+Blueprint+Render+Goes+Here";
+  const imageUrl = buildSnapshotUrl || "https://placehold.co/600x350/111111/facc15?text=2D+Blueprint+Render";
 
   const itemsHtml = quoteItems
     .map(
       (item, i) => `
       <tr>
-        <td style="padding:12px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;font-weight:500;">
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;font-weight:500;">
           <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${item.description}
         </td>
-        <td style="padding:12px 0;border-bottom:1px solid #222;text-align:right;font-weight:700;color:#ffffff;font-size:14px;white-space:nowrap;">$${item.price.toFixed(2)}</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;font-weight:700;color:#ffffff;font-size:14px;white-space:nowrap;">$${item.price.toFixed(2)}</td>
       </tr>`
     )
     .join("");
 
-  return emailShell(
-    `Your Quote from ${businessName}`,
-    `
-    <p style="margin:0 0 8px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">Here&rsquo;s the custom quote for your storage system. Everything below is built to your exact wall dimensions.</p>
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Quote from ${businessName}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#000000;line-height:1.6;">
+  <div style="max-width:600px;margin:0 auto;padding:40px 20px;background-color:#000000;">
 
-    <!-- Blueprint Image — always visible -->
-    <img src="${imageUrl}" alt="Custom Build Blueprint" style="width:100%;border-radius:8px;border:1px solid #333;margin-bottom:28px;display:block;" />
+    <!-- Header -->
+    <div style="text-align:center;padding:0 0 32px;">
+      <img src="${logoUrl}" alt="Storage Network" style="max-width:100px;max-height:100px;width:auto;height:auto;margin-bottom:16px;" />
+      <h1 style="margin:0;color:#facc15;font-size:22px;font-weight:800;letter-spacing:-0.3px;">Your Quote from ${businessName}</h1>
+      <div style="margin:12px auto 0;width:40px;height:2px;background:#facc15;border-radius:1px;"></div>
+    </div>
+
+    <!-- Greeting -->
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">Here&rsquo;s the custom quote for your storage system. Everything below is built to your exact wall dimensions.</p>
+
+    <!-- Blueprint Image -->
+    <img src="${imageUrl}" alt="Custom Build Blueprint" style="width:100%;border-radius:8px;border:1px solid #333;margin-top:4px;margin-bottom:28px;display:block;" />
 
     <!-- Itemized Build -->
-    <div style="border-top:1px solid #333;padding-top:16px;margin-bottom:24px;">
-      <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
-      <table style="width:100%;border-collapse:collapse;">
-        ${itemsHtml}
-      </table>
-    </div>
+    <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+      ${itemsHtml}
+    </table>
 
     <!-- Pricing Breakdown -->
-    <div style="border-top:1px solid #333;padding-top:16px;margin-bottom:8px;">
-      <table style="width:100%;">
-        <tr>
-          <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Subtotal</td>
-          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${totalPrice.toFixed(2)}</td>
-        </tr>
-        ${deliveryAmount > 0 ? `<tr>
-          <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Delivery Fee</td>
-          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${deliveryAmount.toFixed(2)}</td>
-        </tr>` : ""}
-        ${taxAmount > 0 ? `<tr>
-          <td style="color:#94a3b8;font-size:14px;padding:6px 0;">Est. Sales Tax (${estimatedTax!.stateCode}, ${(estimatedTax!.rate * 100).toFixed(2)}%)</td>
-          <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${taxAmount.toFixed(2)}</td>
-        </tr>` : ""}
-      </table>
-    </div>
+    <table style="width:100%;margin-bottom:8px;">
+      <tr>
+        <td style="color:#a3a3a3;font-size:14px;padding:6px 0;">Subtotal</td>
+        <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${totalPrice.toFixed(2)}</td>
+      </tr>
+      ${deliveryAmount > 0 ? `<tr>
+        <td style="color:#a3a3a3;font-size:14px;padding:6px 0;">Delivery Fee</td>
+        <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${deliveryAmount.toFixed(2)}</td>
+      </tr>` : ""}
+      ${taxAmount > 0 ? `<tr>
+        <td style="color:#a3a3a3;font-size:14px;padding:6px 0;">Est. Sales Tax (${estimatedTax!.stateCode}, ${(estimatedTax!.rate * 100).toFixed(2)}%)</td>
+        <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${taxAmount.toFixed(2)}</td>
+      </tr>` : ""}
+    </table>
 
     <!-- Total Estimate -->
-    <div style="border-top:1px solid #333;padding:20px 0;margin-bottom:4px;">
+    <div style="border-top:1px solid #222;padding:20px 0 4px;">
       <table style="width:100%;">
         <tr>
-          <td style="color:#94a3b8;font-size:14px;font-weight:600;vertical-align:bottom;">Total Estimate</td>
+          <td style="color:#a3a3a3;font-size:14px;font-weight:600;vertical-align:bottom;">Total Estimate</td>
           <td style="text-align:right;color:#facc15;font-size:32px;font-weight:900;line-height:1;">$${grandTotalWithTax.toFixed(2)}</td>
         </tr>
       </table>
@@ -375,43 +388,45 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     </div>
 
     <!-- Deposit -->
-    <div style="border-top:1px solid #333;padding:20px 0 24px;margin-bottom:24px;text-align:center;">
+    <div style="border-top:1px solid #222;padding:20px 0 24px;text-align:center;">
       <p style="margin:0 0 4px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Deposit to Reserve</p>
       <p style="margin:0 0 4px;color:#ffffff;font-size:36px;font-weight:900;">$${depositAmount.toFixed(2)}</p>
-      <p style="margin:0;color:#777;font-size:13px;">Remaining <strong style="color:#94a3b8;">$${balanceDue.toFixed(2)}</strong> paid after installation</p>
+      <p style="margin:0;color:#a3a3a3;font-size:13px;">Remaining <strong style="color:#ffffff;">$${balanceDue.toFixed(2)}</strong> paid after installation</p>
     </div>
 
-    <!-- CTA -->
-    <div style="text-align:center;margin-bottom:12px;">
-      <a href="${checkoutUrl}" style="display:inline-block;width:100%;max-width:480px;background-color:#facc15;color:#0a0a0a;padding:20px 32px;border-radius:8px;text-decoration:none;font-weight:900;font-size:17px;text-transform:uppercase;letter-spacing:1px;text-align:center;">
+    <!-- Checkout Box — the only card -->
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin-top:40px;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:18px;font-weight:800;">Ready to Order?</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;">Lock in your custom build and reserve your installation spot.</p>
+      <a href="${checkoutUrl}" style="display:inline-block;background-color:#facc15;color:#000000;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:16px;">
         Review Quote &amp; Secure Installation
       </a>
+      <div style="margin-top:20px;">
+        <table style="width:100%;font-size:11px;color:#555;">
+          <tr>
+            <td style="text-align:center;padding:4px;">&#128274; Secure Checkout</td>
+            <td style="text-align:center;padding:4px;">&#128176; Deposit Only</td>
+            <td style="text-align:center;padding:4px;">&#9989; Custom Built</td>
+          </tr>
+        </table>
+      </div>
     </div>
 
-    <!-- Trust Signals -->
-    <div style="margin-bottom:28px;">
-      <table style="width:100%;font-size:11px;color:#555;">
-        <tr>
-          <td style="text-align:center;padding:4px;">&#128274; Secure Checkout</td>
-          <td style="text-align:center;padding:4px;">&#128176; Deposit Only</td>
-          <td style="text-align:center;padding:4px;">&#9989; Custom Built for You</td>
-        </tr>
-      </table>
-    </div>
-
-    <p style="margin:0 0 28px;color:#777;font-size:14px;line-height:1.7;">To officially get your project on my schedule, click the button above to review your order and place the initial deposit. Once locked in, I&rsquo;ll reserve your spot, prep materials, and we&rsquo;ll be ready for installation day.</p>
+    <!-- Explanation -->
+    <p style="margin:32px 0 28px;color:#a3a3a3;font-size:14px;line-height:1.7;">To officially get your project on my schedule, click the button above to review your order and place the initial deposit. Once locked in, I&rsquo;ll reserve your spot, prep materials, and we&rsquo;ll be ready for installation day.</p>
 
     ${cleanoutServices && cleanoutServices.length > 0 ? `
-    <div style="border-top:1px solid #333;padding-top:20px;margin-bottom:24px;">
+    <!-- Cleanout Upsell -->
+    <div style="border-top:1px solid #222;padding-top:20px;margin-bottom:24px;">
       <p style="margin:0 0 4px;color:#22c55e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">&#10024; Add-On Service</p>
       <p style="margin:0 0 12px;color:#ffffff;font-size:16px;font-weight:700;">Want us to clean out your space first?</p>
-      <p style="margin:0 0 16px;color:#777;font-size:13px;">Get the most out of your new storage &mdash; we&rsquo;ll sort, organize, and haul away the clutter before installation.</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;">Get the most out of your new storage &mdash; we&rsquo;ll sort, organize, and haul away the clutter before installation.</p>
       ${cleanoutServices.map((svc) => `
       <div style="border-bottom:1px solid #222;padding:12px 0;">
         <table style="width:100%;"><tr>
           <td style="vertical-align:top;">
             <p style="margin:0 0 2px;color:#ffffff;font-size:14px;font-weight:600;">${svc.name}</p>
-            <p style="margin:0;color:#777;font-size:12px;">${svc.description}</p>
+            <p style="margin:0;color:#a3a3a3;font-size:12px;">${svc.description}</p>
           </td>
           <td style="text-align:right;vertical-align:middle;white-space:nowrap;padding-left:16px;">
             <span style="color:#facc15;font-size:16px;font-weight:700;">$${svc.price}</span>
@@ -422,31 +437,43 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     </div>
     ` : ""}
 
-    <p style="margin:0 0 24px;color:#e2e8f0;font-size:15px;">Looking forward to getting your space organized!</p>
-    <p style="margin:0 0 28px;color:#e2e8f0;font-size:15px;">
+    <!-- Sign-off -->
+    <p style="margin:0 0 24px;color:#ffffff;font-size:15px;">Looking forward to getting your space organized!</p>
+    <p style="margin:0 0 28px;color:#ffffff;font-size:15px;">
       Best,<br/>${sigName}<br/>${businessName}${phoneLine}
     </p>
 
-    <div style="border-top:1px solid #333;padding-top:20px;margin-bottom:24px;text-align:center;">
+    <!-- Questions -->
+    <div style="border-top:1px solid #222;padding-top:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 8px;color:#facc15;font-size:13px;font-weight:700;">Have Questions?</p>
-      <p style="margin:0 0 16px;color:#777;font-size:13px;">Reach out directly &mdash; we&rsquo;re happy to help.</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;">Reach out directly &mdash; we&rsquo;re happy to help.</p>
       <div style="display:inline-block;">
-        <a href="mailto:?subject=Re:%20My%20Storage%20Quote%20from%20${encodeURIComponent(businessName)}" style="display:inline-block;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
+        <a href="mailto:?subject=Re:%20My%20Storage%20Quote%20from%20${encodeURIComponent(businessName)}" style="display:inline-block;color:#ffffff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
           &#9993; Reply to This Email
         </a>
-        ${installerPhone ? `<a href="tel:${installerPhone}" style="display:inline-block;color:#e2e8f0;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
+        ${installerPhone ? `<a href="tel:${installerPhone}" style="display:inline-block;color:#ffffff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;margin:0 4px;">
           &#9742; Call ${installerPhone}
         </a>` : ""}
       </div>
     </div>
 
-    <p style="margin:0;color:#555;font-size:12px;text-align:center;font-style:italic;">
+    <!-- Disclaimer -->
+    <p style="margin:0 0 20px;color:#555;font-size:12px;text-align:center;font-style:italic;">
       ${taxAmount > 0
         ? "*Sales tax shown is an estimate based on your delivery ZIP. The final amount is confirmed at checkout from your billing address and collected by your installer at installation."
         : "*Sales tax (if applicable) will be collected by your installer at the time of installation."}
     </p>
-    `
-  );
+
+    <!-- Footer -->
+    <div style="border-top:1px solid #222;padding:20px 0 0;text-align:center;">
+      <p style="margin:0;color:#333;font-size:11px;">
+        Sent by <a href="${getAppUrl()}" style="color:#555;text-decoration:none;font-weight:600;">Storage Network</a> &bull; storage-network.app
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>`.trim();
 }
 
 export async function sendAbandonedCartEmail(
