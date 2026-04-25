@@ -556,8 +556,97 @@ export default function DesignConfigurator({
   ]);
 
   // ═══════════════════════════════════════════════════════════════════════
-  // JSX — will be filled in Step 2
+  // RENDER
   // ═══════════════════════════════════════════════════════════════════════
 
-  return <div id="temp-jsx-placeholder">JSX GOES HERE</div>;
+  return (
+    <div className="flex h-screen flex-col bg-gray-950">
+      {/* ── Analytics: track page view for installer ────────────────────── */}
+      {installer.installerId && <PageViewTracker installerId={installer.installerId} page="/design" />}
+
+      {/* ── Header (slim on mobile, full on desktop) ──────────────────── */}
+      <header className="shrink-0 border-b-2 border-yellow-400 bg-gray-950 px-3 py-2 lg:border-b-4 lg:px-4 lg:py-3">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-2 lg:gap-3">
+          <a
+            href="/"
+            className="shrink-0 transition-transform hover:scale-105"
+            title="Back to Home"
+          >
+            <div className="h-8 w-8 overflow-hidden rounded-full border-2 border-yellow-400/30 bg-slate-800 shadow-lg shadow-yellow-400/5 lg:h-12 lg:w-12 lg:border-[3px]">
+              {installer.data?.branding.logoUrl ? (
+                <Image
+                  src={installer.data.branding.logoUrl}
+                  alt={installer.data.branding.title}
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <Image src="/Header_avatar_logo.png" alt="Storage Network" width={48} height={48} className="h-full w-full object-cover" />
+              )}
+            </div>
+          </a>
+          <div className="flex-1 min-w-0">
+            <h1 className="truncate text-sm font-extrabold uppercase tracking-widest text-white lg:text-base">
+              {installer.data?.branding.title || "Professional Grade Storage"}
+            </h1>
+            <p className="hidden text-[10px] uppercase tracking-wider text-yellow-400 lg:block">
+              {installer.data?.branding.subtitle || "Build Configurator"}
+            </p>
+          </div>
+          <a
+            href="/"
+            className="hidden items-center gap-1 text-xs font-semibold text-stone-400 transition-colors hover:text-yellow-400 sm:flex"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back
+          </a>
+        </div>
+      </header>
+
+      {/* ── Shipping mode banner ─────────────────────────────────────── */}
+      {mode === "shipping" && (
+        <div className="shrink-0 bg-amber-500 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-gray-950">
+          We ship nationwide! Design your unit below and we&apos;ll deliver it
+          to your door.
+        </div>
+      )}
+
+      {/* ── Installer locked banner ──────────────────────────────────── */}
+      {installer.installerLocked && installer.data?.branding.isVerified && (
+        <div className="shrink-0 bg-emerald-600 px-4 py-2 text-center">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+            <User className="h-3.5 w-3.5" />
+            Designing with {installer.data.branding.title}
+            {installer.data.socialProof && installer.data.socialProof.totalReviews > 0 && (
+              <span className="ml-1 opacity-90">
+                · {installer.data.socialProof.averageRating.toFixed(1)}★ ({installer.data.socialProof.totalReviews} review{installer.data.socialProof.totalReviews !== 1 ? "s" : ""})
+              </span>
+            )}
+            {installer.data.socialProof && installer.data.socialProof.completedJobs > 0 && (
+              <span className="ml-1 opacity-90">
+                · {installer.data.socialProof.completedJobs} builds completed
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* ── Trial cap banner — installer at full capacity ────────────── */}
+      {serviceArea.installerAtCapacity && !serviceArea.trialCapWaitlistSent && (
+        <div className="shrink-0 bg-amber-600/90 px-4 py-2 text-center">
+          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            This installer is at full capacity — design your build &amp; join the waitlist
+          </span>
+        </div>
+      )}
+
+      {/* ── Split Layout ────────────────────────────────────────────────── */}
+      <div id="main-content-placeholder" />
+      <div id="modals-placeholder" />
+
+    </div>
+  );
 }
