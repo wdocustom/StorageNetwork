@@ -40,6 +40,7 @@ import RaisedBedDrawer from "@/components/build/RaisedBedDrawer";
 import CartBar from "@/components/build/CartBar";
 import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
+import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -1601,7 +1602,39 @@ export default function BuildConfiguratorPage() {
         />
       )}
 
-      {/* BuildAssistant FAB removed — assistant integrated into AI Command Center */}
+      {/* Hidden off-screen canvas for snapshot capture in quote emails */}
+      {units.length > 0 && (() => {
+        const u = units[0];
+        const sc = u.shelvingConfigId
+          ? SHELVING_CONFIGS.find((c) => c.id === u.shelvingConfigId)
+          : undefined;
+        const op = u.overheadGridPresetId
+          ? OVERHEAD_GRID_PRESETS.find((p) => p.id === u.overheadGridPresetId)
+          : undefined;
+        return (
+          <div
+            aria-hidden="true"
+            style={{ position: "fixed", left: -9999, top: -9999, width: 800, height: 500, overflow: "hidden", pointerEvents: "none" }}
+          >
+            <BlueprintCanvas
+              cols={u.cols}
+              rows={u.rows}
+              toteType={u.toteType}
+              toteColor="black"
+              unitType={u.unitType}
+              orientation={u.orientation ?? "standard"}
+              hasTotes={u.hasTotes}
+              hasWheels={u.hasWheels}
+              hasTop={u.hasTop}
+              totalW={u.totalW ?? 48}
+              totalH={u.totalH ?? 60}
+              addons={u.addons}
+              shelvingConfig={sc ? { widthIn: sc.widthIn, frameH: sc.frameH, depth: sc.depth, shelves: sc.shelves } : undefined}
+              overheadConfig={op ? { slotsWide: op.slotsWide, slotsDeep: op.slotsDeep, toteType: u.toteType, hasTotes: u.hasTotes } : undefined}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

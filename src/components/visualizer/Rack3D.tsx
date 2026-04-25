@@ -2056,7 +2056,7 @@ export default function Rack3D(props: Rack3DProps) {
       <Canvas
         shadows
         camera={{ fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         style={{ background: "transparent" }}
         onCreated={({ gl }) => {
           const domEl = gl.domElement;
