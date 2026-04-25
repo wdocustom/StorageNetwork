@@ -8,6 +8,8 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
+import { captureCanvasBlob } from "@/utils/captureCanvas";
+import { uploadBuildSnapshot } from "@/utils/uploadImage";
 import { fetchLeadForEdit, updateQuote } from "@/app/actions/jobs";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
@@ -1046,6 +1048,9 @@ export default function BuildConfiguratorPage() {
         };
       }
 
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
@@ -1060,6 +1065,7 @@ export default function BuildConfiguratorPage() {
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
         delivery_fee: deliveryFee,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success) {
@@ -1122,6 +1128,9 @@ export default function BuildConfiguratorPage() {
         };
       }
 
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
@@ -1136,6 +1145,7 @@ export default function BuildConfiguratorPage() {
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
         delivery_fee: deliveryFee,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success) {
