@@ -13,6 +13,7 @@ export async function sendNewBookingAlert(
     unitCount: number;
     totalPrice: number;
     leadId: string;
+    buildSnapshotUrl?: string;
   }
 ): Promise<SendEmailResult> {
   console.log("[Email] sendNewBookingAlert triggered for:", installerEmail, "| Lead:", leadDetails.leadId);
@@ -40,6 +41,11 @@ export async function sendNewBookingAlert(
       <tr><td style="padding:8px 0;color:#94a3b8;">Address</td><td style="padding:8px 0;font-weight:600;color:#cbd5e1;">${leadDetails.address || city}</td></tr>
       <tr><td style="padding:8px 0;color:#94a3b8;">Units</td><td style="padding:8px 0;font-weight:600;color:#cbd5e1;">${leadDetails.unitCount} shelving unit${leadDetails.unitCount !== 1 ? "s" : ""}</td></tr>
     </table>
+    ${leadDetails.buildSnapshotUrl ? `
+    <div style="margin-bottom:24px;">
+      <img src="${leadDetails.buildSnapshotUrl}" alt="Customer Build" style="width:100%;border-radius:6px;border:1px solid #334155;display:block;" />
+    </div>
+    ` : ""}
     <div style="text-align:center;margin-bottom:24px;">
       <a href="${jobUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
         View Job Details

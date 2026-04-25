@@ -14,6 +14,7 @@ export interface BookingConfirmationData {
   totalPrice: number;
   jobDescription: string;
   leadId: string;
+  buildSnapshotUrl?: string;
 }
 
 export async function sendBookingConfirmation(
@@ -32,6 +33,7 @@ export async function sendBookingConfirmation(
     totalPrice,
     jobDescription,
     leadId,
+    buildSnapshotUrl,
   } = data;
 
   // Safe date parse — avoid Invalid Date crash if scheduledDate is "TBD" or empty
@@ -67,6 +69,10 @@ export async function sendBookingConfirmation(
       Thanks for your order! We&rsquo;ve received your deposit of <strong style="color:#16a34a;">$${depositAmount.toLocaleString()}</strong>.
       Your installer will be in touch shortly to confirm your date: <strong style="color:#facc15;">${formattedDate}</strong>.
     </p>
+
+    ${buildSnapshotUrl ? `
+    <img src="${buildSnapshotUrl}" alt="Your Custom Build" style="width:100%;border-radius:6px;border:1px solid #222;margin-bottom:24px;display:block;" />
+    ` : ""}
 
     <!-- Installer Card -->
     <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">

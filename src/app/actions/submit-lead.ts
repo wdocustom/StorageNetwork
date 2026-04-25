@@ -76,6 +76,7 @@ export interface SubmitQuoteInput {
    *  installer has hit their 3-job trial limit — the lead is captured
    *  as a hostage to drive subscription conversion. */
   waitlisted?: boolean;
+  build_snapshot_url?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -99,6 +100,7 @@ const submitLeadSchema = z.object({
   source: z.enum(["platform", "partner_link"]).optional(),
   scheduled_at: z.string().max(30).optional(),
   waitlisted: z.boolean().optional(),
+  build_snapshot_url: z.string().url().max(2000).optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -190,6 +192,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       ...(serviceItems.length > 0 ? {
         services: serviceItems.map((s) => ({ name: s.name, price: s.price })),
       } : {}),
+      ...(input.build_snapshot_url ? { build_snapshot_url: input.build_snapshot_url } : {}),
     };
 
     // ── Scheduling Guard: blackout dates + 3 points/day max ─────────────

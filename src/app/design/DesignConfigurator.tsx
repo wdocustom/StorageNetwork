@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
+import { captureCanvasBlob } from "@/utils/captureCanvas";
+import { uploadBuildSnapshot } from "@/utils/uploadImage";
 import { submitWaitlistRequest } from "@/app/actions/installer";
 import { calculateBuild, calculateCompoundBuild } from "@/app/actions/calculator";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
@@ -394,6 +396,9 @@ export default function DesignConfigurator({
 
     booking.setSubmitting(true);
     try {
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const fullName = [booking.firstName.trim(), booking.lastName.trim()].filter(Boolean).join(" ");
       const compositeAddress = [booking.streetAddress, booking.city, booking.addrState, booking.addrZip].filter(Boolean).join(", ");
       const deliveryAddress = booking.hasDifferentDelivery
@@ -438,6 +443,7 @@ export default function DesignConfigurator({
         installer_id: installer.installerId || undefined,
         referring_installer_id: serviceArea.referringInstallerId || undefined,
         source: leadSource,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success || !result.id) {
@@ -493,6 +499,9 @@ export default function DesignConfigurator({
 
     serviceArea.setTrialCapWaitlistSending(true);
     try {
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const compositeAddress = [booking.streetAddress, booking.city, booking.addrState, booking.addrZip].filter(Boolean).join(", ");
       const deliveryAddress = booking.hasDifferentDelivery
         ? [booking.deliveryStreet, booking.deliveryCity, booking.deliveryState, booking.deliveryZip].filter(Boolean).join(", ")
@@ -527,6 +536,7 @@ export default function DesignConfigurator({
         referring_installer_id: serviceArea.referringInstallerId || undefined,
         source: leadSource,
         waitlisted: true,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success || !result.id) {
