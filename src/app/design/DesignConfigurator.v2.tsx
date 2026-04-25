@@ -644,7 +644,337 @@ export default function DesignConfigurator({
       )}
 
       {/* ── Split Layout ────────────────────────────────────────────────── */}
-      <div id="main-content-placeholder" />
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        {/* ── SIDEBAR: Configurator ── */}
+        <ConfiguratorSidebar
+          initialStep={cart.initialStep}
+          forceStep={cart.sidebarStep}
+          // Step 1: Dimensions
+          wallWidth={builder.wallWidth}
+          wallHeight={builder.wallHeight}
+          onWallWidthChange={(v) => { builder.setWallWidth(v); builder.setWallFitMsg(""); }}
+          onWallHeightChange={(v) => { builder.setWallHeight(v); builder.setWallFitMsg(""); }}
+          onWallFit={builder.handleWallFit}
+          wallFitMsg={builder.wallFitMsg}
+          buildLoading={builder.buildLoading}
+          cols={builder.cols}
+          rows={builder.rows}
+          onColsChange={builder.setCols}
+          onRowsChange={builder.setRows}
+
+          // Step 2: Configuration
+          unitType={builder.unitType}
+          orientation={builder.orientation}
+          onUnitTypeChange={builder.setUnitType}
+          onOrientationChange={builder.setOrientation}
+          toteType={builder.toteType}
+          toteColor={builder.toteColor}
+          onToteTypeChange={builder.setToteType}
+          onToteColorChange={builder.setToteColor}
+          hasTotes={builder.hasTotes}
+          hasWheels={builder.hasWheels}
+          hasTop={builder.hasTop}
+          onHasTotesChange={builder.setHasTotes}
+          onHasWheelsChange={builder.setHasWheels}
+          onHasTopChange={builder.setHasTop}
+          effectiveHasTop={builder.effectiveHasTop}
+          miniDisabled={installer.data?.pricing?.mini_enabled !== true}
+          totesDisabled={installer.data?.pricing?.totes_disabled === true}
+          use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
+
+          // Pricing
+          pricing={installer.data?.pricing}
+          platformDefaults={installer.data?.platformDefaults || { standard_slot: 0, mini_slot: 0, standard_tote: 0, standard_tote_clear: 0, mini_tote: 0, standard_wheels: 0, mini_wheels: 0, plywood_top: 0 }}
+
+          // Build
+          build={builder.build}
+          onAddUnit={handleAddUnit}
+
+          // Presets
+          activePreset={presets.activePreset}
+          onPresetChange={(v) => { presets.setActivePreset(v); presets.setCompoundBuild(null); productAddons.setRaisedBedPreview(null); productAddons.setOverheadPreview(null); }}
+          presetOptions={installer.filteredPresets}
+          compoundBuild={presets.compoundBuild}
+          presetLoading={presets.presetLoading}
+          presetTotes={presets.presetTotes}
+          onPresetTotesChange={presets.setPresetTotes}
+          onAddPresetUnit={handleAddPresetUnit}
+          activePresetObj={presets.activePresetObj}
+
+          // Shelving
+          shelvingConfigId={productAddons.shelvingConfigId}
+          onShelvingConfigChange={productAddons.setShelvingConfigId}
+          shelvingPrice={productAddons.shelvingPrice}
+          shelvingLoading={productAddons.shelvingLoading}
+          onAddShelvingUnit={productAddons.handleAddShelvingUnit}
+          shelvingHidden={!installer.shelvingEnabled}
+
+          // Overhead ceiling storage
+          overheadStorageHidden={!installer.overheadStorageEnabled}
+          onAddOverheadUnit={productAddons.handleAddOverheadUnit}
+          onOverheadConfigPreview={(v) => { productAddons.setOverheadPreview(v); if (v) { productAddons.setRaisedBedPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
+
+          // Raised Bed Planters
+          raisedBedHidden={!installer.raisedBedEnabled}
+          raisedBedPreviewPrice={productAddons.raisedBedPreviewPrice}
+          onRaisedBedPriceChange={productAddons.setRaisedBedPreviewPrice}
+          onAddRaisedBed={productAddons.handleAddRaisedBed}
+          onRaisedBedPreview={(v) => { productAddons.setRaisedBedPreview(v); if (v) { productAddons.setOverheadPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
+
+          // Multi-unit 3D visualization
+          showMultiUnit3D={cart.showMultiUnit3D}
+          onShowMultiUnit3DChange={cart.setShowMultiUnit3D}
+          unitVisibility={cart.unitVisibility}
+          onUnitVisibilityChange={cart.handleUnitVisibilityChange}
+          onToggleAllUnits={(visible) => cart.handleToggleAllUnits(visible, cart.orderItems)}
+
+          // Summary
+          orderItems={cart.orderItems}
+          onRemoveUnit={cart.handleRemoveUnit}
+          onQuantityChange={cart.handleQuantityChange}
+          grandTotal={pricingState.grandTotal}
+          deliveryFeeAmount={pricingState.deliveryFeeAmount}
+          deliveryFeeResult={serviceArea.deliveryFeeResult}
+          depositAmount={pricingState.depositAmount}
+          depositLabelText={pricingState.depositLabelText}
+          stripeAccountId={installer.stripeAccountId}
+
+          // Booking form
+          firstName={booking.firstName}
+          lastName={booking.lastName}
+          email={booking.email}
+          phone={booking.phone}
+          onFirstNameChange={booking.setFirstName}
+          onLastNameChange={booking.setLastName}
+          onEmailChange={booking.setEmail}
+          onPhoneChange={booking.setPhone}
+
+          // Address
+          streetAddress={booking.streetAddress}
+          city={booking.city}
+          addrState={booking.addrState}
+          addrZip={booking.addrZip}
+          onStreetAddressChange={booking.setStreetAddress}
+          onCityChange={booking.setCity}
+          onAddrStateChange={booking.setAddrState}
+          onAddrZipChange={booking.setAddrZip}
+
+          // Delivery address
+          hasDifferentDelivery={booking.hasDifferentDelivery}
+          onHasDifferentDeliveryChange={booking.setHasDifferentDelivery}
+          deliveryStreet={booking.deliveryStreet}
+          deliveryCity={booking.deliveryCity}
+          deliveryState={booking.deliveryState}
+          deliveryZip={booking.deliveryZip}
+          onDeliveryStreetChange={booking.setDeliveryStreet}
+          onDeliveryCityChange={booking.setDeliveryCity}
+          onDeliveryStateChange={booking.setDeliveryState}
+          onDeliveryZipChange={booking.setDeliveryZip}
+
+          // Submit
+          submitting={booking.submitting}
+          submitted={booking.submitted}
+          submitError={booking.submitError}
+          onBookDeposit={isDemo ? () => installer.setDemoToast(true) : handleBookDeposit}
+          isDemo={isDemo}
+          onDemoToast={() => installer.setDemoToast(true)}
+
+          // ZIP check
+          zip={serviceArea.zip}
+          onZipChange={serviceArea.setZip}
+          onZipCheck={serviceArea.handleZipCheck}
+          zipChecking={serviceArea.zipChecking}
+          zipResult={serviceArea.zipResult as { available: boolean; message?: string } | null}
+          onZipResultClear={() => serviceArea.setZipResult(null)}
+          installerLocked={installer.installerLocked}
+
+          // Waitlist
+          zipOutOfArea={serviceArea.zipOutOfArea}
+          zipCheckMsg={serviceArea.zipCheckMsg}
+          handedOff={serviceArea.handedOff}
+          handoffInstallerName={serviceArea.handoffInstallerName}
+          waitlistSending={serviceArea.waitlistSending}
+          waitlistSent={serviceArea.waitlistSent}
+          waitlistError={serviceArea.waitlistError}
+          onWaitlist={handleWaitlist}
+
+          // Trial cap waitlist (hostage lead)
+          installerAtCapacity={serviceArea.installerAtCapacity}
+          trialCapWaitlistSending={serviceArea.trialCapWaitlistSending}
+          trialCapWaitlistSent={serviceArea.trialCapWaitlistSent}
+          trialCapWaitlistError={serviceArea.trialCapWaitlistError}
+          onJoinTrialCapWaitlist={handleJoinTrialCapWaitlist}
+
+          // Installer services (cleanout — adds to order)
+          servicesConfig={installer.data?.servicesConfig}
+          selectedCleanout={productAddons.selectedCleanout}
+          onCleanoutChange={productAddons.setSelectedCleanout}
+
+          // Contact installer
+          installerId={installer.installerId}
+          installerSlug={installer.data?.routing.slug ?? null}
+          installerPhone={installer.data?.routing.phone ?? null}
+          brandingTitle={installer.data?.branding.title || ""}
+          showContactForm={contact.showContactForm}
+          onShowContactFormChange={contact.setShowContactForm}
+          contactMessage={contact.contactMessage}
+          onContactMessageChange={contact.setContactMessage}
+          contactSending={contact.contactSending}
+          contactSent={contact.contactSent}
+          contactError={contact.contactError}
+          onContactInstaller={contact.handleContactInstaller}
+
+          // Scheduler (inline in sidebar)
+          schedulingEnabled={installer.data?.routing.schedulingEnabled ?? true}
+          scheduledDate={booking.scheduledDate}
+          onScheduledDateChange={booking.setScheduledDate}
+          installerLeadTime={effectiveLeadTime}
+          installerWorkingDays={installer.data?.routing.workingDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]}
+          blackoutDates={booking.blackoutDates}
+
+          // Discount code (inline in sidebar)
+          discountInput={pricingState.discountInput}
+          onDiscountInputChange={(v) => { pricingState.setDiscountInput(v); pricingState.setDiscountError(""); }}
+          discountApplied={pricingState.discountApplied}
+          discountLoading={pricingState.discountLoading}
+          discountError={pricingState.discountError}
+          onApplyDiscount={pricingState.handleApplyDiscount}
+          onRemoveDiscount={pricingState.handleRemoveDiscount}
+
+          // Organizer Customization (per-section addons)
+          addons={builder.addons}
+          onAddonsChange={builder.setAddons}
+          addonPricing={installer.data?.pricing?.addon_pricing}
+          addonDefaults={installer.data?.addonDefaults}
+
+          // Paint options
+          paintFrameColor={builder.paintFrameColor}
+          paintDoorColor={builder.paintDoorColor}
+          paintSidePanelColor={builder.paintSidePanelColor}
+          onPaintFrameColorChange={builder.setPaintFrameColor}
+          onPaintDoorColorChange={builder.setPaintDoorColor}
+          onPaintSidePanelColorChange={builder.setPaintSidePanelColor}
+
+          // Indoor delivery
+          indoorDeliveryConfig={installer.data?.indoorDeliveryConfig}
+          indoorDelivery={builder.indoorDelivery}
+          onIndoorDeliveryChange={builder.setIndoorDelivery}
+
+          // UI Trigger bridge for 3D model animation
+          onPulseVisualizerTrigger={() => {}}
+
+          // Step tracking
+          onStepChange={cart.setSidebarStep}
+        />
+
+        {/* ── 3D VISUALIZER ── */}
+        <main className="order-1 sticky top-0 z-10 flex h-[35vh] shrink-0 flex-col border-b border-stone-800 bg-white lg:static lg:order-2 lg:z-auto lg:h-auto lg:flex-1 lg:border-b-0 lg:border-l lg:border-stone-200">
+          <div className="relative min-h-0 flex-1 overflow-hidden lg:min-h-[300px]">
+            <RackVisualizer
+              cols={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.subUnits[0].cols : (builder.build.cols || builder.numCols || 1)}
+              rows={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.subUnits[0].rows : (builder.build.rows || builder.numRows || 1)}
+              toteType={presets.activePresetObj ? presets.activePresetObj.toteModel as ToteType : builder.toteType}
+              toteColor={presets.activePresetObj ? presets.activePresetObj.toteColor as ToteColor : builder.effectiveToteColor}
+              unitType={presets.activePresetObj ? presets.activePresetObj.unitType : builder.unitType}
+              orientation={presets.activePresetObj ? presets.activePresetObj.orientation : builder.effectiveOrientation}
+              hasTotes={presets.activePresetObj ? presets.presetTotes : builder.hasTotes}
+              hasWheels={presets.activePresetObj ? presets.activePresetObj.units.some((u) => u.hasWheels) : builder.hasWheels}
+              hasTop={presets.activePresetObj ? presets.activePresetObj.units.some((u) => u.hasTop) : builder.effectiveHasTop}
+              totalW={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.combinedW : builder.build.totalW}
+              totalH={presets.activePresetObj && presets.compoundBuild ? presets.compoundBuild.maxH : builder.build.totalH}
+              presetUnits={presets.presetVisUnits}
+              drawerSlideRows={presets.activePresetObj?.drawerSlideRows}
+              drawerSlideColumns={presets.activePresetObj?.drawerSlideColumns}
+              hasDrawerSlides={(presets.activePresetObj?.drawerSlideColumns?.length ?? 0) > 0 || (presets.activePresetObj?.drawerSlideRows ?? 0) > 0}
+              addons={presets.activePresetObj ? undefined : builder.addons}
+              paintFrameColor={presets.activePresetObj ? null : builder.paintFrameColor}
+              paintDoorColor={presets.activePresetObj ? null : builder.paintDoorColor}
+              paintSidePanelColor={presets.activePresetObj ? null : builder.paintSidePanelColor}
+              shelvingConfig={productAddons.activeShelvingConfig}
+              overheadConfig={productAddons.overheadPreview ? { slotsWide: productAddons.overheadPreview.slotsWide, slotsDeep: productAddons.overheadPreview.slotsDeep, toteType: productAddons.overheadPreview.toteType, hasTotes: productAddons.overheadPreview.hasTotes } : undefined}
+              raisedBedConfig={productAddons.raisedBedPreview || undefined}
+              watermarkText={installer.data?.branding.title || "Storage-Network.app"}
+              use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
+              multiUnitItems={cart.multiUnitItems as MultiUnitItem[] | undefined}
+              multiUnitControls={cart.orderItems.length >= 1 ? {
+                showMultiUnit3D: cart.showMultiUnit3D,
+                onShowMultiUnit3DChange: cart.setShowMultiUnit3D,
+                unitVisibility: cart.unitVisibility,
+                onUnitVisibilityChange: cart.handleUnitVisibilityChange,
+                orderItems: cart.expandedMultiUnitDescs,
+              } : undefined}
+            />
+          </div>
+          {/* Dimensions bar */}
+          <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-2 py-1.5 text-center text-xs font-medium text-stone-500 lg:px-4 lg:py-3 lg:text-sm">
+            {productAddons.overheadPreview ? (
+              <>
+                {productAddons.overheadPreview.slotsWide} &times; {productAddons.overheadPreview.slotsDeep} grid · {productAddons.overheadPreview.toteType}
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Ceiling Tote Rail
+                </span>
+              </>
+            ) : productAddons.raisedBedPreview ? (
+              <>
+                {productAddons.raisedBedPreview.widthIn}&quot; &times;{" "}
+                {productAddons.raisedBedPreview.lengthIn}&quot; &times;{" "}
+                {productAddons.raisedBedPreview.heightIn}&quot;
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Raised Bed
+                </span>
+              </>
+            ) : cart.showMultiUnit3D && cart.orderItems.length > 0 && cart.orderItems.every((it) => it.raisedBedConfig) ? (
+              <>
+                {cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0)} Raised Bed{cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0) > 1 ? "s" : ""}
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Planter Order
+                </span>
+              </>
+            ) : productAddons.activeShelvingConfig ? (
+              <>
+                {productAddons.activeShelvingConfig.widthIn}&quot; W &times;{" "}
+                {productAddons.activeShelvingConfig.frameH}&quot; H &times;{" "}
+                {productAddons.activeShelvingConfig.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {productAddons.activeShelvingConfig.shelves} {productAddons.activeShelvingConfig.shelves === 1 ? "shelf" : "shelves"} + top
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Open Shelving
+                </span>
+              </>
+            ) : presets.activePresetObj && presets.compoundBuild ? (
+              <>
+                {presets.compoundBuild.combinedW.toFixed(1)}&quot; W &times;{" "}
+                {presets.compoundBuild.maxH.toFixed(1)}&quot; H &times;{" "}
+                {presets.compoundBuild.depth}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {presets.compoundBuild.subUnits.map((su) => `${su.cols}×${su.rows}`).join(" + ")} ={" "}
+                  {presets.compoundBuild.totalSlots} slots
+                </span>
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  {presets.compoundBuild.presetName}
+                </span>
+              </>
+            ) : (
+              <>
+                {builder.build.totalW > 0 ? builder.build.totalW.toFixed(1) : "—"}&quot; W
+                &times;{" "}
+                {builder.build.totalH > 0 ? builder.build.totalH.toFixed(1) : "—"}&quot; H
+                &times; {builder.build.depth > 0 ? builder.build.depth : (builder.unitType === "mini" ? 12.75 : builder.orientation === "sideways" ? 20 : 30)}&quot; D &nbsp;&mdash;&nbsp;
+                <span className="font-bold text-gray-900">
+                  {builder.build.cols || builder.numCols || 1} &times; {builder.build.rows || builder.numRows || 1} ={" "}
+                  {builder.build.slots || (builder.numCols || 1) * (builder.numRows || 1)} slots
+                </span>
+                {builder.unitType === "mini" && (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                    MINI
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      </div>
       <div id="modals-placeholder" />
 
     </div>
