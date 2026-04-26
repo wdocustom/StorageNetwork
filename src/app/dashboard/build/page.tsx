@@ -1611,6 +1611,19 @@ export default function BuildConfiguratorPage() {
         const op = u.overheadGridPresetId
           ? OVERHEAD_GRID_PRESETS.find((p) => p.id === u.overheadGridPresetId)
           : undefined;
+        const groupUnits = u.presetGroup
+          ? units.filter((g) => g.presetGroup === u.presetGroup)
+          : null;
+        const presetUnits = groupUnits && groupUnits.length > 1
+          ? groupUnits.map((g) => ({
+              cols: g.cols,
+              rows: g.rows,
+              totalW: g.totalW ?? 48,
+              totalH: g.totalH ?? 60,
+              hasTop: g.hasTop,
+              hasWheels: g.hasWheels,
+            }))
+          : undefined;
         return (
           <div
             aria-hidden="true"
@@ -1629,6 +1642,7 @@ export default function BuildConfiguratorPage() {
               totalW={u.totalW ?? 48}
               totalH={u.totalH ?? 60}
               addons={u.addons}
+              presetUnits={presetUnits}
               shelvingConfig={sc ? { widthIn: sc.widthIn, frameH: sc.frameH, depth: sc.depth, shelves: sc.shelves } : undefined}
               overheadConfig={op ? { slotsWide: op.slotsWide, slotsDeep: op.slotsDeep, toteType: u.toteType, hasTotes: u.hasTotes } : undefined}
             />
