@@ -1603,8 +1603,10 @@ export default function BuildConfiguratorPage() {
       )}
 
       {/* Hidden off-screen canvas for snapshot capture in quote emails */}
-      {units.length > 0 && (() => {
-        const u = units[0];
+      {(() => {
+        const renderableUnit = units.find((u) => !u.raisedBedConfig);
+        if (!renderableUnit) return null;
+        const u = renderableUnit;
         const sc = u.shelvingConfigId
           ? SHELVING_CONFIGS.find((c) => c.id === u.shelvingConfigId)
           : undefined;
