@@ -39,14 +39,22 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const sinceStr = sevenDaysAgo.toISOString();
+    // Dedup window: 6 days, so a slightly-late Monday run still finds last week's recipients.
+    const sixDaysAgoStr = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch all non-suspended, non-opted-out installers
+    // Fetch eligible installers:
+    //   - not suspended (treat NULL as not suspended — `.neq(col, true)` excludes NULLs in PostgREST)
+    //   - not opted out of the weekly digest
+    //   - either never received a digest, or last received > 6 days ago (prevents duplicate sends)
+    // Order by last_digest_sent_at asc so the longest-waiting installers come first when paginating.
     const { data: installers, error: profileErr } = await db()
       .from("profiles")
       .select("id, email, first_name, business_name")
-      .neq("is_suspended", true)
-      .neq("weekly_digest_opted_out", true)
-      .limit(200);
+      .or("is_suspended.is.null,is_suspended.eq.false")
+      .eq("weekly_digest_opted_out", false)
+      .or(`last_digest_sent_at.is.null,last_digest_sent_at.lt.${sixDaysAgoStr}`)
+      .order("last_digest_sent_at", { ascending: true, nullsFirst: true })
+      .limit(500);
 
     if (profileErr || !installers) {
       console.error("[WeeklyDigest] Profile query error:", profileErr?.message);
