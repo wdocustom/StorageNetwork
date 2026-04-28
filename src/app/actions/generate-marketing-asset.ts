@@ -41,7 +41,10 @@ const VIBES: readonly Vibe[] = ["bright_airy", "industrial_dark", "suburban_clea
 // Each (scene, vibe) pair maps to a fully-formed photorealistic prompt.
 // Keep these consistent in structure: subject → vibe/lighting → details →
 // camera + quality tags. This is the only place prompts should be edited.
-export const PROMPT_TEMPLATES: Record<Scene, Record<Vibe, string>> = {
+//
+// NOTE: not exported. "use server" files can only export async functions —
+// exporting this object triggers a build-time / runtime error in Next.js.
+const PROMPT_TEMPLATES: Record<Scene, Record<Vibe, string>> = {
   disaster_garage: {
     bright_airy:
       "A photorealistic wide-angle shot of a chaotic, cluttered residential garage interior in a before-renovation state. Bright and airy aesthetic, soft natural daylight pouring through the open garage door, clean white walls fighting the mess, scattered cardboard moving boxes, a tangled bicycle on the floor, sports equipment in disarray, dusty workbench overflowing with miscellaneous items. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
