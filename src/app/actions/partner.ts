@@ -28,6 +28,7 @@ export interface PlatformUser {
   is_suspended: boolean;
   suspension_reason: "manual" | "payment" | null;
   stripe_connected: boolean;
+  trial_expired: boolean;
 }
 
 export interface PartnerCommission {
@@ -428,7 +429,7 @@ export async function getAdminPlatformUsers(
     const { data: allProfiles, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason, stripe_account_id"
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason, stripe_account_id, pro_trial_ends_at, stripe_subscription_id"
       )
       .order("created_at", { ascending: false });
 
@@ -463,6 +464,13 @@ export async function getAdminPlatformUsers(
 
       const counts = jobCounts[p.id] || { bookings: 0, completed: 0 };
 
+      // Soft-lock: pro trial expired and no active subscription.
+      // Matches the isSoftLocked check in customer.ts — these installers'
+      // booking links fail to resolve, falling back to generic platform pages.
+      const trialEnd = p.pro_trial_ends_at as string | null;
+      const hasSubscription = !!p.stripe_subscription_id;
+      const trialExpired = !!(trialEnd && !hasSubscription && new Date() >= new Date(trialEnd));
+
       return {
         id: p.id,
         email: p.email,
@@ -483,6 +491,7 @@ export async function getAdminPlatformUsers(
         is_suspended: p.is_suspended ?? false,
         suspension_reason: p.suspension_reason ?? null,
         stripe_connected: !!p.stripe_account_id,
+        trial_expired: trialExpired,
       };
     });
 

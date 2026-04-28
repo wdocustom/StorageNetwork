@@ -8,6 +8,7 @@ import {
   sendCleanoutUpsellConfirmation,
 } from "@/lib/email";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
+import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -271,7 +272,7 @@ export async function createCleanoutUpsellCheckout(
     const actualPrice = matchedService.price ?? servicePrice;
 
     // Calculate fee split
-    const depositAmount = Math.round(actualPrice * UPSELL_DEPOSIT_RATE * 100) / 100;
+    const depositAmount = roundMoney(actualPrice * UPSELL_DEPOSIT_RATE);
     const depositCents = Math.round(depositAmount * 100);
     const platformFeeCents = Math.round(actualPrice * UPSELL_PLATFORM_FEE_RATE * 100);
     const installerAmountCents = Math.round(actualPrice * UPSELL_INSTALLER_RATE * 100);
@@ -348,7 +349,7 @@ export async function handleCleanoutUpsellPayment(
     const serviceName = metadata.service_name;
     const servicePrice = parseFloat(metadata.service_price || "0");
     const depositAmount = parseFloat(metadata.deposit_amount || "0");
-    const remainingBalance = Math.round((servicePrice - depositAmount) * 100) / 100;
+    const remainingBalance = calculateBalanceDue(servicePrice, depositAmount);
     const installerId = metadata.installer_id;
 
     // 1. Fetch current lead data
@@ -377,9 +378,9 @@ export async function handleCleanoutUpsellPayment(
 
     // 3. Update the lead — add upsell data + adjust balance
     const currentBalance = lead.balance_due || 0;
-    const newBalance = Math.round((currentBalance + remainingBalance) * 100) / 100;
+    const newBalance = roundMoney(currentBalance + remainingBalance);
     const currentTotal = lead.estimated_price || 0;
-    const newTotal = Math.round((currentTotal + servicePrice) * 100) / 100;
+    const newTotal = roundMoney(currentTotal + servicePrice);
 
     // Append cleanout to notes
     const currentNotes = lead.notes || "";
@@ -545,11 +546,11 @@ export async function updateLeadWithAddons(
     }
 
     const addonTotal = validatedServices.reduce((s, svc) => s + svc.price, 0);
-    const newTotal = Math.round((lead.estimated_price + addonTotal) * 100) / 100;
+    const newTotal = roundMoney(lead.estimated_price + addonTotal);
 
     // Recalculate deposit for the new total
     const newDeposit = await getDepositAmount(newTotal, lead.installer_id || undefined);
-    const newBalance = Math.round((newTotal - newDeposit) * 100) / 100;
+    const newBalance = calculateBalanceDue(newTotal, newDeposit);
 
     // Build upsell snapshot
     const upsellSnapshot = validatedServices.map((svc) => ({

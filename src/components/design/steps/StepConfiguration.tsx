@@ -29,7 +29,10 @@ export default function StepConfiguration({
                 props.onUnitTypeChange("standard");
               }}
             >
-              <div className="text-xs font-bold text-zinc-300">Standard</div>
+              <div className="flex items-center gap-1.5">
+                <div className="text-xs font-bold text-zinc-300">Standard</div>
+                <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[9px] font-bold text-yellow-400">Most Popular</span>
+              </div>
               <div className="mt-0.5 text-[10px] text-zinc-500">27 Gallon Totes</div>
             </SelectionCard>
             <SelectionCard
@@ -58,14 +61,14 @@ export default function StepConfiguration({
               onSelect={() => props.onOrientationChange("standard")}
             >
               <div className="text-xs font-bold text-zinc-300">Standard</div>
-              <div className="mt-0.5 text-[10px] text-zinc-500">30&quot; Deep</div>
+              <div className="mt-0.5 text-[10px] text-zinc-500">30&quot; Deep — Best for garages</div>
             </SelectionCard>
             <SelectionCard
               selected={props.orientation === "sideways"}
               onSelect={() => props.onOrientationChange("sideways")}
             >
               <div className="text-xs font-bold text-zinc-300">Sideways</div>
-              <div className="mt-0.5 text-[10px] text-zinc-500">20&quot; Deep</div>
+              <div className="mt-0.5 text-[10px] text-zinc-500">20&quot; Deep — Best for tight spaces</div>
             </SelectionCard>
           </div>
         </div>
@@ -141,7 +144,7 @@ export default function StepConfiguration({
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
           >
-            Continue to Add-ons
+            Next: Customize Your Build
             <ChevronRight className="h-4 w-4" />
           </motion.button>
         )}

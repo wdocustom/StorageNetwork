@@ -15,6 +15,7 @@ import { recordWaitlistDemand } from "@/app/actions/demand-signals";
 import { getDepositAmount, getEstimatedSalesTax } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
@@ -79,6 +80,7 @@ export interface CreateQuoteInput {
   discount_code?: string;
   delivery_address?: DeliveryAddress;
   delivery_fee?: number;          // Distance-based delivery fee (already included in grand_total)
+  build_snapshot_url?: string;    // 3D canvas capture URL for email blueprint image
 }
 
 export type ReferralStatus =
@@ -178,6 +180,7 @@ export async function createQuote(
     discount_code,
     delivery_address,
     delivery_fee,
+    build_snapshot_url,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -420,9 +423,9 @@ export async function createQuote(
           .reduce((sum, u) => sum + (u.price || 0), 0)
       : finalTotal;
 
-    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip);
+    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip, installer_id);
 
-    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount + taxQuote.taxAmount) * 100) / 100;
+    const balanceDue = roundMoney(finalTotal - depositAmount - discountAmount + taxQuote.taxAmount);
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
@@ -517,6 +520,7 @@ export async function createQuote(
           ? { amount: taxQuote.taxAmount, rate: taxQuote.taxRate, stateCode: taxQuote.stateCode }
           : null,
         deliveryFee: delivery_fee || 0,
+        buildSnapshotUrl: build_snapshot_url || undefined,
       });
 
       const bizName = effectiveBusinessName || "Your Installer";
@@ -550,7 +554,7 @@ export async function createQuote(
 
           if (referrer?.email) {
             const estimatedBounty = Math.max(
-              Math.round(depositAmount * 0.30 * 100) / 100,
+              roundMoney(depositAmount * 0.30),
               15
             );
 

@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/pro-subscription";
 import { getServiceClient } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Webhook — Automation Brain
@@ -413,7 +414,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       const estimatedPrice = leadForBalance?.estimated_price ?? 0;
       const discountAmt = leadForBalance?.discount_amount ?? 0;
-      const balanceDue = Math.round((estimatedPrice - amountPaid - discountAmt) * 100) / 100;
+      const balanceDue = roundMoney(estimatedPrice - amountPaid - discountAmt);
 
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
@@ -484,7 +485,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: lead } = await getDb()
         .from("leads")
-        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent")
+        .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions")
         .eq("id", leadId)
         .single();
 
@@ -522,6 +523,8 @@ export async function POST(request: NextRequest) {
 
           const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
 
+          const snapshotUrl = (lead.dimensions as Record<string, unknown> | null)?.build_snapshot_url as string | undefined;
+
           await sendBookingConfirmation({
             customerName,
             customerEmail,
@@ -534,6 +537,7 @@ export async function POST(request: NextRequest) {
             totalPrice: lead.estimated_price ?? amountPaid,
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
             leadId,
+            buildSnapshotUrl: snapshotUrl,
           });
           console.log("[Webhook] Booking confirmation sent for lead:", leadId);
 
@@ -555,6 +559,7 @@ export async function POST(request: NextRequest) {
                   unitCount,
                   totalPrice: lead.estimated_price ?? amountPaid,
                   leadId,
+                  buildSnapshotUrl: snapshotUrl,
                 });
                 console.log("[Webhook] Installer booking alert sent for lead:", leadId);
               }
@@ -826,7 +831,7 @@ export async function POST(request: NextRequest) {
             .maybeSingle();
           const estimatedPricePI = leadForBalancePI?.estimated_price ?? 0;
           const discountAmtPI = leadForBalancePI?.discount_amount ?? 0;
-          const balanceDuePI = Math.round((estimatedPricePI - amountPaidPI - discountAmtPI) * 100) / 100;
+          const balanceDuePI = roundMoney(estimatedPricePI - amountPaidPI - discountAmtPI);
 
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
@@ -882,7 +887,7 @@ export async function POST(request: NextRequest) {
         try {
           const { data: lead } = await getDb()
             .from("leads")
-            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent")
+            .select("customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, booking_email_sent, dimensions")
             .eq("id", leadId)
             .single();
 
@@ -909,6 +914,7 @@ export async function POST(request: NextRequest) {
             }
 
             const unitCount = Array.isArray(lead.quote_data) ? lead.quote_data.length : 1;
+            const piSnapshotUrl = (lead.dimensions as Record<string, unknown> | null)?.build_snapshot_url as string | undefined;
 
             await sendBookingConfirmation({
               customerName: piName,
@@ -922,6 +928,7 @@ export async function POST(request: NextRequest) {
               totalPrice: lead.estimated_price ?? amountPaidPI,
               jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
               leadId,
+              buildSnapshotUrl: piSnapshotUrl,
             });
             console.log("[Webhook] Booking confirmation sent (PI flow)");
 
@@ -938,6 +945,7 @@ export async function POST(request: NextRequest) {
                   unitCount,
                   totalPrice: lead.estimated_price ?? amountPaidPI,
                   leadId,
+                  buildSnapshotUrl: piSnapshotUrl,
                 });
                 console.log("[Webhook] Installer alert sent (PI flow)");
               }

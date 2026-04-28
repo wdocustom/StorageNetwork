@@ -27,7 +27,6 @@ export const PLATFORM_DEFAULTS = {
 /** Bestseller preset total prices (totes included) */
 export const PLATFORM_BESTSELLER_DEFAULTS: Record<string, number> = {
   bestseller_indiana_joe: 950,
-  bestseller_cornhusker: 660,
   bestseller_long_ranger: 715,
   bestseller_gas_station: 840,
   bestseller_track_norris: 530,

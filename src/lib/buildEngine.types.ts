@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { SectionAddon, PaintColorId } from "@/types/viewModels";
+import { roundMoney } from "@/utils/mathHelpers";
 
 export type UnitType = "standard" | "mini";
 export type Orientation = "standard" | "sideways";
@@ -144,7 +145,7 @@ export function expandPresetUnits<T extends { presetUnits?: PresetSubUnitConfig[
           totalH: sub.totalH,
           hasTop: sub.hasTop,
           hasWheels: sub.hasWheels,
-          ...(price > 0 ? { price: Math.round((price * subSlots / totalSlots) * 100) / 100 } : {}),
+          ...(price > 0 ? { price: roundMoney(price * subSlots / totalSlots) } : {}),
           ...(desc ? { desc: `${desc} — ${sub.cols}x${sub.rows}` } : {}),
           presetUnits: undefined, // consumed — don't re-expand
         });

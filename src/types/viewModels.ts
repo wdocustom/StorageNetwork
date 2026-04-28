@@ -88,7 +88,6 @@ export interface InstallerPricing {
    *  When customer toggles totes off, the tote cost is subtracted.
    *  Key pattern: bestseller_<preset_id_with_underscores> */
   bestseller_indiana_joe?: number;
-  bestseller_cornhusker?: number;
   bestseller_long_ranger?: number;
   bestseller_gas_station?: number;
   bestseller_track_norris?: number;
@@ -116,7 +115,6 @@ export interface InstallerPricing {
   /** Per-bestseller visibility toggles (false = hidden from design/build pages).
    *  Key pattern: bestseller_<preset_id_with_underscores>_disabled */
   bestseller_indiana_joe_disabled?: boolean;
-  bestseller_cornhusker_disabled?: boolean;
   bestseller_long_ranger_disabled?: boolean;
   bestseller_gas_station_disabled?: boolean;
   bestseller_track_norris_disabled?: boolean;
@@ -231,6 +229,13 @@ export interface DesignPageViewModel {
   indoorDeliveryConfig?: {
     enabled: boolean;
     fee: number;
+  };
+
+  /** Social proof data for trust signals on the design page */
+  socialProof?: {
+    completedJobs: number;
+    averageRating: number;
+    totalReviews: number;
   };
 
   /** Availability metadata */

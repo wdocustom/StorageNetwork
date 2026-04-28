@@ -14,10 +14,23 @@ import {
   Tag,
   AlertTriangle,
   Clock,
+  CreditCard,
+  Send,
 } from "lucide-react";
 import NativeScheduler from "@/components/booking/NativeScheduler";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
 import OrderItemCard from "../OrderItemCard";
+import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
+import { formatCurrency } from "@/utils/paymentHelpers";
+
+function fieldBorder(value: string, validate?: (v: string) => boolean): string {
+  if (!value.trim()) return "border-zinc-700";
+  if (validate && !validate(value)) return "border-red-500/50";
+  return "border-emerald-500/30";
+}
+
+const isValidEmail = (v: string) => EMAIL_VALIDATION_REGEX.test(v);
+const isValidPhone = (v: string) => v.replace(/\D/g, "").length >= 10;
 
 export default function StepSummary({
   props,
@@ -55,6 +68,7 @@ export default function StepSummary({
                 pricing={props.pricing}
                 platformDefaults={props.platformDefaults}
                 addonPricing={props.addonPricing}
+                addonDefaults={props.addonDefaults}
               />
             ))}
           </AnimatePresence>
@@ -62,13 +76,14 @@ export default function StepSummary({
       ) : (
         <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-900/30 p-8 text-center">
           <ShoppingCart className="mx-auto h-8 w-8 text-zinc-700" />
-          <p className="mt-2 text-sm font-medium text-zinc-500">No units added yet</p>
+          <p className="mt-2 text-sm font-medium text-zinc-500">Your free 3D design is ready to customize</p>
           <button
             onClick={() => setActiveStep(2)}
             className="mt-3 text-xs font-bold uppercase tracking-wider text-yellow-400 hover:text-yellow-300"
           >
-            Go configure a unit
+            Start Building Your Design
           </button>
+          <p className="mt-1 text-[10px] text-zinc-600">Takes about 30 seconds</p>
         </div>
       )}
 
@@ -185,242 +200,238 @@ export default function StepSummary({
         );
       })()}
 
-      {/* Booking Form — collapsible */}
+      {/* Booking Form — always visible (non-collapsible) */}
       {props.orderItems.length > 0 && !props.submitted && (
         <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setDetailsCollapsed(!detailsCollapsed)}
-            className="flex w-full items-center justify-between p-4"
-          >
+          <div className="flex items-center justify-between p-4 pb-2">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-2">
               <User className="h-3.5 w-3.5 text-yellow-400" />
-              Your Details
-              {detailsFilled && detailsCollapsed && (
+              Almost There — Your Info
+              {detailsFilled && (
                 <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
                   <CheckCircle2 className="h-3 w-3" /> Complete
                 </span>
               )}
             </h3>
-            <motion.div
-              animate={{ rotate: detailsCollapsed ? 0 : 90 }}
-              transition={{ duration: 0.2 }}
-            >
-              <ChevronRight className="h-4 w-4 text-zinc-500" />
-            </motion.div>
-          </button>
-          <AnimatePresence initial={false}>
-            {!detailsCollapsed && (
+          </div>
+          <div className="space-y-2 px-4 pb-4">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={props.firstName}
+                onChange={(e) => props.onFirstNameChange(e.target.value)}
+                placeholder="First Name *"
+                className={`rounded-lg border ${fieldBorder(props.firstName)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+              <input
+                type="text"
+                value={props.lastName}
+                onChange={(e) => props.onLastNameChange(e.target.value)}
+                placeholder="Last Name *"
+                className={`rounded-lg border ${fieldBorder(props.lastName)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="email"
+                value={props.email}
+                onChange={(e) => props.onEmailChange(e.target.value)}
+                placeholder="Email *"
+                className={`rounded-lg border ${fieldBorder(props.email, isValidEmail)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+              <input
+                type="tel"
+                value={props.phone}
+                onChange={(e) => props.onPhoneChange(e.target.value)}
+                placeholder="Phone *"
+                className={`rounded-lg border ${fieldBorder(props.phone, isValidPhone)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+            </div>
+
+            {/* Billing Address */}
+            <div className="pt-1">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                Billing Address
+              </label>
+              <input
+                type="text"
+                value={props.streetAddress}
+                onChange={(e) => props.onStreetAddressChange(e.target.value)}
+                placeholder="Street Address"
+                className={`w-full rounded-lg border ${fieldBorder(props.streetAddress)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="text"
+                value={props.city}
+                onChange={(e) => props.onCityChange(e.target.value)}
+                placeholder="City"
+                className={`rounded-lg border ${fieldBorder(props.city)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+              <input
+                type="text"
+                value={props.addrState}
+                onChange={(e) => props.onAddrStateChange(e.target.value)}
+                placeholder="State"
+                className={`rounded-lg border ${fieldBorder(props.addrState)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+              <input
+                type="text"
+                value={props.addrZip}
+                onChange={(e) => props.onAddrZipChange(e.target.value)}
+                placeholder="Zip"
+                className={`rounded-lg border ${fieldBorder(props.addrZip)} bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none`}
+              />
+            </div>
+
+            {/* Hand-off banner */}
+            {props.handedOff && !props.zipOutOfArea && (
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3"
               >
-                <div className="space-y-2 px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={props.firstName}
-                      onChange={(e) => props.onFirstNameChange(e.target.value)}
-                      placeholder="First Name *"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={props.lastName}
-                      onChange={(e) => props.onLastNameChange(e.target.value)}
-                      placeholder="Last Name *"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="email"
-                      value={props.email}
-                      onChange={(e) => props.onEmailChange(e.target.value)}
-                      placeholder="Email *"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <input
-                      type="tel"
-                      value={props.phone}
-                      onChange={(e) => props.onPhoneChange(e.target.value)}
-                      placeholder="Phone *"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
+                <div className="mb-1 flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
+                  <p className="text-xs font-medium text-blue-300">
+                    Routed to a local partner installer.
+                  </p>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  <strong className="text-zinc-400">{props.handoffInstallerName}</strong> will handle your build.
+                </p>
+              </motion.div>
+            )}
 
-                  {/* Billing Address */}
-                  <div className="pt-1">
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                      Billing Address
-                    </label>
-                    <input
-                      type="text"
-                      value={props.streetAddress}
-                      onChange={(e) => props.onStreetAddressChange(e.target.value)}
-                      placeholder="Street Address"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <input
-                      type="text"
-                      value={props.city}
-                      onChange={(e) => props.onCityChange(e.target.value)}
-                      placeholder="City"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={props.addrState}
-                      onChange={(e) => props.onAddrStateChange(e.target.value)}
-                      placeholder="State"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={props.addrZip}
-                      onChange={(e) => props.onAddrZipChange(e.target.value)}
-                      placeholder="Zip"
-                      className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                    />
-                  </div>
+            {/* Out of area waitlist */}
+            {props.zipOutOfArea && !props.waitlistSent && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3"
+              >
+                <div className="mb-2 flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <p className="text-xs font-medium text-amber-300">{props.zipCheckMsg}</p>
+                </div>
+                <button
+                  onClick={props.onWaitlist}
+                  disabled={props.waitlistSending}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-bold text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  {props.waitlistSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
+                  {props.waitlistSending ? "Sending..." : "Notify Me When Available"}
+                </button>
+                {props.waitlistError && (
+                  <p className="mt-2 text-xs font-medium text-red-400">{props.waitlistError}</p>
+                )}
+              </motion.div>
+            )}
+            {props.waitlistSent && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-center"
+              >
+                <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
+                <p className="text-sm font-semibold text-zinc-200">You&apos;re on the List</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  We&apos;ll email you as soon as an installer is available.
+                </p>
+              </motion.div>
+            )}
 
-                  {/* Hand-off banner */}
-                  {props.handedOff && !props.zipOutOfArea && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3"
-                    >
-                      <div className="mb-1 flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
-                        <p className="text-xs font-medium text-blue-300">
-                          Routed to a local partner installer.
-                        </p>
-                      </div>
-                      <p className="text-xs text-zinc-500">
-                        <strong className="text-zinc-400">{props.handoffInstallerName}</strong> will handle your build.
-                      </p>
-                    </motion.div>
-                  )}
+            {/* Installation address toggle */}
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-3 py-2 transition-colors hover:bg-zinc-800/50">
+              <input
+                type="checkbox"
+                checked={props.hasDifferentDelivery}
+                onChange={(e) => props.onHasDifferentDeliveryChange(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-600 accent-yellow-400"
+              />
+              <span className="text-xs font-medium text-zinc-400">
+                Installation address is different from billing
+              </span>
+            </label>
 
-                  {/* Out of area waitlist */}
-                  {props.zipOutOfArea && !props.waitlistSent && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3"
-                    >
-                      <div className="mb-2 flex items-start gap-2">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                        <p className="text-xs font-medium text-amber-300">{props.zipCheckMsg}</p>
-                      </div>
-                      <button
-                        onClick={props.onWaitlist}
-                        disabled={props.waitlistSending}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-bold text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
-                      >
-                        {props.waitlistSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-                        {props.waitlistSending ? "Sending..." : "Notify Me When Available"}
-                      </button>
-                      {props.waitlistError && (
-                        <p className="mt-2 text-xs font-medium text-red-400">{props.waitlistError}</p>
-                      )}
-                    </motion.div>
-                  )}
-                  {props.waitlistSent && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-center"
-                    >
-                      <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-400" />
-                      <p className="text-sm font-semibold text-zinc-200">You&apos;re on the List</p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        We&apos;ll email you as soon as an installer is available.
-                      </p>
-                    </motion.div>
-                  )}
-
-                  {/* Installation address toggle */}
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-3 py-2 transition-colors hover:bg-zinc-800/50">
-                    <input
-                      type="checkbox"
-                      checked={props.hasDifferentDelivery}
-                      onChange={(e) => props.onHasDifferentDeliveryChange(e.target.checked)}
-                      className="h-4 w-4 rounded border-zinc-600 accent-yellow-400"
-                    />
-                    <span className="text-xs font-medium text-zinc-400">
-                      Installation address is different from billing
-                    </span>
-                  </label>
-
-                  {/* Installation address fields */}
-                  {props.hasDifferentDelivery && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="space-y-2 rounded-lg border border-yellow-400/10 bg-yellow-400/5 p-3"
-                    >
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
-                        Installation Address
-                      </label>
-                      <input
-                        type="text"
-                        value={props.deliveryStreet}
-                        onChange={(e) => props.onDeliveryStreetChange(e.target.value)}
-                        placeholder="Street Address"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                      />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input
-                          type="text"
-                          value={props.deliveryCity}
-                          onChange={(e) => props.onDeliveryCityChange(e.target.value)}
-                          placeholder="City"
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={props.deliveryState}
-                          onChange={(e) => props.onDeliveryStateChange(e.target.value)}
-                          placeholder="State"
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={props.deliveryZip}
-                          onChange={(e) => props.onDeliveryZipChange(e.target.value)}
-                          placeholder="Zip"
-                          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {props.submitError && (
-                    <p className="text-xs font-medium text-red-400">{props.submitError}</p>
-                  )}
-
-                  {/* Collapse button when details are filled */}
-                  {detailsFilled && (
-                    <motion.button
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      onClick={() => setDetailsCollapsed(true)}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/10"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Details Complete — Continue
-                    </motion.button>
-                  )}
+            {/* Installation address fields */}
+            {props.hasDifferentDelivery && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="space-y-2 rounded-lg border border-yellow-400/10 bg-yellow-400/5 p-3"
+              >
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-yellow-400/60">
+                  Installation Address
+                </label>
+                <input
+                  type="text"
+                  value={props.deliveryStreet}
+                  onChange={(e) => props.onDeliveryStreetChange(e.target.value)}
+                  placeholder="Street Address"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={props.deliveryCity}
+                    onChange={(e) => props.onDeliveryCityChange(e.target.value)}
+                    placeholder="City"
+                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={props.deliveryState}
+                    onChange={(e) => props.onDeliveryStateChange(e.target.value)}
+                    placeholder="State"
+                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={props.deliveryZip}
+                    onChange={(e) => props.onDeliveryZipChange(e.target.value)}
+                    placeholder="Zip"
+                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  />
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
+
+            {props.submitError && (
+              <p className="text-xs font-medium text-red-400">{props.submitError}</p>
+            )}
+
+            {/* Inline CTA — duplicates footer CTA inside the form for visibility */}
+            {detailsFilled && hasQuoteItems && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && (props.scheduledDate || !props.schedulingEnabled) && (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
+                disabled={props.submitting}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 ${
+                  props.isDemo
+                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                    : "bg-yellow-400 text-zinc-900 shadow-yellow-400/20 hover:bg-yellow-300"
+                }`}
+              >
+                {props.submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : props.stripeAccountId ? (
+                  <CreditCard className="h-4 w-4" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {props.isDemo
+                  ? "Demo Mode"
+                  : props.submitting
+                  ? "Submitting..."
+                  : props.stripeAccountId
+                  ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
+                  : "Submit My Design"}
+              </motion.button>
+            )}
+          </div>
         </section>
       )}
 

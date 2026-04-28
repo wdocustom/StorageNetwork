@@ -26,6 +26,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
+import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { recordPayLinkView, recordPayLinkStep } from "@/app/actions/pay-link-tracking";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
@@ -107,52 +108,65 @@ export default function ResumePaymentPage() {
         return;
       }
 
-      const result = await fetchPendingLead(leadId);
-      if (!result.success || !result.lead) {
-        setError(result.error || "Order not found.");
+      // Reject obviously invalid IDs before hitting the server
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidPattern.test(leadId)) {
+        setError("This order link is invalid or has been shortened by your email client. Please use the full link from your quote email, or contact your installer for a new link.");
         setLoading(false);
         return;
       }
 
-      setLead(result.lead);
-
-      // Track that the customer opened this pay link
-      recordPayLinkView(leadId).catch(() => {});
-      recordPayLinkStep(leadId, "address").catch(() => {});
-
-      // Pre-fill address if available from lead
-      if (result.lead.address) {
-        // Try to parse address if it's a single line
-        const parts = result.lead.address.split(",").map(s => s.trim());
-        if (parts.length >= 3) {
-          const stateZip = parts[parts.length - 1].split(" ");
-          setAddress({
-            line1: parts[0] || "",
-            line2: "",
-            city: parts[parts.length - 2] || "",
-            state: stateZip[0] || "",
-            zip: stateZip[1] || "",
-          });
+      try {
+        const result = await fetchPendingLead(leadId);
+        if (!result.success || !result.lead) {
+          setError(result.error || "Order not found.");
+          setLoading(false);
+          return;
         }
-      }
 
-      // Auto-fill discount code if installer attached one to the quote
-      if (result.lead.discount_code) {
-        setDiscountInput(result.lead.discount_code);
-        // Auto-validate it
-        if (result.lead.installer_id) {
-          const discountResult = await validateDiscountCode(
-            result.lead.discount_code,
-            result.lead.installer_id,
-            result.lead.estimated_price
-          );
-          if (discountResult.valid) {
-            setDiscountApplied({ code: discountResult.code!, amount: discountResult.discountAmount, discountType: discountResult.discountType, discountValue: discountResult.discountValue });
+        setLead(result.lead);
+
+        // Track that the customer opened this pay link
+        recordPayLinkView(leadId).catch(() => {});
+        recordPayLinkStep(leadId, "address").catch(() => {});
+
+        // Pre-fill address if available from lead
+        if (result.lead.address) {
+          // Try to parse address if it's a single line
+          const parts = result.lead.address.split(",").map(s => s.trim());
+          if (parts.length >= 3) {
+            const stateZip = parts[parts.length - 1].split(" ");
+            setAddress({
+              line1: parts[0] || "",
+              line2: "",
+              city: parts[parts.length - 2] || "",
+              state: stateZip[0] || "",
+              zip: stateZip[1] || "",
+            });
           }
         }
-      }
 
-      setLoading(false);
+        // Auto-fill discount code if installer attached one to the quote
+        if (result.lead.discount_code) {
+          setDiscountInput(result.lead.discount_code);
+          // Auto-validate it
+          if (result.lead.installer_id) {
+            const discountResult = await validateDiscountCode(
+              result.lead.discount_code,
+              result.lead.installer_id,
+              result.lead.estimated_price
+            );
+            if (discountResult.valid) {
+              setDiscountApplied({ code: discountResult.code!, amount: discountResult.discountAmount, discountType: discountResult.discountType, discountValue: discountResult.discountValue });
+            }
+          }
+        }
+
+        setLoading(false);
+      } catch {
+        setError("Failed to load order. Please try again or contact your installer.");
+        setLoading(false);
+      }
     }
 
     loadLead();
@@ -221,7 +235,7 @@ export default function ResumePaymentPage() {
       setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: effectiveState });
       return;
     }
-    getSalesTax(taxableAmount, effectiveState).then(setTaxInfo);
+    getSalesTax(taxableAmount, effectiveState, lead?.installer_id || undefined).then(setTaxInfo);
   }, [lead, taxableAmount, address.state]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
@@ -247,8 +261,7 @@ export default function ResumePaymentPage() {
     }
     // Validate email if the lead doesn't already have one
     if (!lead?.customer_email && customerEmailInput.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(customerEmailInput.trim())) {
+      if (!EMAIL_VALIDATION_REGEX.test(customerEmailInput.trim())) {
         setError("Please enter a valid email address.");
         return;
       }
@@ -428,13 +441,19 @@ export default function ResumePaymentPage() {
           </div>
           <h1 className="mb-2 text-xl font-bold text-white">Order Not Found</h1>
           <p className="mb-6 text-sm text-stone-400">{error}</p>
-          <a
-            href="/design"
-            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Start a New Order
-          </a>
+          <div className="flex flex-col gap-3">
+            <a
+              href="/design"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Start a New Order
+            </a>
+            <p className="text-xs text-stone-600">
+              If you received this link in an email, try copying the full URL directly.
+              Some email clients shorten links, which can break them.
+            </p>
+          </div>
         </div>
       </div>
     );

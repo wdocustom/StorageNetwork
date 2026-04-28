@@ -222,6 +222,17 @@ export default async function DesignPage({ searchParams }: PageProps) {
     }
   }
 
+  // ── Social proof: inject review data into viewModel ──────────────────
+  if (viewModel && rawInstaller?.installer_id) {
+    const { getInstallerReviews } = await import("@/app/actions/reviews");
+    const reviews = await getInstallerReviews(rawInstaller.installer_id);
+    viewModel.socialProof = {
+      completedJobs: rawInstaller.installer_completed_jobs ?? 0,
+      averageRating: reviews.averageRating,
+      totalReviews: reviews.totalReviews,
+    };
+  }
+
   // ── HowTo JSON-LD — standard 5×4 build for rich snippet eligibility ──
   // This generates a generic HowTo for the default build configuration.
   // For /p/[slug] partner pages, the description field can be enriched

@@ -183,8 +183,8 @@ export default function BookingModal({
       setTaxInfo({ taxRate: 0, taxAmount: 0, subtotal: 0, total: 0, stateName: address.state });
       return;
     }
-    getSalesTax(effectiveTaxable, address.state).then(setTaxInfo);
-  }, [effectiveTaxable, address.state]);
+    getSalesTax(effectiveTaxable, address.state, installerId).then(setTaxInfo);
+  }, [effectiveTaxable, address.state, installerId]);
 
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;

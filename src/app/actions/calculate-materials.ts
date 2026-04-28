@@ -25,6 +25,7 @@ import {
   type MaterialInventory,
   fillPartsFromOffcuts,
 } from "@/utils/inventoryManager";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ── Constants (protected — never sent to browser) ────────────────────────
 
@@ -453,7 +454,7 @@ export async function calculateMaterialCostServer(
 
   function addItem(name: string, qty: number, unitCost: number) {
     if (qty > 0) {
-      items.push({ name, qty, unitCost, subtotal: Math.round(qty * unitCost * 100) / 100 });
+      items.push({ name, qty, unitCost, subtotal: roundMoney(qty * unitCost) });
     }
   }
 
@@ -497,7 +498,7 @@ export async function calculateMaterialCostServer(
   const totalCost = items.reduce((sum, i) => sum + i.subtotal, 0);
 
   return {
-    totalCost: Math.round(totalCost * 100) / 100,
+    totalCost: roundMoney(totalCost),
     items,
     rawCounts: {
       screws_1_5_8: totalScrew16,

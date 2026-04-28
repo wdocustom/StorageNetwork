@@ -2,6 +2,7 @@
 
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { getServiceClient } from "@/lib/supabase-server";
+import { calculateBalanceDue } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
 
@@ -76,7 +77,7 @@ export async function submitCleanOutLead(input: CleanOutInput): Promise<{
 
   try {
     const depositAmount = await getDepositAmount(totalPrice, input.installer_id);
-    const balanceDue = Math.round((totalPrice - depositAmount) * 100) / 100;
+    const balanceDue = calculateBalanceDue(totalPrice, depositAmount);
 
     const notes = [
       `Garage/Basement Clean Out - ${serviceLabel} ($${servicePrice})`,

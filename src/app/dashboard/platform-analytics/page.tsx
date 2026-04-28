@@ -7,11 +7,8 @@ import { getInstallerActivityReport, type InstallerActivitySummary } from "@/app
 import {
   ArrowLeft,
   BarChart3,
-  Bot,
   ChevronDown,
   ChevronUp,
-  DollarSign,
-  Eye,
   Globe2,
   Loader2,
   Monitor,
@@ -19,7 +16,6 @@ import {
   Smartphone,
   Tablet,
   TrendingUp,
-  UserPlus,
   Users,
   Zap,
 } from "lucide-react";
@@ -41,7 +37,7 @@ export default function PlatformAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "pages" | "geo" | "live" | "installers">("overview");
+  const [activeTab, setActiveTab] = useState<"traffic" | "live" | "installers" | "business">("traffic");
   const [installerData, setInstallerData] = useState<InstallerActivitySummary[]>([]);
   const [installerLoading, setInstallerLoading] = useState(false);
   const [expandedInstaller, setExpandedInstaller] = useState<string | null>(null);
@@ -173,52 +169,42 @@ export default function PlatformAnalyticsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
-        {/* ── KPI Cards ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <KPICard icon={<Eye className="h-4 w-4 text-blue-400" />} label="Page Views" value={kpis.totalViews.toLocaleString()} />
-          <KPICard icon={<Users className="h-4 w-4 text-emerald-400" />} label="Unique Visitors" value={kpis.uniqueVisitors.toLocaleString()} />
-          <KPICard icon={<TrendingUp className="h-4 w-4 text-purple-400" />} label="Sessions" value={kpis.uniqueSessions.toLocaleString()} />
-          <KPICard icon={<Zap className="h-4 w-4 text-yellow-400" />} label="Active Now" value={String(kpis.activeNow)} highlight />
-          <KPICard icon={<BarChart3 className="h-4 w-4 text-cyan-400" />} label="Pages / Session" value={String(kpis.avgPagesPerSession)} />
-          <KPICard icon={<Bot className="h-4 w-4 text-red-400" />} label="Bot Views" value={kpis.botViews.toLocaleString()} muted />
-        </div>
-
-        {/* ── Business Metrics ──────────────────────────────────────── */}
-        {data.businessMetrics && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <KPICard icon={<UserPlus className="h-4 w-4 text-green-400" />} label="New Signups" value={data.businessMetrics.newSignups.toLocaleString()} />
-            <KPICard icon={<Users className="h-4 w-4 text-slate-400" />} label="Total Installers" value={data.businessMetrics.totalInstallers.toLocaleString()} />
-            <KPICard icon={<BarChart3 className="h-4 w-4 text-orange-400" />} label="Bookings" value={data.businessMetrics.bookingsInPeriod.toLocaleString()} />
-            <KPICard icon={<DollarSign className="h-4 w-4 text-emerald-400" />} label="Revenue" value={`$${data.businessMetrics.revenueInPeriod.toLocaleString()}`} />
-            <KPICard icon={<TrendingUp className="h-4 w-4 text-violet-400" />} label="Conversion" value={`${data.businessMetrics.conversionRate}%`} />
-          </div>
-        )}
-
-        {/* Top Installers */}
-        {data.businessMetrics?.topInstallersByBookings?.length > 0 && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-            <h3 className="text-sm font-bold text-white mb-3">Top Installers by Bookings</h3>
-            <div className="space-y-2">
-              {data.businessMetrics.topInstallersByBookings.map((inst, i) => (
-                <div key={i} className="flex items-center justify-between rounded-lg bg-slate-800/50 px-3 py-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-stone-500 w-5">#{i + 1}</span>
-                    <span className="text-sm font-semibold text-white">{inst.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-stone-400">{inst.bookings} booking{inst.bookings !== 1 ? "s" : ""}</span>
-                    <span className="font-bold text-emerald-400">${inst.revenue.toLocaleString()}</span>
-                  </div>
-                </div>
-              ))}
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-5">
+        {/* ── KPI Strip ────────────────────────────────────────────── */}
+        <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+          <div className="flex flex-1 items-center justify-around">
+            <div className="text-center px-2">
+              <p className="text-lg font-black text-white">{kpis.totalViews.toLocaleString()}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Views</p>
             </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <div className="text-center px-2">
+              <p className="text-lg font-black text-white">{kpis.uniqueVisitors.toLocaleString()}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Unique</p>
+            </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <div className="text-center px-2">
+              <p className="text-lg font-black text-yellow-400">{kpis.activeNow}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Active Now</p>
+            </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <div className="text-center px-2">
+              <p className="text-lg font-black text-white">{kpis.avgPagesPerSession}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Pg/Session</p>
+            </div>
+            {kpis.botViews > 0 && (<>
+              <div className="h-8 w-px bg-slate-800" />
+              <div className="text-center px-2 opacity-50">
+                <p className="text-lg font-black text-stone-500">{kpis.botViews.toLocaleString()}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-600">Bots</p>
+              </div>
+            </>)}
           </div>
-        )}
+        </div>
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
         <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
-          {(["overview", "pages", "geo", "live", "installers"] as const).map((tab) => (
+          {(["traffic", "live", "installers", "business"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -228,14 +214,14 @@ export default function PlatformAnalyticsPage() {
                   : "text-stone-500 hover:text-white"
               }`}
             >
-              {tab === "overview" ? "Overview" : tab === "pages" ? "Pages" : tab === "geo" ? "Geography" : tab === "live" ? "Live Feed" : "Installers"}
+              {tab === "traffic" ? "Traffic" : tab === "live" ? "Live" : tab === "installers" ? "Installers" : "Business"}
             </button>
           ))}
         </div>
 
-        {/* ── OVERVIEW TAB ───────────────────────────────────────────── */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
+        {/* ── TRAFFIC TAB ──────────────────────────────────────────── */}
+        {activeTab === "traffic" && (
+          <div className="space-y-5">
             {/* Views by Day Chart */}
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
               <h3 className="text-sm font-bold text-white mb-4">Views Over Time</h3>
@@ -246,7 +232,6 @@ export default function PlatformAnalyticsPage() {
                       className="w-full bg-blue-500/80 rounded-t hover:bg-blue-400 transition-colors min-h-[2px]"
                       style={{ height: `${(d.views / maxDayViews) * 100}%` }}
                     />
-                    {/* Tooltip */}
                     <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[10px] whitespace-nowrap z-10">
                       <p className="text-white font-bold">{d.views} views</p>
                       <p className="text-stone-400">{d.unique} unique</p>
@@ -261,12 +246,12 @@ export default function PlatformAnalyticsPage() {
               </div>
             </div>
 
-            {/* Hourly Pattern + Device Breakdown side by side */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* Hourly + Devices + Sources — 3-col on desktop */}
+            <div className="grid gap-4 md:grid-cols-3">
               {/* Hourly Pattern */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-                <h3 className="text-sm font-bold text-white mb-4">Hourly Traffic Pattern</h3>
-                <div className="flex items-stretch gap-[1px] h-24">
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Hourly Pattern</h3>
+                <div className="flex items-stretch gap-[1px] h-20">
                   {data.viewsByHour.map((h) => (
                     <div key={h.hour} className="flex-1 flex flex-col items-center justify-end group relative">
                       <div
@@ -280,148 +265,96 @@ export default function PlatformAnalyticsPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-[9px] text-stone-600">12am</span>
-                  <span className="text-[9px] text-stone-600">6am</span>
-                  <span className="text-[9px] text-stone-600">12pm</span>
-                  <span className="text-[9px] text-stone-600">6pm</span>
-                  <span className="text-[9px] text-stone-600">12am</span>
+                <div className="flex justify-between mt-1.5">
+                  <span className="text-[8px] text-stone-600">12a</span>
+                  <span className="text-[8px] text-stone-600">6a</span>
+                  <span className="text-[8px] text-stone-600">12p</span>
+                  <span className="text-[8px] text-stone-600">6p</span>
                 </div>
               </div>
 
-              {/* Device Breakdown */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-                <h3 className="text-sm font-bold text-white mb-4">Device Breakdown</h3>
-                <div className="space-y-3">
+              {/* Devices */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Devices</h3>
+                <div className="space-y-2.5">
                   {data.deviceBreakdown.map((d) => (
                     <div key={d.device}>
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 text-sm text-stone-300 capitalize">
-                          {deviceIcon(d.device)}
-                          {d.device}
-                        </div>
-                        <span className="text-xs text-stone-500">{d.count.toLocaleString()} ({d.pct}%)</span>
+                        <span className="flex items-center gap-1.5 text-xs text-stone-300 capitalize">
+                          {deviceIcon(d.device)} {d.device}
+                        </span>
+                        <span className="text-[10px] text-stone-500">{d.count.toLocaleString()} ({d.pct}%)</span>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            d.device === "mobile" ? "bg-blue-500" : d.device === "tablet" ? "bg-amber-500" : "bg-emerald-500"
-                          }`}
-                          style={{ width: `${d.pct}%` }}
-                        />
+                      <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div className={`h-full rounded-full ${d.device === "mobile" ? "bg-blue-500" : d.device === "tablet" ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${d.pct}%` }} />
                       </div>
                     </div>
                   ))}
-                  {data.deviceBreakdown.length === 0 && (
-                    <p className="text-stone-600 text-xs">No data yet</p>
-                  )}
+                </div>
+              </div>
+
+              {/* Traffic Sources */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Sources</h3>
+                <div className="space-y-1.5">
+                  {data.trafficSources.slice(0, 8).map((s) => {
+                    const maxSource = data.trafficSources[0]?.count || 1;
+                    return (
+                      <div key={s.source} className="flex items-center gap-2">
+                        <span className="w-24 truncate text-xs text-stone-300">{s.source}</span>
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-yellow-500/70" style={{ width: `${(s.count / maxSource) * 100}%` }} />
+                        </div>
+                        <span className="w-8 text-right text-[10px] text-stone-500 font-bold">{s.count}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Traffic Sources */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-              <h3 className="text-sm font-bold text-white mb-4">Traffic Sources</h3>
-              <div className="space-y-2">
-                {data.trafficSources.map((s, i) => {
-                  const maxSource = data.trafficSources[0]?.count || 1;
-                  return (
-                    <div key={s.source} className="flex items-center gap-3">
-                      <span className="w-5 text-right text-[10px] text-stone-600 font-bold">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-xs text-stone-300 truncate">{s.source}</span>
-                          <span className="text-[10px] text-stone-500 ml-2 shrink-0">{s.count.toLocaleString()}</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-yellow-500/70"
-                            style={{ width: `${(s.count / maxSource) * 100}%` }}
-                          />
-                        </div>
-                      </div>
+            {/* Top Pages + Top Cities side by side */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Top Pages */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">Top Pages</h3>
+                  <span className="text-[9px] text-stone-600">Views / Unique</span>
+                </div>
+                {data.topPages.slice(0, 10).map((p) => (
+                  <div key={p.page} className="flex items-center justify-between px-4 py-2 border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors">
+                    <span className="text-xs text-stone-300 truncate font-mono mr-3">{p.page}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-white font-bold">{p.views.toLocaleString()}</span>
+                      <span className="text-[10px] text-stone-500">/ {p.unique.toLocaleString()}</span>
                     </div>
-                  );
-                })}
-                {data.trafficSources.length === 0 && (
-                  <p className="text-stone-600 text-xs">No traffic data yet</p>
+                  </div>
+                ))}
+                {data.topPages.length === 0 && (
+                  <div className="px-4 py-6 text-center text-stone-600 text-xs">No page data yet</div>
                 )}
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* ── PAGES TAB ──────────────────────────────────────────────── */}
-        {activeTab === "pages" && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-            <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-5 py-3 border-b border-slate-800 text-[10px] uppercase tracking-wider font-bold text-stone-500">
-              <span>Page</span>
-              <span className="text-right">Views</span>
-              <span className="text-right">Unique</span>
-            </div>
-            {data.topPages.map((p) => (
-              <div key={p.page} className="grid grid-cols-[1fr_80px_80px] gap-2 px-5 py-3 border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors">
-                <span className="text-sm text-stone-300 truncate font-mono">{p.page}</span>
-                <span className="text-sm text-white text-right font-bold">{p.views.toLocaleString()}</span>
-                <span className="text-sm text-stone-400 text-right">{p.unique.toLocaleString()}</span>
-              </div>
-            ))}
-            {data.topPages.length === 0 && (
-              <div className="px-5 py-8 text-center text-stone-600 text-sm">No page data yet</div>
-            )}
-          </div>
-        )}
-
-        {/* ── GEO TAB ────────────────────────────────────────────────── */}
-        {activeTab === "geo" && (
-          <div className="space-y-6">
-            {/* Countries */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                <Globe2 className="h-4 w-4 text-blue-400" />
-                Top Countries
-              </h3>
-              <div className="space-y-2">
-                {data.topCountries.map((c) => {
-                  const maxCountry = data.topCountries[0]?.count || 1;
-                  return (
-                    <div key={c.country} className="flex items-center gap-3">
-                      <span className="w-8 text-xs text-stone-400 font-bold">{c.country}</span>
-                      <div className="flex-1">
-                        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-blue-500/70"
-                            style={{ width: `${(c.count / maxCountry) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-stone-500 w-12 text-right">{c.count.toLocaleString()}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Cities */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-800">
-                <h3 className="text-sm font-bold text-white">Top Cities</h3>
-              </div>
-              {data.topCities.map((c, i) => (
-                <div key={`${c.city}-${c.region}-${i}`} className="flex items-center justify-between px-5 py-2.5 border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors">
-                  <div>
-                    <span className="text-sm text-stone-300">{c.city}</span>
-                    {c.region && <span className="text-xs text-stone-500 ml-1.5">{c.region}</span>}
-                    {c.country && c.country !== "US" && (
-                      <span className="text-[10px] text-stone-600 ml-1">({c.country})</span>
-                    )}
-                  </div>
-                  <span className="text-xs text-stone-400 font-bold">{c.count.toLocaleString()}</span>
+              {/* Top Cities */}
+              <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
+                  <Globe2 className="h-3.5 w-3.5 text-blue-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">Top Cities</h3>
                 </div>
-              ))}
-              {data.topCities.length === 0 && (
-                <div className="px-5 py-8 text-center text-stone-600 text-sm">No geo data yet — Vercel provides city/region headers on deployed environments</div>
-              )}
+                {data.topCities.slice(0, 10).map((c, i) => (
+                  <div key={`${c.city}-${c.region}-${i}`} className="flex items-center justify-between px-4 py-2 border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors">
+                    <div className="min-w-0">
+                      <span className="text-xs text-stone-300">{c.city}</span>
+                      {c.region && <span className="text-[10px] text-stone-500 ml-1">{c.region}</span>}
+                      {c.country && c.country !== "US" && <span className="text-[10px] text-stone-600 ml-1">({c.country})</span>}
+                    </div>
+                    <span className="text-[10px] text-stone-400 font-bold shrink-0">{c.count.toLocaleString()}</span>
+                  </div>
+                ))}
+                {data.topCities.length === 0 && (
+                  <div className="px-4 py-6 text-center text-stone-600 text-xs">Geo data available on deployed environments</div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -614,39 +547,107 @@ export default function PlatformAnalyticsPage() {
             )}
           </div>
         )}
+        {/* ── BUSINESS TAB ──────────────────────────────────────────── */}
+        {activeTab === "business" && (
+          <div className="space-y-5">
+            {/* Business KPI Strip */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+                <p className="text-2xl font-black text-white">{data.businessMetrics.totalInstallers}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">Total Installers</p>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center">
+                <p className="text-2xl font-black text-emerald-400">{data.businessMetrics.newSignups}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">New Signups</p>
+              </div>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
+                <p className="text-2xl font-black text-blue-400">{data.businessMetrics.bookingsInPeriod}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">Bookings</p>
+              </div>
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4 text-center">
+                <p className="text-2xl font-black text-yellow-400">${data.businessMetrics.revenueInPeriod.toLocaleString()}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">Revenue</p>
+              </div>
+              <div className="col-span-2 md:col-span-1 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 text-center">
+                <p className="text-2xl font-black text-purple-400">{data.businessMetrics.conversionRate}%</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">Visitor → Booking</p>
+              </div>
+            </div>
+
+            {/* Top Installers by Bookings */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-2">
+                  <TrendingUp className="h-3.5 w-3.5 text-yellow-400" />
+                  Top Installers by Bookings
+                </h3>
+                <span className="text-[9px] text-stone-600">Last {range} days</span>
+              </div>
+              {data.businessMetrics.topInstallersByBookings.length > 0 ? (
+                <div className="divide-y divide-slate-800/50">
+                  {data.businessMetrics.topInstallersByBookings.map((inst, i) => {
+                    const maxBookings = data.businessMetrics.topInstallersByBookings[0]?.bookings || 1;
+                    return (
+                      <div key={i} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-800/50 transition-colors">
+                        <span className={`text-sm font-black w-6 text-center ${i < 3 ? "text-yellow-400" : "text-stone-600"}`}>
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{inst.name}</p>
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-yellow-500/70"
+                              style={{ width: `${(inst.bookings / maxBookings) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-black text-white">{inst.bookings}</p>
+                            <p className="text-[9px] text-stone-600 uppercase">Jobs</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-emerald-400">${inst.revenue.toLocaleString()}</p>
+                            <p className="text-[9px] text-stone-600 uppercase">Revenue</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="px-5 py-8 text-center text-stone-600 text-sm">No booking data for this period</div>
+              )}
+            </div>
+
+            {/* Funnel Summary */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-2">
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                Conversion Funnel
+              </h3>
+              <div className="flex items-center gap-2">
+                {[
+                  { label: "Visitors", value: kpis.uniqueVisitors.toLocaleString(), color: "bg-blue-500" },
+                  { label: "Signups", value: data.businessMetrics.newSignups.toString(), color: "bg-emerald-500" },
+                  { label: "Bookings", value: data.businessMetrics.bookingsInPeriod.toString(), color: "bg-yellow-500" },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="flex items-center gap-2 flex-1">
+                    <div className="flex-1 text-center">
+                      <div className={`h-2 rounded-full ${step.color} mb-2`} />
+                      <p className="text-lg font-black text-white">{step.value}</p>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">{step.label}</p>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="text-stone-700 shrink-0">→</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
-    </div>
-  );
-}
-
-// ── KPI Card Component ──────────────────────────────────────────────────
-
-function KPICard({
-  icon,
-  label,
-  value,
-  highlight,
-  muted,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  highlight?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <div className={`rounded-xl border p-4 text-center ${
-      highlight
-        ? "border-yellow-400/30 bg-yellow-400/5"
-        : muted
-        ? "border-slate-800/50 bg-slate-900/50"
-        : "border-slate-800 bg-slate-900"
-    }`}>
-      <div className="flex justify-center mb-1.5">{icon}</div>
-      <p className={`text-xl font-black ${highlight ? "text-yellow-400" : muted ? "text-stone-500" : "text-white"}`}>
-        {value}
-      </p>
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-0.5">{label}</p>
     </div>
   );
 }
