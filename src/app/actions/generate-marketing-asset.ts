@@ -1,17 +1,29 @@
 "use server";
 
+import Replicate from "replicate";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// AI Asset Forge — Server actions for the marketing image generator
+// AI Asset Forge — Phase 2
 //
-// MVP scope: real credit deduction against `profiles.marketing_credits`,
-// mocked image output (returns a curated Unsplash URL based on scene+vibe).
-// Swap `mockImageFor()` for a real model call when ready.
+// Calls Black Forest Labs FLUX.1.1-pro on Replicate to generate a real
+// photorealistic marketing image based on the (scene, vibe) selected in
+// the UI. Credits are debited atomically via the `decrement_credits`
+// Postgres RPC (migration 099) BEFORE the model call so concurrent
+// requests cannot double-spend; if the model call fails, we refund.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const supabase = getServiceClient();
+
+// useFileOutput:false — keep `replicate.run()` returning raw URL strings
+// instead of FileOutput streams; we only need the URL to hand to the browser.
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+  useFileOutput: false,
+});
+
+const FLUX_MODEL = "black-forest-labs/flux-1.1-pro" as const;
 
 export type Scene = "disaster_garage" | "luxury_garage" | "tool_closeup";
 export type Vibe = "bright_airy" | "industrial_dark" | "suburban_clean";
@@ -19,7 +31,38 @@ export type Vibe = "bright_airy" | "industrial_dark" | "suburban_clean";
 const SCENES: readonly Scene[] = ["disaster_garage", "luxury_garage", "tool_closeup"];
 const VIBES: readonly Vibe[] = ["bright_airy", "industrial_dark", "suburban_clean"];
 
-const COST_PER_GENERATION = 1;
+// ── Master prompt dictionary ───────────────────────────────────────────────
+// Each (scene, vibe) pair maps to a fully-formed photorealistic prompt.
+// Keep these consistent in structure: subject → vibe/lighting → details →
+// camera + quality tags. This is the only place prompts should be edited.
+export const PROMPT_TEMPLATES: Record<Scene, Record<Vibe, string>> = {
+  disaster_garage: {
+    bright_airy:
+      "A photorealistic wide-angle shot of a chaotic, cluttered residential garage interior in a before-renovation state. Bright and airy aesthetic, soft natural daylight pouring through the open garage door, clean white walls fighting the mess, scattered cardboard moving boxes, a tangled bicycle on the floor, sports equipment in disarray, dusty workbench overflowing with miscellaneous items. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+    industrial_dark:
+      "A photorealistic wide-angle shot of a chaotic, cluttered residential garage interior in a state of disrepair. Industrial dark aesthetic, single overhead bulb casting deep shadows, cold concrete floor with oil stains, grimy walls and exposed wood studs, broken-down storage piled high, stacked junk and forgotten tools. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+    suburban_clean:
+      "A photorealistic wide-angle shot of a typical American suburban two-car garage cluttered with disorganized household belongings. Bright midday lighting through the open garage door, warm beige walls, neighbor's house visible outside, family bicycles tangled together, plastic bins stacked carelessly, lawn equipment leaning everywhere, garden hose coiled on the floor. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+  },
+  luxury_garage: {
+    bright_airy:
+      "A photorealistic wide shot of a pristine, luxury garage interior. Bright and airy aesthetic, soft daylight from clerestory windows, white epoxy floor, warm white walls, custom white storage cabinetry, neatly organized clear acrylic storage totes on stainless steel wall racks, hanging tools on perforated white pegboard, immaculate showroom polish. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+    industrial_dark:
+      "A photorealistic wide shot of a pristine, luxury garage interior. Industrial dark aesthetic, moody directional lighting, matte black epoxy floor, heavy-duty black and yellow storage totes neatly organized on heavy-duty steel wall racks. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+    suburban_clean:
+      "A photorealistic wide shot of a pristine, luxury garage interior in a high-end suburban home. Bright midday lighting, light gray epoxy floor, soft beige walls, cherry-stained wood cabinetry, neatly organized translucent storage totes on white-painted steel wall racks, family SUV partially visible, perfectly swept floor. Shot on 35mm lens, high architectural quality, 8k resolution, highly detailed.",
+  },
+  tool_closeup: {
+    bright_airy:
+      "A photorealistic close-up macro shot of a meticulously organized hand-tool wall in a residential garage. Bright and airy aesthetic, soft window-lit lighting, clean white pegboard backdrop, gleaming chrome wrenches and screwdrivers seated in shadow-board outlines, color-coded tool clips, shallow depth of field. Shot on 35mm macro lens, studio-quality detail, 8k resolution, highly detailed.",
+    industrial_dark:
+      "A photorealistic close-up macro shot of a meticulously organized hand-tool wall on heavy-duty steel pegboard. Industrial dark aesthetic, moody directional lighting from a single warm-tungsten work lamp, glinting black and yellow tool grips, brushed stainless wrenches in shadow-board cutouts, deep contrasting shadows. Shot on 35mm macro lens, studio-quality detail, 8k resolution, highly detailed.",
+    suburban_clean:
+      "A photorealistic close-up macro shot of a tidy hand-tool corner in a clean suburban garage. Bright midday natural lighting, painted white pegboard, neatly arranged hammer, level, and tape measure on labeled hooks, an open clear plastic storage tote of small parts to the side, friendly familiar warmth. Shot on 35mm macro lens, studio-quality detail, 8k resolution, highly detailed.",
+  },
+};
+
+// ── Public types ───────────────────────────────────────────────────────────
 
 export interface MarketingCreditsResult {
   credits: number;
@@ -34,10 +77,8 @@ export type GenerateAssetResult =
   | { success: true; imageUrl: string; creditsRemaining: number }
   | { success: false; error: string; creditsRemaining?: number };
 
-/**
- * Read the authenticated installer's current marketing credit balance.
- * Returns 0 on auth failure so the UI can render a disabled state safely.
- */
+// ── Read current balance ───────────────────────────────────────────────────
+
 export async function getMarketingCredits(): Promise<MarketingCreditsResult> {
   const user = await getAuthenticatedUser();
   if (!user) return { credits: 0 };
@@ -51,11 +92,8 @@ export async function getMarketingCredits(): Promise<MarketingCreditsResult> {
   return { credits: data?.marketing_credits ?? 0 };
 }
 
-/**
- * Mock generation: deducts 1 credit, waits 3s, returns a static placeholder.
- * The Unsplash URLs below are stable, license-free image IDs picked to roughly
- * match the (scene, vibe) combination so the UI looks plausible during dev.
- */
+// ── Generate ──────────────────────────────────────────────────────────────
+
 export async function generateMarketingAsset(
   input: GenerateAssetInput
 ): Promise<GenerateAssetResult> {
@@ -66,66 +104,85 @@ export async function generateMarketingAsset(
     return { success: false, error: "Invalid scene or vibe selection." };
   }
 
-  // Atomic-ish check + deduct. PG row lock via update-returning protects
-  // against double-spend within a single request; for true atomicity under
-  // concurrent requests, switch to an RPC with FOR UPDATE.
-  const { data: profile, error: readErr } = await supabase
-    .from("profiles")
-    .select("marketing_credits")
-    .eq("id", user.id)
-    .single();
-
-  if (readErr || !profile) {
-    return { success: false, error: "Profile not found." };
+  if (!process.env.REPLICATE_API_TOKEN) {
+    return { success: false, error: "Image generator is not configured." };
   }
 
-  const current = profile.marketing_credits ?? 0;
-  if (current < COST_PER_GENERATION) {
-    return { success: false, error: "Out of credits.", creditsRemaining: current };
+  // 1. Atomic credit reservation. The RPC raises 'Insufficient credits' if
+  //    the balance is already 0 — fail the request before calling the model.
+  const { data: remainingAfterDebit, error: rpcErr } = await supabase.rpc(
+    "decrement_credits",
+    { user_id: user.id }
+  );
+
+  if (rpcErr) {
+    if (rpcErr.message.includes("Insufficient credits")) {
+      return { success: false, error: "Out of credits.", creditsRemaining: 0 };
+    }
+    console.error("[AssetForge] decrement_credits failed:", rpcErr);
+    return { success: false, error: "Could not deduct credit." };
   }
 
-  const next = current - COST_PER_GENERATION;
-  const { error: updErr } = await supabase
-    .from("profiles")
-    .update({ marketing_credits: next })
-    .eq("id", user.id);
+  const creditsRemaining =
+    typeof remainingAfterDebit === "number" ? remainingAfterDebit : 0;
 
-  if (updErr) {
-    return { success: false, error: "Could not deduct credit.", creditsRemaining: current };
+  // 2. Build the prompt and call FLUX.1.1-pro.
+  const prompt = PROMPT_TEMPLATES[input.scene][input.vibe];
+
+  try {
+    const output = await replicate.run(FLUX_MODEL, {
+      input: {
+        prompt,
+        aspect_ratio: "16:9",
+        output_format: "png",
+      },
+    });
+
+    const imageUrl = extractImageUrl(output);
+    if (!imageUrl) {
+      throw new Error("Replicate returned an empty result.");
+    }
+
+    return { success: true, imageUrl, creditsRemaining };
+  } catch (err) {
+    // 3. Refund on generation failure so the user isn't charged for nothing.
+    const { data: restored } = await supabase.rpc("refund_credit", {
+      user_id: user.id,
+    });
+    const refundedBalance =
+      typeof restored === "number" ? restored : creditsRemaining + 1;
+
+    console.error("[AssetForge] FLUX generation failed:", err);
+    const message =
+      err instanceof Error ? err.message : "Generation failed. Credit refunded.";
+    return { success: false, error: message, creditsRemaining: refundedBalance };
   }
-
-  // Simulate generation latency
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-
-  return {
-    success: true,
-    imageUrl: mockImageFor(input.scene, input.vibe),
-    creditsRemaining: next,
-  };
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 /**
- * Curated Unsplash placeholders so the UI flow shows plausible variation.
- * Replace with the real model output when the generator goes live.
+ * Defensive URL extraction: FLUX.1.1-pro normally returns a single string URL,
+ * but we fall back to handling arrays and Replicate FileOutput-shaped objects
+ * in case the SDK or model response shape changes.
  */
-function mockImageFor(scene: Scene, vibe: Vibe): string {
-  const picks: Record<Scene, Record<Vibe, string>> = {
-    disaster_garage: {
-      bright_airy: "1558618666-fcd25c85cd64",
-      industrial_dark: "1530124566582-a618bc2615dc",
-      suburban_clean: "1558618047-3c8c76ca7d13",
-    },
-    luxury_garage: {
-      bright_airy: "1600585154340-be6161a56a0c",
-      industrial_dark: "1593696140826-c58b021acf8b",
-      suburban_clean: "1583847268964-b28dc8f51f92",
-    },
-    tool_closeup: {
-      bright_airy: "1581092918056-0c4c3acd3789",
-      industrial_dark: "1572981779307-38b8cabb2407",
-      suburban_clean: "1504148455328-c376907d081c",
-    },
-  };
-  const id = picks[scene][vibe];
-  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
+function extractImageUrl(output: unknown): string | null {
+  if (!output) return null;
+  if (typeof output === "string") return output;
+  if (output instanceof URL) return output.toString();
+  if (Array.isArray(output)) {
+    for (const item of output) {
+      const url = extractImageUrl(item);
+      if (url) return url;
+    }
+    return null;
+  }
+  if (typeof output === "object") {
+    const candidate = output as { url?: () => URL | string };
+    if (typeof candidate.url === "function") {
+      const u = candidate.url();
+      return u instanceof URL ? u.toString() : u;
+    }
+  }
+  return null;
 }
