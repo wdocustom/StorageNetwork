@@ -464,7 +464,7 @@ function ComingSoonOverlay() {
 
         <p className="mb-5 text-sm leading-relaxed text-stone-300">
           We&apos;re fine-tuning the model on{" "}
-          <span className="font-bold text-yellow-300">real WDO Custom installs</span> so every
+          <span className="font-bold text-yellow-300">real Storage-Network installs</span> so every
           generated asset matches your signature racks, totes, and finishes —{" "}
           <span className="font-bold text-white">not generic stock photos</span>.
         </p>
