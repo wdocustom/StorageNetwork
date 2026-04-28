@@ -15,6 +15,10 @@ const nextConfig = {
         hostname: "**.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
     ],
   },
 
@@ -40,7 +44,7 @@ const nextConfig = {
           "default-src 'self'",
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
           "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https://*.supabase.co",
+          "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com",
           "font-src 'self'",
           "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.upstash.io https://raw.githack.com",
           "frame-src 'self' https://js.stripe.com",
