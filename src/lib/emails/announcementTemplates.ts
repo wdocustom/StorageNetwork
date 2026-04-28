@@ -1,4 +1,5 @@
 import { sendTransactionalEmail, emailShell, type SendEmailResult } from "./core";
+import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
 export interface FeatureAnnouncementData {
@@ -1055,6 +1056,118 @@ export async function sendWeeklyDigestEmail(
   return sendTransactionalEmail({
     to: email,
     subject: `Your Weekly Scorecard \u2014 ${pageViews} views, ${leadsReceived} leads, ${jobsCompleted} jobs`,
+    html,
+  });
+}
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// AI Asset Forge launch announcement
+//
+// Triggered manually via /api/cron/asset-forge-announcement when the
+// Storage-Network LoRA finishes training. Uses the newest pure-black
+// masterEmailLayout (not the slate emailShell).
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+export interface AssetForgeAnnouncementData {
+  installerName: string;
+  marketingUrl: string;
+  unsubscribeUrl: string;
+}
+
+export async function sendAssetForgeAnnouncementEmail(
+  email: string,
+  data: AssetForgeAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, marketingUrl, unsubscribeUrl } = data;
+
+  const html = masterEmailLayout(
+    "AI Asset Forge",
+    `
+    <!-- Hook -->
+    <p style="margin:0 0 8px;color:#ffffff;font-size:18px;font-weight:700;">
+      Hey ${installerName} &mdash; meet your new photo studio.
+    </p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Stop hunting for stock photos. The <strong style="color:#facc15;">AI Asset Forge</strong> generates scroll-stopping marketing images in seconds &mdash; trained on real Storage-Network installs so the racks, totes, and finishes look like <strong style="color:#ffffff;">your work</strong>, not someone else&rsquo;s warehouse.
+    </p>
+
+    <!-- 3-step explainer -->
+    <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;padding:22px;margin:0 0 24px;">
+      <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">How it works</p>
+
+      <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+        <tr>
+          <td valign="top" style="width:32px;padding:8px 0;">
+            <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">1</div>
+          </td>
+          <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;">
+            <strong style="color:#ffffff;">Pick a Scene.</strong> Pristine luxury garage, disaster &ldquo;before&rdquo; shot, or close-up tool detail.
+          </td>
+        </tr>
+        <tr>
+          <td valign="top" style="width:32px;padding:8px 0;border-top:1px solid #1a1a1a;">
+            <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">2</div>
+          </td>
+          <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
+            <strong style="color:#ffffff;">Set the Vibe.</strong> Bright &amp; airy, industrial dark, or suburban clean.
+          </td>
+        </tr>
+        <tr>
+          <td valign="top" style="width:32px;padding:8px 0;border-top:1px solid #1a1a1a;">
+            <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">3</div>
+          </td>
+          <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
+            <strong style="color:#ffffff;">Generate.</strong> Square / landscape / portrait, brand colors, custom details &mdash; all optional. One click and you have an ad-ready asset.
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Use cases -->
+    <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">
+      Use it for
+    </p>
+    <p style="margin:0 0 24px;color:#e5e5e5;font-size:14px;line-height:1.8;">
+      Facebook posts &middot; Instagram feed &amp; Reels &middot; Marketplace listings &middot; Nextdoor neighborhood ads &middot; Website hero images &middot; Flyer art &middot; Anywhere a generic stock photo would water down your brand.
+    </p>
+
+    <!-- Credit economy -->
+    <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;padding:20px;margin:0 0 24px;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">
+        How credits work
+      </p>
+      <p style="margin:0 0 6px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+        &bull; <strong style="color:#ffffff;">10 credits</strong> on the house, just for being on the network.
+      </p>
+      <p style="margin:0 0 6px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+        &bull; <strong style="color:#ffffff;">+10 credits</strong> automatically every time you complete a job.
+      </p>
+      <p style="margin:0;color:#a3a3a3;font-size:14px;line-height:1.7;">
+        &bull; Each generated asset costs <strong style="color:#ffffff;">1 credit</strong>.
+      </p>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:8px 0 28px;">
+      <a href="${marketingUrl}" style="display:inline-block;background:#facc15;color:#000000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:900;font-size:15px;letter-spacing:0.5px;text-transform:uppercase;">
+        Open the Forge &rarr;
+      </a>
+    </div>
+
+    <p style="margin:0 0 8px;color:#a3a3a3;font-size:13px;line-height:1.6;text-align:center;">
+      Generate a few. Post them. Watch what happens.
+    </p>
+
+    <!-- Unsubscribe -->
+    <p style="margin:32px 0 0;color:#444;font-size:11px;line-height:1.6;text-align:center;">
+      <a href="${unsubscribeUrl}" style="color:#555;text-decoration:underline;">Unsubscribe from launch announcements</a>
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "New: AI Asset Forge \u2014 Generate Marketing Photos in Seconds",
     html,
   });
 }

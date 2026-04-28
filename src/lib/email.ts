@@ -57,9 +57,11 @@ export {
   sendFeedbackCallInvite,
   sendInventoryAnnouncementEmail,
   sendWeeklyDigestEmail,
+  sendAssetForgeAnnouncementEmail,
   type FeatureAnnouncementData,
   type BountyAnnouncementData,
   type OverheadAnnouncementData,
   type JigAnnouncementData,
   type WeeklyDigestData,
+  type AssetForgeAnnouncementData,
 } from "./emails/announcementTemplates";
