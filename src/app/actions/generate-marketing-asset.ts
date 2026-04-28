@@ -14,14 +14,20 @@ import { getAuthenticatedUser } from "@/lib/auth";
 // requests cannot double-spend; if the model call fails, we refund.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const supabase = getServiceClient();
-
-// useFileOutput:false — keep `replicate.run()` returning raw URL strings
-// instead of FileOutput streams; we only need the URL to hand to the browser.
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-  useFileOutput: false,
-});
+// Lazy singletons. Constructing these at module scope risked a single bad
+// env var taking down BOTH exports (including getMarketingCredits, which
+// doesn't even need Replicate). Lazy + per-export keeps failures isolated.
+let _replicate: Replicate | null = null;
+function getReplicate(): Replicate {
+  if (_replicate) return _replicate;
+  // useFileOutput:false — keep `replicate.run()` returning raw URL strings
+  // instead of FileOutput streams; we only need the URL to hand to the browser.
+  _replicate = new Replicate({
+    auth: process.env.REPLICATE_API_TOKEN,
+    useFileOutput: false,
+  });
+  return _replicate;
+}
 
 const FLUX_MODEL = "black-forest-labs/flux-1.1-pro" as const;
 
@@ -80,16 +86,30 @@ export type GenerateAssetResult =
 // ── Read current balance ───────────────────────────────────────────────────
 
 export async function getMarketingCredits(): Promise<MarketingCreditsResult> {
-  const user = await getAuthenticatedUser();
-  if (!user) return { credits: 0 };
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      console.warn("[AssetForge] getMarketingCredits called without auth");
+      return { credits: 0 };
+    }
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("marketing_credits")
-    .eq("id", user.id)
-    .single();
+    const supabase = getServiceClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("marketing_credits")
+      .eq("id", user.id)
+      .single();
 
-  return { credits: data?.marketing_credits ?? 0 };
+    if (error) {
+      console.error("[AssetForge] getMarketingCredits read error:", error.message);
+      return { credits: 0 };
+    }
+
+    return { credits: data?.marketing_credits ?? 0 };
+  } catch (err) {
+    console.error("[AssetForge] getMarketingCredits exception:", err);
+    return { credits: 0 };
+  }
 }
 
 // ── Generate ──────────────────────────────────────────────────────────────
@@ -107,6 +127,8 @@ export async function generateMarketingAsset(
   if (!process.env.REPLICATE_API_TOKEN) {
     return { success: false, error: "Image generator is not configured." };
   }
+
+  const supabase = getServiceClient();
 
   // 1. Atomic credit reservation. The RPC raises 'Insufficient credits' if
   //    the balance is already 0 — fail the request before calling the model.
@@ -130,7 +152,7 @@ export async function generateMarketingAsset(
   const prompt = PROMPT_TEMPLATES[input.scene][input.vibe];
 
   try {
-    const output = await replicate.run(FLUX_MODEL, {
+    const output = await getReplicate().run(FLUX_MODEL, {
       input: {
         prompt,
         aspect_ratio: "16:9",

@@ -80,7 +80,14 @@ export default function AssetForge() {
   const [sayingIdx, setSayingIdx] = useState(0);
 
   useEffect(() => {
-    getMarketingCredits().then((r) => setCredits(r.credits));
+    getMarketingCredits()
+      .then((r) => setCredits(r.credits))
+      .catch((err) => {
+        // If the action throws, fall back to 0 so the UI never gets stuck
+        // on the "—" loading dash. The real error is logged for diagnosis.
+        console.error("[AssetForge] Failed to load credit balance:", err);
+        setCredits(0);
+      });
   }, []);
 
   // Rotate the loading saying every 2.8s while a generation is in flight.
