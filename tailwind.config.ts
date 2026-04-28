@@ -9,9 +9,14 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         fadeInUp: "fadeInUp 0.4s ease-out forwards",
+        shimmer: "shimmer 3s ease-in-out infinite",
       },
       fontFamily: {
         sans: [

@@ -98,6 +98,12 @@ const LOADING_SAYINGS = [
   "Tidying the shadows...",
 ];
 
+// Flip to `false` once the WDO Custom LoRA is trained and wired into the
+// server action. While true, the UI is shown behind a "Training in progress"
+// overlay and clicks are blocked so installers can't burn credits on the
+// pre-trained generic FLUX model.
+const COMING_SOON = true;
+
 export default function AssetForge() {
   const [credits, setCredits] = useState<number | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
@@ -169,7 +175,9 @@ export default function AssetForge() {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+    <section className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+      {COMING_SOON && <ComingSoonOverlay />}
+      <div className={COMING_SOON ? "pointer-events-none select-none blur-[1px]" : ""}>
       {/* ── Forge Header ──────────────────────────────────────── */}
       <header className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/60 px-5 py-4">
         <div className="flex items-center gap-2">
@@ -418,11 +426,63 @@ export default function AssetForge() {
           </div>
         )}
       </div>
+      </div>
     </section>
   );
 }
 
 // ── Sub-components ──────────────────────────────────────────────
+
+function ComingSoonOverlay() {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm">
+      {/* animated gradient halo */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
+
+      <div className="relative mx-6 max-w-md overflow-hidden rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-7 shadow-2xl shadow-yellow-500/10">
+        {/* shimmer sweep */}
+        <span className="pointer-events-none absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent" />
+
+        {/* top eyebrow with pulsing dot */}
+        <div className="mb-3 flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-yellow-400" />
+          </span>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-yellow-400">
+            Training in Progress
+          </p>
+        </div>
+
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-yellow-400" />
+          <h3 className="text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
+            Custom AI for Your Builds
+          </h3>
+        </div>
+
+        <p className="mb-5 text-sm leading-relaxed text-stone-300">
+          We&apos;re fine-tuning the model on{" "}
+          <span className="font-bold text-yellow-300">real WDO Custom installs</span> so every
+          generated asset matches your signature racks, totes, and finishes —{" "}
+          <span className="font-bold text-white">not generic stock photos</span>.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-4 py-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-300">Live</p>
+            <p className="text-sm font-extrabold text-white">Tomorrow</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Powered by</p>
+            <p className="text-[11px] font-bold text-stone-300">FLUX · Custom LoRA</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CreditBadge({ credits }: { credits: number | null }) {
   const display = credits ?? "—";
