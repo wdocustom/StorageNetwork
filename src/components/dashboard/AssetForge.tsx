@@ -50,6 +50,26 @@ const VIBE_OPTIONS: VibeOption[] = [
   { id: "suburban_clean", label: "Suburban Clean", hint: "Familiar, mid-day, friendly", Icon: House },
 ];
 
+// Storage / organization themed flavor text — cycled while a render is in
+// flight so the spinner has personality across a 10–20s FLUX call.
+const LOADING_SAYINGS = [
+  "Hang tight — good things take time.",
+  "Stacking pixels like totes on a rack...",
+  "Mounting your asset to the wall...",
+  "Sweeping the studio floor before the shoot...",
+  "Color-coding the highlights...",
+  "Sorting by size, then by vibe...",
+  "Decluttering the composition...",
+  "Labeling every bin in the frame...",
+  "Folding the light just right...",
+  "Polishing the chrome before the close-up...",
+  "Wheeling the workbench into position...",
+  "Mind your overhead — stacking from the top...",
+  "Measuring twice. Rendering once.",
+  "Boxing up the chaos...",
+  "Tidying the shadows...",
+];
+
 export default function AssetForge() {
   const [credits, setCredits] = useState<number | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
@@ -57,10 +77,26 @@ export default function AssetForge() {
   const [generating, setGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sayingIdx, setSayingIdx] = useState(0);
 
   useEffect(() => {
     getMarketingCredits().then((r) => setCredits(r.credits));
   }, []);
+
+  // Rotate the loading saying every 2.8s while a generation is in flight.
+  // Picks a fresh random index each tick so successive sayings don't repeat.
+  useEffect(() => {
+    if (!generating) return;
+    setSayingIdx(Math.floor(Math.random() * LOADING_SAYINGS.length));
+    const id = setInterval(() => {
+      setSayingIdx((prev) => {
+        let next = Math.floor(Math.random() * LOADING_SAYINGS.length);
+        if (next === prev) next = (next + 1) % LOADING_SAYINGS.length;
+        return next;
+      });
+    }, 2800);
+    return () => clearInterval(id);
+  }, [generating]);
 
   const ready = scene !== null && vibe !== null && (credits ?? 0) > 0 && !generating;
 
@@ -100,6 +136,14 @@ export default function AssetForge() {
         </div>
         <CreditBadge credits={credits} />
       </header>
+
+      {/* ── How credits work ──────────────────────────────────── */}
+      <div className="border-b border-slate-800 bg-slate-900/40 px-5 py-2.5">
+        <p className="text-[11px] leading-relaxed text-stone-400">
+          <span className="font-bold text-yellow-300">+10 credits</span> are added automatically every time you complete a job. New installers start with{" "}
+          <span className="font-bold text-yellow-300">10 credits</span>. Each generated asset costs 1 credit.
+        </p>
+      </div>
 
       <div className="space-y-4 p-5">
         {/* ── Step 1: Scene ─────────────────────────────────── */}
@@ -194,9 +238,17 @@ export default function AssetForge() {
             </div>
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-900">
               {generating && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/80">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 px-6 text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400">Rendering…</p>
+                  <p
+                    key={sayingIdx}
+                    className="max-w-xs animate-fadeInUp text-sm font-medium text-stone-300"
+                  >
+                    {LOADING_SAYINGS[sayingIdx]}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
+                    Rendering · ~10–20s
+                  </p>
                 </div>
               )}
               {resultUrl && !generating && (

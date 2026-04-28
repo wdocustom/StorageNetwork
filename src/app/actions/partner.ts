@@ -22,6 +22,7 @@ export interface PlatformUser {
   phone: string | null;
   completed_jobs: number;
   job_score: number;
+  marketing_credits: number;
   created_at: string;
   last_login_at: string | null;
   booking_link: string;
@@ -429,7 +430,7 @@ export async function getAdminPlatformUsers(
     const { data: allProfiles, error } = await supabase
       .from("profiles")
       .select(
-        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, created_at, last_login_at, is_suspended, suspension_reason, stripe_account_id, pro_trial_ends_at, stripe_subscription_id"
+        "id, email, first_name, last_name, business_name, slug, is_pro, is_partner, city, state, phone, completed_jobs, job_score, marketing_credits, created_at, last_login_at, is_suspended, suspension_reason, stripe_account_id, pro_trial_ends_at, stripe_subscription_id"
       )
       .order("created_at", { ascending: false });
 
@@ -485,6 +486,7 @@ export async function getAdminPlatformUsers(
         phone: p.phone,
         completed_jobs: counts.bookings,
         job_score: p.job_score ?? 0,
+        marketing_credits: (p.marketing_credits as number | null) ?? 0,
         created_at: p.created_at,
         last_login_at: p.last_login_at ?? null,
         booking_link: `${baseUrl}/design?${bookingParam}`,
@@ -545,6 +547,64 @@ export async function toggleInstallerSuspension(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to toggle suspension.",
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// addMarketingCredits — Admin top-up for an installer's AI Asset Forge
+// credit balance. Accepts any positive integer; pairs with the per-job +10
+// auto-grant from migration 101.
+// ═══════════════════════════════════════════════════════════════════════════
+export async function addMarketingCredits(
+  adminUserId: string,
+  installerId: string,
+  amount: number
+): Promise<{ success: boolean; newBalance?: number; error?: string }> {
+  try {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+      return { success: false, error: "Amount must be a positive integer." };
+    }
+    if (amount > 10000) {
+      return { success: false, error: "Amount too large (max 10,000)." };
+    }
+
+    const { data: adminProfile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", adminUserId)
+      .single();
+
+    if (!adminProfile?.is_admin) {
+      return { success: false, error: "Not authorized." };
+    }
+
+    const { data: target } = await supabase
+      .from("profiles")
+      .select("marketing_credits")
+      .eq("id", installerId)
+      .single();
+
+    if (!target) {
+      return { success: false, error: "Installer not found." };
+    }
+
+    const newBalance = (target.marketing_credits ?? 0) + amount;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ marketing_credits: newBalance })
+      .eq("id", installerId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, newBalance };
+  } catch (err) {
+    console.error("[Admin] addMarketingCredits failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add credits.",
     };
   }
 }
