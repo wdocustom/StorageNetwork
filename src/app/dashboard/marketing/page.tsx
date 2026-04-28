@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 import { logActivityClient } from "@/lib/activity-client";
@@ -11,13 +11,11 @@ import {
   Megaphone,
   ArrowLeft,
   Loader2,
-  Facebook,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import AssetForge from "@/components/dashboard/AssetForge";
 import IGSalesImages from "@/components/dashboard/IGSalesImages";
 import InstallerPostTemplates from "@/components/dashboard/InstallerPostTemplates";
-import MyFacebookGroups from "@/components/dashboard/MyFacebookGroups";
 import ProPill from "@/components/dashboard/ProPill";
 
 interface UserProfile {
@@ -36,11 +34,6 @@ export default function MarketingPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activePostText, setActivePostText] = useState<string | null>(null);
-
-  const handleActiveTextChange = useCallback((text: string | null) => {
-    setActivePostText(text);
-  }, []);
 
   useEffect(() => {
     async function load() {
@@ -153,31 +146,11 @@ export default function MarketingPage() {
             state={profile.state}
             zip={profile.service_zip}
             businessName={profile.business_name}
-            onActiveTextChange={handleActiveTextChange}
           />
         </section>
 
-        {/* ── AI Asset Forge (replaces Group Finder) ────────────── */}
+        {/* ── AI Asset Forge ──────────────────────────────────── */}
         <AssetForge />
-
-        {/* ── My Groups ─────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-1 flex items-center gap-2">
-            <Facebook className="h-4 w-4 text-blue-400" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              My Groups
-            </h2>
-          </div>
-          <p className="mb-4 text-sm text-stone-500">
-            Save your groups. Blast posts to all of them at once.
-          </p>
-
-          <MyFacebookGroups
-            installerId={profile.id}
-            postText={activePostText}
-            bookingLink={bookingLink}
-          />
-        </section>
 
         {/* ── Admin-Only: IG Templates ──────────────────────────── */}
         {profile.is_admin && (
