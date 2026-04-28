@@ -16,12 +16,19 @@ import {
   AlertTriangle,
   Download,
   RefreshCw,
+  ChevronDown,
+  Sliders,
+  Square,
+  RectangleHorizontal,
+  RectangleVertical,
 } from "lucide-react";
 import {
   generateMarketingAsset,
   getMarketingCredits,
   type Scene,
   type Vibe,
+  type AspectRatio,
+  type BrandColor,
 } from "@/app/actions/generate-marketing-asset";
 
 interface SceneOption {
@@ -50,6 +57,27 @@ const VIBE_OPTIONS: VibeOption[] = [
   { id: "suburban_clean", label: "Suburban Clean", hint: "Familiar, mid-day, friendly", Icon: House },
 ];
 
+const ASPECT_OPTIONS: { id: AspectRatio; label: string; hint: string; Icon: typeof Square }[] = [
+  { id: "landscape", label: "Landscape", hint: "16:9 · FB, web hero", Icon: RectangleHorizontal },
+  { id: "square", label: "Square", hint: "1:1 · IG feed", Icon: Square },
+  { id: "portrait", label: "Portrait", hint: "9:16 · Stories, Reels", Icon: RectangleVertical },
+];
+
+const BRAND_COLOR_OPTIONS: { id: BrandColor; label: string; swatch: string }[] = [
+  { id: "black_yellow", label: "Black + Yellow", swatch: "linear-gradient(135deg,#0f172a 50%,#facc15 50%)" },
+  { id: "white_blue", label: "White + Blue", swatch: "linear-gradient(135deg,#f8fafc 50%,#2563eb 50%)" },
+  { id: "natural_cedar", label: "Natural Cedar", swatch: "linear-gradient(135deg,#c8915a,#8b5a2b)" },
+  { id: "industrial_gray", label: "Industrial Gray", swatch: "linear-gradient(135deg,#475569,#1e293b)" },
+];
+
+const CUSTOM_DETAIL_MAX = 400;
+
+const PREVIEW_ASPECT_CLASS: Record<AspectRatio, string> = {
+  landscape: "aspect-[16/9]",
+  square: "aspect-square",
+  portrait: "aspect-[9/16] mx-auto max-w-[60%]",
+};
+
 // Storage / organization themed flavor text — cycled while a render is in
 // flight so the spinner has personality across a 10–20s FLUX call.
 const LOADING_SAYINGS = [
@@ -74,8 +102,13 @@ export default function AssetForge() {
   const [credits, setCredits] = useState<number | null>(null);
   const [scene, setScene] = useState<Scene | null>(null);
   const [vibe, setVibe] = useState<Vibe | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("landscape");
+  const [brandColor, setBrandColor] = useState<BrandColor | null>(null);
+  const [customDetail, setCustomDetail] = useState("");
+  const [showCustomize, setShowCustomize] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultAspect, setResultAspect] = useState<AspectRatio>("landscape");
   const [error, setError] = useState<string | null>(null);
   const [sayingIdx, setSayingIdx] = useState(0);
 
@@ -112,7 +145,14 @@ export default function AssetForge() {
     setGenerating(true);
     setError(null);
     setResultUrl(null);
-    const res = await generateMarketingAsset({ scene, vibe });
+    setResultAspect(aspectRatio); // freeze the ratio at submit-time
+    const res = await generateMarketingAsset({
+      scene,
+      vibe,
+      aspectRatio,
+      brandColor,
+      customDetail: customDetail.trim() || undefined,
+    });
     if (res.success) {
       setResultUrl(res.imageUrl);
       setCredits(res.creditsRemaining);
@@ -185,8 +225,114 @@ export default function AssetForge() {
           </div>
         </StepCard>
 
+        {/* ── Customize (collapsible) ───────────────────────── */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40">
+          <button
+            type="button"
+            onClick={() => setShowCustomize((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-900/70"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-stone-400">
+                <Sliders className="h-3 w-3" />
+              </span>
+              <div>
+                <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">Customize</h3>
+                <p className="text-[11px] text-stone-500">
+                  Optional · aspect ratio, brand color, custom detail
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 text-stone-500 transition-transform ${showCustomize ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {showCustomize && (
+            <div className="space-y-5 border-t border-slate-800 px-4 py-4">
+              {/* Aspect ratio */}
+              <div>
+                <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
+                  Aspect Ratio
+                </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {ASPECT_OPTIONS.map((opt) => (
+                    <ToggleTile
+                      key={opt.id}
+                      active={aspectRatio === opt.id}
+                      onClick={() => setAspectRatio(opt.id)}
+                      Icon={opt.Icon}
+                      label={opt.label}
+                      hint={opt.hint}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Brand color */}
+              <div>
+                <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
+                  Brand Color
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {BRAND_COLOR_OPTIONS.map((opt) => {
+                    const active = brandColor === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBrandColor(active ? null : opt.id)}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                          active
+                            ? "border-yellow-400 bg-yellow-400/10 text-yellow-300"
+                            : "border-slate-700 bg-slate-800/60 text-stone-300 hover:border-slate-600"
+                        }`}
+                      >
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-slate-600"
+                          style={{ background: opt.swatch }}
+                        />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                  {brandColor && (
+                    <button
+                      type="button"
+                      onClick={() => setBrandColor(null)}
+                      className="rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[11px] font-semibold text-stone-500 hover:text-stone-300"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Custom detail */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label htmlFor="forge-custom-detail" className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
+                    Custom Detail
+                  </label>
+                  <span className="text-[10px] tabular-nums text-stone-600">
+                    {customDetail.length}/{CUSTOM_DETAIL_MAX}
+                  </span>
+                </div>
+                <textarea
+                  id="forge-custom-detail"
+                  value={customDetail}
+                  onChange={(e) => setCustomDetail(e.target.value.slice(0, CUSTOM_DETAIL_MAX))}
+                  rows={3}
+                  placeholder='e.g. "winter, snow visible through the open garage door" · "with my company logo on the back wall" · "bright red sports car parked inside"'
+                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Step 3: Generate ──────────────────────────────── */}
-        <StepCard step={3} title="Generate" hint="One credit per asset. Renders in ~3 seconds.">
+        <StepCard step={3} title="Generate" hint="One credit per asset. Renders in ~10–20 seconds.">
           <button
             onClick={handleGenerate}
             disabled={!ready}
@@ -243,7 +389,7 @@ export default function AssetForge() {
                 </div>
               )}
             </div>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-900">
+            <div className={`relative w-full overflow-hidden rounded-lg bg-slate-900 ${PREVIEW_ASPECT_CLASS[resultAspect]}`}>
               {generating && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 px-6 text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />

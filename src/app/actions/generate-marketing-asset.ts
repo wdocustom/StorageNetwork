@@ -33,9 +33,46 @@ const FLUX_MODEL = "black-forest-labs/flux-1.1-pro" as const;
 
 export type Scene = "disaster_garage" | "luxury_garage" | "tool_closeup";
 export type Vibe = "bright_airy" | "industrial_dark" | "suburban_clean";
+export type AspectRatio = "square" | "landscape" | "portrait";
+export type BrandColor =
+  | "black_yellow"
+  | "white_blue"
+  | "natural_cedar"
+  | "industrial_gray";
 
 const SCENES: readonly Scene[] = ["disaster_garage", "luxury_garage", "tool_closeup"];
 const VIBES: readonly Vibe[] = ["bright_airy", "industrial_dark", "suburban_clean"];
+const ASPECT_RATIOS: readonly AspectRatio[] = ["square", "landscape", "portrait"];
+const BRAND_COLORS: readonly BrandColor[] = [
+  "black_yellow",
+  "white_blue",
+  "natural_cedar",
+  "industrial_gray",
+];
+
+// Map our friendly aspect-ratio keys to FLUX's accepted aspect_ratio strings.
+const FLUX_ASPECT: Record<AspectRatio, "1:1" | "16:9" | "9:16"> = {
+  square: "1:1",
+  landscape: "16:9",
+  portrait: "9:16",
+};
+
+// Brand-color appendage. Phrased as a generic palette hint so it works
+// across all scenes (the disaster scene won't have organized totes to
+// recolor, but FLUX will pull the palette into props/walls/lighting).
+const BRAND_COLOR_HINT: Record<BrandColor, string> = {
+  black_yellow:
+    "Brand accent palette: matte black with bright yellow safety highlights.",
+  white_blue:
+    "Brand accent palette: clean white with cobalt-blue accents.",
+  natural_cedar:
+    "Brand accent palette: natural unstained cedar with warm honey tones.",
+  industrial_gray:
+    "Brand accent palette: industrial steel gray on gray.",
+};
+
+// Cap user-supplied detail so a runaway paste can't blow up the prompt.
+const CUSTOM_DETAIL_MAX = 400;
 
 // ── Master prompt dictionary ───────────────────────────────────────────────
 // Each (scene, vibe) pair maps to a fully-formed photorealistic prompt.
@@ -80,6 +117,12 @@ export interface MarketingCreditsResult {
 export interface GenerateAssetInput {
   scene: Scene;
   vibe: Vibe;
+  /** Defaults to "landscape" (16:9). */
+  aspectRatio?: AspectRatio;
+  /** Optional brand-color palette nudge. Pass null/omit for none. */
+  brandColor?: BrandColor | null;
+  /** Optional free-text addendum from the installer. Capped at 400 chars. */
+  customDetail?: string;
 }
 
 export type GenerateAssetResult =
@@ -127,6 +170,14 @@ export async function generateMarketingAsset(
     return { success: false, error: "Invalid scene or vibe selection." };
   }
 
+  const aspectRatio: AspectRatio = input.aspectRatio ?? "landscape";
+  if (!ASPECT_RATIOS.includes(aspectRatio)) {
+    return { success: false, error: "Invalid aspect ratio." };
+  }
+  if (input.brandColor && !BRAND_COLORS.includes(input.brandColor)) {
+    return { success: false, error: "Invalid brand color." };
+  }
+
   if (!process.env.REPLICATE_API_TOKEN) {
     return { success: false, error: "Image generator is not configured." };
   }
@@ -151,14 +202,14 @@ export async function generateMarketingAsset(
   const creditsRemaining =
     typeof remainingAfterDebit === "number" ? remainingAfterDebit : 0;
 
-  // 2. Build the prompt and call FLUX.1.1-pro.
-  const prompt = PROMPT_TEMPLATES[input.scene][input.vibe];
+  // 2. Build the final prompt and call FLUX.1.1-pro.
+  const prompt = buildPrompt(input);
 
   try {
     const output = await getReplicate().run(FLUX_MODEL, {
       input: {
         prompt,
-        aspect_ratio: "16:9",
+        aspect_ratio: FLUX_ASPECT[aspectRatio],
         output_format: "png",
       },
     });
@@ -185,6 +236,27 @@ export async function generateMarketingAsset(
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Compose the final FLUX prompt: base scene/vibe template + optional
+ * brand-color hint + optional installer-supplied custom detail.
+ */
+function buildPrompt(input: GenerateAssetInput): string {
+  let prompt = PROMPT_TEMPLATES[input.scene][input.vibe];
+
+  if (input.brandColor) {
+    prompt += " " + BRAND_COLOR_HINT[input.brandColor];
+  }
+
+  const detail = input.customDetail?.trim();
+  if (detail) {
+    // Cap to keep total prompt size sane and to neutralize accidental
+    // novel-length pastes.
+    prompt += " Additional details: " + detail.slice(0, CUSTOM_DETAIL_MAX);
+  }
+
+  return prompt;
+}
 
 /**
  * Defensive URL extraction: FLUX.1.1-pro normally returns a single string URL,
