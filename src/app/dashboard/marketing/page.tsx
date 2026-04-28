@@ -11,6 +11,7 @@ import {
   Megaphone,
   ArrowLeft,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
 import AssetForge from "@/components/dashboard/AssetForge";
@@ -120,19 +121,19 @@ export default function MarketingPage() {
           </a>
         </div>
 
-        {/* ── Create Content (primary tool) ─────────────────────── */}
+        {/* ── AI Script Generator ─────────────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
-            <Megaphone className="h-4 w-4 text-amber-400" />
+            <Sparkles className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Create Post
+              AI Script Generator
             </h2>
-            <span className="rounded-full bg-gradient-to-r from-emerald-400/10 to-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              Quick + AI
+            <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+              AI
             </span>
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            Grab a ready-to-paste post or generate a custom AI script.
+            Generate a custom marketing script for any platform.
             {profile.city && profile.state && (
               <span className="ml-1 font-semibold text-emerald-400">
                 Localized to {profile.city}, {profile.state}.
