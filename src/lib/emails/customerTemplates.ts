@@ -2,6 +2,15 @@ import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
+export interface BookingConfirmationUnit {
+  /** Per-unit display label, e.g. "Raised Planter Box — 18\" × 42\" with 7' Post × 3 (custom $395 each)" */
+  desc: string;
+  /** Per-unit subtotal in dollars (already includes addons / multipliers). */
+  price?: number;
+  /** Optional one-liner of features/addons to show under the desc, e.g. "HDX • No Totes, No Wheels, No Top". */
+  features?: string;
+}
+
 export interface BookingConfirmationData {
   customerName: string;
   customerEmail: string;
@@ -12,7 +21,17 @@ export interface BookingConfirmationData {
   address: string;
   depositAmount: number;
   totalPrice: number;
+  /**
+   * One-line fallback used when `units` is not supplied. Kept for callers
+   * that don't have access to the lead's structured quote_data.
+   */
   jobDescription: string;
+  /**
+   * Per-unit breakdown matching what the installer sees in the Job Ticket
+   * Unit Summary. When present, replaces the single "Job" line with an
+   * itemized list (desc + features + price per unit).
+   */
+  units?: BookingConfirmationUnit[];
   leadId: string;
   buildSnapshotUrl?: string;
 }
@@ -32,6 +51,7 @@ export async function sendBookingConfirmation(
     depositAmount,
     totalPrice,
     jobDescription,
+    units,
     leadId,
     buildSnapshotUrl,
   } = data;
@@ -61,6 +81,46 @@ export async function sendBookingConfirmation(
     ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#facc15;color:#1e293b;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">Call ${installerPhone}</a>`
     : "";
 
+  // Itemized unit summary, mirroring the installer's Job Ticket. Renders only
+  // when the caller passes structured `units`; otherwise we fall back to the
+  // single-line `Job` row built from the legacy jobDescription string.
+  const unitsHtml =
+    units && units.length > 0
+      ? `
+      <div style="background-color:#0a0a0a;border:1px solid #1f2937;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+        <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
+        ${units
+          .map((u, i) => {
+            const priceHtml =
+              typeof u.price === "number"
+                ? `<td style="padding:10px 0;text-align:right;color:#facc15;font-weight:800;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
+                : "";
+            const featuresHtml = u.features
+              ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${u.features}</p>`
+              : "";
+            return `
+              <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${
+                i > 0 ? "border-top:1px solid #1f2937;" : ""
+              }">
+                <tr>
+                  <td style="padding:10px 12px 10px 0;color:#e5e5e5;font-size:14px;line-height:1.5;vertical-align:top;">
+                    <p style="margin:0;color:#ffffff;font-weight:700;">Unit ${i + 1}: ${u.desc}</p>
+                    ${featuresHtml}
+                  </td>
+                  ${priceHtml}
+                </tr>
+              </table>`;
+          })
+          .join("")}
+      </div>`
+      : "";
+
+  // The single "Job" row in the details table — only used when units isn't passed.
+  const jobRowHtml =
+    units && units.length > 0
+      ? ""
+      : `<tr><td style="padding:8px 0;color:#94a3b8;">Job</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${jobDescription}</td></tr>`;
+
   const html = masterEmailLayout(
     "Your Installation is Confirmed",
     `
@@ -82,12 +142,14 @@ export async function sendBookingConfirmation(
       ${phoneHtml}
     </div>
 
+    ${unitsHtml}
+
     <!-- Details -->
     <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;font-size:14px;color:#cbd5e1;">
         <tr><td style="padding:8px 0;color:#94a3b8;">Date</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td></tr>
         <tr><td style="padding:8px 0;color:#94a3b8;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${address || "Address provided on arrival"}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Job</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${jobDescription}</td></tr>
+        ${jobRowHtml}
         <tr style="border-top:1px solid #334155;"><td style="padding:12px 0 8px;color:#94a3b8;">Deposit Paid</td><td style="padding:12px 0 8px;font-weight:700;text-align:right;color:#16a34a;">$${depositAmount.toLocaleString()}</td></tr>
         <tr><td style="padding:8px 0;color:#94a3b8;">Balance Due at Install</td><td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#facc15;">$${balanceDue.toLocaleString()}*</td></tr>
       </table>
@@ -120,6 +182,67 @@ export async function sendBookingConfirmation(
     toName: customerName,
     subject: `Order Confirmed: Tote Storage Installation — ${formattedDate}`,
     html,
+  });
+}
+
+/**
+ * Convert a lead's raw `quote_data` array into the per-unit shape consumed
+ * by the booking-confirmation email. Mirrors the Job Ticket Unit Summary
+ * (desc, feature line, price). Defensive against missing fields.
+ *
+ * Returns [] if the input isn't a non-empty array — callers can pass the
+ * result straight through; the email template only renders a unit list
+ * when it's non-empty.
+ */
+export function quoteDataToBookingUnits(quoteData: unknown): BookingConfirmationUnit[] {
+  if (!Array.isArray(quoteData) || quoteData.length === 0) return [];
+
+  return quoteData.map((raw): BookingConfirmationUnit => {
+    const u = (raw ?? {}) as Record<string, unknown>;
+
+    const desc =
+      typeof u.desc === "string" && u.desc.trim()
+        ? u.desc
+        : typeof u.cols === "number" && typeof u.rows === "number"
+        ? `${u.cols}x${u.rows}`
+        : "Custom unit";
+
+    const features: string[] = [
+      u.hasTotes ? "Totes" : "No Totes",
+      u.hasWheels ? "Wheels" : "No Wheels",
+      u.hasTop ? "Top" : "No Top",
+    ];
+
+    const addons = Array.isArray(u.addons) ? (u.addons as Array<Record<string, unknown>>) : [];
+    const cols = typeof u.cols === "number" ? u.cols : 1;
+
+    const doorCount = addons
+      .filter((a) => a.type === "plywood_door")
+      .reduce((n, a) => n + (a.target === "doors_on" ? cols : 1), 0);
+    const panelCount = addons.filter((a) => a.type === "side_panel").length;
+    const railRemovedCount = addons.filter((a) => a.type === "rail_removed").length;
+    const shelfCount = addons.filter((a) => a.type === "shelf").length;
+
+    if (doorCount > 0) features.push(`${doorCount} Door${doorCount > 1 ? "s" : ""}`);
+    if (panelCount > 0) features.push(`${panelCount} Panel${panelCount > 1 ? "s" : ""}`);
+    if (railRemovedCount > 0)
+      features.push(`${railRemovedCount} Rail${railRemovedCount > 1 ? "s" : ""} Removed`);
+    if (shelfCount > 0) features.push(`${shelfCount} Shelf Insert${shelfCount > 1 ? "s" : ""}`);
+
+    const paintParts: string[] = [];
+    if (typeof u.paintFrameColor === "string" && u.paintFrameColor) paintParts.push(`Frame: ${u.paintFrameColor}`);
+    if (typeof u.paintDoorColor === "string" && u.paintDoorColor) paintParts.push(`Doors: ${u.paintDoorColor}`);
+    if (typeof u.paintSidePanelColor === "string" && u.paintSidePanelColor) paintParts.push(`Panels: ${u.paintSidePanelColor}`);
+    if (paintParts.length > 0) features.push(`Paint (${paintParts.join(", ")})`);
+
+    const toteType = typeof u.toteType === "string" && u.toteType ? u.toteType : "HDX";
+    const featureLine = `${toteType} • ${features.join(", ")}`;
+
+    return {
+      desc,
+      price: typeof u.price === "number" ? u.price : undefined,
+      features: featureLine,
+    };
   });
 }
 

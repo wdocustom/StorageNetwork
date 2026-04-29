@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, quoteDataToBookingUnits } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -536,6 +536,7 @@ export async function POST(request: NextRequest) {
             depositAmount: amountPaid,
             totalPrice: lead.estimated_price ?? amountPaid,
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+            units: quoteDataToBookingUnits(lead.quote_data),
             leadId,
             buildSnapshotUrl: snapshotUrl,
           });
@@ -927,6 +928,7 @@ export async function POST(request: NextRequest) {
               depositAmount: amountPaidPI,
               totalPrice: lead.estimated_price ?? amountPaidPI,
               jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+              units: quoteDataToBookingUnits(lead.quote_data),
               leadId,
               buildSnapshotUrl: piSnapshotUrl,
             });
