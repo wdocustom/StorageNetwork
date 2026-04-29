@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { getAppUrl } from "@/lib/url-helper";
+import { masterEmailLayout } from "./components/masterEmailLayout";
 
 let _resend: Resend | null = null;
 function getResend(): Resend | null {
@@ -70,38 +71,7 @@ export async function sendTransactionalEmail(
   }
 }
 
-export function emailShell(title: string, body: string): string {
-  const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
-
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background-color:#0f172a;line-height:1.6;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
-    <div style="background-color:#1e293b;border-radius:16px;border:1px solid #334155;overflow:hidden;">
-      <!-- Header with Logo -->
-      <div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);padding:36px 32px;text-align:center;border-bottom:1px solid #334155;">
-        <img src="${logoUrl}" alt="Storage Network" style="max-width:120px;max-height:120px;width:auto;height:auto;margin-bottom:16px;" />
-        <h1 style="margin:0;color:#facc15;font-size:24px;font-weight:800;letter-spacing:-0.3px;">${title}</h1>
-        <div style="margin:12px auto 0;width:60px;height:2px;background:linear-gradient(to right,#facc15,#f59e0b);border-radius:1px;"></div>
-      </div>
-      <!-- Body -->
-      <div style="padding:32px;">
-        ${body}
-      </div>
-      <!-- Footer bar -->
-      <div style="border-top:1px solid #334155;padding:20px 32px;text-align:center;">
-        <p style="margin:0;color:#475569;font-size:11px;">
-          Sent by <a href="${getAppUrl()}" style="color:#94a3b8;text-decoration:none;font-weight:600;">Storage Network</a> &bull; storage-network.app
-        </p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`.trim();
-}
+// emailShell is now an alias for the pure-black masterEmailLayout. Kept as
+// a named export so existing import sites keep working — every email in the
+// system now renders with the same layout.
+export const emailShell = masterEmailLayout;

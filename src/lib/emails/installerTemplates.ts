@@ -1,4 +1,5 @@
-import { sendTransactionalEmail, emailShell, type SendEmailResult } from "./core";
+import { sendTransactionalEmail, type SendEmailResult } from "./core";
+import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { maskEmail, maskPhone, maskName } from "@/lib/mask";
 
@@ -20,7 +21,7 @@ export async function sendNewBookingAlert(
   const jobUrl = `${getAppUrl()}/dashboard/leads/${leadDetails.leadId}`;
   const profitEstimate = Math.round(leadDetails.totalPrice * 0.85);
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "New Booking Alert!",
     `
     <!-- Action Required Banner -->
@@ -76,7 +77,7 @@ export async function sendPaymentReceivedAlert(
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Payment Received",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
@@ -132,7 +133,7 @@ export async function sendInstallerOnboardingEmail(
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const profileUrl = `${getAppUrl()}/dashboard/profile`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Let&rsquo;s Get Your First Job Booked",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Welcome to Storage Network, ${data.name}.</p>
@@ -208,7 +209,7 @@ export async function sendOnboardingEmail2_QRCode(
     ? `${getAppUrl()}/p/${data.slug}`
     : `${getAppUrl()}/dashboard/profile`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Custom QR Code is Ready",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
@@ -273,7 +274,7 @@ export async function sendOnboardingEmail3_FirstSale(
     ? `${getAppUrl()}/p/${data.slug}`
     : "[Your Link — set up in Dashboard]";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your First Sale Playbook",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
@@ -349,7 +350,7 @@ export async function sendOnboardingEmail4_Scarcity(
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const jobsLeft = Math.max(0, 3 - (data.jobsCompleted || 0));
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Don&rsquo;t Let Your Free Jobs Go to Waste",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
@@ -397,7 +398,7 @@ export async function sendInstallerWelcome(
   email: string
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard`;
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Welcome to the Partner Network",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${name},</p>
@@ -442,7 +443,7 @@ export async function sendProWelcomeEmail(
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Let's Get to Work!",
     `
     <div style="text-align:center;margin-bottom:24px;">
@@ -557,7 +558,7 @@ export async function sendProRenewalReceipt(
       <p style="margin:4px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">${label}</p>
     </td>`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Pro Subscription Receipt",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.name},</p>
@@ -646,7 +647,7 @@ export async function sendWaitlistAlert(
     ? `outside your current <strong>${data.radiusMiles}-mile</strong> service radius`
     : `outside your current service area`;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Waitlist Request",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
@@ -782,7 +783,7 @@ export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string 
 
   const dashboardUrl = getAppUrl() + "/dashboard";
 
-  return emailShell(
+  return masterEmailLayout(
     "New Customer Inquiry",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${installerName},</p>
@@ -843,7 +844,7 @@ export async function sendReferralHandoffEmail(
     ? `$${data.estimatedBounty.toFixed(2)}`
     : "30% of deposit";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "New Network Referral",
     `
     <div style="text-align:center;margin-bottom:24px;">
@@ -901,7 +902,7 @@ export async function sendBountyPaidEmail(
 ): Promise<SendEmailResult> {
   const location = [data.customerCity, data.customerState].filter(Boolean).join(", ") || "a referred customer";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Bounty Paid!",
     `
     <div style="text-align:center;margin-bottom:24px;">
@@ -1017,7 +1018,7 @@ export async function sendDemoOwnerNotification(data: {
     </p>
   `;
 
-  const html = emailShell("New Demo Booking", body);
+  const html = masterEmailLayout("New Demo Booking", body);
 
   await sendTransactionalEmail({
     to: "info@wdocustom.com",
@@ -1055,7 +1056,7 @@ export async function sendCleanoutUpsellInstallerAlert(
     }
   }
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Add-On Service Booked!",
     `
     <div style="text-align:center;margin-bottom:20px;">
@@ -1148,7 +1149,7 @@ export async function sendTrialCapHotLead(
       ).join("")
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "You Have a Customer Ready to Book",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
@@ -1250,7 +1251,7 @@ export async function sendWaitlistedLeadsUnlocked(
     )
     .join("");
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Waitlisted Leads Are Unlocked",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>

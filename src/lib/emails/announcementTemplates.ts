@@ -1,4 +1,4 @@
-import { sendTransactionalEmail, emailShell, type SendEmailResult } from "./core";
+import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
@@ -14,7 +14,7 @@ export async function sendFeatureAnnouncement(
 ): Promise<SendEmailResult> {
   const { installerName, dashboardUrl, guidesUrl } = data;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "New Platform Features",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -115,7 +115,7 @@ export async function sendBountyAnnouncementEmail(
 ): Promise<SendEmailResult> {
   const { installerName, dashboardUrl, referralsUrl } = data;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Earn Money While You Sleep",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -354,7 +354,7 @@ export async function sendOverheadAnnouncementEmail(
   const img2 = `${baseUrl}/images/Overhead-Storage-2.png`;
   const configuratorUrl = configuratorSlug ? `${baseUrl}/design/${configuratorSlug}` : dashboardUrl;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Overhead Ceiling Storage Is Live",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -565,7 +565,7 @@ export async function sendJigAnnouncementEmail(
 ): Promise<SendEmailResult> {
   const { installerName, guidesUrl, profileUrl } = data;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "New: Ladder Jig Plans + Custom Material Pricing",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -724,7 +724,7 @@ export async function sendFeedbackCallInvite(
 ): Promise<SendEmailResult> {
   const { installerName, bookingUrl } = data;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Let\u2019s Connect",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -823,7 +823,7 @@ export async function sendInventoryAnnouncementEmail(
 ): Promise<SendEmailResult> {
   const { installerName, dashboardUrl } = data;
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "New Feature: Customer Tote Inventory",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${installerName},</p>
@@ -992,7 +992,7 @@ export async function sendWeeklyDigestEmail(
     )
     .join("");
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Weekly Scorecard",
     `
     <p style="margin:0 0 20px;color:#e2e8f0;font-size:16px;">
