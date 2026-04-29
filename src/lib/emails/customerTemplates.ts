@@ -2,6 +2,39 @@ import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Shared style primitives.
+// All customer-facing emails render on the pure-black masterEmailLayout.
+// Typography, color tokens, and spacing live here so every template stays
+// visually consistent. Slate gradient cards from the legacy design have been
+// retired in favor of thin #222 borders and crisp #ffffff / #facc15 type.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** All-caps yellow eyebrow above a section. */
+function eyebrow(text: string): string {
+  return `<p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${text}</p>`;
+}
+
+/** Hairline divider — the only border style we use. */
+const HR = `<div style="border-top:1px solid #222;margin:24px 0;"></div>`;
+
+/** Primary CTA button, gold on black. */
+function ctaButton(url: string, label: string): string {
+  return `<a href="${url}" style="display:inline-block;background-color:#facc15;color:#000000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;">${label}</a>`;
+}
+
+/** Ghost button — outlined, for secondary actions. */
+function ghostButton(href: string, label: string): string {
+  return `<a href="${href}" style="display:inline-block;color:#ffffff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #333;">${label}</a>`;
+}
+
+/** Standard label/value row used inside detail tables. */
+function detailRow(label: string, value: string, opts: { highlight?: boolean; topBorder?: boolean } = {}): string {
+  const valueColor = opts.highlight ? "#facc15" : "#ffffff";
+  const topBorder = opts.topBorder ? "border-top:1px solid #222;" : "";
+  return `<tr><td style="padding:10px 0;color:#a3a3a3;font-size:14px;${topBorder}">${label}</td><td style="padding:10px 0;color:${valueColor};font-size:14px;font-weight:700;text-align:right;${topBorder}">${value}</td></tr>`;
+}
+
 export interface BookingConfirmationUnit {
   /** Per-unit display label, e.g. "Raised Planter Box — 18\" × 42\" with 7' Post × 3 (custom $395 each)" */
   desc: string;
@@ -72,115 +105,100 @@ export async function sendBookingConfirmation(
 
   const balanceDue = totalPrice - depositAmount;
   const successUrl = `${getAppUrl()}/success?jobId=${leadId}`;
+  const firstName = customerName.split(" ")[0] || customerName;
 
-  const avatarHtml = installerAvatarUrl
-    ? `<img src="${installerAvatarUrl}" alt="${installerName}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #facc15;" />`
-    : `<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#facc15,#f59e0b);display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#1e293b;">${installerName.charAt(0).toUpperCase()}</div>`;
-
-  const phoneHtml = installerPhone
-    ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#facc15;color:#1e293b;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">Call ${installerPhone}</a>`
-    : "";
-
-  // Itemized unit summary, mirroring the installer's Job Ticket. Renders only
-  // when the caller passes structured `units`; otherwise we fall back to the
-  // single-line `Job` row built from the legacy jobDescription string.
+  // Itemized unit list mirroring the installer's Job Ticket. Falls back to
+  // the single jobDescription line when callers don't have structured units.
   const unitsHtml =
     units && units.length > 0
       ? `
-      <div style="background-color:#0a0a0a;border:1px solid #1f2937;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
-        <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
+      ${eyebrow("Your Custom Build")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
         ${units
           .map((u, i) => {
-            const priceHtml =
+            const priceCell =
               typeof u.price === "number"
-                ? `<td style="padding:10px 0;text-align:right;color:#facc15;font-weight:800;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
-                : "";
+                ? `<td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
+                : `<td style="padding:14px 0;border-bottom:1px solid #222;"></td>`;
             const featuresHtml = u.features
-              ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${u.features}</p>`
+              ? `<p style="margin:6px 0 0;color:#a3a3a3;font-size:12px;">${u.features}</p>`
               : "";
             return `
-              <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${
-                i > 0 ? "border-top:1px solid #1f2937;" : ""
-              }">
-                <tr>
-                  <td style="padding:10px 12px 10px 0;color:#e5e5e5;font-size:14px;line-height:1.5;vertical-align:top;">
-                    <p style="margin:0;color:#ffffff;font-weight:700;">Unit ${i + 1}: ${u.desc}</p>
-                    ${featuresHtml}
-                  </td>
-                  ${priceHtml}
-                </tr>
-              </table>`;
+              <tr>
+                <td style="padding:14px 12px 14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;vertical-align:top;">
+                  <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc}
+                  ${featuresHtml}
+                </td>
+                ${priceCell}
+              </tr>`;
           })
           .join("")}
-      </div>`
-      : "";
+      </table>`
+      : `
+      ${eyebrow("Service")}
+      <p style="margin:0 0 28px;color:#ffffff;font-size:14px;line-height:1.6;">${jobDescription}</p>`;
 
-  // The single "Job" row in the details table — only used when units isn't passed.
-  const jobRowHtml =
-    units && units.length > 0
-      ? ""
-      : `<tr><td style="padding:8px 0;color:#94a3b8;">Job</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${jobDescription}</td></tr>`;
+  const installerLine = installerPhone
+    ? `${installerName} &middot; <a href="tel:${installerPhone}" style="color:#facc15;text-decoration:none;">${installerPhone}</a>`
+    : installerName;
+
+  const blueprintHtml = buildSnapshotUrl
+    ? `<img src="${buildSnapshotUrl}" alt="Your Custom 3D Design" style="width:100%;border-radius:6px;border:1px solid #222;margin-bottom:28px;display:block;" />`
+    : "";
+
+  void installerAvatarUrl;
 
   const html = masterEmailLayout(
-    "Your Installation is Confirmed",
+    "Booking Confirmed",
     `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${customerName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
-      Thanks for your order! We&rsquo;ve received your deposit of <strong style="color:#16a34a;">$${depositAmount.toLocaleString()}</strong>.
-      Your installer will be in touch shortly to confirm your date: <strong style="color:#facc15;">${formattedDate}</strong>.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your installation is locked in. <strong style="color:#ffffff;">${installerName}</strong> will be in touch shortly to confirm the final details. Below is everything we have on file — built exactly to your wall&rsquo;s dimensions.
     </p>
 
-    ${buildSnapshotUrl ? `
-    <img src="${buildSnapshotUrl}" alt="Your Custom Build" style="width:100%;border-radius:6px;border:1px solid #222;margin-bottom:24px;display:block;" />
-    ` : ""}
-
-    <!-- Installer Card -->
-    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px;padding:24px;margin-bottom:24px;text-align:center;">
-      <div style="margin-bottom:12px;">${avatarHtml}</div>
-      <p style="margin:0 0 4px;color:#facc15;font-size:18px;font-weight:800;">${installerName}</p>
-      <p style="margin:0;color:#94a3b8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Your Installer</p>
-      ${phoneHtml}
-    </div>
+    ${blueprintHtml}
 
     ${unitsHtml}
 
-    <!-- Details -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;">Date</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${address || "Address provided on arrival"}</td></tr>
-        ${jobRowHtml}
-        <tr style="border-top:1px solid #334155;"><td style="padding:12px 0 8px;color:#94a3b8;">Deposit Paid</td><td style="padding:12px 0 8px;font-weight:700;text-align:right;color:#16a34a;">$${depositAmount.toLocaleString()}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Balance Due at Install</td><td style="padding:8px 0;font-weight:800;text-align:right;font-size:18px;color:#facc15;">$${balanceDue.toLocaleString()}*</td></tr>
+    ${eyebrow("Appointment")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Date", formattedDate, { highlight: true })}
+      ${detailRow("Location", address || "Address confirmed at scheduling", { topBorder: true })}
+      ${detailRow("Installer", installerLine, { topBorder: true })}
+    </table>
+
+    ${eyebrow("Payment")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 6px;">
+      ${detailRow("Order Total", `$${totalPrice.toLocaleString()}`)}
+      ${detailRow("Secure Deposit (Paid)", `−$${depositAmount.toLocaleString()}`, { topBorder: true })}
+    </table>
+    <div style="border-top:1px solid #222;padding:20px 0 0;margin-bottom:28px;">
+      <table style="width:100%;">
+        <tr>
+          <td style="color:#a3a3a3;font-size:14px;font-weight:600;vertical-align:bottom;">Balance Due at Installation</td>
+          <td style="text-align:right;color:#facc15;font-size:32px;font-weight:900;line-height:1;">$${balanceDue.toLocaleString()}*</td>
+        </tr>
       </table>
-      <p style="margin:12px 0 0;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
-        *Plus applicable sales tax, collected by your installer at installation.
-      </p>
+      <p style="margin:8px 0 0;color:#555;font-size:11px;font-style:italic;">*Plus applicable sales tax, collected by your installer on installation day.</p>
     </div>
 
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${successUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        View Order
-      </a>
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:32px 0;">
+      <p style="margin:0 0 8px;color:#facc15;font-size:18px;font-weight:800;">Track Your Order</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;">View order status, message your installer, and access your receipt.</p>
+      ${ctaButton(successUrl, "Open My Order")}
     </div>
 
-    <!-- Cancellation Policy -->
-    <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <p style="margin:0;color:#92400e;font-size:12px;line-height:1.6;">
-        <strong>Need to reschedule?</strong> Please contact your installer at least 48 hours before your appointment to avoid fees.
-      </p>
+    <div style="border-top:1px solid #222;padding-top:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:700;">Need to reschedule?</p>
+      <p style="margin:0;color:#a3a3a3;font-size:13px;line-height:1.6;">Reach out to your installer at least 48 hours before your appointment. Just reply to this email and we&rsquo;ll route it.</p>
     </div>
-
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Your installer will reach out to confirm. Questions? Reply to this email.
-    </p>
     `
   );
 
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Order Confirmed: Tote Storage Installation — ${formattedDate}`,
+    subject: `Booking Confirmed — ${installerName} on ${formattedDate}`,
     html,
   });
 }
@@ -269,93 +287,83 @@ export async function sendJobReceipt(
     day: "numeric",
     year: "numeric",
   });
+  const firstName = data.customerName.split(" ")[0] || data.customerName;
 
   const units = data.units;
 
   const unitsHtml =
     units && units.length > 0
       ? `
-      <div style="background-color:#0a0a0a;border:1px solid #1f2937;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
-        <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
+      ${eyebrow("Installed")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
         ${units
           .map((u, i) => {
-            const priceHtml =
+            const priceCell =
               typeof u.price === "number"
-                ? `<td style="padding:10px 0;text-align:right;color:#facc15;font-weight:800;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
-                : "";
+                ? `<td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
+                : `<td style="padding:14px 0;border-bottom:1px solid #222;"></td>`;
             const featuresHtml = u.features
-              ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${u.features}</p>`
+              ? `<p style="margin:6px 0 0;color:#a3a3a3;font-size:12px;">${u.features}</p>`
               : "";
             return `
-              <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${
-                i > 0 ? "border-top:1px solid #1f2937;" : ""
-              }">
-                <tr>
-                  <td style="padding:10px 12px 10px 0;color:#e5e5e5;font-size:14px;line-height:1.5;vertical-align:top;">
-                    <p style="margin:0;color:#ffffff;font-weight:700;">Unit ${i + 1}: ${u.desc}</p>
-                    ${featuresHtml}
-                  </td>
-                  ${priceHtml}
-                </tr>
-              </table>`;
+              <tr>
+                <td style="padding:14px 12px 14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;vertical-align:top;">
+                  <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc}
+                  ${featuresHtml}
+                </td>
+                ${priceCell}
+              </tr>`;
           })
           .join("")}
-      </div>`
-      : "";
-
-  // Suppress the single "Service" row when we already showed itemized units.
-  const serviceRowHtml =
-    units && units.length > 0
-      ? ""
-      : `<tr><td style="padding:8px 0;color:#94a3b8;">Service</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.jobDescription}</td></tr>`;
+      </table>`
+      : `
+      ${eyebrow("Service Performed")}
+      <p style="margin:0 0 28px;color:#ffffff;font-size:14px;line-height:1.6;">${data.jobDescription}</p>`;
 
   const html = masterEmailLayout(
-    "Receipt for Service",
+    "Receipt",
     `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.customerName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
-      Your installation is complete. Here is your receipt:
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your installation is complete and your 30-day warranty is now active. Below is your itemized receipt for your records.
     </p>
 
     ${unitsHtml}
 
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        ${serviceRowHtml}
-        <tr><td style="padding:8px 0;color:#94a3b8;">Installer</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.installerName}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Completed</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${formattedDate}</td></tr>
-        <tr style="border-top:2px solid #334155;">
-          <td style="padding:12px 0 8px;color:#94a3b8;">Total</td>
-          <td style="padding:12px 0 8px;font-weight:800;text-align:right;font-size:20px;color:#facc15;">$${data.totalAmount.toLocaleString()}</td>
+    ${eyebrow("Receipt")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 8px;">
+      ${detailRow("Installer", data.installerName)}
+      ${detailRow("Completed", formattedDate, { topBorder: true })}
+    </table>
+    <div style="border-top:1px solid #222;padding:20px 0 0;margin-bottom:28px;">
+      <table style="width:100%;">
+        <tr>
+          <td style="color:#a3a3a3;font-size:14px;font-weight:600;vertical-align:bottom;">Order Total</td>
+          <td style="text-align:right;color:#facc15;font-size:32px;font-weight:900;line-height:1;">$${data.totalAmount.toLocaleString()}</td>
         </tr>
-        <tr><td style="padding:4px 0;color:#94a3b8;font-size:13px;">Deposit</td><td style="padding:4px 0;text-align:right;font-size:13px;color:#94a3b8;">-$${data.depositPaid.toLocaleString()}</td></tr>
-        <tr><td style="padding:4px 0;color:#94a3b8;font-size:13px;">Balance Collected</td><td style="padding:4px 0;text-align:right;font-size:13px;color:#94a3b8;">$${data.balanceCollected.toLocaleString()}</td></tr>
+      </table>
+      <table style="width:100%;margin-top:8px;">
+        <tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Secure Deposit</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">−$${data.depositPaid.toLocaleString()}</td></tr>
+        <tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Balance Collected at Installation</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">$${data.balanceCollected.toLocaleString()}</td></tr>
       </table>
     </div>
 
-    <div style="background-color:#052e16;border:1px solid #166534;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0;color:#16a34a;font-size:14px;font-weight:700;">
-        &#10003; Installation Complete &mdash; 30-Day Warranty Active
-      </p>
+    ${HR}
+
+    <div style="text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">&#10003; 30-Day Workmanship Warranty Active</p>
     </div>
 
     ${data.reviewUrl ? `
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 4px;font-size:20px;">&#11088;</p>
-      <p style="margin:0 0 8px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">
-        Rate Your Experience
-      </p>
-      <p style="margin:0 0 16px;color:#94a3b8;font-size:13px;">
-        Help other homeowners find great installers. It takes 30 seconds.
-      </p>
-      <a href="${data.reviewUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">
-        Leave a Review
-      </a>
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Rate Your Installer</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">A 30-second review helps other homeowners find quality installers — and helps your installer grow their business.</p>
+      ${ctaButton(data.reviewUrl, "Leave a Review")}
     </div>
     ` : ""}
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Thank you for choosing Storage Network! Questions? Reply to this email.
+    <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
+      Questions about your install? Just reply to this email — we route directly to your installer.
     </p>
     `
   );
@@ -385,72 +393,61 @@ export async function sendWaitlistCustomerConfirmation(
 
   const buildSummaryHtml = hasQuote
     ? `
-      <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Saved Build</p>
-        <table style="width:100%;border-collapse:collapse;">
-          ${data.quoteData!.map((u, i) => `
-            <tr>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
-              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
-            </tr>
-          `).join("")}
-          ${totalPrice > 0 ? `
-            <tr style="border-top:1px solid #92400e;">
-              <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total Estimate</td>
-              <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${totalPrice.toLocaleString()}</td>
-            </tr>
-          ` : ""}
-        </table>
-      </div>
+      ${eyebrow("Your Saved Build")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+        ${data.quoteData!.map((u, i) => `
+          <tr>
+            <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;">
+              <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc || `${u.cols}\u00d7${u.rows} Unit`}
+            </td>
+            <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+          </tr>
+        `).join("")}
+        ${totalPrice > 0 ? `
+          <tr>
+            <td style="padding:16px 0 0;color:#a3a3a3;font-size:13px;">Total Estimate</td>
+            <td style="padding:16px 0 0;text-align:right;color:#facc15;font-size:22px;font-weight:900;">$${totalPrice.toLocaleString()}</td>
+          </tr>
+        ` : ""}
+      </table>
     `
     : "";
 
   const html = masterEmailLayout(
-    "You\u2019re on the Waitlist",
+    "On the Waitlist",
     `
-    <!-- Clock Icon -->
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
-        &#128337;
-      </div>
-    </div>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-
-    <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      <strong style="color:#e2e8f0;">${data.installerBusinessName}</strong> put together a custom storage quote for you, but we don&rsquo;t have a verified installer in your area (ZIP <strong style="color:#facc15;">${data.zip}</strong>) just yet.
+    <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${data.installerBusinessName}</strong> put together a Custom 3D Design for you, but our network doesn&rsquo;t have a vetted installer in <strong style="color:#facc15;">ZIP ${data.zip}</strong> right now.
     </p>
 
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      <strong style="color:#e2e8f0;">You&rsquo;ve been added to our waitlist.</strong>
-      As soon as a professional installer becomes available near you, we&rsquo;ll email you right away so you can pick up exactly where you left off &mdash; ${hasQuote ? "your build is saved and ready to go." : "no extra steps needed."}
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      You&rsquo;re on the waitlist. The moment we onboard an installer in your area, we&rsquo;ll email you and ${hasQuote ? "your saved build will be one click away from confirmation." : "you can pick up where you left off &mdash; no extra steps."}
     </p>
 
     ${buildSummaryHtml}
 
-    <!-- What happens next -->
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">What Happens Next</p>
-      <table style="width:100%;font-size:14px;color:#94a3b8;">
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;width:24px;">1.</td>
-          <td style="padding:8px 0;">We&rsquo;re actively recruiting installers in your area</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;">2.</td>
-          <td style="padding:8px 0;">The moment one is available, you&rsquo;ll get an email</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#facc15;font-weight:700;">3.</td>
-          <td style="padding:8px 0;">${hasQuote ? "Click through and your saved build will be ready to confirm" : "Design your system and book an installation"}</td>
-        </tr>
-      </table>
-    </div>
+    ${eyebrow("What happens next")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;width:24px;vertical-align:top;">1</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">We&rsquo;re actively recruiting and vetting installers in your area.</td>
+      </tr>
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;vertical-align:top;">2</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">The moment one onboards, you get an email.</td>
+      </tr>
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;vertical-align:top;">3</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">${hasQuote ? "Confirm your saved build and lock in your installation date." : "Finalize your design and book an installation."}</td>
+      </tr>
+    </table>
 
-    <p style="margin:0 0 8px;color:#94a3b8;font-size:14px;text-align:center;">
+    <p style="margin:0 0 6px;color:#ffffff;font-size:13px;text-align:center;font-weight:600;">
       No payment has been charged. You&rsquo;re under no obligation.
     </p>
-    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
       You&rsquo;re receiving this because ${data.installerBusinessName} submitted a quote on your behalf at storage-network.app.
     </p>
     `
@@ -459,7 +456,7 @@ export async function sendWaitlistCustomerConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: data.customerName,
-    subject: `${firstName}, you're on the waitlist — we'll notify you when an installer is available`,
+    subject: `${firstName}, you're on the waitlist`,
     html,
   });
 }
@@ -639,72 +636,47 @@ export async function sendAbandonedCartEmail(
     installerName?: string | null;
   }
 ): Promise<SendEmailResult> {
+  const firstName = (data.customerName || "").split(" ")[0] || "there";
   const installerLine = data.installerName
-    ? `with <strong>${data.installerName}</strong>`
-    : "for your custom storage system";
+    ? `with <strong style="color:#ffffff;">${data.installerName}</strong>`
+    : "for your Heavy-Duty Tote System";
+  const balanceDue = data.totalPrice - data.depositAmount;
 
   const html = masterEmailLayout(
-    "Complete Your Order",
+    "Your Build Is Saved",
     `
-    <!-- Attention Grabber -->
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="display:inline-block;background:#422006;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#128722;
-      </div>
-    </div>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.customerName},</p>
-
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Looks like you didn&rsquo;t finish your order ${installerLine}.
-      No worries &mdash; your custom configuration is saved and ready to go!
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your Custom 3D Design ${installerLine} is saved and ready to go &mdash; built exactly to your wall&rsquo;s dimensions. Lock in the install spot whenever you&rsquo;re ready.
     </p>
 
-    <!-- Order Summary Card -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:16px;">
-      <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Your Order Summary</p>
-      <table style="width:100%;">
-        <tr>
-          <td style="color:#94a3b8;font-size:14px;padding:8px 0;">Total Estimate</td>
-          <td style="text-align:right;color:#facc15;font-size:20px;font-weight:800;">$${data.totalPrice.toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td style="color:#94a3b8;font-size:14px;padding:8px 0;border-top:1px dashed #475569;">Deposit to Reserve (15%)</td>
-          <td style="text-align:right;color:#f59e0b;font-size:18px;font-weight:700;padding-top:8px;border-top:1px dashed #475569;">$${data.depositAmount.toFixed(2)}</td>
-        </tr>
-      </table>
-    </div>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
-      *Sales tax (if applicable) will be collected by your installer at the time of installation.
-    </p>
+    ${eyebrow("Your Order")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 8px;">
+      ${detailRow("Order Total", `$${data.totalPrice.toFixed(2)}`)}
+      ${detailRow("Secure Deposit (15%)", `$${data.depositAmount.toFixed(2)}`, { highlight: true, topBorder: true })}
+      ${detailRow("Balance Due at Installation", `$${balanceDue.toFixed(2)}`, { topBorder: true })}
+    </table>
+    <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;">*Sales tax (if applicable) is collected by your installer on installation day.</p>
 
-    <!-- Urgency Note -->
-    <div style="background-color:#422006;border:1px solid #b45309;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
-        <strong>&#9888; Heads up:</strong> Your order will expire in 7 days. Complete your purchase to lock in your spot on the schedule.
-      </p>
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 28px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Heads Up</p>
+      <p style="margin:0 0 20px;color:#ffffff;font-size:14px;line-height:1.6;">Your saved build expires in <strong>7 days</strong>. Complete your deposit to claim your spot on the install schedule.</p>
+      ${ctaButton(data.resumeUrl, "Complete My Order")}
     </div>
 
-    <!-- CTA Button -->
-    <div style="text-align:center;margin-bottom:28px;">
-      <a href="${data.resumeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(250,204,21,0.3);">
-        Complete My Order
-      </a>
-    </div>
+    ${HR}
 
-    <!-- Trust Signals -->
-    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:12px;padding:16px;margin-bottom:24px;">
-      <table style="width:100%;font-size:12px;color:#94a3b8;">
-        <tr>
-          <td style="padding:6px 8px;text-align:center;width:33%;">&#128274; Secure Checkout</td>
-          <td style="padding:6px 8px;text-align:center;width:33%;">&#128176; 15% Deposit Only</td>
-          <td style="padding:6px 8px;text-align:center;width:33%;">&#9989; Satisfaction Guaranteed</td>
-        </tr>
-      </table>
-    </div>
+    <table style="width:100%;font-size:11px;color:#555;margin:0 0 24px;">
+      <tr>
+        <td style="text-align:center;padding:6px 8px;">&#128274; Secure Checkout</td>
+        <td style="text-align:center;padding:6px 8px;">&#128176; 15% Deposit</td>
+        <td style="text-align:center;padding:6px 8px;">&#9989; Built to Spec</td>
+      </tr>
+    </table>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Changed your mind? No problem &mdash; just ignore this email. Your order will automatically expire.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Changed your mind? Just ignore this email &mdash; your hold expires automatically.
     </p>
     `
   );
@@ -712,7 +684,7 @@ export async function sendAbandonedCartEmail(
   return sendTransactionalEmail({
     to: email,
     toName: data.customerName,
-    subject: "Don't forget your storage system! Complete your order",
+    subject: `${firstName}, your saved build is ready to confirm`,
     html,
   });
 }
@@ -740,51 +712,37 @@ export async function sendDemoConfirmationEmail(data: {
   const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
   const formattedTime = `${hour12}:${m} ${ampm} CT`;
 
+  const firstName = data.name.split(" ")[0] || data.name;
+
   const body = `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.name.split(" ")[0]},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
-      Your demo call is confirmed! We&rsquo;ll walk you through how the platform works
-      and how it puts money in your pocket.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your demo is locked in. We&rsquo;ll walk you through how Storage Network turns inbound demand into pre-sold jobs &mdash; and exactly how the platform puts money in your pocket from day one.
     </p>
 
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Date</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Time</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedTime}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Duration</td>
-          <td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">~30 minutes</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Format</td>
-          <td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">Video / Phone Call</td>
-        </tr>
-      </table>
+    ${eyebrow("Your Demo")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Date", formattedDate)}
+      ${detailRow("Time", formattedTime, { highlight: true, topBorder: true })}
+      ${detailRow("Duration", "~30 minutes", { topBorder: true })}
+      ${detailRow("Format", "Video or Phone Call", { topBorder: true })}
+    </table>
+
+    <div style="text-align:center;margin:0 0 28px;">
+      ${ctaButton(data.calendarLink, "Add to Google Calendar")}
     </div>
 
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${data.calendarLink}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        Add to Google Calendar
-      </a>
-    </div>
+    ${eyebrow("What we'll cover")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Auto-routed leads, pre-sold and ready to install.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>The Custom 3D Designer that closes the sale before you arrive.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Automated Cut Lists &mdash; zero math required.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Instant Stripe Payouts on every job.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Marketing tools, AI Asset Forge, and the installer community.</td></tr>
+    </table>
 
-    <p style="margin:0 0 16px;color:#facc15;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">What We&rsquo;ll Cover</p>
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; How pre-sold leads flow directly to you</p>
-      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; The 3D configurator that closes sales for you</p>
-      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; Auto-generated cut lists &amp; material planning</p>
-      <p style="margin:0 0 8px;color:#e2e8f0;font-size:13px;">&#10003; Payment processing &amp; instant payouts</p>
-      <p style="margin:0;color:#e2e8f0;font-size:13px;">&#10003; Marketing tools &amp; community access</p>
-    </div>
-
-    <p style="margin:0;color:#94a3b8;font-size:13px;">
-      We&rsquo;ll reach out at the scheduled time. If you need to reschedule, just reply to this email.
+    <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
+      We&rsquo;ll reach out at the scheduled time. Need to reschedule? Just reply to this email.
     </p>
   `;
 
@@ -849,93 +807,70 @@ export async function sendCleanoutUpsellEmail(
     ? `<img src="${installerAvatarUrl}" alt="${installerName}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #facc15;" />`
     : `<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#facc15,#f59e0b);display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#1e293b;">${installerName.charAt(0).toUpperCase()}</div>`;
 
-  // Build service buttons
+  void avatarHtml;
+
+  // Add-on service tiles. Each is a thin-bordered black card matching the
+  // master template aesthetic.
   const serviceButtonsHtml = services
     .map((s) => {
-      const depositAmount = Math.round(s.price * 0.50);
+      const depositAmount = Math.round(s.price * 0.5);
       const upsellUrl = `${getAppUrl()}/upsell/${leadId}?service=${s.id}`;
       return `
-      <div style="background:linear-gradient(135deg,#0f172a,#1a2332);border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <p style="margin:0 0 4px;color:#e2e8f0;font-size:16px;font-weight:700;">${s.name}</p>
-            <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">${s.description}</p>
-            <p style="margin:0;color:#64748b;font-size:12px;">50% deposit today: <strong style="color:#16a34a;">$${depositAmount}</strong> &bull; Remaining at service</p>
-          </div>
-          <div style="text-align:right;white-space:nowrap;margin-left:16px;">
-            <p style="margin:0 0 8px;color:#facc15;font-size:22px;font-weight:900;">$${s.price}</p>
-          </div>
-        </div>
+      <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:20px;margin-bottom:12px;">
+        <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:top;">
+              <p style="margin:0 0 4px;color:#ffffff;font-size:16px;font-weight:700;">${s.name}</p>
+              <p style="margin:0 0 8px;color:#a3a3a3;font-size:13px;line-height:1.5;">${s.description}</p>
+              <p style="margin:0;color:#555;font-size:12px;">50% deposit today: <strong style="color:#ffffff;">$${depositAmount}</strong> &middot; balance at service</p>
+            </td>
+            <td style="vertical-align:top;text-align:right;white-space:nowrap;padding-left:16px;">
+              <p style="margin:0;color:#facc15;font-size:22px;font-weight:900;">$${s.price}</p>
+            </td>
+          </tr>
+        </table>
         <div style="text-align:center;margin-top:16px;">
-          <a href="${upsellUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-            Add to My Service &rarr;
-          </a>
+          ${ctaButton(upsellUrl, "Add to My Appointment")}
         </div>
       </div>`;
     })
     .join("");
 
-  const phoneHtml = installerPhone
-    ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${installerPhone}</p>`
-    : "";
+  const installerLine = installerPhone
+    ? `${installerName} &middot; <a href="tel:${installerPhone}" style="color:#facc15;text-decoration:none;">${installerPhone}</a>`
+    : installerName;
 
   const html = masterEmailLayout(
-    "Prepare for Your Installation",
+    "Prepare for Installation",
     `
-    <!-- Warm Greeting -->
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Your installation with <strong style="color:#e2e8f0;">${installerName}</strong> is coming up on
-      <strong style="color:#facc15;">${formattedDate}</strong>! Here are a few tips to get the most out of your appointment:
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your installation with <strong style="color:#ffffff;">${installerName}</strong> is coming up on <strong style="color:#facc15;">${formattedDate}</strong>. A few minutes of prep makes a big difference on install day.
     </p>
 
-    <!-- Preparation Tips -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Getting Ready</p>
-      <table style="width:100%;font-size:14px;color:#94a3b8;">
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
-          <td style="padding:8px 0;">Clear the area where your new unit will be installed</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
-          <td style="padding:8px 0;">Ensure your installer has access to the space</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
-          <td style="padding:8px 0;">Have your totes or bins nearby if you plan to load them right away</td>
-        </tr>
-        ${address ? `<tr>
-          <td style="padding:8px 12px 8px 0;vertical-align:top;color:#16a34a;font-size:16px;">&#10003;</td>
-          <td style="padding:8px 0;">Confirm your install address: <strong style="color:#e2e8f0;">${address}</strong></td>
-        </tr>` : ""}
-      </table>
-    </div>
+    ${eyebrow("Getting ready")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Clear the wall and floor where your Heavy-Duty Tote System will be installed.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Make sure your installer has clean access to the space.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Have totes nearby if you want to load them in right away.</td></tr>
+      ${address ? `<tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>Confirm your address: <strong>${address}</strong></td></tr>` : ""}
+    </table>
 
-    <!-- Installer Card -->
-    <div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
-      <div style="margin-bottom:8px;">${avatarHtml}</div>
-      <p style="margin:0 0 2px;color:#facc15;font-size:16px;font-weight:800;">${installerName}</p>
-      <p style="margin:0;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Your Installer</p>
-      ${phoneHtml}
-    </div>
+    ${eyebrow("Your installer")}
+    <p style="margin:0 0 28px;color:#ffffff;font-size:15px;font-weight:600;">${installerLine}</p>
 
-    <!-- Upsell Section -->
-    <div style="background-color:#422006;border:1px solid #92400e;border-radius:12px;padding:20px;margin-bottom:20px;">
-      <p style="margin:0 0 4px;color:#facc15;font-size:16px;font-weight:800;">Want to Maximize Your Space?</p>
-      <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.6;">
-        ${installerName} also offers professional organizing and cleanout services.
-        Add one to your appointment and let them handle the heavy lifting &mdash; just pick a service below!
-      </p>
-    </div>
+    ${HR}
 
-    <!-- Service Buttons -->
+    ${eyebrow("Optional add-ons")}
+    <p style="margin:0 0 16px;color:#a3a3a3;font-size:14px;line-height:1.6;">
+      ${installerName} can take care of the prep work too &mdash; sorting, organizing, and hauling away clutter. Add a service while they&rsquo;re already on site.
+    </p>
+
     ${serviceButtonsHtml}
 
-    <p style="margin:16px 0 0;color:#64748b;font-size:12px;text-align:center;line-height:1.5;">
-      No obligation &mdash; if you&rsquo;d rather skip the add-on, your install is already confirmed and on the calendar.
-      Simply ignore this section and we&rsquo;ll see you on ${formattedDate}!
+    <p style="margin:24px 0 0;color:#555;font-size:12px;text-align:center;line-height:1.6;">
+      No obligation &mdash; your install is already confirmed for ${formattedDate}. Skip this section if you&rsquo;d rather not add anything.
     </p>
     `
   );
@@ -943,7 +878,7 @@ export async function sendCleanoutUpsellEmail(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `${firstName}, your installation is in 3 days — get the most out of your appointment`,
+    subject: `${firstName}, your installation is in 3 days`,
     html,
     senderName: installerName,
   });
@@ -1007,94 +942,72 @@ export async function sendCleanoutUpsellConfirmation(
     }
   }
 
-  // Build services list
   const existingServicesHtml = existingServices
     .map(
       (s) => `
       <tr>
-        <td style="padding:6px 0;color:#cbd5e1;font-size:14px;">${s.name}</td>
-        <td style="padding:6px 0;font-weight:600;text-align:right;color:#e2e8f0;">$${s.price.toLocaleString()}</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;">${s.name}</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;">$${s.price.toLocaleString()}</td>
       </tr>`
     )
     .join("");
 
-  const phoneHtml = installerPhone
-    ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#1e293b;color:#facc15;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:1px solid #facc15;">Call ${installerPhone}</a>`
+  const installerLine = installerPhone
+    ? `${installerName} &middot; <a href="tel:${installerPhone}" style="color:#facc15;text-decoration:none;">${installerPhone}</a>`
+    : installerName;
+
+  // Reformat the original dateSection HTML into our new bordered table row.
+  const dateRowNew = dateSection
+    ? `<tr><td style="padding:14px 0;border-top:1px solid #222;color:#a3a3a3;font-size:14px;">Appointment Date</td><td style="padding:14px 0;border-top:1px solid #222;text-align:right;color:#facc15;font-size:14px;font-weight:700;">${(dateSection.match(/>([A-Za-z]+, [A-Za-z]+ \d+, \d{4})</) || [, ""])[1] || "TBD"}</td></tr>`
     : "";
 
-  const addressRow = address
-    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${address}</td></tr>`
+  const addressRowNew = address
+    ? `<tr><td style="padding:14px 0;border-top:1px solid #222;color:#a3a3a3;font-size:14px;">Location</td><td style="padding:14px 0;border-top:1px solid #222;text-align:right;color:#ffffff;font-size:14px;font-weight:700;">${address}</td></tr>`
     : "";
 
   const html = masterEmailLayout(
-    "Your Updated Order Confirmation",
+    "Order Updated",
     `
-    <!-- Success Badge -->
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="display:inline-block;background:#052e16;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#10003;
-      </div>
-    </div>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Your add-on service has been confirmed! Here&rsquo;s a complete summary of everything
-      that will be taken care of during your appointment with <strong style="color:#e2e8f0;">${installerName}</strong>.
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your add-on is locked in. Here&rsquo;s the full breakdown of everything <strong style="color:#ffffff;">${installerName}</strong> will handle on installation day.
     </p>
 
-    <!-- All Services -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Services to Be Performed</p>
-      <table style="width:100%;border-collapse:collapse;">
-        ${existingServicesHtml}
-        <tr style="border-top:1px solid #334155;">
-          <td style="padding:10px 0 6px;color:#16a34a;font-size:14px;font-weight:700;">&#10003; ${upsellService.name} <span style="color:#94a3b8;font-weight:400;font-size:12px;">(just added)</span></td>
-          <td style="padding:10px 0 6px;font-weight:700;text-align:right;color:#16a34a;">$${upsellService.price.toLocaleString()}</td>
-        </tr>
-        <tr style="border-top:2px solid #334155;">
-          <td style="padding:12px 0 0;color:#94a3b8;font-size:14px;font-weight:700;">Grand Total</td>
-          <td style="padding:12px 0 0;font-weight:900;text-align:right;font-size:22px;color:#facc15;">$${totalPrice.toLocaleString()}</td>
-        </tr>
-      </table>
+    ${eyebrow("Services performed")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${existingServicesHtml}
+      <tr>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:700;"><span style="margin-right:6px;">&#43;</span>${upsellService.name} <span style="color:#a3a3a3;font-weight:400;font-size:12px;">(just added)</span></td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#facc15;font-size:14px;font-weight:700;white-space:nowrap;">$${upsellService.price.toLocaleString()}</td>
+      </tr>
+      <tr>
+        <td style="padding:18px 0 0;color:#a3a3a3;font-size:14px;font-weight:600;vertical-align:bottom;">Grand Total</td>
+        <td style="padding:18px 0 0;text-align:right;color:#facc15;font-size:32px;font-weight:900;line-height:1;">$${totalPrice.toLocaleString()}</td>
+      </tr>
+    </table>
+
+    ${eyebrow("Payment")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 6px;">
+      ${detailRow("Deposits Paid", `$${totalDeposit.toLocaleString()}`, { highlight: true })}
+      ${detailRow(`Add-on Deposit (${upsellService.name})`, `$${upsellService.depositPaid.toLocaleString()}`, { highlight: true, topBorder: true })}
+      ${detailRow("Balance Due at Installation", `$${totalBalance.toLocaleString()}*`, { highlight: true, topBorder: true })}
+    </table>
+    <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;">*Plus applicable sales tax, collected by your installer on service day.</p>
+
+    ${eyebrow("Appointment")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr><td style="padding:14px 0;color:#a3a3a3;font-size:14px;">Installer</td><td style="padding:14px 0;text-align:right;color:#ffffff;font-size:14px;font-weight:700;">${installerLine}</td></tr>
+      ${dateRowNew}
+      ${addressRowNew}
+    </table>
+
+    <div style="text-align:center;margin:0 0 28px;">
+      ${ctaButton(orderUrl, "View Full Order")}
     </div>
 
-    <!-- Payment Summary -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Payment Summary</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:6px 0;color:#94a3b8;">Deposits Paid</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#16a34a;">$${totalDeposit.toLocaleString()}</td></tr>
-        <tr><td style="padding:6px 0;color:#94a3b8;">Add-on deposit (${upsellService.name})</td><td style="padding:6px 0;font-weight:600;text-align:right;color:#16a34a;">$${upsellService.depositPaid.toLocaleString()}</td></tr>
-        <tr style="border-top:1px solid #334155;">
-          <td style="padding:10px 0 0;color:#94a3b8;font-weight:700;">Remaining Balance</td>
-          <td style="padding:10px 0 0;font-weight:800;text-align:right;font-size:20px;color:#facc15;">$${totalBalance.toLocaleString()}*</td>
-        </tr>
-      </table>
-      <p style="margin:12px 0 0;color:#94a3b8;font-size:11px;text-align:center;font-style:italic;">
-        *Plus applicable sales tax, collected by your installer at service time.
-      </p>
-    </div>
-
-    <!-- Appointment Details -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Appointment Details</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;">Installer</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${installerName}</td></tr>
-        ${dateSection}
-        ${addressRow}
-      </table>
-      ${phoneHtml ? `<div style="text-align:center;margin-top:12px;">${phoneHtml}</div>` : ""}
-    </div>
-
-    <!-- CTA -->
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${orderUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        View Full Order
-      </a>
-    </div>
-
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Questions? Reply to this email or contact your installer directly. We&rsquo;re here to help!
+    <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
+      Questions? Reply directly to this email &mdash; we route to your installer.
     </p>
     `
   );
@@ -1102,7 +1015,7 @@ export async function sendCleanoutUpsellConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Order Updated — ${upsellService.name} added to your appointment with ${installerName}`,
+    subject: `Order Updated — ${upsellService.name} added`,
     html,
   });
 }
@@ -1121,46 +1034,38 @@ export async function sendTrialCapCustomerConfirmation(
 
   const buildSummaryHtml = hasQuote
     ? `
-      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Saved Build</p>
-        <table style="width:100%;border-collapse:collapse;">
-          ${data.quoteData!.map((u, i) => `
-            <tr>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
-              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
-            </tr>
-          `).join("")}
-          ${data.grandTotal > 0 ? `
-            <tr style="border-top:1px solid #334155;">
-              <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total Estimate</td>
-              <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.grandTotal.toLocaleString()}</td>
-            </tr>
-          ` : ""}
-        </table>
-      </div>
+      ${eyebrow("Your Saved Build")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+        ${data.quoteData!.map((u, i) => `
+          <tr>
+            <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;">
+              <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc || `${u.cols}\u00d7${u.rows} Unit`}
+            </td>
+            <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+          </tr>
+        `).join("")}
+        ${data.grandTotal > 0 ? `
+          <tr>
+            <td style="padding:16px 0 0;color:#a3a3a3;font-size:13px;">Total Estimate</td>
+            <td style="padding:16px 0 0;text-align:right;color:#facc15;font-size:22px;font-weight:900;">$${data.grandTotal.toLocaleString()}</td>
+          </tr>
+        ` : ""}
+      </table>
     `
     : "";
 
   const html = masterEmailLayout(
-    "You\u2019re on the List",
+    "On the List",
     `
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
-        &#9989;
-      </div>
-    </div>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.6;">
-      <strong style="color:#facc15;">${data.installerBusinessName}</strong> is currently at full capacity,
-      but your build has been saved and they&rsquo;ve been notified. They&rsquo;ll reach out
-      to you shortly to confirm your booking.
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${data.installerBusinessName}</strong> is currently at capacity, but your Custom 3D Design is saved and they&rsquo;ve been notified. Expect them to reach out shortly to confirm your booking.
     </p>
 
     ${buildSummaryHtml}
 
-    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
       No payment has been charged. Your installer will contact you directly.
     </p>
     `
@@ -1189,71 +1094,56 @@ export async function sendWaitlistedLeadPaymentReady(
   const firstName = (data.customerName || "").split(" ")[0] || "there";
 
   const hasQuote = data.quoteData && data.quoteData.length > 0;
+  const balanceDue = data.estimatedPrice - data.depositAmount;
   const buildSummaryHtml = hasQuote
     ? `
-      <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <p style="margin:0 0 12px;color:#facc15;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Your Build</p>
-        <table style="width:100%;border-collapse:collapse;">
-          ${data.quoteData!.map((u, i) => `
-            <tr>
-              <td style="padding:6px 0;color:#cbd5e1;font-size:14px;font-weight:600;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td>
-              <td style="padding:6px 0;color:#e2e8f0;font-size:14px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
-            </tr>
-          `).join("")}
-          <tr style="border-top:1px solid #334155;">
-            <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total</td>
-            <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.estimatedPrice.toLocaleString()}</td>
+      ${eyebrow("Your Custom Build")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+        ${data.quoteData!.map((u, i) => `
+          <tr>
+            <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;">
+              <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc || `${u.cols}\u00d7${u.rows} Unit`}
+            </td>
+            <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
           </tr>
-        </table>
-      </div>
+        `).join("")}
+        <tr>
+          <td style="padding:16px 0 0;color:#a3a3a3;font-size:13px;">Total Estimate</td>
+          <td style="padding:16px 0 0;text-align:right;color:#facc15;font-size:22px;font-weight:900;">$${data.estimatedPrice.toLocaleString()}</td>
+        </tr>
+      </table>
     `
     : "";
 
   const html = masterEmailLayout(
-    "Your Installer Is Ready — Book Now",
+    "Installer Ready",
     `
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px;">
-        &#9989;
-      </div>
-    </div>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
 
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-
-    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.6;">
-      Great news! <strong style="color:#facc15;">${data.installerBusinessName}</strong> is now
-      accepting new bookings, and your build is first in line.
+    <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${data.installerBusinessName}</strong> is open for new bookings, and your build is first in line.
     </p>
 
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.6;">
-      Pay your deposit to lock in the job and your installer will reach out
-      to confirm the details.
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Pay your Secure Deposit to lock in the job &mdash; your installer will reach out to confirm the install date as soon as it&rsquo;s received.
     </p>
 
     ${buildSummaryHtml}
 
-    <!-- Deposit callout -->
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Deposit to Book</td>
-          <td style="padding:8px 0;font-weight:800;text-align:right;color:#10b981;font-size:18px;">$${data.depositAmount.toLocaleString()}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Balance Due at Install</td>
-          <td style="padding:8px 0;font-weight:600;text-align:right;color:#e2e8f0;">$${(data.estimatedPrice - data.depositAmount).toLocaleString()}</td>
-        </tr>
-      </table>
+    ${eyebrow("Payment")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 6px;">
+      ${detailRow("Secure Deposit (today)", `$${data.depositAmount.toLocaleString()}`, { highlight: true })}
+      ${detailRow("Balance Due at Installation", `$${balanceDue.toLocaleString()}`, { topBorder: true })}
+    </table>
+    <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;">*Plus applicable sales tax, collected by your installer on installation day.</p>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 28px;">
+      <p style="margin:0 0 16px;color:#facc15;font-size:18px;font-weight:800;">Lock in Your Spot</p>
+      ${ctaButton(payUrl, "Pay Deposit & Book")}
     </div>
 
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${payUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
-        Pay Deposit &amp; Book
-      </a>
-    </div>
-
-    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
-      No obligation until you pay. Your installer will contact you after your deposit is received.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      No obligation until you pay. Your installer reaches out once the deposit is received.
     </p>
     `
   );
