@@ -218,7 +218,7 @@ export async function markJobPaidManual(
     })
     .eq("id", leadId)
     .in("status", ["payment_pending", "open", "pending_payment"])
-    .select("id, customer_name, customer_email, estimated_price, deposit_amount, installer_id")
+    .select("id, customer_name, customer_email, estimated_price, deposit_amount, installer_id, quote_data")
     .maybeSingle();
 
   if (error) {
@@ -236,7 +236,7 @@ export async function markJobPaidManual(
   await logActivityInternal(auth.userId, "job_paid_manual", { leadId, method });
 
   // Fire-and-forget: send receipt/alert emails (same as webhook path)
-  import("@/lib/email").then(async ({ sendJobReceipt, sendPaymentReceivedAlert }) => {
+  import("@/lib/email").then(async ({ sendJobReceipt, sendPaymentReceivedAlert, quoteDataToBookingUnits }) => {
     try {
       const balanceCollected = (updated.estimated_price || 0) - (updated.deposit_amount || 0);
 
@@ -272,6 +272,7 @@ export async function markJobPaidManual(
           depositPaid: updated.deposit_amount ?? 0,
           balanceCollected,
           jobDescription: "Storage unit installation",
+          units: quoteDataToBookingUnits(updated.quote_data),
           completedDate: new Date().toISOString(),
           reviewUrl,
         });

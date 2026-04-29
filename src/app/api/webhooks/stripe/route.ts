@@ -321,7 +321,7 @@ export async function POST(request: NextRequest) {
           .eq("id", leadId)
           .single();
 
-        const { sendJobReceipt, sendPaymentReceivedAlert } = await import("@/lib/email");
+        const { sendJobReceipt, sendPaymentReceivedAlert, quoteDataToBookingUnits } = await import("@/lib/email");
         let installerName = "Your Installer";
         let installerEmail: string | null = null;
 
@@ -355,6 +355,7 @@ export async function POST(request: NextRequest) {
             depositPaid: lead.deposit_amount ?? 0,
             balanceCollected: amountPaid,
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+            units: quoteDataToBookingUnits(lead.quote_data),
             completedDate: new Date().toISOString(),
             reviewUrl,
           });

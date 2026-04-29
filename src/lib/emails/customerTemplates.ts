@@ -255,6 +255,11 @@ export async function sendJobReceipt(
     depositPaid: number;
     balanceCollected: number;
     jobDescription: string;
+    /**
+     * Per-unit breakdown matching the booking confirmation. When present,
+     * replaces the single "Service" line with an itemized "Your Build" card.
+     */
+    units?: BookingConfirmationUnit[];
     completedDate: string;
     reviewUrl?: string;
   }
@@ -265,6 +270,45 @@ export async function sendJobReceipt(
     year: "numeric",
   });
 
+  const units = data.units;
+
+  const unitsHtml =
+    units && units.length > 0
+      ? `
+      <div style="background-color:#0a0a0a;border:1px solid #1f2937;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+        <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;">Your Build</p>
+        ${units
+          .map((u, i) => {
+            const priceHtml =
+              typeof u.price === "number"
+                ? `<td style="padding:10px 0;text-align:right;color:#facc15;font-weight:800;font-size:14px;white-space:nowrap;vertical-align:top;">$${u.price.toLocaleString()}</td>`
+                : "";
+            const featuresHtml = u.features
+              ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${u.features}</p>`
+              : "";
+            return `
+              <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;${
+                i > 0 ? "border-top:1px solid #1f2937;" : ""
+              }">
+                <tr>
+                  <td style="padding:10px 12px 10px 0;color:#e5e5e5;font-size:14px;line-height:1.5;vertical-align:top;">
+                    <p style="margin:0;color:#ffffff;font-weight:700;">Unit ${i + 1}: ${u.desc}</p>
+                    ${featuresHtml}
+                  </td>
+                  ${priceHtml}
+                </tr>
+              </table>`;
+          })
+          .join("")}
+      </div>`
+      : "";
+
+  // Suppress the single "Service" row when we already showed itemized units.
+  const serviceRowHtml =
+    units && units.length > 0
+      ? ""
+      : `<tr><td style="padding:8px 0;color:#94a3b8;">Service</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.jobDescription}</td></tr>`;
+
   const html = masterEmailLayout(
     "Receipt for Service",
     `
@@ -273,9 +317,11 @@ export async function sendJobReceipt(
       Your installation is complete. Here is your receipt:
     </p>
 
+    ${unitsHtml}
+
     <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
       <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;">Service</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.jobDescription}</td></tr>
+        ${serviceRowHtml}
         <tr><td style="padding:8px 0;color:#94a3b8;">Installer</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${data.installerName}</td></tr>
         <tr><td style="padding:8px 0;color:#94a3b8;">Completed</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${formattedDate}</td></tr>
         <tr style="border-top:2px solid #334155;">
