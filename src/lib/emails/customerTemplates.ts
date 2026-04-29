@@ -1,4 +1,4 @@
-import { sendTransactionalEmail, emailShell, type SendEmailResult } from "./core";
+import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
@@ -61,7 +61,7 @@ export async function sendBookingConfirmation(
     ? `<a href="tel:${installerPhone}" style="display:inline-block;margin-top:8px;background-color:#facc15;color:#1e293b;padding:8px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;">Call ${installerPhone}</a>`
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Installation is Confirmed",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${customerName},</p>
@@ -142,7 +142,7 @@ export async function sendJobReceipt(
     year: "numeric",
   });
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Receipt for Service",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${data.customerName},</p>
@@ -236,7 +236,7 @@ export async function sendWaitlistCustomerConfirmation(
     `
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "You\u2019re on the Waitlist",
     `
     <!-- Clock Icon -->
@@ -474,7 +474,7 @@ export async function sendAbandonedCartEmail(
     ? `with <strong>${data.installerName}</strong>`
     : "for your custom storage system";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Complete Your Order",
     `
     <!-- Attention Grabber -->
@@ -619,7 +619,7 @@ export async function sendDemoConfirmationEmail(data: {
     </p>
   `;
 
-  const html = emailShell("Demo Call Confirmed", body);
+  const html = masterEmailLayout("Demo Call Confirmed", body);
 
   await sendTransactionalEmail({
     to: data.email,
@@ -710,7 +710,7 @@ export async function sendCleanoutUpsellEmail(
     ? `<p style="margin:4px 0 0;color:#94a3b8;font-size:12px;">${installerPhone}</p>`
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Prepare for Your Installation",
     `
     <!-- Warm Greeting -->
@@ -857,7 +857,7 @@ export async function sendCleanoutUpsellConfirmation(
     ? `<tr><td style="padding:8px 0;color:#94a3b8;">Location</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${address}</td></tr>`
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Updated Order Confirmation",
     `
     <!-- Success Badge -->
@@ -972,7 +972,7 @@ export async function sendTrialCapCustomerConfirmation(
     `
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "You\u2019re on the List",
     `
     <div style="text-align:center;margin-bottom:20px;">
@@ -1040,7 +1040,7 @@ export async function sendWaitlistedLeadPaymentReady(
     `
     : "";
 
-  const html = emailShell(
+  const html = masterEmailLayout(
     "Your Installer Is Ready — Book Now",
     `
     <div style="text-align:center;margin-bottom:20px;">
