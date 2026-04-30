@@ -104,8 +104,8 @@ export async function sendBookingConfirmation(
   }
 
   const balanceDue = totalPrice - depositAmount;
-  const successUrl = `${getAppUrl()}/success?jobId=${leadId}`;
   const firstName = customerName.split(" ")[0] || customerName;
+  void leadId;
 
   // Itemized unit list mirroring the installer's Job Ticket. Falls back to
   // the single jobDescription line when callers don't have structured units.
@@ -180,12 +180,6 @@ export async function sendBookingConfirmation(
         </tr>
       </table>
       <p style="margin:8px 0 0;color:#555;font-size:11px;font-style:italic;">*Plus applicable sales tax, collected by your installer on installation day.</p>
-    </div>
-
-    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:32px 0;">
-      <p style="margin:0 0 8px;color:#facc15;font-size:18px;font-weight:800;">Track Your Order</p>
-      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;">View order status, message your installer, and access your receipt.</p>
-      ${ctaButton(successUrl, "Open My Order")}
     </div>
 
     <div style="border-top:1px solid #222;padding-top:20px;margin-bottom:24px;text-align:center;">
