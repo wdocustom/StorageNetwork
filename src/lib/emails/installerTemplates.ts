@@ -628,11 +628,6 @@ export interface CustomerInquiryData {
 export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string {
   const { installerName, businessName, customerName, customerEmail, customerPhone, message, quoteTotal, quoteData } = data;
 
-  const phoneLine = customerPhone
-    ? `<tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="tel:${customerPhone}" style="color:#2563eb;text-decoration:none;">${customerPhone}</a></td></tr>`
-    : "";
-
-  // Build itemized quote section if quote data is present
   const quoteItems = Array.isArray(quoteData) ? quoteData : [];
   const hasQuoteItems = quoteItems.length > 0;
   const computedTotal = hasQuoteItems
@@ -647,10 +642,9 @@ export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string 
     const itemRows = quoteItems
       .map((u: unknown, i: number) => {
         const item = u as Record<string, unknown>;
-        const desc = item.desc || `${item.cols}\u00d7${item.rows} Unit`;
+        const desc = item.desc || `${item.cols}×${item.rows} Unit`;
         const price = typeof item.price === "number" ? `$${item.price.toLocaleString()}` : "";
 
-        // Build addons list
         const addons: string[] = [];
         if (item.hasTotes) {
           const toteType = item.toteType === "GM" ? "GM" : "HDX";
@@ -661,84 +655,72 @@ export function buildCustomerInquiryTemplate(data: CustomerInquiryData): string 
         }
         if (item.hasWheels) addons.push("Wheels");
         if (item.hasTop) addons.push("Plywood Top");
-        const addonStr = addons.join(" &bull; ");
+        const addonStr = addons.join(" • ");
 
         return `
           <tr>
-            <td style="padding:10px 0 2px;color:#e2e8f0;font-size:14px;font-weight:600;">Unit ${i + 1}: ${desc}</td>
-            <td style="padding:10px 0 2px;color:#facc15;font-size:14px;font-weight:700;text-align:right;">${price}</td>
+            <td style="padding:14px 0 4px;color:#ffffff;font-size:14px;font-weight:600;line-height:1.5;">
+              <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${desc}
+            </td>
+            <td style="padding:14px 0 4px;color:#ffffff;font-size:14px;font-weight:700;text-align:right;white-space:nowrap;">${price}</td>
           </tr>
           <tr>
-            <td colspan="2" style="padding:0 0 10px;color:#64748b;font-size:12px;border-bottom:1px solid #1e293b;">${addonStr}</td>
+            <td colspan="2" style="padding:0 0 14px;color:#a3a3a3;font-size:12px;border-bottom:1px solid #222;">${addonStr}</td>
           </tr>`;
       })
       .join("");
 
     quoteSection = `
-    <!-- Itemized Quote -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Quote at Time of Inquiry</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;border-collapse:collapse;">
+      ${eyebrow("Quote at Time of Inquiry")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 8px;">
         ${itemRows}
         <tr>
-          <td style="padding:12px 0 0;color:#94a3b8;font-size:13px;font-weight:600;">Total Estimate</td>
-          <td style="padding:12px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${computedTotal.toLocaleString()}</td>
+          <td style="padding:18px 0 0;color:#a3a3a3;font-size:13px;font-weight:600;vertical-align:bottom;">Total Estimate</td>
+          <td style="padding:18px 0 0;color:#facc15;font-size:22px;font-weight:900;text-align:right;">$${computedTotal.toLocaleString()}</td>
         </tr>
       </table>
-      <p style="margin:12px 0 0;color:#475569;font-size:11px;font-style:italic;">
-        Note: This was the customer&rsquo;s quote when they sent the message — they may be asking about something different.
-      </p>
-    </div>`;
+      <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;">Note: this was the customer’s quote when they sent the message — they may be asking about something different.</p>`;
   } else if (quoteTotal) {
-    // Fallback: just show the total if no itemized data
     quoteSection = `
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="color:#94a3b8;">Quote Total</td><td style="font-weight:800;text-align:right;color:#facc15;">$${quoteTotal.toFixed(2)}</td></tr>
-      </table>
-    </div>`;
+      ${eyebrow("Quote at Time of Inquiry")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+        ${detailRow("Quote Total", `$${quoteTotal.toFixed(2)}`, { highlight: true })}
+      </table>`;
   }
 
   const dashboardUrl = getAppUrl() + "/dashboard";
+  const replySubject = `Re:%20Your%20Storage%20Build%20Inquiry%20%E2%80%94%20${encodeURIComponent(businessName)}`;
 
   return masterEmailLayout(
-    "New Customer Inquiry",
+    "Customer Inquiry",
     `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${installerName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;">
-      A customer has reached out with a question about their storage build.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      A homeowner has a question about their build. Reply directly to this email and it goes straight to them — no copy/paste.
     </p>
 
-    <!-- Customer Message -->
-    <div style="background-color:#0f172a;border-left:4px solid #facc15;border-radius:0 12px 12px 0;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 8px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Message from ${customerName}</p>
-      <p style="margin:0;color:#e2e8f0;font-size:15px;line-height:1.7;white-space:pre-wrap;">${message}</p>
+    ${eyebrow(`Message from ${customerName}`)}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:20px 0;margin:0 0 28px;">
+      <p style="margin:0;color:#ffffff;font-size:15px;line-height:1.7;white-space:pre-wrap;">${message}</p>
     </div>
 
-    <!-- Customer Details -->
-    <div style="background-color:#1a2332;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${customerName}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;"><a href="mailto:${customerEmail}" style="color:#2563eb;text-decoration:none;">${customerEmail}</a></td></tr>
-        ${phoneLine}
-      </table>
-    </div>
+    ${eyebrow("Contact")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Name", customerName)}
+      ${detailRow("Email", `<a href="mailto:${customerEmail}" style="color:#facc15;text-decoration:none;">${customerEmail}</a>`, { topBorder: true })}
+      ${customerPhone ? detailRow("Phone", `<a href="tel:${customerPhone}" style="color:#facc15;text-decoration:none;">${customerPhone}</a>`, { topBorder: true }) : ""}
+    </table>
 
     ${quoteSection}
 
-    <!-- CTA Buttons -->
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="mailto:${customerEmail}?subject=Re:%20Your%20Storage%20Build%20Inquiry%20%E2%80%94%20${encodeURIComponent(businessName)}" style="display:inline-block;background-color:#facc15;color:#0f172a;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:14px;margin-right:8px;">
-        Reply to ${customerName.split(" ")[0]}
-      </a>
-      <a href="${dashboardUrl}" style="display:inline-block;background-color:#1e293b;color:#facc15;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;border:2px solid #facc15;">
-        View Dashboard
-      </a>
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(`mailto:${customerEmail}?subject=${replySubject}`, `Reply to ${customerName.split(" ")[0]}`)}
+      <span style="display:inline-block;width:8px;"></span>
+      ${ghostButton(dashboardUrl, "Open Dashboard")}
     </div>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      You can reply directly to this email — it will go straight to the customer.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Reply to this email and your response goes straight to the customer.
     </p>
     `
   );
@@ -763,40 +745,25 @@ export async function sendReferralHandoffEmail(
     : "30% of deposit";
 
   const html = masterEmailLayout(
-    "New Network Referral",
+    "Network Referral",
     `
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="display:inline-block;background:#422006;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#128279;
-      </div>
-    </div>
-
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.referrerName},</p>
-
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Your link just generated a referral! A customer in <strong>${location}</strong> used your configurator link, but the installation address is outside your service area.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.referrerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your branded link just generated an out-of-area lead in <strong style="color:#ffffff;">${location}</strong>${data.localInstallerName ? `. We&rsquo;ve handed them off to <strong style="color:#ffffff;">${data.localInstallerName}</strong>` : ""}. You&rsquo;re owed a referral cut.
     </p>
 
-    ${data.localInstallerName ? `
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      We've connected them with <strong>${data.localInstallerName}</strong>, a partner installer in their area.
-    </p>
-    ` : ""}
-
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Estimated Network Bounty</p>
-      <p style="margin:0;color:#f59e0b;font-size:28px;font-weight:900;">${bountyDisplay}</p>
-      <p style="margin:6px 0 0;color:#94a3b8;font-size:12px;">You earn 30% of the deposit when the customer books (min $15).</p>
+    ${eyebrow("Your Cut")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:36px;font-weight:900;line-height:1;">${bountyDisplay}</p>
+      <p style="margin:8px 0 0;color:#a3a3a3;font-size:13px;">30% of the deposit, minimum $15. Paid out to your Stripe once the customer books.</p>
     </div>
 
-    <div style="text-align:center;margin-bottom:28px;">
-      <a href="${getAppUrl()}/dashboard/referrals" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        View My Referrals
-      </a>
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(`${getAppUrl()}/dashboard/referrals`, "View My Referrals")}
     </div>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Keep sharing your link &mdash; you earn 30% of the deposit on every out-of-area booking.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Keep sharing your link &mdash; every out-of-area booking pays you again.
     </p>
     `
   );
@@ -804,7 +771,7 @@ export async function sendReferralHandoffEmail(
   return sendTransactionalEmail({
     to: email,
     toName: data.referrerName,
-    subject: `Your link generated a referral in ${location}`,
+    subject: `Network referral in ${location} — ${bountyDisplay} owed`,
     html,
   });
 }
@@ -821,33 +788,24 @@ export async function sendBountyPaidEmail(
   const location = [data.customerCity, data.customerState].filter(Boolean).join(", ") || "a referred customer";
 
   const html = masterEmailLayout(
-    "Bounty Paid!",
+    "Bounty Paid",
     `
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="display:inline-block;background:#052e16;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#128176;
-      </div>
-    </div>
-
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.referrerName},</p>
-
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Great news! A customer from <strong>${location}</strong> just booked through your referral. Your network bounty has been deposited.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.referrerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      A customer from <strong style="color:#ffffff;">${location}</strong> booked through your branded link. Your network bounty just hit your Stripe account.
     </p>
 
-    <div style="background-color:#052e16;border:1px solid #166534;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 8px;color:#16a34a;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Deposited to Your Stripe Account</p>
-      <p style="margin:0;color:#15803d;font-size:36px;font-weight:900;">$${data.amount.toFixed(2)}</p>
+    ${eyebrow("Instant Stripe Payout")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:36px;font-weight:900;line-height:1;">$${data.amount.toFixed(2)}</p>
     </div>
 
-    <div style="text-align:center;margin-bottom:28px;">
-      <a href="${getAppUrl()}/dashboard/referrals" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        View My Referrals
-      </a>
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(`${getAppUrl()}/dashboard/referrals`, "View My Referrals")}
     </div>
 
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      Keep sharing your link &mdash; you earn 30% of the deposit on every out-of-area booking.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Keep sharing your link &mdash; every out-of-area booking pays you 30% of the deposit.
     </p>
     `
   );
@@ -855,7 +813,7 @@ export async function sendBountyPaidEmail(
   return sendTransactionalEmail({
     to: email,
     toName: data.referrerName,
-    subject: `$${data.amount.toFixed(2)} bounty deposited — referral from ${location}`,
+    subject: `$${data.amount.toFixed(2)} bounty paid — referral from ${location}`,
     html,
   });
 }
@@ -886,53 +844,24 @@ export async function sendDemoOwnerNotification(data: {
   const formattedTime = `${hour12}:${m} ${ampm} CT`;
 
   const body = `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">New demo booking!</p>
+    ${eyebrow("New Demo Booking")}
 
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Name</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.prospectName}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Email</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">
-            <a href="mailto:${data.prospectEmail}" style="color:#facc15;text-decoration:none;">${data.prospectEmail}</a>
-          </td>
-        </tr>
-        ${data.prospectPhone ? `<tr>
-          <td style="padding:8px 0;color:#94a3b8;">Phone</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">
-            <a href="tel:${data.prospectPhone}" style="color:#facc15;text-decoration:none;">${data.prospectPhone}</a>
-          </td>
-        </tr>` : ""}
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Date</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${formattedDate}</td>
-        </tr>
-        <tr>
-          <td style="padding:8px 0;color:#94a3b8;">Time</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formattedTime}</td>
-        </tr>
-        ${data.toolExperience ? `<tr>
-          <td style="padding:8px 0;color:#94a3b8;">Tool Experience</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.toolExperience}</td>
-        </tr>` : ""}
-        ${data.buildsCurrently ? `<tr>
-          <td style="padding:8px 0;color:#94a3b8;">Builds Currently?</td>
-          <td style="padding:8px 0;font-weight:700;text-align:right;color:#e2e8f0;">${data.buildsCurrently}</td>
-        </tr>` : ""}
-      </table>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Name", data.prospectName)}
+      ${detailRow("Email", `<a href="mailto:${data.prospectEmail}" style="color:#facc15;text-decoration:none;">${data.prospectEmail}</a>`, { topBorder: true })}
+      ${data.prospectPhone ? detailRow("Phone", `<a href="tel:${data.prospectPhone}" style="color:#facc15;text-decoration:none;">${data.prospectPhone}</a>`, { topBorder: true }) : ""}
+      ${detailRow("Date", formattedDate, { topBorder: true })}
+      ${detailRow("Time", formattedTime, { highlight: true, topBorder: true })}
+      ${data.toolExperience ? detailRow("Tool Experience", data.toolExperience, { topBorder: true }) : ""}
+      ${data.buildsCurrently ? detailRow("Builds Currently?", data.buildsCurrently, { topBorder: true }) : ""}
+    </table>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(data.calendarLink, "Add to Calendar")}
     </div>
 
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${data.calendarLink}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        Add to Google Calendar
-      </a>
-    </div>
-
-    <p style="margin:0;color:#94a3b8;font-size:13px;">
-      The prospect has been sent a confirmation email. Reach out before the call if possible.
+    <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
+      The prospect has been sent a confirmation. Reach out before the call if possible.
     </p>
   `;
 
@@ -961,7 +890,7 @@ export async function sendCleanoutUpsellInstallerAlert(
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
 
-  let dateHtml = "";
+  let scheduledRow = "";
   if (data.scheduledDate) {
     const parsed = new Date(data.scheduledDate + (data.scheduledDate.includes("T") ? "" : "T12:00:00"));
     if (!isNaN(parsed.getTime())) {
@@ -970,60 +899,40 @@ export async function sendCleanoutUpsellInstallerAlert(
         month: "long",
         day: "numeric",
       });
-      dateHtml = `<tr><td style="padding:8px 0;color:#94a3b8;">Scheduled</td><td style="padding:8px 0;font-weight:700;text-align:right;color:#facc15;">${formatted}</td></tr>`;
+      scheduledRow = detailRow("Install Date", formatted, { highlight: true, topBorder: true });
     }
   }
 
+  const installerPayout = Math.round(data.servicePrice * 0.4);
+
   const html = masterEmailLayout(
-    "Add-On Service Booked!",
+    "Add-On Booked",
     `
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="display:inline-block;background:#052e16;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:28px;">
-        &#127881;
-      </div>
-    </div>
-
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
-
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
-      Great news! <strong style="color:#e2e8f0;">${data.customerName}</strong> just added a service to their upcoming appointment.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${data.customerName}</strong> just stacked an add-on onto their upcoming install. The 40% installer payout is already on its way to your Stripe account.
     </p>
 
-    <!-- Service Details -->
-    <div style="background-color:#052e16;border:1px solid #166534;border-radius:16px;padding:24px;margin-bottom:24px;">
-      <p style="margin:0 0 4px;color:#16a34a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Add-On Service Booked</p>
-      <p style="margin:0 0 16px;color:#e2e8f0;font-size:20px;font-weight:800;">${data.serviceName}</p>
+    ${eyebrow(data.serviceName)}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Service Price", `$${data.servicePrice.toLocaleString()}`)}
+      ${detailRow("Deposit Collected (50%)", `$${data.depositCollected.toLocaleString()}`, { topBorder: true })}
+      ${detailRow("Your Payout (40%)", `$${installerPayout.toLocaleString()}`, { highlight: true, topBorder: true })}
+      ${detailRow("Balance at Service", `$${data.remainingBalance.toLocaleString()}`, { highlight: true, topBorder: true })}
+    </table>
 
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:6px 0;color:#94a3b8;">Service Price</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#e2e8f0;">$${data.servicePrice.toLocaleString()}</td></tr>
-        <tr><td style="padding:6px 0;color:#94a3b8;">Deposit Collected (50%)</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#16a34a;">$${data.depositCollected.toLocaleString()}</td></tr>
-        <tr><td style="padding:6px 0;color:#94a3b8;">Your Payout (40%)</td><td style="padding:6px 0;font-weight:700;text-align:right;color:#facc15;">$${Math.round(data.servicePrice * 0.40).toLocaleString()}</td></tr>
-        <tr style="border-top:1px solid #166534;"><td style="padding:10px 0 0;color:#94a3b8;">Remaining at Service</td><td style="padding:10px 0 0;font-weight:800;text-align:right;font-size:18px;color:#facc15;">$${data.remainingBalance.toLocaleString()}</td></tr>
-      </table>
+    ${eyebrow("Job")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Customer", data.customerName)}
+      ${scheduledRow}
+    </table>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(dashboardUrl, "Open Job Ticket")}
     </div>
 
-    <!-- Job Details -->
-    <div style="background-color:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:24px;">
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;">Customer</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#e2e8f0;">${data.customerName}</td></tr>
-        ${dateHtml}
-      </table>
-    </div>
-
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      This service has been added to the job ticket. The add-on remaining balance of
-      <strong style="color:#facc15;">$${data.remainingBalance.toLocaleString()}</strong> has been included
-      in the total balance due at service time.
-    </p>
-
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${dashboardUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
-        View Job Ticket
-      </a>
-    </div>
-
-    <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-      The 40% payout has been transferred to your connected Stripe account.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      The add-on balance of <strong style="color:#ffffff;">$${data.remainingBalance.toLocaleString()}</strong> is rolled into the customer&rsquo;s service-day total automatically.
     </p>
     `
   );
@@ -1031,7 +940,7 @@ export async function sendCleanoutUpsellInstallerAlert(
   return sendTransactionalEmail({
     to: installerEmail,
     toName: data.installerName,
-    subject: `Add-On Booked: ${data.serviceName} — $${data.servicePrice.toLocaleString()} from ${data.customerName}`,
+    subject: `Add-on booked: ${data.serviceName} — $${installerPayout.toLocaleString()} payout`,
     html,
   });
 }
@@ -1051,83 +960,64 @@ export async function sendTrialCapHotLead(
 ): Promise<SendEmailResult> {
   const upgradeUrl = `${getAppUrl()}/upgrade`;
 
-  // Mask customer details — installer must subscribe to unlock
   const maskedName = maskName(data.customerName);
   const maskedEmail = maskEmail(data.customerEmail);
   const maskedPhone = data.customerPhone ? maskPhone(data.customerPhone) : null;
 
-  const phoneLine = maskedPhone
-    ? `<tr><td style="padding:8px 0;color:#94a3b8;">Phone</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#64748b;">${maskedPhone}</td></tr>`
-    : "";
-
   const hasQuote = data.quoteData && data.quoteData.length > 0;
-  const quoteSummary = hasQuote
-    ? data.quoteData!.map((u, i) =>
-        `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;">${i + 1}. ${u.desc || `${u.cols}\u00d7${u.rows} Unit`}</td><td style="padding:4px 0;color:#e2e8f0;font-size:13px;font-weight:700;text-align:right;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td></tr>`
-      ).join("")
+  const buildRows = hasQuote
+    ? data.quoteData!.map((u, i) => `
+        <tr>
+          <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;">
+            <span style="color:#facc15;font-weight:700;margin-right:8px;">${i + 1}.</span>${u.desc || `${u.cols}×${u.rows} Unit`}
+          </td>
+          <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;color:#ffffff;font-weight:700;font-size:14px;white-space:nowrap;">${u.price ? `$${Number(u.price).toLocaleString()}` : ""}</td>
+        </tr>`).join("")
     : "";
 
   const html = masterEmailLayout(
-    "You Have a Customer Ready to Book",
+    "Hot Lead — Locked",
     `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
-
-    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;">
-      A customer just designed a build and wants to hire <strong style="color:#facc15;">you</strong>.
-      They entered their details and are ready to book.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      A homeowner just designed a build, entered their details, and asked for <strong style="color:#ffffff;">you</strong> by name. You've hit the free-trial cap — activate Pro to unlock this Pre-Sold Job.
     </p>
 
-    <!-- Dollar amount callout -->
-    <div style="text-align:center;margin:24px 0;padding:24px;background:linear-gradient(135deg,#422006,#78350f);border:2px solid #f59e0b;border-radius:16px;">
-      <p style="margin:0 0 4px;color:#fbbf24;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Job Value</p>
-      <p style="margin:0;color:#ffffff;font-size:36px;font-weight:900;">$${data.grandTotal.toLocaleString()}</p>
+    ${eyebrow("Job Value")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:36px;font-weight:900;line-height:1;">$${data.grandTotal.toLocaleString()}</p>
     </div>
-
-    <p style="margin:0 0 24px;color:#f87171;font-size:14px;font-weight:600;text-align:center;">
-      You&rsquo;ve used all 3 free trial jobs. Subscribe to Pro to unlock this customer&rsquo;s details.
-    </p>
 
     ${hasQuote ? `
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:20px;">
-      <p style="margin:0 0 10px;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Build Summary</p>
-      <table style="width:100%;border-collapse:collapse;">
-        ${quoteSummary}
-        <tr style="border-top:1px solid #334155;">
-          <td style="padding:10px 0 0;color:#94a3b8;font-size:13px;">Total</td>
-          <td style="padding:10px 0 0;color:#facc15;font-size:18px;font-weight:800;text-align:right;">$${data.grandTotal.toLocaleString()}</td>
-        </tr>
+      ${eyebrow("Build")}
+      <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+        ${buildRows}
       </table>
-    </div>
     ` : ""}
 
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:16px;">
-      <p style="margin:0 0 10px;color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Customer Details</p>
-      <table style="width:100%;font-size:14px;color:#cbd5e1;">
-        <tr><td style="padding:8px 0;color:#94a3b8;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#cbd5e1;">${maskedName}</td></tr>
-        <tr><td style="padding:8px 0;color:#94a3b8;">Email</td><td style="padding:8px 0;font-weight:600;text-align:right;color:#64748b;">${maskedEmail}</td></tr>
-        ${phoneLine}
-      </table>
+    ${eyebrow("Customer (locked)")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Name", `<span style="color:#555;">${maskedName}</span>`)}
+      ${detailRow("Email", `<span style="color:#555;">${maskedEmail}</span>`, { topBorder: true })}
+      ${maskedPhone ? detailRow("Phone", `<span style="color:#555;">${maskedPhone}</span>`, { topBorder: true }) : ""}
+    </table>
+    <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;text-align:center;">Full contact details unlock the moment you activate Pro.</p>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Activate Pro &amp; Unlock</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">One Pre-Sold Job pays for the next year of platform usage. The customer hasn't been charged — they're waiting on you.</p>
+      ${ctaButton(upgradeUrl, "Activate Pro")}
     </div>
 
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:12px;text-align:center;font-style:italic;">
-      Full contact details will be unlocked when you subscribe to Pro.
-    </p>
-
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${upgradeUrl}" style="display:inline-block;background-color:#facc15;color:#1e293b;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
-        Subscribe &amp; Unlock Customer
-      </a>
-    </div>
-
-    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
-      This customer has not been charged yet. They&rsquo;re waiting to hear from you.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      This lead expires after 7 days if it stays locked.
     </p>
     `
   );
 
   return sendTransactionalEmail({
     to: installerEmail,
-    subject: `$${data.grandTotal.toLocaleString()} job waiting — a customer wants to book`,
+    subject: `$${data.grandTotal.toLocaleString()} job locked — activate Pro to unlock`,
     html,
   });
 }
@@ -1146,76 +1036,53 @@ export async function sendWaitlistedLeadsUnlocked(
   }
 ): Promise<SendEmailResult> {
   const baseUrl = getAppUrl();
+  const totalValue = data.leads.reduce((sum, l) => sum + (l.estimatedPrice ?? 0), 0);
+  const leadCount = data.leads.length;
 
-  const totalValue = data.leads.reduce(
-    (sum, l) => sum + (l.estimatedPrice ?? 0),
-    0
-  );
-
-  const leadsTableRows = data.leads
-    .map(
-      (l) => `
-      <tr style="border-bottom:1px solid #334155;">
-        <td style="padding:12px 8px;">
-          <p style="margin:0 0 4px;color:#e2e8f0;font-size:14px;font-weight:600;">${l.customerName}</p>
-          <p style="margin:0;color:#94a3b8;font-size:12px;">${l.customerEmail || "—"}</p>
-          ${l.customerPhone ? `<p style="margin:0;color:#94a3b8;font-size:12px;">${l.customerPhone}</p>` : ""}
+  const leadsRows = data.leads
+    .map((l) => `
+      <tr>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.5;vertical-align:top;">
+          <p style="margin:0 0 4px;font-weight:700;">${l.customerName}</p>
+          <p style="margin:0;color:#a3a3a3;font-size:12px;">${l.customerEmail || "—"}${l.customerPhone ? ` &middot; ${l.customerPhone}` : ""}</p>
+          <p style="margin:6px 0 0;"><a href="${baseUrl}/dashboard/leads/${l.leadId}" style="color:#facc15;font-size:12px;text-decoration:none;font-weight:700;">Open Job Ticket →</a></p>
         </td>
-        <td style="padding:12px 8px;text-align:right;vertical-align:top;">
-          <p style="margin:0 0 6px;color:#facc15;font-size:16px;font-weight:800;">${l.estimatedPrice ? `$${l.estimatedPrice.toLocaleString()}` : "—"}</p>
-          <a href="${baseUrl}/dashboard/leads/${l.leadId}" style="color:#60a5fa;font-size:12px;text-decoration:none;">View Lead &rarr;</a>
-        </td>
-      </tr>`
-    )
+        <td style="padding:14px 0;border-bottom:1px solid #222;text-align:right;vertical-align:top;color:#facc15;font-size:16px;font-weight:800;white-space:nowrap;">${l.estimatedPrice ? `$${l.estimatedPrice.toLocaleString()}` : "—"}</td>
+      </tr>`)
     .join("");
 
   const html = masterEmailLayout(
-    "Your Waitlisted Leads Are Unlocked",
+    "Waitlist Unlocked",
     `
-    <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hey ${data.installerName},</p>
-
-    <p style="margin:0 0 8px;color:#94a3b8;font-size:15px;line-height:1.6;">
-      Welcome to <strong style="color:#facc15;">Storage Network Pro</strong>! 🎉
-      Your subscription is active and <strong style="color:#e2e8f0;">${data.leads.length} waitlisted lead${data.leads.length === 1 ? "" : "s"}</strong>
-      ${data.leads.length === 1 ? "has" : "have"} been unlocked.
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Welcome to Pro. <strong style="color:#ffffff;">${leadCount} waitlisted ${leadCount === 1 ? "lead" : "leads"}</strong> just unlocked &mdash; the homeowners already designed their builds and are waiting on you.
     </p>
 
-    <!-- Total value callout -->
-    <div style="text-align:center;margin:24px 0;padding:24px;background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;border-radius:16px;">
-      <p style="margin:0 0 4px;color:#6ee7b7;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">Pipeline Unlocked</p>
-      <p style="margin:0;color:#ffffff;font-size:36px;font-weight:900;">$${totalValue.toLocaleString()}</p>
-      <p style="margin:4px 0 0;color:#6ee7b7;font-size:13px;">${data.leads.length} lead${data.leads.length === 1 ? "" : "s"} ready for follow-up</p>
+    ${eyebrow("Pipeline Unlocked")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:36px;font-weight:900;line-height:1;">$${totalValue.toLocaleString()}</p>
+      <p style="margin:8px 0 0;color:#a3a3a3;font-size:13px;">${leadCount} ${leadCount === 1 ? "lead" : "leads"} ready for follow-up.</p>
     </div>
 
-    <div style="background-color:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:20px;">
-      <div style="padding:12px 16px;border-bottom:1px solid #334155;">
-        <p style="margin:0;color:#facc15;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Unlocked Customers</p>
-      </div>
-      <table style="width:100%;border-collapse:collapse;">
-        ${leadsTableRows}
-      </table>
+    ${eyebrow("Your Unlocked Leads")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${leadsRows}
+    </table>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(`${baseUrl}/dashboard/leads`, "Open Lead Inbox")}
     </div>
 
-    <p style="margin:0 0 20px;color:#94a3b8;font-size:14px;text-align:center;line-height:1.5;">
-      These customers designed a build and are waiting to hear from you.
-      Reach out to collect their deposit and confirm the job.
-    </p>
-
-    <div style="text-align:center;margin-bottom:24px;">
-      <a href="${baseUrl}/dashboard/leads" style="display:inline-block;background-color:#10b981;color:#ffffff;padding:16px 48px;border-radius:12px;text-decoration:none;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:0.5px;">
-        View All Leads
-      </a>
-    </div>
-
-    <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
-      These customers have not been charged yet. Follow up to collect deposits and lock in the jobs.
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Customers haven't been charged yet. Reach out to collect the Secure Deposit and lock in each job.
     </p>
     `
   );
 
   return sendTransactionalEmail({
     to: installerEmail,
-    subject: `${data.leads.length} lead${data.leads.length === 1 ? "" : "s"} unlocked — $${totalValue.toLocaleString()} in your pipeline`,
+    subject: `${leadCount} ${leadCount === 1 ? "lead" : "leads"} unlocked — $${totalValue.toLocaleString()} in pipeline`,
     html,
   });
 }
