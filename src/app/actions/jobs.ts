@@ -1,13 +1,12 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
-import { sendTransactionalEmail, sendInstallScheduledNotice } from "@/lib/email";
+import { sendInstallScheduledNotice } from "@/lib/email";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { MaterialConfig, MaterialPrices } from "@/utils/calculateMaterials";
 import { updateInventoryAfterJob, getInstallerInventory } from "@/app/actions/inventory";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { escapeHtml } from "@/utils/escapeHtml";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
@@ -318,36 +317,45 @@ export async function rescheduleJob(
 
   if (customerEmail) {
     try {
-      // Fetch lead with installer profile to get installer's email
       const { data: lead } = await supabase
         .from("leads")
-        .select("installer_id, installers(email)")
+        .select("installer_id")
         .eq("id", leadId)
         .single();
 
-      const installerEmail = (lead?.installers as { email?: string } | null)?.email || undefined;
+      let installerEmail: string | undefined;
+      let installerName: string | undefined;
+      if (lead?.installer_id) {
+        const [{ data: installerProfile }, { data: installerAuth }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("business_name, first_name, last_name")
+            .eq("id", lead.installer_id)
+            .single(),
+          supabase.auth.admin.getUserById(lead.installer_id),
+        ]);
+        installerEmail = installerAuth?.user?.email || undefined;
+        installerName =
+          installerProfile?.business_name ||
+          [installerProfile?.first_name, installerProfile?.last_name]
+            .filter(Boolean)
+            .join(" ") ||
+          undefined;
+      }
 
-      const formattedDate = new Date(newDate + "T12:00:00").toLocaleDateString(
-        "en-US",
-        { weekday: "long", month: "long", day: "numeric", year: "numeric" }
-      );
-      const safeName = escapeHtml(customerName);
-      await sendTransactionalEmail({
-        to: customerEmail,
-        toName: customerName,
-        subject: `Your installation has been rescheduled to ${formattedDate}`,
-        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#1a1a1a;margin-bottom:8px;">Installation Rescheduled</h2>
-          <p style="color:#666;font-size:14px;">Hi ${safeName},</p>
-          <p style="color:#666;font-size:14px;">Your installation has been rescheduled to:</p>
-          <div style="background:#f8f9fa;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-            <p style="color:#1a1a1a;font-size:20px;font-weight:700;margin:0;">${formattedDate}</p>
-          </div>
-          <p style="color:#aaa;font-size:11px;text-align:center;margin-top:16px;">Questions? Reply to this email.</p>
-        </div>`,
+      await sendInstallScheduledNotice(customerEmail, {
+        customerName,
+        installerName,
+        scheduledDate: newDate,
         replyTo: installerEmail,
+        isReschedule: true,
       });
-      console.log("[Reschedule] Email sent to:", customerEmail, "| Reply-to:", installerEmail);
+      console.log(
+        "[Reschedule] Email sent to:",
+        customerEmail,
+        "| Reply-to:",
+        installerEmail,
+      );
     } catch (err) {
       console.error("[Reschedule] Email failed:", err);
     }

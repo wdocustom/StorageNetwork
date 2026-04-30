@@ -215,6 +215,8 @@ export async function sendInstallScheduledNotice(
     installerName?: string;
     scheduledDate: string; // YYYY-MM-DD
     replyTo?: string;
+    /** When true, the copy + subject reflect a reschedule rather than first scheduling. */
+    isReschedule?: boolean;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -233,15 +235,24 @@ export async function sendInstallScheduledNotice(
     ? `<strong style="color:#ffffff;">${data.installerName}</strong>`
     : "Your installer";
 
+  const heroTitle = data.isReschedule ? "Installation Rescheduled" : "Installation Scheduled";
+  const heroIntro = data.isReschedule
+    ? `${installerLine} has updated your install date. Your build is locked in for the new appointment below — same crew, same Custom 3D Design, fresh time on the calendar.`
+    : `${installerLine} has locked in your install date. Mark your calendar &mdash; we&rsquo;ll be there built and ready.`;
+  const dateEyebrow = data.isReschedule ? "New Installation Date" : "Installation Date";
+  const subject = data.isReschedule
+    ? `Installation rescheduled to ${formattedDate}`
+    : `Installation scheduled for ${formattedDate}`;
+
   const html = masterEmailLayout(
-    "Installation Scheduled",
+    heroTitle,
     `
     <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
-      ${installerLine} has locked in your install date. Mark your calendar &mdash; we&rsquo;ll be there built and ready.
+      ${heroIntro}
     </p>
 
-    ${eyebrow("Installation Date")}
+    ${eyebrow(dateEyebrow)}
     <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
       <p style="margin:0;color:#facc15;font-size:28px;font-weight:900;line-height:1.2;">${formattedDate}</p>
     </div>
@@ -251,7 +262,7 @@ export async function sendInstallScheduledNotice(
     </p>
 
     <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
-      Need to reschedule? Just reply to this email &mdash; we route directly to your installer.
+      Need to make another change? Just reply to this email &mdash; we route directly to your installer.
     </p>
     `
   );
@@ -259,7 +270,7 @@ export async function sendInstallScheduledNotice(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: data.customerName,
-    subject: `Installation scheduled for ${formattedDate}`,
+    subject,
     html,
     replyTo: data.replyTo,
   });
