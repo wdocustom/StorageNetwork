@@ -10,6 +10,7 @@ export {
 
 export {
   sendBookingConfirmation,
+  sendInstallScheduledNotice,
   sendJobReceipt,
   sendWaitlistCustomerConfirmation,
   buildQuoteEmailTemplate,

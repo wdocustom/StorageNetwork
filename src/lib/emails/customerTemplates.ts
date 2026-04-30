@@ -203,6 +203,68 @@ export async function sendBookingConfirmation(
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// sendInstallScheduledNotice — Sent to the customer when their installer
+// picks (or updates) the install date for their job.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendInstallScheduledNotice(
+  customerEmail: string,
+  data: {
+    customerName: string;
+    installerName?: string;
+    scheduledDate: string; // YYYY-MM-DD
+    replyTo?: string;
+  }
+): Promise<SendEmailResult> {
+  const firstName = (data.customerName || "").split(" ")[0] || "there";
+
+  const dateObj = new Date(`${data.scheduledDate}T12:00:00`);
+  const formattedDate = isNaN(dateObj.getTime())
+    ? data.scheduledDate
+    : dateObj.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+
+  const installerLine = data.installerName
+    ? `<strong style="color:#ffffff;">${data.installerName}</strong>`
+    : "Your installer";
+
+  const html = masterEmailLayout(
+    "Installation Scheduled",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      ${installerLine} has locked in your install date. Mark your calendar &mdash; we&rsquo;ll be there built and ready.
+    </p>
+
+    ${eyebrow("Installation Date")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:28px;font-weight:900;line-height:1.2;">${formattedDate}</p>
+    </div>
+
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:14px;line-height:1.7;">
+      A few hours before the appointment, please clear the wall and floor where your Heavy-Duty Tote System will be installed. Your installer will reach out directly with arrival timing.
+    </p>
+
+    <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
+      Need to reschedule? Just reply to this email &mdash; we route directly to your installer.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: data.customerName,
+    subject: `Installation scheduled for ${formattedDate}`,
+    html,
+    replyTo: data.replyTo,
+  });
+}
+
 /**
  * Convert a lead's raw `quote_data` array into the per-unit shape consumed
  * by the booking-confirmation email. Mirrors the Job Ticket Unit Summary
