@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWaitlistJoinedNotice } from "@/lib/email";
+import { recordWaitlistDemand } from "@/app/actions/demand-signals";
 
 const supabase = getServiceClient();
 
@@ -58,11 +59,16 @@ export async function gatekeeperCheck(
 }
 
 /**
- * Add an email to the waitlist for an unserviced ZIP code, and fire a
- * confirmation email so the customer knows we got them.
+ * Add a customer to the waitlist for an unserviced ZIP code and fire a
+ * confirmation email. Routes through the canonical demand_signals table
+ * (migration 037) so the row gets picked up automatically by
+ * activateDemandSignals() the moment an installer covers this ZIP — i.e.
+ * this is the system the installer onboarding flow is already wired to.
  *
- * Idempotent: re-submitting the same (email, zip) just resends the
- * confirmation rather than erroring or creating dupes.
+ * Idempotent at the email level: a duplicate (email, zip) row is harmless
+ * because activateDemandSignals only fires once per row, but we keep
+ * dedup on the demand_signals (email, zip, signal_type='waitlist') tuple
+ * to avoid table bloat.
  */
 export async function joinWaitlist(
   email: string,
@@ -71,7 +77,7 @@ export async function joinWaitlist(
 ): Promise<{ success: boolean; error?: string }> {
   const trimmedEmail = email.trim().toLowerCase();
   const trimmedZip = zip.trim();
-  const trimmedName = name?.trim() || undefined;
+  const trimmedName = name?.trim() || "Customer";
 
   if (!/^\d{5}$/.test(trimmedZip)) {
     return { success: false, error: "Invalid ZIP code." };
@@ -80,31 +86,37 @@ export async function joinWaitlist(
     return { success: false, error: "Invalid email address." };
   }
 
+  // Dedup: if an unresolved waitlist signal already exists for this
+  // (email, zip), skip the insert so we don't rack up duplicates. The
+  // confirmation email still fires so the user gets feedback.
   const { data: existing } = await supabase
-    .from("waitlist")
+    .from("demand_signals")
     .select("id")
-    .eq("email", trimmedEmail)
-    .eq("zip_code", trimmedZip)
+    .eq("zip", trimmedZip)
+    .eq("customer_email", trimmedEmail)
+    .eq("signal_type", "waitlist")
+    .eq("status", "unresolved")
     .maybeSingle();
 
   if (!existing) {
-    const { error } = await supabase
-      .from("waitlist")
-      .insert({ email: trimmedEmail, zip_code: trimmedZip });
-
-    if (error) {
-      console.error("[Waitlist] Insert failed:", error.message);
-      return { success: false, error: "Failed to join waitlist. Please try again." };
+    const result = await recordWaitlistDemand({
+      zip: trimmedZip,
+      customerName: trimmedName,
+      customerEmail: trimmedEmail,
+    });
+    if (!result.success) {
+      return { success: false, error: result.error || "Failed to join waitlist." };
     }
   }
 
-  // Confirmation email — non-blocking. Customer gets a "we got you" note
-  // immediately, even if they were already on the list.
+  // Confirmation email — non-blocking.
   try {
-    await sendWaitlistJoinedNotice(trimmedEmail, { zip: trimmedZip, name: trimmedName });
+    await sendWaitlistJoinedNotice(trimmedEmail, {
+      zip: trimmedZip,
+      name: name?.trim() || undefined,
+    });
   } catch (err) {
     console.error("[Waitlist] Confirmation email failed:", err);
-    // Don't fail the request — the row is in the DB, that's what matters.
   }
 
   return { success: true };

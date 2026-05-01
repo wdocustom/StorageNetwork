@@ -44,6 +44,7 @@ import {
 import Image from "next/image";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { checkTerritoryAvailability } from "@/app/actions/territory";
+import { getDemandPreviewForZip } from "@/app/actions/demand-signals";
 import { isDisposableEmail } from "@/lib/disposable-emails";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -94,38 +95,49 @@ export default function JoinPage() {
   const [territoryMessage, setTerritoryMessage] = useState("");
   const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Customers within 85 miles already on the waitlist. Hidden when zero.
+  const [demandWaiting, setDemandWaiting] = useState<number | null>(null);
+
   const checkTerritory = useCallback(async (zip: string) => {
     if (zip.length !== 5) {
       setTerritoryStatus("idle");
       setTerritoryMessage("");
+      setDemandWaiting(null);
       return;
     }
     setTerritoryStatus("checking");
     setTerritoryMessage("");
+    setDemandWaiting(null);
     try {
-      const result = await checkTerritoryAvailability(zip);
-      if (!result.available) {
+      const [territory, demand] = await Promise.all([
+        checkTerritoryAvailability(zip),
+        getDemandPreviewForZip(zip).catch(() => null),
+      ]);
+
+      if (!territory.available) {
         setTerritoryStatus("invalid");
-        setTerritoryMessage(result.reason || "Invalid ZIP code.");
-        return;
-      }
-      const preview = result.clusterPreview;
-      const existingCount = result.existingInstallerCount ?? 0;
-      if (existingCount > 0) {
-        setTerritoryStatus("shared");
-        setTerritoryMessage(
-          existingCount === 1
-            ? `1 installer already serves this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
-            : `${existingCount} installers already serve this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
-        );
+        setTerritoryMessage(territory.reason || "Invalid ZIP code.");
       } else {
-        setTerritoryStatus("available");
-        setTerritoryMessage(
-          preview
-            ? `No installers here yet! You'll be the first, covering ~${preview.estimatedZips} ZIP codes.`
-            : "No installers here yet! You'll be the first."
-        );
+        const preview = territory.clusterPreview;
+        const existingCount = territory.existingInstallerCount ?? 0;
+        if (existingCount > 0) {
+          setTerritoryStatus("shared");
+          setTerritoryMessage(
+            existingCount === 1
+              ? `1 installer already serves this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
+              : `${existingCount} installers already serve this area. You'll cover ~${preview?.estimatedZips ?? 0} ZIP codes and compete for jobs via tiered priority.`
+          );
+        } else {
+          setTerritoryStatus("available");
+          setTerritoryMessage(
+            preview
+              ? `No installers here yet! You'll be the first, covering ~${preview.estimatedZips} ZIP codes.`
+              : "No installers here yet! You'll be the first."
+          );
+        }
       }
+
+      setDemandWaiting(demand && demand.waitlist > 0 ? demand.waitlist : null);
     } catch {
       setTerritoryStatus("idle");
     }
@@ -372,11 +384,14 @@ export default function JoinPage() {
                 </div>
               </div>
 
-              {/* Zip Code — with territory check */}
+              {/* Zip Code — territory check + waiting-customer preview */}
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
                   Service Zip Code
                 </label>
+                <p className="mb-2 text-[11px] text-stone-400">
+                  Drop your ZIP — we&rsquo;ll check if customers in your area are <span className="font-semibold text-yellow-400">already asking and waiting</span> for an installer.
+                </p>
                 <div
                   className={`flex overflow-hidden rounded-lg border bg-slate-800 transition-colors ${
                     territoryStatus === "available"
@@ -439,6 +454,16 @@ export default function JoinPage() {
                   }`}>
                     {territoryMessage}
                   </p>
+                )}
+                {demandWaiting !== null && demandWaiting > 0 && (
+                  <div className="mt-3 rounded-lg border border-yellow-400/40 bg-yellow-400/[0.06] p-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                      🔥 {demandWaiting}+ {demandWaiting === 1 ? "customer is" : "customers are"} already waiting
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-300">
+                      Within 85 miles of {zipCode}, real homeowners have asked us to find them a vetted installer. Sign up below and we&rsquo;ll hand them off the moment your account is live.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

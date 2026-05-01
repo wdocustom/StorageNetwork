@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { onboardInstaller } from "@/app/actions/onboard-installer";
 import { checkTerritoryAvailability } from "@/app/actions/territory";
+import { getDemandPreviewForZip } from "@/app/actions/demand-signals";
 import { isDisposableEmail } from "@/lib/disposable-emails";
 import { stampLastLogin } from "@/app/actions/profile";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -76,6 +77,10 @@ function InvitePageContent() {
   const [territoryMessage, setTerritoryMessage] = useState("");
   const territoryCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Waiting customers in the entered ZIP's 85-mile radius.
+  // Hidden until we have a count > 0 — never push a "0 customers" message.
+  const [demandWaiting, setDemandWaiting] = useState<number | null>(null);
+
   useEffect(() => {
     const ref = searchParams.get("ref");
     if (ref) {
@@ -87,17 +92,24 @@ function InvitePageContent() {
     if (zip.length !== 5) {
       setTerritoryStatus("idle");
       setTerritoryMessage("");
+      setDemandWaiting(null);
       return;
     }
 
     setTerritoryStatus("checking");
     setTerritoryMessage("");
+    setDemandWaiting(null);
 
+    // Run territory + demand preview in parallel — they're independent.
     try {
-      const result = await checkTerritoryAvailability(zip);
-      if (result.available) {
+      const [territory, demand] = await Promise.all([
+        checkTerritoryAvailability(zip),
+        getDemandPreviewForZip(zip).catch(() => null),
+      ]);
+
+      if (territory.available) {
         setTerritoryStatus("available");
-        const preview = result.clusterPreview;
+        const preview = territory.clusterPreview;
         setTerritoryMessage(
           preview
             ? `Territory available! You'll cover ~${preview.estimatedZips} ZIP codes.`
@@ -106,8 +118,14 @@ function InvitePageContent() {
       } else {
         setTerritoryStatus("taken");
         setTerritoryMessage(
-          result.reason || "Territory unavailable. Try a different ZIP code."
+          territory.reason || "Territory unavailable. Try a different ZIP code."
         );
+      }
+
+      if (demand && demand.waitlist > 0) {
+        setDemandWaiting(demand.waitlist);
+      } else {
+        setDemandWaiting(null);
       }
     } catch {
       setTerritoryStatus("idle");
@@ -288,11 +306,14 @@ function InvitePageContent() {
                     placeholder="6+ characters"
                   />
 
-                  {/* ZIP — with territory check */}
+                  {/* ZIP — territory check + waiting-customer preview */}
                   <div>
-                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                    <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-stone-500">
                       Your ZIP Code
                     </label>
+                    <p className="mb-2 text-[11px] text-stone-400">
+                      Drop your ZIP — we&rsquo;ll check if customers in your area are <span className="font-semibold text-yellow-400">already asking and waiting</span> for an installer.
+                    </p>
                     <div
                       className={`flex items-center rounded-lg border bg-gray-800 transition-colors ${
                         territoryStatus === "available"
@@ -348,6 +369,16 @@ function InvitePageContent() {
                       >
                         {territoryMessage}
                       </p>
+                    )}
+                    {demandWaiting !== null && demandWaiting > 0 && (
+                      <div className="mt-3 rounded-lg border border-yellow-400/40 bg-yellow-400/[0.06] p-3">
+                        <p className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                          🔥 {demandWaiting}+ {demandWaiting === 1 ? "customer is" : "customers are"} already waiting
+                        </p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-stone-300">
+                          Within 85 miles of {zipCode}, real homeowners have asked us to find them a vetted installer. Sign up below and we&rsquo;ll hand them off the moment your account is live.
+                        </p>
+                      </div>
                     )}
                   </div>
 
