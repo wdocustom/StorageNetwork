@@ -373,10 +373,10 @@ function InvitePageContent() {
                     {demandWaiting !== null && demandWaiting > 0 && (
                       <div className="mt-3 rounded-lg border border-yellow-400/40 bg-yellow-400/[0.06] p-3">
                         <p className="text-xs font-bold uppercase tracking-wider text-yellow-400">
-                          🔥 {demandWaiting}+ {demandWaiting === 1 ? "customer is" : "customers are"} already waiting
+                          🔥 Customers waiting in your area
                         </p>
                         <p className="mt-1 text-[11px] leading-relaxed text-stone-300">
-                          Within 85 miles of {zipCode}, real homeowners have asked us to find them a vetted installer. Sign up below and we&rsquo;ll hand them off the moment your account is live.
+                          Real homeowners within 85 miles of {zipCode} have asked us to find them a vetted installer. Sign up below to be the first installer in their area — and win these waitlisted jobs.
                         </p>
                       </div>
                     )}
