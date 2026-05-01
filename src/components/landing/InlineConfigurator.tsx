@@ -4,12 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Loader2, ArrowRight, Check,
+  MapPin, Loader2, ArrowRight, Check, Mail,
   Paintbrush, Wrench, ShieldCheck,
 } from "lucide-react";
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
+import { joinWaitlist } from "@/app/actions/gatekeeper";
 
-type Step = "zip" | "reveal";
+type Step = "zip" | "reveal" | "waitlist" | "waitlist_joined";
 
 const PLACEHOLDERS = [
   "Enter your ZIP code",
@@ -33,6 +34,10 @@ export default function InlineConfigurator() {
   const [step, setStep] = useState<Step>("zip");
   const [installer, setInstaller] = useState<AvailabilityResult | null>(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistError, setWaitlistError] = useState("");
   const revealRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,7 +63,11 @@ export default function InlineConfigurator() {
       const result = await checkAvailability(trimmed);
       if (result.available && result.installer_id) {
         setInstaller(result); setStep("reveal");
-      } else { setError(result.message || "No installer found in this area yet."); }
+      } else {
+        // No installer in this ZIP — switch to waitlist capture.
+        setInstaller(null);
+        setStep("waitlist");
+      }
     } catch { setError("Unable to check availability. Please try again."); }
     finally { setSearching(false); }
   }
@@ -66,6 +75,38 @@ export default function InlineConfigurator() {
   function goToDesign() {
     if (!installer?.installer_id) return;
     router.push(`/design?installer=${installer.installer_id}&from=network`);
+  }
+
+  async function handleJoinWaitlist() {
+    const email = waitlistEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setWaitlistError("Enter a valid email address.");
+      return;
+    }
+    setWaitlistError("");
+    setWaitlistSubmitting(true);
+    try {
+      const result = await joinWaitlist(email, zip, waitlistName.trim() || undefined);
+      if (result.success) {
+        setStep("waitlist_joined");
+      } else {
+        setWaitlistError(result.error || "Couldn't add you to the waitlist. Try again.");
+      }
+    } catch {
+      setWaitlistError("Couldn't add you to the waitlist. Try again.");
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  }
+
+  function resetToZip() {
+    setStep("zip");
+    setZip("");
+    setInstaller(null);
+    setError("");
+    setWaitlistEmail("");
+    setWaitlistName("");
+    setWaitlistError("");
   }
 
   return (
@@ -211,6 +252,101 @@ export default function InlineConfigurator() {
             >
               Your certified pro: {installer.installer_name}
             </motion.p>
+          </motion.div>
+        )}
+
+        {/* ── Waitlist capture (no installer in this ZIP) ─────── */}
+        {step === "waitlist" && (
+          <motion.div
+            key="waitlist-step"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="rounded-2xl border border-stone-700/50 bg-gray-900/60 p-8 backdrop-blur-sm"
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/15">
+              <Mail className="h-7 w-7 text-yellow-400" strokeWidth={2.5} />
+            </div>
+
+            <h3 className="mb-1 text-center text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
+              We&apos;re Not in <span className="text-yellow-400">{zip}</span> Yet
+            </h3>
+            <p className="mb-6 text-center text-sm text-stone-400">
+              We&rsquo;re actively recruiting installers in your area. Drop your email and we&rsquo;ll be the first to tell you when a vetted pro is live.
+            </p>
+
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={waitlistName}
+                onChange={(e) => setWaitlistName(e.target.value)}
+                placeholder="Your name (optional)"
+                aria-label="Name"
+                className="w-full rounded-lg border border-stone-700 bg-gray-950 px-4 py-3 text-sm text-white placeholder-stone-500 outline-none focus:border-yellow-400"
+              />
+              <input
+                type="email"
+                value={waitlistEmail}
+                onChange={(e) => { setWaitlistEmail(e.target.value); setWaitlistError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleJoinWaitlist(); }}
+                placeholder="you@email.com"
+                aria-label="Email address"
+                autoComplete="email"
+                className="w-full rounded-lg border border-stone-700 bg-gray-950 px-4 py-3 text-sm text-white placeholder-stone-500 outline-none focus:border-yellow-400"
+              />
+              <button
+                onClick={handleJoinWaitlist}
+                disabled={waitlistSubmitting || !waitlistEmail}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {waitlistSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>Notify Me When Available <ArrowRight className="h-4 w-4" /></>
+                )}
+              </button>
+              {waitlistError && <p className="text-center text-sm font-medium text-red-400">{waitlistError}</p>}
+            </div>
+
+            <button
+              onClick={resetToZip}
+              className="mx-auto mt-5 block text-xs text-stone-500 underline-offset-4 hover:text-stone-300 hover:underline"
+            >
+              Try a different ZIP
+            </button>
+          </motion.div>
+        )}
+
+        {/* ── Waitlist joined confirmation ──────────────────── */}
+        {step === "waitlist_joined" && (
+          <motion.div
+            key="waitlist-joined"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="rounded-2xl border border-stone-700/50 bg-gray-900/60 p-8 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15"
+            >
+              <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
+            </motion.div>
+
+            <h3 className="mb-1 text-center text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
+              You&apos;re On the List
+            </h3>
+            <p className="mb-6 text-center text-sm text-stone-400">
+              We&rsquo;ll email <span className="font-semibold text-white">{waitlistEmail}</span> the moment we have a vetted installer in <span className="font-semibold text-yellow-400">{zip}</span>.
+            </p>
+
+            <p className="text-center text-[11px] text-stone-500">
+              Confirmation email sent. Check your inbox in a minute.
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

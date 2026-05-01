@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { sendWaitlistJoinedNotice } from "@/lib/email";
 
 const supabase = getServiceClient();
 
@@ -57,14 +58,20 @@ export async function gatekeeperCheck(
 }
 
 /**
- * Add an email to the waitlist for an unserviced ZIP code.
+ * Add an email to the waitlist for an unserviced ZIP code, and fire a
+ * confirmation email so the customer knows we got them.
+ *
+ * Idempotent: re-submitting the same (email, zip) just resends the
+ * confirmation rather than erroring or creating dupes.
  */
 export async function joinWaitlist(
   email: string,
-  zip: string
+  zip: string,
+  name?: string
 ): Promise<{ success: boolean; error?: string }> {
   const trimmedEmail = email.trim().toLowerCase();
   const trimmedZip = zip.trim();
+  const trimmedName = name?.trim() || undefined;
 
   if (!/^\d{5}$/.test(trimmedZip)) {
     return { success: false, error: "Invalid ZIP code." };
@@ -73,7 +80,6 @@ export async function joinWaitlist(
     return { success: false, error: "Invalid email address." };
   }
 
-  // Dedup check
   const { data: existing } = await supabase
     .from("waitlist")
     .select("id")
@@ -81,16 +87,24 @@ export async function joinWaitlist(
     .eq("zip_code", trimmedZip)
     .maybeSingle();
 
-  if (existing) {
-    return { success: true }; // Already on list, treat as success
+  if (!existing) {
+    const { error } = await supabase
+      .from("waitlist")
+      .insert({ email: trimmedEmail, zip_code: trimmedZip });
+
+    if (error) {
+      console.error("[Waitlist] Insert failed:", error.message);
+      return { success: false, error: "Failed to join waitlist. Please try again." };
+    }
   }
 
-  const { error } = await supabase
-    .from("waitlist")
-    .insert({ email: trimmedEmail, zip_code: trimmedZip });
-
-  if (error) {
-    return { success: false, error: "Failed to join waitlist. Please try again." };
+  // Confirmation email — non-blocking. Customer gets a "we got you" note
+  // immediately, even if they were already on the list.
+  try {
+    await sendWaitlistJoinedNotice(trimmedEmail, { zip: trimmedZip, name: trimmedName });
+  } catch (err) {
+    console.error("[Waitlist] Confirmation email failed:", err);
+    // Don't fail the request — the row is in the DB, that's what matters.
   }
 
   return { success: true };

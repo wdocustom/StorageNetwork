@@ -443,6 +443,64 @@ export async function sendJobReceipt(
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// sendWaitlistJoinedNotice — Minimal "thanks for joining the waitlist" email.
+//
+// Fired from /home page when a customer drops their ZIP into the inline
+// configurator and we have NO installer in their area. Different from
+// sendWaitlistCustomerConfirmation, which fires from the design tool flow
+// (where there's a saved build + an installer business name to reference).
+// This one is just: "we got you, we'll email when we're in your area."
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function sendWaitlistJoinedNotice(
+  customerEmail: string,
+  data: { zip: string; name?: string }
+): Promise<SendEmailResult> {
+  const firstName = (data.name || "").split(" ")[0] || "there";
+
+  const html = masterEmailLayout(
+    "On the Waitlist",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${firstName},</p>
+
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      You&rsquo;re officially on the Storage-Network waitlist for <strong style="color:#facc15;">ZIP ${data.zip}</strong>. The moment we onboard a vetted installer in your area, you&rsquo;ll be the first to know &mdash; with your Custom 3D Design tool ready to go.
+    </p>
+
+    ${eyebrow("What happens next")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;width:24px;vertical-align:top;">1</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">We&rsquo;re actively recruiting and vetting installers in your area.</td>
+      </tr>
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;vertical-align:top;">2</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">The moment one onboards, you get an email at this address.</td>
+      </tr>
+      <tr>
+        <td style="padding:14px 16px 14px 0;border-bottom:1px solid #222;color:#facc15;font-size:14px;font-weight:900;vertical-align:top;">3</td>
+        <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">Click through, design your Heavy-Duty Tote System, lock in the install.</td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 6px;color:#ffffff;font-size:13px;text-align:center;font-weight:600;">
+      No payment, no obligation. Just early access when we&rsquo;re live in your area.
+    </p>
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      You&rsquo;re receiving this because you joined the waitlist at storage-network.app.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: customerEmail,
+    toName: data.name,
+    subject: `You're on the waitlist for ZIP ${data.zip}`,
+    html,
+  });
+}
+
 export async function sendWaitlistCustomerConfirmation(
   customerEmail: string,
   data: {

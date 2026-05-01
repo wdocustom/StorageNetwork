@@ -20,6 +20,7 @@ export {
   sendCleanoutUpsellConfirmation,
   sendTrialCapCustomerConfirmation,
   sendWaitlistedLeadPaymentReady,
+  sendWaitlistJoinedNotice,
   quoteDataToBookingUnits,
   type BookingConfirmationData,
   type BookingConfirmationUnit,
