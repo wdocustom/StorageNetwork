@@ -45,7 +45,7 @@ export default function RaisedBedDropdown({
   const DEFAULT_GROUND = "ground_18x72x22";
 
   const [style, setStyle] = useState<"with_legs" | "without_legs">("without_legs");
-  const [sizeId, setSizeId] = useState<string | null>(DEFAULT_GROUND);
+  const [sizeId, setSizeId] = useState<string | null>(null);
   const [finish, setFinish] = useState<RaisedBedFinish>("natural");
   const [hasLiner, setHasLiner] = useState(false);
   const [depthIncrease, setDepthIncrease] = useState(false);
