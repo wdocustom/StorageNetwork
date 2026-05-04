@@ -6,6 +6,7 @@ import { validateServiceArea } from "@/app/actions/installer";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
+import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { sendTrialCapHotLead, sendTrialCapCustomerConfirmation } from "@/lib/email";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
@@ -75,6 +76,7 @@ export interface SubmitQuoteInput {
    *  installer has hit their 3-job trial limit — the lead is captured
    *  as a hostage to drive subscription conversion. */
   waitlisted?: boolean;
+  build_snapshot_url?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -98,6 +100,7 @@ const submitLeadSchema = z.object({
   source: z.enum(["platform", "partner_link"]).optional(),
   scheduled_at: z.string().max(30).optional(),
   waitlisted: z.boolean().optional(),
+  build_snapshot_url: z.string().url().max(2000).optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -189,6 +192,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
       ...(serviceItems.length > 0 ? {
         services: serviceItems.map((s) => ({ name: s.name, price: s.price })),
       } : {}),
+      ...(input.build_snapshot_url ? { build_snapshot_url: input.build_snapshot_url } : {}),
     };
 
     // ── Scheduling Guard: blackout dates + 3 points/day max ─────────────
@@ -239,7 +243,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
 
     // 3. Compute deposit using the installer's custom config (respects 15% floor)
     const depositAmount = await getDepositAmount(input.grand_total, input.installer_id);
-    const balanceDue = Math.round((input.grand_total - depositAmount) * 100) / 100;
+    const balanceDue = calculateBalanceDue(input.grand_total, depositAmount);
 
     // 4. Create lead in database
     const { data, error } = await supabase
@@ -350,7 +354,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
             }
 
             // Estimate the bounty: 30% of actual deposit, min $15
-            const estimatedBounty = Math.max(Math.round(depositAmount * 0.30 * 100) / 100, 15);
+            const estimatedBounty = Math.max(roundMoney(depositAmount * 0.30), 15);
 
             const { sendReferralHandoffEmail } = await import("@/lib/email");
             await sendReferralHandoffEmail(referrer.email, {

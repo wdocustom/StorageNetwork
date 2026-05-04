@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     calculate_bestseller: {
       description: "Calculate exact price for a bestseller preset configuration. Call before quoting price.",
       inputSchema: z.object({
-        presetId: z.string().describe("Preset ID: cornhusker, indiana-joe, long-ranger, gas-station, track-norris, rack-city-roller, or mayor-of-rack-city"),
+        presetId: z.string().describe("Preset ID: indiana-joe, long-ranger, gas-station, track-norris, rack-city-roller, or mayor-of-rack-city"),
         hasTotes: z.boolean().describe("Whether to include totes"),
       }),
       execute: async (input: { presetId: string; hasTotes: boolean }) => {

@@ -1,30 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getInstallerLink } from "@/lib/utils";
 import { logActivityClient } from "@/lib/activity-client";
 import {
   Copy,
   Check,
-  Link2,
   ExternalLink,
   Megaphone,
   ArrowLeft,
   Loader2,
-  Search,
-  Facebook,
+  Sparkles,
 } from "lucide-react";
 import AIScriptGenerator from "@/components/dashboard/AIScriptGenerator";
-import GroupFinder from "@/components/dashboard/GroupFinder";
+import AssetForge from "@/components/dashboard/AssetForge";
 import IGSalesImages from "@/components/dashboard/IGSalesImages";
 import InstallerPostTemplates from "@/components/dashboard/InstallerPostTemplates";
-import MyFacebookGroups from "@/components/dashboard/MyFacebookGroups";
 import ProPill from "@/components/dashboard/ProPill";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Marketing & Promotion — Installer sales toolkit
-// ═══════════════════════════════════════════════════════════════════════════
 
 interface UserProfile {
   id: string;
@@ -42,12 +35,6 @@ export default function MarketingPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activePostText, setActivePostText] = useState<string | null>(null);
-
-  const handleActiveTextChange = useCallback((text: string | null) => {
-    setActivePostText(text);
-  }, []);
-
 
   useEffect(() => {
     async function load() {
@@ -94,9 +81,9 @@ export default function MarketingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
+        <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
           <a
             href="/dashboard"
             className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
@@ -105,115 +92,48 @@ export default function MarketingPage() {
           </a>
           <div className="flex-1 flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-yellow-400" />
-            <h1 className="text-lg font-bold text-white">
-              Marketing & Promotion
-            </h1>
+            <h1 className="text-lg font-bold text-white">Marketing</h1>
           </div>
           <ProPill link={bookingLink} />
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-6 p-4 pt-6">
-        {/* ── Section 1: Booking Link ──────────────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-1 flex items-center gap-2">
-            <Link2 className="h-4 w-4 text-blue-400" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Your Booking Link
-            </h2>
-          </div>
-          <p className="mb-4 text-sm text-stone-500">
-            {profile.is_pro && profile.slug
-              ? "Your custom branded link is active. Clients see your business name in the URL."
-              : "This is your unique booking link. Send this to clients to let them design and book their own jobs."}
+      <main className="mx-auto max-w-lg space-y-4 p-4 pt-5 md:max-w-3xl lg:max-w-4xl">
+        {/* ── Booking Link Strip ────────────────────────────────── */}
+        <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-blue-400">
+            {bookingLink}
           </p>
+          <button
+            onClick={copyLink}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+          >
+            {copied ? <><Check className="h-3.5 w-3.5" /> Copied</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+          </button>
+          <a
+            href={bookingLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center rounded-lg border border-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            title="Open booking link"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
 
-          {/* Link display */}
-          <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800 p-3">
-            <p className="select-all break-all text-sm font-medium text-blue-400">
-              {bookingLink}
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={copyLink}
-              className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy Link
-                </>
-              )}
-            </button>
-            <a
-              href={bookingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-transparent px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-800"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open Link
-            </a>
-          </div>
-
-          {/* Pro features */}
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-            <Check className="h-3.5 w-3.5 text-emerald-400" />
-            <p className="text-xs font-semibold text-emerald-400">
-              Pro features active &mdash; Custom link & only 3% fee on your leads
-            </p>
-          </div>
-        </section>
-
-        {/* ── Section 2: AI Group Finder ──────────────────────────── */}
+        {/* ── AI Script Generator ─────────────────────────────── */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <div className="mb-1 flex items-center gap-2">
-            <Search className="h-4 w-4 text-blue-400" />
+            <Sparkles className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Where to Post
+              AI Script Generator
             </h2>
-            <span className="rounded-full bg-gradient-to-r from-blue-400/10 to-indigo-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
-              AI Powered
+            <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-400">
+              AI
             </span>
           </div>
           <p className="mb-4 text-sm text-stone-500">
-            Find Facebook groups, Craigslist sections, and other platforms where your posts will reach buyers.
-            {profile.city && profile.state && (
-              <span className="ml-1 font-semibold text-emerald-400">
-                Tailored for {profile.city}, {profile.state}.
-              </span>
-            )}
-          </p>
-
-          <GroupFinder
-            city={profile.city}
-            state={profile.state}
-            zip={profile.service_zip}
-            businessName={profile.business_name}
-          />
-        </section>
-
-        {/* ── Section 3: Post Generator ─────────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-1 flex items-center gap-2">
-            <Megaphone className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Post Generator
-            </h2>
-            <span className="rounded-full bg-gradient-to-r from-emerald-400/10 to-yellow-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              Quick + AI
-            </span>
-          </div>
-          <p className="mb-4 text-sm text-stone-500">
-            Grab a ready-to-paste post or generate a custom AI script for any platform.
+            Generate a custom marketing script for any platform.
             {profile.city && profile.state && (
               <span className="ml-1 font-semibold text-emerald-400">
                 Localized to {profile.city}, {profile.state}.
@@ -227,30 +147,13 @@ export default function MarketingPage() {
             state={profile.state}
             zip={profile.service_zip}
             businessName={profile.business_name}
-            onActiveTextChange={handleActiveTextChange}
           />
         </section>
 
-        {/* ── Section 4: My Facebook Groups ──────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="mb-1 flex items-center gap-2">
-            <Facebook className="h-4 w-4 text-blue-400" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
-              Post to My Groups
-            </h2>
-          </div>
-          <p className="mb-4 text-sm text-stone-500">
-            Save your Facebook groups here. When you have a post ready above, select groups and blast it to all of them.
-          </p>
+        {/* ── AI Asset Forge ──────────────────────────────────── */}
+        <AssetForge />
 
-          <MyFacebookGroups
-            installerId={profile.id}
-            postText={activePostText}
-            bookingLink={bookingLink}
-          />
-        </section>
-
-        {/* ── Section 5: Installer Customer Posts — Admin Only ─────── */}
+        {/* ── Admin-Only: IG Templates ──────────────────────────── */}
         {profile.is_admin && (
           <InstallerPostTemplates
             businessName={profile.business_name}
@@ -260,10 +163,9 @@ export default function MarketingPage() {
           />
         )}
 
-        {/* ── Section 6: IG Sales Images — Admin Only ────────────── */}
+        {/* ── Admin-Only: Platform Promo Images ────────────────── */}
         {profile.is_admin && <IGSalesImages />}
       </main>
-
     </div>
   );
 }

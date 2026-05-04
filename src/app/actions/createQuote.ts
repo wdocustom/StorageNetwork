@@ -15,6 +15,7 @@ import { recordWaitlistDemand } from "@/app/actions/demand-signals";
 import { getDepositAmount, getEstimatedSalesTax } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
@@ -79,6 +80,7 @@ export interface CreateQuoteInput {
   discount_code?: string;
   delivery_address?: DeliveryAddress;
   delivery_fee?: number;          // Distance-based delivery fee (already included in grand_total)
+  build_snapshot_url?: string;    // 3D canvas capture URL for email blueprint image
 }
 
 export type ReferralStatus =
@@ -178,6 +180,7 @@ export async function createQuote(
     discount_code,
     delivery_address,
     delivery_fee,
+    build_snapshot_url,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -198,7 +201,7 @@ export async function createQuote(
   // ── Resolve installer profile server-side (never trust client values) ──
   const { data: installerProfile, error: profileErr } = await supabase
     .from("profiles")
-    .select("business_name, first_name, phone")
+    .select("business_name, first_name, phone, email")
     .eq("id", installer_id)
     .single();
 
@@ -225,6 +228,7 @@ export async function createQuote(
     let effectiveBusinessName = installerProfile.business_name || installerProfile.first_name;
     let effectiveFirstName = installerProfile.first_name;
     let effectivePhone = installerProfile.phone;
+    let effectiveEmail = installerProfile.email as string | null;
     let referringInstallerId: string | null = null;
     let referralStatus: ReferralStatus = "none";
     let referrerSoftLocked = false;
@@ -267,13 +271,14 @@ export async function createQuote(
         // Fetch covering installer's profile for email details + pricing
         const { data: coveringProfile } = await supabase
           .from("profiles")
-          .select("first_name, phone, pricing_config")
+          .select("first_name, phone, pricing_config, email")
           .eq("id", effectiveInstallerId)
           .single();
 
         if (coveringProfile) {
           effectiveFirstName = (coveringProfile.first_name as string) || undefined;
           effectivePhone = (coveringProfile.phone as string) || undefined;
+          effectiveEmail = (coveringProfile.email as string) || null;
 
           // ── Re-price with covering installer's rates ──────────────
           const coveringPricing = (coveringProfile.pricing_config as InstallerPricing) || undefined;
@@ -420,9 +425,9 @@ export async function createQuote(
           .reduce((sum, u) => sum + (u.price || 0), 0)
       : finalTotal;
 
-    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip);
+    const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip, installer_id);
 
-    const balanceDue = Math.round((finalTotal - depositAmount - discountAmount + taxQuote.taxAmount) * 100) / 100;
+    const balanceDue = roundMoney(finalTotal - depositAmount - discountAmount + taxQuote.taxAmount);
 
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
@@ -517,6 +522,7 @@ export async function createQuote(
           ? { amount: taxQuote.taxAmount, rate: taxQuote.taxRate, stateCode: taxQuote.stateCode }
           : null,
         deliveryFee: delivery_fee || 0,
+        buildSnapshotUrl: build_snapshot_url || undefined,
       });
 
       const bizName = effectiveBusinessName || "Your Installer";
@@ -530,6 +536,7 @@ export async function createQuote(
         subject: subjectTitle,
         html: emailHtml,
         senderName: effectiveBusinessName || undefined,
+        replyTo: effectiveEmail || undefined,
       });
 
       if (!emailResult.success) {
@@ -550,7 +557,7 @@ export async function createQuote(
 
           if (referrer?.email) {
             const estimatedBounty = Math.max(
-              Math.round(depositAmount * 0.30 * 100) / 100,
+              roundMoney(depositAmount * 0.30),
               15
             );
 

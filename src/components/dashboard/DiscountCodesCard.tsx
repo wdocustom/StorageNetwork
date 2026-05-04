@@ -20,9 +20,10 @@ import {
 
 interface DiscountCodesCardProps {
   userId: string;
+  embedded?: boolean;
 }
 
-export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
+export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCardProps) {
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -93,18 +94,9 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
     }
   }
 
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Tag className="h-4 w-4 text-yellow-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-            Discount Codes
-          </h2>
-          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-stone-500">
-            {codes.filter((c) => c.active).length} active
-          </span>
-        </div>
+  const body = (
+    <>
+      <div className="mb-4 flex items-center justify-end">
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-1 rounded-lg bg-yellow-400/10 px-3 py-1.5 text-[11px] font-bold text-yellow-400 transition-colors hover:bg-yellow-400/20"
@@ -336,6 +328,23 @@ export default function DiscountCodesCard({ userId }: DiscountCodesCardProps) {
           })}
         </div>
       )}
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Tag className="h-4 w-4 text-yellow-400" />
+        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+          Discount Codes
+        </h2>
+        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+          {codes.filter((c) => c.active).length} active
+        </span>
+      </div>
+      {body}
     </section>
   );
 }

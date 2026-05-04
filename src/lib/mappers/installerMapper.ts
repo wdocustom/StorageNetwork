@@ -53,6 +53,11 @@ export function mapToDesignViewModel(
     },
     pricing: installer.installer_pricing ?? undefined,
     servicesConfig: installer.installer_services_config ?? undefined,
+    socialProof: {
+      completedJobs: installer.installer_completed_jobs ?? 0,
+      averageRating: 0,
+      totalReviews: 0,
+    },
     available: true,
     message: installer.message,
   };

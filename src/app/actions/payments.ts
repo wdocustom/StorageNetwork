@@ -388,11 +388,11 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 
   // Fire booking confirmation email to customer (non-blocking)
   console.log("[MarkPaid] Firing booking confirmation for lead:", leadId);
-  import("@/lib/email").then(async ({ sendBookingConfirmation }) => {
+  import("@/lib/email").then(async ({ sendBookingConfirmation, quoteDataToBookingUnits }) => {
     try {
       const { data: lead } = await supabase
         .from("leads")
-        .select("customer_name, customer_email, address, scheduled_at, estimated_price, deposit_amount, installer_id, notes")
+        .select("customer_name, customer_email, address, scheduled_at, estimated_price, deposit_amount, installer_id, notes, quote_data")
         .eq("id", leadId)
         .single();
 
@@ -416,6 +416,7 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
         depositAmount: lead.deposit_amount || 0,
         totalPrice: lead.estimated_price || 0,
         jobDescription: lead.notes || "Storage Unit Installation",
+        units: quoteDataToBookingUnits(lead.quote_data),
         leadId,
       });
       console.log("[MarkPaid] Booking confirmation result:", result);

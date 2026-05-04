@@ -10,10 +10,10 @@ import { Sparkles } from "lucide-react";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const GUIDE_TEXT: Record<number, string> = {
-  1: "Start by entering your wall dimensions — we'll figure out what fits.",
-  2: "Pick a tote size and orientation. This sets the frame depth.",
-  3: "Add totes, wheels, or a top. Customize to your space.",
-  4: "Review your build and book when ready.",
+  1: "Your free 3D design takes 30 seconds. Start with your wall size.",
+  2: "Great choice! Pick a tote style that fits your needs.",
+  3: "Almost done — add the finishing touches to your build.",
+  4: "Your design is saved. Fill in your info to lock in pricing.",
 };
 
 export default function AIGuideBar({ activeStep }: { activeStep: number }) {
@@ -22,10 +22,7 @@ export default function AIGuideBar({ activeStep }: { activeStep: number }) {
   return (
     <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-400/10 via-yellow-400/5 to-transparent px-4 py-2 text-xs">
       <Sparkles className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
-      <p className="text-stone-400">
-        <span className="font-semibold text-yellow-400/90">Tip:</span>{" "}
-        {text}
-      </p>
+      <p className="text-stone-400">{text}</p>
     </div>
   );
 }

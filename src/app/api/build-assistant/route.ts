@@ -50,7 +50,7 @@ const ActionSchema = z.object({
       orientation: z.enum(["standard", "sideways"]).optional().describe("Orientation (default: standard)"),
       toteModel: z.enum(["HDX", "GM"]).optional().describe("Tote model (default: HDX)"),
       presetId: z
-        .enum(["indiana-joe", "cornhusker", "long-ranger", "gas-station", "track-norris", "rack-city-roller", "mayor-of-rack-city"])
+        .enum(["indiana-joe", "long-ranger", "gas-station", "track-norris", "rack-city-roller", "mayor-of-rack-city"])
         .optional()
         .describe("Preset ID (for preset type)"),
       jobPrice: z.number().optional().describe("Job price (for profit)"),
@@ -467,10 +467,10 @@ Available calculation types:
   - Manual: provide cols + rows directly
 - "manifest": Get detailed 2x4 board counts, screw counts, plywood sheets, shopping list. USE THIS for any question about lumber, boards, 2x4s, screws, or hardware. Also supports wallWidth/wallHeight for wall-fit.
 - "materials": Get itemized material COSTS (dollar amounts). Also supports wallWidth/wallHeight.
-- "preset": Calculate a bestseller preset (indiana-joe, cornhusker, long-ranger, gas-station)
+- "preset": Calculate a bestseller preset (indiana-joe, long-ranger, gas-station, track-norris)
 - "profit": Calculate installer profit (needs jobPrice and materialsCost)
 - "list_presets": List available presets
-- "custom_item": For custom products like planter boxes, cleanouts, workbenches, etc. Set customDescription and customPrice. Use this when the user asks about non-standard products.
+- "custom_item": For custom products like planter boxes, cleanouts, workbenches, raised beds with custom pricing, etc. Set customDescription and customPrice. Use this when the user asks about non-standard products or specifies a custom price. When the user says "2 items at $X each", create ONE action with customPrice set to the PER-UNIT price and include the quantity in the description (e.g. "(2) 18x42 Raised Planters at $395 each").
 - "overhead": Calculate overhead ceiling storage. Provide overheadGridPresetId (2x2, 2x3, 3x2, 3x3, 3x4, 4x4). Keywords: "overhead", "ceiling", "ceiling storage", "ceiling totes". Returns price, materials list, dimensions.
 
 IMPORTANT routing rules:
@@ -528,6 +528,51 @@ ${systemPrompt}`,
       responseText = answer.text;
     }
 
+    // ── Step 3b: Extract structured units for "Add to Quote" button ──
+    // When the classifier detects addable items (custom, build, overhead),
+    // produce AiResultUnit-compatible objects so the client can show
+    // "Add to Quote" even when the parallel build-ai parser fails.
+    const parsedUnits: Array<{
+      cols: number; rows: number; toteColor: string;
+      hasTotes: boolean; hasWheels: boolean; hasTop: boolean;
+      presetId?: string | null; overheadGridPresetId?: string | null;
+      raisedBedConfig?: null; customPrice?: number | null;
+      description: string; indoorDelivery?: boolean;
+    }> = [];
+
+    for (let i = 0; i < plan.object.actions.length; i++) {
+      const action = plan.object.actions[i];
+      const result = calcResults[i];
+
+      if (action.type === "custom_item" && action.customPrice && action.customPrice > 0) {
+        parsedUnits.push({
+          cols: 0, rows: 0, toteColor: "black",
+          hasTotes: false, hasWheels: false, hasTop: false,
+          raisedBedConfig: null, customPrice: action.customPrice,
+          description: action.customDescription || "Custom item",
+        });
+      } else if (action.type === "build" && result && !("error" in result)) {
+        parsedUnits.push({
+          cols: (result.cols as number) || 0,
+          rows: (result.rows as number) || 0,
+          toteColor: "black",
+          hasTotes: action.hasTotes ?? true,
+          hasWheels: action.hasWheels ?? false,
+          hasTop: action.hasTop ?? false,
+          customPrice: action.customPrice ?? null,
+          description: `${result.cols}×${result.rows}${action.hasWheels ? " w/ Wheels" : ""}${action.hasTop ? " & Top" : ""}${action.hasTotes === false ? " (no totes)" : ""}`,
+        });
+      } else if (action.type === "overhead" && result && !("error" in result)) {
+        parsedUnits.push({
+          cols: 0, rows: 0, toteColor: "black",
+          hasTotes: action.hasTotes ?? true,
+          hasWheels: false, hasTop: false,
+          overheadGridPresetId: action.overheadGridPresetId || "3x3",
+          description: `Overhead Ceiling Storage: ${action.overheadGridPresetId || "3x3"} (${result.toteCount} totes)`,
+        });
+      }
+    }
+
     // ── Step 4: Silent logging (fire-and-forget) ─────────────────────
     const latencyMs = Date.now() - startTime;
     const turnIndex = Math.floor(recentMessages.filter((m) => m.role === "user").length - 1);
@@ -547,6 +592,7 @@ ${systemPrompt}`,
     return NextResponse.json({
       text: responseText,
       logRef: sessionId ? `${sessionId}:${turnIndex}` : undefined,
+      ...(parsedUnits.length > 0 ? { parsedUnits } : {}),
     });
   } catch (error: unknown) {
     console.error("Build assistant error:", error);

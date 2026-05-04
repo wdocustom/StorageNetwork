@@ -9,22 +9,30 @@ import {
   Sparkles,
   Clock,
   Hammer,
+  Shield,
+  RefreshCcw,
+  ChevronRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
+import { formatCurrency } from "@/utils/paymentHelpers";
 
 export default function ConfiguratorFooter({
   props,
   activeStep,
   detailsFilled,
+  setActiveStep,
 }: {
   props: ConfiguratorSidebarProps;
   activeStep: number;
   detailsFilled: boolean;
+  setActiveStep: (step: number) => void;
 }) {
+  const hasQuoteItems = props.orderItems.length > 0;
+
   return (
     <div
       className="sticky bottom-0 z-20 shrink-0 border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-4 backdrop-blur-xl"
@@ -38,11 +46,22 @@ export default function ConfiguratorFooter({
       <div className="mb-3 flex items-end justify-between">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            {props.orderItems.length > 0 ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : props.raisedBedPreviewPrice != null ? "Raised Bed" : props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
+            {hasQuoteItems ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : activeStep === 1 && props.raisedBedPreviewPrice != null ? "Raised Bed" : activeStep === 1 && props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
           </div>
           <div className="text-3xl font-black text-white">
-            <RollingPrice value={props.orderItems.length > 0 ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
+            <RollingPrice value={hasQuoteItems ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : activeStep === 1 && props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : activeStep === 1 && props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
           </div>
+          {/* Deposit anchoring — show prominent deposit below total */}
+          {props.stripeAccountId && hasQuoteItems && (
+            <div className="mt-0.5">
+              <span className="text-sm font-bold text-yellow-400">
+                Book today for {formatCurrency(props.depositAmount)} deposit
+              </span>
+              <div className="text-[10px] text-zinc-500">
+                Remaining balance paid after installation
+              </div>
+            </div>
+          )}
         </div>
         <div className="text-right">
           {props.deliveryFeeAmount > 0 && (
@@ -62,13 +81,7 @@ export default function ConfiguratorFooter({
               </div>
             );
           })()}
-          {props.stripeAccountId && props.orderItems.length > 0 && (
-            <div className="text-[10px] text-zinc-500">
-              Deposit ({props.depositLabelText}):{" "}
-              <span className="font-bold text-yellow-400">${props.depositAmount.toLocaleString()}</span>
-            </div>
-          )}
-          {props.orderItems.length > 0 && (
+          {hasQuoteItems && (
             <div className="text-[10px] text-zinc-600">
               {props.orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0)} unit{props.orderItems.reduce((sum, it) => sum + (it.quantity || 1), 0) !== 1 ? "s" : ""}
             </div>
@@ -76,8 +89,8 @@ export default function ConfiguratorFooter({
         </div>
       </div>
 
-      {/* CTA Button — normal booking flow */}
-      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && activeStep === 4 && detailsFilled && (props.scheduledDate || !props.schedulingEnabled) && (
+      {/* Primary CTA — booking flow (Step 4 only) */}
+      {hasQuoteItems && !props.submitted && !props.zipOutOfArea && !props.installerAtCapacity && activeStep === 4 && detailsFilled && (props.scheduledDate || !props.schedulingEnabled) && (
         <motion.button
           onClick={props.isDemo ? props.onDemoToast : props.onBookDeposit}
           disabled={props.submitting}
@@ -101,13 +114,13 @@ export default function ConfiguratorFooter({
             : props.submitting
             ? "Submitting..."
             : props.stripeAccountId
-            ? `Pay $${props.depositAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} & Book`
-            : "Submit Quote Request"}
+            ? `Reserve with ${formatCurrency(props.depositAmount)} Deposit`
+            : "Submit My Design"}
         </motion.button>
       )}
 
       {/* CTA Button — trial cap waitlist (hostage lead) */}
-      {props.installerAtCapacity && props.orderItems.length > 0 && !props.submitted && !props.trialCapWaitlistSent && !props.zipOutOfArea && activeStep === 4 && detailsFilled && (
+      {props.installerAtCapacity && hasQuoteItems && !props.submitted && !props.trialCapWaitlistSent && !props.zipOutOfArea && activeStep === 4 && detailsFilled && (
         <motion.button
           onClick={props.onJoinTrialCapWaitlist}
           disabled={props.trialCapWaitlistSending}
@@ -124,7 +137,54 @@ export default function ConfiguratorFooter({
         </motion.button>
       )}
 
-      {props.orderItems.length > 0 && !props.submitted && !props.zipOutOfArea && !props.trialCapWaitlistSent && (
+      {/* Secondary CTA — forward navigation for steps 1-3, or "Return to My Quote" */}
+      {activeStep < 4 && (
+        <>
+          {hasQuoteItems ? (
+            <motion.button
+              onClick={() => setActiveStep(4)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300"
+              whileHover={{ scale: 1.01, y: -1 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              Return to My Quote
+              <ChevronRight className="h-4 w-4" />
+            </motion.button>
+          ) : (
+            <motion.button
+              onClick={() => setActiveStep(activeStep + 1)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-400/30 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/5"
+              whileHover={{ scale: 1.01, y: -1 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              {activeStep === 1 && "Next: Choose Your Style"}
+              {activeStep === 2 && "Next: Customize Your Build"}
+              {activeStep === 3 && "Add to My Quote"}
+              <ChevronRight className="h-4 w-4" />
+            </motion.button>
+          )}
+        </>
+      )}
+
+      {/* Trust signals row — step 4 only */}
+      {activeStep === 4 && hasQuoteItems && !props.submitted && (
+        <div className="mt-3 flex items-center justify-center gap-4 text-[10px] text-zinc-500">
+          <span className="flex items-center gap-1">
+            <Shield className="h-3 w-3 text-emerald-400" />
+            Secure checkout
+          </span>
+          <span className="flex items-center gap-1">
+            <Sparkles className="h-3 w-3 text-yellow-400" />
+            Free 3D design
+          </span>
+          <span className="flex items-center gap-1">
+            <RefreshCcw className="h-3 w-3 text-blue-400" />
+            Refundable deposit
+          </span>
+        </div>
+      )}
+
+      {hasQuoteItems && !props.submitted && !props.zipOutOfArea && !props.trialCapWaitlistSent && (
         <p className="mt-2 text-center text-[10px] text-zinc-600">
           By placing this order, you agree to our{" "}
           <a href="/terms" className="underline hover:text-yellow-400">Terms of Service</a>.
@@ -170,7 +230,6 @@ function DIYPlansCTA({
     checkDIYPlanAccess().then((result) => setFreeAccess(result.hasFreeAccess));
   }, []);
 
-  // Use the first order item if available, otherwise derive from current build
   const item = orderItems[0];
   const config = {
     cols: item?.cols ?? build.cols,
@@ -184,9 +243,6 @@ function DIYPlansCTA({
     totalW: item?.totalW ?? build.totalW,
     totalH: item?.totalH ?? build.totalH,
     depth: item?.depth ?? 30,
-    // Installer context for branding on checkout/PDF
-    // Only include installer branding when an actual installer is linked
-    // (brandingTitle defaults to "Professional Grade Storage" for platform pages)
     ...(installerSlug || installerId
       ? {
           installerId,
@@ -197,7 +253,6 @@ function DIYPlansCTA({
       : {}),
   };
 
-  // Only show for standard tote organizer configs (not shelving/overhead)
   const isStandardUnit = !item?.shelvingConfigId && !item?.overheadStorageConfig;
   if (!isStandardUnit && orderItems.length > 0) return null;
 

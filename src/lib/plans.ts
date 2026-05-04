@@ -114,14 +114,14 @@ export const PLAN_CATALOG: PlanCatalogItem[] = [
   {
     slug: "4x4-hdx-wheels-top",
     name: "4×4 Full Build",
-    description: "The Cornhusker. 16-tote powerhouse on wheels with a plywood work surface. Our most popular plan.",
+    description: "16-tote powerhouse on wheels with a plywood work surface. Our most popular plan.",
     toteCount: 16,
     approxDimensions: { width: '86-1/2"', height: '69-3/4"', depth: '30"' },
     skill: "intermediate",
     buildTimeHours: 3.5,
     price: 20,
     config: { cols: 4, rows: 4, toteType: "HDX", unitType: "standard", orientation: "standard", hasWheels: true, hasTop: true },
-    tags: ["large", "popular", "cornhusker", "wheels", "worktop"],
+    tags: ["large", "popular", "wheels", "worktop"],
     featured: true,
   },
   {

@@ -261,6 +261,7 @@ export interface ConfiguratorSidebarProps {
   addons: SectionAddon[];
   onAddonsChange: (addons: SectionAddon[]) => void;
   addonPricing?: AddonPricing;
+  addonDefaults?: { plywood_door: number; side_panel: number; concealed_hinge_pair: number; rail_removal: number; shelf: number; paint_frame_price: number; paint_doors_panels_price: number };
 
   // Paint options
   paintFrameColor: PaintColorId | null;
@@ -331,8 +332,8 @@ export interface ConfiguratorSidebarProps {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const STEPS: readonly { id: number; label: string; icon: LucideIcon }[] = [
-  { id: 1, label: "Space", icon: Ruler },
-  { id: 2, label: "Totes", icon: Settings2 },
-  { id: 3, label: "Extras", icon: Palette },
-  { id: 4, label: "Review", icon: ShoppingCart },
+  { id: 1, label: "Your Space", icon: Ruler },
+  { id: 2, label: "Choose Style", icon: Settings2 },
+  { id: 3, label: "Customize", icon: Palette },
+  { id: 4, label: "Book Install", icon: ShoppingCart },
 ] as const;

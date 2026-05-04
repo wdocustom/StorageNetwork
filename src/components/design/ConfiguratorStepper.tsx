@@ -24,17 +24,12 @@ export default function ConfiguratorStepper({
           return (
             <div key={step.id} className="flex flex-1 items-center">
               <button
-                onClick={() => {
-                  if (hasQuoteItems && activeStep === 4 && step.id !== 1 && step.id !== 4) return;
-                  setActiveStep(step.id);
-                }}
+                onClick={() => setActiveStep(step.id)}
                 className="group flex flex-1 flex-col items-center gap-1"
               >
                 <motion.div
                   className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-colors ${
-                    hasQuoteItems && activeStep === 4 && step.id !== 1 && step.id !== 4
-                      ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
-                      : isActive
+                    isActive
                       ? "bg-yellow-400 text-zinc-900"
                       : isComplete
                       ? "bg-yellow-400/20 text-yellow-400"
@@ -44,7 +39,13 @@ export default function ConfiguratorStepper({
                   transition={{ duration: 0.3 }}
                 >
                   {isComplete ? (
-                    <CheckCircle2 className="h-4 w-4" />
+                    <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </motion.div>
                   ) : (
                     <Icon className="h-4 w-4" />
                   )}
@@ -68,6 +69,16 @@ export default function ConfiguratorStepper({
             </div>
           );
         })}
+      </div>
+
+      {/* Progress bar — endowed progress effect (starts at 12.5%, never empty) */}
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-800">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-yellow-400 to-yellow-300"
+          initial={{ width: "12.5%" }}
+          animate={{ width: `${Math.max(12.5, (activeStep / 4) * 100)}%` }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
       </div>
     </div>
   );

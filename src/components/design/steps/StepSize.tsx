@@ -71,10 +71,15 @@ export default function StepSize({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs font-semibold text-emerald-400"
+              className="mt-2 space-y-1.5"
             >
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              {props.zipResult.message}
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs font-semibold text-emerald-400">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                {props.zipResult.message}
+              </div>
+              <p className="text-xs text-zinc-400">
+                Your free 3D design is ready — let&apos;s build it!
+              </p>
             </motion.div>
           )}
           {props.zipResult && !props.zipResult.available && (
@@ -97,7 +102,7 @@ export default function StepSize({
           Auto-Fit Wall Calculator
         </h3>
         <div className="grid grid-cols-2 gap-3">
-          <FocusFrame label="Wall Width (in)" pulsing={dimensionPulsing}>
+          <FocusFrame label="Wall Width (inches)" pulsing={dimensionPulsing}>
             <input
               type="number"
               inputMode="decimal"
@@ -107,7 +112,7 @@ export default function StepSize({
               className="w-full bg-transparent text-sm font-medium text-white placeholder-zinc-600 focus:outline-none"
             />
           </FocusFrame>
-          <FocusFrame label="Wall Height (in)" pulsing={dimensionPulsing}>
+          <FocusFrame label="Wall Height (inches)" pulsing={dimensionPulsing}>
             <input
               type="number"
               inputMode="decimal"
@@ -353,7 +358,7 @@ export default function StepSize({
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
       >
-        Continue to Configuration
+        Next: Choose Your Style
         <ChevronRight className="h-4 w-4" />
       </motion.button>
     </>

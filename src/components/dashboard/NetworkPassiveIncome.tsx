@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { DollarSign, Info, ChevronRight } from "lucide-react";
+import { roundMoney } from "@/utils/mathHelpers";
 
 interface NetworkPassiveIncomeProps {
   userId: string;
@@ -37,7 +38,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
           (acc, row) => acc + (typeof row.bounty_amount === "number" ? row.bounty_amount : 15),
           0
         );
-        setTotalEarnings(Math.round(sum * 100) / 100);
+        setTotalEarnings(roundMoney(sum));
       }
       if (!pendingRes.error && pendingRes.count !== null) setPendingCount(pendingRes.count);
       setLoading(false);

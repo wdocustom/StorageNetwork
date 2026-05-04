@@ -9,16 +9,60 @@ import {
   Loader2,
   Check,
 } from "lucide-react";
-import { getSetupStatus, type SetupStatus } from "@/app/actions/setup-checklist";
+import { getSetupStatus, completeChecklistStep, type SetupStatus } from "@/app/actions/setup-checklist";
 import { logActivityClient } from "@/lib/activity-client";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Setup Checklist — Persistent onboarding tracker
 //
-// DB-driven (not localStorage). Shows real milestone completion.
-// Stays visible until ALL steps are done. Cannot be permanently dismissed.
-// Replaces the old MissionBriefing widget.
+// DB-driven for most steps. Low-stakes "nudge" steps (Instagram follow,
+// booking link copy) also persist to localStorage as a belt-and-suspenders
+// so they stay dismissed even when the server insert fails silently
+// (stale auth sessions, RLS edge cases, etc).
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ── Local overrides: steps that stay "done" per-device even if the
+//    server never confirmed the write. Keyed by userId so a second
+//    installer on the same browser doesn't inherit the first user's state.
+const localKey = (stepId: string, userId: string) => `sn-checklist-${stepId}-${userId}`;
+
+function hasLocalOverride(stepId: string, userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(localKey(stepId, userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setLocalOverride(stepId: string, userId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(localKey(stepId, userId), "1");
+  } catch {
+    // Ignore quota/private-mode errors — worst case we fall back to server state
+  }
+}
+
+// Steps that can be dismissed client-side (low-stakes nudges)
+const LOCAL_OVERRIDE_STEPS = ["visit_instagram", "copy_link"] as const;
+
+function applyLocalOverrides(status: SetupStatus, userId: string): SetupStatus {
+  const updatedSteps = status.steps.map((s) => {
+    if (s.completed) return s;
+    if ((LOCAL_OVERRIDE_STEPS as readonly string[]).includes(s.id) && hasLocalOverride(s.id, userId)) {
+      return { ...s, completed: true };
+    }
+    return s;
+  });
+  const completedCount = updatedSteps.filter((s) => s.completed).length;
+  return {
+    ...status,
+    steps: updatedSteps,
+    completedCount,
+    allComplete: completedCount === status.totalSteps,
+  };
+}
 
 interface SetupChecklistProps {
   userId: string;
@@ -37,7 +81,7 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
     let mounted = true;
     function refresh() {
       getSetupStatus(userId)
-        .then((s) => { if (mounted) { setStatus(s); setLoading(false); } })
+        .then((s) => { if (mounted) { setStatus(applyLocalOverrides(s, userId)); setLoading(false); } })
         .catch(() => { if (mounted) setLoading(false); });
     }
     refresh();
@@ -52,48 +96,40 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
   // Handle inline actions that can be completed directly on the checklist
   function handleStepAction(stepId: string): boolean {
     if (stepId === "copy_link" && bookingLink) {
-      // Optimistic: show "Done" immediately
+      // localStorage flag — persists regardless of server sync
+      setLocalOverride("copy_link", userId);
       setJustCompleted("copy_link");
 
-      // Copy link to clipboard (best-effort)
       try {
         navigator.clipboard.writeText(bookingLink);
       } catch {
         // Clipboard API may fail in non-secure contexts
       }
 
-      // Log activity via browser client (localStorage auth — always works),
-      // then refresh checklist from server to reflect the completion
-      logActivityClient({ action: "copy_link", pagePath: "/dashboard" });
+      // Best-effort server sync (for cross-device visibility + admin analytics)
+      completeChecklistStep(userId, "copy_link").then((ok) => {
+        if (!ok) logActivityClient({ action: "copy_link", pagePath: "/dashboard" });
+      });
 
-      // Brief delay for the insert to complete, then refresh checklist
-      setTimeout(() => {
-        getSetupStatus(userId)
-          .then((s) => { if (s) setStatus(s); })
-          .catch(() => {});
-      }, 500);
-
-      return true; // handled inline
+      // Re-apply overrides so the UI updates even if server refresh hasn't run
+      setStatus((prev) => (prev ? applyLocalOverrides(prev, userId) : prev));
+      return true;
     }
 
     if (stepId === "visit_instagram") {
-      // Optimistically mark as completed immediately — no validation needed
-      setStatus((prev) => {
-        if (!prev) return prev;
-        const updatedSteps = prev.steps.map((s) =>
-          s.id === "visit_instagram" ? { ...s, completed: true } : s
-        );
-        const completedCount = updatedSteps.filter((s) => s.completed).length;
-        return {
-          ...prev,
-          steps: updatedSteps,
-          completedCount,
-          allComplete: completedCount === prev.totalSteps,
-        };
-      });
+      // localStorage flag — this is the authoritative source. Cannot fail.
+      setLocalOverride("visit_instagram", userId);
+      setJustCompleted("visit_instagram");
+
       window.open("https://www.instagram.com/storagenetwork.app/", "_blank", "noopener");
-      // Fire-and-forget: log activity so it stays complete on future loads
-      logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
+
+      // Best-effort server sync (non-blocking, failure is fine)
+      completeChecklistStep(userId, "instagram_visited").then((ok) => {
+        if (!ok) logActivityClient({ action: "instagram_visited", pagePath: "/dashboard" });
+      }).catch(() => {});
+
+      // Re-apply overrides immediately so the UI updates
+      setStatus((prev) => (prev ? applyLocalOverrides(prev, userId) : prev));
       return true;
     }
 

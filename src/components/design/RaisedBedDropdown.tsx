@@ -45,7 +45,7 @@ export default function RaisedBedDropdown({
   const DEFAULT_GROUND = "ground_18x72x22";
 
   const [style, setStyle] = useState<"with_legs" | "without_legs">("without_legs");
-  const [sizeId, setSizeId] = useState<string | null>(DEFAULT_GROUND);
+  const [sizeId, setSizeId] = useState<string | null>(null);
   const [finish, setFinish] = useState<RaisedBedFinish>("natural");
   const [hasLiner, setHasLiner] = useState(false);
   const [depthIncrease, setDepthIncrease] = useState(false);
@@ -72,14 +72,14 @@ export default function RaisedBedDropdown({
   const [priceLoading, setPriceLoading] = useState(false);
 
   useEffect(() => {
-    if (!sizeId) { setCalculation(null); onPriceChange?.(null); return; }
+    if (!sizeId || !expanded) { setCalculation(null); onPriceChange?.(null); return; }
     let cancelled = false;
     setPriceLoading(true);
     calculateRaisedBedPriceServer({ sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted, installerPricing })
       .then((result) => { if (!cancelled) { setCalculation(result); setPriceLoading(false); onPriceChange?.(result.total); } })
       .catch(() => { if (!cancelled) setPriceLoading(false); });
     return () => { cancelled = true; };
-  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted, installerPricing]);
+  }, [sizeId, finish, hasLiner, depthIncrease, bottomShelf, pestCover, postHeight, hasHook, highWindWeighted, installerPricing, expanded]);
 
   // Notify parent of live config for 3D preview on every change
   useEffect(() => {
@@ -221,7 +221,7 @@ export default function RaisedBedDropdown({
                         <button
                           key={bed.id}
                           type="button"
-                          onClick={() => handleSizeChange(bed.id)}
+                          onClick={() => handleSizeChange(sizeId === bed.id ? null : bed.id)}
                           className={`relative rounded-lg border px-3 py-2.5 text-left transition-all ${
                             sizeId === bed.id
                               ? "border-yellow-400 bg-yellow-400/10"
@@ -255,7 +255,7 @@ export default function RaisedBedDropdown({
                         <button
                           key={bed.id}
                           type="button"
-                          onClick={() => handleSizeChange(bed.id)}
+                          onClick={() => handleSizeChange(sizeId === bed.id ? null : bed.id)}
                           className={`relative rounded-lg border px-3 py-2.5 text-left transition-all ${
                             sizeId === bed.id
                               ? "border-yellow-400 bg-yellow-400/10"

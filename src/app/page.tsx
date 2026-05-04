@@ -1,10 +1,10 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import {
-  Shield, Flag, Weight, ChevronRight, Truck,
-  Star, Wrench, ArrowRight,
+  Shield, Flag, Weight, Truck, Star,
 } from "lucide-react";
 import InlineConfigurator from "@/components/landing/InlineConfigurator";
+import { AnimatedBadge } from "@/components/landing/AnimatedTrustBadges";
 
 export const metadata: Metadata = {
   title: "Storage Network | Professional Tote Storage Systems — Design, Build & Install",
@@ -26,19 +26,11 @@ export const metadata: Metadata = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Landing Page — Guided Inline Configurator
-//
-// Hero section now contains the InlineConfigurator which walks customers
-// through ZIP → installer reveal → service selection → build config
-// entirely inline (no modals, no floating chatbot).
-// ═══════════════════════════════════════════════════════════════════════════
-
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       {/* ══════════════════════════════════════════════════════════════════
-          HERO SECTION — Logo + Inline Configurator
+          HERO SECTION — Logo + Hero Rack Image + ZIP Entry
       ══════════════════════════════════════════════════════════════════ */}
       <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-20">
         {/* Radial gradient background */}
@@ -60,33 +52,51 @@ export default function LandingPage() {
           }}
         />
 
-        {/* Content */}
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-block">
-            <Image
-              src="/landing_page_logo.png"
-              alt="Storage Network"
-              width={256}
-              height={256}
-              priority
-              className="h-32 w-auto object-contain sm:h-40 md:h-48"
-            />
+        {/* Hero rack image — positioned left on desktop, centered behind on mobile */}
+        <div className="pointer-events-none absolute inset-0">
+          <Image
+            src="/hero-rack.png"
+            alt=""
+            fill
+            priority
+            className="object-contain object-center opacity-30 md:object-left md:opacity-40 lg:opacity-50"
+            sizes="100vw"
+          />
+          {/* Fade overlay to keep text readable */}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-950/30 via-gray-950/60 to-gray-950/90 md:from-transparent md:via-gray-950/40 md:to-gray-950/95" />
+        </div>
+
+        {/* Content — shifted right on desktop to complement left-positioned rack */}
+        <div className="relative z-10 mx-auto w-full max-w-5xl">
+          <div className="md:ml-auto md:max-w-xl lg:max-w-2xl">
+            <div className="text-center">
+              <div className="mb-6 inline-block">
+                <Image
+                  src="/landing_page_logo.png"
+                  alt="Storage Network"
+                  width={256}
+                  height={256}
+                  priority
+                  className="h-32 w-auto object-contain sm:h-40 md:h-48"
+                />
+              </div>
+
+              <h1 className="mb-3 text-3xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl">
+                Professional
+                <br />
+                Grade{" "}
+                <span className="text-yellow-400">Storage.</span>
+              </h1>
+
+              <p className="mx-auto mb-8 max-w-lg text-base font-medium text-stone-400 sm:text-lg">
+                Custom tote storage — designed in 3D, built &amp; installed
+                by your local pro.
+              </p>
+
+              {/* ── ZIP Entry → Installer → 3D Configurator ──────── */}
+              <InlineConfigurator />
+            </div>
           </div>
-
-          <h1 className="mb-3 text-3xl font-black uppercase leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl lg:text-6xl">
-            Professional
-            <br />
-            Grade{" "}
-            <span className="text-yellow-400">Storage.</span>
-          </h1>
-
-          <p className="mx-auto mb-8 max-w-lg text-base font-medium text-stone-400 sm:text-lg">
-            Heavy-duty tote shelving designed, built &amp; installed by
-            certified local pros.
-          </p>
-
-          {/* ── Inline Configurator ─────────────────────────────── */}
-          <InlineConfigurator />
         </div>
       </section>
 
@@ -95,111 +105,50 @@ export default function LandingPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <section className="border-t border-stone-800 bg-gray-950 px-4 py-20">
         <div className="mx-auto max-w-4xl">
+          <p className="mb-2 text-center text-sm font-semibold text-yellow-400">
+            2,400+ systems designed and counting
+          </p>
           <p className="mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
             Why Homeowners Trust Us
           </p>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            <TrustBadge
-              icon={<Shield className="h-7 w-7" />}
-              title="Lifetime Warranty"
-              desc="Built to last. Every shelf system is backed by our lifetime structural warranty."
-            />
-            <TrustBadge
-              icon={<Flag className="h-7 w-7" />}
-              title="Made in USA"
-              desc="Designed and assembled in America using domestically sourced lumber."
-            />
-            <TrustBadge
-              icon={<Weight className="h-7 w-7" />}
-              title="2,000 lb Capacity"
-              desc="Heavy-duty construction rated for up to 2,000 lbs per unit."
-            />
-            <TrustBadge
-              icon={<Truck className="h-7 w-7" />}
-              title="Pro Installation"
-              desc="Certified local installers handle everything. You don't lift a finger."
-            />
-            <TrustBadge
-              icon={<Star className="h-7 w-7" />}
-              title="Verified Reviews"
-              desc="Real reviews from real customers, verified by the platform. Read before you book."
-            />
+            <AnimatedBadge index={0}>
+              <TrustBadge
+                icon={<Shield className="h-7 w-7" />}
+                title="Lifetime Warranty"
+                desc="Built to last. Every shelf system is backed by our lifetime structural warranty."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={1}>
+              <TrustBadge
+                icon={<Flag className="h-7 w-7" />}
+                title="Made in USA"
+                desc="Designed and assembled in America using domestically sourced lumber."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={2}>
+              <TrustBadge
+                icon={<Weight className="h-7 w-7" />}
+                title="2,000 lb Capacity"
+                desc="Heavy-duty construction rated for up to 2,000 lbs per unit."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={3}>
+              <TrustBadge
+                icon={<Truck className="h-7 w-7" />}
+                title="Pro Installation"
+                desc="Certified local installers handle everything. You don't lift a finger."
+              />
+            </AnimatedBadge>
+            <AnimatedBadge index={4}>
+              <TrustBadge
+                icon={<Star className="h-7 w-7" />}
+                title="Verified Reviews"
+                desc="Real reviews from real customers, verified by the platform. Read before you book."
+              />
+            </AnimatedBadge>
           </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          INSTALLER CTA BANNER — Join the Network
-      ══════════════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden border-t border-stone-800 bg-gradient-to-br from-gray-900 via-gray-950 to-gray-900 px-4 py-20">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse at 30% 50%, rgba(250,204,21,0.06) 0%, transparent 60%)",
-          }}
-        />
-
-        <div className="relative z-10 mx-auto max-w-3xl">
-          <div className="flex flex-col items-center gap-8 md:flex-row md:gap-12">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-yellow-400/10 ring-1 ring-yellow-400/20">
-              <Wrench className="h-10 w-10 text-yellow-400" />
-            </div>
-
-            <div className="flex-1 text-center md:text-left">
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-yellow-400">
-                Installer Network
-              </p>
-              <h2 className="mb-3 text-2xl font-black uppercase leading-tight text-white sm:text-3xl">
-                Build Storage.{" "}
-                <span className="text-yellow-400">Get Paid.</span>
-              </h2>
-              <p className="max-w-md text-sm leading-relaxed text-stone-400">
-                Pre-sold jobs, cut lists, and instant payouts. No selling. No
-                bidding. Just build.
-              </p>
-            </div>
-
-            <div className="shrink-0">
-              <a
-                href="/join"
-                className="group inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-8 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
-              >
-                Join the Network
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </a>
-              <p className="mt-2 text-center text-[10px] text-stone-600">
-                Pro trial included — no credit card required
-              </p>
-              <a
-                href="/demo"
-                className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-yellow-400/70 transition-colors hover:text-yellow-400"
-              >
-                or book a free demo call first
-                <ArrowRight className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA repeat ────────────────────────────────────────────────── */}
-      <section className="border-t border-stone-800 bg-gray-900 px-4 py-16">
-        <div className="mx-auto max-w-xl text-center">
-          <h2 className="mb-3 text-2xl font-black uppercase text-white sm:text-3xl">
-            Ready to get started?
-          </h2>
-          <p className="mb-6 text-sm text-stone-400">
-            Design your custom storage unit in minutes. No commitment required.
-          </p>
-          <a
-            href="/design"
-            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-8 py-4 text-sm font-bold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
-          >
-            Open Build Configurator
-            <ChevronRight className="h-4 w-4" />
-          </a>
         </div>
       </section>
 
@@ -220,16 +169,10 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="/demo"
+              href="/invite"
               className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
             >
-              Book a Demo
-            </a>
-            <a
-              href="/login"
-              className="text-[11px] font-semibold text-stone-600 transition-colors hover:text-yellow-400"
-            >
-              Partner Login
+              Become a Builder
             </a>
           </div>
         </div>
@@ -238,9 +181,6 @@ export default function LandingPage() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Trust Badge Component
-// ═══════════════════════════════════════════════════════════════════════════
 function TrustBadge({
   icon,
   title,

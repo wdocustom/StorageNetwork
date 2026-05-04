@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { contactInstaller } from "@/app/actions/contact-installer";
+import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PortfolioContact — Inline email form on the installer portfolio page
@@ -26,14 +27,12 @@ export default function PortfolioContact({ installerId, businessName }: Portfoli
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   async function handleSend() {
     if (!name.trim() || !email.trim() || !message.trim()) {
       setError("Name, email, and message are required.");
       return;
     }
-    if (!emailRegex.test(email.trim())) {
+    if (!EMAIL_VALIDATION_REGEX.test(email.trim())) {
       setError("Please enter a valid email address.");
       return;
     }

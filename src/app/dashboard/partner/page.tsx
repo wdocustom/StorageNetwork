@@ -7,6 +7,7 @@ import {
   getAdminPlatformUsers,
   getAdminReferralBounties,
   toggleInstallerSuspension,
+  addMarketingCredits,
   type PartnerCommission,
   type ReferralRow,
   type PlatformUser,
@@ -34,6 +35,8 @@ import {
   ToggleLeft,
   ToggleRight,
   Ban,
+  Coins,
+  Plus,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import ProPill from "@/components/dashboard/ProPill";
@@ -71,6 +74,9 @@ export default function PartnerDashboardPage() {
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const [suspendingUser, setSuspendingUser] = useState<string | null>(null);
+  const [creditAmount, setCreditAmount] = useState<Record<string, string>>({});
+  const [creditingUser, setCreditingUser] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState<Record<string, string>>({});
 
   // Bounty admin state
   const [bountyReferrers, setBountyReferrers] = useState<ReferrerSummary[]>([]);
@@ -166,6 +172,34 @@ export default function PartnerDashboardPage() {
       );
     }
     setSuspendingUser(null);
+  }
+
+  async function handleAddCredits(u: PlatformUser) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const raw = (creditAmount[u.id] ?? "").trim();
+    const amt = Number.parseInt(raw, 10);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setCreditError((prev) => ({ ...prev, [u.id]: "Enter a positive whole number." }));
+      return;
+    }
+
+    setCreditingUser(u.id);
+    setCreditError((prev) => ({ ...prev, [u.id]: "" }));
+    const result = await addMarketingCredits(user.id, u.id, amt);
+    if (result.success && typeof result.newBalance === "number") {
+      const newBal = result.newBalance;
+      setPlatformUsers((prev) =>
+        prev.map((p) => (p.id === u.id ? { ...p, marketing_credits: newBal } : p))
+      );
+      setCreditAmount((prev) => ({ ...prev, [u.id]: "" }));
+    } else {
+      setCreditError((prev) => ({ ...prev, [u.id]: result.error ?? "Failed." }));
+    }
+    setCreditingUser(null);
   }
 
   // ── Loading State ──────────────────────────────────────────────────────
@@ -610,6 +644,11 @@ export default function PartnerDashboardPage() {
                                   LOCKED
                                 </span>
                               )}
+                              {u.trial_expired && (
+                                <span className="flex-shrink-0 rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+                                  TRIAL EXPIRED
+                                </span>
+                              )}
                               <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
                                 u.stripe_connected
                                   ? "bg-emerald-400/10 text-emerald-400"
@@ -732,6 +771,19 @@ export default function PartnerDashboardPage() {
                               </div>
                             </div>
 
+                            {/* Trial-expired soft lock banner */}
+                            {u.trial_expired && (
+                              <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                                <p className="text-xs font-semibold text-amber-300">
+                                  Pro trial expired — no active subscription
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-stone-400">
+                                  Their booking link falls back to generic platform branding (no logo, no custom pricing).
+                                  They need to subscribe or have their trial extended to re-enable their branded page.
+                                </p>
+                              </div>
+                            )}
+
                             {/* Account Lock Toggle */}
                             <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
                               <div className="flex items-center gap-2">
@@ -763,6 +815,57 @@ export default function PartnerDashboardPage() {
                                   <ToggleLeft className="h-6 w-6 text-stone-500" />
                                 )}
                               </button>
+                            </div>
+
+                            {/* Marketing Credits — admin top-up */}
+                            <div className="mt-3 rounded-lg border border-yellow-400/20 bg-slate-800 px-4 py-3">
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Coins className="h-3.5 w-3.5 text-yellow-400" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-stone-300">
+                                      Marketing Credits
+                                    </p>
+                                    <p className="text-[10px] text-stone-500">
+                                      AI Asset Forge balance &middot; auto +10 per completed job
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="rounded-full bg-yellow-400/10 px-2.5 py-1 text-[11px] font-bold text-yellow-300">
+                                  {u.marketing_credits}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min="1"
+                                  step="1"
+                                  value={creditAmount[u.id] ?? ""}
+                                  onChange={(e) =>
+                                    setCreditAmount((prev) => ({ ...prev, [u.id]: e.target.value }))
+                                  }
+                                  placeholder="Amount to add"
+                                  className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
+                                />
+                                <button
+                                  onClick={() => handleAddCredits(u)}
+                                  disabled={creditingUser === u.id}
+                                  className="flex items-center gap-1 rounded-md bg-yellow-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-40"
+                                >
+                                  {creditingUser === u.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3 w-3" />
+                                  )}
+                                  Add
+                                </button>
+                              </div>
+                              {creditError[u.id] && (
+                                <p className="mt-1.5 text-[10px] font-semibold text-red-400">
+                                  {creditError[u.id]}
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}

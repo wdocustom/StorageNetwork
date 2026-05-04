@@ -15,7 +15,6 @@ import {
   getStripeDashboardLink,
 } from "@/app/actions/stripe-connect";
 import { deactivateAccount } from "@/app/actions/debug";
-import { siteConfig } from "@/config/site";
 import {
   ArrowLeft,
   Camera,
@@ -37,6 +36,8 @@ import {
   Trash2,
   Percent,
   DollarSign,
+  Tag,
+  Package,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
@@ -105,6 +106,7 @@ interface Profile {
   delivery_fee_config: DeliveryFeeConfig | null;
   indoor_delivery_fee_config: { enabled: boolean; fee: number } | null;
   deposit_config: DepositConfig | null;
+  sales_tax_enabled: boolean;
   bio: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
@@ -124,6 +126,7 @@ function ProfilePageInner() {
   const [loading, setLoading] = useState(true);
 
   // ── Coordinated section collapse — only one open at a time ──────────
+  const [activeTab, setActiveTab] = useState<"business" | "pricing" | "portfolio" | "account">("business");
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const toggleSection = (id: string) => (open: boolean) => {
     setActiveSection(open ? id : null);
@@ -159,6 +162,11 @@ function ProfilePageInner() {
   const [depositValue, setDepositValue] = useState<number>(15);
   const [depositSaving, setDepositSaving] = useState(false);
   const [depositMessage, setDepositMessage] = useState("");
+
+  // Sales tax toggle state
+  const [salesTaxEnabled, setSalesTaxEnabled] = useState(true);
+  const [salesTaxSaving, setSalesTaxSaving] = useState(false);
+  const [salesTaxMessage, setSalesTaxMessage] = useState("");
 
   // Service radius state
   const [serviceRadius, setServiceRadius] = useState(25);
@@ -219,6 +227,8 @@ function ProfilePageInner() {
       setDepositType(p.deposit_config.type);
       setDepositValue(p.deposit_config.value);
     }
+    // Sales tax toggle
+    setSalesTaxEnabled(p.sales_tax_enabled !== false);
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -232,7 +242,7 @@ function ProfilePageInner() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+      .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, sales_tax_enabled, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
       .eq("id", user.id)
       .single();
 
@@ -243,7 +253,7 @@ function ProfilePageInner() {
       if (!refreshErr) {
         const retry = await supabase
           .from("profiles")
-          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
+          .select("id, email, first_name, last_name, business_name, trade_name, phone, service_zip, service_radius_miles, city, state, address_line1, avatar_url, slug, subscription_tier, is_pro, is_partner, stripe_account_id, stripe_details_submitted, delivery_fee_config, indoor_delivery_fee_config, deposit_config, sales_tax_enabled, bio, instagram_url, facebook_url, portfolio_photos, services_config, show_reviews")
           .eq("id", user.id)
           .single();
         if (retry.data) {
@@ -547,6 +557,27 @@ function ProfilePageInner() {
     setDepositSaving(false);
   }
 
+  async function handleToggleSalesTax() {
+    if (!profile) return;
+    setSalesTaxSaving(true);
+    setSalesTaxMessage("");
+    const newValue = !salesTaxEnabled;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ sales_tax_enabled: newValue })
+      .eq("id", profile.id);
+
+    if (error) {
+      setSalesTaxMessage("Failed to update sales tax setting.");
+    } else {
+      setSalesTaxEnabled(newValue);
+      setSalesTaxMessage(newValue ? "Sales tax enabled." : "Sales tax disabled.");
+      setTimeout(() => setSalesTaxMessage(""), 3000);
+    }
+    setSalesTaxSaving(false);
+  }
+
   function addDeliveryTier() {
     const lastMax = deliveryTiers.length > 0 ? deliveryTiers[deliveryTiers.length - 1].max_miles : 0;
     const newMax = Math.min(lastMax + 25, serviceRadius || 85);
@@ -631,7 +662,7 @@ function ProfilePageInner() {
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
-        <div className="mx-auto flex max-w-lg items-center gap-3">
+        <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
           <a
             href="/dashboard"
             className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -650,7 +681,7 @@ function ProfilePageInner() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg space-y-4 p-4">
+      <main className="mx-auto max-w-lg space-y-4 p-4 md:max-w-3xl lg:max-w-4xl">
 
         {/* ── Quick-Access Toolbar ─────────────────────────────────────── */}
         {profile?.slug && (
@@ -708,23 +739,29 @@ function ProfilePageInner() {
             {stripeMessage}
           </p>
         )}
-        {/* ── Group: Business ──────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Business</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-        </div>
+        {/* ── Tab Navigation ─────────────────────────────────────────── */}
+        <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-1">
+          {(["business", "pricing", "portfolio", "account"] as const).map((tab) => {
+            const labels = { business: "Business", pricing: "Pricing", portfolio: "Portfolio", account: "Account" };
+            return (
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 whitespace-nowrap rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === tab ? "bg-yellow-400 text-gray-950" : "text-stone-500 hover:text-white"}`}>
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </nav>
 
         {/* ═══════════════════════════════════════════════════════════════
-            SECTION A: Personal & Business Info
+            BUSINESS TAB
         ═══════════════════════════════════════════════════════════════ */}
-        <CollapsibleSection
-          isOpen={activeSection === "business"}
-          onToggle={toggleSection("business")}
-          icon={User}
-          title="Personal & Business Info"
-          description="Business name, contact details, address, and photo"
-        >
+        {activeTab === "business" && (<>
+
+        {/* ── Personal & Business Info ──────────────────────────────── */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <User className="h-4 w-4 text-yellow-400" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white">Personal & Business Info</h2>
+          </div>
           {/* Avatar with Upload */}
           <div className="mb-5 flex items-center gap-4">
             <div className="relative">
@@ -809,30 +846,31 @@ function ProfilePageInner() {
               </div>
             </div>
 
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Business Name
-              </label>
-              <input
-                type="text"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="Best Garage Solutions LLC"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Trade Name (DBA)
-              </label>
-              <input
-                type="text"
-                value={tradeName}
-                onChange={(e) => setTradeName(e.target.value)}
-                placeholder="Best Garage"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
-              />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Business Name
+                </label>
+                <input
+                  type="text"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Best Garage Solutions LLC"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Trade Name (DBA)
+                </label>
+                <input
+                  type="text"
+                  value={tradeName}
+                  onChange={(e) => setTradeName(e.target.value)}
+                  placeholder="Best Garage"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -935,25 +973,15 @@ function ProfilePageInner() {
               {saveMessage}
             </p>
           )}
-        </CollapsibleSection>
-
-        {/* ── Group: Coverage ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Coverage</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION A.5: Service Area Radius
-        ═══════════════════════════════════════════════════════════════ */}
-        <CollapsibleSection
-          isOpen={activeSection === "servicearea"}
-          onToggle={toggleSection("servicearea")}
-          icon={Target}
-          title="Service Area"
-          description={`${serviceRadius} mile radius from ZIP ${serviceZip || "—"}${zipsCovered ? ` (${zipsCovered.toLocaleString()} ZIPs)` : ""}`}
-        >
+        {/* ── Service Area ─────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Target className="h-4 w-4 text-yellow-400" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white">Service Area</h2>
+            {serviceZip && <span className="ml-auto rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold text-stone-400">{serviceRadius} mi from {serviceZip}{zipsCovered ? ` · ${zipsCovered.toLocaleString()} ZIPs` : ""}</span>}
+          </div>
           {/* Current ZIP Display */}
           <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center justify-between">
@@ -1082,11 +1110,15 @@ function ProfilePageInner() {
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
-        </CollapsibleSection>
+        </div>
+        </>)}
 
         {/* ═══════════════════════════════════════════════════════════════
-            SECTION A.6: Delivery Fee Tiers
+            PRICING TAB
         ═══════════════════════════════════════════════════════════════ */}
+        {activeTab === "pricing" && profile && (<div className="space-y-3">
+
+        {/* ── Delivery Fee Tiers ───────────────────────────────────── */}
         <CollapsibleSection
           isOpen={activeSection === "delivery"}
           onToggle={toggleSection("delivery")}
@@ -1283,237 +1315,37 @@ function ProfilePageInner() {
           )}
         </CollapsibleSection>
 
-        {/* ── Group: Payments ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Payments</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION B: Stripe Connect (Payouts)
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* ── Custom Pricing ────────────────────────────────────────── */}
         <CollapsibleSection
-          isOpen={activeSection === "stripe"}
-          onToggle={toggleSection("stripe")}
-          icon={CreditCard}
-          title="Payouts (Stripe Connect)"
-          description={stripeStatus?.charges_enabled ? "Connected — deposits go to your bank" : "Not connected — set up to receive payments"}
+          isOpen={activeSection === "pricing"}
+          onToggle={toggleSection("pricing")}
+          icon={DollarSign}
+          title="Custom Pricing"
+          description="Override platform default prices for your customers"
         >
-          {/* Status Card */}
-          <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-stone-400">Payout Status</span>
-              {stripeStatus?.charges_enabled ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Connected
-                </span>
-              ) : stripeStatus?.details_submitted ? (
-                <span className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
-                  <AlertCircle className="h-3 w-3" />
-                  Pending Verification
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
-                  <AlertCircle className="h-3 w-3" />
-                  Not Connected
-                </span>
-              )}
-            </div>
-            <p className="mt-2 text-xs text-stone-500">
-              {stripeStatus?.charges_enabled
-                ? "Your account is fully set up. Deposits from your leads will be sent directly to your bank."
-                : "Connect your Stripe account to receive deposits directly."}
-            </p>
-          </div>
-
-          {stripeMessage && (
-            <p
-              className={`mb-3 text-xs font-medium ${
-                stripeMessage.includes("completed")
-                  ? "text-emerald-400"
-                  : "text-amber-400"
-              }`}
-            >
-              {stripeMessage}
-            </p>
-          )}
-
-          {stripeStatus?.charges_enabled ? (
-            <button
-              onClick={handleStripeDashboard}
-              disabled={stripeLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
-            >
-              {stripeLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ExternalLink className="h-4 w-4" />
-              )}
-              Open Stripe Dashboard
-            </button>
-          ) : (
-            <button
-              onClick={handleStripeConnect}
-              disabled={stripeLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#635BFF] py-3 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-[#5851DB] disabled:opacity-50"
-            >
-              {stripeLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CreditCard className="h-4 w-4" />
-              )}
-              Setup Payouts
-            </button>
-          )}
-          <p className="mt-2 text-center text-xs text-stone-500">
-            By joining, I agree to the{" "}
-            <a href="/legal/terms#contractor" target="_blank" className="underline hover:text-stone-300">
-              Contractor Agreement
-            </a>.
-          </p>
+          <PricingSettings userId={profile.id} embedded />
         </CollapsibleSection>
 
-        {/* Pro Upgrade Success/Cancel Message */}
-        {proMessage && (
-          <div
-            className={`rounded-xl border p-4 text-center ${
-              proMessage.includes("active")
-                ? "border-emerald-500/30 bg-emerald-500/10"
-                : "border-amber-500/30 bg-amber-500/10"
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              {proMessage.includes("active") ? (
-                <Zap className="h-5 w-5 text-emerald-400" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-amber-400" />
-              )}
-              <p
-                className={`text-sm font-semibold ${
-                  proMessage.includes("active")
-                    ? "text-emerald-400"
-                    : "text-amber-400"
-                }`}
-              >
-                {proMessage}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* ── Material Costs ──────────────────────────────────────── */}
+        <CollapsibleSection
+          isOpen={activeSection === "materials"}
+          onToggle={toggleSection("materials")}
+          icon={Package}
+          title="Material Costs"
+          description="Your wholesale costs for profit calculations"
+        >
+          <MaterialCostSettings userId={profile.id} embedded />
+        </CollapsibleSection>
 
-        {/* Pro Subscription Management */}
-        {profile && (
-          <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
-        )}
+        {/* ── Customer Deposit ────────────────────────────────────── */}
+        <CollapsibleSection
+          isOpen={activeSection === "deposit"}
+          onToggle={toggleSection("deposit")}
+          icon={DollarSign}
+          title="Customer Deposit"
+          description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
+        >
 
-        {/* ── Group: Portfolio ───────────────────────────────────────── */}
-        {profile?.slug && (
-          <div className="flex items-center gap-3 pt-2">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Portfolio</span>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION C.5: Portfolio & Social
-        ═══════════════════════════════════════════════════════════════ */}
-        {profile?.slug && (
-          <PortfolioSection
-            userId={profile.id}
-            slug={profile.slug}
-            initialBio={profile.bio || ""}
-            initialInstagram={profile.instagram_url || ""}
-            initialFacebook={profile.facebook_url || ""}
-            initialPhotos={(profile.portfolio_photos as PortfolioPhoto[]) || []}
-            businessName={profile.business_name || undefined}
-            firstName={profile.first_name || undefined}
-            city={profile.city || undefined}
-            state={profile.state || undefined}
-          />
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════
-            SECTION C.6: Customer Reviews Toggle
-        ═══════════════════════════════════════════════════════════════ */}
-        {profile?.slug && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Customer Reviews</p>
-                  <p className="text-[11px] text-stone-500">
-                    Show verified customer reviews on your portfolio page
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={async () => {
-                  const newValue = !(profile.show_reviews ?? true);
-                  const { toggleShowReviews } = await import("@/app/actions/reviews");
-                  await toggleShowReviews(profile.id, newValue);
-                  setProfile({ ...profile, show_reviews: newValue });
-                }}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-slate-700"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-                    (profile.show_reviews ?? true) ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Group: Services ────────────────────────────────────────── */}
-        {profile?.slug && (
-          <>
-            <div className="flex items-center gap-3 pt-2">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Services</span>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-            </div>
-
-            <ServicesSection
-              userId={profile.id}
-              initialServices={profile.services_config}
-            />
-          </>
-        )}
-
-        {/* ── Group: Pricing ─────────────────────────────────────────── */}
-        {profile && (
-          <>
-            <div className="flex items-center gap-3 pt-2">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Pricing</span>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-            </div>
-
-            {/* SECTION D: Custom Pricing */}
-            <PricingSettings userId={profile.id} />
-
-            {/* SECTION D.2: Material Costs & Screw Packaging */}
-            <MaterialCostSettings userId={profile.id} />
-
-            {/* SECTION D.5: Custom Deposit */}
-            <CollapsibleSection
-              isOpen={activeSection === "deposit"}
-              onToggle={toggleSection("deposit")}
-              icon={DollarSign}
-              title="Customer Deposit"
-              description={`${depositType === "percentage" ? `${depositValue}%` : `$${depositValue}`} deposit required at booking`}
-            >
               <p className="mb-4 text-xs text-stone-500">
                 Set how much your customers pay upfront when booking. Minimum is <span className="font-semibold text-stone-400">15%</span> to cover
                 the network lead fee. You can require a higher percentage or a flat dollar amount.
@@ -1614,101 +1446,353 @@ function ProfilePageInner() {
               )}
             </CollapsibleSection>
 
-            {/* SECTION E: Discount Codes */}
-            <DiscountCodesCard userId={profile.id} />
-          </>
+            {/* ── Sales Tax Toggle ─────────────────────────────────── */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800">
+                    <Percent className="h-4 w-4 text-stone-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Sales Tax</p>
+                    <p className="text-[11px] text-stone-500">
+                      {salesTaxEnabled
+                        ? "Estimated tax shown to customers based on their state"
+                        : "No sales tax added to customer quotes"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleSalesTax}
+                  disabled={salesTaxSaving}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                    salesTaxEnabled ? "bg-yellow-400" : "bg-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                      salesTaxEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              {salesTaxMessage && (
+                <p
+                  className={`mt-2 text-center text-xs font-medium ${
+                    salesTaxMessage.includes("enabled") || salesTaxMessage.includes("disabled")
+                      ? "text-emerald-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {salesTaxMessage}
+                </p>
+              )}
+            </div>
+
+            {/* ── Discount Codes ───────────────────────────────────── */}
+            <CollapsibleSection
+              isOpen={activeSection === "discounts"}
+              onToggle={toggleSection("discounts")}
+              icon={Tag}
+              title="Discount Codes"
+              description="Custom promo codes for your customers"
+            >
+              <DiscountCodesCard userId={profile.id} embedded />
+            </CollapsibleSection>
+        </div>)}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PORTFOLIO TAB
+        ═══════════════════════════════════════════════════════════════ */}
+        {activeTab === "portfolio" && (
+          <div className="space-y-4">
+            {profile?.slug ? (
+              <>
+                <PortfolioSection
+                  userId={profile.id}
+                  slug={profile.slug}
+                  initialBio={profile.bio || ""}
+                  initialInstagram={profile.instagram_url || ""}
+                  initialFacebook={profile.facebook_url || ""}
+                  initialPhotos={(profile.portfolio_photos as PortfolioPhoto[]) || []}
+                  businessName={profile.business_name || undefined}
+                  firstName={profile.first_name || undefined}
+                  city={profile.city || undefined}
+                  state={profile.state || undefined}
+                />
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Customer Reviews</p>
+                        <p className="text-[11px] text-stone-500">
+                          Show verified customer reviews on your portfolio page
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!profile) return;
+                        const newValue = !(profile.show_reviews ?? true);
+                        const { toggleShowReviews } = await import("@/app/actions/reviews");
+                        await toggleShowReviews(profile.id, newValue);
+                        setProfile({ ...profile, show_reviews: newValue });
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-slate-700"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                          (profile.show_reviews ?? true) ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <ServicesSection
+                  userId={profile.id}
+                  initialServices={profile.services_config}
+                />
+              </>
+            ) : (
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+                <ExternalLink className="mx-auto mb-3 h-8 w-8 text-stone-600" />
+                <p className="text-sm font-semibold text-white">Portfolio Not Available</p>
+                <p className="mt-1 text-xs text-stone-500">Complete your Business profile to unlock portfolio, services, and reviews.</p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
-            PARTNER PORTAL (Partners only — gated by is_partner flag)
+            ACCOUNT TAB
         ═══════════════════════════════════════════════════════════════ */}
-        {profile?.is_partner && (
-          <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
-            <div className="p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <Handshake className="h-4 w-4 text-yellow-400" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
-                  Affiliate Partner
-                </h2>
+        {activeTab === "account" && (
+          <div className="space-y-4">
+            {/* ── Stripe Connect (Payouts) ──────────────────────────── */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-[#635BFF]" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white">Payouts (Stripe Connect)</h2>
               </div>
-              <p className="mb-4 text-sm text-stone-400">
-                View your referral dashboard, track commissions, and manage your installer network.
-              </p>
-              <a
-                href="/dashboard/partner"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-              >
-                <Handshake className="h-4 w-4" />
-                Open Partner Portal
-              </a>
+          <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-stone-400">Payout Status</span>
+              {stripeStatus?.charges_enabled ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Connected
+                </span>
+              ) : stripeStatus?.details_submitted ? (
+                <span className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400">
+                  <AlertCircle className="h-3 w-3" />
+                  Pending Verification
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-400">
+                  <AlertCircle className="h-3 w-3" />
+                  Not Connected
+                </span>
+              )}
             </div>
-          </section>
-        )}
+            <p className="mt-2 text-xs text-stone-500">
+              {stripeStatus?.charges_enabled
+                ? "Your account is fully set up. Deposits from your leads will be sent directly to your bank."
+                : "Connect your Stripe account to receive deposits directly."}
+            </p>
+          </div>
 
-        {/* ── Group: Account ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600">Account</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-        </div>
-
-        {/* ── Danger Zone ─────────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-red-400">
-            Danger Zone
-          </h2>
-          <p className="mb-4 text-xs text-stone-400">
-            Deactivate your account. Your data will be preserved but your profile
-            will be hidden from the platform.
-          </p>
-
-          {!showDeactivateConfirm ? (
-            <button
-              onClick={() => setShowDeactivateConfirm(true)}
-              className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
+          {stripeMessage && (
+            <p
+              className={`mb-3 text-xs font-medium ${
+                stripeMessage.includes("completed")
+                  ? "text-emerald-400"
+                  : "text-amber-400"
+              }`}
             >
-              Deactivate Account
+              {stripeMessage}
+            </p>
+          )}
+
+          {stripeStatus?.charges_enabled ? (
+            <button
+              onClick={handleStripeDashboard}
+              disabled={stripeLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+            >
+              {stripeLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="h-4 w-4" />
+              )}
+              Open Stripe Dashboard
             </button>
           ) : (
-            <div className="rounded-lg border border-red-700 bg-red-950/50 p-4">
-              <p className="mb-3 text-sm font-semibold text-red-300">
-                Are you sure? This will hide your profile from customers.
+            <button
+              onClick={handleStripeConnect}
+              disabled={stripeLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#635BFF] py-3 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-[#5851DB] disabled:opacity-50"
+            >
+              {stripeLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              Setup Payouts
+            </button>
+          )}
+              <p className="mt-2 text-center text-xs text-stone-500">
+                By joining, I agree to the{" "}
+                <a href="/legal/terms#contractor" target="_blank" className="underline hover:text-stone-300">
+                  Contractor Agreement
+                </a>.
               </p>
-              <div className="flex gap-2">
+            </div>
+
+            {/* ── Pro Upgrade Message ──────────────────────────────── */}
+            {proMessage && (
+              <div
+                className={`rounded-xl border p-4 text-center ${
+                  proMessage.includes("active")
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-amber-500/30 bg-amber-500/10"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  {proMessage.includes("active") ? (
+                    <Zap className="h-5 w-5 text-emerald-400" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-amber-400" />
+                  )}
+                  <p
+                    className={`text-sm font-semibold ${
+                      proMessage.includes("active")
+                        ? "text-emerald-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {proMessage}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Pro Subscription ─────────────────────────────────── */}
+            {profile && (
+              <ProSubscriptionCard userId={profile.id} slug={profile.slug} />
+            )}
+
+            {/* ── Change Password ──────────────────────────────────── */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800">
+                    <KeyRound className="h-4 w-4 text-stone-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Password</p>
+                    <p className="text-[11px] text-stone-500">Update your account password</p>
+                  </div>
+                </div>
                 <button
-                  onClick={async () => {
-                    if (!profile?.id) return;
-                    setDeactivating(true);
-                    const result = await deactivateAccount(profile.id);
-                    if (result.success) {
-                      await supabase.auth.signOut();
-                      window.location.href = "/";
-                    } else {
-                      setDeactivating(false);
-                      setShowDeactivateConfirm(false);
-                      setSaveMessage("Failed to deactivate: " + (result.error || "Unknown error"));
-                    }
-                  }}
-                  disabled={deactivating}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-red-500 disabled:opacity-50"
+                  onClick={() => setShowPasswordModal(true)}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-white"
                 >
-                  {deactivating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {deactivating ? "Deactivating..." : "Yes, Deactivate"}
-                </button>
-                <button
-                  onClick={() => setShowDeactivateConfirm(false)}
-                  disabled={deactivating}
-                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
-                >
-                  Cancel
+                  Change
                 </button>
               </div>
             </div>
-          )}
-        </section>
+
+            {/* ── Partner Portal ────────────────────────────────────── */}
+            {profile?.is_partner && (
+              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+                <div className="p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Handshake className="h-4 w-4 text-yellow-400" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                      Affiliate Partner
+                    </h2>
+                  </div>
+                  <p className="mb-4 text-sm text-stone-400">
+                    View your referral dashboard, track commissions, and manage your installer network.
+                  </p>
+                  <a
+                    href="/dashboard/partner"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                  >
+                    <Handshake className="h-4 w-4" />
+                    Open Partner Portal
+                  </a>
+                </div>
+              </section>
+            )}
+
+            {/* ── Danger Zone ──────────────────────────────────────── */}
+            <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
+              <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-red-400">
+                Danger Zone
+              </h2>
+              <p className="mb-4 text-xs text-stone-400">
+                Deactivate your account. Your data will be preserved but your profile
+                will be hidden from the platform.
+              </p>
+
+              {!showDeactivateConfirm ? (
+                <button
+                  onClick={() => setShowDeactivateConfirm(true)}
+                  className="rounded-lg border border-red-800 bg-red-900/30 px-5 py-2.5 text-sm font-bold text-red-400 transition-all hover:bg-red-900/50"
+                >
+                  Deactivate Account
+                </button>
+              ) : (
+                <div className="rounded-lg border border-red-700 bg-red-950/50 p-4">
+                  <p className="mb-3 text-sm font-semibold text-red-300">
+                    Are you sure? This will hide your profile from customers.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!profile?.id) return;
+                        setDeactivating(true);
+                        const result = await deactivateAccount(profile.id);
+                        if (result.success) {
+                          await supabase.auth.signOut();
+                          window.location.href = "/";
+                        } else {
+                          setDeactivating(false);
+                          setShowDeactivateConfirm(false);
+                          setSaveMessage("Failed to deactivate: " + (result.error || "Unknown error"));
+                        }
+                      }}
+                      disabled={deactivating}
+                      className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-red-500 disabled:opacity-50"
+                    >
+                      {deactivating && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {deactivating ? "Deactivating..." : "Yes, Deactivate"}
+                    </button>
+                    <button
+                      onClick={() => setShowDeactivateConfirm(false)}
+                      disabled={deactivating}
+                      className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
 
       </main>
-
       {/* ═══════════════════════════════════════════════════════════════════
           Change Password Modal
       ═══════════════════════════════════════════════════════════════════ */}

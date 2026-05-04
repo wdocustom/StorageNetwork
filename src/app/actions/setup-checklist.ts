@@ -76,6 +76,31 @@ export async function markChecklistStepComplete(
   return { success: true };
 }
 
+/**
+ * Lightweight step completion — uses service_role directly.
+ * Bypasses cookie-based auth since the userId was already verified at page load.
+ * Used by SetupChecklist client component where cookie auth may be stale.
+ */
+export async function completeChecklistStep(
+  userId: string,
+  action: string
+): Promise<boolean> {
+  if (!userId || !VALID_CHECKLIST_ACTIONS.has(action)) return false;
+
+  const { error } = await db().from("installer_activity_log").insert({
+    installer_id: userId,
+    action,
+    page_path: "/dashboard",
+    detail: { source: "setup_checklist" },
+  });
+
+  if (error) {
+    console.error("[SetupChecklist] completeChecklistStep insert failed:", error.message);
+    return false;
+  }
+  return true;
+}
+
 export async function getSetupStatus(userId: string): Promise<SetupStatus> {
   // Run all queries in parallel for speed
   const [activityRes, leadsRes, paidRes, profileRes] = await Promise.all([

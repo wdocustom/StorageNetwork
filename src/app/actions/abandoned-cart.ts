@@ -159,10 +159,10 @@ export async function processAbandonedCarts(): Promise<{
   try {
     // Find leads that are:
     // - status = pending_payment
-    // - created more than 30 minutes ago
+    // - created more than 18 hours ago (give customers time to pay)
     // - abandoned_email_sent is false or null
     // - created within last 7 days (not expired)
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const eighteenHoursAgo = new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: abandonedLeads, error } = await db()
@@ -177,7 +177,7 @@ export async function processAbandonedCarts(): Promise<{
         created_at
       `)
       .eq("status", "pending_payment")
-      .lt("created_at", thirtyMinutesAgo)
+      .lt("created_at", eighteenHoursAgo)
       .gt("created_at", sevenDaysAgo)
       .or("abandoned_email_sent.is.null,abandoned_email_sent.eq.false")
       .limit(50); // Process in batches

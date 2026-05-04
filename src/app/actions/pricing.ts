@@ -3,6 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import type { InstallerPricing } from "@/types/viewModels";
 import { invalidateInstallerCacheForUser } from "@/lib/cache";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pricing — Server actions for installer custom pricing
@@ -71,12 +72,12 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "use_2x4_rails" | "bestseller_indiana_joe_disabled" | "bestseller_cornhusker_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "use_2x4_rails" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
       "plywood_top",
-      "bestseller_indiana_joe", "bestseller_cornhusker", "bestseller_long_ranger",
+      "bestseller_indiana_joe", "bestseller_long_ranger",
       "bestseller_gas_station", "bestseller_track_norris",
       "bestseller_rack_city_roller", "bestseller_mayor_of_rack_city",
       "shelving_shelf_4ft_short", "shelving_shelf_5ft_short", "shelving_shelf_6ft_short",
@@ -93,7 +94,7 @@ export async function updateInstallerPricing(
           return { success: false, error: `Invalid value for ${field}. Must be a positive number.` };
         }
         // Round to 2 decimal places
-        (validated as Record<string, number>)[field] = Math.round(num * 100) / 100;
+        (validated as Record<string, number>)[field] = roundMoney(num);
       }
       // undefined/null fields are omitted — they'll use platform defaults
     }
@@ -117,7 +118,7 @@ export async function updateInstallerPricing(
     if (pricing.use_2x4_rails === true) {
       (validated as Record<string, unknown>).use_2x4_rails = true;
     }
-    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_cornhusker_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled", "bestseller_track_norris_disabled", "bestseller_rack_city_roller_disabled", "bestseller_mayor_of_rack_city_disabled"] as const) {
+    for (const bk of ["bestseller_indiana_joe_disabled", "bestseller_long_ranger_disabled", "bestseller_gas_station_disabled", "bestseller_track_norris_disabled", "bestseller_rack_city_roller_disabled", "bestseller_mayor_of_rack_city_disabled"] as const) {
       if (pricing[bk] === true) {
         (validated as Record<string, unknown>)[bk] = true;
       }
@@ -137,7 +138,7 @@ export async function updateInstallerPricing(
           if (isNaN(num) || num < 0) {
             return { success: false, error: `Invalid addon pricing value for ${field}. Must be a non-negative number.` };
           }
-          validatedAddon[field] = Math.round(num * 100) / 100;
+          validatedAddon[field] = roundMoney(num);
         }
       }
 
@@ -169,7 +170,6 @@ export async function updateInstallerPricing(
     ) || v.mini_disabled === true
       || v.open_shelving_disabled === true
       || v.bestseller_indiana_joe_disabled === true
-      || v.bestseller_cornhusker_disabled === true
       || v.bestseller_long_ranger_disabled === true
       || v.bestseller_gas_station_disabled === true
       || v.addon_pricing !== undefined;

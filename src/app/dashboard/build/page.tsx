@@ -8,6 +8,8 @@ import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
+import { captureCanvasBlob } from "@/utils/captureCanvas";
+import { uploadBuildSnapshot } from "@/utils/uploadImage";
 import { fetchLeadForEdit, updateQuote } from "@/app/actions/jobs";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
@@ -38,6 +40,7 @@ import RaisedBedDrawer from "@/components/build/RaisedBedDrawer";
 import CartBar from "@/components/build/CartBar";
 import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
+import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
 
@@ -211,13 +214,25 @@ export default function BuildConfiguratorPage() {
         };
         const result = await calculateRaisedBedPriceServer({ ...rbConfig, installerPricing });
         const qty = unit.raisedBedConfig.quantity || 1;
+        const calculatedPrice = result.total * qty;
+        // If server returns $0 (invalid config), fall back to customPrice
+        if (calculatedPrice === 0 && hasCustomPrice) {
+          setUnits((prev) => [...prev, {
+            id: `ai-custom-${Date.now()}-${Math.random()}`,
+            cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
+            hasTotes: false, hasWheels: false, hasTop: false,
+            price: unit.customPrice!, totalW: 0, totalH: 0, depth: 0,
+            desc: unit.description,
+          }]);
+          continue;
+        }
         const desc = getRaisedBedDescription(rbConfig);
         const bed = RAISED_BED_SIZES.find((s) => s.id === rbConfig.sizeId);
         setUnits((prev) => [...prev, {
           id: `ai-rb-${Date.now()}-${Math.random()}`,
           cols: 0, rows: 0, toteType: "HDX", unitType: "standard",
           hasTotes: false, hasWheels: false, hasTop: false,
-          price: hasCustomPrice ? unit.customPrice! : result.total * qty,
+          price: calculatedPrice,
           totalW: bed?.widthIn ?? 0, totalH: bed?.heightIn ?? 0, depth: bed?.lengthIn ?? 0,
           desc: qty > 1 ? `${desc} (×${qty})` : desc,
           raisedBedConfig: rbConfig,
@@ -822,7 +837,7 @@ export default function BuildConfiguratorPage() {
     const taxable = units.reduce((sum, u) => sum + (u.price || 0), 0);
 
     let cancelled = false;
-    getEstimatedSalesTax(taxable, zip).then((result) => {
+    getEstimatedSalesTax(taxable, zip, userId || undefined).then((result) => {
       if (cancelled) return;
       if (!result.stateCode || result.taxAmount <= 0) {
         setEstimatedTax(null);
@@ -1034,6 +1049,9 @@ export default function BuildConfiguratorPage() {
         };
       }
 
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
@@ -1048,6 +1066,7 @@ export default function BuildConfiguratorPage() {
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
         delivery_fee: deliveryFee,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success) {
@@ -1110,6 +1129,9 @@ export default function BuildConfiguratorPage() {
         };
       }
 
+      const blob = await captureCanvasBlob("canvas");
+      const snapshotUrl = blob ? await uploadBuildSnapshot(blob) : undefined;
+
       const result = await createQuote({
         installer_id: userId,
         installer_business_name: businessName,
@@ -1124,6 +1146,7 @@ export default function BuildConfiguratorPage() {
         discount_code: quoteDiscountCode.trim() || undefined,
         delivery_address,
         delivery_fee: deliveryFee,
+        build_snapshot_url: snapshotUrl || undefined,
       });
 
       if (!result.success) {
@@ -1579,7 +1602,55 @@ export default function BuildConfiguratorPage() {
         />
       )}
 
-      {/* BuildAssistant FAB removed — assistant integrated into AI Command Center */}
+      {/* Hidden off-screen canvas for snapshot capture in quote emails */}
+      {(() => {
+        const renderableUnit = units.find((u) => !u.raisedBedConfig);
+        if (!renderableUnit) return null;
+        const u = renderableUnit;
+        const sc = u.shelvingConfigId
+          ? SHELVING_CONFIGS.find((c) => c.id === u.shelvingConfigId)
+          : undefined;
+        const op = u.overheadGridPresetId
+          ? OVERHEAD_GRID_PRESETS.find((p) => p.id === u.overheadGridPresetId)
+          : undefined;
+        const groupUnits = u.presetGroup
+          ? units.filter((g) => g.presetGroup === u.presetGroup)
+          : null;
+        const presetUnits = groupUnits && groupUnits.length > 1
+          ? groupUnits.map((g) => ({
+              cols: g.cols,
+              rows: g.rows,
+              totalW: g.totalW ?? 48,
+              totalH: g.totalH ?? 60,
+              hasTop: g.hasTop,
+              hasWheels: g.hasWheels,
+            }))
+          : undefined;
+        return (
+          <div
+            aria-hidden="true"
+            style={{ position: "fixed", left: -9999, top: -9999, width: 800, height: 500, overflow: "hidden", pointerEvents: "none" }}
+          >
+            <BlueprintCanvas
+              cols={u.cols}
+              rows={u.rows}
+              toteType={u.toteType}
+              toteColor="black"
+              unitType={u.unitType}
+              orientation={u.orientation ?? "standard"}
+              hasTotes={u.hasTotes}
+              hasWheels={u.hasWheels}
+              hasTop={u.hasTop}
+              totalW={u.totalW ?? 48}
+              totalH={u.totalH ?? 60}
+              addons={u.addons}
+              presetUnits={presetUnits}
+              shelvingConfig={sc ? { widthIn: sc.widthIn, frameH: sc.frameH, depth: sc.depth, shelves: sc.shelves } : undefined}
+              overheadConfig={op ? { slotsWide: op.slotsWide, slotsDeep: op.slotsDeep, toteType: u.toteType, hasTotes: u.hasTotes } : undefined}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

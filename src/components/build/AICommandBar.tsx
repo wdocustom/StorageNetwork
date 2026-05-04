@@ -173,11 +173,20 @@ export default function AICommandBar({
             ? assistantRes.value.text
             : "Something went wrong. Try again.";
 
-        const parsedUnits: AiResultUnit[] | undefined =
+        // Prefer build-ai structured units; fall back to build-assistant's
+        const buildAiUnits: AiResultUnit[] | undefined =
           buildAiRes.status === "fulfilled" &&
           buildAiRes.value?.units?.length > 0
             ? buildAiRes.value.units
             : undefined;
+
+        const assistantUnits: AiResultUnit[] | undefined =
+          assistantRes.status === "fulfilled" &&
+          assistantRes.value?.parsedUnits?.length > 0
+            ? assistantRes.value.parsedUnits
+            : undefined;
+
+        const parsedUnits = buildAiUnits || assistantUnits;
 
         setMessages((prev) => [
           ...prev,

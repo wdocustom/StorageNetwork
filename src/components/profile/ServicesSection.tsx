@@ -16,6 +16,7 @@ import {
   updateServicesConfig,
 } from "@/app/actions/profile";
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Services Section — Manage service offerings shown on portfolio page
@@ -48,7 +49,7 @@ export default function ServicesSection({ userId, initialServices }: ServicesSec
         if (s.id !== id) return s;
         if (field === "price") {
           const num = parseFloat(value);
-          return { ...s, price: isNaN(num) ? null : Math.round(num * 100) / 100 };
+          return { ...s, price: isNaN(num) ? null : roundMoney(num) };
         }
         return { ...s, [field]: value };
       })

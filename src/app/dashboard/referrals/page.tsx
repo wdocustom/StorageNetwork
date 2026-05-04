@@ -11,6 +11,7 @@ import {
   MapPin,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
+import { roundMoney } from "@/utils/mathHelpers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -43,7 +44,7 @@ function estimateBounty(ref: ReferralItem): number {
   }
   // deposit_amount comes from server; fallback uses the stored amount or 0
   const deposit = ref.deposit_amount ?? 0;
-  return Math.max(Math.round(deposit * 0.30 * 100) / 100, 15);
+  return Math.max(roundMoney(deposit * 0.30), 15);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
