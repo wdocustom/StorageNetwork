@@ -67,6 +67,8 @@ interface LeadDetail {
   discount_code: string | null;
   discount_amount: number | null;
   stripe_payment_method_id: string | null;
+  stripe_payment_method_brand: string | null;
+  stripe_payment_method_last4: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -116,7 +118,7 @@ export default function JobTicketPage() {
     let data: Record<string, unknown> | null = null;
     let err: unknown = null;
 
-    const baseColumns = "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id";
+    const baseColumns = "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4";
 
     const result = await supabase
       .from("leads")
@@ -566,6 +568,8 @@ export default function JobTicketPage() {
           savedDiscountCode={lead.discount_code}
           savedDiscountAmount={lead.discount_amount}
           hasSavedCard={!!lead.stripe_payment_method_id}
+          savedCardBrand={lead.stripe_payment_method_brand}
+          savedCardLast4={lead.stripe_payment_method_last4}
           onRefresh={fetchLead}
         />
 

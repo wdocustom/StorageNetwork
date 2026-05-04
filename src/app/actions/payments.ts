@@ -1178,6 +1178,17 @@ export async function verifyAndConfirmDeposit(
     }
     if (typeof pi.payment_method === "string") {
       fallbackUpdate.stripe_payment_method_id = pi.payment_method;
+      // Best-effort fetch of card brand + last4 for installer-side display.
+      // Failure here is non-fatal — deposit is the priority.
+      try {
+        const pm = await stripe.paymentMethods.retrieve(pi.payment_method);
+        if (pm.type === "card" && pm.card) {
+          fallbackUpdate.stripe_payment_method_brand = pm.card.brand;
+          fallbackUpdate.stripe_payment_method_last4 = pm.card.last4;
+        }
+      } catch (pmErr) {
+        console.warn("[VerifyDeposit] PM display meta fetch failed:", pmErr);
+      }
     }
     const { error: updateError } = await supabase
       .from("leads")

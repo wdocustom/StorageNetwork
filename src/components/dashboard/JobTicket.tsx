@@ -85,6 +85,10 @@ interface JobTicketProps {
   savedDiscountAmount?: number | null;
   /** True when the deposit was taken with setup_future_usage and a card is on file. */
   hasSavedCard?: boolean;
+  /** Card brand from Stripe (e.g. "visa", "mastercard") for installer-side display. */
+  savedCardBrand?: string | null;
+  /** Last 4 digits of the saved card. */
+  savedCardLast4?: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -116,9 +120,20 @@ export default function JobTicket({
   savedDiscountCode,
   savedDiscountAmount,
   hasSavedCard = false,
+  savedCardBrand,
+  savedCardLast4,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
+  // Pretty card label, e.g. "Visa •••• 4242". Falls back to "Card on file"
+  // when Stripe didn't return brand/last4 (legacy deposits, fetch failure).
+  const savedCardLabel = (() => {
+    if (!savedCardLast4) return "Card on file";
+    const brand = savedCardBrand
+      ? savedCardBrand.charAt(0).toUpperCase() + savedCardBrand.slice(1).replace(/_/g, " ")
+      : "Card";
+    return `${brand} •••• ${savedCardLast4}`;
+  })();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -1139,7 +1154,7 @@ export default function JobTicket({
                   <div>
                     <p className="text-sm font-bold text-white">Charge Card on File</p>
                     <p className="text-[11px] text-emerald-300/80">
-                      Auto-charge {customerName.split(" ")[0] || "customer"}&apos;s saved card from deposit
+                      {savedCardLabel} — auto-charge {customerName.split(" ")[0] || "customer"}
                     </p>
                   </div>
                 </button>
@@ -1277,7 +1292,7 @@ export default function JobTicket({
                   <div>
                     <p className="text-sm font-bold text-white">Charge Card on File</p>
                     <p className="text-[11px] text-emerald-300/80">
-                      Auto-charge {customerName.split(" ")[0] || "customer"}&apos;s saved card from deposit
+                      {savedCardLabel} — auto-charge {customerName.split(" ")[0] || "customer"}
                     </p>
                   </div>
                 </button>
@@ -1402,7 +1417,7 @@ export default function JobTicket({
                   <div>
                     <p className="text-sm font-bold text-white">Charge Card on File</p>
                     <p className="text-[11px] text-emerald-300/80">
-                      Auto-charge {customerName.split(" ")[0] || "customer"}&apos;s saved card from deposit
+                      {savedCardLabel} — auto-charge {customerName.split(" ")[0] || "customer"}
                     </p>
                   </div>
                 </button>
@@ -2192,6 +2207,15 @@ export default function JobTicket({
                 Charge <span className="font-bold text-white">{fmt(collectFromCustomer)}</span> to{" "}
                 <span className="font-bold text-white">{customerName}</span>&apos;s card on file?
               </p>
+              <div className="flex items-center gap-2.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2.5">
+                <CreditCard className="h-4 w-4 shrink-0 text-stone-400" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    Card on file
+                  </p>
+                  <p className="truncate text-sm font-semibold text-white">{savedCardLabel}</p>
+                </div>
+              </div>
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
                 <p className="text-[11px] leading-relaxed text-amber-200">
                   Make sure {customerName.split(" ")[0] || "the customer"} hasn&apos;t already paid in cash, check, or another method. This will run a real charge.

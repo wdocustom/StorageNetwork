@@ -999,6 +999,32 @@ export async function POST(request: NextRequest) {
 
             // ── Network Referral Bounty (non-blocking) ─────────────────
             waitUntil(processReferralBounty(leadId, paymentIntent.id));
+
+            // ── Save card brand + last4 (non-blocking, best-effort) ────
+            // Lets the installer see "Visa •••• 4242" before charging the
+            // balance. PaymentIntent only carries the PM id; one extra
+            // Stripe call gets the display metadata. Failure here is
+            // non-fatal — deposit is already recorded and the saved card
+            // still works, just falls back to generic "Card on file" text.
+            const pmId = paymentIntent.payment_method;
+            if (stripe && typeof pmId === "string") {
+              fireAndForget("save_payment_method_meta", async () => {
+                try {
+                  const pm = await stripe.paymentMethods.retrieve(pmId);
+                  if (pm.type === "card" && pm.card) {
+                    await getDb()
+                      .from("leads")
+                      .update({
+                        stripe_payment_method_brand: pm.card.brand,
+                        stripe_payment_method_last4: pm.card.last4,
+                      })
+                      .eq("id", leadId);
+                  }
+                } catch (pmErr) {
+                  console.warn("[Webhook] save PM display meta failed:", pmErr);
+                }
+              });
+            }
           }
         } catch (dbErr) {
           console.error("[Webhook] Deposit DB update threw:", dbErr);
