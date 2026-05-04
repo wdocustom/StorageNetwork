@@ -601,6 +601,152 @@ export async function createBalanceCheckout(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// chargeBalanceOffSession — AUTH (installer-owned). Charges the saved card
+// for the remaining balance without customer interaction.
+//
+// Requires the lead's deposit to have been collected with our setup_future_usage
+// flow (see createDepositIntent). Falls back to a Checkout URL when the
+// PaymentMethod isn't on file yet (legacy leads) or when Stripe demands
+// customer authentication (3DS / SCA).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface OffSessionChargeResult {
+  success: boolean;
+  paymentIntentId?: string;
+  alreadyPaid?: boolean;
+  /** Customer must complete 3DS — front the existing /payment/collect/[leadId] link. */
+  requiresAuthentication?: boolean;
+  /** No saved card on file — use the Checkout fallback URL. */
+  fallbackUrl?: string;
+  error?: string;
+}
+
+export async function chargeBalanceOffSession(
+  leadId: string
+): Promise<OffSessionChargeResult> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead, error: leadError } = await supabase
+    .from("leads")
+    .select(
+      "installer_id, estimated_price, deposit_amount, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
+    )
+    .eq("id", leadId)
+    .single();
+
+  if (leadError || !lead) return { success: false, error: "Order not found." };
+
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, alreadyPaid: true, error: "This order has already been paid." };
+  }
+
+  // Mirror createBalanceCheckout's balance math — discount reduces balance,
+  // tax is added (installer collects tax with balance).
+  const discountAmt = lead.discount_amount ?? 0;
+  const balance =
+    (lead.estimated_price || 0) -
+    (lead.deposit_amount || 0) -
+    discountAmt +
+    (lead.sales_tax_amount || 0);
+  if (balance <= 0) {
+    return { success: false, alreadyPaid: true, error: "No balance due." };
+  }
+
+  // Legacy leads (deposited before the setup_future_usage migration) won't
+  // have a saved card. Send the caller the Checkout URL instead.
+  const customerId = lead.stripe_customer_id as string | null;
+  const paymentMethodId = lead.stripe_payment_method_id as string | null;
+  if (!customerId || !paymentMethodId) {
+    const baseUrl = siteConfig.baseUrl;
+    return {
+      success: false,
+      fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+      error: "Saved card not on file for this lead. Use the payment link.",
+    };
+  }
+
+  const profile = await getInstallerProfile(lead.installer_id);
+  const installerStripeId = profile?.stripe_account_id;
+  if (!installerStripeId) {
+    return { success: false, error: "Installer payment account not configured." };
+  }
+
+  const amountCents = Math.round(balance * 100);
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: amountCents,
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        // Balance carries no platform fee — platform took its cut from the
+        // deposit. 100% transfers to the installer.
+        transfer_data: { destination: installerStripeId },
+        receipt_email: lead.customer_email || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "final_payment",
+          installer_stripe_id: installerStripeId,
+        },
+      },
+      { idempotencyKey: `balance-${leadId}` }
+    );
+
+    if (paymentIntent.status === "succeeded") {
+      // Webhook will mark the lead paid + send receipts. Don't double-write here.
+      return { success: true, paymentIntentId: paymentIntent.id };
+    }
+
+    // confirm:true should yield "succeeded" or throw. Anything else is unexpected.
+    console.warn(
+      "[OffSessionCharge] Unexpected PaymentIntent status:",
+      paymentIntent.status,
+      "| lead:",
+      leadId
+    );
+    return {
+      success: false,
+      paymentIntentId: paymentIntent.id,
+      error: `Payment did not complete (status: ${paymentIntent.status}).`,
+    };
+  } catch (err) {
+    // Stripe surfaces 3DS / SCA requirements as a `card_error` with
+    // `code: 'authentication_required'`. The PI is still on Stripe, so the
+    // customer can complete it via the existing redirect Checkout flow.
+    if (err instanceof Stripe.errors.StripeCardError) {
+      const code = err.code;
+      if (code === "authentication_required") {
+        const baseUrl = siteConfig.baseUrl;
+        console.log(
+          "[OffSessionCharge] 3DS required — falling back to Checkout for lead:",
+          leadId
+        );
+        return {
+          success: false,
+          requiresAuthentication: true,
+          fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+          error: "Customer authentication required. Send them the payment link.",
+        };
+      }
+      console.error("[OffSessionCharge] Card declined:", code, err.message);
+      return {
+        success: false,
+        error: err.message || "Card was declined.",
+      };
+    }
+    console.error("[OffSessionCharge] Stripe error:", err);
+    return { success: false, error: "Payment system error. Please try again." };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // createDepositIntent — Creates a PaymentIntent for inline Stripe Elements
 //
 // Returns clientSecret for the Payment Element (no redirect needed).
