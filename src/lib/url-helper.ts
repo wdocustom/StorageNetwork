@@ -8,6 +8,8 @@
 //   4. Fallback: http://localhost:3000
 // ═══════════════════════════════════════════════════════════════════════════
 
+const CANONICAL_PRODUCTION_URL = "https://storage-network.app";
+
 export function getAppUrl(): string {
   // 1. Client-side — use the actual browser origin
   if (typeof window !== "undefined") {
@@ -26,4 +28,15 @@ export function getAppUrl(): string {
 
   // 4. Local development fallback
   return "http://localhost:3000";
+}
+
+// Email assets must resolve to a publicly reachable URL in the recipient's
+// inbox. VERCEL_URL points at deployment-specific hosts which are gated by
+// Vercel Deployment Protection (403 to anyone outside the team), so we never
+// fall back to it here.
+export function getEmailAssetUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  return CANONICAL_PRODUCTION_URL;
 }

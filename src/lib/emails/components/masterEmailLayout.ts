@@ -1,7 +1,8 @@
-import { getAppUrl } from "@/lib/url-helper";
+import { getEmailAssetUrl } from "@/lib/url-helper";
 
 export function masterEmailLayout(title: string, body: string): string {
-  const logoUrl = `${getAppUrl()}/landing_page_logo.png`;
+  const baseUrl = getEmailAssetUrl();
+  const logoUrl = `${baseUrl}/landing_page_logo.png`;
 
   return `
 <!DOCTYPE html>
@@ -27,7 +28,7 @@ export function masterEmailLayout(title: string, body: string): string {
     <!-- Footer -->
     <div style="border-top:1px solid #222;padding:20px 0 0;text-align:center;">
       <p style="margin:0;color:#333;font-size:11px;">
-        Sent by <a href="${getAppUrl()}" style="color:#555;text-decoration:none;font-weight:600;">Storage Network</a> &bull; storage-network.app
+        Sent by <a href="${baseUrl}" style="color:#555;text-decoration:none;font-weight:600;">Storage Network</a> &bull; storage-network.app
       </p>
     </div>
 

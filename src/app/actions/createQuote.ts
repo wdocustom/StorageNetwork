@@ -201,7 +201,7 @@ export async function createQuote(
   // ── Resolve installer profile server-side (never trust client values) ──
   const { data: installerProfile, error: profileErr } = await supabase
     .from("profiles")
-    .select("business_name, first_name, phone")
+    .select("business_name, first_name, phone, email")
     .eq("id", installer_id)
     .single();
 
@@ -228,6 +228,7 @@ export async function createQuote(
     let effectiveBusinessName = installerProfile.business_name || installerProfile.first_name;
     let effectiveFirstName = installerProfile.first_name;
     let effectivePhone = installerProfile.phone;
+    let effectiveEmail = installerProfile.email as string | null;
     let referringInstallerId: string | null = null;
     let referralStatus: ReferralStatus = "none";
     let referrerSoftLocked = false;
@@ -270,13 +271,14 @@ export async function createQuote(
         // Fetch covering installer's profile for email details + pricing
         const { data: coveringProfile } = await supabase
           .from("profiles")
-          .select("first_name, phone, pricing_config")
+          .select("first_name, phone, pricing_config, email")
           .eq("id", effectiveInstallerId)
           .single();
 
         if (coveringProfile) {
           effectiveFirstName = (coveringProfile.first_name as string) || undefined;
           effectivePhone = (coveringProfile.phone as string) || undefined;
+          effectiveEmail = (coveringProfile.email as string) || null;
 
           // ── Re-price with covering installer's rates ──────────────
           const coveringPricing = (coveringProfile.pricing_config as InstallerPricing) || undefined;
@@ -534,6 +536,7 @@ export async function createQuote(
         subject: subjectTitle,
         html: emailHtml,
         senderName: effectiveBusinessName || undefined,
+        replyTo: effectiveEmail || undefined,
       });
 
       if (!emailResult.success) {
