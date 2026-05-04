@@ -742,6 +742,31 @@ function InlinePaymentForm({
         }}
       />
 
+      {/* Saved-card / off-session balance disclosure. Card networks require
+          this notice to be visible at the moment of card capture for
+          merchant-initiated balance charges to be valid. See /legal/terms § 3c. */}
+      <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
+        <p className="text-[11px] leading-relaxed text-stone-300">
+          <span className="font-semibold text-white">Heads up:</span> this card will be securely
+          saved (via Stripe) so your installer can collect the remaining balance after install
+          without you re-entering it. The balance is only charged when the installer affirmatively
+          elects to collect it — never automatically. You can pay the balance in cash, check, or any
+          other method instead, or revoke the saved card by emailing{" "}
+          <a href="mailto:support@storage-network.app" className="underline hover:text-stone-200">
+            support@storage-network.app
+          </a>
+          . Full terms in{" "}
+          <a
+            href="/legal/terms#payment-method-on-file"
+            target="_blank"
+            className="underline hover:text-stone-200"
+          >
+            § 3c
+          </a>
+          .
+        </p>
+      </div>
+
       <button
         type="submit"
         disabled={!stripe || processing}
@@ -761,11 +786,20 @@ function InlinePaymentForm({
         By booking, you agree to the{" "}
         <a href="/legal/terms" target="_blank" className="underline hover:text-stone-300">
           Terms of Service
-        </a>{" "}
-        and{" "}
+        </a>
+        , the{" "}
         <a href="/legal/terms#installation" target="_blank" className="underline hover:text-stone-300">
           Installation Agreement
-        </a>.
+        </a>
+        , and the{" "}
+        <a
+          href="/legal/terms#payment-method-on-file"
+          target="_blank"
+          className="underline hover:text-stone-300"
+        >
+          Saved Payment Method authorization
+        </a>
+        .
       </p>
     </form>
   );

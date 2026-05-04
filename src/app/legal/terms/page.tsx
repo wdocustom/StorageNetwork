@@ -104,6 +104,100 @@ export default function TermsPage() {
             </li>
           </ul>
 
+          <h2 id="payment-method-on-file" className="mt-8 text-lg font-bold text-white">
+            3c. Saved Payment Method &amp; Authorization to Charge Remaining Balance
+          </h2>
+          <p>
+            <strong>Plain-language summary.</strong> When you pay your deposit, the same card is securely
+            tokenized and stored by Stripe so the Installer can collect the remaining balance after
+            the installation is complete without you having to enter your card details again. You can
+            still pay the balance any other way you want (cash, check, transfer, a different card),
+            and you can revoke this authorization at any time before the balance is collected.
+          </p>
+          <p className="mt-3">
+            By submitting your deposit through the Platform, you (the &quot;Customer&quot;) expressly authorize
+            The Storage-Network and the assigned Installer to store the payment method used for the
+            deposit and to initiate one (1) subsequent charge to that payment method for the
+            remaining balance owed under your booking, on the terms set out below. This authorization
+            is a written agreement to a Merchant-Initiated Transaction (&quot;MIT&quot;) within the meaning of
+            applicable card network rules and is intended to satisfy any &quot;off-session&quot; mandate or
+            recurring-credentials disclosure requirement of Visa, Mastercard, American Express,
+            Discover, and Stripe, Inc.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 mt-3">
+            <li>
+              <strong>Amount.</strong> The amount that may be charged is the remaining balance shown
+              on your booking, calculated as: the quoted job total, minus your deposit, minus any
+              applied discount, plus any applicable sales tax disclosed to you at booking. The
+              charged amount will not exceed this calculated balance.
+            </li>
+            <li>
+              <strong>Timing &amp; trigger.</strong> The charge is <em>not</em> automatic and is
+              <em>not</em> time-scheduled. It runs only when the Installer affirmatively elects to
+              collect the balance via the saved card after the installation has been performed,
+              typically on the day of installation. The Platform does not initiate this charge on
+              its own based on calendar dates, job statuses, or any passive condition.
+            </li>
+            <li>
+              <strong>Right to pay another way.</strong> You retain the right to pay the balance by
+              cash, check, ACH, Venmo, Zelle, a different card, or any other method the Installer
+              accepts. If you do, the Installer will record that payment in the Platform and the
+              saved card will not be charged for the balance. If you intend to pay another way, tell
+              your Installer before the installation is complete so the saved card is not used.
+            </li>
+            <li>
+              <strong>Single use.</strong> This authorization is for a single balance charge tied to
+              a single booking. It does not authorize subscriptions, recurring charges, top-ups, or
+              charges for any other order. A separate authorization is collected for each booking
+              you make.
+            </li>
+            <li>
+              <strong>Revocation.</strong> You may revoke this authorization at any time before the
+              balance has been charged by (a) emailing{" "}
+              <a href="mailto:support@storage-network.app" className="underline">
+                support@storage-network.app
+              </a>
+              {" "}from the email address on your booking, or (b) instructing your Installer in
+              writing (text or email) to remove the saved card. Revocation does not affect any
+              charge already made and does not relieve you of your obligation to pay the balance by
+              another method.
+            </li>
+            <li>
+              <strong>Authentication.</strong> If your card issuer requires customer authentication
+              (e.g., 3-D Secure / Strong Customer Authentication) for the balance charge, the
+              Platform will send you a payment link by email and the saved card will not be charged
+              off-session unless and until you complete that authentication.
+            </li>
+            <li>
+              <strong>Declines &amp; failed charges.</strong> A failed authorization on the saved
+              card does not extinguish your obligation to pay the balance. You agree to promptly
+              provide an alternative payment method or settle the balance directly with the
+              Installer.
+            </li>
+            <li>
+              <strong>Receipts.</strong> A digital receipt is emailed automatically to the email
+              address on your booking when the saved card is successfully charged.
+            </li>
+            <li>
+              <strong>Refunds &amp; disputes.</strong> Any refund of a balance charge will be issued
+              to the same card used for the deposit, through Stripe, on the Platform&apos;s and
+              Installer&apos;s standard timeline. Disputes initiated through your card issuer are
+              governed by your card network&apos;s rules.
+            </li>
+            <li>
+              <strong>Storage &amp; security.</strong> The Platform does not store your full card
+              number. The card is tokenized by Stripe (a PCI-DSS Level 1 service provider) and only
+              a non-sensitive token plus the last four digits are accessible to the Platform and
+              Installer for the purpose described above.
+            </li>
+          </ul>
+          <p className="mt-3">
+            If you do not agree to this Section 3c, do not complete the deposit. Submitting the
+            deposit constitutes your agreement to this Section, the rest of these Terms, Stripe&apos;s
+            Services Agreement, and the network rules of the card brand on the payment method you
+            used.
+          </p>
+
           <h2 className="mt-8 text-lg font-bold text-white">4. Cancellation &amp; Refund Policy</h2>
           <p>
             Customers may cancel a booking with a full deposit refund if cancellation is made
