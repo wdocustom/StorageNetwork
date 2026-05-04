@@ -812,6 +812,118 @@ export async function POST(request: NextRequest) {
       const amountPaidPI = (paymentIntent.amount || 0) / 100;
       console.log("[Webhook] payment_intent.succeeded for lead:", leadId, "| type:", paymentType, "| amount:", amountPaidPI);
 
+      if (metadata.type === "final_payment") {
+        // ── BALANCE via chargeBalanceOffSession (saved card auto-charge) ─
+        // Mirrors the checkout.session.completed final_payment branch but
+        // for off-session PaymentIntents (no Checkout Session involved).
+        //
+        // NOTE: Match metadata.type EXPLICITLY (not paymentType, which has a
+        // default fallback). PaymentIntents born from a Checkout Session
+        // don't carry the session's metadata onto the PI itself, so without
+        // this strict check we'd fire duplicate receipts when both
+        // checkout.session.completed AND payment_intent.succeeded land for
+        // the same redirect-Checkout balance payment.
+        try {
+          const { data: updated, error } = await getDb()
+            .from("leads")
+            .update({
+              status: "paid",
+              deposit_paid: true,
+              payout_status: "paid",
+              paid_at: new Date().toISOString(),
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", leadId)
+            .in("status", ["payment_pending", "open", "pending_payment"])
+            .select("id")
+            .maybeSingle();
+
+          if (error) {
+            console.error("[Webhook] CRITICAL: Off-session final payment DB update failed!", JSON.stringify(error));
+            if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+            return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+          }
+
+          if (!updated) {
+            // Already in terminal state — webhook retry, manual mark-paid, or
+            // a duplicate event. Do NOT fire receipt emails again.
+            console.log("[Webhook] Off-session final payment: lead already in terminal state, skipping:", leadId);
+            return NextResponse.json({ received: true });
+          }
+          console.log("SUCCESS: Job marked PAID (off-session balance) for lead:", leadId);
+        } catch (err) {
+          console.error("[Webhook] Off-session final payment update threw:", err);
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          return NextResponse.json({ error: "Final payment update exception" }, { status: 500 });
+        }
+
+        // Receipt + installer alert — fire-and-forget so Stripe gets 200 fast.
+        fireAndForget("offsession_final_payment_emails", async () => {
+          const { data: lead } = await getDb()
+            .from("leads")
+            .select("customer_name, customer_email, estimated_price, deposit_amount, quote_data, installer_id")
+            .eq("id", leadId)
+            .single();
+
+          const { sendJobReceipt, sendPaymentReceivedAlert, quoteDataToBookingUnits } = await import("@/lib/email");
+          let installerName = "Your Installer";
+          let installerEmail: string | null = null;
+
+          if (lead?.installer_id) {
+            const { data: profile } = await getDb()
+              .from("profiles")
+              .select("first_name, last_name, business_name")
+              .eq("id", lead.installer_id)
+              .single();
+            if (profile) {
+              installerName =
+                profile.business_name ||
+                [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+                "Your Installer";
+            }
+            const { data: authUser } = await getDb().auth.admin.getUserById(lead.installer_id);
+            installerEmail = authUser?.user?.email || null;
+          }
+
+          const unitCount = Array.isArray(lead?.quote_data) ? lead.quote_data.length : 1;
+          const customerName = lead?.customer_name ?? "Customer";
+
+          if (lead?.customer_email) {
+            const { generateReviewToken } = await import("@/app/actions/reviews");
+            const { getAppUrl } = await import("@/lib/url-helper");
+            const reviewToken = await generateReviewToken(leadId);
+            const reviewUrl = reviewToken ? `${getAppUrl()}/review/${reviewToken}` : undefined;
+
+            await sendJobReceipt(lead.customer_email, {
+              customerName,
+              installerName,
+              totalAmount: lead.estimated_price ?? amountPaidPI,
+              depositPaid: lead.deposit_amount ?? 0,
+              balanceCollected: amountPaidPI,
+              jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
+              units: quoteDataToBookingUnits(lead.quote_data),
+              completedDate: new Date().toISOString(),
+              reviewUrl,
+            });
+            console.log("[Webhook] Receipt sent to customer (off-session balance)");
+          }
+
+          if (installerEmail) {
+            await sendPaymentReceivedAlert(installerEmail, {
+              installerName,
+              customerName,
+              amountReceived: amountPaidPI,
+              jobTotal: lead?.estimated_price ?? amountPaidPI,
+              leadId,
+            });
+            console.log("[Webhook] Payment alert sent to installer (off-session balance):", installerEmail);
+          }
+        });
+
+        return NextResponse.json({ received: true });
+      }
+
       if (paymentType === "booking" || paymentType === "deposit") {
         // ── DEPOSIT via BookingModal (inline Stripe Elements) ──────────
         try {
