@@ -8,7 +8,7 @@
 //   4. Fallback: http://localhost:3000
 // ═══════════════════════════════════════════════════════════════════════════
 
-const CANONICAL_PRODUCTION_URL = "https://storage-network.app";
+const CANONICAL_PRODUCTION_URL = "https://www.storage-network.app";
 
 export function getAppUrl(): string {
   // 1. Client-side — use the actual browser origin
