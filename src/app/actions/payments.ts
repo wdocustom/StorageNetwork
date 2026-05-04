@@ -103,6 +103,52 @@ async function getCompletedJobCount(installerId: string): Promise<number> {
   return count ?? 0;
 }
 
+// ── Stripe Customer for off-session balance charging ────────────────────
+// Resolves the platform Stripe Customer to attach to the deposit
+// PaymentIntent. Without a Customer attached, setup_future_usage cannot
+// persist the PaymentMethod, and the balance can't be auto-charged later.
+// Order: existing lead.stripe_customer_id → search by email → create.
+async function getOrCreateStripeCustomerForLead(
+  leadId: string,
+  email: string | undefined,
+  name: string | undefined
+): Promise<string | null> {
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("stripe_customer_id")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  const existingId = (lead?.stripe_customer_id as string | null) ?? null;
+  if (existingId) return existingId;
+
+  let customerId: string | null = null;
+  if (email) {
+    try {
+      const found = await stripe.customers.list({ email, limit: 1 });
+      customerId = found.data[0]?.id ?? null;
+    } catch (err) {
+      console.warn("[Deposit] Customer lookup by email failed:", err);
+    }
+  }
+
+  if (!customerId) {
+    const created = await stripe.customers.create({
+      email: email || undefined,
+      name: name || undefined,
+      metadata: { leadId },
+    });
+    customerId = created.id;
+  }
+
+  await supabase
+    .from("leads")
+    .update({ stripe_customer_id: customerId })
+    .eq("id", leadId);
+
+  return customerId;
+}
+
 // ── Helper: Check if installer is Pro ────────────────────────────────────
 async function isInstallerPro(installerId: string): Promise<boolean> {
   const { data } = await supabase
@@ -672,6 +718,14 @@ export async function createDepositIntent(
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
 
+    // Resolve / create the platform Stripe Customer so the card is saved as
+    // a reusable PaymentMethod (off-session balance charging later).
+    const stripeCustomerId = await getOrCreateStripeCustomerForLead(
+      leadId,
+      customerEmail,
+      customerName
+    );
+
     let paymentIntent;
 
     // ── Discount codes do NOT affect the deposit or platform fees. ──────────
@@ -691,6 +745,8 @@ export async function createDepositIntent(
         automatic_payment_methods: {
           enabled: true,
         },
+        ...(stripeCustomerId && { customer: stripeCustomerId }),
+        setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
         transfer_data: {
           destination: installerStripeId,
@@ -743,6 +799,8 @@ export async function createDepositIntent(
         automatic_payment_methods: {
           enabled: true,
         },
+        ...(stripeCustomerId && { customer: stripeCustomerId }),
+        setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
         transfer_data: {
           destination: installerStripeId,
@@ -787,6 +845,8 @@ export async function createDepositIntent(
         automatic_payment_methods: {
           enabled: true,
         },
+        ...(stripeCustomerId && { customer: stripeCustomerId }),
+        setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
         transfer_data: {
           destination: installerStripeId,
@@ -829,6 +889,8 @@ export async function createDepositIntent(
         automatic_payment_methods: {
           enabled: true,
         },
+        ...(stripeCustomerId && { customer: stripeCustomerId }),
+        setup_future_usage: "off_session",
         receipt_email: customerEmail || undefined,
         metadata: {
           lead_id: leadId,
@@ -958,15 +1020,22 @@ export async function verifyAndConfirmDeposit(
     console.log("[VerifyDeposit] Found succeeded PI:", pi.id, "| amount:", amountPaid);
 
     // 3. Update DB — same as webhook would do
+    const fallbackUpdate: Record<string, unknown> = {
+      deposit_paid: true,
+      deposit_amount: amountPaid,
+      payout_status: "deposit_collected",
+      status: "open",
+      updated_at: new Date().toISOString(),
+    };
+    if (typeof pi.customer === "string") {
+      fallbackUpdate.stripe_customer_id = pi.customer;
+    }
+    if (typeof pi.payment_method === "string") {
+      fallbackUpdate.stripe_payment_method_id = pi.payment_method;
+    }
     const { error: updateError } = await supabase
       .from("leads")
-      .update({
-        deposit_paid: true,
-        deposit_amount: amountPaid,
-        payout_status: "deposit_collected",
-        status: "open",
-        updated_at: new Date().toISOString(),
-      })
+      .update(fallbackUpdate)
       .eq("id", leadId);
 
     if (updateError) {

@@ -844,6 +844,16 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           };
 
+          // Save Stripe Customer + PaymentMethod so we can off-session
+          // charge the remaining balance later (paymentIntents.create
+          // with { customer, payment_method, off_session, confirm }).
+          if (typeof paymentIntent.customer === "string") {
+            updatePayload.stripe_customer_id = paymentIntent.customer;
+          }
+          if (typeof paymentIntent.payment_method === "string") {
+            updatePayload.stripe_payment_method_id = paymentIntent.payment_method;
+          }
+
           // Add customer info if available
           if (customerEmail) {
             updatePayload.customer_email = customerEmail;
