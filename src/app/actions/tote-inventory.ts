@@ -619,6 +619,125 @@ export async function reassignItems(
   return { moved: safeIds.length };
 }
 
+// ── Phase 2: "Where does this go?" find-home for a single item ─────────
+//
+// Customer photographs ONE item (e.g. a screwdriver). The /api/inventory/scan
+// endpoint with mode="single" identifies it as { name, category }. This action
+// scans all of the customer's email-linked racks and returns the best
+// destination tote(s) — ranked by:
+//   1. Exact name match in the candidate slot   (strongest signal)
+//   2. Same-category item count                  (next strongest)
+//   3. Same-rack tiebreaker                      (proximity matters)
+
+export interface ItemHomeCandidate {
+  slotId: string;
+  slotLabel: string;
+  slotCol: number;
+  slotRow: number;
+  rackId: string;
+  rackLabel: string;
+  rackToken: string;
+  sameRack: boolean;
+  matchingItemCount: number;       // items in this slot with the same category
+  hasExactNameMatch: boolean;      // a slot already holds an item with the same name
+  sampleItemNames: string[];       // up to 3 item names from the slot (same category)
+}
+
+export async function findHomeForItem(
+  token: string,
+  item: { name: string; category: string }
+): Promise<{ candidates: ItemHomeCandidate[]; error?: string }> {
+  if (!token || !item || !item.category || !item.name) {
+    return { candidates: [], error: "Missing token or item fields" };
+  }
+
+  // 1. Resolve token → caller rack → customer email.
+  const { data: rack } = await db()
+    .from("inventory_racks")
+    .select("id, customer_email, label, access_token")
+    .eq("access_token", token)
+    .maybeSingle();
+  if (!rack) return { candidates: [], error: "Rack not found" };
+
+  // 2. Pull the candidate rack set (this rack + email-linked racks).
+  let rackList: Array<{ id: string; label: string; token: string }> = [
+    { id: rack.id as string, label: (rack.label as string) || "Storage Rack", token: rack.access_token as string },
+  ];
+  if (rack.customer_email) {
+    const { data: linked } = await db()
+      .from("inventory_racks")
+      .select("id, label, access_token")
+      .eq("customer_email", rack.customer_email);
+    if (linked && linked.length) {
+      rackList = linked.map((r) => ({
+        id: r.id as string,
+        label: (r.label as string) || "Storage Rack",
+        token: r.access_token as string,
+      }));
+    }
+  }
+  const rackIds = rackList.map((r) => r.id);
+  const rackById = new Map(rackList.map((r) => [r.id, r]));
+
+  // 3. Pull all items in those racks that share the target category.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: matches } = await db()
+    .from("inventory_items")
+    .select("id, name, slot_id, category, inventory_slots!inner(id, label, col, row, rack_id)")
+    .in("inventory_slots.rack_id", rackIds)
+    .eq("category", item.category);
+
+  if (!matches || matches.length === 0) return { candidates: [] };
+
+  // 4. Aggregate by slot.
+  const targetName = item.name.trim().toLowerCase();
+  const bySlot = new Map<string, ItemHomeCandidate>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of matches as any[]) {
+    const s = row.inventory_slots;
+    if (!s) continue;
+    const sId = s.id as string;
+    const rId = s.rack_id as string;
+    const rackInfo = rackById.get(rId);
+    if (!rackInfo) continue;
+
+    let entry = bySlot.get(sId);
+    if (!entry) {
+      entry = {
+        slotId: sId,
+        slotLabel: (s.label as string) || `Slot R${(s.row as number) + 1}·C${(s.col as number) + 1}`,
+        slotCol: s.col as number,
+        slotRow: s.row as number,
+        rackId: rId,
+        rackLabel: rackInfo.label,
+        rackToken: rackInfo.token,
+        sameRack: rId === (rack.id as string),
+        matchingItemCount: 0,
+        hasExactNameMatch: false,
+        sampleItemNames: [],
+      };
+      bySlot.set(sId, entry);
+    }
+    entry.matchingItemCount++;
+    const nm = ((row.name as string) || "").trim().toLowerCase();
+    if (nm && nm === targetName) entry.hasExactNameMatch = true;
+    if (entry.sampleItemNames.length < 3 && row.name) {
+      entry.sampleItemNames.push(row.name as string);
+    }
+  }
+
+  // 5. Rank: exact-name match > matching count > same-rack tiebreaker.
+  const ranked = Array.from(bySlot.values()).sort((a, b) => {
+    if (a.hasExactNameMatch !== b.hasExactNameMatch) return a.hasExactNameMatch ? -1 : 1;
+    if (a.matchingItemCount !== b.matchingItemCount) return b.matchingItemCount - a.matchingItemCount;
+    if (a.sameRack !== b.sameRack) return a.sameRack ? -1 : 1;
+    return 0;
+  });
+
+  // Top 3 candidates is plenty — keeps the UI digestible.
+  return { candidates: ranked.slice(0, 3) };
+}
+
 // ── Batch create racks from a job's shelf configs ────────────────────────
 
 export async function createRacksForJob(input: {
