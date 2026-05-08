@@ -32,6 +32,7 @@ import {
   updateRackLabel,
   searchRackItems,
   suggestConsolidations,
+  suggestAllConsolidations,
   reassignItems,
   findHomeForItem,
   type InventoryRack,
@@ -155,6 +156,11 @@ export default function RackPage() {
   const [findHomeCandidates, setFindHomeCandidates] = useState<ItemHomeCandidate[]>([]);
   const [findHomeError, setFindHomeError] = useState<string>("");
 
+  // Phase 3: Review-board (continuous reorganization suggestions)
+  const [allSuggestions, setAllSuggestions] = useState<ConsolidationSuggestion[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewMoveInFlightId, setReviewMoveInFlightId] = useState<string | null>(null);
+
   // Load rack data
   const loadRack = useCallback(async () => {
     setLoading(true);
@@ -210,10 +216,59 @@ export default function RackPage() {
       const movedSet = new Set(consolidation.itemIds);
       setSlotItems((prev) => prev.filter((i) => !movedSet.has(i.id)));
       setConsolidation(null);
-      // Background refresh of the rack-level counts.
+      // Background refresh of the rack-level counts and the review board.
       loadRack();
+      refreshAllSuggestions();
     }
     setMoveInFlight(false);
+  };
+
+  // ── Phase 3: review-board fetch + dismissal-aware filtering ───────────
+  // Suggestions are fetched on rack load and after every cross-tote action
+  // (move, dismiss). Dismissals from Phase 1's per-suggestion localStorage
+  // keys also silence entries here, so the customer doesn't see something
+  // they already declined.
+  const refreshAllSuggestions = useCallback(async () => {
+    const res = await suggestAllConsolidations(token);
+    if (typeof window === "undefined") {
+      setAllSuggestions(res.suggestions);
+      return;
+    }
+    const visible = res.suggestions.filter((s) => {
+      if (!s.sourceSlotId) return true;
+      try { return window.localStorage.getItem(consolidationDismissalKey(s.sourceSlotId, s)) !== "1"; }
+      catch { return true; }
+    });
+    setAllSuggestions(visible);
+  }, [token]);
+
+  // Re-fetch every time the rack loads or reloads.
+  useEffect(() => {
+    if (!loading && rack) refreshAllSuggestions();
+  }, [loading, rack, refreshAllSuggestions]);
+
+  // Dismiss one row in the review panel.
+  const dismissReviewRow = (s: ConsolidationSuggestion) => {
+    if (!s.sourceSlotId) return;
+    try { window.localStorage.setItem(consolidationDismissalKey(s.sourceSlotId, s), "1"); } catch {}
+    setAllSuggestions((prev) => prev.filter((x) => x !== s));
+  };
+
+  // Move all items in a review row to the suggested target.
+  const handleReviewMove = async (s: ConsolidationSuggestion) => {
+    if (!s.sourceSlotId) return;
+    setReviewMoveInFlightId(s.sourceSlotId);
+    const res = await reassignItems(s.itemIds, s.targetSlotId, token);
+    if (res.moved > 0) {
+      setAllSuggestions((prev) => prev.filter((x) => x !== s));
+      // If the affected slot is currently open, refresh its items list.
+      if (slotData && slotData.id === s.sourceSlotId) {
+        const movedSet = new Set(s.itemIds);
+        setSlotItems((prev) => prev.filter((i) => !movedSet.has(i.id)));
+      }
+      loadRack();
+    }
+    setReviewMoveInFlightId(null);
   };
 
   // ── Phase 2: "Where does this go?" find-home flow ─────────────────────
@@ -986,6 +1041,28 @@ export default function RackPage() {
           </button>
         )}
 
+        {/* Phase 3: Review-board badge — appears only when there's at least
+            one consolidation opportunity across the customer's racks. */}
+        {allSuggestions.length > 0 && (
+          <button
+            onClick={() => setReviewOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl border border-yellow-400/30 bg-yellow-400/5 px-4 py-3 text-left transition-colors hover:bg-yellow-400/10"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+              <Lightbulb className="h-4 w-4 text-yellow-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white">
+                Review {allSuggestions.length} suggested move{allSuggestions.length !== 1 ? "s" : ""}
+              </p>
+              <p className="text-[11px] text-yellow-300/80">
+                A few totes look like they could merge with similar ones
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-yellow-400" />
+          </button>
+        )}
+
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -1265,6 +1342,112 @@ export default function RackPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Phase 3: Review-board panel ───────────────────────────────── */}
+      {reviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-yellow-400/30 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-yellow-400" />
+                <h3 className="text-base font-bold text-white">
+                  Suggested moves
+                  <span className="ml-2 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[11px] font-bold text-yellow-400">
+                    {allSuggestions.length}
+                  </span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setReviewOpen(false)}
+                className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              <p className="mb-3 text-[11px] text-slate-500">
+                Just suggestions. Move what makes sense; ignore the rest.
+              </p>
+
+              <div className="space-y-3">
+                {allSuggestions.map((s) => {
+                  const moving = reviewMoveInFlightId === s.sourceSlotId;
+                  return (
+                    <div
+                      key={`${s.sourceSlotId}::${s.targetSlotId}::${s.category}`}
+                      className="rounded-xl border border-slate-700 bg-slate-800/40 p-3"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white">
+                            <span className="text-yellow-400">{s.category}</span>{" "}
+                            <span className="text-slate-400">in</span>{" "}
+                            <span className="text-white">{s.sourceSlotLabel || "this tote"}</span>
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-400">
+                            {s.itemIds.length} item{s.itemIds.length !== 1 ? "s" : ""}
+                            {!s.sameRack && s.sourceRackLabel && (
+                              <> · {s.sourceRackLabel}</>
+                            )}
+                          </p>
+                          {s.matchedItemNames.length > 0 && (
+                            <p className="mt-1 truncate text-[10px] italic text-slate-500">
+                              e.g. {s.matchedItemNames.join(", ")}
+                              {s.itemIds.length > s.matchedItemNames.length && "…"}
+                            </p>
+                          )}
+                          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5">
+                            <ChevronRight className="h-3 w-3 text-emerald-400" />
+                            <p className="text-[11px] text-slate-300">
+                              <span className="text-slate-400">Move to</span>{" "}
+                              <span className="font-semibold text-white">{s.targetSlotLabel}</span>
+                              {!s.sameRack && s.targetRackLabel && (
+                                <span className="text-slate-400"> in {s.targetRackLabel}</span>
+                              )}{" "}
+                              <span className="text-slate-500">({s.targetExistingCount} already there)</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <button
+                          onClick={() => handleReviewMove(s)}
+                          disabled={moving}
+                          className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-50"
+                        >
+                          {moving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Move className="h-3.5 w-3.5" />}
+                          Move {s.itemIds.length}
+                        </button>
+                        {!s.sameRack && s.sourceRackToken && (
+                          <a
+                            href={`/rack/${s.sourceRackToken}`}
+                            className="text-[11px] text-slate-400 underline-offset-2 hover:underline"
+                          >
+                            View source rack
+                          </a>
+                        )}
+                        <button
+                          onClick={() => dismissReviewRow(s)}
+                          className="ml-auto text-[11px] text-slate-500 hover:text-slate-300"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {allSuggestions.length === 0 && (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  Nothing to review right now — your totes look organized.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Phase 2: Find-Home Modal ─────────────────────────────────── */}
       {findHomeOpen && (
