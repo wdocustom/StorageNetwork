@@ -386,6 +386,239 @@ export async function searchRackItems(
   return { results };
 }
 
+// ── Cross-tote Consolidation Suggestions ─────────────────────────────────
+//
+// "Beast organizer mode" — gentle nudges, never authoritative. Looks at
+// the items in a freshly-edited slot and finds *other* slots (across this
+// customer's linked racks) where the same category already lives. Only
+// surfaces a suggestion when the category overlap is obvious — see
+// MIN_MATCH_COUNT and MIN_MATCH_RATIO below.
+
+export interface ConsolidationSuggestion {
+  /** Items in the source slot that match the target's dominant category. */
+  itemIds: string[];
+  category: string;
+  matchedItemNames: string[];     // up to 4 names for the UI preview
+  /** Where the suggestion points to. */
+  targetSlotId: string;
+  targetSlotLabel: string;        // e.g. "Christmas decor" — falls back to "Slot R3·C2"
+  targetRackLabel: string;
+  targetRackToken: string;
+  targetExistingCount: number;    // items already in the target with this category
+  sameRack: boolean;              // true when target is in the same rack as source
+}
+
+const MIN_MATCH_COUNT = 3;        // fewest items in source-slot to consider
+const MIN_MATCH_RATIO = 0.8;      // ≥80% of source-slot items must share the category
+
+export async function suggestConsolidations(
+  token: string,
+  slotId: string
+): Promise<{ suggestions: ConsolidationSuggestion[]; error?: string }> {
+  // Auth: token must belong to a rack that owns this slot.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: slotRow } = await db()
+    .from("inventory_slots")
+    .select("id, rack_id, label, col, row, inventory_racks!inner(id, access_token, customer_email, label)")
+    .eq("id", slotId)
+    .maybeSingle();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const slotRack = (slotRow as any)?.inventory_racks;
+  if (!slotRow || !slotRack || slotRack.access_token !== token) {
+    return { suggestions: [], error: "Unauthorized" };
+  }
+
+  // Items currently in the source slot.
+  const { data: sourceItems } = await db()
+    .from("inventory_items")
+    .select("id, name, category")
+    .eq("slot_id", slotId);
+
+  const items = (sourceItems || []).filter((i) => i.category && i.category.trim());
+  if (items.length < MIN_MATCH_COUNT) return { suggestions: [] };
+
+  // Find the dominant category — must hit MIN_MATCH_RATIO of all categorized items.
+  const counts = new Map<string, string[]>(); // category -> item ids
+  for (const it of items) {
+    const cat = it.category as string;
+    if (!counts.has(cat)) counts.set(cat, []);
+    counts.get(cat)!.push(it.id as string);
+  }
+  let dominantCategory: string | null = null;
+  let dominantIds: string[] = [];
+  // Array.from() avoids the downlevelIteration restriction on direct Map iteration.
+  for (const [cat, ids] of Array.from(counts.entries())) {
+    if (ids.length / items.length >= MIN_MATCH_RATIO && ids.length >= MIN_MATCH_COUNT) {
+      if (ids.length > dominantIds.length) {
+        dominantCategory = cat;
+        dominantIds = ids;
+      }
+    }
+  }
+  if (!dominantCategory) return { suggestions: [] };
+
+  // Collect this customer's racks (current rack + email-linked) so we know
+  // which other slots to consider as merge targets.
+  const customerEmail = slotRack.customer_email as string | null;
+  let rackIds: string[] = [slotRack.id as string];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rackLabelById: Record<string, { label: string; token: string }> = {
+    [slotRack.id]: { label: slotRack.label, token: slotRack.access_token },
+  };
+  if (customerEmail) {
+    const { data: allRacks } = await db()
+      .from("inventory_racks")
+      .select("id, label, access_token")
+      .eq("customer_email", customerEmail);
+    if (allRacks && allRacks.length) {
+      rackIds = allRacks.map((r) => r.id as string);
+      for (const r of allRacks) {
+        rackLabelById[r.id as string] = {
+          label: (r.label as string) || "Storage Rack",
+          token: r.access_token as string,
+        };
+      }
+    }
+  }
+
+  // Tally items in the dominant category across all candidate slots, excluding
+  // the source slot itself.
+  const { data: targetCandidates } = await db()
+    .from("inventory_items")
+    .select("slot_id, inventory_slots!inner(id, label, col, row, rack_id)")
+    .in("inventory_slots.rack_id", rackIds)
+    .eq("category", dominantCategory)
+    .neq("slot_id", slotId);
+
+  if (!targetCandidates || targetCandidates.length === 0) return { suggestions: [] };
+
+  // Group by target slot, count how many same-category items already live there.
+  const bySlot = new Map<string, { count: number; slot: { id: string; label: string; col: number; row: number; rackId: string } }>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of targetCandidates as any[]) {
+    const s = row.inventory_slots;
+    if (!s) continue;
+    const key = s.id as string;
+    if (!bySlot.has(key)) {
+      bySlot.set(key, {
+        count: 0,
+        slot: { id: s.id, label: s.label || "", col: s.col, row: s.row, rackId: s.rack_id },
+      });
+    }
+    bySlot.get(key)!.count++;
+  }
+  if (bySlot.size === 0) return { suggestions: [] };
+
+  // Pick the target slot with the most existing matches; tiebreak: same-rack first.
+  const ranked = Array.from(bySlot.values())
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      const aSame = a.slot.rackId === slotRack.id ? 1 : 0;
+      const bSame = b.slot.rackId === slotRack.id ? 1 : 0;
+      return bSame - aSame;
+    });
+
+  const top = ranked[0];
+  const targetRackInfo = rackLabelById[top.slot.rackId] || { label: "Storage Rack", token: "" };
+
+  const matchedItemNames = items
+    .filter((i) => dominantIds.includes(i.id as string))
+    .slice(0, 4)
+    .map((i) => i.name as string);
+
+  const suggestion: ConsolidationSuggestion = {
+    itemIds: dominantIds,
+    category: dominantCategory,
+    matchedItemNames,
+    targetSlotId: top.slot.id,
+    targetSlotLabel: top.slot.label || `Slot R${top.slot.row + 1}·C${top.slot.col + 1}`,
+    targetRackLabel: targetRackInfo.label,
+    targetRackToken: targetRackInfo.token,
+    targetExistingCount: top.count,
+    sameRack: top.slot.rackId === slotRack.id,
+  };
+
+  return { suggestions: [suggestion] };
+}
+
+// ── Reassign items between slots (Phase 1.5 "Move to Tote X") ────────────
+//
+// Moves an array of inventory_items to a new slot, with auth scoped to the
+// caller's rack token. The target slot must belong to a rack owned by the
+// same customer_email as the token's rack (so reassigns can flow across
+// linked racks but never to a stranger's). Returns count of items moved.
+
+export async function reassignItems(
+  itemIds: string[],
+  targetSlotId: string,
+  token: string
+): Promise<{ moved: number; error?: string }> {
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return { moved: 0, error: "No items to move" };
+  }
+  if (!targetSlotId || !token) {
+    return { moved: 0, error: "Missing target slot or token" };
+  }
+
+  // 1. Resolve token → rack → customer_email.
+  const { data: callerRack } = await db()
+    .from("inventory_racks")
+    .select("id, customer_email")
+    .eq("access_token", token)
+    .maybeSingle();
+  if (!callerRack) return { moved: 0, error: "Unauthorized" };
+
+  // 2. Verify target slot belongs to a rack owned by the same customer.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: targetSlot } = await db()
+    .from("inventory_slots")
+    .select("id, rack_id, inventory_racks!inner(id, customer_email)")
+    .eq("id", targetSlotId)
+    .maybeSingle();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const targetRack = (targetSlot as any)?.inventory_racks;
+  if (!targetSlot || !targetRack) return { moved: 0, error: "Target slot not found" };
+
+  const callerEmail = (callerRack.customer_email as string | null)?.toLowerCase() ?? null;
+  const targetEmail = (targetRack.customer_email as string | null)?.toLowerCase() ?? null;
+  // Both must belong to the same customer. If either is null, only allow
+  // when target rack id matches the caller's rack id (single-rack case).
+  const sameOwner = callerEmail && targetEmail && callerEmail === targetEmail;
+  const sameRack = (callerRack.id as string) === (targetRack.id as string);
+  if (!sameOwner && !sameRack) return { moved: 0, error: "Unauthorized target" };
+
+  // 3. Verify each item to be moved currently lives in a slot owned by the
+  //    same customer (prevents a leaked token from rehoming arbitrary items).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: itemsToMove } = await db()
+    .from("inventory_items")
+    .select("id, slot_id, inventory_slots!inner(rack_id, inventory_racks!inner(id, customer_email))")
+    .in("id", itemIds);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const safeIds = (itemsToMove || []).filter((it: any) => {
+    const ownerEmail = (it.inventory_slots?.inventory_racks?.customer_email as string | null)?.toLowerCase() ?? null;
+    const ownerRackId = it.inventory_slots?.inventory_racks?.id as string | undefined;
+    if (sameRack) return ownerRackId === (callerRack.id as string);
+    return ownerEmail && callerEmail && ownerEmail === callerEmail;
+  }).map((it: { id: string }) => it.id);
+
+  if (safeIds.length === 0) return { moved: 0, error: "No items eligible to move" };
+
+  const { error } = await db()
+    .from("inventory_items")
+    .update({ slot_id: targetSlotId, updated_at: new Date().toISOString() })
+    .in("id", safeIds);
+
+  if (error) {
+    console.error("[ToteInventory] reassignItems failed:", error);
+    return { moved: 0, error: "Move failed" };
+  }
+
+  return { moved: safeIds.length };
+}
+
 // ── Batch create racks from a job's shelf configs ────────────────────────
 
 export async function createRacksForJob(input: {

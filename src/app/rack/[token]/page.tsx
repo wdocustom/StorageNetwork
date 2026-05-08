@@ -19,6 +19,8 @@ import {
   Share2,
   CheckCircle2,
   Sparkles,
+  Lightbulb,
+  Move,
 } from "lucide-react";
 import {
   getRackByToken,
@@ -29,9 +31,12 @@ import {
   updateSlot,
   updateRackLabel,
   searchRackItems,
+  suggestConsolidations,
+  reassignItems,
   type InventoryRack,
   type InventorySlot,
   type InventoryItem,
+  type ConsolidationSuggestion,
 } from "@/app/actions/tote-inventory";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -66,6 +71,14 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 function getCategoryEmoji(category: string) {
   return CATEGORY_EMOJI[category] || "";
+}
+
+// Stable cross-render localStorage key for a (sourceSlot, targetSlot, category)
+// dismissal. Lives at module scope so the useCallbacks below have a stable
+// reference and the exhaustive-deps rule stays satisfied without forcing the
+// closures to recreate on every render.
+function consolidationDismissalKey(slotId: string, s: ConsolidationSuggestion): string {
+  return `tote-suggest-dismissed::${slotId}::${s.targetSlotId}::${s.category}`;
 }
 
 function getSlotColor(color: string) {
@@ -129,6 +142,10 @@ export default function RackPage() {
   // Onboarding dismissed
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
+  // Cross-tote consolidation suggestion (Phase 1 organizer mode)
+  const [consolidation, setConsolidation] = useState<ConsolidationSuggestion | null>(null);
+  const [moveInFlight, setMoveInFlight] = useState(false);
+
   // Load rack data
   const loadRack = useCallback(async () => {
     setLoading(true);
@@ -148,6 +165,48 @@ export default function RackPage() {
     loadRack();
   }, [loadRack]);
 
+  // ── Consolidation Suggestion helpers ──────────────────────────────────
+  // localStorage dismissals: keyed per (sourceSlot, targetSlot, category)
+  // so a customer can dismiss "Tote 4 Holiday" without permanently silencing
+  // a future "Tote 7 Tools" suggestion on the same slot. The key builder
+  // (consolidationDismissalKey) lives at module scope.
+  const isDismissed = useCallback((slotId: string, s: ConsolidationSuggestion) => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem(consolidationDismissalKey(slotId, s)) === "1"; }
+    catch { return false; }
+  }, []);
+
+  const dismissSuggestion = useCallback((slotId: string, s: ConsolidationSuggestion) => {
+    try { window.localStorage.setItem(consolidationDismissalKey(slotId, s), "1"); } catch {}
+    setConsolidation(null);
+  }, []);
+
+  const refreshSuggestion = useCallback(async (slotId: string) => {
+    const result = await suggestConsolidations(token, slotId);
+    const next = result.suggestions[0] ?? null;
+    if (next && isDismissed(slotId, next)) {
+      setConsolidation(null);
+      return;
+    }
+    setConsolidation(next);
+  }, [token, isDismissed]);
+
+  // Move handler — calls reassignItems then refreshes the open slot.
+  const handleMoveSuggested = async () => {
+    if (!consolidation || !slotData) return;
+    setMoveInFlight(true);
+    const res = await reassignItems(consolidation.itemIds, consolidation.targetSlotId, token);
+    if (res.moved > 0) {
+      // Pull the moved items out of the visible slot list (DB already updated).
+      const movedSet = new Set(consolidation.itemIds);
+      setSlotItems((prev) => prev.filter((i) => !movedSet.has(i.id)));
+      setConsolidation(null);
+      // Background refresh of the rack-level counts.
+      loadRack();
+    }
+    setMoveInFlight(false);
+  };
+
   // Open slot detail
   const openSlot = async (col: number, row: number) => {
     setActiveSlot({ col, row });
@@ -155,10 +214,15 @@ export default function RackPage() {
     setNewItemName("");
     setNewItemQty(1);
     setNewItemCategory("");
+    setConsolidation(null);
     const result = await getOrCreateSlot(token, col, row);
     if (result.slot) {
       setSlotData(result.slot);
       setSlotItems(result.items);
+      // Fire suggestion check immediately for already-populated slots so the
+      // customer sees the nudge whenever they open the slot, not just after
+      // a new scan.
+      refreshSuggestion(result.slot.id);
     }
     setSlotLoading(false);
   };
@@ -185,6 +249,7 @@ export default function RackPage() {
       setNewItemName("");
       setNewItemQty(1);
       setNewItemCategory("");
+      refreshSuggestion(slotData.id);
     }
     setAddingItem(false);
   };
@@ -194,6 +259,7 @@ export default function RackPage() {
     const result = await deleteItem(itemId, token);
     if (result.success) {
       setSlotItems((prev) => prev.filter((i) => i.id !== itemId));
+      if (slotData) refreshSuggestion(slotData.id);
     }
   };
 
@@ -267,6 +333,8 @@ export default function RackPage() {
     setScanPreview([]);
     setSuggestedLabel("");
     setAddingItem(false);
+    // Cross-tote suggestion runs on the saved items, not the preview.
+    refreshSuggestion(slotData.id);
   };
 
   // Search
@@ -428,6 +496,70 @@ export default function RackPage() {
               </div>
             )}
           </div>
+
+          {/* Cross-tote consolidation suggestion (gentle nudge, dismissible) */}
+          {consolidation && slotData && (
+            <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-400/15">
+                  <Lightbulb className="h-4 w-4 text-yellow-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white">
+                    {consolidation.itemIds.length} item{consolidation.itemIds.length !== 1 ? "s" : ""} look like{" "}
+                    <span className="text-yellow-400">{consolidation.category}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+                    You already have{" "}
+                    <span className="font-semibold text-white">
+                      {consolidation.targetSlotLabel || "another tote"}
+                    </span>{" "}
+                    {consolidation.sameRack
+                      ? "in this rack"
+                      : <>in <span className="font-semibold text-white">{consolidation.targetRackLabel}</span></>
+                    } with {consolidation.targetExistingCount} {consolidation.category} item{consolidation.targetExistingCount !== 1 ? "s" : ""}.
+                    Want to keep similar things together?
+                  </p>
+                  {consolidation.matchedItemNames.length > 0 && (
+                    <p className="mt-1.5 text-[11px] text-slate-400 italic truncate">
+                      e.g. {consolidation.matchedItemNames.join(", ")}
+                      {consolidation.itemIds.length > consolidation.matchedItemNames.length && "…"}
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleMoveSuggested}
+                      disabled={moveInFlight}
+                      className="flex items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {moveInFlight ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Move className="h-3.5 w-3.5" />
+                      )}
+                      Move to {consolidation.targetSlotLabel.length > 18
+                        ? consolidation.targetSlotLabel.slice(0, 18) + "…"
+                        : consolidation.targetSlotLabel}
+                    </button>
+                    {!consolidation.sameRack && consolidation.targetRackToken && (
+                      <a
+                        href={`/rack/${consolidation.targetRackToken}`}
+                        className="text-[11px] text-slate-400 underline-offset-2 hover:underline"
+                      >
+                        View that rack →
+                      </a>
+                    )}
+                    <button
+                      onClick={() => slotData && dismissSuggestion(slotData.id, consolidation)}
+                      className="ml-auto text-[11px] text-slate-500 hover:text-slate-300"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* AI Photo Scan */}
           <div className="border-t border-slate-800 pt-4">
