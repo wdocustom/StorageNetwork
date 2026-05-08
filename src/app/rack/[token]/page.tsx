@@ -33,10 +33,12 @@ import {
   searchRackItems,
   suggestConsolidations,
   reassignItems,
+  findHomeForItem,
   type InventoryRack,
   type InventorySlot,
   type InventoryItem,
   type ConsolidationSuggestion,
+  type ItemHomeCandidate,
 } from "@/app/actions/tote-inventory";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +148,13 @@ export default function RackPage() {
   const [consolidation, setConsolidation] = useState<ConsolidationSuggestion | null>(null);
   const [moveInFlight, setMoveInFlight] = useState(false);
 
+  // Phase 2: "Where does this go?" find-home flow
+  const [findHomeOpen, setFindHomeOpen] = useState(false);
+  const [findHomeIdentifying, setFindHomeIdentifying] = useState(false);
+  const [findHomeItem, setFindHomeItem] = useState<{ name: string; category: string } | null>(null);
+  const [findHomeCandidates, setFindHomeCandidates] = useState<ItemHomeCandidate[]>([]);
+  const [findHomeError, setFindHomeError] = useState<string>("");
+
   // Load rack data
   const loadRack = useCallback(async () => {
     setLoading(true);
@@ -205,6 +214,68 @@ export default function RackPage() {
       loadRack();
     }
     setMoveInFlight(false);
+  };
+
+  // ── Phase 2: "Where does this go?" find-home flow ─────────────────────
+  const resetFindHome = () => {
+    setFindHomeIdentifying(false);
+    setFindHomeItem(null);
+    setFindHomeCandidates([]);
+    setFindHomeError("");
+  };
+
+  const closeFindHome = () => {
+    setFindHomeOpen(false);
+    resetFindHome();
+  };
+
+  const handleFindHomePhoto = async (file: File) => {
+    resetFindHome();
+    setFindHomeIdentifying(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const imageBase64 = base64.split(",")[1];
+
+      const res = await fetch("/api/inventory/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, mode: "single" }),
+      });
+      if (!res.ok) throw new Error("identify failed");
+      const data = await res.json();
+      const top = Array.isArray(data.items) ? data.items[0] : null;
+      if (!top || !top.name || !top.category) {
+        setFindHomeError("Couldn't identify the item. Try a clearer photo on a plain background.");
+        return;
+      }
+
+      setFindHomeItem({ name: top.name, category: top.category });
+      const home = await findHomeForItem(token, { name: top.name, category: top.category });
+      setFindHomeCandidates(home.candidates);
+    } catch (err) {
+      console.error("[FindHome]", err);
+      setFindHomeError("Something went wrong. Please try again.");
+    } finally {
+      setFindHomeIdentifying(false);
+    }
+  };
+
+  // Tap a candidate → close the modal and open that slot's detail view.
+  // Supports navigation to a slot in a different (linked) rack via window.location.
+  const handlePickHome = (c: ItemHomeCandidate) => {
+    const inThisRack = rack && c.rackId === rack.id;
+    closeFindHome();
+    if (inThisRack) {
+      openSlot(c.slotCol, c.slotRow);
+      return;
+    }
+    if (c.rackToken) {
+      window.location.href = `/rack/${c.rackToken}`;
+    }
   };
 
   // Open slot detail
@@ -896,6 +967,25 @@ export default function RackPage() {
           </div>
         )}
 
+        {/* Phase 2: Where does this go? — single-item AI lookup */}
+        {totalItems > 0 && (
+          <button
+            onClick={() => setFindHomeOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-left transition-colors hover:bg-emerald-500/10"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
+              <Sparkles className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white">Where does this go?</p>
+              <p className="text-[11px] text-emerald-300/80">
+                Snap an item — we&rsquo;ll find the tote it belongs in
+              </p>
+            </div>
+            <Camera className="h-4 w-4 shrink-0 text-emerald-400" />
+          </button>
+        )}
+
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -1175,6 +1265,157 @@ export default function RackPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Phase 2: Find-Home Modal ─────────────────────────────────── */}
+      {findHomeOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-emerald-500/30 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">Where does this go?</h3>
+              </div>
+              <button
+                onClick={closeFindHome}
+                className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              {/* State: idle — show photo capture prompt */}
+              {!findHomeIdentifying && !findHomeItem && !findHomeError && (
+                <>
+                  <p className="text-sm text-slate-300">
+                    Snap a photo of one item, on a plain surface if possible. We&rsquo;ll
+                    identify what it is and suggest the best tote you already have for it.
+                  </p>
+                  <label
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-500/40 bg-emerald-500/5 py-6 transition-colors hover:bg-emerald-500/10"
+                  >
+                    <Camera className="h-5 w-5 text-emerald-400" />
+                    <span className="text-sm font-bold text-white">Take Photo or Choose Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFindHomePhoto(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <p className="text-center text-[10px] text-slate-500">
+                    Tip: a single item against a plain background gives the best match.
+                  </p>
+                </>
+              )}
+
+              {/* State: identifying */}
+              {findHomeIdentifying && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+                  <p className="text-sm text-slate-300">Identifying item...</p>
+                </div>
+              )}
+
+              {/* State: error */}
+              {findHomeError && !findHomeIdentifying && (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+                    {findHomeError}
+                  </div>
+                  <button
+                    onClick={resetFindHome}
+                    className="w-full rounded-lg bg-slate-800 py-2.5 text-sm font-semibold text-white hover:bg-slate-700"
+                  >
+                    Try another photo
+                  </button>
+                </div>
+              )}
+
+              {/* State: results */}
+              {!findHomeIdentifying && findHomeItem && !findHomeError && (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Identified
+                    </p>
+                    <p className="text-sm font-semibold text-white">
+                      <span className="mr-1">{getCategoryEmoji(findHomeItem.category)}</span>
+                      {findHomeItem.name}{" "}
+                      <span className="ml-1 text-[11px] text-slate-400">({findHomeItem.category})</span>
+                    </p>
+                  </div>
+
+                  {findHomeCandidates.length === 0 ? (
+                    <div className="rounded-lg border border-yellow-400/20 bg-yellow-400/5 px-3 py-3">
+                      <p className="text-xs text-slate-300">
+                        No existing tote already holds <span className="text-yellow-400">{findHomeItem.category}</span> items.
+                        It might be the start of a new category — pick any empty slot to begin a new tote for it.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Best fit{findHomeCandidates.length > 1 ? "s" : ""}
+                      </p>
+                      <div className="space-y-2">
+                        {findHomeCandidates.map((c, idx) => (
+                          <button
+                            key={c.slotId}
+                            onClick={() => handlePickHome(c)}
+                            className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                              idx === 0
+                                ? "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/15"
+                                : "border-slate-700 bg-slate-800/50 hover:bg-slate-800"
+                            }`}
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-900">
+                              <Package className="h-4 w-4 text-slate-300" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-white truncate">
+                                {c.slotLabel}
+                              </p>
+                              <p className="text-[11px] text-slate-400 truncate">
+                                {c.sameRack ? "this rack" : c.rackLabel}
+                                {" · "}
+                                {c.matchingItemCount} {findHomeItem.category} item{c.matchingItemCount !== 1 ? "s" : ""}
+                                {c.hasExactNameMatch && (
+                                  <span className="ml-1 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                                    EXACT MATCH
+                                  </span>
+                                )}
+                              </p>
+                              {c.sampleItemNames.length > 0 && (
+                                <p className="mt-0.5 truncate text-[10px] italic text-slate-500">
+                                  e.g. {c.sampleItemNames.join(", ")}
+                                </p>
+                              )}
+                            </div>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <button
+                    onClick={resetFindHome}
+                    className="block w-full text-center text-[11px] text-slate-500 hover:text-slate-300"
+                  >
+                    Try another photo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

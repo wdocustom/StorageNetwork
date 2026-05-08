@@ -36,9 +36,12 @@ export type ScanResult = z.infer<typeof ScanResultSchema>;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { imageBase64, imageUrl } = body as {
+    const { imageBase64, imageUrl, mode } = body as {
       imageBase64?: string;
       imageUrl?: string;
+      // "tote"  : (default) identify every visible item in an open tote
+      // "single": identify the single most prominent item (Phase 2 find-home)
+      mode?: "tote" | "single";
     };
 
     if (!imageBase64 && !imageUrl) {
@@ -70,17 +73,18 @@ export async function POST(req: NextRequest) {
           image: new URL(imageUrl!),
         };
 
-    const { object: result } = await generateObject({
-      model: google("gemini-2.0-flash"),
-      schema: ScanResultSchema,
-      messages: [
-        {
-          role: "user",
-          content: [
-            imageContent,
-            {
-              type: "text",
-              text: `You are a home inventory assistant. Analyze this photo of items inside a storage tote or bin.
+    const isSingle = mode === "single";
+
+    const promptText = isSingle
+      ? `You are a home inventory assistant. The customer is holding ONE item up to the camera and asking "where does this belong?". Identify the single most prominent item in the photo.
+
+Rules for single-item mode:
+- Return EXACTLY ONE item in the items array — pick the most prominent / front-and-center subject. Ignore background clutter, the customer's hand, walls, etc.
+- Use a specific, searchable name (2-4 words). Prefer common household terms a person would actually search for ("cordless drill" not "tool", "garden trowel" not "small shovel").
+- Pick the most fitting category for the item.
+- Set toteDescription to a short label that would suit a tote dedicated to this kind of item (e.g. "Hand tools" for a screwdriver, "Holiday lights" for a string of lights). The destination tote will be matched against this label.
+- Set confidence based on image clarity.`
+      : `You are a home inventory assistant. Analyze this photo of items inside a storage tote or bin.
 
 Identify every distinct item you can see. Be specific with names — use common household terms people would search for later (e.g. "red Christmas ornaments" not just "decorations", "cordless drill" not just "tool").
 
@@ -93,7 +97,19 @@ Rules:
 - If the image is blurry or unclear, still try your best but set confidence to "low"
 - The toteDescription should be a natural label someone would give this tote
 
-This is for a home storage inventory system — accuracy matters because the customer will search for these items later.`,
+This is for a home storage inventory system — accuracy matters because the customer will search for these items later.`;
+
+    const { object: result } = await generateObject({
+      model: google("gemini-2.0-flash"),
+      schema: ScanResultSchema,
+      messages: [
+        {
+          role: "user",
+          content: [
+            imageContent,
+            {
+              type: "text",
+              text: promptText,
             },
           ],
         },
@@ -102,6 +118,7 @@ This is for a home storage inventory system — accuracy matters because the cus
 
     return NextResponse.json({
       success: true,
+      mode: isSingle ? "single" : "tote",
       ...result,
     });
   } catch (error) {
