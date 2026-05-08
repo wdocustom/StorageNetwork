@@ -4,13 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Loader2, ArrowRight, Check, Mail,
+  MapPin, Loader2, ArrowRight, Check, Sparkles,
   Paintbrush, Wrench, ShieldCheck,
 } from "lucide-react";
 import { checkAvailability, type AvailabilityResult } from "@/app/actions/customer";
-import { joinWaitlist } from "@/app/actions/gatekeeper";
 
-type Step = "zip" | "reveal" | "waitlist" | "waitlist_joined";
+type Step = "zip" | "reveal" | "preview";
 
 const PLACEHOLDERS = [
   "Enter your ZIP code",
@@ -34,10 +33,6 @@ export default function InlineConfigurator() {
   const [step, setStep] = useState<Step>("zip");
   const [installer, setInstaller] = useState<AvailabilityResult | null>(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
-  const [waitlistName, setWaitlistName] = useState("");
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
-  const [waitlistError, setWaitlistError] = useState("");
   const revealRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,7 +42,7 @@ export default function InlineConfigurator() {
   }, [step]);
 
   useEffect(() => {
-    if (step === "reveal" && revealRef.current) {
+    if ((step === "reveal" || step === "preview") && revealRef.current) {
       const t = setTimeout(() => {
         revealRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 400);
@@ -64,9 +59,11 @@ export default function InlineConfigurator() {
       if (result.available && result.installer_id) {
         setInstaller(result); setStep("reveal");
       } else {
-        // No installer in this ZIP — switch to waitlist capture.
-        setInstaller(null);
-        setStep("waitlist");
+        // No installer covers this ZIP yet — let the customer build their order
+        // anyway. The downstream waitlist gate inside DesignConfigurator
+        // captures their full quote (units, addons, total) and contact info
+        // when they reach the checkout step.
+        setInstaller(null); setStep("preview");
       }
     } catch { setError("Unable to check availability. Please try again."); }
     finally { setSearching(false); }
@@ -77,26 +74,13 @@ export default function InlineConfigurator() {
     router.push(`/design?installer=${installer.installer_id}&from=network`);
   }
 
-  async function handleJoinWaitlist() {
-    const email = waitlistEmail.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setWaitlistError("Enter a valid email address.");
-      return;
-    }
-    setWaitlistError("");
-    setWaitlistSubmitting(true);
-    try {
-      const result = await joinWaitlist(email, zip, waitlistName.trim() || undefined);
-      if (result.success) {
-        setStep("waitlist_joined");
-      } else {
-        setWaitlistError(result.error || "Couldn't add you to the waitlist. Try again.");
-      }
-    } catch {
-      setWaitlistError("Couldn't add you to the waitlist. Try again.");
-    } finally {
-      setWaitlistSubmitting(false);
-    }
+  function goToDesignPreview() {
+    // No installer in this ZIP — DesignConfigurator falls back to platform
+    // defaults. The ZIP travels along so the service-area check at checkout
+    // can record the demand signal accurately.
+    const params = new URLSearchParams({ from: "network" });
+    if (zip) params.set("zip", zip);
+    router.push(`/design?${params.toString()}`);
   }
 
   function resetToZip() {
@@ -104,9 +88,6 @@ export default function InlineConfigurator() {
     setZip("");
     setInstaller(null);
     setError("");
-    setWaitlistEmail("");
-    setWaitlistName("");
-    setWaitlistError("");
   }
 
   return (
@@ -166,7 +147,7 @@ export default function InlineConfigurator() {
           </motion.div>
         )}
 
-        {/* ── The Reveal — customer-focused, outcome-driven ── */}
+        {/* ── The Reveal — installer available in this ZIP ─── */}
         {step === "reveal" && installer && (
           <motion.div
             key="reveal-step"
@@ -255,59 +236,79 @@ export default function InlineConfigurator() {
           </motion.div>
         )}
 
-        {/* ── Waitlist capture (no installer in this ZIP) ─────── */}
-        {step === "waitlist" && (
+        {/* ── Preview — no installer yet, but customer can still design ── */}
+        {step === "preview" && (
           <motion.div
-            key="waitlist-step"
-            initial={{ opacity: 0, y: 20 }}
+            key="preview-step"
+            ref={revealRef}
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            transition={{ type: "spring", stiffness: 260, damping: 28 }}
             className="rounded-2xl border border-stone-700/50 bg-gray-900/60 p-8 backdrop-blur-sm"
           >
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/15">
-              <Mail className="h-7 w-7 text-yellow-400" strokeWidth={2.5} />
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.05, type: "spring", stiffness: 400, damping: 20 }}
+              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/15"
+            >
+              <Sparkles className="h-7 w-7 text-yellow-400" strokeWidth={2.5} />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.15, duration: 0.4 }}
+              className="text-center"
+            >
+              <h3 className="mb-1 text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
+                Not in <span className="text-yellow-400">{zip}</span> yet — but you can still design
+              </h3>
+              <p className="mb-5 text-sm text-stone-400">
+                We&rsquo;re recruiting installers in your area now. Build your system in the
+                3D configurator and we&rsquo;ll save your design + notify you the moment a vetted
+                pro is live.
+              </p>
+            </motion.div>
+
+            <div className="mb-6 space-y-3">
+              {VALUE_PROPS.map((prop, i) => (
+                <motion.div
+                  key={prop.text}
+                  initial={{ x: -16, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.25 + i * 0.1, duration: 0.35 }}
+                  className="flex items-start gap-3 rounded-lg border border-stone-800/60 bg-gray-950/40 px-4 py-3"
+                >
+                  <prop.icon className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+                  <p className="text-sm text-stone-300">{prop.text}</p>
+                </motion.div>
+              ))}
             </div>
 
-            <h3 className="mb-1 text-center text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
-              We&apos;re Not in <span className="text-yellow-400">{zip}</span> Yet
-            </h3>
-            <p className="mb-6 text-center text-sm text-stone-400">
-              We&rsquo;re actively recruiting installers in your area. Drop your email and we&rsquo;ll be the first to tell you when a vetted pro is live.
-            </p>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={waitlistName}
-                onChange={(e) => setWaitlistName(e.target.value)}
-                placeholder="Your name (optional)"
-                aria-label="Name"
-                className="w-full rounded-lg border border-stone-700 bg-gray-950 px-4 py-3 text-sm text-white placeholder-stone-500 outline-none focus:border-yellow-400"
-              />
-              <input
-                type="email"
-                value={waitlistEmail}
-                onChange={(e) => { setWaitlistEmail(e.target.value); setWaitlistError(""); }}
-                onKeyDown={(e) => { if (e.key === "Enter") handleJoinWaitlist(); }}
-                placeholder="you@email.com"
-                aria-label="Email address"
-                autoComplete="email"
-                className="w-full rounded-lg border border-stone-700 bg-gray-950 px-4 py-3 text-sm text-white placeholder-stone-500 outline-none focus:border-yellow-400"
-              />
-              <button
-                onClick={handleJoinWaitlist}
-                disabled={waitlistSubmitting || !waitlistEmail}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300 disabled:opacity-50"
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.4 }}
+            >
+              <motion.button
+                onClick={goToDesignPreview}
+                animate={{ scale: [1, 1.02, 1] }}
+                transition={{ delay: 1, duration: 0.6, repeat: 2 }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-4 text-sm font-black uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-400/30 transition-all hover:bg-yellow-300 hover:-translate-y-0.5"
               >
-                {waitlistSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>Notify Me When Available <ArrowRight className="h-4 w-4" /></>
-                )}
-              </button>
-              {waitlistError && <p className="text-center text-sm font-medium text-red-400">{waitlistError}</p>}
-            </div>
+                Design Your Build
+                <motion.span
+                  animate={{ x: [0, 4, 0] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </motion.span>
+              </motion.button>
+              <p className="mt-3 text-center text-[11px] text-stone-500">
+                You&rsquo;ll join the local waitlist when you submit your details.
+              </p>
+            </motion.div>
 
             <button
               onClick={resetToZip}
@@ -315,38 +316,6 @@ export default function InlineConfigurator() {
             >
               Try a different ZIP
             </button>
-          </motion.div>
-        )}
-
-        {/* ── Waitlist joined confirmation ──────────────────── */}
-        {step === "waitlist_joined" && (
-          <motion.div
-            key="waitlist-joined"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="rounded-2xl border border-stone-700/50 bg-gray-900/60 p-8 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 20 }}
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15"
-            >
-              <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
-            </motion.div>
-
-            <h3 className="mb-1 text-center text-xl font-black uppercase tracking-tight text-white sm:text-2xl">
-              You&apos;re On the List
-            </h3>
-            <p className="mb-6 text-center text-sm text-stone-400">
-              We&rsquo;ll email <span className="font-semibold text-white">{waitlistEmail}</span> the moment we have a vetted installer in <span className="font-semibold text-yellow-400">{zip}</span>.
-            </p>
-
-            <p className="text-center text-[11px] text-stone-500">
-              Confirmation email sent. Check your inbox in a minute.
-            </p>
           </motion.div>
         )}
       </AnimatePresence>
