@@ -447,7 +447,8 @@ export async function suggestConsolidations(
   }
   let dominantCategory: string | null = null;
   let dominantIds: string[] = [];
-  for (const [cat, ids] of counts) {
+  // Array.from() avoids the downlevelIteration restriction on direct Map iteration.
+  for (const [cat, ids] of Array.from(counts.entries())) {
     if (ids.length / items.length >= MIN_MATCH_RATIO && ids.length >= MIN_MATCH_COUNT) {
       if (ids.length > dominantIds.length) {
         dominantCategory = cat;

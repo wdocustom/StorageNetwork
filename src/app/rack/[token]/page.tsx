@@ -73,6 +73,14 @@ function getCategoryEmoji(category: string) {
   return CATEGORY_EMOJI[category] || "";
 }
 
+// Stable cross-render localStorage key for a (sourceSlot, targetSlot, category)
+// dismissal. Lives at module scope so the useCallbacks below have a stable
+// reference and the exhaustive-deps rule stays satisfied without forcing the
+// closures to recreate on every render.
+function consolidationDismissalKey(slotId: string, s: ConsolidationSuggestion): string {
+  return `tote-suggest-dismissed::${slotId}::${s.targetSlotId}::${s.category}`;
+}
+
 function getSlotColor(color: string) {
   return COLORS.find((c) => c.value === color)?.bg || "bg-slate-800";
 }
@@ -160,18 +168,16 @@ export default function RackPage() {
   // ── Consolidation Suggestion helpers ──────────────────────────────────
   // localStorage dismissals: keyed per (sourceSlot, targetSlot, category)
   // so a customer can dismiss "Tote 4 Holiday" without permanently silencing
-  // a future "Tote 7 Tools" suggestion on the same slot.
-  const dismissalKey = (slotId: string, s: ConsolidationSuggestion) =>
-    `tote-suggest-dismissed::${slotId}::${s.targetSlotId}::${s.category}`;
-
+  // a future "Tote 7 Tools" suggestion on the same slot. The key builder
+  // (consolidationDismissalKey) lives at module scope.
   const isDismissed = useCallback((slotId: string, s: ConsolidationSuggestion) => {
     if (typeof window === "undefined") return false;
-    try { return window.localStorage.getItem(dismissalKey(slotId, s)) === "1"; }
+    try { return window.localStorage.getItem(consolidationDismissalKey(slotId, s)) === "1"; }
     catch { return false; }
   }, []);
 
   const dismissSuggestion = useCallback((slotId: string, s: ConsolidationSuggestion) => {
-    try { window.localStorage.setItem(dismissalKey(slotId, s), "1"); } catch {}
+    try { window.localStorage.setItem(consolidationDismissalKey(slotId, s), "1"); } catch {}
     setConsolidation(null);
   }, []);
 
