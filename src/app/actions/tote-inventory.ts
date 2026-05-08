@@ -406,6 +406,13 @@ export interface ConsolidationSuggestion {
   targetRackToken: string;
   targetExistingCount: number;    // items already in the target with this category
   sameRack: boolean;              // true when target is in the same rack as source
+  /** Where the items currently live. Populated by suggestAllConsolidations
+   *  (Phase 3 review board); optional for Phase 1's single-slot context
+   *  where the source is the slot the customer just edited. */
+  sourceSlotId?: string;
+  sourceSlotLabel?: string;
+  sourceRackLabel?: string;
+  sourceRackToken?: string;
 }
 
 const MIN_MATCH_COUNT = 3;        // fewest items in source-slot to consider
@@ -617,6 +624,166 @@ export async function reassignItems(
   }
 
   return { moved: safeIds.length };
+}
+
+// ── Phase 3: Continuous "Review suggested moves" board ─────────────────
+//
+// suggestAllConsolidations does what suggestConsolidations does, but for
+// EVERY slot the customer owns at once. Used by the rack header's review
+// badge so a customer who's already organized half their stuff sees gentle
+// reorganization opportunities ("hey, the screwdrivers in Tote 12 might
+// fit better in Tote 4 with the rest of your tools").
+//
+// Same dominance threshold (≥3 items, ≥80% same-category) per source slot.
+// Returns at most one suggestion per source slot to avoid spam.
+
+export async function suggestAllConsolidations(
+  token: string
+): Promise<{ suggestions: ConsolidationSuggestion[]; error?: string }> {
+  const { data: rack } = await db()
+    .from("inventory_racks")
+    .select("id, customer_email, label, access_token")
+    .eq("access_token", token)
+    .maybeSingle();
+  if (!rack) return { suggestions: [], error: "Rack not found" };
+
+  // 1. Collect this customer's racks.
+  let rackList: Array<{ id: string; label: string; token: string }> = [
+    { id: rack.id as string, label: (rack.label as string) || "Storage Rack", token: rack.access_token as string },
+  ];
+  if (rack.customer_email) {
+    const { data: linked } = await db()
+      .from("inventory_racks")
+      .select("id, label, access_token")
+      .eq("customer_email", rack.customer_email);
+    if (linked && linked.length) {
+      rackList = linked.map((r) => ({
+        id: r.id as string,
+        label: (r.label as string) || "Storage Rack",
+        token: r.access_token as string,
+      }));
+    }
+  }
+  const rackIds = rackList.map((r) => r.id);
+  const rackById = new Map(rackList.map((r) => [r.id, r]));
+
+  // 2. Pull all categorized items in those racks in one query.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rows } = await db()
+    .from("inventory_items")
+    .select("id, name, category, slot_id, inventory_slots!inner(id, label, col, row, rack_id)")
+    .in("inventory_slots.rack_id", rackIds);
+
+  if (!rows || rows.length === 0) return { suggestions: [] };
+
+  // 3. Bucket items by source slot, retaining slot metadata.
+  type ItemRow = {
+    id: string;
+    name: string;
+    category: string;
+    slot: { id: string; label: string; col: number; row: number; rackId: string };
+  };
+  const slotItems = new Map<string, ItemRow[]>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of rows as any[]) {
+    const s = r.inventory_slots;
+    if (!s || !r.category || !String(r.category).trim()) continue;
+    const sid = s.id as string;
+    if (!slotItems.has(sid)) slotItems.set(sid, []);
+    slotItems.get(sid)!.push({
+      id: r.id as string,
+      name: (r.name as string) || "",
+      category: r.category as string,
+      slot: {
+        id: sid,
+        label: (s.label as string) || "",
+        col: s.col as number,
+        row: s.row as number,
+        rackId: s.rack_id as string,
+      },
+    });
+  }
+
+  // 4. For each source slot, find a dominant category (same threshold
+  //    as suggestConsolidations) and pick the best target slot.
+  type SlotEntry = ItemRow["slot"] & { count: number };
+  // Pre-index: category -> [{ slot, count }]
+  const slotsByCategory = new Map<string, Map<string, SlotEntry>>();
+  for (const items of Array.from(slotItems.values())) {
+    for (const it of items) {
+      if (!slotsByCategory.has(it.category)) slotsByCategory.set(it.category, new Map());
+      const inner = slotsByCategory.get(it.category)!;
+      const existing = inner.get(it.slot.id);
+      if (existing) existing.count++;
+      else inner.set(it.slot.id, { ...it.slot, count: 1 });
+    }
+  }
+
+  const out: ConsolidationSuggestion[] = [];
+
+  for (const [sid, items] of Array.from(slotItems.entries())) {
+    if (items.length < MIN_MATCH_COUNT) continue;
+
+    // Find dominant category for this slot.
+    const counts = new Map<string, ItemRow[]>();
+    for (const it of items) {
+      if (!counts.has(it.category)) counts.set(it.category, []);
+      counts.get(it.category)!.push(it);
+    }
+    let dominantCategory: string | null = null;
+    let dominantList: ItemRow[] = [];
+    for (const [cat, list] of Array.from(counts.entries())) {
+      if (list.length / items.length >= MIN_MATCH_RATIO && list.length >= MIN_MATCH_COUNT) {
+        if (list.length > dominantList.length) {
+          dominantCategory = cat;
+          dominantList = list;
+        }
+      }
+    }
+    if (!dominantCategory) continue;
+
+    // Best target = slot in the same category with the most items, excluding
+    // the source slot itself.
+    const candidatesForCategory = slotsByCategory.get(dominantCategory);
+    if (!candidatesForCategory) continue;
+    const sourceSlot = items[0].slot;
+    let best: SlotEntry | null = null;
+    for (const cand of Array.from(candidatesForCategory.values())) {
+      if (cand.id === sid) continue;
+      if (!best || cand.count > best.count) best = cand;
+      else if (cand.count === best.count) {
+        // Same-rack tiebreaker — prefer a destination on the same rack as
+        // the source (less physical reshuffling for the customer).
+        if (cand.rackId === sourceSlot.rackId && best.rackId !== sourceSlot.rackId) best = cand;
+      }
+    }
+    if (!best) continue;
+
+    const sourceRack = rackById.get(sourceSlot.rackId);
+    const targetRack = rackById.get(best.rackId);
+    if (!sourceRack || !targetRack) continue;
+
+    out.push({
+      itemIds: dominantList.map((i) => i.id),
+      category: dominantCategory,
+      matchedItemNames: dominantList.slice(0, 4).map((i) => i.name),
+      targetSlotId: best.id,
+      targetSlotLabel: best.label || `Slot R${best.row + 1}·C${best.col + 1}`,
+      targetRackLabel: targetRack.label,
+      targetRackToken: targetRack.token,
+      targetExistingCount: best.count,
+      sameRack: best.rackId === sourceSlot.rackId,
+      sourceSlotId: sourceSlot.id,
+      sourceSlotLabel: sourceSlot.label || `Slot R${sourceSlot.row + 1}·C${sourceSlot.col + 1}`,
+      sourceRackLabel: sourceRack.label,
+      sourceRackToken: sourceRack.token,
+    });
+  }
+
+  // 5. Stronger overlap first — that's where moving has the highest
+  //    organizational payoff.
+  out.sort((a, b) => b.targetExistingCount - a.targetExistingCount);
+  return { suggestions: out };
 }
 
 // ── Phase 2: "Where does this go?" find-home for a single item ─────────
