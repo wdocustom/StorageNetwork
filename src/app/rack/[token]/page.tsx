@@ -21,6 +21,8 @@ import {
   Sparkles,
   Lightbulb,
   Move,
+  ImagePlus,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   getRackByToken,
@@ -33,6 +35,7 @@ import {
   searchRackItems,
   suggestConsolidations,
   reassignItems,
+  uploadTotePhoto,
   type InventoryRack,
   type InventorySlot,
   type InventoryItem,
@@ -145,6 +148,23 @@ export default function RackPage() {
   // Cross-tote consolidation suggestion (Phase 1 organizer mode)
   const [consolidation, setConsolidation] = useState<ConsolidationSuggestion | null>(null);
   const [moveInFlight, setMoveInFlight] = useState(false);
+
+  // Local controlled draft for the tote-label input. Avoids the typing
+  // glitch where every keystroke awaited a server round-trip and stale
+  // server responses overwrote in-progress typing. We sync from slotData
+  // when a different slot opens; saves are debounced to ~500ms after the
+  // last keystroke and forced on blur.
+  const [slotLabelDraft, setSlotLabelDraft] = useState("");
+
+  // Photo lightbox + edit
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Inline item edit (single row at a time)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editItemName, setEditItemName] = useState("");
+  const [editItemQty, setEditItemQty] = useState(1);
+  const [editItemSaving, setEditItemSaving] = useState(false);
 
   // Load rack data
   const loadRack = useCallback(async () => {
@@ -263,12 +283,81 @@ export default function RackPage() {
     }
   };
 
-  // Update slot label/color
+  // Inline item edit — start
+  const startEditItem = (it: InventoryItem) => {
+    setEditingItemId(it.id);
+    setEditItemName(it.name);
+    setEditItemQty(it.quantity || 1);
+  };
+
+  const cancelEditItem = () => {
+    setEditingItemId(null);
+    setEditItemName("");
+    setEditItemQty(1);
+  };
+
+  const handleSaveEditItem = async () => {
+    if (!editingItemId) return;
+    const trimmed = editItemName.trim();
+    if (!trimmed) return;
+    setEditItemSaving(true);
+    const res = await updateItem(editingItemId, token, {
+      name: trimmed,
+      quantity: editItemQty,
+    });
+    if (res.success) {
+      setSlotItems((prev) =>
+        prev.map((i) => (i.id === editingItemId ? { ...i, name: trimmed, quantity: editItemQty } : i))
+      );
+      cancelEditItem();
+    }
+    setEditItemSaving(false);
+  };
+
+  // Replace tote photo (from the lightbox edit button)
+  const handleReplaceTotePhoto = async (file: File) => {
+    if (!slotData) return;
+    setPhotoUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const imageBase64 = base64.split(",")[1];
+      const res = await uploadTotePhoto(slotData.id, token, imageBase64, file.type || "image/jpeg");
+      if (res.photoUrl) {
+        setSlotData((prev) => prev ? { ...prev, photo_url: res.photoUrl! } : prev);
+      }
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  // Update slot field (color, photo_url, etc). Optimistic local update +
+  // background server save. The label field uses debouncing — see
+  // useEffect below — to avoid one server call per keystroke.
   const handleSlotUpdate = async (field: string, value: string) => {
     if (!slotData) return;
-    await updateSlot(slotData.id, token, { [field]: value });
     setSlotData({ ...slotData, [field]: value });
+    await updateSlot(slotData.id, token, { [field]: value });
   };
+
+  // Sync the controlled draft when the open slot changes.
+  useEffect(() => {
+    setSlotLabelDraft(slotData?.label ?? "");
+  }, [slotData?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced save of the tote label. Fires 500ms after typing stops.
+  // Skips when the draft already matches what's on disk.
+  useEffect(() => {
+    if (!slotData) return;
+    if (slotLabelDraft === slotData.label) return;
+    const t = setTimeout(() => {
+      handleSlotUpdate("label", slotLabelDraft);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [slotLabelDraft, slotData?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update rack label
   const handleSaveLabel = async () => {
@@ -278,7 +367,11 @@ export default function RackPage() {
     setEditingLabel(false);
   };
 
-  // AI photo scan
+  // AI photo scan. The same image becomes the tote's stored photo (one
+  // per slot) — uploaded to Supabase Storage and saved on
+  // inventory_slots.photo_url so it can be displayed as a thumbnail and
+  // viewed full-size in the lightbox. Failure to upload doesn't fail
+  // the scan; the items still get analyzed.
   const handlePhotoScan = async (file: File) => {
     setScanning(true);
     setScanPreview([]);
@@ -289,8 +382,21 @@ export default function RackPage() {
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
-      // Strip the data:image/...;base64, prefix
       const imageBase64 = base64.split(",")[1];
+
+      // Persist the photo to storage in the background. Don't await —
+      // the AI scan is the user's expectation; the photo save is a
+      // side-effect that lights up the thumbnail next time the slot
+      // refreshes.
+      if (slotData) {
+        uploadTotePhoto(slotData.id, token, imageBase64, file.type || "image/jpeg")
+          .then((res) => {
+            if (res.photoUrl) {
+              setSlotData((prev) => prev ? { ...prev, photo_url: res.photoUrl! } : prev);
+            }
+          })
+          .catch((err) => console.warn("[TotePhoto] background upload failed:", err));
+      }
 
       const res = await fetch("/api/inventory/scan", {
         method: "POST",
@@ -414,26 +520,31 @@ export default function RackPage() {
         </header>
 
         <div className="p-4 space-y-4 max-w-lg mx-auto">
-          {/* Slot Label */}
+          {/* Slot Label — uses local draft + debounced save (see useEffect) */}
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wider">
               Tote Label
             </label>
             <input
               type="text"
-              value={slotData.label}
-              onChange={(e) => handleSlotUpdate("label", e.target.value)}
+              value={slotLabelDraft}
+              onChange={(e) => setSlotLabelDraft(e.target.value)}
+              onBlur={() => {
+                if (slotData && slotLabelDraft !== slotData.label) {
+                  handleSlotUpdate("label", slotLabelDraft);
+                }
+              }}
               placeholder="e.g. Christmas Decorations"
               className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-400"
             />
           </div>
 
-          {/* Color Tag */}
+          {/* Color Tag + Tote Photo Thumbnail (inline) */}
           <div>
             <label className="text-xs text-slate-400 uppercase tracking-wider">
-              Color Tag
+              Color Tag {slotData.photo_url ? "& Photo" : ""}
             </label>
-            <div className="flex gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               {COLORS.map((c) => (
                 <button
                   key={c.value}
@@ -446,6 +557,41 @@ export default function RackPage() {
                   title={c.label}
                 />
               ))}
+
+              {/* Tote Photo Thumbnail — same circular footprint as color
+                  swatches, sits inline to the right. Click to enlarge. */}
+              {slotData.photo_url ? (
+                <button
+                  onClick={() => setPhotoLightboxOpen(true)}
+                  className="ml-1 h-8 w-8 overflow-hidden rounded-full border-2 border-yellow-400/60 ring-1 ring-slate-900 transition-transform hover:scale-110"
+                  title="View tote photo"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={slotData.photo_url}
+                    alt="Tote photo"
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ) : (
+                <label
+                  className="ml-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-slate-600 text-slate-500 transition-colors hover:border-yellow-400 hover:text-yellow-400"
+                  title="Add tote photo"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={photoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleReplaceTotePhoto(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
             </div>
           </div>
 
@@ -467,32 +613,96 @@ export default function RackPage() {
               </p>
             ) : (
               <div className="space-y-2">
-                {slotItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {item.name}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-slate-400">
-                        {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
-                        {item.category && (
-                          <span className="bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">
-                            {item.category}
-                          </span>
-                        )}
+                {slotItems.map((item) => {
+                  const isEditing = editingItemId === item.id;
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-yellow-400/50 bg-slate-800/80 px-3 py-2 space-y-2"
+                      >
+                        <input
+                          type="text"
+                          value={editItemName}
+                          onChange={(e) => setEditItemName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveEditItem();
+                            if (e.key === "Escape") cancelEditItem();
+                          }}
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-yellow-400"
+                          autoFocus
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            value={editItemQty}
+                            onChange={(e) => setEditItemQty(parseInt(e.target.value) || 1)}
+                            className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-yellow-400"
+                          />
+                          {item.category && (
+                            <span className="bg-slate-700 px-1.5 py-0.5 rounded text-[10px] text-slate-300">
+                              {item.category}
+                            </span>
+                          )}
+                          <div className="ml-auto flex items-center gap-1">
+                            <button
+                              onClick={cancelEditItem}
+                              disabled={editItemSaving}
+                              className="rounded px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-700 hover:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveEditItem}
+                              disabled={editItemSaving || !editItemName.trim()}
+                              className="flex items-center gap-1 rounded bg-yellow-400 px-2.5 py-1 text-[11px] font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-50"
+                            >
+                              {editItemSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {item.name}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          {item.quantity > 1 && <span>Qty: {item.quantity}</span>}
+                          {item.category && (
+                            <span className="bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">
+                              {item.category}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => startEditItem(item)}
+                          className="p-1.5 text-slate-500 transition-colors hover:text-yellow-400"
+                          title="Edit name & quantity"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
+                          title="Delete item"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -570,41 +780,52 @@ export default function RackPage() {
               Take a photo of the open tote — AI identifies everything inside
             </p>
 
-            <label
-              className={`flex items-center justify-center gap-2 w-full py-3 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
-                scanning
-                  ? "border-yellow-400/50 bg-yellow-400/5"
-                  : "border-slate-700 hover:border-yellow-400/50 hover:bg-slate-800/50"
-              }`}
-            >
-              {scanning ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin text-yellow-400" />
-                  <span className="text-sm text-yellow-400 font-medium">
-                    Analyzing photo...
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Camera className="w-5 h-5 text-slate-400" />
-                  <span className="text-sm text-slate-300 font-medium">
-                    Take Photo or Choose Image
-                  </span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                disabled={scanning}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePhotoScan(file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            {scanning ? (
+              <div
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-lg border-2 border-dashed border-yellow-400/50 bg-yellow-400/5"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-yellow-400" />
+                <span className="text-sm text-yellow-400 font-medium">
+                  Analyzing photo...
+                </span>
+              </div>
+            ) : (
+              // Two distinct inputs — iOS Safari treats `capture` as a forced
+              // camera launch, blocking library access. Splitting the button
+              // gives the customer both options without an OS-level chooser
+              // that's inconsistent across devices.
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-dashed border-slate-700 cursor-pointer transition-colors hover:border-yellow-400/50 hover:bg-slate-800/50">
+                  <Camera className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs text-slate-300 font-medium">Take Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoScan(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-dashed border-slate-700 cursor-pointer transition-colors hover:border-yellow-400/50 hover:bg-slate-800/50">
+                  <ImageIcon className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs text-slate-300 font-medium">Choose from Library</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoScan(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            )}
 
             {/* Scan Results Preview */}
             {scanPreview.length > 0 && (
@@ -712,6 +933,64 @@ export default function RackPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Tote Photo Lightbox ────────────────────────────────────── */}
+        {photoLightboxOpen && slotData?.photo_url && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+            onClick={() => setPhotoLightboxOpen(false)}
+          >
+            <div
+              className="relative max-h-[90vh] max-w-3xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={slotData.photo_url}
+                alt={slotData.label || `Tote ${displayCol}-${displayRow}`}
+                className="max-h-[90vh] w-auto rounded-xl border border-slate-700 object-contain"
+              />
+              {/* Action bar over the image */}
+              <div className="absolute right-3 top-3 flex items-center gap-2">
+                <label
+                  className="flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-slate-900/80 px-3 text-xs font-bold text-white backdrop-blur transition-colors hover:bg-slate-800"
+                  title="Replace photo"
+                >
+                  {photoUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                  Edit
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={photoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleReplaceTotePhoto(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button
+                  onClick={() => setPhotoLightboxOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-white backdrop-blur transition-colors hover:bg-slate-800"
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {(slotData.label || slotItems.length > 0) && (
+                <div className="absolute bottom-3 left-3 right-3 rounded-lg bg-slate-900/80 px-3 py-2 backdrop-blur">
+                  {slotData.label && (
+                    <p className="text-sm font-bold text-white">{slotData.label}</p>
+                  )}
+                  <p className="text-[11px] text-slate-300">
+                    Tote {displayCol}-{displayRow} · {slotItems.length} item{slotItems.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
