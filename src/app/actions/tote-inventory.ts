@@ -245,6 +245,82 @@ export async function updateSlot(
   return { success: !error };
 }
 
+// ── Tote Photo Upload ────────────────────────────────────────────────────
+// Stores the customer's tote photo (typically the same one used for the
+// AI scan) in Supabase Storage and writes the public URL onto
+// inventory_slots.photo_url. One photo per slot — uploading replaces the
+// existing one. Bucket is created on first use.
+
+const TOTE_PHOTOS_BUCKET = "tote-photos";
+
+async function ensureTotePhotosBucket() {
+  const { data } = await db().storage.getBucket(TOTE_PHOTOS_BUCKET);
+  if (!data) {
+    await db().storage.createBucket(TOTE_PHOTOS_BUCKET, {
+      public: true,
+      fileSizeLimit: 10 * 1024 * 1024, // 10MB
+    });
+  }
+}
+
+export async function uploadTotePhoto(
+  slotId: string,
+  token: string,
+  imageBase64: string,
+  contentType: string = "image/jpeg"
+): Promise<{ photoUrl?: string; error?: string }> {
+  if (!slotId || !token || !imageBase64) {
+    return { error: "Missing slot, token, or image" };
+  }
+
+  // Auth: slot must belong to this token's rack.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: slot } = await db()
+    .from("inventory_slots")
+    .select("id, rack_id, inventory_racks!inner(id, access_token)")
+    .eq("id", slotId)
+    .maybeSingle();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (!slot || (slot as any).inventory_racks?.access_token !== token) {
+    return { error: "Unauthorized" };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rackId = (slot as any).inventory_racks.id as string;
+
+  try {
+    await ensureTotePhotosBucket();
+
+    const ext = contentType.includes("png") ? "png" : "jpg";
+    const path = `${rackId}/${slotId}-${Date.now()}.${ext}`;
+    const buffer = Buffer.from(imageBase64, "base64");
+
+    const { error: uploadError } = await db().storage
+      .from(TOTE_PHOTOS_BUCKET)
+      .upload(path, buffer, { contentType, upsert: true });
+    if (uploadError) {
+      console.error("[TotePhoto] upload failed:", uploadError);
+      return { error: uploadError.message };
+    }
+
+    const { data: urlData } = db().storage.from(TOTE_PHOTOS_BUCKET).getPublicUrl(path);
+    const photoUrl = urlData.publicUrl;
+
+    const { error: updErr } = await db()
+      .from("inventory_slots")
+      .update({ photo_url: photoUrl, updated_at: new Date().toISOString() })
+      .eq("id", slotId);
+    if (updErr) {
+      console.error("[TotePhoto] DB update failed:", updErr);
+      return { error: updErr.message };
+    }
+
+    return { photoUrl };
+  } catch (err) {
+    console.error("[TotePhoto] error:", err);
+    return { error: err instanceof Error ? err.message : "Upload failed" };
+  }
+}
+
 // ── Item Operations ──────────────────────────────────────────────────────
 
 export async function addItem(
