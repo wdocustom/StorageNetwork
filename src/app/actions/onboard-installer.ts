@@ -213,13 +213,19 @@ export async function onboardInstaller(
       console.error("[Onboard] Referral tracking failed (non-fatal):", refErr);
     }
 
-    // 2b'. Affiliate cold-email invite attribution (Phase 6). Distinct from
-    //      the legacy partner-slug path above — this handles invites sent
-    //      from one installer to another via the new affiliate program.
-    //      Priority is intentional: the legacy slug cookie wins when both
-    //      exist, because slug-based affiliate links predate the email
-    //      invite system. If the legacy path didn't fire (or didn't set
-    //      referred_by_installer_id), we fall through to this block.
+    // 2b'. Affiliate cold-email invite attribution (Phase 6, fixed in 6.5).
+    //      Activates the trial AND attributes the recruit to the referring
+    //      affiliate. When this block claims attribution, it ALSO overrides
+    //      pro_trial_partner — otherwise a stale value from the legacy
+    //      partner-slug block (e.g. "WDO Custom") would still drive the
+    //      "courtesy of X" dashboard banner even though the new system
+    //      correctly attributes the recruit elsewhere.
+    //
+    //      Priority is intentional: when both the legacy slug cookie AND
+    //      an invite cookie exist, this block claims attribution because
+    //      the invite is more recent + more specific (a person typed the
+    //      prospect's email; the slug cookie may have been sitting for 30
+    //      days from a different click).
     try {
       const cookieStore = await cookies();
       const inviteToken = cookieStore.get("sn_affiliate_invite")?.value;
@@ -240,15 +246,76 @@ export async function onboardInstaller(
             .eq("status", "active")
             .maybeSingle();
           if (activeAgreement) {
-            // First-write-wins: don't clobber an already-set value.
-            await supabase
+            // Look up the referrer's display name for pro_trial_partner.
+            const { data: referrerProfile } = await supabase
               .from("profiles")
-              .update({ referred_by_installer_id: invite.referring_installer_id })
+              .select("business_name, first_name, last_name")
+              .eq("id", invite.referring_installer_id)
+              .maybeSingle();
+            const referrerName =
+              (referrerProfile?.business_name as string | null) ||
+              [referrerProfile?.first_name, referrerProfile?.last_name]
+                .filter(Boolean)
+                .join(" ") ||
+              "An installer";
+
+            // ── Claim attribution (first-write-wins on referred_by_installer_id).
+            // If the legacy block already claimed (referred_by != null), this
+            // is a no-op for both columns — we don't poach attribution from
+            // a partner who got there first via slug.
+            const { data: claimed } = await supabase
+              .from("profiles")
+              .update({
+                referred_by_installer_id: invite.referring_installer_id,
+                pro_trial_partner: referrerName,
+              })
               .eq("id", userId)
-              .is("referred_by_installer_id", null);
+              .is("referred_by_installer_id", null)
+              .select("id")
+              .maybeSingle();
+
+            // ── If we successfully claimed AND legacy didn't activate a
+            //    trial yet, activate one now so the recruit gets the same
+            //    45-day / 3-job courtesy trial the legacy path provides.
+            //    Setting isTrialActivated prevents block 2c from later
+            //    overwriting pro_trial_partner to null.
+            if (claimed && !isTrialActivated) {
+              const trialEnd = new Date();
+              trialEnd.setDate(trialEnd.getDate() + 45);
+
+              const rawName =
+                businessName.trim() || name.trim() || userId.slice(0, 8);
+              let trialSlug = slugify(rawName);
+              if (!trialSlug) trialSlug = userId.slice(0, 8);
+
+              const { data: slugClash } = await supabase
+                .from("profiles")
+                .select("id")
+                .eq("slug", trialSlug)
+                .neq("id", userId)
+                .maybeSingle();
+              if (slugClash) {
+                trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
+              }
+
+              await supabase
+                .from("profiles")
+                .update({
+                  is_pro: true,
+                  slug: trialSlug,
+                  pro_trial_ends_at: trialEnd.toISOString(),
+                })
+                .eq("id", userId);
+
+              isTrialActivated = true;
+              console.log(
+                `✅ Phase-6 invite trial activated: ${userId} ← referrer ${invite.referring_installer_id} (${referrerName})`
+              );
+            }
 
             // Mark the invite as signed_up so the affiliate's portal
-            // reflects conversion.
+            // reflects conversion. Done regardless of whether we won the
+            // attribution race — the invite still produced a signup.
             await supabase
               .from("affiliate_email_invites")
               .update({
@@ -258,7 +325,15 @@ export async function onboardInstaller(
               })
               .eq("id", invite.id);
 
-            console.log(`✅ Affiliate invite attribution: ${userId} ← referrer ${invite.referring_installer_id}`);
+            if (!claimed) {
+              console.log(
+                `[Onboard] Affiliate invite attribution: legacy slug claimed first, invite recorded as signed_up only: ${userId}`
+              );
+            } else {
+              console.log(
+                `✅ Affiliate invite attribution: ${userId} ← referrer ${invite.referring_installer_id} (${referrerName})`
+              );
+            }
           }
         }
       }
