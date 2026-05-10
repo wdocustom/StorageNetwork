@@ -15,6 +15,8 @@ import {
   getStripeDashboardLink,
 } from "@/app/actions/stripe-connect";
 import { deactivateAccount } from "@/app/actions/debug";
+import { getMyAffiliateStatus } from "@/app/actions/affiliate-program";
+import type { AffiliateApplication } from "@/types/affiliate";
 import {
   ArrowLeft,
   Camera,
@@ -183,6 +185,11 @@ function ProfilePageInner() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeMessage, setStripeMessage] = useState("");
 
+  // Affiliate program state (Phase 2). Fetched once on mount.
+  const [affiliateApplication, setAffiliateApplication] =
+    useState<AffiliateApplication | null>(null);
+  const [affiliateHasAgreement, setAffiliateHasAgreement] = useState(false);
+
   // Deactivate state
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
@@ -283,6 +290,24 @@ function ProfilePageInner() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Affiliate status — fetched once on mount so the profile CTA renders
+  // immediately. Phase 2 reads only; Phase 3+ will refresh on agreement
+  // proposal / acceptance.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getMyAffiliateStatus();
+        if (cancelled) return;
+        setAffiliateApplication(res.application);
+        setAffiliateHasAgreement(res.hasAgreement);
+      } catch (err) {
+        console.warn("[Profile] affiliate status fetch failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Handle Stripe return params
   useEffect(() => {
@@ -1711,7 +1736,86 @@ function ProfilePageInner() {
               </div>
             </div>
 
-            {/* ── Partner Portal ────────────────────────────────────── */}
+            {/* ── Affiliate Program — apply or status (Phase 2) ─────── */}
+            {/* Hidden when the installer is already a legacy partner OR
+                already has an agreement in the new system. Otherwise we
+                surface either the apply CTA or their application status. */}
+            {!profile?.is_partner && !affiliateHasAgreement && (
+              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+                <div className="p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Handshake className="h-4 w-4 text-yellow-400" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                      Refer Installers, Earn a Cut
+                    </h2>
+                  </div>
+                  {/* No application yet → invite them to apply */}
+                  {!affiliateApplication && (
+                    <>
+                      <p className="mb-4 text-sm text-stone-400">
+                        Bring in installers you trust and earn a custom cut of their
+                        subscription revenue. Each affiliate&rsquo;s terms are negotiated
+                        individually — and only you ever see yours.
+                      </p>
+                      <a
+                        href="/dashboard/affiliate/apply"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        <Handshake className="h-4 w-4" />
+                        Apply to Be an Affiliate
+                      </a>
+                    </>
+                  )}
+                  {/* Application status states */}
+                  {affiliateApplication?.status === "pending" && (
+                    <div className="rounded-lg border border-yellow-400/30 bg-slate-900 p-3">
+                      <p className="text-sm font-bold text-white">Application under review</p>
+                      <p className="mt-1 text-xs text-stone-400">
+                        Submitted {new Date(affiliateApplication.submitted_at).toLocaleDateString()} &middot;
+                        We respond personally within 3 business days.
+                      </p>
+                    </div>
+                  )}
+                  {affiliateApplication?.status === "approved" && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                      <p className="text-sm font-bold text-emerald-300">Approved</p>
+                      <p className="mt-1 text-xs text-stone-300">
+                        Your agreement is on its way. Watch your inbox for the link to review and accept.
+                      </p>
+                    </div>
+                  )}
+                  {affiliateApplication?.status === "rejected" && (
+                    <>
+                      <p className="mb-3 text-sm text-stone-400">
+                        Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply again
+                        whenever circumstances change.
+                      </p>
+                      <a
+                        href="/dashboard/affiliate/apply"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        Apply Again
+                      </a>
+                    </>
+                  )}
+                  {affiliateApplication?.status === "withdrawn" && (
+                    <>
+                      <p className="mb-3 text-sm text-stone-400">
+                        You withdrew your previous application. Re-apply any time.
+                      </p>
+                      <a
+                        href="/dashboard/affiliate/apply"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        Apply Again
+                      </a>
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ── Partner Portal (legacy partners — Elite Storage Systems) ── */}
             {profile?.is_partner && (
               <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
                 <div className="p-5">
