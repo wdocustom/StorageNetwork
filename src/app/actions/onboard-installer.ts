@@ -180,11 +180,90 @@ export async function onboardInstaller(
 
           isTrialActivated = true;
           console.log(`✅ Referral + trial activated: ${userId} → partner ${partner.id} (slug: ${affiliateSlug}) | Trial ends: ${trialEnd.toISOString()}`);
+
+          // ── Cross-link into new affiliate program. If the legacy partner
+          //    has a linked user_id AND that user has an active agreement,
+          //    set referred_by_installer_id so Phase 5's payout pipeline
+          //    fires on this recruit's invoices too. Idempotent: only sets
+          //    when currently NULL.
+          const { data: partnerUser } = await supabase
+            .from("partners")
+            .select("user_id")
+            .eq("id", partner.id)
+            .maybeSingle();
+          if (partnerUser?.user_id) {
+            const { data: activeAgreement } = await supabase
+              .from("affiliate_agreements")
+              .select("id")
+              .eq("affiliate_id", partnerUser.user_id)
+              .eq("status", "active")
+              .maybeSingle();
+            if (activeAgreement) {
+              await supabase
+                .from("profiles")
+                .update({ referred_by_installer_id: partnerUser.user_id })
+                .eq("id", userId)
+                .is("referred_by_installer_id", null);
+            }
+          }
         }
       }
     } catch (refErr) {
       // Non-fatal — don't block onboarding if referral tracking fails
       console.error("[Onboard] Referral tracking failed (non-fatal):", refErr);
+    }
+
+    // 2b'. Affiliate cold-email invite attribution (Phase 6). Distinct from
+    //      the legacy partner-slug path above — this handles invites sent
+    //      from one installer to another via the new affiliate program.
+    //      Priority is intentional: the legacy slug cookie wins when both
+    //      exist, because slug-based affiliate links predate the email
+    //      invite system. If the legacy path didn't fire (or didn't set
+    //      referred_by_installer_id), we fall through to this block.
+    try {
+      const cookieStore = await cookies();
+      const inviteToken = cookieStore.get("sn_affiliate_invite")?.value;
+      if (inviteToken) {
+        const { data: invite } = await supabase
+          .from("affiliate_email_invites")
+          .select("id, referring_installer_id, prospect_email, status")
+          .eq("invite_token", inviteToken)
+          .maybeSingle();
+        if (invite && invite.referring_installer_id !== userId) {
+          // Only attribute if the referrer has an active agreement —
+          // otherwise the recruit row sits unattributable until/unless
+          // an admin sets one up.
+          const { data: activeAgreement } = await supabase
+            .from("affiliate_agreements")
+            .select("id")
+            .eq("affiliate_id", invite.referring_installer_id)
+            .eq("status", "active")
+            .maybeSingle();
+          if (activeAgreement) {
+            // First-write-wins: don't clobber an already-set value.
+            await supabase
+              .from("profiles")
+              .update({ referred_by_installer_id: invite.referring_installer_id })
+              .eq("id", userId)
+              .is("referred_by_installer_id", null);
+
+            // Mark the invite as signed_up so the affiliate's portal
+            // reflects conversion.
+            await supabase
+              .from("affiliate_email_invites")
+              .update({
+                status: "signed_up",
+                signed_up_at: new Date().toISOString(),
+                signed_up_user_id: userId,
+              })
+              .eq("id", invite.id);
+
+            console.log(`✅ Affiliate invite attribution: ${userId} ← referrer ${invite.referring_installer_id}`);
+          }
+        }
+      }
+    } catch (inviteErr) {
+      console.error("[Onboard] Affiliate invite attribution failed (non-fatal):", inviteErr);
     }
 
     // 2c. Standard trial (CTA join — no partner) if no affiliate trial was activated
