@@ -10,16 +10,25 @@ import {
   Handshake,
   Loader2,
   Mail,
+  Send,
   Sparkles,
+  UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 import {
   getMyAffiliatePortalData,
   type AffiliatePortalData,
 } from "@/app/actions/affiliate-program";
 import {
+  sendAffiliateInvite,
+  getMyAffiliateInvites,
+} from "@/app/actions/affiliate-invites";
+import {
   formatAgreementConfig,
   formatAgreementDuration,
+  type AffiliateEmailInvite,
+  type AffiliateInviteStatus,
 } from "@/types/affiliate";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,16 +55,68 @@ export default function AffiliatePortalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Invites (Phase 6) — separate fetch so the form can refresh just this
+  // panel after a successful send without re-fetching the whole portal.
+  const [invites, setInvites] = useState<AffiliateEmailInvite[]>([]);
+
+  // Invite form state
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+
+  async function refreshInvites() {
+    const res = await getMyAffiliateInvites();
+    if (!res.error) setInvites(res.invites);
+  }
+
+  async function handleSendInvite() {
+    setInviteError(null);
+    setInviteSuccess(false);
+    if (!inviteEmail.trim()) {
+      setInviteError("Enter a prospect's email.");
+      return;
+    }
+    setInviteSending(true);
+    try {
+      const res = await sendAffiliateInvite({
+        prospectEmail: inviteEmail.trim(),
+        prospectName: inviteName.trim() || undefined,
+      });
+      if (res.success) {
+        setInviteSuccess(true);
+        setInviteName("");
+        setInviteEmail("");
+        await refreshInvites();
+        // Auto-collapse the form after a brief success state
+        setTimeout(() => { setShowInviteForm(false); setInviteSuccess(false); }, 2000);
+      } else {
+        setInviteError(res.error || "Could not send the invite.");
+      }
+    } catch (err) {
+      console.error("[AffiliatePortal] invite send failed:", err);
+      setInviteError("Something went wrong. Try again.");
+    } finally {
+      setInviteSending(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await getMyAffiliatePortalData();
+      const [portalRes, invitesRes] = await Promise.all([
+        getMyAffiliatePortalData(),
+        getMyAffiliateInvites(),
+      ]);
       if (cancelled) return;
-      if (res.error || !res.data) {
-        setError(res.error || "Could not load your portal.");
+      if (portalRes.error || !portalRes.data) {
+        setError(portalRes.error || "Could not load your portal.");
       } else {
-        setData(res.data);
+        setData(portalRes.data);
       }
+      if (!invitesRes.error) setInvites(invitesRes.invites);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -244,30 +305,165 @@ export default function AffiliatePortalPage() {
         )}
       </section>
 
-      {/* Refer-an-installer — Phase 6 fills this in */}
+      {/* Refer-an-installer — Phase 6 working invite form + sent list */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Mail className="h-4 w-4 text-stone-300" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-stone-300">
             Refer an Installer
           </h2>
-          <span className="ml-auto rounded-full bg-yellow-400/15 px-2 py-0.5 text-[10px] font-bold text-yellow-400">
-            COMING SOON
+          <span className="ml-auto text-[11px] text-stone-500">
+            {invites.length} invite{invites.length === 1 ? "" : "s"} sent
           </span>
         </div>
-        <p className="text-sm text-stone-400">
-          Send a personalized invite to an installer you think would be a fit. We&rsquo;ll
-          email them on your behalf with a tracked link, and any signup attributes back to
-          you for the full agreement term.
-        </p>
-        <button
-          disabled
-          className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 py-2.5 text-sm font-semibold text-stone-500"
-        >
-          <Clock className="h-3.5 w-3.5" /> Available shortly
-        </button>
+
+        {!showInviteForm ? (
+          <>
+            <p className="text-sm text-stone-400">
+              Send a personalized invite to an installer you think would be a fit. We email
+              them on your behalf with a tracked link &mdash; any signup attributes back to
+              you for the full agreement term.
+            </p>
+            <button
+              onClick={() => { setShowInviteForm(true); setInviteSuccess(false); setInviteError(null); }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300"
+            >
+              <UserPlus className="h-4 w-4" />
+              Invite an Installer
+            </button>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-stone-400">
+              The email goes out from <strong className="text-stone-300">your name via Storage Network</strong>.
+              Replies route directly back to you.
+            </p>
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Prospect&rsquo;s name (optional)
+              </label>
+              <input
+                type="text"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="First name helps personalize the email"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                disabled={inviteSending}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Prospect&rsquo;s email
+              </label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSendInvite(); }}
+                placeholder="installer@theirbusiness.com"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                disabled={inviteSending}
+                autoFocus
+              />
+            </div>
+
+            {inviteError && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                {inviteError}
+              </div>
+            )}
+            {inviteSuccess && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                Invite sent.
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowInviteForm(false); setInviteError(null); }}
+                disabled={inviteSending}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-400 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendInvite}
+                disabled={inviteSending || !inviteEmail.trim()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-yellow-400 py-2 text-xs font-bold uppercase tracking-wider text-gray-950 hover:bg-yellow-300 disabled:opacity-50"
+              >
+                {inviteSending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Send Invite
+              </button>
+            </div>
+
+            <p className="text-center text-[10px] text-stone-500">
+              Honest recruiting only. The platform&rsquo;s reputation rides on the people you bring in.
+            </p>
+          </div>
+        )}
+
+        {/* Sent invites list */}
+        {invites.length > 0 && (
+          <div className="mt-5 border-t border-slate-800 pt-4 space-y-2">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+              Sent
+            </p>
+            {invites.map((inv) => (
+              <InviteRow key={inv.id} invite={inv} />
+            ))}
+          </div>
+        )}
       </section>
     </Shell>
+  );
+}
+
+// ── Invite row ─────────────────────────────────────────────────────────────
+
+function InviteRow({ invite }: { invite: AffiliateEmailInvite }) {
+  const display = invite.prospect_name
+    ? `${invite.prospect_name} (${invite.prospect_email})`
+    : invite.prospect_email;
+  const when = invite.sent_at
+    ? new Date(invite.sent_at).toLocaleDateString()
+    : new Date(invite.created_at).toLocaleDateString();
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs text-white">{display}</p>
+        <p className="text-[10px] text-stone-500">Sent {when}</p>
+      </div>
+      <InvitePill status={invite.status} />
+    </div>
+  );
+}
+
+function InvitePill({ status }: { status: AffiliateInviteStatus }) {
+  const map: Record<
+    AffiliateInviteStatus,
+    { bg: string; fg: string; label: string; icon?: React.ComponentType<{ className?: string }> }
+  > = {
+    sent:         { bg: "bg-slate-700/40",   fg: "text-stone-400",   label: "SENT" },
+    opened:       { bg: "bg-blue-500/15",    fg: "text-blue-300",    label: "OPENED" },
+    clicked:      { bg: "bg-yellow-400/15",  fg: "text-yellow-300",  label: "CLICKED" },
+    signed_up:    { bg: "bg-emerald-500/15", fg: "text-emerald-300", label: "JOINED", icon: CheckCircle2 },
+    unsubscribed: { bg: "bg-red-500/15",     fg: "text-red-300",     label: "UNSUBSCRIBED", icon: XCircle },
+    bounced:      { bg: "bg-red-500/15",     fg: "text-red-300",     label: "BOUNCED", icon: XCircle },
+  };
+  const s = map[status];
+  const Icon = s.icon;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider ${s.bg} ${s.fg}`}
+    >
+      {Icon && <Icon className="h-3 w-3" />}
+      {s.label}
+    </span>
   );
 }
 

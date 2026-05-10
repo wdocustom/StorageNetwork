@@ -297,3 +297,104 @@ export async function sendAffiliateAgreementAcceptedAdminAlert(
     html,
   });
 }
+
+// ── 6. Affiliate Cold Invite (sent on behalf of the referring installer) ──
+// Phase 6's "highly converting, salesman-style" outreach. Format decisions
+// match the architecture brief:
+//   • From: "{ReferrerName} via Storage Network <orders@storage-network.app>"
+//     — display-name trick keeps deliverability on our infrastructure while
+//     framing the message as a personal nudge from the referrer.
+//   • Reply-To: referring installer's real email — replies go straight to
+//     them, not to the storage-network inbox.
+//   • One clear CTA. Three short value bullets. No multi-step nurture.
+//   • CAN-SPAM compliant footer: physical address + unsubscribe link.
+//
+// The body is intentionally short. B2B cold email peaks in conversion
+// around ~100–150 words of body. Anything longer reads like a sales deck.
+
+export async function sendAffiliateColdInviteEmail(input: {
+  prospectEmail: string;
+  prospectName: string | null;
+  referrerName: string;
+  referrerCompany: string | null;
+  referrerEmail: string;
+  inviteToken: string;
+}): Promise<SendEmailResult> {
+  const inviteUrl = `${getAppUrl()}/join/i/${input.inviteToken}`;
+  const unsubUrl = `${getAppUrl()}/api/unsubscribe-affiliate-invite?token=${input.inviteToken}`;
+
+  const safeProspectFirstName =
+    input.prospectName?.trim().split(/\s+/)[0] || "there";
+  const safeReferrerName = escapeHtml(input.referrerName);
+  const safeReferrerLine = input.referrerCompany
+    ? `${escapeHtml(input.referrerName)} at ${escapeHtml(input.referrerCompany)}`
+    : escapeHtml(input.referrerName);
+
+  const html = masterEmailLayout(
+    "An installer you might know thinks you'd be a fit",
+    `
+    <p style="margin:0 0 16px;color:#ffffff;font-size:16px;">
+      Hey ${escapeHtml(safeProspectFirstName)},
+    </p>
+    <p style="margin:0 0 16px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      My name&rsquo;s ${safeReferrerLine}. I install custom storage on a platform
+      called Storage Network and figured you should at least know it exists.
+    </p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      It&rsquo;s done well for me &mdash; the platform brings in customers who already
+      know what they want and have paid a deposit. Less time chasing leads, more
+      time installing. If you want to see how it works, here&rsquo;s a link:
+    </p>
+
+    ${eyebrow("Why I'm telling you about it")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">
+        <span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>
+        Customers design their build in 3D, pay a deposit before you swing a hammer.
+      </td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">
+        <span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>
+        Auto-generated cut lists. No math. Quote-to-install in days, not weeks.
+      </td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;">
+        <span style="color:#facc15;font-weight:700;margin-right:8px;">&#10003;</span>
+        Stripe payouts. Auto-routed leads. First 3 jobs have zero platform fees.
+      </td></tr>
+    </table>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(inviteUrl, "See How It Works")}
+    </div>
+
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:14px;line-height:1.7;">
+      Reply to this email if you have questions &mdash; it comes straight to me.
+      Worst case it takes 2 minutes and you decide it&rsquo;s not for you.
+    </p>
+
+    <p style="margin:0 0 4px;color:#a3a3a3;font-size:14px;">${safeReferrerName}</p>
+    <p style="margin:0;color:#555;font-size:11px;">
+      Forwarded by Storage Network on ${safeReferrerName}&rsquo;s behalf.
+    </p>
+
+    <!-- Compliance footer (CAN-SPAM) -->
+    <div style="border-top:1px solid #222;margin-top:32px;padding-top:18px;text-align:center;">
+      <p style="margin:0 0 4px;color:#555;font-size:11px;">
+        You&rsquo;re receiving this because ${safeReferrerName} thought you might be a fit
+        for Storage Network. <a href="${unsubUrl}" style="color:#facc15;text-decoration:underline;">Don&rsquo;t want these?</a>
+      </p>
+      <p style="margin:0;color:#555;font-size:11px;">
+        Storage Network &middot; 1100 Williams Way, Westerville, OH 43082
+      </p>
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: input.prospectEmail,
+    toName: input.prospectName || undefined,
+    senderName: `${input.referrerName} via Storage Network`,
+    replyTo: input.referrerEmail,
+    subject: `${input.referrerName} thinks you should see this`,
+    html,
+  });
+}
