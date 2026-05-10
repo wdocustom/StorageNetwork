@@ -7,11 +7,13 @@ import {
   sendAffiliateApplicationAdminAlert,
   sendAffiliateAgreementProposedEmail,
   sendAffiliateApplicationRejectedEmail,
+  sendAffiliateAgreementAcceptedAdminAlert,
 } from "@/lib/email";
 import type {
   AffiliateApplication,
   AffiliateApplicationStatus,
   AgreementConfig,
+  AffiliateAgreement,
 } from "@/types/affiliate";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -664,5 +666,255 @@ export async function proposeAffiliateAgreement(
   }
 
   return { success: true, agreementId: agreement.id as string };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Affiliate-Side Actions (Phase 4)
+//
+// Self-serve: read your own proposed/active agreement, accept it, fetch
+// the data your partner portal renders. RLS scopes everything to
+// auth.uid() — even if a buggy client passed a stranger's id, the SELECT
+// would return nothing.
+//
+// "Privacy isolation" invariant: each helper here returns ONLY the caller's
+// own affiliate record. Phase 5 will add a Stripe-payout-aware variant of
+// the portal-data fetcher; the auth shape is identical.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── E. getMyAgreement ─────────────────────────────────────────────────────
+// Used by /dashboard/affiliate/agreement/[id] (review/accept) AND by the
+// partner portal. Returns the agreement only if it belongs to the caller.
+// Returns null silently for not-found / wrong-owner — the page renders a
+// generic "agreement not found" without leaking which case it was.
+
+export async function getMyAgreement(
+  agreementId: string
+): Promise<{ agreement: AffiliateAgreement | null; error?: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { agreement: null, error: "Not signed in." };
+  if (!agreementId) return { agreement: null, error: "Missing agreement id." };
+
+  const { data, error } = await db()
+    .from("affiliate_agreements")
+    .select("*")
+    .eq("id", agreementId)
+    .eq("affiliate_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Affiliate] getMyAgreement failed:", error);
+    return { agreement: null, error: "Could not load agreement." };
+  }
+  return { agreement: (data as AffiliateAgreement | null) ?? null };
+}
+
+// ── F. acceptMyAgreement ──────────────────────────────────────────────────
+// Flips a 'proposed' agreement to 'active' for the calling affiliate.
+// Sets accepted_at, start_date, end_date (computed from duration_months).
+// Idempotent on second call (returns success: true without re-stamping).
+// Notifies admins so the queue stays in sync.
+
+const TERMS_VERSION = "v1.0"; // bump when default boilerplate changes structurally
+
+export async function acceptMyAgreement(
+  agreementId: string
+): Promise<{ success: boolean; error?: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: "Not signed in." };
+  if (!agreementId) return { success: false, error: "Missing agreement id." };
+
+  // Fetch first so we can check status + compute end_date.
+  const { data: existing, error: fetchErr } = await db()
+    .from("affiliate_agreements")
+    .select("id, affiliate_id, status, duration_months, accepted_at")
+    .eq("id", agreementId)
+    .eq("affiliate_id", user.id)
+    .maybeSingle();
+
+  if (fetchErr || !existing) {
+    return { success: false, error: "Agreement not found." };
+  }
+  if (existing.status === "active") {
+    // Idempotent: already accepted. Still success.
+    return { success: true };
+  }
+  if (existing.status !== "proposed") {
+    return {
+      success: false,
+      error: `This agreement is ${existing.status} and can no longer be accepted.`,
+    };
+  }
+
+  const now = new Date();
+  const startDate = now.toISOString();
+  const months = existing.duration_months as number | null;
+  const endDate =
+    months === null
+      ? null
+      : new Date(now.getTime() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Atomic update — guard against the partial unique index by
+  // double-checking status='proposed' in the WHERE clause.
+  const { data: updated, error: updErr } = await db()
+    .from("affiliate_agreements")
+    .update({
+      status: "active",
+      accepted_at: startDate,
+      accepted_terms_version: TERMS_VERSION,
+      start_date: startDate,
+      end_date: endDate,
+      updated_at: startDate,
+    })
+    .eq("id", agreementId)
+    .eq("affiliate_id", user.id)
+    .eq("status", "proposed")
+    .select("id")
+    .maybeSingle();
+
+  if (updErr) {
+    console.error("[Affiliate] acceptMyAgreement failed:", updErr);
+    return { success: false, error: "Could not accept the agreement. Please try again." };
+  }
+  if (!updated) {
+    // Lost the race — someone (admin?) changed status mid-call.
+    return { success: false, error: "Agreement state changed while you were reviewing it. Refresh." };
+  }
+
+  // ── Notify admins so the queue stays in sync. Fire-and-forget. ────────
+  void notifyAdminsOfAccept({
+    affiliateId: user.id,
+    agreementId,
+  });
+
+  return { success: true };
+}
+
+async function notifyAdminsOfAccept(payload: {
+  affiliateId: string;
+  agreementId: string;
+}) {
+  try {
+    const [{ data: profile }, { data: admins }] = await Promise.all([
+      db()
+        .from("profiles")
+        .select("first_name, last_name, business_name, email")
+        .eq("id", payload.affiliateId)
+        .maybeSingle(),
+      db().from("profiles").select("email").eq("is_admin", true),
+    ]);
+
+    const affiliateName =
+      (profile?.business_name as string | null) ||
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+      "An affiliate";
+
+    if (!admins) return;
+    for (const a of admins) {
+      const adminEmail = a.email as string | null;
+      if (!adminEmail) continue;
+      void sendAffiliateAgreementAcceptedAdminAlert(adminEmail, {
+        affiliateName,
+        agreementId: payload.agreementId,
+      }).catch((err) =>
+        console.warn("[Affiliate] accept admin email failed:", err)
+      );
+    }
+  } catch (err) {
+    console.warn("[Affiliate] notifyAdminsOfAccept failed:", err);
+  }
+}
+
+// ── G. getMyAffiliatePortalData ───────────────────────────────────────────
+// One-shot data fetch for the private partner portal. Returns the
+// caller's agreement + recruits + earnings summary. All scoped to
+// auth.uid() — the privacy invariant the user explicitly required.
+
+export interface AffiliatePortalData {
+  agreement: AffiliateAgreement | null;
+  /** Installers whose profiles.referred_by_installer_id = me.
+   *  Phase 6 wires the column on signup; until then this is empty
+   *  for new affiliates. (Joe Long's legacy referrals migrate
+   *  in Phase 5.) */
+  recruits: Array<{
+    id: string;
+    name: string;
+    is_pro: boolean;
+    completed_jobs: number | null;
+    joined_at: string;
+  }>;
+  earnings: {
+    total_paid_cents: number;
+    total_pending_cents: number;
+    payout_count: number;
+  };
+}
+
+export async function getMyAffiliatePortalData(): Promise<{
+  data: AffiliatePortalData | null;
+  error?: string;
+}> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { data: null, error: "Not signed in." };
+
+  // 1. Active or proposed agreement (most relevant first; portal
+  //    surfaces a "review your agreement" CTA for proposed).
+  const { data: agreement } = await db()
+    .from("affiliate_agreements")
+    .select("*")
+    .eq("affiliate_id", user.id)
+    .in("status", ["active", "proposed", "paused"])
+    .order("status", { ascending: true })  // active < paused < proposed alphabetically; not stable
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // 2. Recruits — installers attributed to this affiliate.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: recruitProfiles } = await db()
+    .from("profiles")
+    .select("id, first_name, last_name, business_name, is_pro, completed_jobs, created_at")
+    .eq("referred_by_installer_id", user.id)
+    .order("created_at", { ascending: false });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recruits = (recruitProfiles || []).map((p: any) => ({
+    id: p.id as string,
+    name:
+      (p.business_name as string | null) ||
+      [p.first_name, p.last_name].filter(Boolean).join(" ") ||
+      "Recruited installer",
+    is_pro: p.is_pro === true,
+    completed_jobs: (p.completed_jobs as number | null) ?? null,
+    joined_at: p.created_at as string,
+  }));
+
+  // 3. Earnings summary — Phase 5 inserts rows into affiliate_payouts.
+  //    Until then this returns zeroes for non-Joe-Long affiliates,
+  //    which is correct.
+  const { data: payouts } = await db()
+    .from("affiliate_payouts")
+    .select("amount_cents, status")
+    .eq("affiliate_id", user.id);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalPaidCents = (payouts || [])
+    .filter((p: any) => p.status === "paid")
+    .reduce((sum: number, p: any) => sum + (p.amount_cents as number), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalPendingCents = (payouts || [])
+    .filter((p: any) => p.status === "pending" || p.status === "processing")
+    .reduce((sum: number, p: any) => sum + (p.amount_cents as number), 0);
+
+  return {
+    data: {
+      agreement: (agreement as AffiliateAgreement | null) ?? null,
+      recruits,
+      earnings: {
+        total_paid_cents: totalPaidCents,
+        total_pending_cents: totalPendingCents,
+        payout_count: payouts?.length ?? 0,
+      },
+    },
+  };
 }
 

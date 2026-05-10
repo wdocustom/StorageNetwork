@@ -259,3 +259,41 @@ export async function sendAffiliateApplicationRejectedEmail(
     html,
   });
 }
+
+// ── 5. Agreement Accepted (Admin Alert) ────────────────────────────────────
+// Fires when an affiliate clicks Accept on a proposed agreement. Lets the
+// admin team see the queue moving without manually checking Supabase. The
+// email body includes a deep link straight to the agreement record.
+
+export async function sendAffiliateAgreementAcceptedAdminAlert(
+  adminEmail: string,
+  data: { affiliateName: string; agreementId: string }
+): Promise<SendEmailResult> {
+  const reviewUrl = `${getAppUrl()}/dashboard/admin/affiliates`;
+  const safeName = escapeHtml(data.affiliateName);
+
+  const html = masterEmailLayout(
+    "Agreement Accepted",
+    `
+    <p style="margin:0 0 12px;color:#ffffff;font-size:16px;">
+      <strong>${safeName}</strong> just accepted their affiliate agreement.
+    </p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:14px;line-height:1.7;">
+      Their partner portal is live and they can start recruiting. Phase 5 will
+      begin auto-paying their cuts on each recruit&rsquo;s subscription invoice.
+    </p>
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(reviewUrl, "Open Affiliate Queue")}
+    </div>
+    <p style="margin:0;color:#555;font-size:11px;text-align:center;">
+      Agreement ID: ${escapeHtml(data.agreementId)}
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: adminEmail,
+    subject: `Affiliate Agreement Accepted — ${data.affiliateName}`,
+    html,
+  });
+}
