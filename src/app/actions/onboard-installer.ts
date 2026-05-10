@@ -341,6 +341,102 @@ export async function onboardInstaller(
       console.error("[Onboard] Affiliate invite attribution failed (non-fatal):", inviteErr);
     }
 
+    // 2b''. Affiliate public-referral-link attribution (Phase 6.6).
+    //       The /join/[slug] route sets sn_affiliate_link when the slug
+    //       belongs to an installer with an active affiliate agreement.
+    //       Same atomic claim shape as the Phase 6 invite block, just
+    //       sourced from a public slug click instead of a personal invite
+    //       token. Priority order remains: invite token > public link >
+    //       legacy partner slug — but in practice only one cookie tends
+    //       to be live, and first-write-wins on referred_by_installer_id
+    //       handles the rest.
+    try {
+      const cookieStore = await cookies();
+      const linkAffiliateId = cookieStore.get("sn_affiliate_link")?.value;
+      if (linkAffiliateId && linkAffiliateId !== userId) {
+        const { data: activeAgreement } = await supabase
+          .from("affiliate_agreements")
+          .select("id")
+          .eq("affiliate_id", linkAffiliateId)
+          .eq("status", "active")
+          .maybeSingle();
+        if (activeAgreement) {
+          const { data: referrerProfile } = await supabase
+            .from("profiles")
+            .select("business_name, first_name, last_name")
+            .eq("id", linkAffiliateId)
+            .maybeSingle();
+          const referrerName =
+            (referrerProfile?.business_name as string | null) ||
+            [referrerProfile?.first_name, referrerProfile?.last_name]
+              .filter(Boolean)
+              .join(" ") ||
+            "An installer";
+
+          // Atomic claim — first-write-wins. No-op if earlier block already
+          // claimed referred_by_installer_id.
+          const { data: claimed } = await supabase
+            .from("profiles")
+            .update({
+              referred_by_installer_id: linkAffiliateId,
+              pro_trial_partner: referrerName,
+            })
+            .eq("id", userId)
+            .is("referred_by_installer_id", null)
+            .select("id")
+            .maybeSingle();
+
+          // If we won the claim AND no trial has been activated yet,
+          // activate one — same shape as the invite block.
+          if (claimed && !isTrialActivated) {
+            const trialEnd = new Date();
+            trialEnd.setDate(trialEnd.getDate() + 45);
+
+            const rawName =
+              businessName.trim() || name.trim() || userId.slice(0, 8);
+            let trialSlug = slugify(rawName);
+            if (!trialSlug) trialSlug = userId.slice(0, 8);
+
+            const { data: slugClash } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("slug", trialSlug)
+              .neq("id", userId)
+              .maybeSingle();
+            if (slugClash) {
+              trialSlug = `${trialSlug}-${new Date().getFullYear()}`;
+            }
+
+            await supabase
+              .from("profiles")
+              .update({
+                is_pro: true,
+                slug: trialSlug,
+                pro_trial_ends_at: trialEnd.toISOString(),
+              })
+              .eq("id", userId);
+
+            isTrialActivated = true;
+            console.log(
+              `✅ Phase-6.6 public-link trial activated: ${userId} ← referrer ${linkAffiliateId} (${referrerName})`
+            );
+          }
+
+          if (claimed) {
+            console.log(
+              `✅ Affiliate public-link attribution: ${userId} ← referrer ${linkAffiliateId} (${referrerName})`
+            );
+          } else {
+            console.log(
+              `[Onboard] Public-link attribution: earlier block claimed first, skipping: ${userId}`
+            );
+          }
+        }
+      }
+    } catch (linkErr) {
+      console.error("[Onboard] Affiliate public-link attribution failed (non-fatal):", linkErr);
+    }
+
     // 2c. Standard trial (CTA join — no partner) if no affiliate trial was activated
     if (!isTrialActivated && input.withStandardTrial) {
       try {
