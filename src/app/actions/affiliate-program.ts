@@ -918,3 +918,44 @@ export async function getMyAffiliatePortalData(): Promise<{
   };
 }
 
+// ── H. terminateAgreement (admin) ──────────────────────────────────────────
+// Ends an active or proposed agreement. After termination:
+//   • The affiliate's portal stops showing it as active.
+//   • No new payouts will fire from invoice.payment_succeeded — the webhook
+//     looks for an *active* agreement and skips otherwise.
+//   • Already-issued payouts are not clawed back.
+//
+// Used when an affiliate quits, when terms need to be renegotiated (admin
+// terminates the old agreement, then proposes a new one), or for rare
+// cases like fraud / TOS violations.
+
+export async function terminateAgreement(input: {
+  agreementId: string;
+  reason?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+  if (!input.agreementId) return { success: false, error: "Missing agreement id." };
+
+  const now = new Date().toISOString();
+  const { data, error } = await db()
+    .from("affiliate_agreements")
+    .update({
+      status: "terminated",
+      terminated_at: now,
+      terminated_reason: input.reason?.trim() || null,
+      updated_at: now,
+    })
+    .eq("id", input.agreementId)
+    .in("status", ["active", "proposed", "paused"])
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Affiliate.admin] terminate failed:", error);
+    return { success: false, error: "Could not terminate agreement." };
+  }
+  if (!data) return { success: false, error: "Agreement is not active." };
+  return { success: true };
+}
+
