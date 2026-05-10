@@ -54,6 +54,11 @@ export {
 } from "./emails/installerTemplates";
 
 export {
+  sendAffiliateApplicationReceivedEmail,
+  sendAffiliateApplicationAdminAlert,
+} from "./emails/affiliateTemplates";
+
+export {
   sendFeatureAnnouncement,
   sendBountyAnnouncementEmail,
   sendOverheadAnnouncementEmail,
