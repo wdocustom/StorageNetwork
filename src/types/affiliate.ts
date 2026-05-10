@@ -196,3 +196,46 @@ export function isPercentageConfig(c: AgreementConfig): c is AgreementConfigPerc
 export function isTieredConfig(c: AgreementConfig): c is AgreementConfigTiered {
   return c.type === "tiered";
 }
+
+// ── Plain-English formatting (used by both admin editor preview + the
+//    affiliate's review/accept page + the partner portal hero) ─────────────
+//
+// Pure function, dollars not cents. No DOM, no React — safe to call from
+// either side of the RSC boundary.
+
+function formatDollars(cents: number): string {
+  const dollars = cents / 100;
+  return dollars % 1 === 0
+    ? `$${dollars.toFixed(0)}`
+    : `$${dollars.toFixed(2)}`;
+}
+
+export function formatAgreementConfig(c: AgreementConfig): string {
+  const bonus = c.signup_bonus_cents
+    ? ` Plus a one-time ${formatDollars(c.signup_bonus_cents)} bonus on each recruit's first paid invoice.`
+    : "";
+
+  if (c.type === "flat") {
+    const basis =
+      c.flat_basis === "per_active_recruit_per_month"
+        ? "per month, per active recruit"
+        : "per recruit invoice paid";
+    return `${formatDollars(c.flat_amount_cents)} ${basis}.${bonus}`;
+  }
+  if (c.type === "percentage") {
+    return `${c.percent}% of each recruit's paid subscription invoice.${bonus}`;
+  }
+  // tiered
+  const tierLines = c.tiers.map((t, i) => {
+    const upper = t.max_active === null ? "and beyond" : `up to ${t.max_active} active`;
+    const previousMax = i > 0 ? c.tiers[i - 1].max_active ?? 0 : 0;
+    const lower = i === 0 ? "your first" : `${previousMax + 1}st`;
+    return `${formatDollars(t.amount_cents)}/month for ${lower} ${upper === "and beyond" ? "active recruit and beyond" : upper}`;
+  });
+  return `Tiered: ${tierLines.join("; then ")}.${bonus}`;
+}
+
+export function formatAgreementDuration(durationMonths: number | null): string {
+  if (durationMonths === null) return "Lifetime";
+  return `${durationMonths} ${durationMonths === 1 ? "month" : "months"} from acceptance`;
+}

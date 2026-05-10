@@ -1736,11 +1736,13 @@ function ProfilePageInner() {
               </div>
             </div>
 
-            {/* ── Affiliate Program — apply or status (Phase 2) ─────── */}
-            {/* Hidden when the installer is already a legacy partner OR
-                already has an agreement in the new system. Otherwise we
-                surface either the apply CTA or their application status. */}
-            {!profile?.is_partner && !affiliateHasAgreement && (
+            {/* ── Affiliate Program — Phase 2 + 4 ──────────────────── */}
+            {/* Hidden for legacy partners (Joe Long et al.) — they still
+                use the legacy Partner Portal block below. Phase 5 migrates
+                them. For everyone else: render one of three states based
+                on whether they have an agreement on file (active OR
+                proposed) and the latest application status. */}
+            {!profile?.is_partner && (
               <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
                 <div className="p-5">
                   <div className="mb-3 flex items-center gap-2">
@@ -1749,8 +1751,29 @@ function ProfilePageInner() {
                       Refer Installers, Earn a Cut
                     </h2>
                   </div>
-                  {/* No application yet → invite them to apply */}
-                  {!affiliateApplication && (
+
+                  {/* Has an agreement (active or proposed) → portal CTA.
+                      The portal page itself shows the "review your agreement"
+                      branch when status='proposed', so a single link works
+                      for both cases. */}
+                  {affiliateHasAgreement && (
+                    <>
+                      <p className="mb-4 text-sm text-stone-400">
+                        Your custom affiliate terms are private to you. Open the portal
+                        to view your cut, your recruits, and your earnings.
+                      </p>
+                      <a
+                        href="/dashboard/affiliate/portal"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        <Handshake className="h-4 w-4" />
+                        Open Affiliate Portal
+                      </a>
+                    </>
+                  )}
+
+                  {/* No agreement and no application yet → invite to apply. */}
+                  {!affiliateHasAgreement && !affiliateApplication && (
                     <>
                       <p className="mb-4 text-sm text-stone-400">
                         Bring in installers you trust and earn a custom cut of their
@@ -1766,51 +1789,50 @@ function ProfilePageInner() {
                       </a>
                     </>
                   )}
-                  {/* Application status states */}
-                  {affiliateApplication?.status === "pending" && (
-                    <div className="rounded-lg border border-yellow-400/30 bg-slate-900 p-3">
-                      <p className="text-sm font-bold text-white">Application under review</p>
-                      <p className="mt-1 text-xs text-stone-400">
-                        Submitted {new Date(affiliateApplication.submitted_at).toLocaleDateString()} &middot;
-                        We respond personally within 3 business days.
-                      </p>
-                    </div>
-                  )}
-                  {affiliateApplication?.status === "approved" && (
-                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                      <p className="text-sm font-bold text-emerald-300">Approved</p>
-                      <p className="mt-1 text-xs text-stone-300">
-                        Your agreement is on its way. Watch your inbox for the link to review and accept.
-                      </p>
-                    </div>
-                  )}
-                  {affiliateApplication?.status === "rejected" && (
-                    <>
-                      <p className="mb-3 text-sm text-stone-400">
-                        Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply again
-                        whenever circumstances change.
-                      </p>
-                      <a
-                        href="/dashboard/affiliate/apply"
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-                      >
-                        Apply Again
-                      </a>
-                    </>
-                  )}
-                  {affiliateApplication?.status === "withdrawn" && (
-                    <>
-                      <p className="mb-3 text-sm text-stone-400">
-                        You withdrew your previous application. Re-apply any time.
-                      </p>
-                      <a
-                        href="/dashboard/affiliate/apply"
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
-                      >
-                        Apply Again
-                      </a>
-                    </>
-                  )}
+
+                  {/* Application states (only when no agreement is on file). */}
+                  {!affiliateHasAgreement &&
+                    affiliateApplication?.status === "pending" && (
+                      <div className="rounded-lg border border-yellow-400/30 bg-slate-900 p-3">
+                        <p className="text-sm font-bold text-white">
+                          Application under review
+                        </p>
+                        <p className="mt-1 text-xs text-stone-400">
+                          Submitted{" "}
+                          {new Date(affiliateApplication.submitted_at).toLocaleDateString()}{" "}
+                          &middot; We respond personally within 3 business days.
+                        </p>
+                      </div>
+                    )}
+                  {!affiliateHasAgreement &&
+                    affiliateApplication?.status === "rejected" && (
+                      <>
+                        <p className="mb-3 text-sm text-stone-400">
+                          Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply
+                          again whenever circumstances change.
+                        </p>
+                        <a
+                          href="/dashboard/affiliate/apply"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                        >
+                          Apply Again
+                        </a>
+                      </>
+                    )}
+                  {!affiliateHasAgreement &&
+                    affiliateApplication?.status === "withdrawn" && (
+                      <>
+                        <p className="mb-3 text-sm text-stone-400">
+                          You withdrew your previous application. Re-apply any time.
+                        </p>
+                        <a
+                          href="/dashboard/affiliate/apply"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                        >
+                          Apply Again
+                        </a>
+                      </>
+                    )}
                 </div>
               </section>
             )}
