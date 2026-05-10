@@ -157,3 +157,105 @@ export async function sendAffiliateApplicationAdminAlert(
     html,
   });
 }
+
+// ── 3. Agreement Proposed (Approved) ────────────────────────────────────────
+// Sent to the applicant the moment admin proposes their agreement. Link
+// goes to the Phase 4 acceptance page. The actual cut terms are NOT in the
+// email body — they live on the acceptance page so the applicant has to
+// review the full document, not skim an email.
+
+export async function sendAffiliateAgreementProposedEmail(
+  email: string,
+  data: { name: string; agreementId: string }
+): Promise<SendEmailResult> {
+  // Phase 4 builds the acceptance page; the URL is stable.
+  const reviewUrl = `${getAppUrl()}/dashboard/affiliate/agreement/${data.agreementId}`;
+  const safeName = escapeHtml(data.name);
+
+  const html = masterEmailLayout(
+    "Application Approved",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Great news, ${safeName}.</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      You&rsquo;ve been approved to join the affiliate program. We&rsquo;ve drafted a custom
+      agreement for you to review — terms tailored to your situation.
+    </p>
+
+    ${eyebrow("Your next step")}
+    <div style="border:1px solid #222;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Review &amp; Accept</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        Read the agreement carefully. Once you accept, your partner portal lights up and
+        you can start recruiting.
+      </p>
+      ${ctaButton(reviewUrl, "Review My Agreement")}
+    </div>
+
+    <p style="margin:0 0 12px;color:#a3a3a3;font-size:13px;line-height:1.7;">
+      <strong style="color:#ffffff;">Note:</strong> your agreement&rsquo;s specifics are private —
+      only you see your terms. We can&rsquo;t share another affiliate&rsquo;s rates with you,
+      and we won&rsquo;t share yours with anyone else.
+    </p>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Questions before accepting? Reply to this email.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "You're approved — review your affiliate agreement",
+    html,
+  });
+}
+
+// ── 4. Application Rejected ────────────────────────────────────────────────
+// Courteous "not at this time" — no reason given. Internal review_notes
+// stay internal. We invite a future re-apply rather than burning the bridge.
+
+export async function sendAffiliateApplicationRejectedEmail(
+  email: string,
+  data: { name: string }
+): Promise<SendEmailResult> {
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeName = escapeHtml(data.name);
+
+  const html = masterEmailLayout(
+    "Affiliate Application Update",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${safeName},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Thanks for applying to be an affiliate. After reviewing, we&rsquo;re not able to
+      approve your application at this time.
+    </p>
+
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      This isn&rsquo;t a permanent no. Affiliate decisions depend a lot on timing —
+      what&rsquo;s a fit later may not be a fit today. If your situation changes (new
+      audience, new channel, more completed jobs), you&rsquo;re welcome to apply again.
+    </p>
+
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      In the meantime, keep building. Reviews, completed jobs, and a strong reputation
+      on the network are the surest path back.
+    </p>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton(dashboardUrl, "Back to Dashboard")}
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Questions? Reply to this email.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: "Affiliate Application Update",
+    html,
+  });
+}

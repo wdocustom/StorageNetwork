@@ -56,6 +56,8 @@ export {
 export {
   sendAffiliateApplicationReceivedEmail,
   sendAffiliateApplicationAdminAlert,
+  sendAffiliateAgreementProposedEmail,
+  sendAffiliateApplicationRejectedEmail,
 } from "./emails/affiliateTemplates";
 
 export {
