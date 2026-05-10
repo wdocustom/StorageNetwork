@@ -1153,5 +1153,266 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── invoice.payment_succeeded → affiliate cut payout (Phase 5) ──────────
+  // Triggered every time a recruit's subscription invoice clears. We:
+  //   1. Map invoice → recruit profile (via stripe_subscription_id)
+  //   2. Look up recruit.referred_by_installer_id → affiliate
+  //   3. Find the affiliate's *active* agreement
+  //   4. Compute the recurring cut + (first invoice only) the signup bonus
+  //   5. Insert affiliate_payouts rows + Stripe-transfer to the affiliate's
+  //      Connected Account
+  //   6. Idempotency comes from the partial unique indexes on
+  //      affiliate_payouts (one recurring row per (agreement, invoice) and
+  //      one signup_bonus row per (agreement, recruit)). Re-deliveries from
+  //      Stripe safely no-op.
+  if (event.type === "invoice.payment_succeeded") {
+    try {
+      await processAffiliateInvoicePayout(event.data.object as Stripe.Invoice);
+    } catch (err) {
+      // Affiliate cuts are non-blocking for the rest of the webhook.
+      // Stripe gets a 200; the payout is logged with status='failed' so
+      // an admin can see and retry manually.
+      console.error("[Webhook] affiliate cut processing failed:", err);
+    }
+  }
+
   return NextResponse.json({ received: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Affiliate Cut Payout Processor (Phase 5)
+//
+// Pulled out of the main webhook handler for readability. All DB and Stripe
+// I/O lives here. Pure cut math lives in src/lib/affiliate-cuts.ts.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function processAffiliateInvoicePayout(invoice: Stripe.Invoice) {
+  // 0. Skip non-subscription / non-cycle invoices (e.g. proration adjustments).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const billingReason = (invoice as any).billing_reason as string | undefined;
+  if (billingReason && !["subscription_create", "subscription_cycle"].includes(billingReason)) {
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subscriptionId = (invoice as any).subscription as string | null | undefined;
+  const invoiceId = invoice.id;
+  const amountPaid = invoice.amount_paid; // cents
+  if (!subscriptionId || !invoiceId || !amountPaid) return;
+
+  // 1. Find the recruit profile by their stripe_subscription_id.
+  const { data: recruit } = await getDb()
+    .from("profiles")
+    .select("id, referred_by_installer_id, business_name, first_name, last_name")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (!recruit?.referred_by_installer_id) return; // no affiliate to pay
+  const recruitId = recruit.id as string;
+  const referrerId = recruit.referred_by_installer_id as string;
+
+  // 2. Look up the referrer's active agreement.
+  const { data: agreement } = await getDb()
+    .from("affiliate_agreements")
+    .select("id, agreement_config, end_date, status")
+    .eq("affiliate_id", referrerId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!agreement) return; // referrer terminated / never accepted
+
+  // Honor agreement end_date — no payouts beyond the agreed term.
+  if (agreement.end_date && new Date(agreement.end_date as string) < new Date()) {
+    console.log("[Affiliate] agreement ended, skipping payout:", agreement.id);
+    return;
+  }
+
+  // 3. Active recruit count for tiered resolution. Includes the recruit
+  //    whose invoice triggered this — they ARE active right now.
+  const { count: activeCount } = await getDb()
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("referred_by_installer_id", referrerId)
+    .eq("is_pro", true);
+
+  // 4. Has this recruit ever generated a signup_bonus payout under this
+  //    agreement? If yes, no second bonus.
+  const { data: priorBonus } = await getDb()
+    .from("affiliate_payouts")
+    .select("id")
+    .eq("agreement_id", agreement.id as string)
+    .eq("recruit_id", recruitId)
+    .eq("kind", "signup_bonus")
+    .maybeSingle();
+  const isFirstInvoiceForRecruit = !priorBonus;
+
+  // 5. Compute cuts.
+  const { computeAffiliateCut } = await import("@/lib/affiliate-cuts");
+  const { recurringCents, signupBonusCents, recurringNote } = computeAffiliateCut({
+    config: (agreement.agreement_config as Parameters<typeof computeAffiliateCut>[0]["config"]),
+    invoiceAmountCents: amountPaid,
+    activeRecruitCount: activeCount ?? 1,
+    isFirstInvoiceForRecruit,
+  });
+
+  // 6. Process each non-zero amount as a separate payout row.
+  if (recurringCents > 0) {
+    await issueAffiliatePayout({
+      agreementId: agreement.id as string,
+      affiliateId: referrerId,
+      recruitId,
+      stripeInvoiceId: invoiceId,
+      kind: "recurring",
+      amountCents: recurringCents,
+      notes: recurringNote,
+    });
+  }
+  if (signupBonusCents > 0) {
+    await issueAffiliatePayout({
+      agreementId: agreement.id as string,
+      affiliateId: referrerId,
+      recruitId,
+      stripeInvoiceId: invoiceId,
+      kind: "signup_bonus",
+      amountCents: signupBonusCents,
+      notes: "One-time signup bonus on recruit's first paid invoice",
+    });
+  }
+}
+
+interface IssuePayoutInput {
+  agreementId: string;
+  affiliateId: string;
+  recruitId: string;
+  stripeInvoiceId: string;
+  kind: "recurring" | "signup_bonus";
+  amountCents: number;
+  notes: string;
+}
+
+async function issueAffiliatePayout(input: IssuePayoutInput) {
+  // 1. Idempotency check: the partial unique indexes on affiliate_payouts
+  //    enforce this at the DB level, but a pre-check avoids attempting a
+  //    Stripe transfer when we know we're going to lose the race.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let existing: any = null;
+  if (input.kind === "recurring") {
+    const r = await getDb()
+      .from("affiliate_payouts")
+      .select("id, status")
+      .eq("agreement_id", input.agreementId)
+      .eq("stripe_invoice_id", input.stripeInvoiceId)
+      .eq("kind", "recurring")
+      .maybeSingle();
+    existing = r.data;
+  } else {
+    const r = await getDb()
+      .from("affiliate_payouts")
+      .select("id, status")
+      .eq("agreement_id", input.agreementId)
+      .eq("recruit_id", input.recruitId)
+      .eq("kind", "signup_bonus")
+      .maybeSingle();
+    existing = r.data;
+  }
+  if (existing && existing.status === "paid") return; // already paid
+  // 'pending' or 'failed' → we'll attempt below and update the row.
+
+  // 2. Look up the affiliate's connected Stripe account.
+  const { data: affiliate } = await getDb()
+    .from("profiles")
+    .select("stripe_account_id")
+    .eq("id", input.affiliateId)
+    .maybeSingle();
+  const stripeAccountId = affiliate?.stripe_account_id as string | null;
+
+  // 3. Insert (or fetch) the payout row in 'pending'.
+  let payoutId: string;
+  if (existing) {
+    payoutId = existing.id as string;
+    await getDb()
+      .from("affiliate_payouts")
+      .update({ status: "pending", failure_reason: null, updated_at: new Date().toISOString() })
+      .eq("id", payoutId);
+  } else {
+    const { data: inserted, error: insertErr } = await getDb()
+      .from("affiliate_payouts")
+      .insert({
+        affiliate_id: input.affiliateId,
+        agreement_id: input.agreementId,
+        recruit_id: input.recruitId,
+        kind: input.kind,
+        stripe_invoice_id: input.stripeInvoiceId,
+        amount_cents: input.amountCents,
+        currency: "usd",
+        status: "pending",
+        notes: input.notes,
+      })
+      .select("id")
+      .single();
+    if (insertErr || !inserted) {
+      console.error("[Affiliate] payout insert failed:", insertErr);
+      return;
+    }
+    payoutId = inserted.id as string;
+  }
+
+  // 4. If no connected account, leave in 'pending' with a clear reason.
+  //    The portal can show "Connect Stripe to receive your $X payout".
+  if (!stripeAccountId) {
+    await getDb()
+      .from("affiliate_payouts")
+      .update({
+        status: "pending",
+        failure_reason: "no_connected_account",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payoutId);
+    return;
+  }
+
+  // 5. Attempt Stripe transfer. transfer_group ties this to the source
+  //    invoice for accounting reconciliation later.
+  if (!stripe) {
+    console.error("[Affiliate] Stripe SDK not configured");
+    return;
+  }
+  try {
+    await getDb()
+      .from("affiliate_payouts")
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("id", payoutId);
+
+    const transfer = await stripe.transfers.create({
+      amount: input.amountCents,
+      currency: "usd",
+      destination: stripeAccountId,
+      transfer_group: input.stripeInvoiceId,
+      description: `Affiliate ${input.kind === "signup_bonus" ? "signup bonus" : "cut"} — recruit ${input.recruitId.slice(0, 8)}, invoice ${input.stripeInvoiceId.slice(-8)}`,
+    });
+
+    await getDb()
+      .from("affiliate_payouts")
+      .update({
+        status: "paid",
+        stripe_transfer_id: transfer.id,
+        paid_at: new Date().toISOString(),
+        failure_reason: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payoutId);
+
+    console.log(
+      `[Affiliate] paid ${input.kind} ${input.amountCents}¢ to ${stripeAccountId} (transfer ${transfer.id})`
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Affiliate] transfer failed:", message);
+    await getDb()
+      .from("affiliate_payouts")
+      .update({
+        status: "failed",
+        failure_reason: message.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payoutId);
+  }
 }
