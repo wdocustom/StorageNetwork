@@ -616,7 +616,7 @@ export async function POST(request: NextRequest) {
                 [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
                 "Partner";
 
-              await sendProWelcomeEmail(email, { name, slug: result.slug! });
+              await sendProWelcomeEmail(email, { name, slug: result.slug!, installerId: userId });
               console.log("[Webhook] Pro welcome email sent to:", email);
             }
 

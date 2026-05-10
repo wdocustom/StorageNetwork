@@ -2,6 +2,7 @@ import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { maskEmail, maskPhone, maskName } from "@/lib/mask";
+import { getDepositLabel } from "@/app/actions/fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared style primitives — mirrored from customerTemplates so installer
@@ -195,7 +196,7 @@ export async function sendInstallerOnboardingEmail(
 
     <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
       <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">One Setup Step Left</p>
-      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Connect your Stripe account so we can route the <strong style="color:#ffffff;">15% deposit</strong> on every quote directly into your bank.</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Connect your Stripe account so we can route the <strong style="color:#ffffff;">deposit</strong> on every quote directly into your bank. You can set your deposit rate in your profile any time.</p>
       ${ctaButton(profileUrl, "Connect Stripe & Activate")}
     </div>
 
@@ -411,10 +412,15 @@ export async function sendProWelcomeEmail(
   data: {
     name: string;
     slug: string;
+    /** Installer's profile id — used to look up their configured deposit
+     *  rate. When omitted, copy falls back to a generic "the deposit" so
+     *  we never display a wrong number. */
+    installerId?: string;
   }
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const partnerLinkUrl = `${getAppUrl()}/p/${data.slug}`;
+  const depositLabel = data.installerId ? await getDepositLabel(data.installerId) : null;
 
   const html = masterEmailLayout(
     "Pro Tools Activated",
@@ -441,7 +447,7 @@ export async function sendProWelcomeEmail(
       <tr>
         <td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;vertical-align:top;">
           <p style="margin:0;color:#facc15;font-weight:700;">Secure Deposit Collection</p>
-          <p style="margin:4px 0 0;color:#a3a3a3;">Stripe takes the 15% deposit before you ever drive out. Goodbye no-shows.</p>
+          <p style="margin:4px 0 0;color:#a3a3a3;">Stripe takes ${depositLabel ? `the <strong style="color:#ffffff;">${depositLabel}</strong> deposit` : "the deposit"} before you ever drive out. Goodbye no-shows.</p>
         </td>
       </tr>
       <tr>
