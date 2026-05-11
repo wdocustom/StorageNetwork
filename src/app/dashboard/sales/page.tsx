@@ -67,9 +67,16 @@ export default function SalesInsightsPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const insights = await getSalesInsights(user.id);
-    setData(insights);
-    setLoading(false);
+    try {
+      // Server action now resolves the installer id from the session cookie
+      // and rejects mismatched ids with a 401. Pass no argument.
+      const insights = await getSalesInsights();
+      setData(insights);
+    } catch (err) {
+      console.error("[SalesInsights] Unauthorized or fetch failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

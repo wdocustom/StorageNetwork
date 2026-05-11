@@ -1,12 +1,23 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import type { MaterialConfig, MaterialPrices } from "@/utils/calculateMaterials";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import { roundMoney } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
+
+// Thrown when a caller is unauthenticated or attempts to read another
+// installer's sales data. The "UNAUTHORIZED:" prefix is the contract that
+// the boundary treats as HTTP 401. Plain Error (not a custom class) because
+// "use server" modules may only export async functions.
+function unauthorized(message: string): Error {
+  const err = new Error(`UNAUTHORIZED: ${message}`);
+  (err as Error & { status?: number }).status = 401;
+  return err;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Sales Insights — Aggregated sales data for the installer CRM
@@ -67,8 +78,21 @@ export interface SalesInsightsData {
 }
 
 export async function getSalesInsights(
-  installerId: string
+  installerId?: string
 ): Promise<SalesInsightsData> {
+  // SECURITY (C-1 hotfix): the caller-supplied installerId is NEVER trusted.
+  // The authoritative installer id is resolved from the session cookie via
+  // supabase.auth.getUser(). If a client passes an installerId that does not
+  // match the session, we throw a 401 Unauthorized.
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    throw unauthorized("not authenticated");
+  }
+  if (installerId && installerId !== user.id) {
+    throw unauthorized("cannot access another installer's sales data");
+  }
+  const resolvedInstallerId = user.id;
+
   // Fee rates (mirrored from fee-engine — server-only constants)
   const NETWORK_FEE_RATE = 0.15;
   const MAINTENANCE_FEE_RATE = 0.03;
@@ -79,7 +103,7 @@ export async function getSalesInsights(
     .select(
       "id, customer_name, customer_email, customer_phone, address, status, source, estimated_price, balance_due, quote_data, scheduled_at, completed_at, created_at, fee_status, deposit_amount, operational_status, delivery_address_line1, delivery_address_city, delivery_address_state, delivery_address_zip"
     )
-    .eq("installer_id", installerId)
+    .eq("installer_id", resolvedInstallerId)
     .in("status", ["paid", "payment_pending"])
     .order("completed_at", { ascending: false, nullsFirst: false });
 
@@ -104,7 +128,7 @@ export async function getSalesInsights(
     const { data: profile } = await supabase
       .from("profiles")
       .select("material_pricing_config")
-      .eq("id", installerId)
+      .eq("id", resolvedInstallerId)
       .single();
     if (profile?.material_pricing_config) {
       const mpc = profile.material_pricing_config as MaterialPricingConfig;
