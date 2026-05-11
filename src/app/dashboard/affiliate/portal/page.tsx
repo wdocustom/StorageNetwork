@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
-  Clock,
+  Copy,
   DollarSign,
   Handshake,
+  Link2,
   Loader2,
   Mail,
   Send,
@@ -66,6 +67,33 @@ export default function AffiliatePortalPage() {
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+
+  // Phase 6.6: copy-link button feedback
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  async function handleCopyReferralLink(link: string) {
+    try {
+      if (navigator.share) {
+        // On mobile, prefer the native share sheet — opens SMS / Messenger /
+        // Facebook / Instagram bio with one tap.
+        await navigator.share({
+          title: "Storage Network",
+          text: "Thought you'd be a fit at Storage Network — install jobs come pre-paid via this link.",
+          url: link,
+        });
+        return;
+      }
+    } catch {
+      // User dismissed the share sheet — fall through to clipboard
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.warn("[AffiliatePortal] copy failed:", err);
+    }
+  }
 
   async function refreshInvites() {
     const res = await getMyAffiliateInvites();
@@ -302,6 +330,57 @@ export default function AffiliatePortalPage() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      {/* Phase 6.6 — Public referral link.
+          Renders only when the affiliate has a slug. The acceptance flow
+          generates one if missing, so this should be present for any
+          actively-accepted agreement. The empty state handles the rare
+          case (e.g., agreement accepted before Phase 6.6 shipped). */}
+      <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-yellow-400" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+            Your Referral Link
+          </h2>
+        </div>
+
+        {data.referralLink ? (
+          <>
+            <p className="mb-3 text-xs text-stone-400">
+              Share this anywhere — social, business cards, SMS. Anyone who signs up
+              through it attributes back to you for the full agreement term.
+            </p>
+            <button
+              onClick={() => handleCopyReferralLink(data.referralLink!)}
+              className="group flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left transition-colors hover:border-yellow-400 hover:bg-slate-800"
+            >
+              <span className="min-w-0 flex-1 truncate font-mono text-xs text-yellow-400">
+                {data.referralLink}
+              </span>
+              <span className="flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 group-hover:text-yellow-400">
+                {linkCopied ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" /> Share
+                  </>
+                )}
+              </span>
+            </button>
+            <p className="mt-2 text-[10px] text-stone-500">
+              On mobile this opens the share sheet (SMS / Messenger / Facebook). On
+              desktop it copies to clipboard.
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-stone-400">
+            Your link is being prepared. Refresh in a moment, or accept your agreement if
+            you haven&rsquo;t yet.
+          </p>
         )}
       </section>
 

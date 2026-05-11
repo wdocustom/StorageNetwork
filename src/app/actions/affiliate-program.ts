@@ -2,6 +2,8 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { slugify } from "@/lib/utils";
+import { getAppUrl } from "@/lib/url-helper";
 import {
   sendAffiliateApplicationReceivedEmail,
   sendAffiliateApplicationAdminAlert,
@@ -780,6 +782,13 @@ export async function acceptMyAgreement(
     return { success: false, error: "Agreement state changed while you were reviewing it. Refresh." };
   }
 
+  // ── Ensure the affiliate has a profile slug (Phase 6.6). Their public
+  //    referral link is /join/[profile.slug] so a missing slug would mean
+  //    no shareable link in the portal. We generate one from business_name
+  //    when available, otherwise from first+last name, with the user id
+  //    as a final fallback. Idempotent — only writes if currently NULL.
+  await ensureAffiliateSlug(user.id);
+
   // ── Notify admins so the queue stays in sync. Fire-and-forget. ────────
   void notifyAdminsOfAccept({
     affiliateId: user.id,
@@ -787,6 +796,38 @@ export async function acceptMyAgreement(
   });
 
   return { success: true };
+}
+
+async function ensureAffiliateSlug(userId: string): Promise<void> {
+  const { data: profile } = await db()
+    .from("profiles")
+    .select("slug, business_name, first_name, last_name")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile) return;
+  if (profile.slug) return; // Already has one
+
+  const rawName =
+    (profile.business_name as string | null)?.trim() ||
+    [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+    "";
+  let slug = slugify(rawName);
+  if (!slug) slug = userId.slice(0, 8);
+
+  // Defensive collision guard: probe + suffix with year if taken.
+  const { data: clash } = await db()
+    .from("profiles")
+    .select("id")
+    .eq("slug", slug)
+    .neq("id", userId)
+    .maybeSingle();
+  if (clash) slug = `${slug}-${new Date().getFullYear()}`;
+
+  await db()
+    .from("profiles")
+    .update({ slug })
+    .eq("id", userId)
+    .is("slug", null);
 }
 
 async function notifyAdminsOfAccept(payload: {
@@ -847,6 +888,14 @@ export interface AffiliatePortalData {
     total_pending_cents: number;
     payout_count: number;
   };
+  /** Phase 6.6: shareable public referral link assembled from the
+   *  affiliate's profiles.slug. Null when the slug isn't set yet —
+   *  the portal renders a "link being prepared" state until accepting
+   *  the agreement generates one. */
+  referralLink: string | null;
+  /** Just the slug — useful for share-text composition without parsing
+   *  the URL on the client. */
+  referralSlug: string | null;
 }
 
 export async function getMyAffiliatePortalData(): Promise<{
@@ -905,6 +954,18 @@ export async function getMyAffiliatePortalData(): Promise<{
     .filter((p: any) => p.status === "pending" || p.status === "processing")
     .reduce((sum: number, p: any) => sum + (p.amount_cents as number), 0);
 
+  // 4. Phase 6.6 — assemble the affiliate's public referral link from
+  //    their profile slug. /join/[slug] hits the same route the legacy
+  //    partners table uses; the route falls back to a profile-slug lookup
+  //    when no partners-table match is found.
+  const { data: ownProfile } = await db()
+    .from("profiles")
+    .select("slug")
+    .eq("id", user.id)
+    .maybeSingle();
+  const slug = (ownProfile?.slug as string | null) ?? null;
+  const referralLink = slug ? `${getAppUrl()}/join/${slug}` : null;
+
   return {
     data: {
       agreement: (agreement as AffiliateAgreement | null) ?? null,
@@ -914,6 +975,8 @@ export async function getMyAffiliatePortalData(): Promise<{
         total_pending_cents: totalPendingCents,
         payout_count: payouts?.length ?? 0,
       },
+      referralLink,
+      referralSlug: slug,
     },
   };
 }
