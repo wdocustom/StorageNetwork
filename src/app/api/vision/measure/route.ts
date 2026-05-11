@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 // ── Public Response Type (unchanged — ScanWizard depends on this) ────────
 const MeasurementResultSchema = z.object({
@@ -190,6 +191,13 @@ function computeMeasurements(
 
 // ── API Route Handler ───────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  // SECURITY (H-1): premium Vision endpoint — installer-only. Reject anon
+  // callers before initializing the Google AI client.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 

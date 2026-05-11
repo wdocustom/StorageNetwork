@@ -16,6 +16,10 @@ import { getDepositAmount, getEstimatedSalesTax } from "@/app/actions/fee-engine
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { InstallerPricing } from "@/types/viewModels";
 import { roundMoney } from "@/utils/mathHelpers";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Create Quote — Black Box Server Action
@@ -164,6 +168,23 @@ export async function checkDeliveryZip(
 export async function createQuote(
   input: CreateQuoteInput
 ): Promise<CreateQuoteResult> {
+  // SECURITY (H-3): quote creation writes DB rows and triggers customer
+  // emails. Cap per identity (installer's id when authed, customer IP for
+  // public-funnel callers) to prevent spam and email-reputation damage.
+  try {
+    await enforceActionRateLimit({
+      action: "createQuote",
+      limit: 20,
+      window: "1 h",
+      identify: "user-or-ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   const {
     installer_id,
     installer_business_name,

@@ -2,6 +2,10 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { smsCustomerEnRoute, smsNewBookingAlert } from "@/lib/twilio";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SMS Server Actions — Twilio-powered notifications
@@ -24,6 +28,24 @@ export async function startTripNotify(
   leadId: string,
   installerId: string
 ): Promise<{ success: boolean; error?: string }> {
+  // SECURITY (H-3): Twilio SMS costs real money per send. Cap to 5/min per
+  // installer so a misbehaving client (or hostile script) cannot rack up
+  // a Twilio bill. sendInstallerBookingSms is intentionally NOT wrapped — it
+  // is only invoked from the Stripe webhook, never from a user request.
+  try {
+    await enforceActionRateLimit({
+      action: "sms.startTripNotify",
+      limit: 5,
+      window: "60 s",
+      identify: "user",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   try {
     // 1. Fetch lead details
     const { data: lead, error: leadErr } = await supabase
