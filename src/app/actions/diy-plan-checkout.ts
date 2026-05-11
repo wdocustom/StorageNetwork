@@ -4,6 +4,10 @@ import Stripe from "stripe";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DIY Plan Checkout — Stripe Checkout Session for custom blueprint PDFs
@@ -81,6 +85,22 @@ export async function checkDIYPlanAccess(): Promise<{
 export async function createDIYPlanCheckout(
   config: DIYPlanCheckoutConfig
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  // SECURITY (H-3): each call provisions a Stripe Checkout Session. Cap
+  // per identity to prevent scripted abuse of Stripe's session API.
+  try {
+    await enforceActionRateLimit({
+      action: "diy-plan-checkout",
+      limit: 10,
+      window: "60 s",
+      identify: "user-or-ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   try {
     const baseUrl = siteConfig.baseUrl;
 

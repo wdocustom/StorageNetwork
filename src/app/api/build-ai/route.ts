@@ -11,6 +11,7 @@ import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/a
 import { calculateBuild } from "@/app/actions/calculator";
 import { RAISED_BED_SIZES } from "@/lib/raised-beds";
 import type { InstallerPricing } from "@/types/viewModels";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export const maxDuration = 15;
 
@@ -165,6 +166,13 @@ For mixed quotes (storage + overhead + raised beds + custom items):
 {"units":[{"cols":4,"rows":4,"toteColor":"black","hasTotes":true,"hasWheels":true,"hasTop":true,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"4×4 w/ Totes, Wheels & Top"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":true,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":"3x3","raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"Overhead Ceiling Storage: 3 × 3 (9 totes)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":{"sizeId":"legs_24x48x16","finish":"natural","hasLiner":false,"depthIncrease":false,"bottomShelf":false,"pestCover":"none","postHeight":null,"hasHook":false,"quantity":1},"wallWidthInches":null,"wallHeightInches":null,"customPrice":null,"description":"24\\"×48\\" Raised Bed (with legs)"},{"cols":0,"rows":0,"toteColor":"black","hasTotes":false,"hasWheels":false,"hasTop":false,"presetId":null,"overheadGridPresetId":null,"raisedBedConfig":null,"wallWidthInches":null,"wallHeightInches":null,"customPrice":285,"description":"Two benches connecting planter bases"}],"notes":null}`;
 
 export async function POST(req: NextRequest) {
+  // SECURITY (H-1): premium LLM endpoint — installer-only. Reject anon
+  // callers before initializing any AI client.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (!hasChatProvider()) {
     return NextResponse.json({ error: "AI not configured" }, { status: 500 });
   }

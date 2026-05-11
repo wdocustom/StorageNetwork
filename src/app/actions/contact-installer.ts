@@ -19,6 +19,10 @@ import {
   emailShell,
 } from "@/lib/email";
 import { getAppUrl } from "@/lib/url-helper";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 const supabase = getServiceClient();
 
@@ -49,6 +53,22 @@ export interface ContactInstallerResult {
 export async function contactInstaller(
   input: ContactInstallerInput
 ): Promise<ContactInstallerResult> {
+  // SECURITY (H-3): public action that sends email to installers. Cap per
+  // identity so a script cannot spam-blast every installer in the network.
+  try {
+    await enforceActionRateLimit({
+      action: "contact-installer",
+      limit: 5,
+      window: "1 h",
+      identify: "user-or-ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   const { installerId, customerName, customerEmail, customerPhone, message, quoteTotal, leadId, quoteData, zip } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────

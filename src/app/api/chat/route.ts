@@ -21,6 +21,10 @@ import { calculateBuild, calculateCompoundBuild, calculateShelvingUnit, calculat
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { lookupPlatformInfo } from "@/lib/ai/platform-registry";
 import type { InstallerPricing } from "@/types/viewModels";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 export const maxDuration = 30;
 
@@ -29,6 +33,27 @@ type ChatMode = "installer" | "customer";
 export async function POST(req: NextRequest) {
   if (!hasChatProvider()) {
     return new Response("AI not configured", { status: 500 });
+  }
+
+  // SECURITY (H-1): /api/chat is intentionally reachable by anonymous users
+  // (it backs the public marketing chatbot on /join, /features, /design, etc.)
+  // so we cannot 401 here. Instead apply a tight per-IP sliding-window limit
+  // to cap LLM token spend if a bot starts hammering it.
+  try {
+    await enforceActionRateLimit({
+      action: "api.chat",
+      limit: 20,
+      window: "1 h",
+      identify: "ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return new Response(err.message, {
+        status: 429,
+        headers: { "Retry-After": String(err.retryAfterSeconds) },
+      });
+    }
+    throw err;
   }
 
   let body: {

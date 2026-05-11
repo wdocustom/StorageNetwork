@@ -19,6 +19,7 @@ import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { getBuildFeeBreakdown } from "@/app/actions/fee-engine";
 import { getServiceClient } from "@/lib/supabase-server";
 import type { InstallerPricing } from "@/types/viewModels";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export const maxDuration = 30;
 
@@ -419,6 +420,13 @@ function logConversationTurn(params: {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY (H-1): premium LLM endpoint — installer-only. Reject anon
+  // callers before initializing any AI client.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const startTime = Date.now();
     const body = await request.json();

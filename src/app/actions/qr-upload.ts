@@ -2,6 +2,10 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { randomUUID } from "crypto";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 const getSupabase = getServiceClient;
 
@@ -31,6 +35,22 @@ export async function uploadToSession(
   token: string,
   formData: FormData
 ): Promise<{ success: boolean; error?: string; url?: string }> {
+  // SECURITY (H-3): QR upload is reachable by anonymous mobile clients.
+  // Cap per IP so a scanner-script cannot fill the community bucket.
+  try {
+    await enforceActionRateLimit({
+      action: "qr-upload.uploadToSession",
+      limit: 30,
+      window: "60 s",
+      identify: "ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   // Verify session exists and is not expired
   const { data: session } = await getSupabase()
     .from("qr_upload_sessions")

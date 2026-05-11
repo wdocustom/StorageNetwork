@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { verifyLeadOwnership } from "@/lib/auth";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
+import { enforceActionRateLimit } from "@/lib/server/action-rate-limit";
 
 const supabase = getServiceClient();
 
@@ -58,6 +59,18 @@ export interface CheckoutResult {
 export async function processCheckout(
   input: CheckoutInput
 ): Promise<CheckoutResult> {
+  // SECURITY (H-3): checkout writes lead financial state and prepares the
+  // Stripe deposit handoff. Cap per identity to bound abuse. The function
+  // signature has no `error` slot for graceful fall-through, so we let the
+  // RateLimitError propagate; the calling UI surface (already wrapped in
+  // try/catch around payment intents) will render the friendly message.
+  await enforceActionRateLimit({
+    action: "checkout.processCheckout",
+    limit: 10,
+    window: "60 s",
+    identify: "user-or-ip",
+  });
+
   const { lead_id, source, installer_id, grand_total } = input;
 
   // Use installer's custom deposit config (min 15% enforced by fee engine)

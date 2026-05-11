@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export const maxDuration = 15;
 
@@ -16,6 +17,13 @@ const GEMINI_VOICE = "Kore"; // Clear, warm female voice
 const OPENAI_VOICE = "nova"; // Fallback: pleasant female voice
 
 export async function POST(req: NextRequest) {
+  // SECURITY (H-1): TTS is a paid upstream API. Reject anon callers before
+  // touching either provider key so a bot cannot drain the TTS budget.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body: { text?: string; voice?: string };
   try {
     body = await req.json();

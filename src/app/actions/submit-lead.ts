@@ -8,6 +8,10 @@ import { checkProTrial } from "@/app/actions/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { sendTrialCapHotLead, sendTrialCapCustomerConfirmation } from "@/lib/email";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 // Uses the SERVICE ROLE key so we can insert without a logged-in user.
 const supabase = getServiceClient();
@@ -109,6 +113,22 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   error?: string;
 }> {
   console.log("🚀 Starting Lead Submission...");
+
+  // SECURITY (H-3): public, anonymous endpoint — strict per-IP limit so a
+  // bot cannot spam the leads table or trigger trial-cap email blasts.
+  try {
+    await enforceActionRateLimit({
+      action: "submit-lead",
+      limit: 3,
+      window: "1 h",
+      identify: "ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
 
   // 1. Validate Stripe Key
   if (!process.env.STRIPE_SECRET_KEY) {

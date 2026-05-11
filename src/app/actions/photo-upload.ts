@@ -1,6 +1,10 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import {
+  enforceActionRateLimit,
+  RateLimitError,
+} from "@/lib/server/action-rate-limit";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Photo Upload — Server action using service role key
@@ -32,6 +36,22 @@ export async function uploadJobPhoto(
   leadId: string,
   formData: FormData
 ): Promise<PhotoUploadResult> {
+  // SECURITY (H-3): cap per installer so a misbehaving client cannot fill
+  // the job-photos bucket with junk and inflate storage costs.
+  try {
+    await enforceActionRateLimit({
+      action: "photo-upload.uploadJobPhoto",
+      limit: 30,
+      window: "60 s",
+      identify: "user",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
+    throw err;
+  }
+
   try {
     const file = formData.get("photo") as File | null;
     if (!file) {

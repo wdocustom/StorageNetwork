@@ -4,8 +4,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getChatModel, hasChatProvider, generateTextWithFallback } from "@/lib/ai-provider";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  // SECURITY (H-1): bio generator is an installer-only feature on the
+  // authenticated dashboard. Reject anon callers before touching the model.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { businessName, firstName, city, state, existingBio } = body as {
