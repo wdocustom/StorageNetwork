@@ -14,6 +14,11 @@ import {
   type ReferrerSummary,
 } from "@/app/actions/partner";
 import {
+  getUserDeletionPreflight,
+  deleteUserCompletely,
+  type UserDeletionPreflight,
+} from "@/app/actions/admin-user-management";
+import {
   ArrowLeft,
   Loader2,
   TrendingUp,
@@ -37,6 +42,8 @@ import {
   Ban,
   Coins,
   Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import ProPill from "@/components/dashboard/ProPill";
@@ -77,6 +84,16 @@ export default function PartnerDashboardPage() {
   const [creditAmount, setCreditAmount] = useState<Record<string, string>>({});
   const [creditingUser, setCreditingUser] = useState<string | null>(null);
   const [creditError, setCreditError] = useState<Record<string, string>>({});
+
+  // Delete-user modal state
+  const [deleteTarget, setDeleteTarget] = useState<PlatformUser | null>(null);
+  const [deletePreflight, setDeletePreflight] =
+    useState<UserDeletionPreflight | null>(null);
+  const [deletePreflightLoading, setDeletePreflightLoading] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteInFlight, setDeleteInFlight] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLog, setDeleteLog] = useState<string[]>([]);
 
   // Bounty admin state
   const [bountyReferrers, setBountyReferrers] = useState<ReferrerSummary[]>([]);
@@ -200,6 +217,62 @@ export default function PartnerDashboardPage() {
       setCreditError((prev) => ({ ...prev, [u.id]: result.error ?? "Failed." }));
     }
     setCreditingUser(null);
+  }
+
+  async function openDeleteModal(u: PlatformUser) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setDeleteTarget(u);
+    setDeletePreflight(null);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+    setDeleteLog([]);
+    setDeletePreflightLoading(true);
+    const result = await getUserDeletionPreflight(user.id, u.id);
+    setDeletePreflight(result);
+    setDeletePreflightLoading(false);
+  }
+
+  function closeDeleteModal() {
+    if (deleteInFlight) return;
+    setDeleteTarget(null);
+    setDeletePreflight(null);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+    setDeleteLog([]);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setDeleteInFlight(true);
+    setDeleteError(null);
+    const result = await deleteUserCompletely(
+      user.id,
+      deleteTarget.id,
+      deleteConfirmText
+    );
+    setDeleteLog(result.log);
+    if (result.success) {
+      setPlatformUsers((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setTimeout(() => {
+        setDeleteTarget(null);
+        setDeletePreflight(null);
+        setDeleteConfirmText("");
+        setDeleteLog([]);
+        setDeleteInFlight(false);
+      }, 1800);
+    } else {
+      setDeleteError(result.error ?? "Deletion failed.");
+      setDeleteInFlight(false);
+    }
   }
 
   // ── Loading State ──────────────────────────────────────────────────────
@@ -867,6 +940,29 @@ export default function PartnerDashboardPage() {
                                 </p>
                               )}
                             </div>
+
+                            {/* Danger Zone — Delete User */}
+                            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-red-300">
+                                      Danger Zone
+                                    </p>
+                                    <p className="text-[10px] text-stone-500">
+                                      Hard-delete this user from auth, profiles, and all linked data.
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => openDeleteModal(u)}
+                                  className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-red-300 transition-colors hover:bg-red-500/20"
+                                >
+                                  Delete User
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -875,6 +971,202 @@ export default function PartnerDashboardPage() {
               </div>
             )}
           </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            DELETE USER MODAL
+        ═══════════════════════════════════════════════════════════════ */}
+        {deleteTarget && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={closeDeleteModal}
+          >
+            <div
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between border-b border-slate-800 px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-red-300">
+                    Delete User — Permanent
+                  </h3>
+                  <p className="mt-1 text-xs text-stone-400">
+                    {deleteTarget.business_name ||
+                      `${deleteTarget.first_name ?? ""} ${deleteTarget.last_name ?? ""}`.trim() ||
+                      deleteTarget.email}
+                  </p>
+                  <p className="text-[10px] text-stone-600">{deleteTarget.email}</p>
+                </div>
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deleteInFlight}
+                  className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-5 py-4">
+                {deletePreflightLoading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-red-400" />
+                    <span className="ml-2 text-xs text-stone-400">
+                      Auditing dependencies…
+                    </span>
+                  </div>
+                )}
+
+                {!deletePreflightLoading && deletePreflight && (
+                  <>
+                    {/* Blockers */}
+                    {deletePreflight.blockers.length > 0 && (
+                      <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3">
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-red-300">
+                          Blockers — cannot delete
+                        </p>
+                        <ul className="space-y-1">
+                          {deletePreflight.blockers.map((b, i) => (
+                            <li key={i} className="text-xs text-red-200">
+                              • {b}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Warnings */}
+                    {deletePreflight.warnings.length > 0 && (
+                      <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                          Side effects
+                        </p>
+                        <ul className="space-y-1">
+                          {deletePreflight.warnings.map((w, i) => (
+                            <li key={i} className="text-xs text-stone-300">
+                              • {w}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Counts */}
+                    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
+                        Linked data
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                        <DataRow label="Leads (installer)" v={deletePreflight.counts.leads_as_installer} />
+                        <DataRow label="Leads (referrer)" v={deletePreflight.counts.leads_as_referrer} />
+                        <DataRow label="Customers" v={deletePreflight.counts.customers} />
+                        <DataRow label="Inventory racks" v={deletePreflight.counts.inventory_racks} />
+                        <DataRow label="Discount codes" v={deletePreflight.counts.discount_codes} />
+                        <DataRow label="Affiliate apps" v={deletePreflight.counts.affiliate_applications} />
+                        <DataRow label="Agreements (as)" v={deletePreflight.counts.affiliate_agreements_as_affiliate} />
+                        <DataRow label="Agreements (by)" v={deletePreflight.counts.affiliate_agreements_created_by} />
+                        <DataRow label="Payouts (all)" v={deletePreflight.counts.affiliate_payouts} />
+                        <DataRow label="Payouts (PAID)" v={deletePreflight.counts.affiliate_payouts_paid} alert={deletePreflight.counts.affiliate_payouts_paid > 0} />
+                        <DataRow label="Email invites" v={deletePreflight.counts.affiliate_email_invites_sent} />
+                        <DataRow label="Demand signals" v={deletePreflight.counts.demand_signals} />
+                        <DataRow label="Comm logs" v={deletePreflight.counts.communication_logs} />
+                        <DataRow label="Partners link" v={deletePreflight.counts.partners_link} />
+                      </div>
+                    </div>
+
+                    {/* Stripe */}
+                    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
+                        Stripe state
+                      </p>
+                      <p className="text-[11px] text-stone-300">
+                        Subscription:{" "}
+                        {deletePreflight.stripe.has_subscription ? (
+                          <span className="text-amber-300">
+                            {deletePreflight.stripe.subscription_status ?? "unknown"} — will be cancelled immediately
+                          </span>
+                        ) : (
+                          <span className="text-stone-500">none</span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-stone-300">
+                        Connect account:{" "}
+                        {deletePreflight.stripe.has_connect_account ? (
+                          <span className="text-stone-400">
+                            {deletePreflight.stripe.connect_account_id} (not auto-removed)
+                          </span>
+                        ) : (
+                          <span className="text-stone-500">none</span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Confirmation */}
+                    {deletePreflight.blockers.length === 0 && deleteLog.length === 0 && (
+                      <div className="mb-3">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+                          Type <span className="font-mono text-red-300">DELETE</span> to confirm
+                        </label>
+                        <input
+                          type="text"
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          disabled={deleteInFlight}
+                          autoFocus
+                          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-red-400 disabled:opacity-50"
+                          placeholder="DELETE"
+                        />
+                      </div>
+                    )}
+
+                    {/* Error / Log */}
+                    {deleteError && (
+                      <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2">
+                        <p className="text-xs text-red-300">{deleteError}</p>
+                      </div>
+                    )}
+                    {deleteLog.length > 0 && (
+                      <div className="mb-3 rounded-lg border border-slate-800 bg-black p-2 font-mono text-[10px] text-green-300">
+                        {deleteLog.map((l, i) => (
+                          <div key={i}>{l}</div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 border-t border-slate-800 px-5 py-3">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deleteInFlight}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold text-stone-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={
+                    deleteInFlight ||
+                    deletePreflightLoading ||
+                    !deletePreflight ||
+                    deletePreflight.blockers.length > 0 ||
+                    deleteConfirmText !== "DELETE"
+                  }
+                  className="flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deleteInFlight ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
+                  Permanently Delete
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -1132,6 +1424,33 @@ export default function PartnerDashboardPage() {
           </p>
         </div>
       </main>
+    </div>
+  );
+}
+
+function DataRow({
+  label,
+  v,
+  alert = false,
+}: {
+  label: string;
+  v: number;
+  alert?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-stone-500">{label}</span>
+      <span
+        className={
+          alert
+            ? "font-bold text-red-300"
+            : v > 0
+              ? "font-semibold text-stone-200"
+              : "text-stone-600"
+        }
+      >
+        {v}
+      </span>
     </div>
   );
 }
