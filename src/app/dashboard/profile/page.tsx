@@ -266,7 +266,8 @@ function ProfilePageInner() {
         if (retry.data) {
           console.log("[Profile] Retry succeeded after session refresh");
           applyProfile(retry.data as Profile);
-          const status = await getStripeStatus(user.id);
+          // Server action resolves the user id from the session cookie.
+          const status = await getStripeStatus();
           setStripeStatus(status);
           setLoading(false);
           return;
@@ -279,8 +280,8 @@ function ProfilePageInner() {
 
     if (data) {
       applyProfile(data as Profile);
-      // Fetch Stripe status
-      const status = await getStripeStatus(user.id);
+      // Fetch Stripe status (server action reads the session cookie)
+      const status = await getStripeStatus();
       setStripeStatus(status);
     }
 
@@ -313,9 +314,11 @@ function ProfilePageInner() {
   useEffect(() => {
     if (stripeParam === "success") {
       setStripeMessage("Stripe setup completed! Your payouts are now active.");
-      // Refresh status
+      // Refresh status (server resolves user id from session)
       if (profile) {
-        getStripeStatus(profile.id).then(setStripeStatus);
+        getStripeStatus().then(setStripeStatus).catch((err) => {
+          console.warn("[Profile] Stripe status refresh failed:", err);
+        });
       }
     } else if (stripeParam === "refresh") {
       setStripeMessage("Stripe setup was interrupted. Click below to continue.");
@@ -476,7 +479,7 @@ function ProfilePageInner() {
     setStripeMessage("");
 
     try {
-      const result = await getStripeDashboardLink(profile.id);
+      const result = await getStripeDashboardLink();
       if (result.success && result.url) {
         // Use location.href instead of window.open to avoid popup blockers
         window.location.href = result.url;

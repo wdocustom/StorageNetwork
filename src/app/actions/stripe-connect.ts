@@ -14,6 +14,14 @@ import Stripe from "stripe";
 const STRIPE_OAUTH_STATE_COOKIE = "stripe_oauth_state";
 const STRIPE_OAUTH_STATE_TTL_SECONDS = 60 * 10; // 10 minutes
 
+// 401 builder for cross-account access attempts. Plain Error (not a class)
+// because "use server" modules may only export async functions.
+function unauthorized(message: string): Error {
+  const err = new Error(`UNAUTHORIZED: ${message}`);
+  (err as Error & { status?: number }).status = 401;
+  return err;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Stripe Connect — Onboarding & Account Management for Installers
 // ═══════════════════════════════════════════════════════════════════════════
@@ -180,7 +188,7 @@ export async function connectStripe(userId: string): Promise<ConnectResult> {
  * Check the status of a Stripe Connect account.
  * Returns whether the account has completed onboarding.
  */
-export async function getStripeStatus(userId: string) {
+export async function getStripeStatus(userId?: string) {
   if (!stripe) {
     return {
       connected: false,
@@ -190,11 +198,22 @@ export async function getStripeStatus(userId: string) {
     };
   }
 
+  // SECURITY (Task 3): caller-supplied userId is not trusted. Resolve from
+  // session and reject any attempt to read another user's Stripe state.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    throw unauthorized("not authenticated");
+  }
+  if (userId && userId !== authedUser.id) {
+    throw unauthorized("cannot read another user's Stripe status");
+  }
+  const resolvedUserId = authedUser.id;
+
   try {
     const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id")
-      .eq("id", userId)
+      .eq("id", resolvedUserId)
       .single();
 
     if (!profile?.stripe_account_id) {
@@ -212,7 +231,7 @@ export async function getStripeStatus(userId: string) {
       await supabase
         .from("profiles")
         .update({ stripe_details_submitted: true })
-        .eq("id", userId);
+        .eq("id", resolvedUserId);
     }
 
     return {
@@ -236,7 +255,7 @@ export async function getStripeStatus(userId: string) {
  * Generate a login link to the Stripe Express Dashboard.
  * Allows installers to manage their connected account.
  */
-export async function getStripeDashboardLink(userId: string): Promise<ConnectResult> {
+export async function getStripeDashboardLink(userId?: string): Promise<ConnectResult> {
   if (!stripe) {
     return {
       success: false,
@@ -244,11 +263,24 @@ export async function getStripeDashboardLink(userId: string): Promise<ConnectRes
     };
   }
 
+  // SECURITY (Task 3): caller-supplied userId is not trusted. The dashboard
+  // login link grants full Stripe Express access for the connected account,
+  // so cross-account requests are rejected with a 401 before any DB or
+  // Stripe API call.
+  const authedUser = await getAuthenticatedUser();
+  if (!authedUser) {
+    throw unauthorized("not authenticated");
+  }
+  if (userId && userId !== authedUser.id) {
+    throw unauthorized("cannot open another user's Stripe dashboard");
+  }
+  const resolvedUserId = authedUser.id;
+
   try {
     const { data: profile } = await supabase
       .from("profiles")
       .select("stripe_account_id")
-      .eq("id", userId)
+      .eq("id", resolvedUserId)
       .single();
 
     if (!profile?.stripe_account_id) {
