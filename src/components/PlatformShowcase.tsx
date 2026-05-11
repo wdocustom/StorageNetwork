@@ -73,13 +73,13 @@ export default function PlatformShowcase() {
             {/* Mobile: stacked vertically */}
             <div className="flex flex-col items-center gap-8 lg:hidden">
               <PhoneMockup
-                src="/images/dashboard-preview.png"
+                src="/images/dashboard-preview.webp"
                 alt="Installer Pro Dashboard showing earnings, job routing, and business management tools"
                 priority
                 className="w-56"
               />
               <PhoneMockup
-                src="/images/designer-preview.png"
+                src="/images/designer-preview.webp"
                 alt="Customer 3D Design Tool showing the tote storage system configurator"
                 className="w-56"
               />
@@ -91,7 +91,7 @@ export default function PlatformShowcase() {
                 {/* Dashboard phone — front left */}
                 <div className="absolute left-0 top-0 z-20">
                   <PhoneMockup
-                    src="/images/dashboard-preview.png"
+                    src="/images/dashboard-preview.webp"
                     alt="Installer Pro Dashboard showing earnings, job routing, and business management tools"
                     priority
                     className="w-52 xl:w-60"
@@ -101,7 +101,7 @@ export default function PlatformShowcase() {
                 {/* Designer phone — behind right, shifted down */}
                 <div className="absolute left-32 top-12 z-10 xl:left-36">
                   <PhoneMockup
-                    src="/images/designer-preview.png"
+                    src="/images/designer-preview.webp"
                     alt="Customer 3D Design Tool showing the tote storage system configurator"
                     className="w-52 xl:w-60"
                   />

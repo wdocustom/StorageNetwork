@@ -354,7 +354,6 @@ export default function PortfolioSection({
               fill
               className="object-cover"
               sizes="120px"
-              unoptimized
             />
             {/* Delete overlay */}
             <button

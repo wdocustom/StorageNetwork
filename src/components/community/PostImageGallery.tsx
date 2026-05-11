@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { PostImage } from "@/app/actions/community";
 
@@ -57,13 +58,24 @@ export default function PostImageGallery({ images }: PostImageGalleryProps) {
               sorted.length === 1 ? "max-h-96" : "aspect-square"
             }`}
           >
-            <img
-              src={img.image_url}
-              alt={img.caption || "Post image"}
-              className={`w-full object-cover transition-transform group-hover:scale-105 ${
-                sorted.length === 1 ? "max-h-96" : "h-full"
-              }`}
-            />
+            {sorted.length === 1 ? (
+              <Image
+                src={img.image_url}
+                alt={img.caption || "Post image"}
+                width={1200}
+                height={900}
+                sizes="(max-width: 768px) 100vw, 720px"
+                className="w-full max-h-96 object-cover transition-transform group-hover:scale-105"
+              />
+            ) : (
+              <Image
+                src={img.image_url}
+                alt={img.caption || "Post image"}
+                fill
+                sizes="(max-width: 640px) 50vw, 33vw"
+                className="object-cover transition-transform group-hover:scale-105"
+              />
+            )}
             {sorted.length > 1 && (
               <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
             )}
@@ -117,9 +129,12 @@ export default function PostImageGallery({ images }: PostImageGalleryProps) {
           )}
 
           {/* Image */}
-          <img
+          <Image
             src={sorted[lightboxIndex].image_url}
             alt={sorted[lightboxIndex].caption || "Post image"}
+            width={1600}
+            height={1200}
+            sizes="90vw"
             className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}
           />

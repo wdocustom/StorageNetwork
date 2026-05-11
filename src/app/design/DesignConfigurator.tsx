@@ -590,7 +590,6 @@ export default function DesignConfigurator({
                   width={48}
                   height={48}
                   className="h-full w-full object-cover"
-                  unoptimized
                 />
               ) : (
                 <Image src="/Header_avatar_logo.png" alt="Storage Network" width={48} height={48} className="h-full w-full object-cover" />

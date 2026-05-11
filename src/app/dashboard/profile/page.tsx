@@ -810,7 +810,6 @@ function ProfilePageInner() {
                     width={80}
                     height={80}
                     className="h-full w-full object-cover aspect-square rounded-full"
-                    unoptimized
                   />
                 ) : (
                   <User className="h-8 w-8 text-stone-600" />

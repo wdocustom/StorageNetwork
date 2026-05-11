@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import Image from "next/image";
 import { MapPin, ExternalLink, Shield, ChevronRight } from "lucide-react";
 import type { MapInstaller } from "@/app/actions/installer-map";
 import {
@@ -395,8 +396,7 @@ export default function InstallerNetworkMap({ installers }: Props) {
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 ring-1 ring-slate-700">
                         {pin.avatarUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={pin.avatarUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                          <Image src={pin.avatarUrl} alt="" width={32} height={32} sizes="32px" className="h-8 w-8 rounded-lg object-cover" />
                         ) : (
                           <MapPin className="h-3.5 w-3.5 text-yellow-400" />
                         )}
