@@ -1497,7 +1497,6 @@ export default function JobTicket({
             height={240}
             className="w-full object-cover"
             style={{ maxHeight: 240 }}
-            unoptimized
           />
           <div className="bg-slate-900 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
             Proof of Completion
@@ -2121,7 +2120,6 @@ export default function JobTicket({
                       height={200}
                       className="w-full object-cover"
                       style={{ maxHeight: 200 }}
-                      unoptimized
                     />
                     <div className="flex items-center justify-center gap-1 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold text-emerald-400">
                       <CheckCircle2 className="h-3 w-3" />

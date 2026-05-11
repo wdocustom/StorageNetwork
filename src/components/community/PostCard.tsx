@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { MessageSquare, Clock, Tag, ImageIcon } from "lucide-react";
 import VoteButton from "./VoteButton";
 import type { Post } from "@/app/actions/community";
@@ -76,9 +77,12 @@ export default function PostCard({ post, userId }: PostCardProps) {
                 key={img.id}
                 className="h-14 w-14 overflow-hidden rounded border border-slate-700"
               >
-                <img
+                <Image
                   src={img.image_url}
                   alt=""
+                  width={56}
+                  height={56}
+                  sizes="56px"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -124,9 +128,12 @@ export default function PostCard({ post, userId }: PostCardProps) {
         <div className="mt-2 flex items-center gap-3 text-[11px] text-stone-600">
           <div className="flex items-center gap-1.5">
             {avatarUrl ? (
-              <img
+              <Image
                 src={avatarUrl}
                 alt={authorName}
+                width={16}
+                height={16}
+                sizes="16px"
                 className="h-4 w-4 rounded-full object-cover"
               />
             ) : (

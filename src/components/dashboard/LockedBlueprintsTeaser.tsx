@@ -38,12 +38,11 @@ export default function LockedBlueprintsTeaser() {
         <div className="group relative overflow-hidden rounded-lg border border-slate-700/50">
           <div className="relative">
             <Image
-              src="/images/example-material-list.png"
+              src="/images/example-material-list.webp"
               alt="Material List & Module Layout preview"
               width={600}
               height={400}
               className="w-full object-cover opacity-50 blur-[1px] transition-all group-hover:opacity-60"
-              unoptimized
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -59,12 +58,11 @@ export default function LockedBlueprintsTeaser() {
         <div className="group relative overflow-hidden rounded-lg border border-slate-700/50">
           <div className="relative">
             <Image
-              src="/images/example-cut-plan.png"
+              src="/images/example-cut-plan.webp"
               alt="Cut Plan preview"
               width={600}
               height={400}
               className="w-full object-cover opacity-50 blur-[1px] transition-all group-hover:opacity-60"
-              unoptimized
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
             <div className="absolute inset-0 flex flex-col items-center justify-center">

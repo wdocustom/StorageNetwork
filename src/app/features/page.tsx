@@ -367,7 +367,7 @@ export default function FeaturesPage() {
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
               <Image
-                src="/feature-configurator.png"
+                src="/feature-configurator.webp"
                 alt="3D configurator"
                 width={400}
                 height={700}
@@ -457,7 +457,7 @@ export default function FeaturesPage() {
             </div>
             <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
               <Image
-                src="/feature-cutplan.png"
+                src="/feature-cutplan.webp"
                 alt="Cut plan and material list"
                 width={400}
                 height={700}
@@ -593,7 +593,7 @@ export default function FeaturesPage() {
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
               <Image
-                src="/feature-payment.png"
+                src="/feature-payment.webp"
                 alt="Payment and payout flow"
                 width={400}
                 height={700}
@@ -672,7 +672,7 @@ export default function FeaturesPage() {
             </div>
             <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
               <Image
-                src="/feature-booking.png"
+                src="/feature-booking.webp"
                 alt="Booking and scheduling"
                 width={400}
                 height={700}
@@ -689,7 +689,7 @@ export default function FeaturesPage() {
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div className="order-2 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50 md:order-1">
               <Image
-                src="/feature-marketing.png"
+                src="/feature-marketing.webp"
                 alt="AI marketing script generator"
                 width={400}
                 height={700}
@@ -768,7 +768,7 @@ export default function FeaturesPage() {
             </div>
             <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/50">
               <Image
-                src="/feature-community.png"
+                src="/feature-community.webp"
                 alt="Installer community"
                 width={400}
                 height={700}

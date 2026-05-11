@@ -70,7 +70,6 @@ export default function PortfolioGallery({ photos, businessName }: PortfolioGall
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, 33vw"
-              unoptimized
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             {photo.caption && (
@@ -124,7 +123,6 @@ export default function PortfolioGallery({ photos, businessName }: PortfolioGall
               width={1200}
               height={900}
               className="max-h-[85vh] rounded-lg object-contain"
-              unoptimized
             />
             {photos[lightboxIndex].caption && (
               <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-gradient-to-t from-black/80 to-transparent p-4 pt-8">

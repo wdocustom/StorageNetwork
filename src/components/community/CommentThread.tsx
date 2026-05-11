@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import { MessageSquare, Clock, ImagePlus, X, Loader2 } from "lucide-react";
 import VoteButton from "./VoteButton";
 import PostImageGallery from "./PostImageGallery";
@@ -226,9 +227,12 @@ function CommentNode({
         {/* Comment header */}
         <div className="flex items-center gap-2 mb-1">
           {avatarUrl ? (
-            <img
+            <Image
               src={avatarUrl}
               alt={authorName}
+              width={20}
+              height={20}
+              sizes="20px"
               className="h-5 w-5 rounded-full object-cover"
             />
           ) : (

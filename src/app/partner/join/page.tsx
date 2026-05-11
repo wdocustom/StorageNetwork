@@ -507,7 +507,7 @@ function PartnerJoinPageInner() {
             <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-yellow-400/5">
                 <Image
-                  src="/images/3d-visualizer-preview.png"
+                  src="/images/3d-visualizer-preview.webp"
                   alt="3D Storage Visualizer showing a fully configured tote shelving system in a garage environment"
                   width={800}
                   height={500}
@@ -576,7 +576,7 @@ function PartnerJoinPageInner() {
             <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl shadow-purple-400/5">
                 <Image
-                  src="/images/ai-script-generator-preview.png"
+                  src="/images/ai-script-generator-preview.webp"
                   alt="AI Script Generator dashboard producing ready-to-post social media marketing content"
                   width={800}
                   height={500}
@@ -641,7 +641,7 @@ function PartnerJoinPageInner() {
             <div className="lg:w-[38%]">
               <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-emerald-400/5">
                 <Image
-                  src="/images/custom-pricing-preview.png"
+                  src="/images/custom-pricing-preview.webp"
                   alt="Custom Pricing configurator showing adjustable labor rates, markups, and real-time profit calculations"
                   width={800}
                   height={500}
