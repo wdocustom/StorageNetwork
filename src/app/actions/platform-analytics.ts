@@ -86,6 +86,9 @@ export interface PlatformAnalyticsData {
     referrer: string | null;
     is_bot: boolean;
     created_at: string;
+    ip: string | null;
+    visitor_id: string | null;
+    watchlist_label: string | null;
   }[];
 }
 
@@ -158,7 +161,7 @@ export async function getAdminPlatformAnalytics(
       // Last 50 views for live activity feed (including bots for visibility)
       supabase
         .from("platform_page_views")
-        .select("page_path, city, region, country, device_type, referrer, is_bot, created_at")
+        .select("page_path, city, region, country, device_type, referrer, is_bot, created_at, ip, visitor_id")
         .order("created_at", { ascending: false })
         .limit(50),
 
@@ -330,16 +333,39 @@ export async function getAdminPlatformAnalytics(
       .slice(0, 15);
 
     // ── Live Activity ───────────────────────────────────────────────
-    const liveActivity = liveRaw.map((v) => ({
-      page: v.page_path || "/",
-      city: v.city,
-      region: v.region,
-      country: v.country,
-      device: v.device_type || "desktop",
-      referrer: v.referrer,
-      is_bot: v.is_bot ?? false,
-      created_at: v.created_at || "",
-    }));
+    // Decorate with watchlist label so admin can spot known competitors /
+    // spies in the feed at a glance (no expand needed).
+    const { data: watchRows } = await supabase
+      .from("analytics_watchlist")
+      .select("label, ip, visitor_id");
+    const watchByIp = new Map<string, string>();
+    const watchByVisitor = new Map<string, string>();
+    for (const w of watchRows || []) {
+      if (w.ip) watchByIp.set(w.ip as string, w.label as string);
+      if (w.visitor_id) watchByVisitor.set(w.visitor_id as string, w.label as string);
+    }
+
+    const liveActivity = liveRaw.map((v) => {
+      const ip = (v.ip as string | null) ?? null;
+      const visitorId = (v.visitor_id as string | null) ?? null;
+      const watchLabel =
+        (ip && watchByIp.get(ip)) ||
+        (visitorId && watchByVisitor.get(visitorId)) ||
+        null;
+      return {
+        page: v.page_path || "/",
+        city: v.city,
+        region: v.region,
+        country: v.country,
+        device: v.device_type || "desktop",
+        referrer: v.referrer,
+        is_bot: v.is_bot ?? false,
+        created_at: v.created_at || "",
+        ip,
+        visitor_id: visitorId,
+        watchlist_label: watchLabel,
+      };
+    });
 
     return {
       success: true,

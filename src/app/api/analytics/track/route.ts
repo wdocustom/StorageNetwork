@@ -13,6 +13,11 @@ export const dynamic = "force-dynamic";
 // Serverless functions freeze between invocations, so setTimeout-based
 // flush buffers silently lose data. One insert per request is fine at
 // this traffic scale and ensures every page view is captured.
+//
+// IP storage note: we keep both the raw IP (for the admin Visitor Intel
+// view — competitor / spy detection) and a salted hash (legacy field,
+// kept for backward compat with rows from before migration 107). Raw IP
+// is PII; the privacy policy / terms must disclose this.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Simple SHA-256 hash for IP privacy
@@ -76,6 +81,7 @@ export async function POST(req: NextRequest) {
     const row = {
       page_path: body.pagePath.slice(0, 500),
       visitor_id: body.visitorId?.slice(0, 64) || null,
+      ip: ip === "unknown" ? null : ip.slice(0, 64),
       ip_hash: ipHash,
       device_type: classifyDevice(ua, body.screenWidth ?? null),
       user_agent: ua?.slice(0, 512) || null,
