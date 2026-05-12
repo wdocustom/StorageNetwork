@@ -11,7 +11,7 @@ export const metadata = {
 };
 
 export default function PrivacyPage() {
-  const lastUpdated = "February 9, 2026";
+  const lastUpdated = "May 12, 2026";
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -63,11 +63,31 @@ export default function PrivacyPage() {
             </ul>
             <h3 className="mb-2 mt-4 text-lg font-semibold text-white">Automatically Collected</h3>
             <ul className="list-disc pl-6 space-y-2 text-stone-300">
-              <li>Device information (browser type, operating system)</li>
-              <li>IP address and general location</li>
-              <li>Usage data (pages visited, features used)</li>
+              <li>Device information (browser type, operating system, screen resolution, full
+                user-agent string)</li>
+              <li>
+                <strong className="text-white">IP address:</strong> We collect and retain the IP
+                address of every request to the platform. We use it for security (rate-limiting,
+                abuse detection, fraud prevention), to derive approximate geographic location
+                (city / region / country), and to identify suspicious access patterns including
+                competitive reconnaissance and automated scraping. Public-page IP records are
+                retained for up to 24 months; IPs tied to account activity are retained for the
+                life of the account plus a reasonable buffer.
+              </li>
+              <li>Usage data (pages visited, time on page, click patterns, navigation paths,
+                session duration)</li>
+              <li>Referrer URL and any UTM tracking parameters present in the URL</li>
+              <li>Persistent visitor and session identifiers stored in your browser&apos;s
+                localStorage and sessionStorage</li>
               <li>Cookies and similar tracking technologies</li>
             </ul>
+            <p className="mt-3 text-sm text-stone-400">
+              Some of the above (IP address, persistent visitor identifier, device fingerprint) may
+              be considered personal information under the GDPR, CCPA, and similar privacy laws. We
+              process it under our legitimate interest in operating a secure platform and protecting
+              it against fraud, abuse, and unauthorized competitive intelligence gathering. You may
+              request access to or deletion of this information as described in Section 7.
+            </p>
           </section>
 
           {/* Section 2 */}
@@ -84,7 +104,8 @@ export default function PrivacyPage() {
               <li>Provide customer support</li>
               <li>Send promotional communications (with your consent)</li>
               <li>Improve our platform and services</li>
-              <li>Detect and prevent fraud</li>
+              <li>Detect and prevent fraud, automated scraping, denial-of-service attempts, and
+                unauthorized competitive intelligence gathering against the platform and its users</li>
               <li>Comply with legal obligations</li>
             </ul>
           </section>
