@@ -74,11 +74,32 @@ export default function PrivacyPage() {
 
           <h3 className="mt-4 text-base font-semibold text-white">Automatically Collected Information</h3>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong>Device Information:</strong> Browser type, operating system, device identifiers</li>
-            <li><strong>Usage Data:</strong> Pages visited, time spent on pages, click patterns</li>
-            <li><strong>IP Address:</strong> For security and approximate location purposes</li>
+            <li><strong>Device Information:</strong> Browser type, operating system, device identifiers,
+              screen resolution, and full user-agent string</li>
+            <li><strong>Usage Data:</strong> Pages visited, time spent on pages, click patterns, navigation
+              paths through the Platform, and session duration</li>
+            <li><strong>IP Address:</strong> We collect and retain the IP address of every request made
+              to the Platform. We use the IP address for security (rate-limiting, abuse detection,
+              fraud prevention), to derive approximate geographic location (city / region / country),
+              and to identify suspicious access patterns including competitive reconnaissance and
+              automated scraping. IP addresses associated with public-page visits are retained for up
+              to 24 months; IP addresses associated with account activity are retained for the life of
+              the account plus a reasonable buffer for dispute resolution and legal compliance.</li>
+            <li><strong>Referrer &amp; UTM Parameters:</strong> The URL that brought you to the
+              Platform and any campaign-tracking parameters in the URL</li>
+            <li><strong>Visitor &amp; Session Identifiers:</strong> Persistent identifiers stored in
+              your browser&apos;s localStorage and sessionStorage to recognize returning visits and
+              group your activity into sessions</li>
             <li><strong>Cookies:</strong> See Section 7 for details on our cookie practices</li>
           </ul>
+          <p className="mt-2 text-xs text-stone-500">
+            Some of the above information (IP address, persistent visitor identifier, device
+            fingerprint) may be considered personal information under the GDPR, CCPA, and similar
+            privacy laws. We process this information under our legitimate interest in operating a
+            secure platform and protecting it against fraud, abuse, and unauthorized competitive
+            intelligence gathering. You may request access to or deletion of this information as
+            described in Section 9.
+          </p>
 
           <h2 className="mt-8 text-lg font-bold text-white">3. How We Use Your Information</h2>
           <p>We use collected information for the following purposes:</p>
@@ -89,6 +110,9 @@ export default function PrivacyPage() {
             <li><strong>Communications:</strong> To send booking confirmations, appointment reminders,
               and service-related notifications</li>
             <li><strong>Platform Improvement:</strong> To analyze usage patterns and improve our services</li>
+            <li><strong>Security &amp; Abuse Prevention:</strong> To detect and respond to fraud,
+              automated scraping, credential stuffing, denial-of-service attempts, and unauthorized
+              competitive intelligence gathering against the Platform and its users</li>
             <li><strong>Customer Support:</strong> To respond to inquiries and resolve issues</li>
             <li><strong>Marketing:</strong> To send promotional materials (with your consent, where required)</li>
             <li><strong>Legal Compliance:</strong> To comply with applicable laws and regulations</li>
