@@ -5,16 +5,27 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { getAdminPlatformAnalytics, type PlatformAnalyticsData } from "@/app/actions/platform-analytics";
 import { getInstallerActivityReport, type InstallerActivitySummary } from "@/app/actions/installer-activity";
 import {
+  getVisitorSessions,
+  getWatchlist,
+  addWatchlistEntry,
+  removeWatchlistEntry,
+  type VisitorSession,
+  type WatchlistEntry,
+} from "@/app/actions/visitor-intel";
+import {
   ArrowLeft,
   BarChart3,
   ChevronDown,
   ChevronUp,
+  Eye,
   Globe2,
   Loader2,
   Monitor,
+  Plus,
   RefreshCw,
   Smartphone,
   Tablet,
+  Trash2,
   TrendingUp,
   Users,
   Zap,
@@ -37,10 +48,27 @@ export default function PlatformAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>(30);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"traffic" | "live" | "installers" | "business">("traffic");
+  const [activeTab, setActiveTab] = useState<"traffic" | "live" | "sessions" | "watchlist" | "installers" | "business">("traffic");
   const [installerData, setInstallerData] = useState<InstallerActivitySummary[]>([]);
   const [installerLoading, setInstallerLoading] = useState(false);
   const [expandedInstaller, setExpandedInstaller] = useState<string | null>(null);
+
+  // Sessions tab state
+  const [sessions, setSessions] = useState<VisitorSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsHours, setSessionsHours] = useState<24 | 72 | 168>(24);
+  const [sessionsIncludeBots, setSessionsIncludeBots] = useState(false);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+
+  // Watchlist state
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [watchlistError, setWatchlistError] = useState<string | null>(null);
+  const [newWatchLabel, setNewWatchLabel] = useState("");
+  const [newWatchIp, setNewWatchIp] = useState("");
+  const [newWatchVisitor, setNewWatchVisitor] = useState("");
+  const [newWatchNote, setNewWatchNote] = useState("");
+  const [addingWatch, setAddingWatch] = useState(false);
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -70,6 +98,80 @@ export default function PlatformAnalyticsPage() {
     setInstallerLoading(false);
   }, [supabase, range]);
 
+  const fetchSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSessionsLoading(false); return; }
+    const result = await getVisitorSessions(user.id, sessionsHours, { includeBots: sessionsIncludeBots });
+    if (result.success && result.sessions) setSessions(result.sessions);
+    setSessionsLoading(false);
+  }, [supabase, sessionsHours, sessionsIncludeBots]);
+
+  const fetchWatchlist = useCallback(async () => {
+    setWatchlistLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setWatchlistLoading(false); return; }
+    const result = await getWatchlist(user.id);
+    if (result.success && result.entries) setWatchlist(result.entries);
+    setWatchlistLoading(false);
+  }, [supabase]);
+
+  async function handleAddWatch() {
+    setWatchlistError(null);
+    if (!newWatchLabel.trim()) {
+      setWatchlistError("Label is required.");
+      return;
+    }
+    if (!newWatchIp.trim() && !newWatchVisitor.trim()) {
+      setWatchlistError("Provide at least an IP or a visitor ID.");
+      return;
+    }
+    setAddingWatch(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAddingWatch(false); return; }
+    const result = await addWatchlistEntry(user.id, {
+      label: newWatchLabel.trim(),
+      ip: newWatchIp.trim() || null,
+      visitor_id: newWatchVisitor.trim() || null,
+      note: newWatchNote.trim() || null,
+    });
+    if (result.success) {
+      setNewWatchLabel("");
+      setNewWatchIp("");
+      setNewWatchVisitor("");
+      setNewWatchNote("");
+      await fetchWatchlist();
+    } else {
+      setWatchlistError(result.error ?? "Failed to add watch entry.");
+    }
+    setAddingWatch(false);
+  }
+
+  async function handleRemoveWatch(id: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const result = await removeWatchlistEntry(user.id, id);
+    if (result.success) await fetchWatchlist();
+  }
+
+  async function quickPinFromSession(s: VisitorSession) {
+    const label = window.prompt(
+      `Label this visitor (e.g. "Alex" or "Spy 1"):`,
+      s.city ? `Visitor from ${s.city}` : "Suspicious visitor"
+    );
+    if (!label) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await addWatchlistEntry(user.id, {
+      label,
+      ip: s.ip,
+      visitor_id: s.visitor_id,
+      note: `Pinned from session: ${s.page_count} pages, score ${s.suspicion_score}`,
+    });
+    await fetchSessions();
+    await fetchWatchlist();
+  }
+
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Load installer activity when tab is selected
@@ -78,6 +180,16 @@ export default function PlatformAnalyticsPage() {
       fetchInstallerActivity();
     }
   }, [activeTab, installerData.length, installerLoading, fetchInstallerActivity]);
+
+  // Load sessions when tab opens or filters change
+  useEffect(() => {
+    if (activeTab === "sessions") fetchSessions();
+  }, [activeTab, fetchSessions]);
+
+  // Load watchlist when tab opens
+  useEffect(() => {
+    if (activeTab === "watchlist") fetchWatchlist();
+  }, [activeTab, fetchWatchlist]);
 
   if (loading) {
     return (
@@ -203,18 +315,28 @@ export default function PlatformAnalyticsPage() {
         </div>
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
-        <div className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1">
-          {(["traffic", "live", "installers", "business"] as const).map((tab) => (
+        <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-1">
+          {(["traffic", "live", "sessions", "watchlist", "installers", "business"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 rounded-lg py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                 activeTab === tab
                   ? "bg-yellow-400 text-slate-900"
                   : "text-stone-500 hover:text-white"
               }`}
             >
-              {tab === "traffic" ? "Traffic" : tab === "live" ? "Live" : tab === "installers" ? "Installers" : "Business"}
+              {tab === "traffic"
+                ? "Traffic"
+                : tab === "live"
+                  ? "Live"
+                  : tab === "sessions"
+                    ? "Sessions"
+                    : tab === "watchlist"
+                      ? "Watchlist"
+                      : tab === "installers"
+                        ? "Installers"
+                        : "Business"}
             </button>
           ))}
         </div>
@@ -377,17 +499,25 @@ export default function PlatformAnalyticsPage() {
 
             <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden divide-y divide-slate-800/50">
               {data.liveActivity.map((a, i) => (
-                <div key={i} className={`px-4 py-3 hover:bg-slate-800/50 transition-colors ${a.is_bot ? "opacity-40" : ""}`}>
+                <div
+                  key={i}
+                  className={`px-4 py-3 hover:bg-slate-800/50 transition-colors ${a.is_bot ? "opacity-40" : ""} ${a.watchlist_label ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}`}
+                >
                   <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-stone-300">{a.page}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {a.watchlist_label && (
+                        <span className="rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                          {a.watchlist_label}
+                        </span>
+                      )}
+                      <span className="font-mono text-xs text-stone-300 truncate">{a.page}</span>
                       {a.is_bot && (
                         <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 uppercase">Bot</span>
                       )}
                     </div>
-                    <span className="text-[10px] text-stone-600">{timeAgo(a.created_at)}</span>
+                    <span className="text-[10px] text-stone-600 whitespace-nowrap ml-2">{timeAgo(a.created_at)}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-stone-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-stone-500">
                     <span className="flex items-center gap-1 capitalize">
                       {deviceIcon(a.device)} {a.device}
                     </span>
@@ -396,6 +526,9 @@ export default function PlatformAnalyticsPage() {
                         <Globe2 className="h-3 w-3" />
                         {a.city}{a.region ? `, ${a.region}` : ""}{a.country && a.country !== "US" ? ` (${a.country})` : ""}
                       </span>
+                    )}
+                    {a.ip && (
+                      <span className="font-mono text-stone-400">{a.ip}</span>
                     )}
                     {a.referrer && (
                       <span className="truncate max-w-[200px]">
@@ -414,6 +547,309 @@ export default function PlatformAnalyticsPage() {
             </div>
           </div>
         )}
+        {/* ── SESSIONS TAB — Visitor Intelligence ────────────────────── */}
+        {activeTab === "sessions" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-yellow-400" />
+                <h3 className="text-sm font-bold text-white">Visitor Sessions</h3>
+                <span className="text-xs text-stone-500">
+                  ({sessions.length} shown — sorted: watchlist → suspicion → recency)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {([24, 72, 168] as const).map((h) => (
+                  <button
+                    key={h}
+                    onClick={() => setSessionsHours(h)}
+                    className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase ${
+                      sessionsHours === h ? "bg-yellow-400 text-slate-900" : "bg-slate-800 text-stone-400"
+                    }`}
+                  >
+                    {h === 24 ? "24h" : h === 72 ? "3d" : "7d"}
+                  </button>
+                ))}
+                <label className="flex items-center gap-1 text-[10px] text-stone-500">
+                  <input
+                    type="checkbox"
+                    checked={sessionsIncludeBots}
+                    onChange={(e) => setSessionsIncludeBots(e.target.checked)}
+                  />
+                  Include bots
+                </label>
+                <button
+                  onClick={fetchSessions}
+                  disabled={sessionsLoading}
+                  className="rounded bg-slate-800 p-1.5 text-stone-400 hover:text-white"
+                >
+                  <RefreshCw className={`h-3 w-3 ${sessionsLoading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+
+            {sessionsLoading && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+              </div>
+            )}
+
+            {!sessionsLoading && sessions.length === 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-8 text-center text-stone-600 text-sm">
+                No sessions in the selected window.
+              </div>
+            )}
+
+            {!sessionsLoading && sessions.length > 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 divide-y divide-slate-800/50">
+                {sessions.map((s) => {
+                  const isOpen = expandedSession === s.session_key;
+                  const score = s.suspicion_score;
+                  const scoreColor =
+                    score >= 60 ? "text-red-400 bg-red-500/10 border-red-500/30" :
+                    score >= 30 ? "text-amber-300 bg-amber-500/10 border-amber-500/30" :
+                    "text-stone-500 bg-slate-800 border-slate-700";
+                  return (
+                    <div
+                      key={s.session_key}
+                      className={`px-4 py-3 ${s.watchlist_label ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}`}
+                    >
+                      <button
+                        onClick={() => setExpandedSession(isOpen ? null : s.session_key)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {s.watchlist_label && (
+                                <span className="rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                                  {s.watchlist_label}
+                                </span>
+                              )}
+                              <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${scoreColor}`}>
+                                Score {score}
+                              </span>
+                              {s.is_bot && (
+                                <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 uppercase">Bot</span>
+                              )}
+                              <span className="text-xs font-semibold text-white">
+                                {s.page_count} page{s.page_count === 1 ? "" : "s"}
+                              </span>
+                              <span className="text-[10px] text-stone-500">
+                                {Math.round(s.duration_seconds / 60)}m {s.duration_seconds % 60}s
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-stone-400">
+                              <span className="flex items-center gap-1 capitalize">
+                                {deviceIcon(s.device_type)} {s.device_type}
+                              </span>
+                              {s.city && (
+                                <span className="flex items-center gap-1">
+                                  <Globe2 className="h-3 w-3" />
+                                  {s.city}{s.region ? `, ${s.region}` : ""}{s.country && s.country !== "US" ? ` (${s.country})` : ""}
+                                </span>
+                              )}
+                              {s.ip && <span className="font-mono text-stone-300">{s.ip}</span>}
+                              {s.referrer && (
+                                <span className="truncate max-w-[200px]">
+                                  via {(() => {
+                                    try { return new URL(s.referrer).hostname.replace("www.", ""); }
+                                    catch { return s.referrer.slice(0, 30); }
+                                  })()}
+                                </span>
+                              )}
+                            </div>
+                            {s.suspicion_reasons.length > 0 && (
+                              <div className="mt-1 text-[10px] text-amber-300/80">
+                                {s.suspicion_reasons.join(" • ")}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            <span className="text-[10px] text-stone-600">{timeAgo(s.last_seen)}</span>
+                            {isOpen ? (
+                              <ChevronUp className="h-4 w-4 text-stone-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-stone-500" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+
+                      {isOpen && (
+                        <div className="mt-3 space-y-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-[10px] text-stone-500">
+                              session_id: <span className="font-mono text-stone-300">{s.session_id ?? "—"}</span>
+                              {" · "}
+                              visitor_id: <span className="font-mono text-stone-300">{s.visitor_id ?? "—"}</span>
+                            </div>
+                            {!s.watchlist_label && (s.ip || s.visitor_id) && (
+                              <button
+                                onClick={() => quickPinFromSession(s)}
+                                className="flex items-center gap-1 rounded bg-red-500/20 px-2 py-1 text-[10px] font-bold uppercase text-red-300 hover:bg-red-500/30"
+                              >
+                                <Plus className="h-3 w-3" />
+                                Pin to Watchlist
+                              </button>
+                            )}
+                          </div>
+                          {s.user_agent && (
+                            <div className="text-[10px] text-stone-500 break-all">
+                              UA: <span className="text-stone-400">{s.user_agent}</span>
+                            </div>
+                          )}
+                          {(s.utm_source || s.utm_medium || s.utm_campaign) && (
+                            <div className="text-[10px] text-stone-500">
+                              UTM: {[s.utm_source, s.utm_medium, s.utm_campaign].filter(Boolean).join(" / ")}
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Page journey</p>
+                            <ol className="space-y-1">
+                              {s.pages.map((p, i) => (
+                                <li key={i} className="flex items-baseline gap-2 text-[11px]">
+                                  <span className="w-6 text-right text-stone-600">{i + 1}.</span>
+                                  <span className="font-mono text-stone-200">{p.page_path}</span>
+                                  <span className="text-[9px] text-stone-600">
+                                    {new Date(p.created_at).toLocaleTimeString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── WATCHLIST TAB ──────────────────────────────────────────── */}
+        {activeTab === "watchlist" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Eye className="h-4 w-4 text-red-400" />
+                Visitor Watchlist
+              </h3>
+              <button
+                onClick={fetchWatchlist}
+                disabled={watchlistLoading}
+                className="rounded bg-slate-800 p-1.5 text-stone-400 hover:text-white"
+              >
+                <RefreshCw className={`h-3 w-3 ${watchlistLoading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                Pin a visitor
+              </p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                <input
+                  value={newWatchLabel}
+                  onChange={(e) => setNewWatchLabel(e.target.value)}
+                  placeholder="Label (e.g. Alex - home IP)"
+                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
+                />
+                <input
+                  value={newWatchIp}
+                  onChange={(e) => setNewWatchIp(e.target.value)}
+                  placeholder="IP address (optional)"
+                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
+                />
+                <input
+                  value={newWatchVisitor}
+                  onChange={(e) => setNewWatchVisitor(e.target.value)}
+                  placeholder="Visitor ID (optional)"
+                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
+                />
+                <input
+                  value={newWatchNote}
+                  onChange={(e) => setNewWatchNote(e.target.value)}
+                  placeholder="Note (optional)"
+                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                {watchlistError ? (
+                  <p className="text-[11px] text-red-400">{watchlistError}</p>
+                ) : (
+                  <p className="text-[10px] text-stone-600">
+                    Either an IP, a visitor ID, or both. Pinned entries highlight in Live + Sessions.
+                  </p>
+                )}
+                <button
+                  onClick={handleAddWatch}
+                  disabled={addingWatch}
+                  className="flex items-center gap-1 rounded-md bg-yellow-400 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-900 hover:bg-yellow-300 disabled:opacity-40"
+                >
+                  {addingWatch ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                  Pin
+                </button>
+              </div>
+            </div>
+
+            {watchlistLoading && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+              </div>
+            )}
+
+            {!watchlistLoading && watchlist.length === 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-8 text-center text-stone-600 text-sm">
+                No watchlist entries yet. Pin one above, or click &quot;Pin to Watchlist&quot; on a suspicious session.
+              </div>
+            )}
+
+            {!watchlistLoading && watchlist.length > 0 && (
+              <div className="rounded-xl border border-slate-800 bg-slate-900 divide-y divide-slate-800/50">
+                {watchlist.map((w) => (
+                  <div key={w.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                            {w.label}
+                          </span>
+                          <span className="text-[10px] text-stone-500">
+                            {w.recent_hits} hits in last 7d
+                          </span>
+                          {w.last_seen && (
+                            <span className="text-[10px] text-stone-600">
+                              · last seen {timeAgo(w.last_seen)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px]">
+                          {w.ip && <span className="font-mono text-stone-300">IP: {w.ip}</span>}
+                          {w.visitor_id && (
+                            <span className="font-mono text-stone-300 truncate max-w-[200px]">
+                              Visitor: {w.visitor_id}
+                            </span>
+                          )}
+                        </div>
+                        {w.note && <p className="mt-1 text-[10px] text-stone-500">{w.note}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveWatch(w.id)}
+                        className="rounded p-1.5 text-stone-500 hover:bg-slate-800 hover:text-red-400"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── INSTALLERS TAB ────────────────────────────────────────── */}
         {activeTab === "installers" && (
           <div className="space-y-4">
