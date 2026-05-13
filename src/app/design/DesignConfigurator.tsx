@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { submitNetworkLead, type QuoteItem } from "@/app/actions/submit-lead";
@@ -15,6 +15,10 @@ import type { MultiUnitItem } from "@/components/visualizer/RackVisualizer";
 import BookingModal from "@/components/booking/BookingModal";
 import ScanWizard from "@/components/design/ScanWizard";
 import ConfiguratorSidebar from "@/components/design/ConfiguratorSidebar";
+import DesignEntryModal, {
+  DESIGN_ENTRY_DONE_KEY,
+  type EntryCommit,
+} from "@/components/design/DesignEntryModal";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
 const CustomerChatWidget = dynamic(() => import("@/components/chat/CustomerChatWidget"), { ssr: false });
 import { AlertTriangle, ArrowLeft, User } from "lucide-react";
@@ -153,6 +157,65 @@ export default function DesignConfigurator({
     if (typeof initialConfig.hasTop === "boolean") builder.setHasTop(initialConfig.hasTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialConfig]);
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DESIGN ENTRY MODAL — front-loaded dimension capture
+  //
+  // First-time visitors see a modal asking "Do you have your dimensions?"
+  // before the configurator. Skip when:
+  //   - demo mode
+  //   - a saved signal is resuming (returning customer)
+  //   - the URL already provided a config (chat handoff, share link)
+  //   - localStorage flag is set from a prior visit
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const skipEntryModal =
+    isDemo ||
+    !!savedSignal ||
+    !!initialConfig ||
+    cart.initialStep > 1;
+
+  const [entryModalOpen, setEntryModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (skipEntryModal) return;
+    try {
+      const done = window.localStorage.getItem(DESIGN_ENTRY_DONE_KEY);
+      if (!done) setEntryModalOpen(true);
+    } catch {
+      setEntryModalOpen(true);
+    }
+  }, [skipEntryModal]);
+
+  const markEntryDone = useCallback(() => {
+    try {
+      window.localStorage.setItem(DESIGN_ENTRY_DONE_KEY, "1");
+    } catch {
+      // ignore (private mode etc.)
+    }
+  }, []);
+
+  const handleEntryCommit = useCallback(async (commit: EntryCommit) => {
+    if (commit.kind === "wall") {
+      builder.setWallWidth(commit.widthInches.toFixed(1));
+      builder.setWallHeight(commit.heightInches.toFixed(1));
+      // Wait a tick so the builder's wallWidth/Height state is updated
+      // before handleWallFit reads it via closure.
+      await new Promise((r) => setTimeout(r, 0));
+      await builder.handleWallFit();
+    } else {
+      builder.setCols(commit.cols);
+      builder.setRows(commit.rows);
+    }
+    cart.setSidebarStep(2);
+    markEntryDone();
+    setEntryModalOpen(false);
+  }, [builder, cart, markEntryDone]);
+
+  const handleEntryDismiss = useCallback(() => {
+    markEntryDone();
+    setEntryModalOpen(false);
+  }, [markEntryDone]);
 
   // ═══════════════════════════════════════════════════════════════════════
   // RE-PRICE ORDER ITEMS AFTER NETWORK REFERRAL HANDOFF
@@ -571,6 +634,22 @@ export default function DesignConfigurator({
 
   return (
     <div className="flex h-screen flex-col bg-gray-950">
+      {/* ── Design Entry Modal — first-visit dimension capture ─────────── */}
+      {entryModalOpen && (
+        <DesignEntryModal
+          installerId={installer.installerId || null}
+          defaultZip={serviceArea.zip}
+          unitType={builder.unitType}
+          use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
+          toteType={builder.toteType}
+          toteColor={builder.toteColor}
+          orientation={builder.orientation}
+          installerPricing={installer.data?.pricing}
+          onCommit={handleEntryCommit}
+          onDismiss={handleEntryDismiss}
+        />
+      )}
+
       {/* ── Analytics: track page view for installer ────────────────────── */}
       {installer.installerId && <PageViewTracker installerId={installer.installerId} page="/design" />}
 
