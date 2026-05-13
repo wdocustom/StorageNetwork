@@ -248,6 +248,30 @@ export async function POST(request: NextRequest) {
 
     console.log("[Webhook] Session:", session.id, "| Lead:", leadId, "| Installer:", installerId);
 
+    // ═════════════════════════════════════════════════════════════════════
+    // REALTOR TOTE-RENTAL GIFT — Closing-gift purchase (Phase A2).
+    // Handled here BEFORE the leadId-required guard below, because gift
+    // sessions don't carry a leadId (they're keyed on gift_id in metadata).
+    // ═════════════════════════════════════════════════════════════════════
+    if (metadata.type === "tote_rental_gift") {
+      try {
+        const { finalizeGiftPurchase } = await import("@/app/actions/realtor-gifts");
+        const result = await finalizeGiftPurchase({ sessionId: session.id });
+        if (!result.ok) {
+          console.error("[Webhook] tote_rental_gift finalize failed:", result.error);
+        } else {
+          console.log(
+            "[Webhook] tote_rental_gift finalized:",
+            result.giftId,
+            result.alreadyFinalized ? "(already done)" : ""
+          );
+        }
+      } catch (err) {
+        console.error("[Webhook] tote_rental_gift handler crashed:", err);
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (!leadId) {
       console.warn("[Webhook] checkout.session.completed without leadId in metadata");
       return NextResponse.json({ received: true });

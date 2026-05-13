@@ -64,6 +64,9 @@ export {
 
 export {
   sendRealtorWelcomeEmail,
+  sendGiftRecipientInvite,
+  sendGiftMagicCodeEmail,
+  sendRealtorGiftReceipt,
 } from "./emails/realtorTemplates";
 
 export {
