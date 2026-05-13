@@ -194,7 +194,7 @@ function RealtorJoinPageInner() {
 
             <p className="mt-4 text-center text-xs text-stone-500">
               Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-yellow-400 hover:underline">
+              <Link href="/realtors/login" className="font-semibold text-yellow-400 hover:underline">
                 Sign in
               </Link>
             </p>
