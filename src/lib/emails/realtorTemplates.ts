@@ -3,12 +3,13 @@ import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Realtor email templates — Phase A1 (welcome only).
+// Realtor email templates.
 //
-// Tone: realtors are credibility-driven, relationship-driven, status-driven.
-// The pitch is "the smartest closing gift on the market" — totes are the
-// hook; the long-term value is the buyer remembering YOU when they need
-// anything else for the home (storage, organization, contractors).
+// Audience-specific tone:
+//   - Welcome / receipts → realtor (credibility, closing-gift framing)
+//   - Recipient invite + magic code → buyer or seller (warm, branded with
+//     the realtor's name + brokerage; storage network is the courier, not
+//     the headliner)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function eyebrow(text: string): string {
@@ -19,6 +20,21 @@ function ctaButton(url: string, label: string): string {
   return `<a href="${url}" style="display:inline-block;background-color:#facc15;color:#000000;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;">${label}</a>`;
 }
 
+function detailRow(label: string, value: string): string {
+  return `<tr><td style="padding:12px 0;border-bottom:1px solid #222;color:#a3a3a3;font-size:13px;width:50%;">${label}</td><td style="padding:12px 0;border-bottom:1px solid #222;color:#ffffff;font-size:13px;text-align:right;font-weight:600;">${value}</td></tr>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// ── Welcome (existing — Phase A1) ─────────────────────────────────────────
+
 export async function sendRealtorWelcomeEmail(
   email: string,
   data: { name: string; brokerage: string }
@@ -28,7 +44,7 @@ export async function sendRealtorWelcomeEmail(
   const html = masterEmailLayout(
     "Welcome to Storage Network",
     `
-    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Welcome, ${data.name}.</p>
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Welcome, ${escapeHtml(data.name)}.</p>
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
       You just unlocked the smartest closing gift on the market &mdash;
       reusable moving totes, delivered to your buyer or seller, picked up
@@ -44,7 +60,7 @@ export async function sendRealtorWelcomeEmail(
     </table>
 
     <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
-      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">${data.brokerage}</p>
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">${escapeHtml(data.brokerage)}</p>
       <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Your dashboard is live. Set up your branding, then send your first gift &mdash; takes about 90 seconds.</p>
       ${ctaButton(dashboardUrl, "Open Realtor Dashboard")}
     </div>
@@ -59,6 +75,163 @@ export async function sendRealtorWelcomeEmail(
     to: email,
     toName: data.name,
     subject: "Welcome to Storage Network — your closing-gift toolkit is live",
+    html,
+  });
+}
+
+// ── Recipient invite — the moment the gift goes live ─────────────────────
+
+export async function sendGiftRecipientInvite(
+  email: string,
+  data: {
+    recipientName: string;
+    realtorName: string;
+    brokerage: string;
+    packageName: string;
+    toteCount: number;
+    durationDays: number;
+    personalMessage: string | null;
+    giftUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const giverLine = data.brokerage
+    ? `${escapeHtml(data.realtorName)} &middot; ${escapeHtml(data.brokerage)}`
+    : escapeHtml(data.realtorName);
+
+  const messageBlock = data.personalMessage
+    ? `
+      <div style="border-left:3px solid #facc15;background-color:#111111;padding:18px 22px;margin:0 0 28px;border-radius:0 8px 8px 0;">
+        ${eyebrow("A note from " + escapeHtml(data.realtorName))}
+        <p style="margin:0;color:#ffffff;font-size:14px;line-height:1.7;font-style:italic;">&ldquo;${escapeHtml(data.personalMessage)}&rdquo;</p>
+      </div>
+    `
+    : "";
+
+  const html = masterEmailLayout(
+    "You've been gifted a move",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${giverLine}</strong> just sent you a closing gift &mdash; a full set of reusable moving totes, delivered to your door and picked up after you've settled in. No cardboard, no mess.
+    </p>
+
+    ${messageBlock}
+
+    ${eyebrow("Your gift")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Package", escapeHtml(data.packageName))}
+      ${detailRow("Totes included", `${data.toteCount} totes`)}
+      ${detailRow("Rental window", `${data.durationDays} days`)}
+      ${detailRow("Delivery & pickup", "Included")}
+    </table>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Schedule your delivery</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        Click through to verify your email, confirm your address, and pick
+        delivery + pickup windows. Takes about a minute.
+      </p>
+      ${ctaButton(data.giftUrl, "Open Your Gift")}
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Questions? Reply to this email &mdash; we read every one.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `${data.realtorName} sent you reusable moving totes for your move`,
+    html,
+  });
+}
+
+// ── Magic-link OTP ────────────────────────────────────────────────────────
+
+export async function sendGiftMagicCodeEmail(
+  email: string,
+  data: { recipientName: string; code: string; expiresInMinutes: number }
+): Promise<SendEmailResult> {
+  const html = masterEmailLayout(
+    "Your verification code",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Use this code to verify your email and pick up your closing gift.
+      It expires in ${data.expiresInMinutes} minutes.
+    </p>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:36px;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:42px;font-weight:900;letter-spacing:12px;font-family:monospace;">${escapeHtml(data.code)}</p>
+    </div>
+
+    <p style="margin:0 0 8px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+      Didn't request this? You can safely ignore this email &mdash; your gift will sit waiting until you do.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `${data.code} is your Storage Network verification code`,
+    html,
+  });
+}
+
+// ── Realtor purchase receipt ──────────────────────────────────────────────
+
+export async function sendRealtorGiftReceipt(
+  email: string,
+  data: {
+    realtorName: string;
+    recipientName: string;
+    packageName: string;
+    toteCount: number;
+    durationDays: number;
+    amountCents: number;
+    giftUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const amount = `$${(data.amountCents / 100).toFixed(2)}`;
+
+  const html = masterEmailLayout(
+    "Gift sent",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.realtorName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your closing gift for <strong style="color:#ffffff;">${escapeHtml(data.recipientName)}</strong>
+      is on its way. We just emailed them the gift link &mdash; they'll
+      pick a delivery window from there.
+    </p>
+
+    ${eyebrow("Receipt")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Package", escapeHtml(data.packageName))}
+      ${detailRow("Totes", `${data.toteCount} totes`)}
+      ${detailRow("Rental window", `${data.durationDays} days`)}
+      ${detailRow("Total charged", amount)}
+    </table>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 12px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        You can preview the gift link your recipient receives below &mdash; copy it into a text or DM if you'd like to follow up personally.
+      </p>
+      <p style="margin:0;color:#facc15;font-size:13px;word-break:break-all;font-family:monospace;">${escapeHtml(data.giftUrl)}</p>
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Track this gift any time at <a href="${getAppUrl()}/realtors/dashboard/gifts" style="color:#facc15;text-decoration:none;">your dashboard</a>.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.realtorName,
+    subject: `Receipt: ${data.packageName} for ${data.recipientName}`,
     html,
   });
 }

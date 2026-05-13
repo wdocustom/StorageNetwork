@@ -56,14 +56,12 @@ export default async function RealtorDashboardPage() {
             description="Pick a tote package, address it to your buyer or seller, and send the link."
             href="/realtors/dashboard/gifts/new"
             primary
-            comingSoon
           />
           <ActionTile
             icon={Package}
             label="Your Gifts"
             description="Track delivery, pickup, and redemption status for every gift you've sent."
             href="/realtors/dashboard/gifts"
-            comingSoon
           />
         </div>
 
