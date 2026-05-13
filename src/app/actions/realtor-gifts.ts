@@ -453,6 +453,11 @@ export interface RecipientGiftView {
   deliveryWindowEnd: string | null;
   pickupWindowStart: string | null;
   pickupWindowEnd: string | null;
+  installerName: string | null;
+  installerBusinessName: string | null;
+  installerSlug: string | null;
+  delivered: boolean;
+  returned: boolean;
 }
 
 /**
@@ -471,13 +476,17 @@ export async function lookupGiftByToken(
     .select(
       `
       id, recipient_name, recipient_email, tote_count, duration_days,
-      personal_message, status, redeemed_at, scheduled_at,
+      personal_message, status, redeemed_at, scheduled_at, delivered_at, returned_at,
       property_address, property_zip,
       delivery_address, delivery_window_start, delivery_window_end,
       pickup_window_start, pickup_window_end,
+      installer_id,
       tote_rental_packages ( name, description, features ),
-      profiles!tote_rental_gifts_realtor_id_fkey (
+      realtor:profiles!tote_rental_gifts_realtor_id_fkey (
         first_name, last_name, realtor_brokerage
+      ),
+      installer:profiles!tote_rental_gifts_installer_id_fkey (
+        first_name, last_name, business_name, slug
       )
     `
     )
@@ -490,9 +499,16 @@ export async function lookupGiftByToken(
   const pkg = row.tote_rental_packages as unknown as
     | { name: string; description: string; features: string[] }
     | null;
-  const realtor = row.profiles as unknown as
+  const realtor = row.realtor as unknown as
     | { first_name: string | null; last_name: string | null; realtor_brokerage: string | null }
     | null;
+  const installer = row.installer as unknown as
+    | { first_name: string | null; last_name: string | null; business_name: string | null; slug: string | null }
+    | null;
+  const installerDisplayName =
+    installer?.business_name ||
+    [installer?.first_name, installer?.last_name].filter(Boolean).join(" ") ||
+    null;
 
   return {
     giftId: row.id as string,
@@ -517,6 +533,11 @@ export async function lookupGiftByToken(
     deliveryWindowEnd: (row.delivery_window_end as string | null) ?? null,
     pickupWindowStart: (row.pickup_window_start as string | null) ?? null,
     pickupWindowEnd: (row.pickup_window_end as string | null) ?? null,
+    installerName: installerDisplayName,
+    installerBusinessName: installer?.business_name ?? null,
+    installerSlug: installer?.slug ?? null,
+    delivered: !!row.delivered_at,
+    returned: !!row.returned_at,
   };
 }
 
@@ -756,6 +777,15 @@ export async function scheduleGiftDelivery(
     console.error("[Gifts] schedule update failed:", updateErr);
     return { ok: false, error: "Failed to save schedule. Please try again." };
   }
+
+  // Auto-assign an installer the moment scheduling completes. Fire-and-
+  // forget — if no installer is available right now, the gift stays in
+  // 'scheduled' with installer_id null and the realtor dashboard renders
+  // a "Sourcing installer" state. Ops or a later cron pass can retry.
+  // Dynamic import so this module doesn't cycle with realtor-gift-fulfillment.
+  import("./realtor-gift-fulfillment")
+    .then(({ assignFulfillmentInstaller }) => assignFulfillmentInstaller(gift.id as string))
+    .catch((err) => console.warn("[Gifts] auto-assignment crashed:", err));
 
   return { ok: true };
 }
