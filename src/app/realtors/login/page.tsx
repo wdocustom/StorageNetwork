@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -20,7 +20,19 @@ import { getAppUrl } from "@/lib/utils";
 // don't end up half-redirected.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// useSearchParams() inside the form forces a CSR bailout that must be
+// behind a Suspense boundary or `next build` errors out during prerender.
+// The outer page is a thin server-component-style shell; the form below
+// is the real client component.
 export default function RealtorLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <RealtorLoginForm />
+    </Suspense>
+  );
+}
+
+function RealtorLoginForm() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/realtors/dashboard";
