@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import { RealtorPortalHeader } from "./RealtorPortalHeader";
 
 export default async function RealtorAuthedLayout({
   children,
@@ -37,5 +38,10 @@ export default async function RealtorAuthedLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <RealtorPortalHeader />
+      {children}
+    </>
+  );
 }
