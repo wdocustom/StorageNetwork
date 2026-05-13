@@ -33,9 +33,19 @@ import {
 // plumbing AND survives the user closing the tab in prod.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-12-15.clover",
-});
+// Lazy Stripe init. /gift/[token]/page.tsx server-renders and transitively
+// imports this module, which triggers page-data collection at build time
+// (no env vars). Eager `new Stripe(process.env.STRIPE_SECRET_KEY!)` throws
+// "Neither apiKey nor config.authenticator provided" there. Mirror the
+// getResend() pattern in lib/emails/core.ts instead.
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (_stripe) return _stripe;
+  _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-12-15.clover",
+  });
+  return _stripe;
+}
 
 const OTP_TTL_MINUTES = 15;
 const OTP_MAX_ATTEMPTS = 5;
@@ -190,7 +200,7 @@ export async function createGiftCheckout(
     const baseUrl = siteConfig.baseUrl;
     const productLabel = `${pkg.name} — ${pkg.tote_count} totes, ${tier.duration_days}-day rental`;
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       customer_email: profile.realtor_brokerage ? undefined : undefined, // (kept so Stripe collects it on the hosted form)
       line_items: [
@@ -259,7 +269,7 @@ export async function finalizeGiftPurchase(opts: {
 
   if (stripeSessionId) {
     try {
-      const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+      const session = await getStripe().checkout.sessions.retrieve(stripeSessionId);
       if (session.payment_status !== "paid") {
         return { ok: false, error: "Payment not completed yet." };
       }
