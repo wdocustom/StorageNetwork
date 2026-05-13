@@ -16,7 +16,10 @@ export function RealtorPortalHeader() {
   async function handleSignOut() {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    // Preserve realtor context on the round-trip: /login reads ?redirect and
+    // honors it on successful sign-in, so the realtor lands back on their
+    // dashboard rather than the installer one (which is /login's default).
+    window.location.href = "/login?redirect=/realtors/dashboard";
   }
 
   return (
