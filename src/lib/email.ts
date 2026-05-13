@@ -63,6 +63,10 @@ export {
 } from "./emails/affiliateTemplates";
 
 export {
+  sendRealtorWelcomeEmail,
+} from "./emails/realtorTemplates";
+
+export {
   sendFeatureAnnouncement,
   sendBountyAnnouncementEmail,
   sendOverheadAnnouncementEmail,
