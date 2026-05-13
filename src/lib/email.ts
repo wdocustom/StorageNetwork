@@ -67,6 +67,11 @@ export {
   sendGiftRecipientInvite,
   sendGiftMagicCodeEmail,
   sendRealtorGiftReceipt,
+  sendGiftInstallerAssignedAlert,
+  sendGiftRecipientAssignedUpdate,
+  sendGiftRealtorAssignedUpdate,
+  sendGiftDeliveredRecipient,
+  sendGiftReturnedRecipient,
 } from "./emails/realtorTemplates";
 
 export {

@@ -235,3 +235,263 @@ export async function sendRealtorGiftReceipt(
     html,
   });
 }
+
+// ── Fulfillment milestone emails (Phase A3) ──────────────────────────────
+
+function formatWindow(start: string, end: string): string {
+  if (!start || !end) return "TBD";
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.valueOf())) return "TBD";
+  const date = s.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const time = `${s.toLocaleTimeString("en-US", { hour: "numeric", hour12: true })} – ${e.toLocaleTimeString("en-US", { hour: "numeric", hour12: true })}`;
+  return `${date}, ${time}`;
+}
+
+/**
+ * Installer-side alert. They've been auto-assigned a new tote-rental job.
+ * Includes everything they need to dispatch without clicking through.
+ */
+export async function sendGiftInstallerAssignedAlert(
+  email: string,
+  data: {
+    installerName: string;
+    recipientName: string;
+    deliveryAddress: string;
+    deliveryWindowStart: string;
+    deliveryWindowEnd: string;
+    pickupWindowStart: string;
+    pickupWindowEnd: string;
+    toteCount: number;
+    durationDays: number;
+    packageName: string;
+    jobsDashboardUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const jobsUrl = data.jobsDashboardUrl.startsWith("http")
+    ? data.jobsDashboardUrl
+    : `${getAppUrl()}${data.jobsDashboardUrl}`;
+
+  const html = masterEmailLayout(
+    "New Tote Rental Assigned",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${escapeHtml(data.installerName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      A realtor closing-gift job just routed to you. Recipient is signed
+      off on the schedule below &mdash; you can dispatch as-is or use the
+      dashboard to coordinate.
+    </p>
+
+    ${eyebrow("Job details")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Recipient", escapeHtml(data.recipientName))}
+      ${detailRow("Package", `${escapeHtml(data.packageName)} (${data.toteCount} totes, ${data.durationDays}-day rental)`)}
+      ${detailRow("Drop-off", escapeHtml(data.deliveryAddress || "TBD"))}
+      ${detailRow("Delivery window", formatWindow(data.deliveryWindowStart, data.deliveryWindowEnd))}
+      ${detailRow("Pickup window", formatWindow(data.pickupWindowStart, data.pickupWindowEnd))}
+    </table>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Open in your dashboard</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Mark the job delivered after drop-off and returned after pickup &mdash; that triggers the recipient and realtor updates automatically.</p>
+      ${ctaButton(jobsUrl, "View Tote Rentals")}
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Questions? Reply to this email &mdash; we read every one.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.installerName,
+    subject: `New tote rental — ${data.recipientName} (${data.toteCount} totes)`,
+    html,
+  });
+}
+
+/**
+ * Recipient update — "you're confirmed, here's who's delivering".
+ */
+export async function sendGiftRecipientAssignedUpdate(
+  email: string,
+  data: {
+    recipientName: string;
+    installerName: string;
+    installerSlug: string | null;
+    giftUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const url = data.giftUrl.startsWith("http") ? data.giftUrl : `${getAppUrl()}${data.giftUrl}`;
+  const installerProfileUrl = data.installerSlug ? `${getAppUrl()}/p/${data.installerSlug}` : null;
+
+  const installerBlock = installerProfileUrl
+    ? `<a href="${installerProfileUrl}" style="color:#facc15;text-decoration:none;">${escapeHtml(data.installerName)}</a>`
+    : `<strong style="color:#ffffff;">${escapeHtml(data.installerName)}</strong>`;
+
+  const html = masterEmailLayout(
+    "Your installer is set",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Quick update &mdash; ${installerBlock} from the Storage Network installer
+      network will be handling your delivery and pickup. You don&apos;t
+      need to do anything else; the schedule you confirmed stands.
+    </p>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      ${ctaButton(url, "View My Gift")}
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `${data.installerName} will deliver your closing gift`,
+    html,
+  });
+}
+
+/**
+ * Realtor update — "your gift was assigned an installer". Light touch.
+ */
+export async function sendGiftRealtorAssignedUpdate(
+  email: string,
+  data: {
+    realtorName: string;
+    recipientName: string;
+    installerName: string;
+    giftsDashboardUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const url = data.giftsDashboardUrl.startsWith("http")
+    ? data.giftsDashboardUrl
+    : `${getAppUrl()}${data.giftsDashboardUrl}`;
+
+  const html = masterEmailLayout(
+    "Your gift is on its way",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.realtorName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      The closing gift you sent to <strong style="color:#ffffff;">${escapeHtml(data.recipientName)}</strong>
+      was just assigned to <strong style="color:#ffffff;">${escapeHtml(data.installerName)}</strong>.
+      They&apos;ll handle delivery and pickup &mdash; you&apos;ll get a ping at each milestone.
+    </p>
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
+      ${ctaButton(url, "Track all gifts")}
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.realtorName,
+    subject: `${data.installerName} is delivering your closing gift`,
+    html,
+  });
+}
+
+/**
+ * Recipient — "your totes were just delivered". Sets up the cross-sell
+ * lightly without pushing yet (people just got their boxes; they want to
+ * pack, not shop).
+ */
+export async function sendGiftDeliveredRecipient(
+  email: string,
+  data: {
+    recipientName: string;
+    installerName: string;
+    installerSlug: string | null;
+    giftUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const url = data.giftUrl.startsWith("http") ? data.giftUrl : `${getAppUrl()}${data.giftUrl}`;
+  const designUrl = data.installerSlug
+    ? `${getAppUrl()}/design?installer=${data.installerSlug}`
+    : `${getAppUrl()}/design`;
+
+  const html = masterEmailLayout(
+    "Your totes are here",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${escapeHtml(data.installerName)}</strong>
+      just dropped off your reusable totes. Pack on your own schedule
+      &mdash; pickup is already booked, no follow-up needed.
+    </p>
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
+      ${ctaButton(url, "View Gift Details")}
+    </div>
+
+    <p style="margin:0 0 8px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+      Once you&apos;re settled, ${escapeHtml(data.installerName)} also builds
+      <a href="${designUrl}" style="color:#facc15;text-decoration:none;">custom heavy-duty storage racks</a>
+      using the same totes &mdash; if you want to make this storage permanent, it's a click away.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `${data.installerName} just delivered your totes`,
+    html,
+  });
+}
+
+/**
+ * Recipient — "your totes were picked up". This is where the cross-sell
+ * lands hardest because the recipient is settled in their new place and
+ * about to dispose of their last bit of packing infrastructure.
+ */
+export async function sendGiftReturnedRecipient(
+  email: string,
+  data: {
+    recipientName: string;
+    installerName: string;
+    installerSlug: string | null;
+    giftUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const url = data.giftUrl.startsWith("http") ? data.giftUrl : `${getAppUrl()}${data.giftUrl}`;
+  const designUrl = data.installerSlug
+    ? `${getAppUrl()}/design?installer=${data.installerSlug}`
+    : `${getAppUrl()}/design`;
+  const installerProfileUrl = data.installerSlug ? `${getAppUrl()}/p/${data.installerSlug}` : null;
+
+  const html = masterEmailLayout(
+    "Move complete",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your totes are back with <strong style="color:#ffffff;">${escapeHtml(data.installerName)}</strong> &mdash;
+      your move is officially complete. Hope the new place is starting to feel like home.
+    </p>
+
+    <div style="border-left:3px solid #facc15;background-color:#111111;padding:24px;margin:0 0 28px;border-radius:0 8px 8px 0;">
+      ${eyebrow("Love the totes? Keep them.")}
+      <p style="margin:0 0 16px;color:#ffffff;font-size:15px;line-height:1.6;">
+        ${escapeHtml(data.installerName)} builds custom heavy-duty storage racks designed for
+        the same totes you just used. Garage, basement, pantry &mdash; the
+        clutter never comes back.
+      </p>
+      ${ctaButton(designUrl, "Design your rack")}
+      ${installerProfileUrl ? `<p style="margin:14px 0 0;font-size:12px;"><a href="${installerProfileUrl}" style="color:#a3a3a3;text-decoration:underline;">See ${escapeHtml(data.installerName)}'s portfolio &rarr;</a></p>` : ""}
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      Want to see this gift one more time? <a href="${url}" style="color:#facc15;text-decoration:none;">Open your gift page</a>.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `Move complete — ${data.installerName} picked up the totes`,
+    html,
+  });
+}

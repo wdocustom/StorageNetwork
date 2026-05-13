@@ -315,37 +315,112 @@ function DonePanel({ gift }: { gift: RecipientGiftView }) {
   const delivery = formatWindow(gift.deliveryWindowStart, gift.deliveryWindowEnd);
   const pickup = formatWindow(gift.pickupWindowStart, gift.pickupWindowEnd);
 
+  // Headline copy varies by gift lifecycle stage.
+  const headline = gift.returned
+    ? "Move complete."
+    : gift.delivered
+      ? "Your totes are here."
+      : gift.installerName
+        ? "You're scheduled."
+        : "You're scheduled.";
+
+  const lead = gift.returned
+    ? `${gift.installerName ?? "Your installer"} picked up the totes. Hope the new place is starting to feel like home.`
+    : gift.delivered
+      ? `${gift.installerName ?? "Your installer"} dropped off your totes. Pack on your own schedule — pickup is already booked.`
+      : gift.installerName
+        ? `${gift.installerName} from the Storage Network installer network is set to handle your delivery and pickup.`
+        : "We're routing a local pro from the Storage Network installer network to your area. You'll get an email the moment they're assigned.";
+
   return (
-    <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-6 sm:p-8">
-      <div className="mb-5 flex items-center gap-3">
-        <CheckCircle2 className="h-6 w-6 text-yellow-400" />
-        <h2 className="text-lg font-bold">You&apos;re scheduled.</h2>
+    <>
+      <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-6 sm:p-8">
+        <div className="mb-5 flex items-center gap-3">
+          <CheckCircle2 className="h-6 w-6 text-yellow-400" />
+          <h2 className="text-lg font-bold">{headline}</h2>
+        </div>
+
+        <p className="mb-6 text-sm leading-relaxed text-stone-300">{lead}</p>
+
+        <div className="space-y-4">
+          {delivery && (
+            <ScheduleRow
+              icon={<MapPin className="h-4 w-4 text-yellow-400" />}
+              heading={gift.delivered ? "Delivered" : "Delivery"}
+              primary={delivery.date}
+              secondary={delivery.time}
+              tertiary={gift.deliveryAddress || undefined}
+            />
+          )}
+          {pickup && (
+            <ScheduleRow
+              icon={<MapPin className="h-4 w-4 text-yellow-400" />}
+              heading={gift.returned ? "Picked up" : "Pickup"}
+              primary={pickup.date}
+              secondary={pickup.time}
+              tertiary={gift.deliveryAddress || undefined}
+            />
+          )}
+        </div>
       </div>
 
-      <p className="mb-6 text-sm leading-relaxed text-stone-300">
-        We&apos;ll connect you with a local pro from the Storage Network installer network and
-        send a confirmation email shortly. Both windows are saved below for reference.
-      </p>
+      {/* Post-delivery cross-sell — once the totes are physically with the
+          recipient, surface the installer's permanent-rack designer. The
+          card is even more prominent after pickup (returned state) when
+          the recipient is settled and giving up their last bit of packing
+          infrastructure. */}
+      {(gift.delivered || gift.returned) && gift.installerSlug && (
+        <InstallerCrossSell
+          installerName={gift.installerName ?? "Your installer"}
+          slug={gift.installerSlug}
+          variant={gift.returned ? "post-pickup" : "post-delivery"}
+        />
+      )}
+    </>
+  );
+}
 
-      <div className="space-y-4">
-        {delivery && (
-          <ScheduleRow
-            icon={<MapPin className="h-4 w-4 text-yellow-400" />}
-            heading="Delivery"
-            primary={delivery.date}
-            secondary={delivery.time}
-            tertiary={gift.deliveryAddress || undefined}
-          />
-        )}
-        {pickup && (
-          <ScheduleRow
-            icon={<MapPin className="h-4 w-4 text-yellow-400" />}
-            heading="Pickup"
-            primary={pickup.date}
-            secondary={pickup.time}
-            tertiary={gift.deliveryAddress || undefined}
-          />
-        )}
+function InstallerCrossSell({
+  installerName,
+  slug,
+  variant,
+}: {
+  installerName: string;
+  slug: string;
+  variant: "post-delivery" | "post-pickup";
+}) {
+  const designUrl = `/design?installer=${slug}`;
+  const profileUrl = `/p/${slug}`;
+
+  const headline =
+    variant === "post-pickup"
+      ? "Love your totes? Keep them."
+      : "Want to keep them forever?";
+  const body =
+    variant === "post-pickup"
+      ? `${installerName} builds custom heavy-duty storage racks designed for the same totes you just used. Garage, basement, pantry — the clutter never comes back.`
+      : `Once you're settled, ${installerName} also builds custom storage racks designed for the same totes. Lock in storage that actually lasts.`;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/10 to-transparent p-6 sm:p-8">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-yellow-400">
+        From {installerName}
+      </p>
+      <h3 className="mb-3 text-xl font-bold text-white">{headline}</h3>
+      <p className="mb-5 text-sm leading-relaxed text-stone-300">{body}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <a
+          href={designUrl}
+          className="rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-yellow-300"
+        >
+          Design my rack
+        </a>
+        <a
+          href={profileUrl}
+          className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm font-semibold text-stone-300 hover:border-slate-600"
+        >
+          See {installerName}&apos;s portfolio
+        </a>
       </div>
     </div>
   );

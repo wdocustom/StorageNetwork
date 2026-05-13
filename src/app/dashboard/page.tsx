@@ -23,6 +23,7 @@ import {
   BarChart3,
   Users,
   Activity,
+  Gift,
 } from "lucide-react";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import ActionNudge from "@/components/dashboard/ActionNudge";
@@ -404,7 +405,7 @@ export default function DashboardPage() {
           {profile && <ActionNudge userId={profile.id} />}
 
           {/* ── Tier 2: Secondary Tools ────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {/* Analytics */}
             <a
               href="/dashboard/analytics"
@@ -453,6 +454,17 @@ export default function DashboardPage() {
                 <BookOpen className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Guides</span>
+            </a>
+
+            {/* Tote Rentals — closing-gift fulfillment */}
+            <a
+              href="/dashboard/tote-rentals"
+              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 transition-colors group-hover:bg-amber-500/20">
+                <Gift className="h-5 w-5" />
+              </div>
+              <span className="text-sm font-bold text-white">Tote Rentals</span>
             </a>
           </div>
 
