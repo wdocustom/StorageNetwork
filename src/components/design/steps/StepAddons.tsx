@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { CheckCircle2, ChevronRight, Plus } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
 import { SelectionCard, StudioToggle } from "../configurator-primitives";
 import { OrganizerCustomization } from "../OrganizerCustomization";
@@ -10,14 +9,10 @@ export default function StepAddons({
   props,
   numCols,
   numRows,
-  goPrev,
-  setActiveStep,
 }: {
   props: ConfiguratorSidebarProps;
   numCols: number;
   numRows: number;
-  goPrev: () => void;
-  setActiveStep: (step: number) => void;
 }) {
   return (
     <>
@@ -154,39 +149,6 @@ export default function StepAddons({
           onPaintSidePanelColorChange={props.onPaintSidePanelColorChange}
         />
       )}
-
-      {/* Navigation */}
-      <div className="flex gap-2">
-        <button
-          onClick={goPrev}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-        >
-          Back
-        </button>
-        {/* Custom organizers: "Add to Quote" adds the unit and jumps to summary */}
-        {!props.activePreset && !props.shelvingConfigId ? (
-          <motion.button
-            onClick={() => { props.onAddUnit(); setActiveStep(4); }}
-            disabled={props.buildLoading || props.build.price === 0}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300 disabled:opacity-40"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Plus className="h-4 w-4" />
-            Add to My Quote
-          </motion.button>
-        ) : (
-          <motion.button
-            onClick={() => setActiveStep(4)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Review Summary
-            <ChevronRight className="h-4 w-4" />
-          </motion.button>
-        )}
-      </div>
     </>
   );
 }
