@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Loader2,
   Grid3X3,
-  ChevronRight,
   Mail,
   X,
   Send,
@@ -26,7 +25,6 @@ export default function StepSize({
   wallW,
   wallH,
   hasWallDimensions,
-  goNext,
   setActiveStep,
 }: {
   props: ConfiguratorSidebarProps;
@@ -34,7 +32,6 @@ export default function StepSize({
   wallW: number;
   wallH: number;
   hasWallDimensions: boolean;
-  goNext: () => void;
   setActiveStep: (step: number) => void;
 }) {
   return (
@@ -350,17 +347,6 @@ export default function StepSize({
           )}
         </section>
       )}
-
-      {/* Continue Button */}
-      <motion.button
-        onClick={goNext}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        Next: Choose Your Style
-        <ChevronRight className="h-4 w-4" />
-      </motion.button>
     </>
   );
 }

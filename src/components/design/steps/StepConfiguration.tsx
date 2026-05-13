@@ -1,18 +1,12 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
 import type { ConfiguratorSidebarProps } from "../configurator-types";
 import { SelectionCard } from "../configurator-primitives";
 
 export default function StepConfiguration({
   props,
-  goNext,
-  goPrev,
 }: {
   props: ConfiguratorSidebarProps;
-  goNext: () => void;
-  goPrev: () => void;
 }) {
   return (
     <>
@@ -128,27 +122,6 @@ export default function StepConfiguration({
           </div>
         </div>
       ) : null}
-
-      {/* Navigation */}
-      <div className="flex gap-2">
-        <button
-          onClick={goPrev}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
-        >
-          Back
-        </button>
-        {!props.activePreset && (
-          <motion.button
-            onClick={goNext}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 transition-colors hover:bg-yellow-300"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Next: Customize Your Build
-            <ChevronRight className="h-4 w-4" />
-          </motion.button>
-        )}
-      </div>
     </>
   );
 }
