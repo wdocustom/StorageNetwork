@@ -105,7 +105,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 wallW={wallW}
                 wallH={wallH}
                 hasWallDimensions={hasWallDimensions}
-                goNext={goNext}
                 setActiveStep={setActiveStep}
               />
             )}
@@ -113,8 +112,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
             {activeStep === 2 && (
               <StepConfiguration
                 props={props}
-                goNext={goNext}
-                goPrev={goPrev}
               />
             )}
 
