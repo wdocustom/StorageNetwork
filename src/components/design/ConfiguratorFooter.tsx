@@ -12,6 +12,7 @@ import {
   Shield,
   RefreshCcw,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -137,34 +138,60 @@ export default function ConfiguratorFooter({
         </motion.button>
       )}
 
-      {/* Secondary CTA — forward navigation for steps 1-3, or "Return to My Quote" */}
-      {activeStep < 4 && (
-        <>
-          {hasQuoteItems ? (
-            <motion.button
-              onClick={() => setActiveStep(4)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300"
-              whileHover={{ scale: 1.01, y: -1 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              Return to My Quote
-              <ChevronRight className="h-4 w-4" />
-            </motion.button>
-          ) : (
-            <motion.button
-              onClick={() => setActiveStep(activeStep + 1)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-400/30 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/5"
-              whileHover={{ scale: 1.01, y: -1 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              {activeStep === 1 && "Next: Choose Your Style"}
-              {activeStep === 2 && "Next: Customize Your Build"}
-              {activeStep === 3 && "Add to My Quote"}
-              <ChevronRight className="h-4 w-4" />
-            </motion.button>
-          )}
-        </>
-      )}
+      {/* Secondary CTA — forward navigation for steps 1-3.
+          Step 3 actually adds the draft unit to the quote (matches the
+          old in-step "Add to My Quote" behavior). Presets and shelving
+          are added by their own dropdowns in step 1, so on step 3 they
+          just review the summary. */}
+      {activeStep < 4 && (() => {
+        const isAddToQuoteStep =
+          activeStep === 3 && !props.activePreset && !props.shelvingConfigId;
+        const addDisabled =
+          isAddToQuoteStep && (props.buildLoading || props.build.price === 0);
+
+        const handleClick = () => {
+          if (isAddToQuoteStep) {
+            props.onAddUnit();
+            setActiveStep(4);
+            return;
+          }
+          setActiveStep(activeStep === 3 ? 4 : activeStep + 1);
+        };
+
+        const label = hasQuoteItems && activeStep < 3
+          ? "Return to My Quote"
+          : activeStep === 1
+          ? "Next: Choose Your Style"
+          : activeStep === 2
+          ? "Next: Customize Your Build"
+          : isAddToQuoteStep
+          ? "Add to My Quote"
+          : "Review Summary";
+
+        const onClickFinal = hasQuoteItems && activeStep < 3
+          ? () => setActiveStep(4)
+          : handleClick;
+
+        const filled = hasQuoteItems && activeStep < 3 ? true : isAddToQuoteStep;
+
+        return (
+          <motion.button
+            onClick={onClickFinal}
+            disabled={addDisabled}
+            className={
+              filled
+                ? "flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-zinc-900 shadow-lg shadow-yellow-400/20 transition-all hover:bg-yellow-300 disabled:opacity-40"
+                : "flex w-full items-center justify-center gap-2 rounded-xl border border-yellow-400/30 py-3 text-sm font-bold uppercase tracking-wider text-yellow-400 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/5 disabled:opacity-40"
+            }
+            whileHover={addDisabled ? {} : { scale: 1.01, y: -1 }}
+            whileTap={addDisabled ? {} : { scale: 0.99 }}
+          >
+            {isAddToQuoteStep ? <Plus className="h-4 w-4" /> : null}
+            {label}
+            {!isAddToQuoteStep && <ChevronRight className="h-4 w-4" />}
+          </motion.button>
+        );
+      })()}
 
       {/* Trust signals row — step 4 only */}
       {activeStep === 4 && hasQuoteItems && !props.submitted && (

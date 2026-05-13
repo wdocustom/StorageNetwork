@@ -69,7 +69,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
   const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const detailsFilled = !!(props.firstName.trim() && props.lastName.trim() && props.email.trim() && props.phone.trim() && props.streetAddress.trim() && props.city.trim() && props.addrState.trim() && props.addrZip.trim());
 
-  const goNext = () => setActiveStep((s) => Math.min(4, s + 1));
   const goPrev = () => setActiveStep((s) => Math.max(1, s - 1));
   const hasQuoteItems = props.orderItems.length > 0;
 
@@ -120,8 +119,6 @@ export default function ConfiguratorSidebar(props: ConfiguratorSidebarProps) {
                 props={props}
                 numCols={numCols}
                 numRows={numRows}
-                goPrev={goPrev}
-                setActiveStep={setActiveStep}
               />
             )}
 
