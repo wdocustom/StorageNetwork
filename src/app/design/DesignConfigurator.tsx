@@ -1062,6 +1062,28 @@ export default function DesignConfigurator({
                     MINI
                   </span>
                 )}
+                {/* Inputs caption — surface which selections produced these dims */}
+                <div className="mt-0.5 text-[10px] font-normal text-stone-500">
+                  {builder.unitType === "mini"
+                    ? "Mini totes"
+                    : (() => {
+                        const is2x4 = installer.data?.pricing?.use_2x4_rails === true;
+                        const isSideways = builder.orientation === "sideways";
+                        const slotLabel = is2x4
+                          ? "21″ universal slot"
+                          : isSideways
+                          ? "30.25″ sideways slot"
+                          : builder.toteType === "GM"
+                          ? "20¾″ slot (Wider Totes)"
+                          : "19¾″ slot (Standard Totes)";
+                        const rails = is2x4 ? "2×4 rails" : "plywood rails";
+                        const orient = isSideways ? "sideways" : "standard orientation";
+                        return `${slotLabel} · ${orient} · ${rails}`;
+                      })()}
+                  {builder.buildLoading && (
+                    <span className="ml-1 italic text-stone-400">· recalculating…</span>
+                  )}
+                </div>
               </>
             )}
           </div>
