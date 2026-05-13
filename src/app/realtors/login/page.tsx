@@ -8,6 +8,7 @@ import { Loader2, Mail, Lock, ArrowLeft, KeyRound, ShieldOff } from "lucide-reac
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
+import { getAppUrl } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Realtor Login — dedicated entry point for the closing-gift toolkit.
@@ -19,15 +20,19 @@ import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
 // don't end up half-redirected.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// useSearchParams() inside the form forces a CSR bailout that must be
+// behind a Suspense boundary or `next build` errors out during prerender.
+// The outer page is a thin server-component-style shell; the form below
+// is the real client component.
 export default function RealtorLoginPage() {
   return (
-    <Suspense>
-      <RealtorLoginInner />
+    <Suspense fallback={null}>
+      <RealtorLoginForm />
     </Suspense>
   );
 }
 
-function RealtorLoginInner() {
+function RealtorLoginForm() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/realtors/dashboard";
@@ -54,7 +59,7 @@ function RealtorLoginInner() {
     try {
       if (mode === "forgot") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `${getAppUrl()}/reset-password`,
         });
         if (resetError) {
           setError(resetError.message);

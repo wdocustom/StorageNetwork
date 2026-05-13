@@ -94,10 +94,21 @@ export default function ResetPasswordPage() {
         setSuccess(true);
         // Stamp login — user is authenticated via recovery link
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) stampLastLogin(user.id);
-        // Redirect to dashboard after a moment
+        let destination = "/dashboard";
+        if (user) {
+          stampLastLogin(user.id);
+          // Send realtors to their own portal so they don't land in the
+          // installer dashboard, which would just bounce them back out via
+          // the realtor (authed) route-group guard.
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_realtor")
+            .eq("id", user.id)
+            .single();
+          if (profile?.is_realtor) destination = "/realtors/dashboard";
+        }
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push(destination);
         }, 2000);
       }
     } catch {

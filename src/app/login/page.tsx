@@ -6,6 +6,7 @@ import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
 import { getPaymentRecoveryUrl } from "@/app/actions/pro-subscription";
+import { getAppUrl } from "@/lib/utils";
 import { Loader2, Mail, ArrowLeft, KeyRound, ShieldOff } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -48,7 +49,7 @@ export default function LoginPage() {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(
           trimmedEmail,
           {
-            redirectTo: `${window.location.origin}/reset-password`,
+            redirectTo: `${getAppUrl()}/reset-password`,
           }
         );
 
