@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -8,6 +8,7 @@ import { Loader2, Mail, Lock, ArrowLeft, KeyRound, ShieldOff } from "lucide-reac
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
+import { getAppUrl } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Realtor Login — dedicated entry point for the closing-gift toolkit.
@@ -20,14 +21,6 @@ import { stampLastLogin, checkSuspensionStatus } from "@/app/actions/profile";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function RealtorLoginPage() {
-  return (
-    <Suspense>
-      <RealtorLoginInner />
-    </Suspense>
-  );
-}
-
-function RealtorLoginInner() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/realtors/dashboard";
@@ -54,7 +47,7 @@ function RealtorLoginInner() {
     try {
       if (mode === "forgot") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: `${getAppUrl()}/reset-password`,
         });
         if (resetError) {
           setError(resetError.message);

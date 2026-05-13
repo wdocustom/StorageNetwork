@@ -1,4 +1,22 @@
 /**
+ * Canonical site origin (no trailing slash). Use this anywhere we generate a
+ * link that will be received on a different device than the one running the
+ * browser — most importantly outbound emails (password reset, magic links,
+ * gift notifications). `window.location.origin` is a footgun in those cases:
+ * on a developer's laptop it resolves to http://localhost:3000, which the
+ * recipient's phone can't reach.
+ *
+ * Prefers NEXT_PUBLIC_APP_URL (set per-environment in Vercel + .env), then
+ * falls back to the current browser origin for client-only URL building, then
+ * to the production domain as a last resort for SSR/edge contexts.
+ */
+export function getAppUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "https://storage-network.app";
+}
+
+/**
  * Generate the correct booking link for an installer.
  * Installers with a slug get their portfolio page; others go direct to design.
  * Both formats are supported by the design page resolver.
@@ -8,9 +26,7 @@ export function getInstallerLink(user: {
   slug?: string | null;
   is_pro?: boolean;
 }): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "https://storage-network.app");
+  const baseUrl = getAppUrl();
 
   // Installers with a slug get their portfolio page
   if (user.slug) {
