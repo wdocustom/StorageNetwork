@@ -124,7 +124,7 @@ export default function DesignEntryModal({
           toteColor,
           unitType,
           orientation,
-          addOns: { totes: true, wheels: false, top: false },
+          addOns: { totes: true, wheels: true, top: true },
           mode: "wallFit",
           installerPricing,
         });
@@ -168,7 +168,7 @@ export default function DesignEntryModal({
           toteColor,
           unitType,
           orientation,
-          addOns: { totes: true, wheels: false, top: false },
+          addOns: { totes: true, wheels: true, top: true },
           mode: "manual",
           installerPricing,
         });
