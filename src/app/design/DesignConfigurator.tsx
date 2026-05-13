@@ -195,18 +195,22 @@ export default function DesignConfigurator({
     }
   }, []);
 
-  const handleEntryCommit = useCallback(async (commit: EntryCommit) => {
+  const handleEntryCommit = useCallback((commit: EntryCommit) => {
+    // The modal has already run the wall-fit (or grid) calculation for its
+    // live preview, so we just plumb the resulting cols/rows into the
+    // builder. The builder's existing cols/rows → fetchBuild effect will
+    // recompute the build/visualizer automatically. Setting wallWidth/
+    // wallHeight too keeps Step 1's Auto-Fit Calculator in sync if the
+    // customer ever back-navigates.
     if (commit.kind === "wall") {
       builder.setWallWidth(commit.widthInches.toFixed(1));
       builder.setWallHeight(commit.heightInches.toFixed(1));
-      // Wait a tick so the builder's wallWidth/Height state is updated
-      // before handleWallFit reads it via closure.
-      await new Promise((r) => setTimeout(r, 0));
-      await builder.handleWallFit();
-    } else {
-      builder.setCols(commit.cols);
-      builder.setRows(commit.rows);
+      builder.setWallFitMsg(
+        `Max fit: ${commit.cols} Wide × ${commit.rows} High for that wall.`,
+      );
     }
+    builder.setCols(commit.cols);
+    builder.setRows(commit.rows);
     cart.setSidebarStep(2);
     markEntryDone();
     setEntryModalOpen(false);

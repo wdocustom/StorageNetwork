@@ -39,7 +39,13 @@ import { requestOnSiteMeasure } from "@/app/actions/site-measure";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type EntryCommit =
-  | { kind: "wall"; widthInches: number; heightInches: number }
+  | {
+      kind: "wall";
+      widthInches: number;
+      heightInches: number;
+      cols: number;
+      rows: number;
+    }
   | { kind: "grid"; cols: number; rows: number };
 
 interface Props {
@@ -193,9 +199,15 @@ export default function DesignEntryModal({
   const commitWall = useCallback(() => {
     const w = parseFloat(wallW);
     const h = parseFloat(wallH);
-    if (!w || !h) return;
-    onCommit({ kind: "wall", widthInches: w, heightInches: h });
-  }, [wallW, wallH, onCommit]);
+    if (!w || !h || !wallPreview) return;
+    onCommit({
+      kind: "wall",
+      widthInches: w,
+      heightInches: h,
+      cols: wallPreview.cols,
+      rows: wallPreview.rows,
+    });
+  }, [wallW, wallH, wallPreview, onCommit]);
 
   const commitGrid = useCallback(() => {
     onCommit({ kind: "grid", cols: gridCols, rows: gridRows });
