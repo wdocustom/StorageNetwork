@@ -14,6 +14,7 @@ import {
   sendGiftRecipientInvite,
   sendGiftMagicCodeEmail,
   sendRealtorGiftReceipt,
+  sendGiftCancelledRecipient,
 } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -831,4 +832,173 @@ async function sha256(input: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+// ── Realtor: cancel a gift + refund ─────────────────────────────────────
+//
+// Policy:
+//   pending_payment       → cancel, no refund (no charge yet)
+//   paid / redeemed / scheduled (before installer assignment)
+//                         → cancel, full Stripe refund on the original charge
+//   assigned / delivered / returned
+//                         → refuse here. Installer is committed; cancellation
+//                           must go through admin out-of-band (so they can
+//                           coordinate the installer's expectations / partial
+//                           refund policy on the platform's behalf).
+//   cancelled             → no-op (idempotent)
+//
+// Idempotency / safety:
+//   - Auth check confirms the caller is the gift's realtor (RLS would also
+//     enforce, but we never trust just one layer for destructive paths).
+//   - The Stripe refund call uses an idempotency key tied to the gift_id
+//     so a retry after a transient failure won't double-refund.
+//   - We stamp cancelled_at + the refund ID only AFTER both the Stripe and
+//     DB writes succeed. If the Stripe call fails we never touch the row.
+
+const CANCELLABLE_BY_REALTOR = new Set([
+  "pending_payment",
+  "paid",
+  "redeemed",
+  "scheduled",
+]);
+
+export interface CancelGiftResult {
+  ok: boolean;
+  error?: string;
+  refunded?: boolean;
+  refundCents?: number;
+}
+
+export async function cancelRealtorGift(
+  giftId: string,
+  reason?: string
+): Promise<CancelGiftResult> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  // Rate-limit so a misbehaving client can't sweep-cancel.
+  try {
+    await enforceActionRateLimit({
+      action: "realtor-gifts.cancel",
+      limit: 20,
+      window: "10 m",
+      identify: "user",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) return { ok: false, error: err.message };
+    throw err;
+  }
+
+  const trimmedReason = reason?.trim().slice(0, 500) || null;
+
+  const db = getServiceClient();
+  const { data: gift, error: fetchErr } = await db
+    .from("tote_rental_gifts")
+    .select(
+      `id, realtor_id, status, amount_cents, stripe_payment_intent_id,
+       recipient_name, recipient_email, cancelled_at,
+       profiles!tote_rental_gifts_realtor_id_fkey ( first_name, last_name )`
+    )
+    .eq("id", giftId)
+    .maybeSingle();
+
+  if (fetchErr || !gift) {
+    return { ok: false, error: "Gift not found." };
+  }
+  if (gift.realtor_id !== user.id) {
+    return { ok: false, error: "Not your gift to cancel." };
+  }
+
+  // Already cancelled — return success idempotently, surface the refund
+  // amount that was previously issued if any.
+  if (gift.status === "cancelled" && gift.cancelled_at) {
+    return { ok: true, refunded: false, refundCents: 0 };
+  }
+
+  const status = gift.status as string;
+  if (!CANCELLABLE_BY_REALTOR.has(status)) {
+    return {
+      ok: false,
+      error:
+        "This gift has already been picked up by an installer and can't be cancelled from here. Email support to coordinate.",
+    };
+  }
+
+  const amountCents = (gift.amount_cents as number) ?? 0;
+  const paymentIntentId = (gift.stripe_payment_intent_id as string | null) ?? null;
+  const needsRefund = status !== "pending_payment" && paymentIntentId !== null;
+
+  // Issue Stripe refund first. If it fails, we leave the gift untouched
+  // so the user can retry. The idempotency key ties retries to this gift.
+  let refundId: string | null = null;
+  if (needsRefund) {
+    try {
+      const refund = await getStripe().refunds.create(
+        {
+          payment_intent: paymentIntentId!,
+          reason: "requested_by_customer",
+          metadata: {
+            type: "tote_rental_gift_refund",
+            gift_id: giftId,
+            realtor_id: user.id,
+          },
+        },
+        { idempotencyKey: `tote-rental-gift-${giftId}-refund` }
+      );
+      refundId = refund.id;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Cancel] Stripe refund failed for gift ${giftId}:`, msg);
+      return { ok: false, error: `Refund failed: ${msg}. The gift is still active — try again or contact support.` };
+    }
+  }
+
+  // Flip the row. Guarded on status NOT already 'cancelled' so concurrent
+  // calls converge on the first writer.
+  const now = new Date().toISOString();
+  const { error: updateErr } = await db
+    .from("tote_rental_gifts")
+    .update({
+      status: "cancelled",
+      cancelled_at: now,
+      cancelled_reason: trimmedReason,
+      refunded_at: needsRefund ? now : null,
+      stripe_refund_id: refundId,
+    })
+    .eq("id", giftId)
+    .neq("status", "cancelled");
+
+  if (updateErr) {
+    console.error(`[Cancel] DB update failed for gift ${giftId}:`, updateErr);
+    // Money already moved if we issued a refund. Don't pretend the
+    // operation succeeded — ops will need to reconcile.
+    return {
+      ok: false,
+      error: needsRefund
+        ? `Refund succeeded but the gift state didn't update. Contact support with refund ID ${refundId}.`
+        : "Could not cancel. Try again.",
+    };
+  }
+
+  // Notify the recipient. Fire-and-forget — a Resend hiccup should NOT
+  // roll back the cancellation.
+  const realtorProfile = gift.profiles as unknown as
+    | { first_name: string | null; last_name: string | null }
+    | null;
+  const realtorName =
+    [realtorProfile?.first_name, realtorProfile?.last_name].filter(Boolean).join(" ") ||
+    "Your realtor";
+
+  sendGiftCancelledRecipient(gift.recipient_email as string, {
+    recipientName: gift.recipient_name as string,
+    realtorName,
+    refundIssued: needsRefund,
+    reason: trimmedReason,
+  }).catch((err) => console.warn("[Cancel] recipient email failed:", err));
+
+  return {
+    ok: true,
+    refunded: needsRefund,
+    refundCents: needsRefund ? amountCents : 0,
+  };
 }

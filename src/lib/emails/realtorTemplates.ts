@@ -495,3 +495,54 @@ export async function sendGiftReturnedRecipient(
     html,
   });
 }
+
+// ── Recipient: gift cancelled by the realtor ─────────────────────────────
+
+export async function sendGiftCancelledRecipient(
+  email: string,
+  data: {
+    recipientName: string;
+    realtorName: string;
+    refundIssued: boolean;
+    reason: string | null;
+  }
+): Promise<SendEmailResult> {
+  const reasonBlock = data.reason
+    ? `
+      <div style="border-left:3px solid #facc15;background-color:#111111;padding:18px;margin:0 0 24px;border-radius:0 8px 8px 0;">
+        ${eyebrow("Note from " + escapeHtml(data.realtorName))}
+        <p style="margin:0;color:#ffffff;font-size:14px;font-style:italic;line-height:1.6;">
+          &ldquo;${escapeHtml(data.reason)}&rdquo;
+        </p>
+      </div>`
+    : "";
+
+  const refundNote = data.refundIssued
+    ? `<p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+         The realtor has been refunded for the gift. Nothing was charged to you.
+       </p>`
+    : "";
+
+  const html = masterEmailLayout(
+    "Gift cancelled",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${escapeHtml(data.realtorName)}</strong> has cancelled the
+      closing-gift tote rental that was set up for you. No further action is needed on your end.
+    </p>
+    ${reasonBlock}
+    ${refundNote}
+    <p style="margin:0;color:#555;font-size:12px;">
+      If you have questions, reach out to your realtor directly.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.recipientName,
+    subject: `${data.realtorName} cancelled your closing gift`,
+    html,
+  });
+}
