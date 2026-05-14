@@ -22,7 +22,7 @@ import {
 import {
   INSTALLER_FEE_BASE_CENTS,
   INSTALLER_FEE_PER_TOTE_CENTS,
-  calcInstallerLegFeeCents,
+  calcInstallerPayoutCents,
 } from "@/lib/realtor-fulfillment-payout";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -121,7 +121,7 @@ function PitchHeader() {
         Realtors send their buyers and sellers a closing gift: a stack of reusable
         moving totes. You deliver them, the recipient packs and moves, and you swing
         back to pick the totes up. We auto-route every gift in your service area to
-        you and pay you per leg directly through Stripe.
+        you and pay you one flat payout per job, transferred to your Stripe account.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -192,12 +192,11 @@ function PayoutBreakdown() {
 
       <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-stone-300">
         <p className="mb-1 font-mono text-xs text-yellow-300">
-          payout = (${base.toFixed(0)} base + ${perTote.toFixed(0)} &times; totes) &times; 2 legs
+          payout = ${base.toFixed(0)} base + ${perTote.toFixed(0)} &times; totes
         </p>
         <p className="text-xs text-stone-400">
-          ${base.toFixed(0)} base + ${perTote.toFixed(0)}/tote, per leg. Two legs per gift
-          (delivery + pickup). Paid to your connected Stripe account when each job
-          completes its pickup.
+          One flat payout per gift covering both delivery and pickup. Transferred to
+          your connected Stripe account when you mark the gift returned.
         </p>
       </div>
 
@@ -206,20 +205,17 @@ function PayoutBreakdown() {
           <thead className="bg-slate-950/60 text-[10px] font-bold uppercase tracking-[0.15em] text-stone-500">
             <tr>
               <th className="px-4 py-2.5 text-left">Gift size</th>
-              <th className="px-4 py-2.5 text-right">Per leg</th>
-              <th className="px-4 py-2.5 text-right">Per gift (2 legs)</th>
+              <th className="px-4 py-2.5 text-right">Payout per gift</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {examples.map((n) => {
-              const perLeg = calcInstallerLegFeeCents(n) / 100;
-              const perGift = perLeg * 2;
+              const payout = calcInstallerPayoutCents(n) / 100;
               return (
                 <tr key={n} className="bg-slate-950/20">
                   <td className="px-4 py-2.5 font-medium text-stone-300">{n} totes</td>
-                  <td className="px-4 py-2.5 text-right text-stone-300">${perLeg.toFixed(0)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-emerald-300">
-                    ${perGift.toFixed(0)}
+                    ${payout.toFixed(0)}
                   </td>
                 </tr>
               );
