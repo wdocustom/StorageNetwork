@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import { normalizePhone } from "@/lib/phone";
 import { getAppUrl } from "@/lib/url-helper";
 import {
   enforceActionRateLimit,
@@ -15,6 +16,7 @@ import {
   sendGiftMagicCodeEmail,
   sendRealtorGiftReceipt,
   sendGiftCancelledRecipient,
+  sendGiftEarlyPickupRequestAlert,
 } from "@/lib/email";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,6 +93,8 @@ export interface CreateGiftCheckoutInput {
   durationDays: number;
   recipientName: string;
   recipientEmail: string;
+  /** Optional. Surfaced to the installer as tel:/sms: on the per-job page. */
+  recipientPhone?: string;
   propertyAddress?: string;
   propertyZip?: string;
   personalMessage?: string;
@@ -143,6 +147,7 @@ export async function createGiftCheckout(
   // we want a clean error message before we ever hit the API.
   const recipientName = input.recipientName?.trim();
   const recipientEmail = input.recipientEmail?.trim().toLowerCase();
+  const recipientPhone = normalizePhone(input.recipientPhone);
   if (!recipientName || !recipientEmail) {
     return { success: false, error: "Recipient name and email are required." };
   }
@@ -184,6 +189,7 @@ export async function createGiftCheckout(
       amount_cents: tier.price_cents,
       recipient_name: recipientName,
       recipient_email: recipientEmail,
+      recipient_phone: recipientPhone,
       property_address: input.propertyAddress?.trim() || null,
       property_zip: input.propertyZip?.trim() || null,
       personal_message: input.personalMessage?.trim() || null,
@@ -464,6 +470,9 @@ export interface RecipientGiftView {
   installerSlug: string | null;
   delivered: boolean;
   returned: boolean;
+  /** Set when the recipient has signaled they're ready for pickup early.
+   *  Powers the "we got your signal" confirmation state on /gift/{token}. */
+  pickupEarlyRequestedAt: string | null;
 }
 
 /**
@@ -483,6 +492,7 @@ export async function lookupGiftByToken(
       `
       id, recipient_name, recipient_email, tote_count, duration_days,
       personal_message, status, redeemed_at, scheduled_at, delivered_at, returned_at,
+      pickup_early_requested_at,
       property_address, property_zip,
       delivery_address, delivery_window_start, delivery_window_end,
       pickup_window_start, pickup_window_end,
@@ -555,6 +565,8 @@ export async function lookupGiftByToken(
     installerSlug: installer?.slug ?? null,
     delivered: !!row.delivered_at,
     returned: !!row.returned_at,
+    pickupEarlyRequestedAt:
+      (row.pickup_early_requested_at as string | null) ?? null,
   };
 }
 
@@ -1001,4 +1013,125 @@ export async function cancelRealtorGift(
     refunded: needsRefund,
     refundCents: needsRefund ? amountCents : 0,
   };
+}
+
+// ── Recipient: signal ready for early pickup ─────────────────────────────
+//
+// Token-authenticated. The recipient hits this from /gift/{token} when
+// they're done with the totes before the scheduled pickup window. We
+// stamp pickup_early_requested_at + an optional note onto the gift row
+// and fire an alert email to the assigned installer — they can choose
+// to swing by sooner or stick with the original window.
+//
+// Idempotent in spirit: re-calling is allowed (overwrites the timestamp
+// + note, doesn't double-email). The gift status is unchanged — pickup
+// still goes through the normal markGiftReturned flow.
+
+export interface SignalEarlyPickupResult {
+  ok: boolean;
+  alreadyRequested?: boolean;
+  error?: string;
+}
+
+export async function signalEarlyPickup(opts: {
+  token: string;
+  note?: string;
+}): Promise<SignalEarlyPickupResult> {
+  if (!opts.token) return { ok: false, error: "Missing gift token." };
+
+  try {
+    await enforceActionRateLimit({
+      action: "signal-early-pickup",
+      limit: 5,
+      window: "10 m",
+      identify: "ip",
+    });
+  } catch (err) {
+    if (err instanceof RateLimitError) return { ok: false, error: err.message };
+    throw err;
+  }
+
+  const db = getServiceClient();
+
+  const note = opts.note?.trim().slice(0, 400) || null;
+
+  // Pull the gift — token is the auth credential here, no session needed.
+  // Must be in 'delivered' status: signalling before delivery is a no-op,
+  // and after 'returned' there's nothing left to pick up.
+  const { data: gift } = await db
+    .from("tote_rental_gifts")
+    .select(
+      `id, status, installer_id, recipient_name, recipient_email, recipient_phone,
+       delivery_address, tote_count,
+       pickup_window_start, pickup_window_end, pickup_early_requested_at,
+       profiles!tote_rental_gifts_installer_id_fkey ( first_name, last_name, business_name, email )`
+    )
+    .eq("gift_token", opts.token)
+    .single();
+
+  if (!gift) return { ok: false, error: "Gift not found." };
+  if (gift.status !== "delivered") {
+    return {
+      ok: false,
+      error:
+        "Early pickup can only be requested after the totes are delivered " +
+        "and before they're picked up.",
+    };
+  }
+  if (!gift.installer_id) {
+    // No installer assigned yet — shouldn't happen given status='delivered'
+    // requires installer_id, but defend in depth.
+    return { ok: false, error: "No installer assigned to this gift yet." };
+  }
+
+  const alreadyRequested = !!gift.pickup_early_requested_at;
+
+  const { error: updateErr } = await db
+    .from("tote_rental_gifts")
+    .update({
+      pickup_early_requested_at: new Date().toISOString(),
+      pickup_early_note: note,
+    })
+    .eq("id", gift.id);
+
+  if (updateErr) {
+    console.error("[EarlyPickup] update failed:", updateErr);
+    return { ok: false, error: "Could not record the signal. Try again." };
+  }
+
+  // First-time request fires the installer email. Re-requests don't —
+  // spam protection. The installer can always glance at the dashboard
+  // for the current state.
+  if (!alreadyRequested) {
+    const installer = gift.profiles as unknown as
+      | {
+          first_name: string | null;
+          last_name: string | null;
+          business_name: string | null;
+          email: string;
+        }
+      | null;
+    if (installer?.email) {
+      const installerName =
+        installer.business_name ||
+        [installer.first_name, installer.last_name].filter(Boolean).join(" ") ||
+        "Installer";
+      sendGiftEarlyPickupRequestAlert(installer.email, {
+        installerName,
+        recipientName: gift.recipient_name as string,
+        recipientEmail: gift.recipient_email as string,
+        recipientPhone: (gift.recipient_phone as string | null) ?? null,
+        deliveryAddress: (gift.delivery_address as string | null) ?? "",
+        toteCount: gift.tote_count as number,
+        pickupWindowStart: gift.pickup_window_start as string,
+        pickupWindowEnd: gift.pickup_window_end as string,
+        note,
+        jobDetailUrl: `/dashboard/tote-rentals/${gift.id}`,
+      }).catch((err) =>
+        console.warn("[EarlyPickup] installer alert email failed:", err)
+      );
+    }
+  }
+
+  return { ok: true, alreadyRequested };
 }

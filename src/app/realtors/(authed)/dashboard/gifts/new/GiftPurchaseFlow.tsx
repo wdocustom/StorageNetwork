@@ -48,6 +48,7 @@ export function GiftPurchaseFlow({ packages }: Props) {
 
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [propertyZip, setPropertyZip] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
@@ -81,6 +82,7 @@ export function GiftPurchaseFlow({ packages }: Props) {
       durationDays: selectedTier.duration_days,
       recipientName: recipientName.trim(),
       recipientEmail: recipientEmail.trim(),
+      recipientPhone: recipientPhone.trim() || undefined,
       propertyAddress: propertyAddress.trim() || undefined,
       propertyZip: propertyZip.trim() || undefined,
       personalMessage: personalMessage.trim() || undefined,
@@ -192,6 +194,14 @@ export function GiftPurchaseFlow({ packages }: Props) {
               onChange={setRecipientEmail}
               placeholder="jane@example.com"
               type="email"
+            />
+            <TextField
+              label="Recipient phone (optional)"
+              value={recipientPhone}
+              onChange={setRecipientPhone}
+              placeholder="(555) 123-4567"
+              type="tel"
+              className="sm:col-span-2"
             />
             <TextField
               label="Property address (optional)"
