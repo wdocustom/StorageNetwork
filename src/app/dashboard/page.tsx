@@ -24,6 +24,7 @@ import {
   Users,
   Activity,
   Gift,
+  Building2,
 } from "lucide-react";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import ActionNudge from "@/components/dashboard/ActionNudge";
@@ -40,6 +41,7 @@ interface Profile {
   business_name: string | null;
   is_pro: boolean;
   is_admin?: boolean;
+  is_realtor?: boolean;
   subscription_tier?: string;
   stripe_account_id?: string | null;
   slug?: string | null;
@@ -81,7 +83,7 @@ export default function DashboardPage() {
     });
 
     const [profileRes, leadsRes, paidLeadsRes, recentPostsRes] = await Promise.all([
-      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
+      supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, is_realtor, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single(),
       supabase
         .from("leads")
         .select("id", { count: "exact", head: true })
@@ -103,7 +105,7 @@ export default function DashboardPage() {
       console.error("[Dashboard] Profile query failed:", profileRes.error.message, profileRes.error.code);
       const { error: refreshErr } = await supabase.auth.refreshSession();
       if (!refreshErr) {
-        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
+        const retry = await supabase.from("profiles").select("id, email, first_name, business_name, is_pro, is_admin, is_realtor, subscription_tier, stripe_account_id, slug, city, state").eq("id", user.id).single();
         if (retry.data) {
           console.log("[Dashboard] Retry succeeded after session refresh");
           setProfile(retry.data as Profile);
@@ -173,6 +175,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {profile?.is_realtor && (
+              <a
+                href="/realtors/dashboard"
+                className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                title="Switch to realtor portal"
+              >
+                <Building2 className="h-5 w-5" />
+              </a>
+            )}
             <a
               href="/dashboard/profile"
               className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"

@@ -30,7 +30,7 @@ export default async function RealtorAuthedLayout({
   const supabase = getServiceClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_realtor")
+    .select("is_realtor, is_pro, stripe_account_id")
     .eq("id", user.id)
     .single();
 
@@ -38,9 +38,16 @@ export default async function RealtorAuthedLayout({
     redirect("/dashboard");
   }
 
+  // Dual-role detection: a user has an installer side if they're currently
+  // on Pro OR have ever set up Stripe payouts. Lapsed-Pro installers (no
+  // sub, never connected Stripe) intentionally won't see the switcher — for
+  // them /dashboard would just prompt them to onboard again, which isn't
+  // useful from a "switch portals" affordance.
+  const hasInstallerSide = Boolean(profile.is_pro || profile.stripe_account_id);
+
   return (
     <>
-      <RealtorPortalHeader />
+      <RealtorPortalHeader hasInstallerSide={hasInstallerSide} />
       {children}
     </>
   );

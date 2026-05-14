@@ -23,49 +23,59 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [hasValidSession, setHasValidSession] = useState(false);
 
-  // Check for valid session from recovery link
+  // ── Recovery session setup ───────────────────────────────────────────────
+  // The previous version of this effect trusted whatever session
+  // `supabase.auth.getSession()` returned. That's wrong: if a *different*
+  // user is signed in on this device when the reset link is clicked, the
+  // recovery tokens in the URL hash may not displace the existing session,
+  // and the subsequent `auth.updateUser({ password })` call would update
+  // the wrong account's password. Real-world reproduction: a user signed
+  // in as account A on storage-network.app clicks a reset email for
+  // account B; without explicit isolation, A's password gets reset, not B's.
+  //
+  // Defense: parse the recovery tokens from the URL hash ourselves, sign
+  // out any pre-existing local session before doing anything else, then
+  // install the recovery session via setSession so the rest of the page
+  // is guaranteed to be acting on the correct account.
   useEffect(() => {
-    async function checkSession() {
-      // Supabase handles the token from URL hash automatically
-      const { data: { session }, error } = await supabase.auth.getSession();
+    async function processRecovery() {
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      const params = new URLSearchParams(hash.replace(/^#/, ""));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      const tokenType = params.get("type");
 
-      if (error) {
-        console.error("Session check error:", error);
+      if (tokenType !== "recovery" || !accessToken || !refreshToken) {
         setError("Invalid or expired reset link. Please request a new one.");
         setCheckingSession(false);
         return;
       }
 
-      if (session) {
-        setHasValidSession(true);
-      } else {
-        // Wait a moment for Supabase to process the hash
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const { data: { session: retrySession } } = await supabase.auth.getSession();
-        if (retrySession) {
-          setHasValidSession(true);
-        } else {
-          setError("Invalid or expired reset link. Please request a new one.");
-        }
+      // scope:"local" wipes the session from THIS device only — we don't
+      // want to invalidate the prior user's sessions elsewhere; they might
+      // be a different person entirely.
+      await supabase.auth.signOut({ scope: "local" });
+
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (setErr) {
+        setError(setErr.message || "Couldn't validate reset link. Please request a new one.");
+        setCheckingSession(false);
+        return;
       }
+
+      // Strip the tokens from the URL so they don't leak into history,
+      // referrers, or screen captures.
+      window.history.replaceState(null, "", window.location.pathname);
+
+      setHasValidSession(true);
       setCheckingSession(false);
     }
 
-    // Listen for auth state changes (recovery event)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "PASSWORD_RECOVERY") {
-          setHasValidSession(true);
-          setCheckingSession(false);
-        }
-      }
-    );
-
-    checkSession();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    processRecovery();
   }, [supabase]);
 
   async function handleResetPassword() {
