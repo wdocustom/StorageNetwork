@@ -353,7 +353,9 @@ async function flipMilestone(
   // Guarded UPDATE: only the assigned installer can flip the milestone,
   // and only on the correct from-status. Prevents an installer from
   // marking someone else's job delivered, or marking returned before
-  // delivered.
+  // delivered. The status='delivered'→'returned' transition is the
+  // atomic claim that protects the stock-credit step below — only one
+  // caller can flip the row, so only one caller can credit.
   const { data: updated, error } = await db
     .from("tote_rental_gifts")
     .update({
@@ -364,7 +366,7 @@ async function flipMilestone(
     .eq("installer_id", user.id)
     .eq("status", fromStatus)
     .select(
-      `id, gift_token, recipient_name, recipient_email,
+      `id, gift_token, recipient_name, recipient_email, tote_count,
        installer_id,
        profiles!tote_rental_gifts_installer_id_fkey ( first_name, last_name, business_name, slug )`
     )
@@ -399,6 +401,37 @@ async function flipMilestone(
       installerSlug,
       giftUrl: `/gift/${updated.gift_token}`,
     }).catch((err) => console.warn("[Fulfillment] returned email failed:", err));
+
+    // Credit the installer's available-tote count by the gift's tote_count.
+    // The atomic milestone claim above guarantees this runs at most once per
+    // gift. We use a raw expression (stock + N) so the read+write happens
+    // server-side; an explicit Postgres function isn't worth the migration
+    // overhead for a single-column increment. On the rare network failure
+    // here the gift is still 'returned' but stock is unchanged — installer
+    // can adjust manually on the dashboard.
+    const toteCount = updated.tote_count as number;
+    const installerId = updated.installer_id as string;
+    (async () => {
+      try {
+        const { error: incErr } = await db.rpc("increment_installer_tote_stock", {
+          p_installer_id: installerId,
+          p_amount: toteCount,
+        });
+        if (incErr) {
+          console.error(
+            "[Fulfillment] stock-credit RPC failed for gift",
+            giftId,
+            "installer",
+            installerId,
+            "amount",
+            toteCount,
+            incErr
+          );
+        }
+      } catch (err) {
+        console.error("[Fulfillment] stock-credit threw:", err);
+      }
+    })();
 
     // Fire the installer payout when the rental completes. Fire-and-forget
     // so a Stripe outage doesn't roll back the milestone — the gift is
