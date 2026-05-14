@@ -272,6 +272,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // REALTOR TOTE-PACK PURCHASE — Inventory top-up (bulk tote buy).
+    // Atomic credit happens in the credit_realtor_tote_purchase Postgres
+    // function (migration 114); finalizeTotePackPurchase wraps the RPC.
+    // ═════════════════════════════════════════════════════════════════════
+    if (metadata.type === "tote_pack_purchase") {
+      try {
+        const { finalizeTotePackPurchase } = await import(
+          "@/app/actions/realtor-tote-inventory"
+        );
+        const result = await finalizeTotePackPurchase({ sessionId: session.id });
+        if (!result.ok) {
+          console.error("[Webhook] tote_pack_purchase finalize failed:", result.error);
+        } else {
+          console.log(
+            "[Webhook] tote_pack_purchase finalized:",
+            result.purchaseId,
+            `credited=${result.totalCredited} newBalance=${result.newBalance}`,
+            result.alreadyFinalized ? "(already done)" : ""
+          );
+        }
+      } catch (err) {
+        console.error("[Webhook] tote_pack_purchase handler crashed:", err);
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (!leadId) {
       console.warn("[Webhook] checkout.session.completed without leadId in metadata");
       return NextResponse.json({ received: true });
