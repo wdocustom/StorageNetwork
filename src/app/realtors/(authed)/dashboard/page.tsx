@@ -13,6 +13,7 @@ import { Gift, Package, Settings } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { AnalyticsSection } from "./AnalyticsSection";
+import { RecentActivitySection } from "./RecentActivitySection";
 
 export default async function RealtorDashboardPage() {
   // Layout already guarantees we're a realtor; this read is just for the
@@ -96,6 +97,13 @@ export default async function RealtorDashboardPage() {
         {/* ── Analytics (real numbers from this realtor's gifts) ───── */}
         <div className="mt-12">
           <AnalyticsSection realtorId={user!.id} />
+        </div>
+
+        {/* ── Recent activity timeline ──────────────────────────────
+            Self-hides when this realtor has no events yet; the Analytics
+            section's empty state already covers the first-use case. */}
+        <div className="mt-8">
+          <RecentActivitySection realtorId={user!.id} />
         </div>
 
         {/* ── Feature tiles ────────────────────────────────────────────
