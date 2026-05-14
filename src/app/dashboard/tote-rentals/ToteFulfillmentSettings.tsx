@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2, Power } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 import {
   updateToteFulfillmentSettings,
@@ -9,10 +9,15 @@ import {
 } from "@/app/actions/realtor-gift-fulfillment";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Installer opt-in card. Two states inside:
-//   active=false → big "Turn on" CTA + stock + capacity inputs.
-//   active=true  → compact settings strip with edit-in-place inputs and
-//                  a "Pause" toggle. Shows current in-flight job count.
+// Live-state installer settings strip.
+//
+// Renders only when fulfillment is already turned on (active=true). The
+// pre-opt-in pitch + gate-checking + initial form lives in
+// ToteFulfillmentOnboarding.tsx; the page.tsx dispatches between the two
+// based on the active flag.
+//
+// Inline edits commit on blur or Enter. The "Pause new jobs" button flips
+// active=false, sending the installer back to the onboarding view.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function ToteFulfillmentSettings({
@@ -22,7 +27,6 @@ export function ToteFulfillmentSettings({
   initial: Settings;
   jobsInFlight: number;
 }) {
-  const [active, setActive] = useState(initial.active);
   const [stock, setStock] = useState(String(initial.stock));
   const [capacity, setCapacity] = useState(String(initial.capacity || 5));
   const [saving, setSaving] = useState(false);
@@ -39,21 +43,11 @@ export function ToteFulfillmentSettings({
       return;
     }
     setSavedAt(Date.now());
-    if (typeof patch.active === "boolean") setActive(patch.active);
-  }
-
-  async function activate() {
-    const stockNum = parseInt(stock, 10);
-    const capacityNum = parseInt(capacity, 10);
-    if (Number.isNaN(stockNum) || stockNum < 0) {
-      setError("Enter a valid tote stock count.");
-      return;
+    if (patch.active === false) {
+      // Pausing flips us back to the onboarding view — reload so the page
+      // server-renders that branch instead of trying to swap in-place.
+      window.location.reload();
     }
-    if (Number.isNaN(capacityNum) || capacityNum < 1) {
-      setError("Capacity must be at least 1.");
-      return;
-    }
-    await save({ active: true, stock: stockNum, capacity: capacityNum });
   }
 
   async function saveStock() {
@@ -66,61 +60,6 @@ export function ToteFulfillmentSettings({
     const n = parseInt(capacity, 10);
     if (Number.isNaN(n) || n < 1) return;
     await save({ capacity: n });
-  }
-
-  if (!active) {
-    return (
-      <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-6 sm:p-8">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10 ring-1 ring-yellow-400/40">
-            <Power className="h-5 w-5 text-yellow-400" />
-          </div>
-          <h2 className="text-lg font-bold">Opt in to fulfillment</h2>
-        </div>
-
-        <p className="mb-6 text-sm leading-relaxed text-stone-300">
-          Tell us how many 27-gallon reusable totes you have on hand and how many
-          concurrent gift jobs you can comfortably run. We&apos;ll route closing-gift
-          orders to you whenever a realtor sends one in your service area.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <NumberField
-            label="27-gallon totes on hand"
-            value={stock}
-            onChange={setStock}
-            help="Total inventory. We auto-increment this when gifts come back; edit if any get damaged or decommissioned, or to add new stock."
-          />
-          <NumberField
-            label="Max concurrent gift jobs"
-            value={capacity}
-            onChange={setCapacity}
-            help="We won't assign you a new job past this number."
-          />
-        </div>
-
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={activate}
-          disabled={saving}
-          className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-yellow-300 disabled:opacity-60"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Turning on&hellip;
-            </>
-          ) : (
-            <>Turn on tote-rental fulfillment</>
-          )}
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -160,6 +99,11 @@ export function ToteFulfillmentSettings({
       <div className="mt-3 flex items-center gap-3 text-[11px] text-stone-500">
         {error ? (
           <span className="text-red-400">{error}</span>
+        ) : saving ? (
+          <span className="flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving&hellip;
+          </span>
         ) : savedAt ? (
           <span className="flex items-center gap-1.5 text-emerald-400">
             <Check className="h-3 w-3" />
@@ -169,32 +113,6 @@ export function ToteFulfillmentSettings({
           <span>Edits save when you tab out of a field.</span>
         )}
       </div>
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  help,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  help: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-xs font-medium text-stone-400">{label}</label>
-      <input
-        type="number"
-        min={0}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
-      />
-      <p className="mt-1 text-[11px] text-stone-500">{help}</p>
     </div>
   );
 }

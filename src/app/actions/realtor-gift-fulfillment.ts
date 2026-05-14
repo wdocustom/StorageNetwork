@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import zipcodes from "zipcodes";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import {
@@ -489,6 +490,34 @@ export async function updateToteFulfillmentSettings(
   const user = await getAuthenticatedUser();
   if (!user) return { ok: false, error: "You must be signed in." };
 
+  // Activating fulfillment is gated on the same prerequisites as the
+  // onboarding UI: Stripe Connect onboarded + a home-base ZIP set. The
+  // realtor-side router already silently drops un-onboarded installers
+  // from its candidate pool, but blocking the flip here gives a clear
+  // server-side error if someone bypasses the UI gate.
+  if (input.active === true) {
+    const readiness = await getToteFulfillmentOnboarding();
+    if (!readiness) {
+      return { ok: false, error: "Could not load installer profile." };
+    }
+    if (!readiness.gates.stripeConnect.passed) {
+      return {
+        ok: false,
+        error:
+          "Connect a Stripe payouts account before turning fulfillment on. " +
+          "Open Profile → Payouts to finish onboarding.",
+      };
+    }
+    if (!readiness.gates.serviceArea.passed) {
+      return {
+        ok: false,
+        error:
+          "Set your service area (home ZIP + radius) on the Profile page " +
+          "so we know where to route jobs.",
+      };
+    }
+  }
+
   // Clamp numeric inputs so nothing pathological reaches the DB. The CHECK
   // constraints on the columns are the last line of defense.
   const patch: Record<string, unknown> = {};
@@ -509,6 +538,108 @@ export async function updateToteFulfillmentSettings(
     return { ok: false, error: "Could not save settings." };
   }
   return { ok: true };
+}
+
+// ── Onboarding readiness ─────────────────────────────────────────────────
+
+export interface ToteFulfillmentOnboarding {
+  active: boolean;
+  stock: number;
+  capacity: number;
+  gates: {
+    stripeConnect: {
+      passed: boolean;
+      hasAccount: boolean;
+      detailsSubmitted: boolean;
+    };
+    serviceArea: {
+      passed: boolean;
+      homeZip: string | null;
+      radiusMiles: number | null;
+      coveredZipCount: number;
+      /** Of the covered ZIPs, how many are within the 75-mi realtor cap. */
+      withinRealtorCapCount: number;
+    };
+  };
+  allGatesPassed: boolean;
+}
+
+/**
+ * Pre-opt-in readiness probe. Reads the installer's profile and computes
+ * the gates that the onboarding UI surfaces. The realtor-side router
+ * (findEligibleInstaller) already skips un-Stripe-onboarded installers,
+ * so this is essentially "what would the router accept" snapshotted into
+ * a form the installer-side UI can render.
+ *
+ * The 75-mi figure is the same cap the realtor distance-preview enforces
+ * (SURCHARGE_RADIUS_MILES in realtor-tote-delivery.ts). Mirrored here so
+ * the installer's onboarding panel can show how many ZIPs in their
+ * coverage area will actually receive routed jobs.
+ */
+export async function getToteFulfillmentOnboarding(): Promise<
+  ToteFulfillmentOnboarding | null
+> {
+  const user = await getAuthenticatedUser();
+  if (!user) return null;
+
+  const db = getServiceClient();
+  const { data } = await db
+    .from("profiles")
+    .select(
+      `tote_fulfillment_active, tote_fulfillment_stock, tote_fulfillment_capacity,
+       stripe_account_id, stripe_details_submitted,
+       service_zip, service_radius_miles, service_zips`
+    )
+    .eq("id", user.id)
+    .single();
+
+  if (!data) return null;
+
+  const hasAccount = !!(data.stripe_account_id as string | null);
+  const detailsSubmitted = !!(data.stripe_details_submitted as boolean | null);
+
+  const homeZip = (data.service_zip as string | null) ?? null;
+  const radiusMiles = (data.service_radius_miles as number | null) ?? null;
+  const serviceZips = (data.service_zips as string[] | null) ?? [];
+
+  // Compute how many of the installer's service_zips fall within the 75-mi
+  // realtor-side delivery cap. This is the realistic "jobs you'll see" set.
+  // Done in JS rather than SQL — service_zips is bounded (radius-driven, a
+  // few hundred ZIPs at most) and we already imported zipcodes elsewhere.
+  let withinRealtorCapCount = 0;
+  if (homeZip) {
+    // 75 mi mirrors SURCHARGE_RADIUS_MILES in realtor-tote-delivery.ts.
+    const REALTOR_CAP_MILES = 75;
+    for (const z of serviceZips) {
+      const d = zipcodes.distance(homeZip, z);
+      if (typeof d === "number" && d <= REALTOR_CAP_MILES) {
+        withinRealtorCapCount += 1;
+      }
+    }
+  }
+
+  const gates = {
+    stripeConnect: {
+      passed: hasAccount && detailsSubmitted,
+      hasAccount,
+      detailsSubmitted,
+    },
+    serviceArea: {
+      passed: !!homeZip && serviceZips.length > 0,
+      homeZip,
+      radiusMiles,
+      coveredZipCount: serviceZips.length,
+      withinRealtorCapCount,
+    },
+  };
+
+  return {
+    active: !!data.tote_fulfillment_active,
+    stock: (data.tote_fulfillment_stock as number) ?? 0,
+    capacity: (data.tote_fulfillment_capacity as number) ?? 0,
+    gates,
+    allGatesPassed: gates.stripeConnect.passed && gates.serviceArea.passed,
+  };
 }
 
 // ── Installer payout (Stripe Connect transfer on `returned`) ─────────────
