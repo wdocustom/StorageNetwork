@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getPartnerDashboard,
@@ -627,6 +628,33 @@ export default function PartnerDashboardPage() {
             </div>
           )}
         </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            ADMIN: Cross-portal admin links (realtors live on a separate
+            route so the partner page doesn't balloon further; this card
+            keeps it discoverable for admins).
+        ═══════════════════════════════════════════════════════════════ */}
+        {isAdmin && (
+          <section className="mb-6 rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-slate-900 p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-yellow-400" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                Admin tools
+              </h2>
+            </div>
+            <p className="mb-4 text-xs text-stone-400">
+              Installers + affiliates live below in this portal. Realtors have their own admin
+              section with gift history, lock toggle, and deletion.
+            </p>
+            <Link
+              href="/dashboard/admin/realtors"
+              className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-yellow-300 transition-colors hover:bg-yellow-400/20"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Manage realtors →
+            </Link>
+          </section>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════
             ADMIN: All Platform Users (admin only)
