@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, Gift, Plus } from "lucide-react";
 
 import { listRealtorGifts, type RealtorGiftSummary } from "@/app/actions/realtor-gifts";
+import { CancelGiftButton } from "./CancelGiftButton";
 
 export default async function RealtorGiftsPage() {
   const gifts = await listRealtorGifts();
@@ -51,6 +52,7 @@ export default async function RealtorGiftsPage() {
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 text-right font-semibold">Amount</th>
                   <th className="px-5 py-3 font-semibold">Sent</th>
+                  <th className="px-5 py-3 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,6 +95,14 @@ function GiftRow({ gift }: { gift: RealtorGiftSummary }) {
         ${(gift.amount_cents / 100).toFixed(0)}
       </td>
       <td className="px-5 py-4 text-stone-400">{sentLabel}</td>
+      <td className="px-5 py-4 text-right">
+        <CancelGiftButton
+          giftId={gift.id}
+          status={gift.status}
+          recipientName={gift.recipient_name}
+          refundable={gift.status !== "pending_payment"}
+        />
+      </td>
     </tr>
   );
 }

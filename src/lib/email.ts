@@ -72,6 +72,7 @@ export {
   sendGiftRealtorAssignedUpdate,
   sendGiftDeliveredRecipient,
   sendGiftReturnedRecipient,
+  sendGiftCancelledRecipient,
 } from "./emails/realtorTemplates";
 
 export {
