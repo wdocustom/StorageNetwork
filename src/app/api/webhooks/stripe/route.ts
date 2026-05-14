@@ -299,6 +299,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
+    // ═════════════════════════════════════════════════════════════════════
+    // INVENTORY-MODE GIFT SURCHARGE — $25 extended-delivery (51–75 mi).
+    // The gift row already exists (created by dispatch_inventory_tote_gift)
+    // and the realtor's balance has already been debited. This finalizes
+    // the surcharge payment: flips status → paid, stamps gift_token + paid_at,
+    // fires recipient invite + realtor receipt.
+    // ═════════════════════════════════════════════════════════════════════
+    if (metadata.type === "inventory_gift_surcharge") {
+      try {
+        const { finalizeInventoryGiftSurcharge } = await import(
+          "@/app/actions/realtor-inventory-gifts"
+        );
+        const result = await finalizeInventoryGiftSurcharge({ sessionId: session.id });
+        if (!result.ok) {
+          console.error("[Webhook] inventory_gift_surcharge finalize failed:", result.error);
+        } else {
+          console.log(
+            "[Webhook] inventory_gift_surcharge finalized:",
+            result.giftId,
+            result.alreadyFinalized ? "(already done)" : ""
+          );
+        }
+      } catch (err) {
+        console.error("[Webhook] inventory_gift_surcharge handler crashed:", err);
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (!leadId) {
       console.warn("[Webhook] checkout.session.completed without leadId in metadata");
       return NextResponse.json({ received: true });

@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
 import { verifyGiftPurchase } from "@/app/actions/realtor-gifts";
+import { verifyInventoryGiftSurcharge } from "@/app/actions/realtor-inventory-gifts";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getAppUrl } from "@/lib/url-helper";
@@ -20,17 +21,23 @@ import { CopyButton } from "./CopyButton";
 
 interface PageProps {
   params: Promise<{ giftId: string }>;
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ session_id?: string; inventory?: string }>;
 }
 
 export default async function GiftSuccessPage({ params, searchParams }: PageProps) {
   const { giftId } = await params;
-  const { session_id: sessionId } = await searchParams;
+  const { session_id: sessionId, inventory: inventoryFlag } = await searchParams;
 
-  // Trigger the idempotent finalize. Returns immediately if the webhook
-  // already did the work.
+  // Trigger the idempotent finalize. Each call checks the Stripe session's
+  // metadata.type and bails ok:false if it isn't theirs — so calling both
+  // in sequence is safe and covers Quick-send AND Inventory-surcharge paths.
+  // Returns immediately if the webhook already did the work.
   if (sessionId) {
-    await verifyGiftPurchase(sessionId);
+    if (inventoryFlag === "1") {
+      await verifyInventoryGiftSurcharge(sessionId);
+    } else {
+      await verifyGiftPurchase(sessionId);
+    }
   }
 
   const user = await getAuthenticatedUser();
@@ -41,7 +48,7 @@ export default async function GiftSuccessPage({ params, searchParams }: PageProp
     .from("tote_rental_gifts")
     .select(
       `id, gift_token, status, recipient_name, recipient_email, tote_count,
-       duration_days, amount_cents, realtor_id,
+       duration_days, amount_cents, realtor_id, dispatch_source,
        tote_rental_packages ( name )`
     )
     .eq("id", giftId)
@@ -56,8 +63,10 @@ export default async function GiftSuccessPage({ params, searchParams }: PageProp
   // yet) we still show a friendly intermediate state.
   const isPaid = gift.status !== "pending_payment" && gift.status !== "cancelled";
   const giftUrl = gift.gift_token ? `${getAppUrl()}/gift/${gift.gift_token}` : null;
-  const packageName =
-    (gift.tote_rental_packages as unknown as { name: string } | null)?.name || "Closing Gift";
+  const isInventory = (gift.dispatch_source as string | null) === "inventory";
+  const packageName = isInventory
+    ? `Inventory gift — ${gift.tote_count} totes`
+    : (gift.tote_rental_packages as unknown as { name: string } | null)?.name || "Closing Gift";
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -85,7 +94,18 @@ export default async function GiftSuccessPage({ params, searchParams }: PageProp
                 <Row label="Email" value={gift.recipient_email as string} />
                 <Row label="Totes" value={`${gift.tote_count} totes`} />
                 <Row label="Rental window" value={`${gift.duration_days} days`} />
-                <Row label="Total charged" value={`$${((gift.amount_cents as number) / 100).toFixed(2)}`} />
+                {isInventory ? (
+                  <Row
+                    label="Delivery surcharge"
+                    value={
+                      (gift.amount_cents as number) > 0
+                        ? `$${((gift.amount_cents as number) / 100).toFixed(2)}`
+                        : "Included"
+                    }
+                  />
+                ) : (
+                  <Row label="Total charged" value={`$${((gift.amount_cents as number) / 100).toFixed(2)}`} />
+                )}
               </dl>
             </div>
 
