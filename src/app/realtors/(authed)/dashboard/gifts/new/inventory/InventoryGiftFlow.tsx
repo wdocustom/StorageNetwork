@@ -63,6 +63,7 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
   const [durationDays, setDurationDays] = useState<number>(14);
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryZip, setDeliveryZip] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
@@ -114,6 +115,7 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
       const result = await createInventoryGiftDispatch({
         recipientName: recipientName.trim(),
         recipientEmail: recipientEmail.trim(),
+        recipientPhone: recipientPhone.trim() || undefined,
         deliveryAddress: deliveryAddress.trim(),
         deliveryZip: deliveryZip.trim(),
         personalMessage: personalMessage.trim() || undefined,
@@ -189,6 +191,14 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
               onChange={setRecipientEmail}
               placeholder="jane@example.com"
               type="email"
+            />
+            <TextField
+              label="Recipient phone (optional)"
+              value={recipientPhone}
+              onChange={setRecipientPhone}
+              placeholder="(555) 123-4567"
+              type="tel"
+              className="sm:col-span-2"
             />
             <TextField
               label="Delivery address"

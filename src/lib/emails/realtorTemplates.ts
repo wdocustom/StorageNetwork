@@ -312,6 +312,85 @@ export async function sendGiftInstallerAssignedAlert(
 }
 
 /**
+ * Installer alert — recipient has signaled they're ready for pickup before
+ * the scheduled pickup window. The installer can coordinate an earlier
+ * pickup directly via phone/email or stick with the existing window.
+ */
+export async function sendGiftEarlyPickupRequestAlert(
+  email: string,
+  data: {
+    installerName: string;
+    recipientName: string;
+    recipientEmail: string;
+    recipientPhone: string | null;
+    deliveryAddress: string;
+    toteCount: number;
+    pickupWindowStart: string;
+    pickupWindowEnd: string;
+    note: string | null;
+    jobDetailUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const jobUrl = data.jobDetailUrl.startsWith("http")
+    ? data.jobDetailUrl
+    : `${getAppUrl()}${data.jobDetailUrl}`;
+
+  const phoneRow = data.recipientPhone
+    ? detailRow(
+        "Phone",
+        `<a href="tel:${escapeHtml(data.recipientPhone)}" style="color:#facc15;text-decoration:none;">${escapeHtml(data.recipientPhone)}</a>`
+      )
+    : "";
+
+  const noteBlock = data.note
+    ? `
+    ${eyebrow("Recipient note")}
+    <p style="margin:0 0 24px;padding:16px;background-color:#111111;border:1px solid #222;border-radius:12px;color:#e5e5e5;font-size:14px;line-height:1.6;font-style:italic;">
+      &ldquo;${escapeHtml(data.note)}&rdquo;
+    </p>
+    `
+    : "";
+
+  const html = masterEmailLayout(
+    "Recipient ready for early pickup",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${escapeHtml(data.installerName)},</p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#facc15;">${escapeHtml(data.recipientName)}</strong> is done with their ${data.toteCount} totes
+      ahead of schedule and is asking if you can swing by to pick them up
+      before the original window.
+    </p>
+
+    ${eyebrow("Recipient")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+      ${detailRow("Name", escapeHtml(data.recipientName))}
+      ${detailRow("Email", `<a href="mailto:${escapeHtml(data.recipientEmail)}" style="color:#facc15;text-decoration:none;">${escapeHtml(data.recipientEmail)}</a>`)}
+      ${phoneRow}
+      ${detailRow("Address", escapeHtml(data.deliveryAddress || "TBD"))}
+      ${detailRow("Original pickup window", formatWindow(data.pickupWindowStart, data.pickupWindowEnd))}
+    </table>
+
+    ${noteBlock}
+
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Open the job</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        Reach out to ${escapeHtml(data.recipientName)} directly to coordinate, or stick with the scheduled window if early pickup doesn&rsquo;t work.
+      </p>
+      ${ctaButton(jobUrl, "View job")}
+    </div>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.installerName,
+    subject: `${data.recipientName} is ready for early pickup`,
+    html,
+  });
+}
+
+/**
  * Recipient update — "you're confirmed, here's who's delivering".
  */
 export async function sendGiftRecipientAssignedUpdate(

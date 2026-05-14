@@ -73,6 +73,7 @@ export {
   sendGiftDeliveredRecipient,
   sendGiftReturnedRecipient,
   sendGiftCancelledRecipient,
+  sendGiftEarlyPickupRequestAlert,
 } from "./emails/realtorTemplates";
 
 export {
