@@ -27,9 +27,13 @@ import { getServiceClient } from "@/lib/supabase-server";
 // (amount_cents on tote_rental_gifts) — see migration 115.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const FREE_DELIVERY_RADIUS_MILES = 50;
-export const SURCHARGE_RADIUS_MILES = 75;
-export const SURCHARGE_CENTS = 2500; // $25 flat for the 51–75 mi band
+// Internal-only — Next.js "use server" files can only export async functions.
+// These constants are not exported; the values reach the client via the
+// previewToteGiftDelivery() return value (DeliveryPreview.surchargeCents +
+// the prebuilt `message` string).
+const FREE_DELIVERY_RADIUS_MILES = 50;
+const SURCHARGE_RADIUS_MILES = 75;
+const SURCHARGE_CENTS = 2500; // $25 flat for the 51–75 mi band
 
 export type DeliveryTier = "free" | "surcharge" | "inquire" | "no_coverage";
 

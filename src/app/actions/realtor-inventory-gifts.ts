@@ -15,10 +15,7 @@ import {
   sendRealtorGiftReceipt,
 } from "@/lib/email";
 
-import {
-  previewToteGiftDelivery,
-  SURCHARGE_CENTS,
-} from "./realtor-tote-delivery";
+import { previewToteGiftDelivery } from "./realtor-tote-delivery";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Realtor inventory-mode gift dispatch
