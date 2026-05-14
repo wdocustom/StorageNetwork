@@ -41,6 +41,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/tote-rental-announcement",
+      "schedule": "0 12 * * *"
+    },
+    {
       "path": "/api/cron/review-announcement",
       "schedule": "0 17 * * *"
     },
