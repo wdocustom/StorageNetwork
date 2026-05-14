@@ -14,8 +14,18 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { RecentActivitySection } from "./RecentActivitySection";
+import { ToteInventorySection } from "./ToteInventorySection";
+import {
+  getRealtorToteInventory,
+  listTotePackOptions,
+  verifyTotePackPurchase,
+} from "@/app/actions/realtor-tote-inventory";
 
-export default async function RealtorDashboardPage() {
+export default async function RealtorDashboardPage({
+  searchParams,
+}: {
+  searchParams?: { tote_purchase?: string; session_id?: string };
+}) {
   // Layout already guarantees we're a realtor; this read is just for the
   // friendly greeting + brokerage on the page.
   const user = await getAuthenticatedUser();
@@ -25,6 +35,21 @@ export default async function RealtorDashboardPage() {
     .select("first_name, realtor_brokerage")
     .eq("id", user!.id)
     .single();
+
+  // Returning from Stripe Checkout with ?tote_purchase=success — finalize
+  // synchronously here so the inventory tile renders the new balance even
+  // if the webhook hasn't fired yet. Idempotent: a second call (webhook)
+  // returns alreadyFinalized=true.
+  if (searchParams?.tote_purchase === "success" && searchParams?.session_id) {
+    await verifyTotePackPurchase(searchParams.session_id).catch((err) => {
+      console.warn("[Dashboard] tote_purchase finalize on redirect failed:", err);
+    });
+  }
+
+  const [inventory, packCatalog] = await Promise.all([
+    getRealtorToteInventory(),
+    listTotePackOptions(),
+  ]);
 
   const greeting = profile?.first_name ? `Welcome, ${profile.first_name}.` : "Welcome.";
 
@@ -106,18 +131,26 @@ export default async function RealtorDashboardPage() {
           <RecentActivitySection realtorId={user!.id} />
         </div>
 
-        {/* ── Feature tiles ────────────────────────────────────────────
-            Two cells remaining now that Analytics is its own section
-            above. Custom branding is shipped (settings link); Realtor
-            Pro is still Coming Soon. */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        {/* ── Tote inventory ───────────────────────────────────────────
+            Replaces the prior "Realtor Pro" Coming Soon slot. Buy 27-gal
+            totes in bulk, dispatch 10–50 per gift via inventory mode
+            (PR4 wires the gift-side flow). */}
+        <div className="mt-8">
+          <ToteInventorySection
+            inventory={inventory}
+            packs={packCatalog.packs}
+            custom={packCatalog.custom}
+          />
+        </div>
+
+        {/* ── Settings shortcut ────────────────────────────────────── */}
+        <div className="mt-8">
           <SettingsLinkCard
             icon={Settings}
             title="Custom branding"
             desc="Add your photo, brokerage logo, and a signature line to every recipient page."
             href="/realtors/dashboard/settings"
           />
-          <ComingSoonCard icon={Package} title="Realtor Pro" desc="Monthly gift credits at discounted rates. Optional subscription tier." />
         </div>
       </div>
     </div>
@@ -184,26 +217,6 @@ function Step({ n, title, desc }: { n: number; title: string; desc: string }) {
   );
 }
 
-function ComingSoonCard({
-  icon: Icon,
-  title,
-  desc,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-5">
-      <Icon className="mb-3 h-5 w-5 text-stone-500" />
-      <p className="mb-1 text-sm font-bold text-stone-300">{title}</p>
-      <p className="text-xs leading-relaxed text-stone-500">{desc}</p>
-    </div>
-  );
-}
-
-// Active feature card — visually similar to ComingSoonCard but clickable.
-// Used for shipped features that previously occupied a Coming Soon slot.
 function SettingsLinkCard({
   icon: Icon,
   title,
