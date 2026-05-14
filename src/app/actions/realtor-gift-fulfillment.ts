@@ -1,5 +1,6 @@
 "use server";
 
+import Stripe from "stripe";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import {
@@ -24,10 +25,19 @@ import {
 //   - listInstallerToteJobs()             → installer dashboard query.
 //   - markGiftDelivered / markGiftReturned → installer-only milestone flips.
 //   - updateToteFulfillmentSettings       → opt-in toggle + stock + capacity.
+//   - payoutToteFulfillment(giftId)       → Stripe Connect transfer fired
+//     when a gift reaches `returned` status. See migration 110.
 //
 // Auto-assignment is triggered by scheduleGiftDelivery() (realtor-gifts.ts)
 // the moment the recipient confirms their windows.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Installer-payout math lives in src/lib/realtor-fulfillment-payout.ts so
+// the constants + calc function can be unit-tested without dragging
+// `server-only` through the import graph. Re-exported for callers that
+// import alongside the rest of the fulfillment surface.
+export { calcInstallerLegFeeCents } from "@/lib/realtor-fulfillment-payout";
+import { calcInstallerLegFeeCents as _calcInstallerLegFeeCents } from "@/lib/realtor-fulfillment-payout";
 
 // ── Eligible-installer query (shared by assign + capacity preview) ───────
 
@@ -53,6 +63,11 @@ async function findEligibleInstaller(
   //    AND has enough stock for the requested package.
   //    Priority mirrors the lead-routing convention from customer.ts:
   //      is_pro DESC, completed_jobs DESC, current_month_leads ASC.
+  //
+  //    Also filter to installers with stripe_account_id set — we cannot
+  //    pay them without one. An installer without Stripe Connect onboarded
+  //    will not appear in the routing pool; they'll see prompting on
+  //    /dashboard/tote-rentals to complete onboarding (TODO: surface that).
   const { data: candidates } = await db
     .from("profiles")
     .select(
@@ -61,6 +76,7 @@ async function findEligibleInstaller(
     .eq("tote_fulfillment_active", true)
     .gte("tote_fulfillment_stock", toteCount)
     .contains("service_zips", [deliveryZip])
+    .not("stripe_account_id", "is", null)
     .order("is_pro", { ascending: false })
     .order("completed_jobs", { ascending: false })
     .order("current_month_leads", { ascending: true })
@@ -145,6 +161,12 @@ export async function assignFulfillmentInstaller(
     return { ok: false, error: "No installer available in that area yet." };
   }
 
+  // Snapshot the installer's earnings for this gift at assignment time.
+  // Stored on the gift row so that subsequent rate changes don't rewrite
+  // history. The delivery + pickup legs are charged at the same rate but
+  // recorded separately so the dashboard / accounting can break them out.
+  const legFee = _calcInstallerLegFeeCents(gift.tote_count as number);
+
   // Atomic claim: only the first concurrent caller flips the row. Second
   // caller's UPDATE returns 0 rows and we no-op.
   const { data: claimed, error: claimErr } = await db
@@ -152,6 +174,8 @@ export async function assignFulfillmentInstaller(
     .update({
       installer_id: installer.id,
       installer_assigned_at: new Date().toISOString(),
+      installer_delivery_fee_cents: legFee,
+      installer_pickup_fee_cents: legFee,
       status: "assigned",
     })
     .eq("id", giftId)
@@ -237,6 +261,12 @@ export interface InstallerToteJob {
   assigned_at: string | null;
   delivered_at: string | null;
   returned_at: string | null;
+  /** Total installer earnings for this job (delivery + pickup), in cents.
+   *  Snapshotted at assignment so the value is stable across rate changes. */
+  payout_cents: number;
+  /** Set once the Stripe transfer for this gift has been created.
+   *  Null = pending (status not yet returned, or transfer not yet fired). */
+  paid_at: string | null;
 }
 
 export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
@@ -251,6 +281,7 @@ export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
        delivery_address, delivery_window_start, delivery_window_end,
        pickup_window_start, pickup_window_end, status,
        installer_assigned_at, delivered_at, returned_at,
+       installer_delivery_fee_cents, installer_pickup_fee_cents, installer_paid_at,
        tote_rental_packages ( name )`
     )
     .eq("installer_id", user.id)
@@ -280,6 +311,10 @@ export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
     assigned_at: (row.installer_assigned_at as string | null) ?? null,
     delivered_at: (row.delivered_at as string | null) ?? null,
     returned_at: (row.returned_at as string | null) ?? null,
+    payout_cents:
+      ((row.installer_delivery_fee_cents as number | null) ?? 0) +
+      ((row.installer_pickup_fee_cents as number | null) ?? 0),
+    paid_at: (row.installer_paid_at as string | null) ?? null,
   }));
 }
 
@@ -359,6 +394,15 @@ async function flipMilestone(
       installerSlug,
       giftUrl: `/gift/${updated.gift_token}`,
     }).catch((err) => console.warn("[Fulfillment] returned email failed:", err));
+
+    // Fire the installer payout when the rental completes. Fire-and-forget
+    // so a Stripe outage doesn't roll back the milestone — the gift is
+    // already marked returned in our DB, and payoutToteFulfillment is
+    // idempotent (the installer_paid_at column + Stripe idempotency key
+    // guarantee we won't double-pay on retry).
+    payoutToteFulfillment(giftId).catch((err) =>
+      console.error("[Fulfillment] payout failed:", err)
+    );
   }
 
   return { ok: true };
@@ -427,4 +471,145 @@ export async function updateToteFulfillmentSettings(
     return { ok: false, error: "Could not save settings." };
   }
   return { ok: true };
+}
+
+// ── Installer payout (Stripe Connect transfer on `returned`) ─────────────
+//
+// Idempotency model:
+//   - tote_rental_gifts.installer_paid_at is a single timestamp that
+//     transitions NULL → set-once. The DB check at the top of this
+//     function refuses to re-pay an already-paid gift.
+//   - The Stripe transfer is created with an idempotency key derived
+//     from the gift id. Even if two concurrent callers slip past the DB
+//     check (unlikely; the markGiftReturned flipMilestone is also
+//     guarded), Stripe will return the existing transfer instead of
+//     creating a second one.
+//
+// Failure semantics: if the Stripe call fails, installer_paid_at stays
+// NULL. The `idx_tote_rental_gifts_unpaid_completed` index makes it cheap
+// to query "returned but unpaid" for retry/ops sweeps.
+
+let _stripeForPayouts: Stripe | null = null;
+function getStripeForPayouts(): Stripe {
+  if (_stripeForPayouts) return _stripeForPayouts;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY missing — cannot transfer installer payouts.");
+  _stripeForPayouts = new Stripe(key);
+  return _stripeForPayouts;
+}
+
+export async function payoutToteFulfillment(
+  giftId: string
+): Promise<{ ok: boolean; transferId?: string; amountCents?: number; error?: string }> {
+  const db = getServiceClient();
+
+  // Pull the gift + installer's Stripe account in one round-trip.
+  const { data: gift, error: giftErr } = await db
+    .from("tote_rental_gifts")
+    .select(
+      `id, status, installer_id, installer_paid_at, installer_payout_id,
+       installer_delivery_fee_cents, installer_pickup_fee_cents,
+       recipient_name,
+       profiles!tote_rental_gifts_installer_id_fkey ( stripe_account_id, email )`
+    )
+    .eq("id", giftId)
+    .single();
+
+  if (giftErr || !gift) {
+    return { ok: false, error: "Gift not found." };
+  }
+
+  if (gift.status !== "returned") {
+    return { ok: false, error: `Gift status is ${gift.status}, not returned — no payout due.` };
+  }
+
+  if (gift.installer_paid_at) {
+    // Already paid — idempotent no-op. Return the existing transfer id
+    // so callers logging this don't think it's a fresh disbursement.
+    return {
+      ok: true,
+      transferId: (gift.installer_payout_id as string | null) ?? undefined,
+      amountCents: 0,
+    };
+  }
+
+  if (!gift.installer_id) {
+    return { ok: false, error: "No installer assigned to this gift — nothing to pay." };
+  }
+
+  const installerProfile = gift.profiles as unknown as
+    | { stripe_account_id: string | null; email: string }
+    | null;
+  const stripeAccountId = installerProfile?.stripe_account_id;
+  if (!stripeAccountId) {
+    // Installer disconnected Stripe between assignment and completion.
+    // Don't lose the obligation — leave installer_paid_at NULL so ops
+    // can sweep + manually disburse later.
+    console.warn(
+      `[Fulfillment] Gift ${giftId} installer ${gift.installer_id} has no stripe_account_id at payout time.`
+    );
+    return { ok: false, error: "Installer has no connected Stripe account." };
+  }
+
+  const delivery = (gift.installer_delivery_fee_cents as number | null) ?? 0;
+  const pickup = (gift.installer_pickup_fee_cents as number | null) ?? 0;
+  const totalCents = delivery + pickup;
+  if (totalCents <= 0) {
+    // Legacy gift seeded before migration 110, or zeroed by mistake.
+    // Mark paid so ops queries don't keep retrying, but log it.
+    console.warn(`[Fulfillment] Gift ${giftId} has zero payout (${totalCents}c). Marking paid as no-op.`);
+    await db
+      .from("tote_rental_gifts")
+      .update({ installer_paid_at: new Date().toISOString() })
+      .eq("id", giftId)
+      .is("installer_paid_at", null);
+    return { ok: true, amountCents: 0 };
+  }
+
+  // Issue the Stripe transfer. Idempotency key ties retries to this gift.
+  let transfer: Stripe.Transfer;
+  try {
+    transfer = await getStripeForPayouts().transfers.create(
+      {
+        amount: totalCents,
+        currency: "usd",
+        destination: stripeAccountId,
+        description: `Tote rental fulfillment — gift ${giftId.slice(0, 8)} (${gift.recipient_name})`,
+        metadata: {
+          type: "tote_rental_fulfillment",
+          gift_id: giftId,
+          installer_id: gift.installer_id as string,
+          delivery_fee_cents: String(delivery),
+          pickup_fee_cents: String(pickup),
+        },
+      },
+      { idempotencyKey: `tote-rental-gift-${giftId}-payout` }
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Fulfillment] Stripe transfer failed for gift ${giftId}:`, msg);
+    return { ok: false, error: `Stripe transfer failed: ${msg}` };
+  }
+
+  // Stamp the gift. Guarded on installer_paid_at IS NULL so concurrent
+  // calls converge on the first successful one.
+  const { error: stampErr } = await db
+    .from("tote_rental_gifts")
+    .update({
+      installer_paid_at: new Date().toISOString(),
+      installer_payout_id: transfer.id,
+    })
+    .eq("id", giftId)
+    .is("installer_paid_at", null);
+
+  if (stampErr) {
+    console.error(
+      `[Fulfillment] Transfer ${transfer.id} succeeded but DB stamp failed for gift ${giftId}:`,
+      stampErr
+    );
+    // Don't return an error — the money already moved. Ops can reconcile
+    // via Stripe dashboard if the DB stamp lost a race.
+  }
+
+  return { ok: true, transferId: transfer.id, amountCents: totalCents };
 }
