@@ -16,7 +16,8 @@ import { Loader2, Mail, ArrowLeft, KeyRound, ShieldOff } from "lucide-react";
 export default function LoginPage() {
   const supabase = getSupabaseBrowserClient();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const explicitRedirect = searchParams.get("redirect");
+  const redirectTo = explicitRedirect || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -98,6 +99,32 @@ export default function LoginPage() {
               return;
             }
             await stampLastLogin(signInData.user.id);
+
+            // Realtor-guard mirror: if this is a pure realtor account
+            // (is_realtor=true, is_pro=false) that's somehow landed at
+            // /login instead of /realtors/login — likely via a forgotten
+            // bookmark, a stale email link, or an older portal switcher —
+            // route them to /realtors/dashboard rather than dropping them
+            // at the empty installer dashboard.
+            //
+            // Dual-role users (is_realtor=true AND is_pro=true) explicitly
+            // chose /login and we honor that: they stay at /dashboard. The
+            // portal switcher in the header lets them hop over if they
+            // wanted realtor side.
+            //
+            // Skip the override entirely if the caller passed an explicit
+            // ?redirect= param — that intent always wins.
+            if (!explicitRedirect) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("is_realtor, is_pro")
+                .eq("id", signInData.user.id)
+                .single();
+              if (profile?.is_realtor && !profile?.is_pro) {
+                window.location.href = "/realtors/dashboard";
+                return;
+              }
+            }
           }
           window.location.href = redirectTo;
         }
