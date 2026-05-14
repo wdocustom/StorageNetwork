@@ -37,13 +37,13 @@ import {
 // the constants + calc function can be unit-tested without dragging
 // `server-only` through the import graph.
 //
-// IMPORTANT: do NOT re-export `calcInstallerLegFeeCents` from this file.
+// IMPORTANT: do NOT re-export `calcInstallerPayoutCents` from this file.
 // Next.js 14's "use server" rule forbids non-async exports from a server
 // action module, so re-exporting a sync function breaks the production
 // build (Vercel deploys fail with "Only async functions are allowed to be
 // exported in a 'use server' file"). Callers that need the helper should
 // import it directly from "@/lib/realtor-fulfillment-payout".
-import { calcInstallerLegFeeCents } from "@/lib/realtor-fulfillment-payout";
+import { calcInstallerPayoutCents } from "@/lib/realtor-fulfillment-payout";
 
 // ── Eligible-installer query (shared by assign + capacity preview) ───────
 
@@ -167,11 +167,15 @@ export async function assignFulfillmentInstaller(
     return { ok: false, error: "No installer available in that area yet." };
   }
 
-  // Snapshot the installer's earnings for this gift at assignment time.
-  // Stored on the gift row so that subsequent rate changes don't rewrite
-  // history. The delivery + pickup legs are charged at the same rate but
-  // recorded separately so the dashboard / accounting can break them out.
-  const legFee = calcInstallerLegFeeCents(gift.tote_count as number);
+  // Snapshot the installer's earnings for this gift at assignment time
+  // so subsequent rate changes don't rewrite history. The v2 rate is a
+  // single payout per gift (delivery + pickup combined) — we store the
+  // full amount in installer_delivery_fee_cents and zero out
+  // installer_pickup_fee_cents. The two columns date from v1 when each
+  // leg was billed separately; keeping both lets the Stripe payout
+  // (which sums them) keep working without renaming columns on
+  // already-finalized records.
+  const payoutCents = calcInstallerPayoutCents(gift.tote_count as number);
 
   // Atomic claim: only the first concurrent caller flips the row. Second
   // caller's UPDATE returns 0 rows and we no-op.
@@ -180,8 +184,8 @@ export async function assignFulfillmentInstaller(
     .update({
       installer_id: installer.id,
       installer_assigned_at: new Date().toISOString(),
-      installer_delivery_fee_cents: legFee,
-      installer_pickup_fee_cents: legFee,
+      installer_delivery_fee_cents: payoutCents,
+      installer_pickup_fee_cents: 0,
       status: "assigned",
     })
     .eq("id", giftId)

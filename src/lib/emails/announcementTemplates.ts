@@ -592,14 +592,14 @@ export async function sendToteRentalAnnouncementEmail(
       Hey ${installerName} &mdash; new revenue channel just opened up.
     </p>
     <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
-      Storage Network is now letting <strong style="color:#facc15;">realtors</strong> send their buyers and sellers a stack of reusable moving totes as a closing gift. You deliver the totes, the homeowner uses them to pack, and you swing back to pick them up. We auto-route every job in your service area to <strong style="color:#ffffff;">you</strong> and pay per leg through Stripe.
+      Storage Network is now letting <strong style="color:#facc15;">realtors</strong> send their buyers and sellers a stack of reusable moving totes as a closing gift. You deliver the totes, the homeowner uses them to pack, and you swing back to pick them up. We auto-route every job in your service area to <strong style="color:#ffffff;">you</strong> and pay a single flat fee per gift through Stripe.
     </p>
 
     <!-- Two-play framing -->
     <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;padding:22px;margin:0 0 24px;">
       <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">Why this matters</p>
       <p style="margin:0 0 10px;color:#e5e5e5;font-size:14px;line-height:1.7;">
-        <strong style="color:#ffffff;">Play 1 &mdash; Per-gift cash.</strong> A flat-fee payout per delivery + pickup leg. Same recipe every time, paid through Stripe.
+        <strong style="color:#ffffff;">Play 1 &mdash; Per-gift cash.</strong> One flat payout per gift covering both delivery and pickup. Same recipe every time, paid through Stripe.
       </p>
       <p style="margin:0;color:#e5e5e5;font-size:14px;line-height:1.7;">
         <strong style="color:#ffffff;">Play 2 &mdash; Rack upsells.</strong> Every gift puts 20&ndash;50 reusable totes in a homeowner&rsquo;s hands <strong style="color:#facc15;">during a move</strong> &mdash; the exact moment they&rsquo;re looking at empty walls in a new garage. The recipient&rsquo;s gift page surfaces your custom-rack designer right after delivery. Cold acquisition turns into warm, just-moved-in homeowners.
@@ -638,7 +638,7 @@ export async function sendToteRentalAnnouncementEmail(
           <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">4</div>
         </td>
         <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
-          <strong style="color:#ffffff;">You deliver and pick up.</strong> Mark delivered after drop-off and returned after pickup &mdash; Stripe payout fires automatically. Your tote inventory auto-refills when gifts come back.
+          <strong style="color:#ffffff;">You deliver and pick up.</strong> Mark delivered after drop-off and returned after pickup &mdash; the flat-fee Stripe payout fires automatically when you log the pickup. Your tote inventory auto-refills the moment gifts come back.
         </td>
       </tr>
     </table>
@@ -649,35 +649,30 @@ export async function sendToteRentalAnnouncementEmail(
         What you earn per job
       </p>
       <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.6;">
-        <code style="color:#facc15;font-size:13px;">payout = ($20 base + $2/tote) &times; 2 legs</code>
+        <code style="color:#facc15;font-size:13px;">payout = $20 base + $2/tote</code>
         <br/>
-        <span style="color:#a3a3a3;font-size:13px;">Delivery is one leg, pickup is the second. Paid through Stripe Connect when the pickup is logged.</span>
+        <span style="color:#a3a3a3;font-size:13px;">One flat payout per gift &mdash; covers both delivery and pickup. Paid through Stripe Connect when you log the pickup.</span>
       </p>
       <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:10px;overflow:hidden;">
         <tr style="background:#111;">
           <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Gift size</td>
-          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:right;">Per leg</td>
-          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:right;">Per gift</td>
+          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:right;">Payout per gift</td>
         </tr>
         <tr>
           <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">10 totes</td>
-          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$40</td>
-          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$80</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$40</td>
         </tr>
         <tr>
           <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">20 totes</td>
-          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$60</td>
-          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$120</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$60</td>
         </tr>
         <tr>
           <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">30 totes</td>
-          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$80</td>
-          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$160</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$80</td>
         </tr>
         <tr>
           <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">50 totes</td>
-          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$120</td>
-          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$240</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$120</td>
         </tr>
       </table>
     </div>
