@@ -492,30 +492,41 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 shelvingConfig={props.shelvingConfig}
                 overheadConfig={props.overheadConfig}
                 raisedBedConfig={props.raisedBedConfig}
-                multiUnitItems={props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
-                  cols: u.cols,
-                  rows: u.rows,
-                  toteType: u.toteType,
-                  toteColor: u.toteColor,
-                  unitType: u.unitType,
-                  orientation: u.orientation,
-                  hasTotes: u.hasTotes,
-                  hasWheels: u.hasWheels,
-                  hasTop: u.hasTop,
-                  totalW: u.totalW,
-                  totalH: u.totalH,
-                  depth: u.depth,
-                  addons: u.addons,
-                  paintFrameColor: u.paintFrameColor,
-                  paintDoorColor: u.paintDoorColor,
-                  paintSidePanelColor: u.paintSidePanelColor,
-                  shelvingConfig: u.shelvingConfig,
-                  overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
-                  raisedBedConfig: u.raisedBedConfig,
-                  presetUnits: u.presetUnits,
-                  drawerSlideRows: u.drawerSlideRows,
-                  drawerSlideColumns: u.drawerSlideColumns,
-                }))}
+                // The 3D scene composes the full cart only when the
+                // step-gated showMultiUnit3D flag is on (step 4 with cart
+                // items). At steps 1-3 we keep the single-unit preview UX
+                // even though the cart DATA in props.multiUnitItems is now
+                // always available (it has to be — the 2D blueprint path
+                // depends on it to keep rendering the configured rack
+                // instead of stale builder state).
+                multiUnitItems={
+                  props.multiUnitControls?.showMultiUnit3D
+                    ? props.multiUnitItems?.filter((u) => u.visible).map((u) => ({
+                        cols: u.cols,
+                        rows: u.rows,
+                        toteType: u.toteType,
+                        toteColor: u.toteColor,
+                        unitType: u.unitType,
+                        orientation: u.orientation,
+                        hasTotes: u.hasTotes,
+                        hasWheels: u.hasWheels,
+                        hasTop: u.hasTop,
+                        totalW: u.totalW,
+                        totalH: u.totalH,
+                        depth: u.depth,
+                        addons: u.addons,
+                        paintFrameColor: u.paintFrameColor,
+                        paintDoorColor: u.paintDoorColor,
+                        paintSidePanelColor: u.paintSidePanelColor,
+                        shelvingConfig: u.shelvingConfig,
+                        overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
+                        raisedBedConfig: u.raisedBedConfig,
+                        presetUnits: u.presetUnits,
+                        drawerSlideRows: u.drawerSlideRows,
+                        drawerSlideColumns: u.drawerSlideColumns,
+                      }))
+                    : undefined
+                }
                 watermarkText={props.watermarkText}
                 use2x4Rails={props.use2x4Rails}
               />

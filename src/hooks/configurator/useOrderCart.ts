@@ -131,8 +131,16 @@ export function useOrderCart({ initialConfig, pricing }: UseOrderCartParams) {
     // Single unit and preset configs are handled by the orchestrator setting state on useUnitBuilder/usePresets
   }, [initialConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // multiUnitItems is the SHAPE of the cart for consumers that need cart
+  // data (the 2D blueprint fallback in particular). It is intentionally NOT
+  // gated on showMultiUnit3D: when the user steps back from 4 to 3 to edit a
+  // previously-configured unit, the cart contents must remain available so
+  // the 2D path can keep rendering the configured rack instead of falling
+  // back to stale builder state (which is what caused the 6-high → 5-high
+  // reversion bug). The step-gated showMultiUnit3D flag still controls
+  // whether the 3D scene swaps to the multi-unit composition.
   const multiUnitItems = useMemo(() => {
-    if (!showMultiUnit3D || orderItems.length === 0) return undefined;
+    if (orderItems.length === 0) return undefined;
     const items: Array<ReturnType<typeof buildMultiUnitItem>> = [];
     let expandedIdx = 0;
     for (let i = 0; i < orderItems.length; i++) {
@@ -144,7 +152,7 @@ export function useOrderCart({ initialConfig, pricing }: UseOrderCartParams) {
       }
     }
     return items;
-  }, [showMultiUnit3D, orderItems, unitVisibility]);
+  }, [orderItems, unitVisibility]);
 
   const expandedMultiUnitDescs = useMemo(() => {
     const descs: Array<{ desc: string }> = [];
