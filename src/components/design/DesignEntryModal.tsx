@@ -103,7 +103,7 @@ export default function DesignEntryModal({
   const [siteSubmitting, setSiteSubmitting] = useState(false);
   const [siteError, setSiteError] = useState<string | null>(null);
 
-  const maxRows = unitType === "mini" ? 4 : use2x4Rails ? 5 : 10;
+  const maxRows = unitType === "mini" ? 4 : use2x4Rails ? 6 : 10;
 
   // ── Live preview: compute when the wall fields settle ────────────────
   useEffect(() => {
@@ -486,6 +486,7 @@ export default function DesignEntryModal({
                         [4, 4],
                         [4, 5],
                         [5, 4],
+                        [4, 6],
                       ].map(([c, r]) => (
                         <button
                           key={`${c}x${r}`}

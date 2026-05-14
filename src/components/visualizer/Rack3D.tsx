@@ -179,8 +179,13 @@ const RAILS_2X4_OPENING = 21;       // Universal 21" bay width
 const RAILS_2X4_RAIL_W = 1.5;      // Ripped 2x4: 1.5" wide (narrow face)
 const RAILS_2X4_RAIL_H = 1.75;     // Ripped 2x4: 1.75" tall
 const RAILS_2X4_TOP_GAP = 2.75;    // Gap above top rail to top of post
-/** Fixed rail Y positions from bottom of vertical posts (not bottom of unit) */
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
+/** Fixed rail Y positions from bottom of vertical posts (not bottom of unit).
+ *  Rails 1-5 sit on a uniform 15.75" pitch. Rail 6 sits at 92.5" with the
+ *  upright sized to RAILS_2X4_STOCK_LENGTH (96") so the cut list emits a
+ *  full 2x4x8 with no cut — top gap above rail 6 is 3.5" instead of 2.75".
+ *  Must mirror src/lib/buildEngine.ts. */
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
+const RAILS_2X4_STOCK_LENGTH = 96; // 8 ft 2x4 stock
 
 // Inches → scene units
 const S = 1 / 48;
@@ -616,8 +621,11 @@ function RackAssembly({
   // Frame height calculation
   let frameH: number;
   if (is2x4) {
-    // 2x4 rail: bottom plate + post height + top plate
-    const postHeight = lastRailY + RAILS_2X4_TOP_GAP;
+    // 2x4 rail: bottom plate + post height + top plate.
+    // At 6 rows (max), post = full 96" stock; otherwise topRailPos + 2.75" gap.
+    const postHeight = effectiveRows >= RAILS_2X4_POSITIONS.length
+      ? RAILS_2X4_STOCK_LENGTH
+      : lastRailY + RAILS_2X4_TOP_GAP;
     frameH = PLATE_H + postHeight + PLATE_H;
   } else if (isMini) {
     // Mini: bottom plate + rails + clearance above top rail + plywood top
@@ -640,7 +648,9 @@ function RackAssembly({
 
   // Post height differs by mode
   const postH = is2x4
-    ? lastRailY + RAILS_2X4_TOP_GAP  // 2x4: post = top rail pos + top gap
+    ? (effectiveRows >= RAILS_2X4_POSITIONS.length
+        ? RAILS_2X4_STOCK_LENGTH                      // 2x4 6-high: full 96" stock
+        : lastRailY + RAILS_2X4_TOP_GAP)              // 2x4 1-5 high: top rail pos + 2.75"
     : isMini
       ? lastRailY + 2 // Mini: just past the top rail
       : frameH - PLATE_H * 2;
@@ -1041,7 +1051,10 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
 
   let frameH: number;
   if (is2x4) {
-    const postHeight = lastRailY + RAILS_2X4_TOP_GAP;
+    // At 6 rows (max), post = full 96" stock; otherwise topRailPos + 2.75" gap.
+    const postHeight = effectiveRows >= RAILS_2X4_POSITIONS.length
+      ? RAILS_2X4_STOCK_LENGTH
+      : lastRailY + RAILS_2X4_TOP_GAP;
     frameH = PLATE_H + postHeight + PLATE_H;
   } else if (isMini) {
     frameH = PLATE_H + lastRailY + 2 + PLY_TOP_H;
@@ -1116,8 +1129,10 @@ function CompoundRackAssembly({ presetUnits, toteType, toteColor, unitType, orie
     let frameH: number;
     if (is2x4) {
       const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
-      const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1];
-      const uprightH = topRailPos + RAILS_2X4_TOP_GAP;
+      // At 6 rows (max), upright = full 96" stock; otherwise topRailPos + 2.75".
+      const uprightH = effectiveRows >= RAILS_2X4_POSITIONS.length
+        ? RAILS_2X4_STOCK_LENGTH
+        : RAILS_2X4_POSITIONS[effectiveRows - 1] + RAILS_2X4_TOP_GAP;
       frameH = PLATE_H + uprightH + PLATE_H;
     } else {
       const tierSpacing = getTierSpacing(unitType);
@@ -1203,8 +1218,11 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation, use2x
     let fH: number;
     if (is2x4) {
       const effectiveRows = Math.min(unit.rows, RAILS_2X4_POSITIONS.length);
-      const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1];
-      fH = PLATE_H + topRailPos + RAILS_2X4_TOP_GAP + PLATE_H;
+      // At 6 rows (max), upright = full 96" stock; otherwise topRailPos + 2.75".
+      const uprightH = effectiveRows >= RAILS_2X4_POSITIONS.length
+        ? RAILS_2X4_STOCK_LENGTH
+        : RAILS_2X4_POSITIONS[effectiveRows - 1] + RAILS_2X4_TOP_GAP;
+      fH = PLATE_H + uprightH + PLATE_H;
     } else {
       const tierSpacing = getTierSpacing(unitType);
       const firstRailY = getFirstRailY(unitType);
