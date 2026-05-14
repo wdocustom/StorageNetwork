@@ -56,9 +56,14 @@ const RAILS_2X4_GAP = 1.5;              // 2x4 post width
 const RAILS_2X4_DEPTH_STANDARD = 30;    // 30" rail depth (standard orientation)
 const RAILS_2X4_DEPTH_SIDEWAYS = 20;    // 20" rail depth (sideways orientation)
 const RAILS_2X4_TOP_GAP = 2.75;         // 2.75" above top rail
-// Fixed rail positions (top of each rail from bottom of vertical posts)
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
-const RAILS_2X4_MAX_ROWS = 5;
+// Fixed rail positions (top of each rail from bottom of vertical posts).
+// Rails 1-5 sit on a uniform 15.75" pitch with the upright reaching
+// topRailPos + RAILS_2X4_TOP_GAP. Rail 6 sits at 92.5" (same pitch) but
+// the upright is sized to STOCK_LENGTH (96") instead so the cut list
+// emits a full 2x4x8 with no cut — top gap above rail 6 is 3.5".
+// Must mirror the constants in src/lib/buildEngine.ts.
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
+const RAILS_2X4_MAX_ROWS = 6;
 
 /** Calculate how many rail pieces one 2x4x8' board yields at a given depth.
  *  Rip the 2x4 in half lengthwise → 2 strips, then crosscut each strip. */
@@ -81,7 +86,8 @@ const MINI_STRIPS_PER_TOP_OFFCUT = 200;
 
 function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "standard", use2x4Rails = false): number[] {
   if (use2x4Rails) {
-    // 2x4 rail mode: max 5 rows, no height tiering (posts fit within 8')
+    // 2x4 rail mode: max 6 rows, no height tiering (posts fit within 8' —
+    // 6-high uses the full 96" stock as the post, no cut).
     const capped = Math.min(totalRows, RAILS_2X4_MAX_ROWS);
     return [capped];
   }
@@ -99,9 +105,11 @@ function splitHeightTiers(totalRows: number, unitType: "standard" | "mini" = "st
 
 function calcUprightHeight(rows: number, unitType: "standard" | "mini", use2x4Rails = false): number {
   if (use2x4Rails) {
-    // 2x4 rail mode: post height = top rail position + 2.75" top gap
-    // Rail positions measured from bottom of posts (not bottom of unit/plate)
+    // 2x4 rail mode: post height = top rail position + 2.75" top gap.
+    // Rail positions measured from bottom of posts (not bottom of unit/plate).
+    // Special case at the max (6 rows): post = full 8' stock, no cut.
     const cappedRows = Math.min(rows, RAILS_2X4_MAX_ROWS);
+    if (cappedRows >= RAILS_2X4_MAX_ROWS) return STOCK_LENGTH;
     return RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
   }
   if (unitType === "mini") {

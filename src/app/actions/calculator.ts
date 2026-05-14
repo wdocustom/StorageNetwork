@@ -187,7 +187,7 @@ const MINI_CONFIG: UnitDimensionConfig = {
 
 // ── 2x4 Rail Construction Mode ──────────────────────────────────────────
 // Uses ripped 2x4s (1-3/4") instead of plywood strips for rails.
-// Fixed rail positions, 21" universal openings, max 5 rows.
+// Fixed rail positions, 21" universal openings, max 6 rows.
 // 6 rails per 2x4x8' piece (ripped in half → 2 strips × 3 cuts at 30" depth).
 const RAILS_2X4_CONFIG: UnitDimensionConfig = {
   slotWidth: 21,                 // 21" universal opening (tote type irrelevant)
@@ -216,10 +216,15 @@ const RAILS_2X4_CONFIG: UnitDimensionConfig = {
   pricePlywoodSheet: 95,         // Same plywood top pricing
 };
 
-// Fixed rail height positions (top of each rail from bottom of vertical posts)
+// Fixed rail height positions (top of each rail from bottom of vertical posts).
 // Posts sit on a 1.5" bottom plate. These positions do NOT include the plate.
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75]; // inches
-const RAILS_2X4_MAX_ROWS = 5;
+// Rails 1-5 sit on a uniform 15.75" pitch with the upright reaching
+// topRailPos + 2.75". Rail 6 sits at 92.5" (same pitch) but the upright is
+// sized to STOCK_LENGTH (96") so the cut list emits a full 2x4x8 with no cut
+// — top gap above rail 6 is 3.5". Must mirror src/lib/buildEngine.ts.
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5]; // inches
+const RAILS_2X4_MAX_ROWS = 6;
+const RAILS_2X4_STOCK_LENGTH = 96; // 8 ft 2x4 stock (matches buildEngine.STOCK_LENGTH)
 
 // ── Config getter ────────────────────────────────────────────────────────
 function getUnitConfig(unitType: UnitType, orientation: Orientation = "standard", use2x4Rails = false): UnitDimensionConfig {
@@ -350,8 +355,16 @@ export async function calculateBuild(
     // Post height = top rail position + topGap (2.75" above top rail).
     // Frame height = bottom plate (1.5") + post height + top plate (1.5").
     // Example: 4×2 = 1.5 + 29.5 + 2.75 + 1.5 = 35.25" total
-    const topRailPos = RAILS_2X4_POSITIONS[rows - 1];
-    const postHeight = topRailPos + config.topGap;
+    // Special case at the max (6 rows): post = full 8' stock (no cut), and
+    // the top gap above the 6th rail expands from 2.75" to 3.5" so the
+    // frame becomes 1.5 + 96 + 1.5 = 99" total.
+    let postHeight: number;
+    if (rows >= RAILS_2X4_MAX_ROWS) {
+      postHeight = RAILS_2X4_STOCK_LENGTH;
+    } else {
+      const topRailPos = RAILS_2X4_POSITIONS[rows - 1];
+      postHeight = topRailPos + config.topGap;
+    }
     frameH = config.plateHeight * 2 + postHeight;
   } else if (unitType === "mini") {
     // Mini: bottom plate + first rail height + (rows-1) * spacing + top plywood

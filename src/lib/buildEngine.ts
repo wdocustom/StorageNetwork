@@ -80,9 +80,13 @@ const RAILS_2X4_DEPTH_STANDARD = 30;
 const RAILS_2X4_DEPTH_SIDEWAYS = 20;
 const RAILS_2X4_PLATE_HEIGHT = 1.5;
 const RAILS_2X4_TOP_GAP = 2.75;
-/** Fixed rail heights from bottom of vertical posts (not bottom of unit) */
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
-const RAILS_2X4_MAX_ROWS = 5;
+/** Fixed rail heights from bottom of vertical posts (not bottom of unit).
+ *  Rails 1-5 sit on a uniform 15.75" pitch. Rail 6 sits at 92.5" — same
+ *  15.75" pitch — but the upright is sized to STOCK_LENGTH (96") so the
+ *  cut list emits a full 2x4x8 with no cut. The top gap above the 6th
+ *  rail is therefore 3.5" instead of the 2.75" used at rows 1-5. */
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
+const RAILS_2X4_MAX_ROWS = 6;
 
 /** Calculate rail pieces per 2x4x8' board at a given rail depth.
  *  Rip in half → 2 strips, crosscut each at rail depth + kerf. */
@@ -345,7 +349,7 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       ? MINI_TOTE_PRICE
       : (toteType === "HDX" && toteColor === "clear" ? STANDARD_TOTE_CLEAR_PRICE : STANDARD_TOTE_PRICE);
     const wheelsPrice = unitType === "mini" ? MINI_WHEELS_PRICE : STANDARD_WHEELS_PRICE;
-    // In 2x4 mode, clamp rows to max 5
+    // In 2x4 mode, clamp rows to RAILS_2X4_MAX_ROWS (6)
     const effectiveRows = is2x4 ? Math.min(totalRows, RAILS_2X4_MAX_ROWS) : totalRows;
     const effectiveHasTotes = hasTotes;
 
@@ -359,7 +363,8 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
     if (remainingCols > 0) widthModules.push(remainingCols);
 
     // ── Auto-Split Logic: HEIGHT (max rows per tier to fit 8ft stock) ─
-    // 2x4 rail mode: max 5 rows, always single tier (posts fit within 8ft)
+    // 2x4 rail mode: max 6 rows, always single tier (posts fit within 8ft —
+    // at 6-high the post IS the full 96" stock with no cut).
     const heightTiers = is2x4 ? [effectiveRows] : splitHeightTiers(totalRows, unitType);
 
     // ── Unit-level add-ons ───────────────────────────────────────────
@@ -383,9 +388,17 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
         // ── Upright height: 2x4 rail mode uses fixed rail positions ──
         let uprightHeight: number;
         if (is2x4) {
-          // Post height = top rail position + topGap
-          const topRailPos = RAILS_2X4_POSITIONS[tierRows - 1];
-          uprightHeight = topRailPos + RAILS_2X4_TOP_GAP;
+          if (tierRows >= RAILS_2X4_MAX_ROWS) {
+            // 6-high: post is the full 8' stock board, no cut. The top
+            // gap above the 6th rail expands to 3.5" instead of the usual
+            // 2.75" so the cut list shows "use full stock" rather than a
+            // wasteful 95.25" trim cut.
+            uprightHeight = STOCK_LENGTH;
+          } else {
+            // 1- through 5-high: post = top rail position + standard top gap.
+            const topRailPos = RAILS_2X4_POSITIONS[tierRows - 1];
+            uprightHeight = topRailPos + RAILS_2X4_TOP_GAP;
+          }
         } else {
           uprightHeight = calcUprightHeight(tierRows, unitType);
         }

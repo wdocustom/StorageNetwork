@@ -62,11 +62,14 @@ const OPENING_GM = 20.75;
 const MAX_COLS_PER_MOD = 4;
 const MAX_ROWS_PER_TIER = 6;
 
-// 2x4 Rail Construction constants
+// 2x4 Rail Construction constants — must mirror src/lib/buildEngine.ts.
+// Rails 1-5 sit on a uniform 15.75" pitch; rail 6 sits at 92.5" with the
+// upright sized to the full 96" stock (top gap above rail 6 is 3.5").
 const RAILS_2X4_OPENING = 21;
 const RAILS_2X4_TOP_GAP = 2.75;
-const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75];
-const RAILS_2X4_MAX_ROWS = 5;
+const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
+const RAILS_2X4_MAX_ROWS = 6;
+const RAILS_2X4_STOCK_LENGTH = 96; // 8 ft 2x4 stock
 
 interface ModuleDiagramProps {
   units: { cols: number; rows: number; toteType?: "HDX" | "GM" }[];
@@ -128,9 +131,12 @@ export default function ModuleDiagram({
       // Unit height: 2x4 rail mode uses fixed positions (from bottom of posts + plates)
       let unitH: number;
       if (use2x4Rails) {
-        const topRailPos = RAILS_2X4_POSITIONS[effectiveRows - 1] ?? RAILS_2X4_POSITIONS[0];
-        // Bottom plate (1.5") + post height (railPos + 2.75") + top plate (1.5")
-        unitH = PLATE_H * 2 + topRailPos + RAILS_2X4_TOP_GAP;
+        // At max rows (6), the post is the full 96" stock — top gap is 3.5".
+        // Below that, post = topRailPos + 2.75" top gap.
+        const postHeight = effectiveRows >= RAILS_2X4_MAX_ROWS
+          ? RAILS_2X4_STOCK_LENGTH
+          : (RAILS_2X4_POSITIONS[effectiveRows - 1] ?? RAILS_2X4_POSITIONS[0]) + RAILS_2X4_TOP_GAP;
+        unitH = PLATE_H * 2 + postHeight;
       } else {
         unitH = unit.rows * TIER_HEIGHT + PLATE_H * 2 + TOP_GAP;
       }
@@ -150,9 +156,11 @@ export default function ModuleDiagram({
           let h: number;
 
           if (use2x4Rails) {
-            // 2x4 mode: single tier, height from rail positions + both plates
-            const topPos = RAILS_2X4_POSITIONS[tierRows - 1] ?? RAILS_2X4_POSITIONS[0];
-            tierH = topPos + RAILS_2X4_TOP_GAP; // post height
+            // 2x4 mode: single tier, height from rail positions + both plates.
+            // At max rows (6), post = full 96" stock; otherwise topRailPos + 2.75".
+            tierH = tierRows >= RAILS_2X4_MAX_ROWS
+              ? RAILS_2X4_STOCK_LENGTH
+              : (RAILS_2X4_POSITIONS[tierRows - 1] ?? RAILS_2X4_POSITIONS[0]) + RAILS_2X4_TOP_GAP;
             y = 0;
             h = PLATE_H * 2 + tierH; // bottom plate + posts + top plate
           } else {

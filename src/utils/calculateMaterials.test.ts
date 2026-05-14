@@ -121,4 +121,40 @@ describe("calculateMaterialCostServer", () => {
     expect(hdx.totalCost).toBeGreaterThan(0);
     expect(gm.totalCost).toBeGreaterThan(0);
   });
+
+  // ── 2x4 rail construction: 6-high upgrade ────────────────────────────────
+  // The 6-row case is the new max behind use_2x4_rails. The upright is sized
+  // to the full 96" stock with no cut, so the bin packer should consume one
+  // full board per upright (1 cut per board). The 5-row upright is 79.5",
+  // which leaves enough offcut to pack at least one rail or short part — so
+  // the 6-row build is expected to need MORE total boards than 5-row, not
+  // simply +20% of the rails.
+  it("2x4 rails: allows up to 6 rows", async () => {
+    const result = await calculateMaterialCostServer({
+      cols: 4, rows: 6, use2x4Rails: true,
+    });
+    expect(result.totalCost).toBeGreaterThan(0);
+    expect(result.rawCounts.lumber_boards).toBeGreaterThan(0);
+  });
+
+  it("2x4 rails: 6 rows uses more lumber than 5 rows (uprights consume full stock)", async () => {
+    const fiveHigh = await calculateMaterialCostServer({
+      cols: 4, rows: 5, use2x4Rails: true,
+    });
+    const sixHigh = await calculateMaterialCostServer({
+      cols: 4, rows: 6, use2x4Rails: true,
+    });
+    expect(sixHigh.rawCounts.lumber_boards).toBeGreaterThan(fiveHigh.rawCounts.lumber_boards);
+  });
+
+  it("2x4 rails: rows above 6 are clamped to 6 (no taller config supported yet)", async () => {
+    const sixHigh = await calculateMaterialCostServer({
+      cols: 4, rows: 6, use2x4Rails: true,
+    });
+    const sevenHigh = await calculateMaterialCostServer({
+      cols: 4, rows: 7, use2x4Rails: true,
+    });
+    // 7 should clamp down to 6 internally — same lumber bill of materials.
+    expect(sevenHigh.rawCounts.lumber_boards).toBe(sixHigh.rawCounts.lumber_boards);
+  });
 });
