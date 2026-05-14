@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, Loader2, Mail, MapPin, Calendar } from "lucide-react";
+import { useState, useTransition } from "react";
+import {
+  Bell,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Mail,
+  MapPin,
+  Calendar,
+} from "lucide-react";
 
 import {
   requestGiftMagicCode,
   verifyGiftMagicCode,
   scheduleGiftDelivery,
+  signalEarlyPickup,
   type RecipientGiftView,
 } from "@/app/actions/realtor-gifts";
 
@@ -32,7 +41,7 @@ export function GiftRecipientFlow({ token, gift }: Props) {
   );
 
   if (phase === "done") {
-    return <DonePanel gift={gift} />;
+    return <DonePanel token={token} gift={gift} />;
   }
   if (phase === "schedule") {
     return <SchedulePanel token={token} gift={gift} onScheduled={() => setPhase("done")} />;
@@ -302,7 +311,7 @@ function SchedulePanel({
 
 // ── Panel 3: Confirmed ────────────────────────────────────────────────────
 
-function DonePanel({ gift }: { gift: RecipientGiftView }) {
+function DonePanel({ token, gift }: { token: string; gift: RecipientGiftView }) {
   const formatWindow = (start: string | null, end: string | null) => {
     if (!start || !end) return null;
     const s = new Date(start);
@@ -364,6 +373,15 @@ function DonePanel({ gift }: { gift: RecipientGiftView }) {
         </div>
       </div>
 
+      {/* Early-pickup signal — only meaningful between delivery and pickup. */}
+      {gift.delivered && !gift.returned && (
+        <EarlyPickupPanel
+          token={token}
+          installerName={gift.installerName}
+          alreadyRequestedAt={gift.pickupEarlyRequestedAt}
+        />
+      )}
+
       {/* Post-delivery cross-sell — once the totes are physically with the
           recipient, surface the installer's permanent-rack designer. The
           card is even more prominent after pickup (returned state) when
@@ -377,6 +395,137 @@ function DonePanel({ gift }: { gift: RecipientGiftView }) {
         />
       )}
     </>
+  );
+}
+
+// ── Early-pickup signal ───────────────────────────────────────────────────
+//
+// Optional. Most recipients use the full rental window; this is for the
+// "moved out fast and want the totes gone" case. Fires an installer alert
+// email and stamps the gift row so the installer dashboard surfaces a
+// banner — they can swing by sooner or keep the original window.
+//
+// Pickup is still officially booked via the original window even if the
+// installer chooses not to come early. The recipient is signalling
+// flexibility, not changing the schedule.
+
+function EarlyPickupPanel({
+  token,
+  installerName,
+  alreadyRequestedAt,
+}: {
+  token: string;
+  installerName: string | null;
+  alreadyRequestedAt: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [confirmedAt, setConfirmedAt] = useState<string | null>(alreadyRequestedAt);
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      const result = await signalEarlyPickup({
+        token,
+        note: note.trim() || undefined,
+      });
+      if (!result.ok) {
+        setError(result.error ?? "Couldn't send the signal. Try again.");
+        return;
+      }
+      setConfirmedAt(new Date().toISOString());
+      setOpen(false);
+    });
+  }
+
+  if (confirmedAt) {
+    return (
+      <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/5 p-5">
+        <div className="flex items-start gap-3">
+          <Bell className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+          <div>
+            <p className="text-sm font-bold text-emerald-100">
+              We told {installerName ?? "your installer"} you&rsquo;re ready
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-emerald-200/80">
+              They&rsquo;ll reach out if they can come by sooner. The originally
+              scheduled pickup window is still on the books either way — no
+              action needed from you.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Clock className="mt-0.5 h-5 w-5 shrink-0 text-yellow-300" />
+            <div>
+              <p className="text-sm font-bold text-white">Done early?</p>
+              <p className="mt-1 text-xs leading-relaxed text-stone-400">
+                If you&rsquo;re finished with the totes before the scheduled
+                pickup, let {installerName ?? "your installer"} know and
+                they&rsquo;ll swing by sooner if they can.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setOpen(true)}
+            className="rounded-lg border border-yellow-400/40 bg-yellow-400/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-yellow-300 hover:bg-yellow-400/20"
+          >
+            Ready for pickup
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 rounded-2xl border border-yellow-400/40 bg-yellow-400/5 p-5">
+      <p className="mb-3 text-sm font-bold text-white">
+        Tell {installerName ?? "your installer"} you&rsquo;re ready
+      </p>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        maxLength={400}
+        rows={3}
+        placeholder="Optional: any details that help (best times to come by, gate code, etc.)"
+        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+      />
+      <p className="mt-1 text-[11px] text-stone-500">
+        {note.length}/400. Pickup is still officially booked at the scheduled
+        window even if they can&rsquo;t come early.
+      </p>
+
+      {error && (
+        <p className="mt-3 text-xs text-red-300">{error}</p>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          onClick={submit}
+          disabled={pending}
+          className="inline-flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-yellow-300 disabled:opacity-60"
+        >
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+          Send signal
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={pending}
+          className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-stone-300 hover:border-slate-600 disabled:opacity-60"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 

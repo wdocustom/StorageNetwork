@@ -15,6 +15,7 @@ import {
   sendRealtorGiftReceipt,
 } from "@/lib/email";
 
+import { normalizePhone } from "@/lib/phone";
 import { previewToteGiftDelivery } from "./realtor-tote-delivery";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -64,6 +65,8 @@ function getStripe(): Stripe {
 export interface CreateInventoryGiftInput {
   recipientName: string;
   recipientEmail: string;
+  /** Optional. Surfaced to the installer as tel:/sms: on the per-job page. */
+  recipientPhone?: string;
   deliveryAddress: string;
   deliveryZip: string;
   personalMessage?: string;
@@ -103,6 +106,7 @@ export async function createInventoryGiftDispatch(
   // ── Input normalisation & validation ────────────────────────────────
   const recipientName = input.recipientName?.trim();
   const recipientEmail = input.recipientEmail?.trim().toLowerCase();
+  const recipientPhone = normalizePhone(input.recipientPhone);
   const deliveryAddress = input.deliveryAddress?.trim();
   const deliveryZip = input.deliveryZip?.trim();
   const personalMessage = input.personalMessage?.trim() || null;
@@ -209,6 +213,16 @@ export async function createInventoryGiftDispatch(
   const giftId = dispatch.gift_id as string;
   const status = dispatch.status as string;
   const newBalance = dispatch.new_balance as number;
+
+  // Phone (added in migration 117) isn't part of the dispatch RPC signature,
+  // so stamp it on a follow-up UPDATE. If this fails the gift still works —
+  // the installer just falls back to email.
+  if (recipientPhone) {
+    await db
+      .from("tote_rental_gifts")
+      .update({ recipient_phone: recipientPhone })
+      .eq("id", giftId);
+  }
 
   // ── Free path: send invite immediately, done. ────────────────────────
   if (status === "paid") {

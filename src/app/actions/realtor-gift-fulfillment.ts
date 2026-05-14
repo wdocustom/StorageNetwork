@@ -272,6 +272,9 @@ export interface InstallerToteJob {
   /** Set once the Stripe transfer for this gift has been created.
    *  Null = pending (status not yet returned, or transfer not yet fired). */
   paid_at: string | null;
+  /** Set when the recipient has signaled they're ready for pickup before
+   *  the scheduled window. Surfaced as a badge on the jobs table. */
+  pickup_early_requested_at: string | null;
 }
 
 export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
@@ -287,6 +290,7 @@ export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
        pickup_window_start, pickup_window_end, status,
        installer_assigned_at, delivered_at, returned_at,
        installer_delivery_fee_cents, installer_pickup_fee_cents, installer_paid_at,
+       pickup_early_requested_at,
        tote_rental_packages ( name )`
     )
     .eq("installer_id", user.id)
@@ -320,7 +324,146 @@ export async function listInstallerToteJobs(): Promise<InstallerToteJob[]> {
       ((row.installer_delivery_fee_cents as number | null) ?? 0) +
       ((row.installer_pickup_fee_cents as number | null) ?? 0),
     paid_at: (row.installer_paid_at as string | null) ?? null,
+    pickup_early_requested_at:
+      (row.pickup_early_requested_at as string | null) ?? null,
   }));
+}
+
+// ── Single-job detail fetch ─────────────────────────────────────────────
+//
+// Backs the /dashboard/tote-rentals/[giftId] page. Returns everything the
+// installer needs to do the job: recipient contact, realtor contact (for
+// coordination), windows, payout breakdown by leg, status timeline, the
+// realtor's personal message to the recipient, and the early-pickup
+// signal if the recipient has fired it.
+//
+// Auth: must be signed in AND be the assigned installer on this gift.
+// Returns null otherwise (the page renders a redirect).
+
+export interface InstallerToteJobDetail {
+  id: string;
+  status: string;
+  dispatch_source: "package" | "inventory";
+
+  // Recipient
+  recipient_name: string;
+  recipient_email: string;
+  recipient_phone: string | null;
+  delivery_address: string | null;
+  delivery_zip: string | null;
+  personal_message: string | null;
+
+  // Package / inventory snapshot
+  tote_count: number;
+  duration_days: number;
+  package_name: string;
+
+  // Windows
+  delivery_window_start: string | null;
+  delivery_window_end: string | null;
+  pickup_window_start: string | null;
+  pickup_window_end: string | null;
+  pickup_early_requested_at: string | null;
+  pickup_early_note: string | null;
+
+  // Status timeline
+  assigned_at: string | null;
+  delivered_at: string | null;
+  returned_at: string | null;
+
+  // Payout
+  delivery_fee_cents: number;
+  pickup_fee_cents: number;
+  paid_at: string | null;
+
+  // Realtor — so the installer can coordinate if needed
+  realtor: {
+    name: string;
+    brokerage: string | null;
+    email: string;
+  };
+
+  gift_token: string | null;
+}
+
+export async function getInstallerToteJob(
+  giftId: string
+): Promise<InstallerToteJobDetail | null> {
+  const user = await getAuthenticatedUser();
+  if (!user) return null;
+
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from("tote_rental_gifts")
+    .select(
+      `id, status, dispatch_source, gift_token,
+       recipient_name, recipient_email, recipient_phone,
+       delivery_address, delivery_zip, personal_message,
+       tote_count, duration_days,
+       delivery_window_start, delivery_window_end,
+       pickup_window_start, pickup_window_end,
+       pickup_early_requested_at, pickup_early_note,
+       installer_assigned_at, delivered_at, returned_at,
+       installer_delivery_fee_cents, installer_pickup_fee_cents, installer_paid_at,
+       installer_id, realtor_id,
+       tote_rental_packages ( name ),
+       profiles!tote_rental_gifts_realtor_id_fkey (
+         first_name, last_name, realtor_brokerage, email
+       )`
+    )
+    .eq("id", giftId)
+    .single();
+
+  if (error || !data) return null;
+
+  // Ownership check — must be the assigned installer.
+  if (data.installer_id !== user.id) return null;
+
+  const realtor = data.profiles as unknown as
+    | { first_name: string | null; last_name: string | null; realtor_brokerage: string | null; email: string }
+    | null;
+
+  return {
+    id: data.id as string,
+    status: data.status as string,
+    dispatch_source: ((data.dispatch_source as string | null) ?? "package") as
+      | "package"
+      | "inventory",
+    recipient_name: data.recipient_name as string,
+    recipient_email: data.recipient_email as string,
+    recipient_phone: (data.recipient_phone as string | null) ?? null,
+    delivery_address: (data.delivery_address as string | null) ?? null,
+    delivery_zip: (data.delivery_zip as string | null) ?? null,
+    personal_message: (data.personal_message as string | null) ?? null,
+    tote_count: data.tote_count as number,
+    duration_days: data.duration_days as number,
+    package_name:
+      (data.tote_rental_packages as unknown as { name: string } | null)?.name ||
+      (((data.dispatch_source as string | null) ?? "package") === "inventory"
+        ? `${data.tote_count} totes (inventory)`
+        : "Closing Gift"),
+    delivery_window_start: (data.delivery_window_start as string | null) ?? null,
+    delivery_window_end: (data.delivery_window_end as string | null) ?? null,
+    pickup_window_start: (data.pickup_window_start as string | null) ?? null,
+    pickup_window_end: (data.pickup_window_end as string | null) ?? null,
+    pickup_early_requested_at:
+      (data.pickup_early_requested_at as string | null) ?? null,
+    pickup_early_note: (data.pickup_early_note as string | null) ?? null,
+    assigned_at: (data.installer_assigned_at as string | null) ?? null,
+    delivered_at: (data.delivered_at as string | null) ?? null,
+    returned_at: (data.returned_at as string | null) ?? null,
+    delivery_fee_cents: (data.installer_delivery_fee_cents as number | null) ?? 0,
+    pickup_fee_cents: (data.installer_pickup_fee_cents as number | null) ?? 0,
+    paid_at: (data.installer_paid_at as string | null) ?? null,
+    realtor: {
+      name:
+        [realtor?.first_name, realtor?.last_name].filter(Boolean).join(" ") ||
+        "Realtor",
+      brokerage: (realtor?.realtor_brokerage as string | null) ?? null,
+      email: (realtor?.email as string) ?? "",
+    },
+    gift_token: (data.gift_token as string | null) ?? null,
+  };
 }
 
 // ── Milestone flips ──────────────────────────────────────────────────────

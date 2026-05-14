@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Package, Truck, DollarSign } from "lucide-react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Bell,
+  CheckCircle2,
+  Loader2,
+  Package,
+  Truck,
+  DollarSign,
+} from "lucide-react";
 
 import {
   markGiftDelivered,
@@ -140,8 +149,20 @@ function JobRow({
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-baseline gap-3">
-            <p className="text-base font-bold text-white">{job.recipient_name}</p>
+            <Link
+              href={`/dashboard/tote-rentals/${job.id}`}
+              className="inline-flex items-center gap-1.5 text-base font-bold text-white hover:text-yellow-300"
+            >
+              {job.recipient_name}
+              <ArrowRight className="h-3.5 w-3.5 text-stone-500" />
+            </Link>
             <span className="text-xs text-stone-500">{job.recipient_email}</span>
+            {job.pickup_early_requested_at && currentStatus === "delivered" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                <Bell className="h-3 w-3" />
+                Ready for pickup
+              </span>
+            )}
           </div>
           <p className="mb-3 text-sm text-stone-300">
             {job.package_name}
