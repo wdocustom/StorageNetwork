@@ -42,10 +42,10 @@ export default async function RealtorDashboardPage() {
           </div>
           <Link
             href="/realtors/dashboard/settings"
-            className="hidden items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm text-stone-300 hover:border-slate-600 sm:flex"
+            className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-300 hover:border-slate-600 sm:px-4 sm:text-sm"
           >
             <Settings className="h-4 w-4" />
-            Settings
+            <span className="hidden sm:inline">Settings</span>
           </Link>
         </div>
 
@@ -98,9 +98,17 @@ export default async function RealtorDashboardPage() {
           <AnalyticsSection realtorId={user!.id} />
         </div>
 
-        {/* ── Coming soon (two remaining; analytics now lives above) ── */}
+        {/* ── Feature tiles ────────────────────────────────────────────
+            Two cells remaining now that Analytics is its own section
+            above. Custom branding is shipped (settings link); Realtor
+            Pro is still Coming Soon. */}
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <ComingSoonCard icon={Gift} title="Custom branding" desc="Your photo, brokerage logo, signature message on every recipient page." />
+          <SettingsLinkCard
+            icon={Settings}
+            title="Custom branding"
+            desc="Add your photo, brokerage logo, and a signature line to every recipient page."
+            href="/realtors/dashboard/settings"
+          />
           <ComingSoonCard icon={Package} title="Realtor Pro" desc="Monthly gift credits at discounted rates. Optional subscription tier." />
         </div>
       </div>
@@ -183,5 +191,30 @@ function ComingSoonCard({
       <p className="mb-1 text-sm font-bold text-stone-300">{title}</p>
       <p className="text-xs leading-relaxed text-stone-500">{desc}</p>
     </div>
+  );
+}
+
+// Active feature card — visually similar to ComingSoonCard but clickable.
+// Used for shipped features that previously occupied a Coming Soon slot.
+function SettingsLinkCard({
+  icon: Icon,
+  title,
+  desc,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  desc: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-5 transition-all hover:border-yellow-400/60 hover:bg-yellow-400/10"
+    >
+      <Icon className="mb-3 h-5 w-5 text-yellow-400" />
+      <p className="mb-1 text-sm font-bold text-stone-200 group-hover:text-yellow-300">{title}</p>
+      <p className="text-xs leading-relaxed text-stone-400">{desc}</p>
+    </Link>
   );
 }

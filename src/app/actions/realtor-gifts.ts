@@ -446,6 +446,11 @@ export interface RecipientGiftView {
   scheduled: boolean;
   realtorName: string;
   realtorBrokerage: string | null;
+  /** Custom-branding fields (migration 111). Null when the realtor hasn't
+   *  uploaded one — recipient page falls back to text-only co-branding. */
+  realtorPhotoUrl: string | null;
+  realtorLogoUrl: string | null;
+  realtorSignature: string | null;
   propertyAddress: string | null;
   propertyZip: string | null;
   deliveryAddress: string | null;
@@ -483,7 +488,8 @@ export async function lookupGiftByToken(
       installer_id,
       tote_rental_packages ( name, description, features ),
       realtor:profiles!tote_rental_gifts_realtor_id_fkey (
-        first_name, last_name, realtor_brokerage
+        first_name, last_name, realtor_brokerage,
+        realtor_photo_url, realtor_logo_url, realtor_signature
       ),
       installer:profiles!tote_rental_gifts_installer_id_fkey (
         first_name, last_name, business_name, slug
@@ -500,7 +506,14 @@ export async function lookupGiftByToken(
     | { name: string; description: string; features: string[] }
     | null;
   const realtor = row.realtor as unknown as
-    | { first_name: string | null; last_name: string | null; realtor_brokerage: string | null }
+    | {
+        first_name: string | null;
+        last_name: string | null;
+        realtor_brokerage: string | null;
+        realtor_photo_url: string | null;
+        realtor_logo_url: string | null;
+        realtor_signature: string | null;
+      }
     | null;
   const installer = row.installer as unknown as
     | { first_name: string | null; last_name: string | null; business_name: string | null; slug: string | null }
@@ -526,6 +539,9 @@ export async function lookupGiftByToken(
     realtorName:
       [realtor?.first_name, realtor?.last_name].filter(Boolean).join(" ") || "Your realtor",
     realtorBrokerage: realtor?.realtor_brokerage ?? null,
+    realtorPhotoUrl: realtor?.realtor_photo_url ?? null,
+    realtorLogoUrl: realtor?.realtor_logo_url ?? null,
+    realtorSignature: realtor?.realtor_signature ?? null,
     propertyAddress: (row.property_address as string | null) ?? null,
     propertyZip: (row.property_zip as string | null) ?? null,
     deliveryAddress: (row.delivery_address as string | null) ?? null,
