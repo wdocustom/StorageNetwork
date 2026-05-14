@@ -203,17 +203,17 @@ export default function CustomUnitDrawer({
                 type="number"
                 inputMode="numeric"
                 min="1"
-                max={use2x4Rails ? "5" : "20"}
+                max={use2x4Rails ? "6" : "20"}
                 value={customRows}
                 onChange={(e) => onCustomRowsChange(e.target.value)}
-                placeholder={use2x4Rails ? "e.g. 4 (max 5)" : "e.g. 5"}
+                placeholder={use2x4Rails ? "e.g. 4 (max 6)" : "e.g. 5"}
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 focus:border-yellow-400 focus:outline-none"
               />
             </div>
           </div>
           <p className="mt-2 text-[10px] text-stone-500">
             {use2x4Rails
-              ? "Enter the number of columns and rows (max 5 tiers for 2x4 rail construction)."
+              ? "Enter the number of columns and rows (max 6 tiers for 2x4 rail construction; 6-tier uses a full 8' upright)."
               : "Enter the number of tote columns and rows for your unit."}
           </p>
         </>
@@ -226,7 +226,7 @@ export default function CustomUnitDrawer({
             2x4 Rail Construction
           </div>
           <div className="mt-1 text-xs text-stone-400">
-            21&quot; universal openings &middot; Ripped 2x4 rails &middot; Max 5 tiers
+            21&quot; universal openings &middot; Ripped 2x4 rails &middot; Max 6 tiers
           </div>
         </div>
       )}
