@@ -1643,6 +1643,7 @@ export default function BuildConfiguratorPage() {
               hasTop={u.hasTop}
               totalW={u.totalW ?? 48}
               totalH={u.totalH ?? 60}
+              use2x4Rails={installerPricing?.use_2x4_rails === true}
               addons={u.addons}
               presetUnits={presetUnits}
               shelvingConfig={sc ? { widthIn: sc.widthIn, frameH: sc.frameH, depth: sc.depth, shelves: sc.shelves } : undefined}

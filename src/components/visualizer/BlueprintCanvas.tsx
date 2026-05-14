@@ -52,6 +52,10 @@ interface BlueprintCanvasProps {
   hasTop: boolean;
   totalW: number;
   totalH: number;
+  /** 2x4 rail construction mode — uses fixed rail positions instead of
+   *  uniform 16" tier spacing. Required for accurate proportions at 6 high
+   *  (where the upright is full 96" stock and the 6th tier's gap differs). */
+  use2x4Rails?: boolean;
   /** When set, renders compound preset (multiple sub-units side by side) */
   presetUnits?: SubUnit[];
   /** Per-section addons (doors, side panels, rail removal, hinges) */
@@ -79,6 +83,7 @@ export default function BlueprintCanvas({
   hasTop,
   totalW,
   totalH,
+  use2x4Rails = false,
   presetUnits,
   addons,
   shelvingConfig,
@@ -91,20 +96,45 @@ export default function BlueprintCanvas({
   // Unit-type specific dimensions
   const isMini = unitType === "mini";
   const isSideways = unitType === "standard" && orientation === "sideways";
+  const is2x4 = use2x4Rails && !isMini;
   const RENDER_GAP = 1.5; // Post width (same for both)
-  const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing
+  const RENDER_TIER = isMini ? 7 : 16; // Vertical spacing (uniform fallback)
   const RENDER_PLATE = 1.5;
   const RENDER_TOP_GAP = isMini ? 0 : 2.5; // Mini has no top plate gap
   const RENDER_FIRST_RAIL = isMini ? 5.25 : 13; // First rail height from bottom
   const PLY_TOP_H = 0.75; // Plywood top thickness
-  // Opening width: sideways uses 30.25", standard uses tote width
-  const opening = isMini ? 8.25 : (isSideways ? 30.25 : (toteType === "HDX" ? 19.75 : 20.75));
+  // Opening width: 2x4 rails use universal 21" (sideways still 30.25");
+  // standard mini/HDX/GM still tote-width based.
+  const opening = isMini
+    ? 8.25
+    : isSideways
+      ? 30.25
+      : is2x4
+        ? 21
+        : toteType === "HDX" ? 19.75 : 20.75;
+
+  // 2x4 rail construction: fixed rail positions, full-stock upright at 6 high.
+  // Must mirror src/lib/buildEngine.ts so the 2D drawing matches the actual
+  // build geometry (not uniform 16" tiers — at 6 high the real frame is 99"
+  // but uniform tiers would compute 101.5", clipping the top tier).
+  const RAILS_2X4_POSITIONS = [13.75, 29.5, 45.25, 61, 76.75, 92.5];
+  const RAILS_2X4_TOP_GAP = 2.75;
+  const RAILS_2X4_STOCK_LENGTH = 96;
 
   // Calculate dimensions (frame height without wheels)
   const calcW = cols * opening + (cols + 1) * RENDER_GAP;
-  const calcH = isMini
-    ? RENDER_PLATE + RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2 + PLY_TOP_H
-    : rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
+  let calcH: number;
+  if (is2x4) {
+    const cappedRows = Math.min(rows, RAILS_2X4_POSITIONS.length);
+    const postHeight = cappedRows >= RAILS_2X4_POSITIONS.length
+      ? RAILS_2X4_STOCK_LENGTH
+      : RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
+    calcH = RENDER_PLATE * 2 + postHeight;
+  } else if (isMini) {
+    calcH = RENDER_PLATE + RENDER_FIRST_RAIL + (rows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
+  } else {
+    calcH = rows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
+  }
 
   const realW = totalW > 0 ? totalW : calcW;
   // Use totalH from server which now includes wheel height if applicable
@@ -129,9 +159,18 @@ export default function BlueprintCanvas({
     const woodStroke = "#925f32";
     const plywoodFill = plywoodPattern || "#f3d2a3";
 
-    const unitFrameH = isMini
-      ? (RENDER_PLATE + RENDER_FIRST_RAIL + (unitRows - 1) * RENDER_TIER + 2 + PLY_TOP_H)
-      : (unitRows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP);
+    let unitFrameH: number;
+    if (is2x4) {
+      const cappedRows = Math.min(unitRows, RAILS_2X4_POSITIONS.length);
+      const postHeight = cappedRows >= RAILS_2X4_POSITIONS.length
+        ? RAILS_2X4_STOCK_LENGTH
+        : RAILS_2X4_POSITIONS[cappedRows - 1] + RAILS_2X4_TOP_GAP;
+      unitFrameH = RENDER_PLATE * 2 + postHeight;
+    } else if (isMini) {
+      unitFrameH = RENDER_PLATE + RENDER_FIRST_RAIL + (unitRows - 1) * RENDER_TIER + 2 + PLY_TOP_H;
+    } else {
+      unitFrameH = unitRows * RENDER_TIER + RENDER_PLATE * 2 + RENDER_TOP_GAP;
+    }
     const pFrameH = unitFrameH * scale;
     const pStud = RENDER_GAP * scale;
     const pBay = opening * scale;
@@ -197,6 +236,11 @@ export default function BlueprintCanvas({
         let railY: number;
         if (isMini) {
           const railFromBottom = RENDER_FIRST_RAIL + r * RENDER_TIER;
+          railY = startY + pFrameH - pPlate - railFromBottom * scale - railH / 2;
+        } else if (is2x4) {
+          // 2x4 mode: rails sit at fixed positions (measured from bottom of
+          // posts, i.e. above the bottom plate). Mirror buildEngine.ts.
+          const railFromBottom = RAILS_2X4_POSITIONS[Math.min(r, RAILS_2X4_POSITIONS.length - 1)];
           railY = startY + pFrameH - pPlate - railFromBottom * scale - railH / 2;
         } else {
           // Invert row for canvas coords: row 0 = bottom (large Y), highest row = top (small Y)
@@ -340,7 +384,7 @@ export default function BlueprintCanvas({
       ctx.fillRect(startX, startY - topThick, pPostToPostW, topThick);
       ctx.strokeRect(startX, startY - topThick, pPostToPostW, topThick);
     }
-  }, [isMini, opening, hasTotes, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
+  }, [isMini, is2x4, opening, hasTotes, toteType, toteColor, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_GAP, RENDER_TOP_GAP]);
 
   // ── Helper: draw an open shelving unit (front view) ────────────────
   const drawShelvingUnit = useCallback((
@@ -794,7 +838,7 @@ export default function BlueprintCanvas({
     ctx.font = `bold ${Math.round(cW * 0.08)}px Arial`;
     ctx.fillText(watermarkText, 0, 0);
     ctx.restore();
-  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, drawSingleUnit, drawShelvingUnit, drawOverheadUnit, shelvingConfig, overheadConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP, watermarkText]);
+  }, [cols, rows, realW, realH, hasWheels, hasTop, isMini, is2x4, drawSingleUnit, drawShelvingUnit, drawOverheadUnit, shelvingConfig, overheadConfig, presetUnits, addons, RENDER_TIER, RENDER_FIRST_RAIL, RENDER_PLATE, RENDER_TOP_GAP, watermarkText]);
 
   useEffect(() => {
     draw();
