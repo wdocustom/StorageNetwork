@@ -401,6 +401,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
               hasTop={bp2dHasTop}
               totalW={bp2dTotalW}
               totalH={bp2dTotalH}
+              use2x4Rails={props.use2x4Rails}
               presetUnits={bp2dPresetUnits}
               addons={bp2dAddons}
               shelvingConfig={bp2dShelvingConfig}
@@ -443,6 +444,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   hasTop={bp2dHasTop}
                   totalW={bp2dTotalW}
                   totalH={bp2dTotalH}
+                  use2x4Rails={props.use2x4Rails}
                   presetUnits={bp2dPresetUnits}
                   addons={bp2dAddons}
                   shelvingConfig={bp2dShelvingConfig}
