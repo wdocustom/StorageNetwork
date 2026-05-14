@@ -9,9 +9,10 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { Gift, Package, BarChart3, Settings } from "lucide-react";
+import { Gift, Package, Settings } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import { AnalyticsSection } from "./AnalyticsSection";
 
 export default async function RealtorDashboardPage() {
   // Layout already guarantees we're a realtor; this read is just for the
@@ -92,9 +93,13 @@ export default async function RealtorDashboardPage() {
           </ol>
         </div>
 
-        {/* ── Coming soon ──────────────────────────────────────────── */}
-        <div className="mt-12 grid gap-4 sm:grid-cols-3">
-          <ComingSoonCard icon={BarChart3} title="Analytics" desc="Gifts sent, redemption rate, lead handoffs." />
+        {/* ── Analytics (real numbers from this realtor's gifts) ───── */}
+        <div className="mt-12">
+          <AnalyticsSection realtorId={user!.id} />
+        </div>
+
+        {/* ── Coming soon (two remaining; analytics now lives above) ── */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <ComingSoonCard icon={Gift} title="Custom branding" desc="Your photo, brokerage logo, signature message on every recipient page." />
           <ComingSoonCard icon={Package} title="Realtor Pro" desc="Monthly gift credits at discounted rates. Optional subscription tier." />
         </div>
