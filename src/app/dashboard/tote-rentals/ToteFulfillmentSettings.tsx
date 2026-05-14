@@ -79,17 +79,17 @@ export function ToteFulfillmentSettings({
         </div>
 
         <p className="mb-6 text-sm leading-relaxed text-stone-300">
-          Tell us how many reusable totes you have on hand and how many concurrent gift
-          jobs you can comfortably run. We&apos;ll route closing-gift orders to you whenever
-          a realtor sends one in your service area.
+          Tell us how many 27-gallon reusable totes you have on hand and how many
+          concurrent gift jobs you can comfortably run. We&apos;ll route closing-gift
+          orders to you whenever a realtor sends one in your service area.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField
-            label="Reusable totes on hand"
+            label="27-gallon totes on hand"
             value={stock}
             onChange={setStock}
-            help="Total inventory. Includes totes currently out on jobs."
+            help="Total inventory. We auto-increment this when gifts come back; edit if any get damaged or decommissioned, or to add new stock."
           />
           <NumberField
             label="Max concurrent gift jobs"
@@ -144,7 +144,7 @@ export function ToteFulfillmentSettings({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <InlineNumberField
-          label="Totes on hand"
+          label="27-gallon totes on hand"
           value={stock}
           onChange={setStock}
           onCommit={saveStock}
