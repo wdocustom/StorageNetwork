@@ -253,12 +253,8 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
               </div>
               <dl className="space-y-3 text-sm">
                 <SummaryRow
-                  label="Delivery leg"
-                  value={`$${(job.delivery_fee_cents / 100).toFixed(2)}`}
-                />
-                <SummaryRow
-                  label="Pickup leg"
-                  value={`$${(job.pickup_fee_cents / 100).toFixed(2)}`}
+                  label={`Delivery + pickup (${job.tote_count} totes)`}
+                  value={`$${(totalPayoutCents / 100).toFixed(2)}`}
                 />
               </dl>
               <div className="mt-4 flex items-end justify-between border-t border-slate-800 pt-4">
@@ -273,7 +269,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
                 ) : job.status === "returned" ? (
                   <>Pickup logged — Stripe transfer is on the way.</>
                 ) : (
-                  <>Transfers fire after you mark the gift returned.</>
+                  <>One flat payout, transferred after you mark the gift returned.</>
                 )}
               </p>
             </div>

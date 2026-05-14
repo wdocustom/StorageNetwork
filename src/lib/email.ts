@@ -85,6 +85,7 @@ export {
   sendInventoryAnnouncementEmail,
   sendWeeklyDigestEmail,
   sendAssetForgeAnnouncementEmail,
+  sendToteRentalAnnouncementEmail,
   type FeatureAnnouncementData,
   type BountyAnnouncementData,
   type OverheadAnnouncementData,
