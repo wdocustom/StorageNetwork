@@ -562,3 +562,212 @@ export async function sendAssetForgeAnnouncementEmail(
     html,
   });
 }
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// Realtor Tote-Rental Program Announcement
+//
+// One-off blast to every installer announcing the realtor closing-gift
+// tote-rental program. Voice: B2B, money-focused, dual-play angle
+// (per-job payouts + homeowner rack-upsell pipeline). Cross-references
+// the in-app Tote Rentals card so the installer can opt in immediately.
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+export interface ToteRentalAnnouncementData {
+  installerName: string;
+  toteRentalsUrl: string;
+  unsubscribeUrl: string;
+}
+
+export async function sendToteRentalAnnouncementEmail(
+  email: string,
+  data: ToteRentalAnnouncementData
+): Promise<SendEmailResult> {
+  const { installerName, toteRentalsUrl, unsubscribeUrl } = data;
+
+  const html = masterEmailLayout(
+    "Closing-Gift Tote Rentals",
+    `
+    <!-- Hook -->
+    <p style="margin:0 0 8px;color:#ffffff;font-size:18px;font-weight:700;">
+      Hey ${installerName} &mdash; new revenue channel just opened up.
+    </p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Storage Network is now letting <strong style="color:#facc15;">realtors</strong> send their buyers and sellers a stack of reusable moving totes as a closing gift. You deliver the totes, the homeowner uses them to pack, and you swing back to pick them up. We auto-route every job in your service area to <strong style="color:#ffffff;">you</strong> and pay per leg through Stripe.
+    </p>
+
+    <!-- Two-play framing -->
+    <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;padding:22px;margin:0 0 24px;">
+      <p style="margin:0 0 14px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">Why this matters</p>
+      <p style="margin:0 0 10px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+        <strong style="color:#ffffff;">Play 1 &mdash; Per-gift cash.</strong> A flat-fee payout per delivery + pickup leg. Same recipe every time, paid through Stripe.
+      </p>
+      <p style="margin:0;color:#e5e5e5;font-size:14px;line-height:1.7;">
+        <strong style="color:#ffffff;">Play 2 &mdash; Rack upsells.</strong> Every gift puts 20&ndash;50 reusable totes in a homeowner&rsquo;s hands <strong style="color:#facc15;">during a move</strong> &mdash; the exact moment they&rsquo;re looking at empty walls in a new garage. The recipient&rsquo;s gift page surfaces your custom-rack designer right after delivery. Cold acquisition turns into warm, just-moved-in homeowners.
+      </p>
+    </div>
+
+    <!-- How the realtor side works -->
+    ${eyebrow("How realtors use it")}
+    <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:0 0 24px;">
+      <tr>
+        <td valign="top" style="width:32px;padding:8px 0;">
+          <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">1</div>
+        </td>
+        <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;">
+          <strong style="color:#ffffff;">Realtor signs up + picks a gift.</strong> Quick-send packages (20/30/40/50 totes) or bulk-inventory mode where they buy totes in packs and dispatch from their own balance.
+        </td>
+      </tr>
+      <tr>
+        <td valign="top" style="width:32px;padding:8px 0;border-top:1px solid #1a1a1a;">
+          <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">2</div>
+        </td>
+        <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
+          <strong style="color:#ffffff;">Addresses it to the homeowner.</strong> Adds a personal message and a 7-, 14-, or 28-day rental window.
+        </td>
+      </tr>
+      <tr>
+        <td valign="top" style="width:32px;padding:8px 0;border-top:1px solid #1a1a1a;">
+          <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">3</div>
+        </td>
+        <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
+          <strong style="color:#ffffff;">Homeowner verifies + picks windows.</strong> They confirm their email, schedule delivery and pickup, and the job hits your Tote Rentals dashboard with a routing email to you.
+        </td>
+      </tr>
+      <tr>
+        <td valign="top" style="width:32px;padding:8px 0;border-top:1px solid #1a1a1a;">
+          <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">4</div>
+        </td>
+        <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
+          <strong style="color:#ffffff;">You deliver and pick up.</strong> Mark delivered after drop-off and returned after pickup &mdash; Stripe payout fires automatically. Your tote inventory auto-refills when gifts come back.
+        </td>
+      </tr>
+    </table>
+
+    <!-- Payout math -->
+    <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px;padding:22px;margin:0 0 24px;">
+      <p style="margin:0 0 12px;color:#facc15;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;">
+        What you earn per job
+      </p>
+      <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.6;">
+        <code style="color:#facc15;font-size:13px;">payout = ($20 base + $2/tote) &times; 2 legs</code>
+        <br/>
+        <span style="color:#a3a3a3;font-size:13px;">Delivery is one leg, pickup is the second. Paid through Stripe Connect when the pickup is logged.</span>
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:10px;overflow:hidden;">
+        <tr style="background:#111;">
+          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Gift size</td>
+          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:right;">Per leg</td>
+          <td style="padding:10px 14px;color:#a3a3a3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-align:right;">Per gift</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">10 totes</td>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$40</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$80</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">20 totes</td>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$60</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$120</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">30 totes</td>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$80</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$160</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;border-top:1px solid #1a1a1a;">50 totes</td>
+          <td style="padding:10px 14px;color:#e5e5e5;font-size:14px;text-align:right;border-top:1px solid #1a1a1a;">$120</td>
+          <td style="padding:10px 14px;color:#facc15;font-size:14px;font-weight:800;text-align:right;border-top:1px solid #1a1a1a;">$240</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- What you need to do today -->
+    ${eyebrow("What you need to do today")}
+    <table cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:0 0 24px;">
+      <tr>
+        <td style="padding:12px 0;color:#ffffff;font-size:14px;line-height:1.6;border-bottom:1px solid #222;">
+          <span style="color:#facc15;font-weight:900;margin-right:8px;">1.</span>
+          <strong style="color:#ffffff;">Open the Tote Rentals card</strong> from your dashboard (it&rsquo;s the &ldquo;Realtor closing-gift jobs&rdquo; section).
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 0;color:#ffffff;font-size:14px;line-height:1.6;border-bottom:1px solid #222;">
+          <span style="color:#facc15;font-weight:900;margin-right:8px;">2.</span>
+          <strong style="color:#ffffff;">Tell us how many 27-gallon totes you have on hand.</strong> Start with whatever you&rsquo;re comfortable losing for two-week stretches &mdash; <strong style="color:#facc15;">30 is a solid starting inventory</strong>. We size routed jobs against this number, and it auto-refills when gifts come back from pickup.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 0;color:#ffffff;font-size:14px;line-height:1.6;border-bottom:1px solid #222;">
+          <span style="color:#facc15;font-weight:900;margin-right:8px;">3.</span>
+          <strong style="color:#ffffff;">Set your max concurrent gift jobs.</strong> How many you can run simultaneously without losing your mind. 5 is a sane default.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 0;color:#ffffff;font-size:14px;line-height:1.6;border-bottom:1px solid #222;">
+          <span style="color:#facc15;font-weight:900;margin-right:8px;">4.</span>
+          <strong style="color:#ffffff;">Confirm your Stripe Connect is live and your service area is set.</strong> Both are gates &mdash; we won&rsquo;t route jobs to you until both are green. The opt-in page tells you exactly what&rsquo;s missing.
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 0;color:#ffffff;font-size:14px;line-height:1.6;">
+          <span style="color:#facc15;font-weight:900;margin-right:8px;">5.</span>
+          <strong style="color:#ffffff;">Flip the opt-in switch.</strong> That&rsquo;s it &mdash; you&rsquo;re in the routing pool.
+        </td>
+      </tr>
+    </table>
+
+    <!-- Networking with realtors -->
+    ${eyebrow("Start the conversation with realtors")}
+    <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+      Storage Network is actively marketing this program to realtors in <strong style="color:#ffffff;">your service area</strong> &mdash; you&rsquo;ll get jobs that find you cold. But you already know the agents in your town, and those relationships close the biggest deals.
+    </p>
+    <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+      Drop the link below to any realtor you&rsquo;ve done business with. Tell them: <em>&ldquo;You can send your buyers and sellers a closing-gift moving-tote rental on Storage Network and I&rsquo;ll handle the delivery and pickup myself.&rdquo;</em>
+    </p>
+    <div style="background-color:#0a0a0a;border:1px solid #1a1a1a;border-radius:10px;padding:14px 18px;margin:0 0 24px;">
+      <p style="margin:0;color:#a3a3a3;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Send realtors here</p>
+      <p style="margin:6px 0 0;color:#facc15;font-size:15px;font-weight:700;font-family:monospace;">storage-network.app/realtors</p>
+    </div>
+
+    <!-- The rack upsell play -->
+    ${eyebrow("Play 2: The rack upsell")}
+    <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+      This is the part most installers miss. <strong style="color:#facc15;">Every gift drops 20&ndash;50 branded totes in a homeowner&rsquo;s hands the week they move.</strong> They&rsquo;re packing. They&rsquo;re unpacking. They&rsquo;re staring at an empty new garage and an empty new basement and asking themselves: <em>&ldquo;Where am I going to put all this?&rdquo;</em>
+    </p>
+    <p style="margin:0 0 12px;color:#e5e5e5;font-size:14px;line-height:1.7;">
+      The recipient&rsquo;s gift page already surfaces a cross-sell card after delivery &mdash; it pitches your <strong style="color:#ffffff;">custom storage rack designer</strong> using the same totes they just got. Built for you to convert.
+    </p>
+    <p style="margin:0 0 24px;color:#a3a3a3;font-size:13px;line-height:1.7;font-style:italic;">
+      A realtor pays for the totes, the homeowner uses them, and you get paid for the delivery <em>plus</em> a warm rack lead with zero acquisition cost. The network does the marketing; the totes do the closing.
+    </p>
+
+    <!-- CTA -->
+    <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Open the Tote Rentals card</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">
+        Confirm your inventory + capacity, opt in, and start getting routed gigs the moment a realtor in your area sends a gift.
+      </p>
+      ${ctaButton(toteRentalsUrl, "Open Tote Rentals")}
+    </div>
+
+    <!-- Support -->
+    <p style="margin:32px 0 8px;color:#a3a3a3;font-size:13px;line-height:1.7;text-align:center;">
+      Questions about how the program works, your inventory, or how to pitch it to realtors?
+      <br/>
+      Email <a href="mailto:support@storage-network.app" style="color:#facc15;text-decoration:none;">support@storage-network.app</a> &mdash; or reply directly to this email and Skyler will get it.
+    </p>
+
+    <!-- Unsubscribe -->
+    <p style="margin:24px 0 0;color:#444;font-size:11px;line-height:1.6;text-align:center;">
+      <a href="${unsubscribeUrl}" style="color:#555;text-decoration:underline;">Unsubscribe from launch announcements</a>
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    subject: "New revenue channel: Closing-gift tote rentals for realtors in your area",
+    html,
+  });
+}
