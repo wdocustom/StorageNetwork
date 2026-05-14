@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, DollarSign, Package } from "lucide-react";
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import {
@@ -29,6 +29,21 @@ export default async function ToteRentalsPage() {
     getToteFulfillmentSettings(),
     listInstallerToteJobs(),
   ]);
+
+  // Earnings summary across the visible jobs. "Paid" reflects Stripe
+  // transfers that landed; "pending" is the cumulative balance from
+  // completed-but-not-yet-paid plus in-flight jobs the installer is on
+  // the hook for. Useful for installers eyeballing whether the program
+  // is worth their time.
+  const earnings = jobs.reduce(
+    (acc, j) => {
+      const cents = j.payout_cents || 0;
+      if (j.paid_at) acc.paidCents += cents;
+      else acc.pendingCents += cents;
+      return acc;
+    },
+    { paidCents: 0, pendingCents: 0 }
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -59,6 +74,23 @@ export default async function ToteRentalsPage() {
           />
         )}
 
+        {settings?.active && (earnings.paidCents > 0 || earnings.pendingCents > 0) && (
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <EarningsCard
+              label="Paid out"
+              cents={earnings.paidCents}
+              tint="emerald"
+              hint="Stripe transfers landed on your connected account."
+            />
+            <EarningsCard
+              label="Pending"
+              cents={earnings.pendingCents}
+              tint="yellow"
+              hint="Earned on jobs not yet completed, plus any completed gifts awaiting transfer."
+            />
+          </div>
+        )}
+
         {settings?.active ? (
           jobs.length > 0 ? (
             <div className="mt-10">
@@ -78,6 +110,36 @@ export default async function ToteRentalsPage() {
           )
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function EarningsCard({
+  label,
+  cents,
+  tint,
+  hint,
+}: {
+  label: string;
+  cents: number;
+  tint: "emerald" | "yellow";
+  hint: string;
+}) {
+  const dollars = (cents / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const tintClasses = tint === "emerald"
+    ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-300"
+    : "border-yellow-400/30 bg-yellow-400/5 text-yellow-300";
+  return (
+    <div className={`rounded-2xl border p-5 ${tintClasses}`}>
+      <div className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em]">
+        <DollarSign className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <p className="text-2xl font-black text-white">${dollars}</p>
+      <p className="mt-1 text-xs text-stone-400">{hint}</p>
     </div>
   );
 }

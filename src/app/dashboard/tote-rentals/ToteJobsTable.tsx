@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Package, Truck } from "lucide-react";
+import { CheckCircle2, Loader2, Package, Truck, DollarSign } from "lucide-react";
 
 import {
   markGiftDelivered,
@@ -148,7 +148,9 @@ function JobRow({
             <span className="text-stone-500"> &middot; {job.tote_count} totes &middot; {job.duration_days}-day rental</span>
           </p>
 
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <PayoutBadge cents={job.payout_cents} paidAt={job.paid_at} status={currentStatus} />
+
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             <WindowRow icon={<Truck className="h-4 w-4" />} label="Delivery" start={job.delivery_window_start} end={job.delivery_window_end} />
             <WindowRow icon={<Package className="h-4 w-4" />} label="Pickup" start={job.pickup_window_start} end={job.pickup_window_end} />
           </div>
@@ -224,6 +226,42 @@ function WindowRow({
         {date} · {time}
       </span>
     </div>
+  );
+}
+
+function PayoutBadge({
+  cents,
+  paidAt,
+  status,
+}: {
+  cents: number;
+  paidAt: string | null;
+  status: string;
+}) {
+  if (cents <= 0) return null;
+  const dollars = (cents / 100).toFixed(2);
+  if (paidAt) {
+    const when = new Date(paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300">
+        <DollarSign className="h-3 w-3" />
+        ${dollars} paid {when}
+      </span>
+    );
+  }
+  if (status === "returned") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md border border-yellow-400/40 bg-yellow-400/10 px-2 py-1 text-[11px] font-semibold text-yellow-300">
+        <DollarSign className="h-3 w-3" />
+        ${dollars} payout pending
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-semibold text-stone-300">
+      <DollarSign className="h-3 w-3" />
+      ${dollars} on completion
+    </span>
   );
 }
 
