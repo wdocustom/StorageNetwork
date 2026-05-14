@@ -175,7 +175,7 @@ export default function StepSize({
               <input
                 type="number"
                 min={1}
-                max={props.unitType === "mini" ? 4 : props.use2x4Rails ? 5 : 10}
+                max={props.unitType === "mini" ? 4 : props.use2x4Rails ? 6 : 10}
                 value={props.rows}
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => {
@@ -184,7 +184,7 @@ export default function StepSize({
                 }}
                 onBlur={() => {
                   const n = typeof props.rows === "number" ? props.rows : parseInt(props.rows as string);
-                  const maxT = props.unitType === "mini" ? 4 : props.use2x4Rails ? 5 : 10;
+                  const maxT = props.unitType === "mini" ? 4 : props.use2x4Rails ? 6 : 10;
                   props.onRowsChange(Math.min(maxT, Math.max(1, n || 1)));
                 }}
                 className="w-12 rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-2 py-1 text-center text-sm font-bold text-white focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
