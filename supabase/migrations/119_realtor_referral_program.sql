@@ -2,15 +2,15 @@
 -- 119 — Realtor referral program
 --
 -- A realtor (enrolled in the closing-gift program) shares a unique link;
--- when a customer who clicks that link books a job with a network installer:
---   1. the installer's 15% platform fee on that lead is waived, AND
---   2. the realtor's tote-rental balance is credited 5 totes.
+-- when a customer who clicks that link books a job with a network installer
+-- AND that lead converts (deposit paid), the realtor's tote-rental balance
+-- is credited 5 totes.
 --
--- The 3-free-jobs trial mechanic is NOT consumed by realtor-referred leads
--- — those jobs are independently free via this attribution path, so the
--- installer's trial pool stays intact for organic platform leads. The
--- free-job counter in payments.ts is computed against
--- `referred_by_realtor_id IS NULL` rows only.
+-- The lead is otherwise a normal network lead — the installer pays the
+-- standard 15% platform fee unless they happen to be inside their
+-- 3-free-jobs trial window, in which case the existing trial waiver
+-- applies (and that lead counts toward the 3-job total like any other).
+-- The realtor referral does NOT independently waive the fee.
 --
 -- Schema additions:
 --   profiles.realtor_referral_code         — per-realtor share slug (unique)
@@ -53,8 +53,10 @@ CREATE INDEX IF NOT EXISTS idx_leads_referred_by_realtor
 
 COMMENT ON COLUMN public.leads.referred_by_realtor_id IS
   'Realtor profile whose share link drove this booking. Set in '
-  'submitNetworkLead from cookie or ?ref= query param. Triggers fee '
-  'waiver in createDepositIntent and 5-tote credit on deposit_paid.';
+  'submitNetworkLead from cookie or ?ref= query param. Triggers a '
+  '5-tote credit to that realtor on deposit_paid. Does NOT affect the '
+  'installer-side platform fee — this is a normal 15% network lead '
+  '(subject only to the standard 3-free-jobs trial waiver if applicable).';
 
 COMMENT ON COLUMN public.leads.realtor_referral_code_snapshot IS
   'Snapshot of profiles.realtor_referral_code at booking time. Preserves '

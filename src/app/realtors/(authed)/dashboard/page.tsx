@@ -240,7 +240,7 @@ function SettingsLinkCard({
   return (
     <Link
       href={href}
-      className="group rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-5 transition-all hover:border-yellow-400/60 hover:bg-yellow-400/10"
+      className="group block rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-5 transition-all hover:border-yellow-400/60 hover:bg-yellow-400/10"
     >
       <Icon className="mb-3 h-5 w-5 text-yellow-400" />
       <p className="mb-1 text-sm font-bold text-stone-200 group-hover:text-yellow-300">{title}</p>

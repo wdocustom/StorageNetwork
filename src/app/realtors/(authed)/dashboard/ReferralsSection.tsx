@@ -37,8 +37,8 @@ export async function ReferralsSection() {
           <p className="text-sm leading-relaxed text-stone-400">
             Share your link with anyone who needs a storage build. When they
             book with a network installer, you earn{" "}
-            <span className="font-bold text-yellow-300">5 free totes</span> —
-            and the installer pays no platform fee.
+            <span className="font-bold text-yellow-300">5 free totes</span>{" "}
+            credited straight to your gift inventory.
           </p>
         </div>
       </div>
