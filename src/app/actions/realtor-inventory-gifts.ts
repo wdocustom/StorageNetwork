@@ -47,7 +47,7 @@ import { previewToteGiftDelivery } from "./realtor-tote-delivery";
 //      "Inquire with installer" CTA instead, but we defend in depth.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ALLOWED_DURATIONS = [7, 14, 28] as const;
+const ALLOWED_DURATIONS = [7, 14] as const;
 const MIN_TOTES_PER_GIFT = 10;
 const MAX_TOTES_PER_GIFT = 50;
 
@@ -132,7 +132,7 @@ export async function createInventoryGiftDispatch(
     };
   }
   if (!ALLOWED_DURATIONS.includes(durationDays as (typeof ALLOWED_DURATIONS)[number])) {
-    return { success: false, error: "Rental duration must be 7, 14, or 28 days." };
+    return { success: false, error: "Rental duration must be 7 or 14 days." };
   }
 
   const db = getServiceClient();
