@@ -18,6 +18,7 @@ import {
   sendGiftCancelledRecipient,
   sendGiftEarlyPickupRequestAlert,
 } from "@/lib/email";
+import { previewToteGiftDelivery } from "@/app/actions/realtor-tote-delivery";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Realtor Gift Checkout & Redemption — Phase A2
@@ -153,6 +154,23 @@ export async function createGiftCheckout(
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
     return { success: false, error: "Recipient email is not valid." };
+  }
+
+  // Coverage gate — we can only sell a Quick-send gift to a ZIP where at
+  // least one tote-fulfillment installer covers the area. Otherwise we'd
+  // take money for a delivery nobody on the network can execute.
+  const propertyZipTrimmed = input.propertyZip?.trim() ?? "";
+  if (!/^\d{5}$/.test(propertyZipTrimmed)) {
+    return {
+      success: false,
+      error:
+        "A 5-digit property ZIP is required so we can confirm a network " +
+        "installer can deliver this gift.",
+    };
+  }
+  const coverage = await previewToteGiftDelivery({ deliveryZip: propertyZipTrimmed });
+  if (coverage.tier === "no_coverage") {
+    return { success: false, error: coverage.message };
   }
 
   // Resolve package + price from the catalog (don't trust client-supplied price).

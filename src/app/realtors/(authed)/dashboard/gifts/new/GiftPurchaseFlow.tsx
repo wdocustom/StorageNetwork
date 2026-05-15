@@ -1,12 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, Loader2, Package as PackageIcon, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Check,
+  Loader2,
+  MapPin,
+  Package as PackageIcon,
+  ShieldCheck,
+} from "lucide-react";
 
 import {
   createGiftCheckout,
   type ToteRentalPackage,
 } from "@/app/actions/realtor-gifts";
+import { previewToteGiftDelivery } from "@/app/actions/realtor-tote-delivery";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GiftPurchaseFlow — client component
@@ -56,6 +64,52 @@ export function GiftPurchaseFlow({ packages }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ── Coverage gate ────────────────────────────────────────────────────
+  // Quick-send refuses ZIPs where no tote-fulfillment installer covers the
+  // area. Debounced fetch on every 5-digit ZIP so the realtor sees the
+  // verdict before they get to the Pay button.
+  type CoverageStatus = "idle" | "checking" | "covered" | "no_coverage";
+  const [coverageStatus, setCoverageStatus] = useState<CoverageStatus>("idle");
+  const [coverageMessage, setCoverageMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const zipTrimmed = propertyZip.trim();
+    if (!/^\d{5}$/.test(zipTrimmed)) {
+      setCoverageStatus("idle");
+      setCoverageMessage(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCoverageStatus("checking");
+    setCoverageMessage(null);
+
+    const handle = window.setTimeout(async () => {
+      try {
+        const preview = await previewToteGiftDelivery({ deliveryZip: zipTrimmed });
+        if (cancelled) return;
+        if (preview.tier === "no_coverage") {
+          setCoverageStatus("no_coverage");
+          setCoverageMessage(preview.message);
+        } else {
+          setCoverageStatus("covered");
+          setCoverageMessage(null);
+        }
+      } catch {
+        if (cancelled) return;
+        // Network hiccup — treat as unknown rather than blocking; the server
+        // action will re-check on submit and reject if it's truly uncovered.
+        setCoverageStatus("idle");
+        setCoverageMessage(null);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [propertyZip]);
+
   function selectPackage(id: string) {
     setSelectedPackageId(id);
     const pkg = packages.find((p) => p.id === id);
@@ -73,6 +127,14 @@ export function GiftPurchaseFlow({ packages }: Props) {
     }
     if (!recipientName.trim() || !recipientEmail.trim()) {
       setError("Recipient name and email are required.");
+      return;
+    }
+    if (!/^\d{5}$/.test(propertyZip.trim())) {
+      setError("A 5-digit property ZIP is required so we can confirm delivery coverage.");
+      return;
+    }
+    if (coverageStatus === "no_coverage") {
+      setError(coverageMessage ?? "We don't have an installer covering that ZIP yet.");
       return;
     }
 
@@ -211,11 +273,20 @@ export function GiftPurchaseFlow({ packages }: Props) {
               className="sm:col-span-2"
             />
             <TextField
-              label="Property ZIP (optional)"
+              label="Property ZIP"
               value={propertyZip}
               onChange={setPropertyZip}
               placeholder="62704"
               maxLength={5}
+              required
+            />
+          </div>
+
+          {/* ── Coverage status (live as ZIP is typed) ──────────────── */}
+          <div className="mt-3">
+            <CoverageStatusPill
+              status={coverageStatus}
+              message={coverageMessage}
             />
           </div>
           <div className="mt-3">
@@ -275,7 +346,7 @@ export function GiftPurchaseFlow({ packages }: Props) {
 
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || coverageStatus === "no_coverage" || coverageStatus === "checking"}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3 text-base font-bold text-slate-950 transition-all hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
@@ -313,6 +384,7 @@ interface TextFieldProps {
   type?: string;
   maxLength?: number;
   className?: string;
+  required?: boolean;
 }
 
 function TextField({
@@ -323,18 +395,66 @@ function TextField({
   type = "text",
   maxLength,
   className = "",
+  required,
 }: TextFieldProps) {
   return (
     <div className={className}>
-      <label className="mb-1.5 block text-xs font-medium text-stone-400">{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-stone-400">
+        {label}
+        {required && <span className="ml-1 text-amber-400">*</span>}
+      </label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
+        required={required}
         className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
       />
+    </div>
+  );
+}
+
+// ── Coverage status pill ──────────────────────────────────────────────────
+// Renders the live ZIP-coverage state under the recipient form. Stays
+// silent until a 5-digit ZIP has been entered; turns into a hard warning
+// when no installer covers the area.
+function CoverageStatusPill({
+  status,
+  message,
+}: {
+  status: "idle" | "checking" | "covered" | "no_coverage";
+  message: string | null;
+}) {
+  if (status === "idle") return null;
+
+  if (status === "checking") {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs text-stone-300">
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-stone-400" />
+        <span className="leading-relaxed">Checking installer coverage&hellip;</span>
+      </div>
+    );
+  }
+
+  if (status === "covered") {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-emerald-400/40 bg-emerald-400/5 p-3 text-xs text-emerald-200">
+        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+        <span className="leading-relaxed">
+          A network installer covers this ZIP. You&rsquo;re good to send.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-400/5 p-3 text-xs text-amber-100">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+      <span className="leading-relaxed">
+        {message ?? "No installer covers that ZIP yet."}
+      </span>
     </div>
   );
 }
