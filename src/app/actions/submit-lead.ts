@@ -81,6 +81,10 @@ export interface SubmitQuoteInput {
    *  as a hostage to drive subscription conversion. */
   waitlisted?: boolean;
   build_snapshot_url?: string;
+  /** Realtor referral program: code from `/refer/<code>` cookie or `?ref=`
+   *  on the booking URL. Resolved server-side to referred_by_realtor_id;
+   *  triggers the platform-fee waiver + 5-tote credit on deposit_paid. */
+  realtor_referral_code?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -105,6 +109,7 @@ const submitLeadSchema = z.object({
   scheduled_at: z.string().max(30).optional(),
   waitlisted: z.boolean().optional(),
   build_snapshot_url: z.string().url().max(2000).optional(),
+  realtor_referral_code: z.string().min(4).max(32).optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -170,6 +175,30 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
   }
 
   try {
+    // Realtor referral attribution: resolve the inbound code to a realtor
+    // profile here so the lead row carries `referred_by_realtor_id` from
+    // the start. Unknown / inactive codes attribute to nobody (silent —
+    // we already validated at /refer/<code> landing; this guard catches
+    // suspensions or profile deletions that happened after the cookie
+    // was set). Self-referrals (realtor === local installer) are blocked.
+    let referredByRealtorId: string | null = null;
+    if (input.realtor_referral_code) {
+      const normalizedCode = input.realtor_referral_code.trim().toUpperCase();
+      const { data: realtor } = await supabase
+        .from("profiles")
+        .select("id, is_realtor, is_suspended")
+        .eq("realtor_referral_code", normalizedCode)
+        .maybeSingle();
+      if (
+        realtor &&
+        realtor.is_realtor === true &&
+        realtor.is_suspended !== true &&
+        realtor.id !== input.installer_id
+      ) {
+        referredByRealtorId = realtor.id as string;
+      }
+    }
+
     // Referral bounty eligibility: must have a referring installer who
     // isn't soft-locked (trial expired with active jobs in grace period).
     // Soft-locked installers can finish existing jobs but shouldn't earn
@@ -292,6 +321,11 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         // Bounty is only eligible if the referring installer is a Pro subscriber
         referring_installer_id: input.referring_installer_id || null,
         bounty_status: input.referring_installer_id && referralEligible ? "pending" : "none",
+        // Realtor referral program: see migration 119 for the credit flow.
+        referred_by_realtor_id: referredByRealtorId,
+        realtor_referral_code_snapshot: referredByRealtorId
+          ? input.realtor_referral_code!.trim().toUpperCase()
+          : null,
         notes: `${unitItems.length} unit(s)${serviceItems.length > 0 ? ` + ${serviceItems.map((s) => s.name).join(", ")}` : ""} — Grand Total: $${input.grand_total.toLocaleString()}${input.delivery_address ? `\n📍 Installation Address: ${input.delivery_address}` : ""}`,
       })
       .select("id")

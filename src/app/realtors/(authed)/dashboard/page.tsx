@@ -14,6 +14,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { RecentActivitySection } from "./RecentActivitySection";
+import { ReferralsSection } from "./ReferralsSection";
 import { ToteInventorySection } from "./ToteInventorySection";
 import {
   getRealtorToteInventory,
@@ -141,6 +142,14 @@ export default async function RealtorDashboardPage({
             packs={packCatalog.packs}
             custom={packCatalog.custom}
           />
+        </div>
+
+        {/* ── Referrals (migration 119) ────────────────────────────────
+            Share link + lifetime conversion stats. Each converted
+            referral waives the installer's platform fee AND credits
+            this realtor 5 totes. */}
+        <div className="mt-8">
+          <ReferralsSection />
         </div>
 
         {/* ── Settings shortcut ────────────────────────────────────── */}

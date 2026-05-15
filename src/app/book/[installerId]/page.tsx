@@ -64,6 +64,27 @@ export default function BookingPage() {
   );
 }
 
+// ── Realtor-referral attribution helpers ─────────────────────────────────
+// The realtor's `/refer/<code>` landing route drops `sn_realtor_ref`; we
+// also accept `?ref=<code>` on the booking URL for direct shares. Query
+// param wins so a freshly-shared link overrides a stale cookie.
+const REFERRAL_COOKIE = "sn_realtor_ref";
+
+function readRealtorReferralCode(): string | null {
+  if (typeof window === "undefined") return null;
+  const qp = new URLSearchParams(window.location.search).get("ref");
+  if (qp && qp.trim().length >= 4) return qp.trim().toUpperCase();
+
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${REFERRAL_COOKIE}=([^;]+)`)
+  );
+  if (match && match[1]) {
+    const decoded = decodeURIComponent(match[1]).trim().toUpperCase();
+    if (decoded.length >= 4) return decoded;
+  }
+  return null;
+}
+
 function BookingPageInner() {
   const params = useParams();
   const installerId = params.installerId as string;
@@ -216,6 +237,7 @@ function BookingPageInner() {
 
     setSubmitting(true);
     try {
+      const realtorReferralCode = readRealtorReferralCode();
       await submitNetworkLead({
         customer_name: name,
         customer_email: email,
@@ -226,6 +248,7 @@ function BookingPageInner() {
         grand_total: grandTotal,
         // ─── SELF-LEAD: inject installer_id + source ───────────────
         installer_id: installerId,
+        realtor_referral_code: realtorReferralCode || undefined,
       });
       setSubmitted(true);
     } catch (err) {
