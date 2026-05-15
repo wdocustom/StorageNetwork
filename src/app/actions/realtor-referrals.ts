@@ -13,8 +13,6 @@ import { getAppUrl } from "@/lib/url-helper";
 // read. Crediting itself happens in the Stripe webhook + payments path.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const TOTES_PER_CONVERSION = 5;
-
 export interface RealtorReferralLink {
   code: string;
   shareUrl: string;
@@ -182,4 +180,3 @@ export async function getRealtorReferralStats(): Promise<{
   };
 }
 
-export { TOTES_PER_CONVERSION };
