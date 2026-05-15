@@ -95,12 +95,42 @@ const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
 const FREE_JOBS_LIMIT = 3;
 
 async function getCompletedJobCount(installerId: string): Promise<number> {
+  // Realtor-referred jobs do NOT count toward the 3-job trial limit —
+  // those leads are independently fee-waived via the realtor program
+  // (migration 119), so an installer's organic free-jobs pool is
+  // preserved regardless of how many realtor referrals they close.
   const { count } = await supabase
     .from("leads")
     .select("id", { count: "exact", head: true })
     .eq("installer_id", installerId)
-    .eq("deposit_paid", true);
+    .eq("deposit_paid", true)
+    .is("referred_by_realtor_id", null);
   return count ?? 0;
+}
+
+async function getLeadRealtorReferral(
+  leadId: string
+): Promise<{ realtorId: string } | null> {
+  const { data } = await supabase
+    .from("leads")
+    .select("referred_by_realtor_id")
+    .eq("id", leadId)
+    .maybeSingle();
+  const realtorId = data?.referred_by_realtor_id as string | null | undefined;
+  if (!realtorId) return null;
+
+  // Confirm the realtor is still active. We waive the fee on the strength
+  // of the realtor program; if the realtor has been suspended or had their
+  // `is_realtor` flag removed, fall back to standard fee logic.
+  const { data: realtor } = await supabase
+    .from("profiles")
+    .select("is_realtor, is_suspended")
+    .eq("id", realtorId)
+    .maybeSingle();
+  if (!realtor || realtor.is_realtor !== true || realtor.is_suspended === true) {
+    return null;
+  }
+  return { realtorId };
 }
 
 // ── Stripe Customer for off-session balance charging ────────────────────
@@ -861,6 +891,15 @@ export async function createDepositIntent(
     const hasActiveSubscription = !!installerProfile?.stripe_subscription_id;
     const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !hasActiveSubscription;
 
+    // ── Realtor referral waiver (migration 119) ────────────────────────
+    // If this lead carries a realtor attribution and the realtor is still
+    // active, the installer pays $0 platform fee regardless of where they
+    // sit in their 3-free-jobs trial. The tote credit to the realtor
+    // fires from the Stripe webhook on payment_intent.succeeded.
+    const realtorReferral = await getLeadRealtorReferral(leadId);
+    const isRealtorReferred = !!realtorReferral;
+    const shouldWaiveFee = qualifiesForFreeJob || isRealtorReferred;
+
     // Only split deposit if Pro AND has Stripe connected
     const shouldSplitDeposit = isPro && !!installerStripeId;
 
@@ -878,12 +917,19 @@ export async function createDepositIntent(
     // Deposit uses installer's custom rate (min 15%). Discount reduces the
     // balance the installer collects at installation (installer absorbs their own discount codes).
 
-    if (qualifiesForFreeJob && installerStripeId) {
-      // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────
-      // Installer gets 100% of deposit, platform takes $0.
+    if (shouldWaiveFee && installerStripeId) {
+      // ── Zero-platform-fee path ───────────────────────────────────────────
+      // Two independent reasons land here:
+      //   (a) installer is inside their first 3 free jobs (qualifiesForFreeJob)
+      //   (b) lead came in via the realtor referral program (isRealtorReferred)
+      // Both result in 100% of deposit to the installer; the realtor case
+      // also triggers a 5-tote credit from the Stripe webhook downstream.
       // Requires Stripe connected (otherwise platform must hold deposit).
       const platformFeeCents = 0;
       const installerReceivesCents = depositAmountCents;
+      const waiverReason = isRealtorReferred
+        ? "realtor_referral"
+        : `first_${FREE_JOBS_LIMIT}_jobs_free`;
 
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
@@ -906,11 +952,17 @@ export async function createDepositIntent(
           installer_id: installerId,
           is_pro: isPro ? "true" : "false",
           fee_waived: "true",
+          waiver_reason: waiverReason,
           completed_jobs: String(completedJobs),
+          ...(realtorReferral
+            ? { referred_by_realtor_id: realtorReferral.realtorId }
+            : {}),
           customer_name: customerName || "",
           customer_email: customerEmail || "",
           platform_fee_cents: "0",
-          platform_fee_rate: "0% (first 3 jobs free)",
+          platform_fee_rate: isRealtorReferred
+            ? "0% (realtor referral)"
+            : "0% (first 3 jobs free)",
           installer_receives_cents: String(installerReceivesCents),
           installer_stripe_id: installerStripeId,
           scheduled_at: scheduledAt || "",
@@ -925,7 +977,11 @@ export async function createDepositIntent(
         idempotencyKey: `deposit-${leadId}`,
       });
 
-      console.log(`[Deposit] FREE JOB ${completedJobs + 1}/${FREE_JOBS_LIMIT}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $0 (waived), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+      if (isRealtorReferred) {
+        console.log(`[Deposit] REALTOR REFERRAL: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $0 (waived), Installer $${installerReceivesCents / 100} | Realtor ${realtorReferral!.realtorId.slice(0, 8)}… queued for +5 totes${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+      } else {
+        console.log(`[Deposit] FREE JOB ${completedJobs + 1}/${FREE_JOBS_LIMIT}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $0 (waived), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
+      }
     } else if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
       // ── Fee Override (Founder / special rate) + Stripe ───────────────────
       // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
@@ -1077,8 +1133,9 @@ export async function createDepositIntent(
       billing_state: billingState || null,
       ...(customerEmail && { customer_email: customerEmail }),
       updated_at: new Date().toISOString(),
-      // Mark fee as waived if this is one of the installer's first 3 free jobs
-      fee_status: qualifiesForFreeJob ? "waived" : "standard",
+      // Mark fee as waived if it landed in the zero-fee branch (first-3-jobs
+      // trial OR realtor referral).
+      fee_status: shouldWaiveFee ? "waived" : "standard",
     };
     // If discount applied, reduce balance_due (installer absorbs the discount)
     // Deposit amount stays unchanged at the full 15%
@@ -1201,6 +1258,14 @@ export async function verifyAndConfirmDeposit(
     }
 
     console.log("[VerifyDeposit] Deposit confirmed for lead:", leadId);
+
+    // Realtor referral credit (idempotent RPC; no-op if not a realtor lead
+    // or already credited by the webhook).
+    try {
+      await supabase.rpc("credit_realtor_referral", { p_lead_id: leadId });
+    } catch (creditErr) {
+      console.warn("[VerifyDeposit] Realtor credit RPC failed (non-fatal):", creditErr);
+    }
 
     // NOTE: Emails are sent by the webhook (payment_intent.succeeded).
     // This fallback only updates the DB if webhook missed it.

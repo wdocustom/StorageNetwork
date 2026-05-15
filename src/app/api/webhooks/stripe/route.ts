@@ -202,6 +202,56 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// processRealtorReferralCredit — Realtor Referral Program (migration 119)
+//
+// When a deposit is captured on a lead that carries `referred_by_realtor_id`,
+// call the credit_realtor_referral RPC to atomically add 5 totes to the
+// realtor's gift inventory. The RPC is idempotent (UNIQUE(lead_id) on the
+// credits ledger), so double-fires from webhook retries or the
+// verifyAndConfirmDeposit fallback are safe no-ops.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function processRealtorReferralCredit(leadId: string) {
+  try {
+    const { data, error } = await getDb().rpc("credit_realtor_referral", {
+      p_lead_id: leadId,
+    });
+
+    if (error) {
+      console.error("[RealtorReferral] RPC failed (non-fatal):", error.message);
+      return;
+    }
+
+    // RPC returns SETOF; supabase-js exposes that as an array.
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      console.warn("[RealtorReferral] RPC returned no row for lead:", leadId);
+      return;
+    }
+
+    if (row.skipped_reason) {
+      console.log(
+        `[RealtorReferral] Skipped lead ${leadId}: ${row.skipped_reason}`
+      );
+      return;
+    }
+
+    if (row.already_credited) {
+      console.log(
+        `[RealtorReferral] Already credited for lead ${leadId} (realtor ${row.realtor_id?.slice(0, 8)}…, balance ${row.new_balance})`
+      );
+      return;
+    }
+
+    console.log(
+      `[RealtorReferral] +${row.totes_credited} totes → realtor ${row.realtor_id?.slice(0, 8)}… (new balance ${row.new_balance}) for lead ${leadId}`
+    );
+  } catch (err) {
+    console.error("[RealtorReferral] Credit failed (non-fatal):", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
@@ -551,6 +601,11 @@ export async function POST(request: NextRequest) {
       // ── Network Referral Bounty (non-blocking) ───────────────────────
       const piId = session.payment_intent as string;
       if (piId) waitUntil(processReferralBounty(leadId, piId));
+
+      // ── Realtor Referral Credit (non-blocking, idempotent) ───────────
+      // Fires for every deposit-paid event; the RPC is a no-op when the
+      // lead has no realtor attribution.
+      waitUntil(processRealtorReferralCredit(leadId));
     } catch (dbError) {
       console.error("[Webhook] CRITICAL: DB update threw!", dbError);
       // Return 500 so Stripe retries. Reset key with short TTL to allow retry.
@@ -1078,6 +1133,9 @@ export async function POST(request: NextRequest) {
 
             // ── Network Referral Bounty (non-blocking) ─────────────────
             waitUntil(processReferralBounty(leadId, paymentIntent.id));
+
+            // ── Realtor Referral Credit (non-blocking, idempotent) ─────
+            waitUntil(processRealtorReferralCredit(leadId));
 
             // ── Save card brand + last4 (non-blocking, best-effort) ────
             // Lets the installer see "Visa •••• 4242" before charging the
