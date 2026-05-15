@@ -89,8 +89,9 @@ export async function previewToteGiftDelivery(input: {
       surchargeCents: 0,
       installer: null,
       message:
-        "No installer covers that ZIP yet. We're expanding our network — " +
-        "for now, please use Quick-send mode or contact support.",
+        "No installer covers that ZIP yet — we can't fulfill a gift to this " +
+        "address. Try a different delivery ZIP, or contact support to ask " +
+        "when we'll expand coverage in this area.",
     };
   }
 
@@ -118,7 +119,7 @@ export async function previewToteGiftDelivery(input: {
       installer: null,
       message:
         "Couldn't resolve installer distance for that ZIP. " +
-        "Please use Quick-send mode or contact support.",
+        "Please verify the address or contact support.",
     };
   }
 

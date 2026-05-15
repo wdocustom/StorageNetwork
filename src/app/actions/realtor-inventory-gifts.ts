@@ -164,7 +164,8 @@ export async function createInventoryGiftDispatch(
     return {
       success: false,
       error:
-        "No installer covers that ZIP yet. Use Quick-send mode or contact support.",
+        "No installer covers that ZIP yet — we can't fulfill a gift to this " +
+        "address. Try a different delivery ZIP or contact support.",
     };
   }
 
