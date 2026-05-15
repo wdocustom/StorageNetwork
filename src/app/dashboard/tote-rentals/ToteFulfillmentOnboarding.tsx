@@ -135,7 +135,7 @@ function PitchHeader() {
           n={2}
           icon={Clock}
           title="Wait"
-          body="They pack and move during the 7-, 14-, or 28-day rental window the realtor picked."
+          body="They pack and move during the 7- or 14-day rental window the realtor picked."
         />
         <StepCard
           n={3}

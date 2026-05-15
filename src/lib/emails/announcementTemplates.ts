@@ -622,7 +622,7 @@ export async function sendToteRentalAnnouncementEmail(
           <div style="width:24px;height:24px;border-radius:999px;background:#facc15;color:#000000;text-align:center;line-height:24px;font-weight:900;font-size:12px;">2</div>
         </td>
         <td style="padding:8px 0 8px 12px;color:#e5e5e5;font-size:14px;line-height:1.6;border-top:1px solid #1a1a1a;">
-          <strong style="color:#ffffff;">Addresses it to the homeowner.</strong> Adds a personal message and a 7-, 14-, or 28-day rental window.
+          <strong style="color:#ffffff;">Addresses it to the homeowner.</strong> Adds a personal message and a 7- or 14-day rental window.
         </td>
       </tr>
       <tr>

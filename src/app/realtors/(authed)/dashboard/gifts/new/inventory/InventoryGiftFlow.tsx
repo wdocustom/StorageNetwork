@@ -27,7 +27,7 @@ import { DeliveryDistanceGate } from "./DeliveryDistanceGate";
 // InventoryGiftFlow — inventory-mode gift creation form.
 //
 // Form sections:
-//   1. Tote count (10–50 slider) + duration (7/14/28)
+//   1. Tote count (10–50 slider) + duration (7/14)
 //   2. Recipient (name, email, address, ZIP, optional note)
 //   3. Live distance preview + summary sidebar
 //
@@ -49,7 +49,7 @@ import { DeliveryDistanceGate } from "./DeliveryDistanceGate";
 const MIN_TOTES = 10;
 const MAX_TOTES = 50;
 const DEFAULT_TOTES = 20;
-const DURATIONS = [7, 14, 28] as const;
+const DURATIONS = [7, 14] as const;
 
 interface Props {
   balance: number;

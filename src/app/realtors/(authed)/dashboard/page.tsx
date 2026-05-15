@@ -100,7 +100,7 @@ export default async function RealtorDashboardPage({
             <Step
               n={1}
               title="Pick a package"
-              desc="Starter (20 totes), Standard (30), Pro (40), or Premium (50). 7-, 14-, or 28-day rentals. Pricing matches the published catalog."
+              desc="Starter (20 totes), Standard (30), Pro (40), or Premium (50). 7- or 14-day rentals. Pricing matches the published catalog."
             />
             <Step
               n={2}
