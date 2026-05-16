@@ -71,14 +71,27 @@ For a 24" × 24" box:
 
 (18-1/2" = 24" − 2 × 2-3/4".)
 
+Fasten with **1-1/4" brads**: a **4-nail cluster at every corner** (16 total
+on a 4-sided rim) plus field nails at roughly **3–5" on center** along the
+straight runs between corners.
+
 ## Bill of fasteners — 24" × 24" × 16-1/2" ground-level example
 
 | Fastener | Quantity | Where |
 |----------|----------|-------|
 | 1-1/4" brad nails | **20** | 4 legs × 5 nails each |
 | 1" brad nails | **144** | 12 pickets × 12 nails each (6 per leg, 2 legs per picket) |
+| 1-1/4" brad nails | **~36** | Rim: 16 corner-cluster + ~20 field at ~4" OC |
 
-Rim fastening TBD (not specified yet).
+The rim count is an estimate; field spacing is 3–5" on center, so the exact
+number depends on how the nailer lays out the run.
+
+## Engine
+
+`src/lib/raised-beds-buildengine.ts` turns any `RaisedBedSize` from
+`RAISED_BED_SIZES` into a structured `RaisedBedBuildPlan` (cuts, fasteners,
+fence-picket estimate). Open gaps — elevated leg geometry and non-multiple
+heights — are surfaced in the plan's `unspecified` field rather than guessed.
 
 ## Cut summary — 24" × 24" × 16-1/2" ground-level example
 
