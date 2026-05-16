@@ -787,22 +787,6 @@ export async function POST(request: NextRequest) {
                 [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
                 "Partner";
 
-              // Query lifetime stats from completed jobs
-              const { data: completedJobs } = await getDb()
-                .from("leads")
-                .select("estimated_price, deposit_amount")
-                .eq("installer_id", userId)
-                .eq("status", "completed");
-
-              const totalJobs = completedJobs?.length ?? 0;
-              const totalRevenue = (completedJobs ?? []).reduce(
-                (sum: number, j: { estimated_price: number | null }) =>
-                  sum + (j.estimated_price ?? 0), 0
-              );
-              // Profit = revenue minus platform fees (3% maintenance)
-              const totalProfit = Math.round(totalRevenue * 0.97);
-
-              // Get billing period from the subscription
               const periodEnd = subscription.items.data[0]?.current_period_end;
               const periodStart = subscription.items.data[0]?.current_period_start;
               const amountPaid = subscription.items.data[0]?.price?.unit_amount ?? 4900;
@@ -810,9 +794,6 @@ export async function POST(request: NextRequest) {
               await sendProRenewalReceipt(email, {
                 name,
                 slug: result.slug!,
-                totalJobs,
-                totalRevenue: totalRevenue * 100,
-                totalProfit: totalProfit * 100,
                 periodStart: periodStart
                   ? new Date(periodStart * 1000).toISOString()
                   : new Date().toISOString(),

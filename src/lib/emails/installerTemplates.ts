@@ -486,9 +486,6 @@ export async function sendProRenewalReceipt(
   data: {
     name: string;
     slug: string;
-    totalJobs: number;
-    totalRevenue: number;
-    totalProfit: number;
     periodStart: string;
     periodEnd: string;
     amountPaid: number;
@@ -507,25 +504,12 @@ export async function sendProRenewalReceipt(
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  const stat = (value: string, label: string, color: string) => `
-    <td style="text-align:center;padding:16px 8px;">
-      <p style="margin:0;font-size:26px;font-weight:900;color:${color};">${value}</p>
-      <p style="margin:4px 0 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">${label}</p>
-    </td>`;
-
-  void stat;
-
-  const momentumNote =
-    data.totalJobs === 0
-      ? `Time to land that first Pro job. Share your branded link &mdash; the Custom 3D Designer does the selling for you.`
-      : `Keep stacking. Every completed install lifts your placement in the Auto-Routed Lead queue.`;
-
   const html = masterEmailLayout(
     "Pro Subscription Renewed",
     `
     <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.name},</p>
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
-      Your Pro subscription is renewed. Here&rsquo;s your receipt and a quick snapshot of where you stand.
+      Your Pro subscription is renewed. Here&rsquo;s your receipt.
     </p>
 
     ${eyebrow("Receipt")}
@@ -534,15 +518,6 @@ export async function sendProRenewalReceipt(
       ${detailRow("Amount", fmtMoney(data.amountPaid), { topBorder: true })}
       ${detailRow("Period", `${fmtDate(data.periodStart)} \u2013 ${fmtDate(data.periodEnd)}`, { topBorder: true })}
     </table>
-
-    ${eyebrow("Your Numbers")}
-    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
-      ${detailRow("Jobs Completed", String(data.totalJobs), { highlight: true })}
-      ${detailRow("Total Revenue", fmtMoney(data.totalRevenue), { topBorder: true })}
-      ${detailRow("Your Take-Home Profit", fmtMoney(data.totalProfit), { highlight: true, topBorder: true })}
-    </table>
-
-    <p style="margin:0 0 28px;color:#ffffff;font-size:14px;line-height:1.7;">${momentumNote}</p>
 
     <div style="text-align:center;margin:0 0 24px;">
       ${ctaButton(dashboardUrl, "Open Dashboard")}
@@ -556,7 +531,7 @@ export async function sendProRenewalReceipt(
   return sendTransactionalEmail({
     to: email,
     toName: data.name,
-    subject: `Pro receipt \u2014 ${fmtMoney(data.amountPaid)} \u00b7 ${data.totalJobs} jobs completed`,
+    subject: `Pro receipt \u2014 ${fmtMoney(data.amountPaid)}`,
     html,
   });
 }
