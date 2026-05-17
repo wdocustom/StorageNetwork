@@ -23,8 +23,8 @@ INSERT INTO leads (
   quote_data, notes, created_at
 ) VALUES (
   '071e4146-4a6e-4df8-b753-ce5204225b39',
-  'Jared & Megan Holloway', 'jared.holloway.ne@gmail.com', '402-555-4827',
-  '8417 Castelar St', 'Omaha', 'NE', '68114',
+  'Jared & Megan Holloway', 'jared.holloway.va@gmail.com', '703-555-4827',
+  '14207 Stonewater Ct', 'Chantilly', 'VA', '20151',
   'paid', 'completed', 'paid', 'standard',
   'installer_manual', false,
   1344.00, 201.60, true, 1142.40, 0,
