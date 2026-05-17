@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows, Stage } from "@react-three/drei";
+import { OrbitControls, ContactShadows } from "@react-three/drei";
 import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color, type Side } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
@@ -1028,6 +1028,21 @@ function RackAssembly({
   );
 }
 
+// ── Ground contact shadow (positioned per-rig at the model's bottom) ────
+
+function GroundShadow({ bottomY, footprint }: { bottomY: number; footprint: number }) {
+  return (
+    <ContactShadows
+      position={[0, bottomY, 0]}
+      opacity={0.35}
+      scale={footprint}
+      blur={2}
+      far={Math.max(2, footprint * 0.4)}
+      color="#333333"
+    />
+  );
+}
+
 // ── Camera rig ───────────────────────────────────────────────────────────
 
 function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use2x4Rails }: Pick<Rack3DProps, "cols" | "rows" | "toteType" | "unitType" | "orientation" | "hasWheels" | "use2x4Rails">) {
@@ -1082,23 +1097,26 @@ function CameraRig({ cols, rows, toteType, unitType, orientation, hasWheels, use
   }, [camera, dist]);
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      autoRotate
-      autoRotateSpeed={0.5}
-      enablePan
-      panSpeed={0.5}
-      rotateSpeed={0.6}
-      zoomSpeed={0.8}
-      minPolarAngle={0.1}
-      maxPolarAngle={Math.PI / 1.5}
-      minDistance={0.2}
-      maxDistance={dist * 5}
-      target={[0, 0, 0]}
-      enableDamping
-      dampingFactor={0.08}
-    />
+    <>
+      <GroundShadow bottomY={-sh / 2} footprint={Math.max(sw, sd) * 1.6} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, 0, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
   );
 }
 
@@ -1251,23 +1269,26 @@ function CompoundCameraRig({ presetUnits, toteType, unitType, orientation, use2x
   }, [camera, dist]);
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      autoRotate
-      autoRotateSpeed={0.5}
-      enablePan
-      panSpeed={0.5}
-      rotateSpeed={0.6}
-      zoomSpeed={0.8}
-      minPolarAngle={0.1}
-      maxPolarAngle={Math.PI / 1.5}
-      minDistance={0.2}
-      maxDistance={dist * 5}
-      target={[0, 0, 0]}
-      enableDamping
-      dampingFactor={0.08}
-    />
+    <>
+      <GroundShadow bottomY={-sh / 2} footprint={Math.max(sw, sd) * 1.6} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, 0, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
   );
 }
 
@@ -1388,23 +1409,26 @@ function ShelvingCameraRig({ config }: { config: ShelvingConfig3D }) {
   }, [camera, dist]);
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      autoRotate
-      autoRotateSpeed={0.5}
-      enablePan
-      panSpeed={0.5}
-      rotateSpeed={0.6}
-      zoomSpeed={0.8}
-      minPolarAngle={0.1}
-      maxPolarAngle={Math.PI / 1.5}
-      minDistance={0.2}
-      maxDistance={dist * 5}
-      target={[0, 0, 0]}
-      enableDamping
-      dampingFactor={0.08}
-    />
+    <>
+      <GroundShadow bottomY={-sh / 2} footprint={Math.max(sw, sd) * 1.6} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, 0, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
   );
 }
 
@@ -1827,23 +1851,26 @@ function RaisedBedCameraRig({ config }: { config: { widthIn: number; lengthIn: n
   }, [camera, dist, rh]);
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      autoRotate
-      autoRotateSpeed={0.4}
-      enablePan
-      panSpeed={0.5}
-      rotateSpeed={0.6}
-      zoomSpeed={0.8}
-      minPolarAngle={0.1}
-      maxPolarAngle={Math.PI / 1.5}
-      minDistance={0.2}
-      maxDistance={dist * 5}
-      target={[0, rh / 2, 0]}
-      enableDamping
-      dampingFactor={0.08}
-    />
+    <>
+      <GroundShadow bottomY={0} footprint={Math.max(rl, rw) * 1.6} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        autoRotate
+        autoRotateSpeed={0.4}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, rh / 2, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
   );
 }
 
@@ -1908,21 +1935,24 @@ function MultiUnitCameraRig({ items }: { items: MultiUnit3DItem[] }) {
   const dist = Math.max(w, h) * 1.8 + 1;
 
   return (
-    <OrbitControls
-      autoRotate
-      autoRotateSpeed={0.5}
-      enablePan
-      panSpeed={0.5}
-      rotateSpeed={0.6}
-      zoomSpeed={0.8}
-      minPolarAngle={0.1}
-      maxPolarAngle={Math.PI / 1.5}
-      minDistance={0.2}
-      maxDistance={dist * 5}
-      target={[0, 0, 0]}
-      enableDamping
-      dampingFactor={0.08}
-    />
+    <>
+      <GroundShadow bottomY={-h / 2} footprint={w * 1.4} />
+      <OrbitControls
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.2}
+        maxDistance={dist * 5}
+        target={[0, 0, 0]}
+        enableDamping
+        dampingFactor={0.08}
+      />
+    </>
   );
 }
 
@@ -2109,42 +2139,25 @@ export default function Rack3D(props: Rack3DProps) {
         {/* Sky/ground color split — warm wood tones + cool shadow fill */}
         <hemisphereLight args={["#fffaf0", "#e8dcc8", 0.55]} />
 
-        <ContactShadows
-          position={[0, -0.001, 0]}
-          opacity={0.35}
-          scale={12}
-          blur={2}
-          far={5}
-          color="#333333"
-        />
-
         {isMultiUnit ? (
           <>
             <MultiUnitCameraRig items={props.multiUnitItems!} />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />
-            </Stage>
+            <MultiUnitAssembly items={props.multiUnitItems!} drawersOpen={props.drawersOpen} />
           </>
         ) : isOverhead ? (
           <>
             <OverheadCameraRig config={props.overheadConfig!} />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <OverheadAssembly config={props.overheadConfig!} />
-            </Stage>
+            <OverheadAssembly config={props.overheadConfig!} />
           </>
         ) : isRaisedBed ? (
           <>
             <RaisedBedCameraRig config={props.raisedBedConfig!} />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <RaisedBedAssembly config={props.raisedBedConfig!} />
-            </Stage>
+            <RaisedBedAssembly config={props.raisedBedConfig!} />
           </>
         ) : isShelving ? (
           <>
             <ShelvingCameraRig config={props.shelvingConfig!} />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <ShelvingAssembly config={props.shelvingConfig!} />
-            </Stage>
+            <ShelvingAssembly config={props.shelvingConfig!} />
           </>
         ) : isCompound ? (
           <>
@@ -2155,20 +2168,18 @@ export default function Rack3D(props: Rack3DProps) {
               orientation={props.orientation}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <CompoundRackAssembly
-                presetUnits={props.presetUnits!}
-                toteType={props.toteType}
-                toteColor={props.toteColor}
-                unitType={props.unitType}
-                orientation={props.orientation}
-                hasTotes={props.hasTotes}
-                use2x4Rails={props.use2x4Rails}
-                drawerSlideRows={props.drawerSlideRows}
-                drawerSlideColumns={props.drawerSlideColumns}
-                drawersOpen={props.drawersOpen}
-              />
-            </Stage>
+            <CompoundRackAssembly
+              presetUnits={props.presetUnits!}
+              toteType={props.toteType}
+              toteColor={props.toteColor}
+              unitType={props.unitType}
+              orientation={props.orientation}
+              hasTotes={props.hasTotes}
+              use2x4Rails={props.use2x4Rails}
+              drawerSlideRows={props.drawerSlideRows}
+              drawerSlideColumns={props.drawerSlideColumns}
+              drawersOpen={props.drawersOpen}
+            />
           </>
         ) : (
           <>
@@ -2181,9 +2192,7 @@ export default function Rack3D(props: Rack3DProps) {
               hasWheels={props.hasWheels}
               use2x4Rails={props.use2x4Rails}
             />
-            <Stage intensity={0.8} environment={null} adjustCamera={false}>
-              <RackAssembly {...props} />
-            </Stage>
+            <RackAssembly {...props} />
           </>
         )}
       </Canvas>
