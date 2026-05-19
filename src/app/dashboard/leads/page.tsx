@@ -115,10 +115,15 @@ export default function LeadsListPage() {
 
     if (data) setLeads(data as LeadItem[]);
 
-    // Fetch unpaid quotes (pending_payment + waitlisted + expired, deposit not paid).
-    // Expired quotes stay visible so the installer keeps the engagement history
-    // (viewed_at / view_count / abandoned_email_sent) and decides whether to
-    // delete them — no cron silently hides their work.
+    // Fetch unpaid quotes (pending_payment + waitlisted + recently expired,
+    // deposit not paid). Pending/waitlisted quotes show regardless of age;
+    // expired quotes only show if created in the last 60 days so years of
+    // historical clutter doesn't dump into the dashboard at once. The rows
+    // beyond 60 days stay in the DB — nothing is deleted, they're just
+    // hidden from the active workspace.
+    const sixtyDaysAgo = new Date(
+      Date.now() - 60 * 24 * 60 * 60 * 1000
+    ).toISOString();
     const { data: unpaid } = await supabase
       .from("leads")
       .select(
@@ -126,7 +131,9 @@ export default function LeadsListPage() {
       )
       .eq("installer_id", user.id)
       .eq("deposit_paid", false)
-      .in("status", ["pending_payment", "waitlisted", "expired"])
+      .or(
+        `status.in.("pending_payment","waitlisted"),and(status.eq.expired,created_at.gte.${sixtyDaysAgo})`
+      )
       .order("created_at", { ascending: false });
 
     if (unpaid) setUnpaidLeads(unpaid as LeadItem[]);
