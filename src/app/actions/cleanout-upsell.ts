@@ -20,10 +20,15 @@ import { getDepositAmount } from "@/app/actions/fee-engine";
 // purchase buttons.
 //
 // FEE STRUCTURE (network-driven upsell):
+//
+// Cleanout upsells are sourced by the platform — the customer reaches the
+// purchase via a platform-sent email — so they're charged the network rate
+// (15%), matching how /design and waitlist-activation network leads are
+// billed in payments.ts. Installer collects the balance half at service.
 // ─────────────────────────────────────────────────────────────────────────
 //   50% deposit collected from customer at checkout
-//   10% of total → Platform fee (taken from the deposit)
-//   40% of total → Installer (immediate transfer via Stripe Connect)
+//   15% of total → Platform fee (taken from the deposit)
+//   35% of total → Installer (immediate transfer via Stripe Connect)
 //   50% remaining → Collected at service time (added to job balance)
 // ─────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
@@ -37,9 +42,9 @@ function getStripe() {
 }
 
 // ── Fee Constants ────────────────────────────────────────────────────────
-const UPSELL_DEPOSIT_RATE = 0.50;     // 50% deposit
-const UPSELL_PLATFORM_FEE_RATE = 0.10; // 10% platform fee
-const UPSELL_INSTALLER_RATE = 0.40;    // 40% to installer immediately
+const UPSELL_DEPOSIT_RATE = 0.50;       // 50% deposit
+const UPSELL_PLATFORM_FEE_RATE = 0.15;  // 15% network fee
+const UPSELL_INSTALLER_RATE = 0.35;     // 35% to installer immediately (50% deposit − 15% platform)
 
 // ═══════════════════════════════════════════════════════════════════════════
 // processCleanoutUpsells — Cron job: find eligible jobs & send upsell emails
@@ -210,7 +215,7 @@ export async function processCleanoutUpsells(): Promise<{
 // ═══════════════════════════════════════════════════════════════════════════
 // createCleanoutUpsellCheckout — Creates Stripe Checkout for the upsell
 //
-// 50% deposit collected, split: 10% platform + 40% installer
+// 50% deposit collected, split: 15% platform (network fee) + 35% installer
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface CleanoutUpsellCheckoutInput {

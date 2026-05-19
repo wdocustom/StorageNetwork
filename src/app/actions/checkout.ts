@@ -13,9 +13,9 @@ const supabase = getServiceClient();
 //
 // FEE STRUCTURE:
 // ─────────────────────────────────────────────────────────────────────────
-// Platform Lead:                 deposit → Platform fee + remainder to Installer
+// Platform Lead (network):       deposit → 100% to Platform (15% network fee)
 // Partner Link (no Stripe):      deposit → 100% to Platform
-// Partner Link (Stripe connected): deposit → 3% to Platform, rest to Installer
+// Partner Link + Stripe (direct): deposit → 3% to Platform, 12% to Installer
 // ─────────────────────────────────────────────────────────────────────────
 //
 // Deposit amount is installer-configurable (minimum 15% of build).
@@ -50,9 +50,9 @@ export interface CheckoutResult {
 /**
  * Process deposit checkout with source-aware financial routing.
  *
- * Platform Lead:                  100% of 15% deposit → Platform
- * Partner Link (no Stripe):      100% of 15% deposit → Platform
- * Partner Link (Stripe connected): 12% → Installer, 3% → Platform (split)
+ * Platform Lead (network):           100% of 15% deposit → Platform (15% network fee)
+ * Partner Link (no Stripe):          100% of 15% deposit → Platform
+ * Partner Link + Stripe (direct):    12% → Installer, 3% → Platform (split)
  *
  * In all cases, installer collects 85% balance on site.
  */
