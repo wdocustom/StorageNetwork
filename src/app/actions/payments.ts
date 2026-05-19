@@ -83,9 +83,17 @@ async function requireLeadOwnership(
 // ── Fee Constants ────────────────────────────────────────────────────────
 // Deposit rate is now installer-configurable (min 15%) via fee-engine.ts.
 // The deposit amount is passed in by callers who resolve it from getDepositAmount().
-const PRO_PLATFORM_FEE_RATE = 0.03;  // 3% platform fee for Pro installers
+const PRO_PLATFORM_FEE_RATE = 0.03;  // 3% platform fee — DIRECT leads only (installer brought the customer)
 const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
+const NETWORK_FEE_RATE = 0.15;       // 15% platform fee — NETWORK leads (platform brought the customer)
 // Note: Balance payments have NO platform fee — platform already took their cut from deposit
+//
+// Direct lead = installer's own booking link (source="partner_link") or
+//               installer-built manual quote (source="installer_manual").
+// Network lead = everything else: /design self-build, waitlist activation,
+//                anonymous quote completion, etc. (source="platform").
+// Keep this split in sync with fee-engine.ts — its getNetProfit() uses the
+// same source-based fork to project the installer's expected take-home.
 
 // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────────
 // New installers get their first 3 committed jobs with zero platform fees.
@@ -981,8 +989,13 @@ export async function createDepositIntent(
       console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
     } else if (shouldSplitDeposit && installerStripeId) {
       // ── Pro + Stripe: Split deposit via destination charge ────────────────
-      // Platform gets 3% of build, Installer gets 12% of build
-      const platformFeeCents = Math.round(totalPriceCents * PRO_PLATFORM_FEE_RATE); // 3%
+      // Fee rate depends on lead source — network leads (platform-acquired)
+      // pay 15%, direct leads (installer's own booking link or manual quote)
+      // pay 3%. Whatever the rate, it's deducted from the deposit; installer
+      // receives the remainder via Stripe Connect destination charge.
+      const isDirectLead = source === "partner_link" || source === "installer_manual";
+      const platformFeeRate = isDirectLead ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
+      const platformFeeCents = Math.round(totalPriceCents * platformFeeRate);
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
       paymentIntent = await stripe.paymentIntents.create({
@@ -1008,7 +1021,8 @@ export async function createDepositIntent(
           customer_name: customerName || "",
           customer_email: customerEmail || "",
           platform_fee_cents: String(platformFeeCents),
-          platform_fee_rate: "3%",
+          platform_fee_rate: `${(platformFeeRate * 100).toFixed(0)}%`,
+          lead_type: isDirectLead ? "direct" : "network",
           installer_receives_cents: String(installerReceivesCents),
           installer_stripe_id: installerStripeId,
           scheduled_at: scheduledAt || "",
@@ -1024,7 +1038,7 @@ export async function createDepositIntent(
         idempotencyKey: `deposit-${leadId}`,
       });
 
-      console.log(`[Deposit] Pro (Stripe): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (3%), Installer $${installerReceivesCents / 100} (12%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
+      console.log(`[Deposit] Pro (Stripe, ${isDirectLead ? "direct" : "network"}): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (${(platformFeeRate * 100).toFixed(0)}%), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
     } else {
       // ── No Stripe connected: Full deposit to Platform ──────────────────────
       // Platform keeps entire deposit (15% of build) until installer connects Stripe
