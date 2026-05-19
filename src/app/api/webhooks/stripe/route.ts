@@ -729,11 +729,36 @@ export async function POST(request: NextRequest) {
 
     if (userId && subscription.status === "active") {
       console.log(`[Webhook] Pro subscription ${isFirstActivation ? "created" : "renewed"} for user:`, userId);
+
+      // Verify the latest invoice actually got paid before sending any
+      // billing email. customer.subscription.updated fires on many things
+      // (metadata edits, dunning retries, Radar-blocked renewals) and the
+      // subscription can stay status:"active" through a grace period even
+      // when the most recent charge didn't succeed.
+      const latestInvoiceId = typeof subscription.latest_invoice === "string"
+        ? subscription.latest_invoice
+        : subscription.latest_invoice?.id;
+      let latestInvoicePaid = true;
+      if (latestInvoiceId && stripe) {
+        try {
+          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+          latestInvoicePaid = invoice.status === "paid";
+          if (!latestInvoicePaid) {
+            console.log(
+              `[Webhook] Skipping Pro ${isFirstActivation ? "welcome" : "renewal"} email — invoice ${latestInvoiceId} is ${invoice.status}`,
+            );
+          }
+        } catch (err) {
+          console.error("[Webhook] Failed to retrieve latest invoice:", err);
+          latestInvoicePaid = false;
+        }
+      }
+
       const result = await activateProSubscription(userId, subscription.id);
       if (result.success && result.slug) {
         console.log("[Webhook] Pro activated, slug:", result.slug);
 
-        if (isFirstActivation) {
+        if (isFirstActivation && latestInvoicePaid) {
           // First subscription — send motivational welcome email
           fireAndForget("pro_welcome", async () => {
             const { data: profile } = await getDb()
@@ -770,7 +795,7 @@ export async function POST(request: NextRequest) {
               console.log("[Webhook] Referral activated for installer:", userId);
             }
           });
-        } else {
+        } else if (!isFirstActivation && latestInvoicePaid) {
           // Renewal — send receipt with sales recap
           fireAndForget("pro_renewal_receipt", async () => {
             const { data: profile } = await getDb()
