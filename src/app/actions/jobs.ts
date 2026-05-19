@@ -475,7 +475,8 @@ export async function deleteUnpaidQuote(
     return { success: false, error: "Cannot delete a quote that has a deposit paid." };
   }
 
-  if (lead.status !== "pending_payment") {
+  const deletableStatuses = ["pending_payment", "waitlisted", "expired"];
+  if (!deletableStatuses.includes(lead.status)) {
     return { success: false, error: "Can only delete unpaid quotes." };
   }
 
