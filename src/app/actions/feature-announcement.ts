@@ -47,6 +47,7 @@ export async function processFeatureAnnouncement(): Promise<AnnouncementResult> 
       .or("feature_email_mar2026_sent.is.null,feature_email_mar2026_sent.eq.false")
       .not("email", "is", null)
       .neq("is_suspended", true)
+      .or("is_realtor.is.null,is_realtor.eq.false,is_pro.eq.true")
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);

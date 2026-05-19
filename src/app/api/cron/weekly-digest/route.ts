@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       .from("profiles")
       .select("id, email, first_name, business_name")
       .or("is_suspended.is.null,is_suspended.eq.false")
+      .or("is_realtor.is.null,is_realtor.eq.false,is_pro.eq.true")
       .eq("weekly_digest_opted_out", false)
       .or(`last_digest_sent_at.is.null,last_digest_sent_at.lt.${sixDaysAgoStr}`)
       .order("last_digest_sent_at", { ascending: true, nullsFirst: true })
