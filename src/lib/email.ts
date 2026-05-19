@@ -39,6 +39,7 @@ export {
   sendInstallerWelcome,
   sendProWelcomeEmail,
   sendProRenewalReceipt,
+  sendSubscriptionPaymentFailed,
   sendWaitlistAlert,
   buildCustomerInquiryTemplate,
   sendReferralHandoffEmail,

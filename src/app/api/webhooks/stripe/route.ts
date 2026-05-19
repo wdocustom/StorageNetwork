@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, quoteDataToBookingUnits } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -882,6 +882,83 @@ export async function POST(request: NextRequest) {
       } catch (refErr) {
         console.error("[Webhook] Referral deactivation failed (non-fatal):", refErr);
       }
+    }
+  }
+
+  // ── Handle invoice.payment_failed — dunning email ──────────────────────
+  // Stripe Radar blocks, expired cards, and deactivated virtual cards all
+  // surface here. The subscription stays "active" through a grace period
+  // and gets auto-suspended on a later customer.subscription.updated, but
+  // until now no email went out — the customer just discovered it at next
+  // login. This sends a heads-up with a one-click hosted_invoice_url and a
+  // portal link to update the saved card.
+  if (event.type === "invoice.payment_failed" && stripe) {
+    const invoice = event.data.object as Stripe.Invoice;
+    const subscriptionRef = (invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null }).subscription;
+    const isSubscriptionInvoice = !!subscriptionRef;
+
+    if (isSubscriptionInvoice) {
+      fireAndForget("invoice_payment_failed_email", async () => {
+        const subscriptionId =
+          typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id;
+        if (!subscriptionId) return;
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const userId = subscription.metadata?.userId;
+        if (!userId) {
+          console.log("[Webhook] invoice.payment_failed: no userId on subscription", subscriptionId);
+          return;
+        }
+
+        const { data: profile } = await getDb()
+          .from("profiles")
+          .select("first_name, last_name, business_name")
+          .eq("id", userId)
+          .single();
+
+        const { data: authUser } = await getDb().auth.admin.getUserById(userId);
+        const email = authUser?.user?.email;
+        if (!email || !profile) {
+          console.log("[Webhook] invoice.payment_failed: missing email/profile for user", userId);
+          return;
+        }
+
+        const name = profile.business_name ||
+          [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+          "Partner";
+
+        const customerId =
+          typeof subscription.customer === "string"
+            ? subscription.customer
+            : subscription.customer.id;
+
+        const { getAppUrl } = await import("@/lib/url-helper");
+        let portalUrl = `${getAppUrl()}/dashboard/profile`;
+        try {
+          const portal = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: `${getAppUrl()}/dashboard/profile`,
+          });
+          portalUrl = portal.url;
+        } catch (err) {
+          console.error("[Webhook] Failed to create portal session for dunning email:", err);
+        }
+
+        await sendSubscriptionPaymentFailed(email, {
+          name,
+          amountDue: invoice.amount_due ?? 0,
+          invoiceNumber: invoice.number ?? null,
+          attemptCount: invoice.attempt_count ?? 1,
+          nextAttemptAt: invoice.next_payment_attempt
+            ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+            : null,
+          hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+          portalUrl,
+        });
+        console.log(
+          `[Webhook] Dunning email sent to ${email} for invoice ${invoice.id} (attempt ${invoice.attempt_count})`,
+        );
+      });
     }
   }
 

@@ -536,6 +536,73 @@ export async function sendProRenewalReceipt(
   });
 }
 
+export async function sendSubscriptionPaymentFailed(
+  email: string,
+  data: {
+    name: string;
+    amountDue: number;
+    invoiceNumber: string | null;
+    attemptCount: number;
+    nextAttemptAt: string | null;
+    hostedInvoiceUrl: string | null;
+    portalUrl: string;
+  }
+): Promise<SendEmailResult> {
+  const fmtMoney = (cents: number) => {
+    const dollars = cents / 100;
+    return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const retryLine = data.nextAttemptAt
+    ? `Stripe will automatically retry on ${fmtDate(data.nextAttemptAt)}. If you'd rather not wait, pay now or update your card and we'll re-charge immediately.`
+    : `This was the final automatic retry. Please pay the invoice or update your card to keep your Pro account active.`;
+
+  const primaryCta = data.hostedInvoiceUrl
+    ? `${ctaButton(data.hostedInvoiceUrl, "Pay Invoice")}<span style="display:inline-block;width:8px;"></span>${ghostButton(data.portalUrl, "Update Card")}`
+    : ctaButton(data.portalUrl, "Update Payment Method");
+
+  const html = masterEmailLayout(
+    "Renewal Payment Failed",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.name},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      Your Pro subscription renewal for <strong style="color:#facc15;">${fmtMoney(data.amountDue)}</strong> didn&rsquo;t go through. This usually means the saved card was declined, blocked by your bank, or has expired (single-use virtual cards do this when they&rsquo;re deactivated).
+    </p>
+
+    ${eyebrow("Invoice")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Amount Due", fmtMoney(data.amountDue), { highlight: true })}
+      ${data.invoiceNumber ? detailRow("Invoice", data.invoiceNumber, { topBorder: true }) : ""}
+      ${detailRow("Attempt", String(data.attemptCount), { topBorder: true })}
+    </table>
+
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:14px;line-height:1.7;">
+      ${retryLine}
+    </p>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${primaryCta}
+    </div>
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+      If repeated retries fail, your Pro account will be paused until payment is resolved.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: email,
+    toName: data.name,
+    subject: `Action required \u2014 your Pro renewal didn't go through`,
+    html,
+  });
+}
+
 export async function sendWaitlistAlert(
   installerEmail: string,
   data: {
