@@ -44,6 +44,7 @@ export async function processToteRentalAnnouncement(): Promise<AnnouncementResul
       .is("tote_rental_announcement_sent_at", null)
       .not("email", "is", null)
       .neq("is_suspended", true)
+      .or("is_realtor.is.null,is_realtor.eq.false,is_pro.eq.true")
       .lt("created_at", sevenDaysAgo)
       .or(`last_announcement_email_at.is.null,last_announcement_email_at.lt.${todayISO}`)
       .limit(200);
