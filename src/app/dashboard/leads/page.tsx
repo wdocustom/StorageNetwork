@@ -115,7 +115,10 @@ export default function LeadsListPage() {
 
     if (data) setLeads(data as LeadItem[]);
 
-    // Fetch unpaid quotes (pending_payment + waitlisted, deposit not paid)
+    // Fetch unpaid quotes (pending_payment + waitlisted + expired, deposit not paid).
+    // Expired quotes stay visible so the installer keeps the engagement history
+    // (viewed_at / view_count / abandoned_email_sent) and decides whether to
+    // delete them — no cron silently hides their work.
     const { data: unpaid } = await supabase
       .from("leads")
       .select(
@@ -123,7 +126,7 @@ export default function LeadsListPage() {
       )
       .eq("installer_id", user.id)
       .eq("deposit_paid", false)
-      .in("status", ["pending_payment", "waitlisted"])
+      .in("status", ["pending_payment", "waitlisted", "expired"])
       .order("created_at", { ascending: false });
 
     if (unpaid) setUnpaidLeads(unpaid as LeadItem[]);
