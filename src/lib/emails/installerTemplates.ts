@@ -958,14 +958,14 @@ export async function sendCleanoutUpsellInstallerAlert(
     `
     <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
-      <strong style="color:#ffffff;">${data.customerName}</strong> just stacked an add-on onto their upcoming install. The 40% installer payout is already on its way to your Stripe account.
+      <strong style="color:#ffffff;">${data.customerName}</strong> just stacked an add-on onto their upcoming install. Your 35% payout is already on its way to your Stripe account.
     </p>
 
     ${eyebrow(data.serviceName)}
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
       ${detailRow("Service Price", `$${data.servicePrice.toLocaleString()}`)}
       ${detailRow("Deposit Collected (50%)", `$${data.depositCollected.toLocaleString()}`, { topBorder: true })}
-      ${detailRow("Your Payout (40%)", `$${installerPayout.toLocaleString()}`, { highlight: true, topBorder: true })}
+      ${detailRow("Your Payout (35%)", `$${installerPayout.toLocaleString()}`, { highlight: true, topBorder: true })}
       ${detailRow("Balance at Service", `$${data.remainingBalance.toLocaleString()}`, { highlight: true, topBorder: true })}
     </table>
 

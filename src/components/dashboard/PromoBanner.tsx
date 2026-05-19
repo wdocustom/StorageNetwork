@@ -84,9 +84,12 @@ export default function PromoBanner({
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5">
             <p className="text-[11px] leading-relaxed text-stone-300">
               Orders in your area collect a{" "}
-              <span className="font-bold text-white">15% deposit</span> — with Stripe
-              connected, <span className="font-bold text-emerald-400">12% goes to you</span> and
-              only 3% stays with the platform.
+              <span className="font-bold text-white">15% deposit</span>. Connect
+              Stripe to get the installer share routed to you instantly on every
+              direct lead — the platform keeps a flat{" "}
+              <span className="font-bold text-emerald-400">3%</span> on those,
+              and <span className="font-bold text-emerald-400">15%</span> on
+              network leads we send you.
             </p>
           </div>
         )}

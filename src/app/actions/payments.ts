@@ -843,9 +843,11 @@ export async function createDepositIntent(
     //
     // DEPOSIT ONLY (no tax) is always charged. Tax collected at installation.
     //
-    // Fee rates (calculated on BUILD PRICE):
-    //   - No Stripe connected:  15% → all to Platform (until they connect Stripe)
-    //   - Stripe connected:     3% → Platform (maintenance fee), 12% → Installer
+    // Fee rates (calculated on BUILD PRICE) — source-dependent:
+    //   - No Stripe connected:        15% → all to Platform (until they connect Stripe)
+    //   - Direct lead + Stripe:       3% → Platform (maintenance fee), 12% → Installer
+    //   - Network lead + Stripe:     15% → Platform, 0% via Stripe Connect upfront
+    //                                (installer collects balance at install)
     //
     const installerProfile = await getInstallerProfile(installerId);
     const isPro = installerProfile?.is_pro === true;
