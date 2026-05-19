@@ -17,7 +17,11 @@ import { getDepositAmount } from "./fee-engine";
 // FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
 // First 3 Jobs:     0% → Platform (waived), 15% → Installer (new user promo)
-// Standard:         3% of build → Platform (maintenance fee), 12% → Installer
+// Network Lead:     15% of build → Platform (source="platform" — /design,
+//                   waitlist activation, anonymous quote completion, etc.)
+// Direct Lead:      3% of build → Platform (maintenance fee, source is
+//                   "partner_link" or "installer_manual" — installer's own
+//                   booking link or installer-built manual quote)
 // No Stripe:        15% of build → Platform keeps full deposit
 // Fee Override (0): 0% → Platform, 15% → Installer (Founder accounts)
 // ─────────────────────────────────────────────────────────────────────────
@@ -45,7 +49,13 @@ import { getDepositAmount } from "./fee-engine";
 //   Platform keeps: $150 (full deposit until Stripe connected)
 //   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
 //
-// With Stripe connected:
+// With Stripe connected (NETWORK lead, source="platform"):
+//   Customer pays today: $150 (deposit — unchanged)
+//   Platform keeps: $150 (15% network fee — entire deposit on a 15% rate)
+//   Installer receives via Stripe: $0 of the deposit
+//   Balance at install: $860 ($800 remaining + $60 tax → installer collects)
+//
+// With Stripe connected (DIRECT lead, source="partner_link"/"installer_manual"):
 //   Customer pays today: $150 (deposit — unchanged)
 //   Platform keeps: $30 (3% maintenance fee)
 //   Installer receives via Stripe: $120 (12%)
