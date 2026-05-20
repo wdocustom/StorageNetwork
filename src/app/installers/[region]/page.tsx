@@ -480,9 +480,18 @@ async function resolveRegion(slug: string): Promise<ResolvedRegion | null> {
   };
 }
 
+// Cap prerender at curated 58 + top 100 dynamic cities (by installer count).
+// Every other city still works — it renders on-demand via ISR (dynamicParams)
+// on first visit and is cached by Vercel after that, AND it appears in the
+// sitemap. This keeps the build time roughly constant as installer rosters
+// grow instead of scaling linearly with the network's coverage footprint.
+const DYNAMIC_PRERENDER_CAP = 100;
+
 export async function generateStaticParams() {
   const curated = Object.keys(REGIONS);
-  const dynamic = await getInstallerDerivedRegions().catch(() => []);
+  const dynamic = await getInstallerDerivedRegions(DYNAMIC_PRERENDER_CAP).catch(
+    () => [],
+  );
   const all = new Set<string>(curated);
   for (const c of dynamic) all.add(buildRegionSlug(c.city, c.stateCode));
   return Array.from(all).map((region) => ({ region }));

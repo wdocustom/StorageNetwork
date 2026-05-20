@@ -87,51 +87,85 @@ interface CityKey {
   city: string;
   stateCode: string;
   primaryZip: string;
+  installerCount: number;
 }
 
 /**
  * Walk every active installer's service_zips, look each zip up via the
  * zipcodes package, collect unique (city, state) pairs. Returns one entry
  * per slug with a representative zip the design page can hand to the
- * configurator.
+ * configurator, plus the count of installers covering that city.
  *
  * Active = profile exists + is_suspended is not true + has at least one
- * service zip + has an email on file. We don't filter on is_realtor here
- * because mixed-role profiles still service installations.
+ * service zip. We don't filter on is_realtor here because mixed-role
+ * profiles still service installations.
+ *
+ * Pass `limit` to return only the top-N cities by installer count — used
+ * by generateStaticParams to cap build-time prerender so we don't blow
+ * past Vercel's 45min build timeout as the installer roster grows. The
+ * omitted cities still render on-demand via ISR (dynamicParams = true)
+ * and still appear in the sitemap.
  */
-export async function getInstallerDerivedRegions(): Promise<CityKey[]> {
+export async function getInstallerDerivedRegions(
+  limit?: number,
+): Promise<CityKey[]> {
   const supabase = getServiceClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("service_zips, service_zip")
+    .select("id, service_zips, service_zip")
     .or("is_suspended.is.null,is_suspended.eq.false")
     .not("service_zips", "is", null);
 
   if (error || !data) return [];
 
-  const bySlug = new Map<string, CityKey>();
+  const bySlug = new Map<
+    string,
+    CityKey & { installerIds: Set<string> }
+  >();
   for (const row of data) {
+    const installerId = (row as { id?: string }).id;
+    if (!installerId) continue;
     const zips = (row.service_zips as string[] | null) ?? [];
     const homeZip = (row.service_zip as string | null) ?? "";
-    // Home zip first so a city's primaryZip prefers the installer's base.
     const ordered = homeZip ? [homeZip, ...zips.filter((z) => z !== homeZip)] : zips;
 
+    const seenForThisInstaller = new Set<string>();
     for (const zip of ordered) {
       const trimmed = (zip ?? "").trim();
       if (!/^\d{5}$/.test(trimmed)) continue;
       const info = zipcodes.lookup(trimmed);
       if (!info?.city || !info?.state) continue;
       const slug = regionSlug(info.city, info.state);
-      if (bySlug.has(slug)) continue;
-      bySlug.set(slug, {
-        city: info.city,
-        stateCode: info.state.toLowerCase(),
-        primaryZip: trimmed,
-      });
+      if (seenForThisInstaller.has(slug)) continue;
+      seenForThisInstaller.add(slug);
+
+      const existing = bySlug.get(slug);
+      if (existing) {
+        existing.installerIds.add(installerId);
+        existing.installerCount = existing.installerIds.size;
+      } else {
+        bySlug.set(slug, {
+          city: info.city,
+          stateCode: info.state.toLowerCase(),
+          primaryZip: trimmed,
+          installerCount: 1,
+          installerIds: new Set([installerId]),
+        });
+      }
     }
   }
 
-  return Array.from(bySlug.values());
+  const all = Array.from(bySlug.values()).map((entry) => ({
+    city: entry.city,
+    stateCode: entry.stateCode,
+    primaryZip: entry.primaryZip,
+    installerCount: entry.installerCount,
+  }));
+  if (typeof limit !== "number" || limit < 0) return all;
+
+  return all
+    .sort((a, b) => b.installerCount - a.installerCount)
+    .slice(0, limit);
 }
 
 /**
