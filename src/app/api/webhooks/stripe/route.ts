@@ -67,6 +67,33 @@ const redis = hasRedis
   : null;
 
 const IDEMPOTENCY_TTL_S = 48 * 60 * 60; // 48 hours
+const RECEIPT_DEDUPE_TTL_S = 30 * 24 * 60 * 60; // 30 days
+
+/**
+ * Per-invoice receipt dedupe. Stripe fires `customer.subscription.updated`
+ * on many things beyond renewals (metadata edits, dunning, card updates),
+ * so we key off the invoice ID to ensure each invoice produces at most one
+ * receipt email. Atomically claims the slot via SET NX — returns true if
+ * this caller won the claim and should send, false if another caller
+ * already sent for this invoice.
+ */
+async function claimReceiptSlot(invoiceId: string | null | undefined): Promise<boolean> {
+  if (!invoiceId) return true; // No invoice ID to dedupe on — send anyway
+  if (redis) {
+    const claimed = await redis.set(`pro_receipt:${invoiceId}`, "1", {
+      ex: RECEIPT_DEDUPE_TTL_S,
+      nx: true,
+    });
+    return claimed === "OK";
+  }
+  if (receiptFallbackSet.has(invoiceId)) return false;
+  receiptFallbackSet.add(invoiceId);
+  if (receiptFallbackSet.size > 1000) {
+    const entries = Array.from(receiptFallbackSet);
+    entries.slice(0, entries.length - 1000).forEach((id) => receiptFallbackSet.delete(id));
+  }
+  return true;
+}
 
 /** Returns true if this event was already successfully processed. Marks it as processing if not. */
 async function checkAndMarkProcessed(eventId: string): Promise<boolean> {
@@ -89,6 +116,7 @@ async function checkAndMarkProcessed(eventId: string): Promise<boolean> {
 }
 
 const fallbackSet = new Set<string>();
+const receiptFallbackSet = new Set<string>();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Network Referral Bounty — 30% of deposit (min $15) to referring installer
@@ -761,6 +789,11 @@ export async function POST(request: NextRequest) {
         if (isFirstActivation && latestInvoicePaid) {
           // First subscription — send motivational welcome email
           fireAndForget("pro_welcome", async () => {
+            if (!(await claimReceiptSlot(latestInvoiceId))) {
+              console.log(`[Webhook] Pro welcome already claimed for invoice ${latestInvoiceId}, skipping`);
+              return;
+            }
+
             const { data: profile } = await getDb()
               .from("profiles")
               .select("first_name, last_name, business_name")
@@ -798,6 +831,11 @@ export async function POST(request: NextRequest) {
         } else if (!isFirstActivation && latestInvoicePaid) {
           // Renewal — send receipt with sales recap
           fireAndForget("pro_renewal_receipt", async () => {
+            if (!(await claimReceiptSlot(latestInvoiceId))) {
+              console.log(`[Webhook] Pro receipt already claimed for invoice ${latestInvoiceId}, skipping`);
+              return;
+            }
+
             const { data: profile } = await getDb()
               .from("profiles")
               .select("first_name, last_name, business_name")
