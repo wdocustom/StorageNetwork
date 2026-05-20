@@ -309,11 +309,23 @@ export async function rescheduleJob(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Update the lead with new date
-  await supabase
+  // Conditional update: only changes the row when the requested date
+  // actually differs from what's already stored. Postgres serializes the
+  // two updates and re-evaluates the WHERE clause after each commit, so
+  // a duplicate submit (double-click, Next.js server-action retry, two
+  // tabs) gets no row back from the second call and we skip the email.
+  const { data: updated } = await supabase
     .from("leads")
     .update({ scheduled_at: newDate, updated_at: new Date().toISOString() })
-    .eq("id", leadId);
+    .eq("id", leadId)
+    .neq("scheduled_at", newDate)
+    .select("id")
+    .maybeSingle();
+
+  if (!updated) {
+    console.log(`[Reschedule] scheduled_at already ${newDate} for lead ${leadId}, skipping email`);
+    return { success: true };
+  }
 
   if (customerEmail) {
     try {
@@ -385,15 +397,26 @@ export async function scheduleJob(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Update the lead with the scheduled date
-  const { error: updateError } = await supabase
+  // Conditional update: only changes the row when the requested date
+  // differs from what's stored (or scheduled_at was null). Prevents a
+  // duplicate confirmation email when this action is retried or
+  // double-submitted with the same date. See rescheduleJob above.
+  const { data: updated, error: updateError } = await supabase
     .from("leads")
     .update({ scheduled_at: date, updated_at: new Date().toISOString() })
-    .eq("id", leadId);
+    .eq("id", leadId)
+    .or(`scheduled_at.is.null,scheduled_at.neq.${date}`)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     console.error("[ScheduleJob] DB error:", updateError);
     return { success: false, error: "Failed to schedule job." };
+  }
+
+  if (!updated) {
+    console.log(`[ScheduleJob] scheduled_at already ${date} for lead ${leadId}, skipping email`);
+    return { success: true };
   }
 
   // Send confirmation email to customer (non-blocking)
