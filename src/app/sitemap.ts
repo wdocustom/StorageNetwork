@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getInstallerDerivedRegions,
+  regionSlug as buildRegionSlug,
+} from "@/lib/server/region-pages";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Dynamic Sitemap — Static Routes + Dynamic Installer Portfolios
@@ -102,16 +106,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // ── Regional installer hub pages ─────────────────────────────────────
-  const installerPages: MetadataRoute.Sitemap = INSTALLER_REGIONS.map(
-    (region) => ({
-      url: `${BASE}/installers/${region.slug}`,
-      lastModified: now,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    })
+  // Union of curated metros + every (city, state) covered by an active
+  // installer's service_zips, so any city an installer joins shows up in
+  // the sitemap on the next regeneration (Next.js fetches this on demand).
+  const dynamicRegionSlugs = await getInstallerDerivedRegions()
+    .then((rows) => rows.map((r) => buildRegionSlug(r.city, r.stateCode)))
+    .catch((err) => {
+      console.error("[sitemap] Failed to derive installer regions:", err);
+      return [] as string[];
+    });
+  const regionSlugs = Array.from(
+    new Set([...INSTALLER_REGIONS.map((r) => r.slug), ...dynamicRegionSlugs]),
   );
 
-  // ── Become-installer landing pages (same metro regions) ────────────
+  const installerPages: MetadataRoute.Sitemap = regionSlugs.map((slug) => ({
+    url: `${BASE}/installers/${slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
+
+  // Become-installer landing pages stay scoped to the curated 58 — those
+  // are recruiting-focused content, not auto-derived from installer coverage.
   const becomeInstallerPages: MetadataRoute.Sitemap = INSTALLER_REGIONS.map(
     (region) => ({
       url: `${BASE}/become-installer/${region.slug}`,

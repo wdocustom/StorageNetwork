@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  getInstallerDerivedRegions,
+  getInstallersForRegionSlug,
+  primaryZipForRegion,
+  parseRegionSlug,
+  fullStateName,
+  regionSlug as buildRegionSlug,
+  type RegionInstaller,
+} from "@/lib/server/region-pages";
 
 // ── Region data ──────────────────────────────────────────────────────────
 const REGIONS: Record<
@@ -423,14 +432,75 @@ interface PageProps {
   params: { region: string };
 }
 
+// Refresh dynamic page contents (installer rosters, new cities) hourly. New
+// city slugs from installers who just joined render on-demand on first hit.
+export const revalidate = 3600;
+export const dynamicParams = true;
+
+interface ResolvedRegion {
+  slug: string;
+  label: string;
+  state: string;
+  description: string;
+  zips: string[];
+  isCurated: boolean;
+}
+
+async function resolveRegion(slug: string): Promise<ResolvedRegion | null> {
+  const curated = REGIONS[slug];
+  if (curated) {
+    return {
+      slug,
+      label: curated.label,
+      state: curated.state,
+      description: curated.description,
+      zips: curated.zips,
+      isCurated: true,
+    };
+  }
+
+  const parsed = parseRegionSlug(slug);
+  if (!parsed) return null;
+
+  const installers = await getInstallersForRegionSlug(slug, 1);
+  if (installers.length === 0) return null;
+
+  const cityLabel = parsed.citySlugPart
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
+  const stateLabel = fullStateName(parsed.stateCode);
+  return {
+    slug,
+    label: cityLabel,
+    state: stateLabel,
+    description: `Custom 2×4 tote storage racks built and installed in the ${cityLabel}, ${parsed.stateCode.toUpperCase()} metro by verified Storage Network installers.`,
+    zips: (installers[0].service_zips ?? []).slice(0, 6),
+    isCurated: false,
+  };
+}
+
+// Cap prerender at curated 58 + top 100 dynamic cities (by installer count).
+// Every other city still works — it renders on-demand via ISR (dynamicParams)
+// on first visit and is cached by Vercel after that, AND it appears in the
+// sitemap. This keeps the build time roughly constant as installer rosters
+// grow instead of scaling linearly with the network's coverage footprint.
+const DYNAMIC_PRERENDER_CAP = 100;
+
 export async function generateStaticParams() {
-  return Object.keys(REGIONS).map((region) => ({ region }));
+  const curated = Object.keys(REGIONS);
+  const dynamic = await getInstallerDerivedRegions(DYNAMIC_PRERENDER_CAP).catch(
+    () => [],
+  );
+  const all = new Set<string>(curated);
+  for (const c of dynamic) all.add(buildRegionSlug(c.city, c.stateCode));
+  return Array.from(all).map((region) => ({ region }));
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const region = REGIONS[params.region];
+  const region = await resolveRegion(params.region);
   if (!region) {
     return { title: "Installer Region Not Found | Storage Network" };
   }
@@ -445,8 +515,23 @@ export async function generateMetadata({
   };
 }
 
-export default function InstallerRegionPage({ params }: PageProps) {
-  const region = REGIONS[params.region];
+function installerDisplayName(installer: RegionInstaller): string {
+  return (
+    installer.business_name ||
+    [installer.first_name, installer.last_name].filter(Boolean).join(" ") ||
+    "A verified installer"
+  );
+}
+
+function designUrl(installer: RegionInstaller, zip: string | null): string {
+  const params = new URLSearchParams({ from: "network" });
+  params.set("installer_id", installer.id);
+  if (zip) params.set("zip", zip);
+  return `/design?${params.toString()}`;
+}
+
+export default async function InstallerRegionPage({ params }: PageProps) {
+  const region = await resolveRegion(params.region);
 
   if (!region) {
     return (
@@ -462,6 +547,16 @@ export default function InstallerRegionPage({ params }: PageProps) {
       </div>
     );
   }
+
+  const installers = await getInstallersForRegionSlug(region.slug, 3);
+  const primaryInstaller = installers[0] ?? null;
+  const primaryZip =
+    primaryZipForRegion(region.slug, installers) ?? region.zips[0] ?? null;
+  const primaryCtaHref = primaryInstaller
+    ? designUrl(primaryInstaller, primaryZip)
+    : primaryZip
+      ? `/design?zip=${encodeURIComponent(primaryZip)}&from=network`
+      : "/design?from=network";
 
   const localSchema = {
     "@context": "https://schema.org",
@@ -500,7 +595,7 @@ export default function InstallerRegionPage({ params }: PageProps) {
             Storage Network
           </Link>
           <Link
-            href="/design"
+            href={primaryCtaHref}
             className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
           >
             Design Your Rack
@@ -557,30 +652,86 @@ export default function InstallerRegionPage({ params }: PageProps) {
           </div>
         </section>
 
+        {/* ── Installers serving this area ──────────────────────────── */}
+        {installers.length > 0 && (
+          <section className="mb-12">
+            <h2 className="mb-4 text-2xl font-bold text-white">
+              {installers.length === 1
+                ? `Your installer in ${region.label}`
+                : `Installers serving ${region.label}`}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {installers.map((installer, idx) => {
+                const name = installerDisplayName(installer);
+                const isPrimary = idx === 0;
+                return (
+                  <div
+                    key={installer.id}
+                    className={`flex flex-col rounded-xl border p-5 ${
+                      isPrimary
+                        ? "border-yellow-400/40 bg-yellow-400/5"
+                        : "border-slate-800 bg-slate-900"
+                    }`}
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      {installer.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={installer.avatar_url}
+                          alt={name}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-sm font-bold text-yellow-400">
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-white">{name}</p>
+                        <p className="text-[11px] text-stone-500">
+                          {installer.completed_jobs ?? 0} jobs completed
+                          {isPrimary && installers.length > 1 ? " · Top match" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href={designUrl(installer, primaryZip)}
+                      className={`mt-auto rounded-lg px-3 py-2 text-center text-xs font-bold transition-colors ${
+                        isPrimary
+                          ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
+                          : "border border-slate-700 text-stone-300 hover:border-yellow-400 hover:text-yellow-400"
+                      }`}
+                    >
+                      Design with {name.split(" ")[0]}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* ── Service Area ─────────────────────────────────────────── */}
-        <section className="mb-12">
-          <h2 className="mb-4 text-2xl font-bold text-white">
-            Service Area
-          </h2>
-          <p className="mb-4 text-base text-stone-400">
-            Enter your ZIP code on our{" "}
-            <Link href="/" className="text-yellow-400 hover:underline">
-              homepage
-            </Link>{" "}
-            to check if a verified installer covers your area. Sample ZIP codes
-            in the {region.label} metro:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {region.zips.map((z) => (
-              <span
-                key={z}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-mono text-stone-400"
-              >
-                {z}
-              </span>
-            ))}
-          </div>
-        </section>
+        {region.zips.length > 0 && (
+          <section className="mb-12">
+            <h2 className="mb-4 text-2xl font-bold text-white">
+              Service Area
+            </h2>
+            <p className="mb-4 text-base text-stone-400">
+              {region.label} ZIP codes already covered by a verified installer:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {region.zips.map((z) => (
+                <span
+                  key={z}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-sm font-mono text-stone-400"
+                >
+                  {z}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── CTA ──────────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-8 text-center">
@@ -588,13 +739,15 @@ export default function InstallerRegionPage({ params }: PageProps) {
             Get a Custom Rack in {region.label}
           </h2>
           <p className="mb-6 text-stone-400">
-            Design your system in 30 seconds and book a verified installer.
+            {primaryInstaller
+              ? `Skip the ZIP form — your design opens pre-attached to ${installerDisplayName(primaryInstaller)}.`
+              : "Design your system in 30 seconds and book a verified installer."}
           </p>
           <Link
-            href="/"
+            href={primaryCtaHref}
             className="rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
           >
-            Check Availability in Your ZIP
+            {primaryInstaller ? "Design My Storage" : "Check Availability in Your ZIP"}
           </Link>
         </section>
       </main>
