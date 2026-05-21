@@ -48,20 +48,19 @@ export async function sendRealtorWelcomeEmail(
     <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
       You just unlocked the smartest closing gift on the market &mdash;
       reusable moving totes, delivered to your buyer or seller, picked up
-      after they're settled. No cardboard. No mess. And every tote arrives
-      with <strong style="color:#ffffff;">your name on the box</strong>.
+      after they're settled. No cardboard. No mess.
     </p>
 
     ${eyebrow("How it works")}
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
       <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">1.</span>Pick a tote package &mdash; 20, 30, 40, or 50 totes &mdash; for the size of the move.</td></tr>
-      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">2.</span>Send the gift link to your buyer or seller. Your name, your brokerage, your message.</td></tr>
-      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">3.</span>A local pro delivers and picks up. You look like a hero. Done.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">2.</span>Send the gift link to your buyer or seller along with a personal note.</td></tr>
+      <tr><td style="padding:14px 0;border-bottom:1px solid #222;color:#ffffff;font-size:14px;line-height:1.6;"><span style="color:#facc15;font-weight:700;margin-right:8px;">3.</span>A local pro delivers and picks up &mdash; routed automatically. You look like a hero. Done.</td></tr>
     </table>
 
     <div style="background-color:#111111;border:1px solid #222;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
       <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">${escapeHtml(data.brokerage)}</p>
-      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Your dashboard is live. Set up your branding, then send your first gift &mdash; takes about 90 seconds.</p>
+      <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">Your dashboard is live. Send your first gift &mdash; takes about 90 seconds.</p>
       ${ctaButton(dashboardUrl, "Open Realtor Dashboard")}
     </div>
 
@@ -258,6 +257,9 @@ export async function sendGiftInstallerAssignedAlert(
     installerName: string;
     recipientName: string;
     deliveryAddress: string;
+    /** Optional. When set AND different from deliveryAddress, the installer
+     *  needs to retrieve totes from this address at end of rental. */
+    pickupAddress?: string | null;
     deliveryWindowStart: string;
     deliveryWindowEnd: string;
     pickupWindowStart: string;
@@ -287,6 +289,11 @@ export async function sendGiftInstallerAssignedAlert(
       ${detailRow("Recipient", escapeHtml(data.recipientName))}
       ${detailRow("Package", `${escapeHtml(data.packageName)} (${data.toteCount} totes, ${data.durationDays}-day rental)`)}
       ${detailRow("Drop-off", escapeHtml(data.deliveryAddress || "TBD"))}
+      ${
+        data.pickupAddress && data.pickupAddress !== data.deliveryAddress
+          ? detailRow("Pickup location", escapeHtml(data.pickupAddress))
+          : ""
+      }
       ${detailRow("Delivery window", formatWindow(data.deliveryWindowStart, data.deliveryWindowEnd))}
       ${detailRow("Pickup window", formatWindow(data.pickupWindowStart, data.pickupWindowEnd))}
     </table>

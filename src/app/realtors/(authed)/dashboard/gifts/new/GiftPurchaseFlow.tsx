@@ -61,16 +61,27 @@ export function GiftPurchaseFlow({ packages }: Props) {
   const [propertyZip, setPropertyZip] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
 
+  // Pickup defaults to the delivery address. Realtors flip the checkbox
+  // when the totes need to be retrieved somewhere else (e.g. recipient is
+  // moving to a different city than the one we deliver to).
+  const [pickupDifferent, setPickupDifferent] = useState(false);
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupZip, setPickupZip] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ── Coverage gate ────────────────────────────────────────────────────
+  // ── Coverage gates ───────────────────────────────────────────────────
   // Quick-send refuses ZIPs where no tote-fulfillment installer covers the
-  // area. Debounced fetch on every 5-digit ZIP so the realtor sees the
-  // verdict before they get to the Pay button.
+  // area. When a different pickup ZIP is supplied, BOTH ZIPs must be
+  // covered (the assignment query insists on a single installer who can
+  // hit both stops). We check each ZIP independently here for the UI;
+  // findEligibleInstaller enforces the "same installer for both" rule.
   type CoverageStatus = "idle" | "checking" | "covered" | "no_coverage";
   const [coverageStatus, setCoverageStatus] = useState<CoverageStatus>("idle");
   const [coverageMessage, setCoverageMessage] = useState<string | null>(null);
+  const [pickupCoverageStatus, setPickupCoverageStatus] = useState<CoverageStatus>("idle");
+  const [pickupCoverageMessage, setPickupCoverageMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const zipTrimmed = propertyZip.trim();
@@ -110,6 +121,47 @@ export function GiftPurchaseFlow({ packages }: Props) {
     };
   }, [propertyZip]);
 
+  useEffect(() => {
+    if (!pickupDifferent) {
+      setPickupCoverageStatus("idle");
+      setPickupCoverageMessage(null);
+      return;
+    }
+    const zipTrimmed = pickupZip.trim();
+    if (!/^\d{5}$/.test(zipTrimmed)) {
+      setPickupCoverageStatus("idle");
+      setPickupCoverageMessage(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPickupCoverageStatus("checking");
+    setPickupCoverageMessage(null);
+
+    const handle = window.setTimeout(async () => {
+      try {
+        const preview = await previewToteGiftDelivery({ deliveryZip: zipTrimmed });
+        if (cancelled) return;
+        if (preview.tier === "no_coverage") {
+          setPickupCoverageStatus("no_coverage");
+          setPickupCoverageMessage(preview.message);
+        } else {
+          setPickupCoverageStatus("covered");
+          setPickupCoverageMessage(null);
+        }
+      } catch {
+        if (cancelled) return;
+        setPickupCoverageStatus("idle");
+        setPickupCoverageMessage(null);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [pickupDifferent, pickupZip]);
+
   function selectPackage(id: string) {
     setSelectedPackageId(id);
     const pkg = packages.find((p) => p.id === id);
@@ -137,6 +189,16 @@ export function GiftPurchaseFlow({ packages }: Props) {
       setError(coverageMessage ?? "We don't have an installer covering that ZIP yet.");
       return;
     }
+    if (pickupDifferent) {
+      if (!/^\d{5}$/.test(pickupZip.trim())) {
+        setError("Enter a 5-digit pickup ZIP, or uncheck the different-pickup box.");
+        return;
+      }
+      if (pickupCoverageStatus === "no_coverage") {
+        setError(pickupCoverageMessage ?? "We don't have an installer covering that pickup ZIP.");
+        return;
+      }
+    }
 
     setLoading(true);
     const result = await createGiftCheckout({
@@ -147,6 +209,8 @@ export function GiftPurchaseFlow({ packages }: Props) {
       recipientPhone: recipientPhone.trim() || undefined,
       propertyAddress: propertyAddress.trim() || undefined,
       propertyZip: propertyZip.trim() || undefined,
+      pickupAddress: pickupDifferent ? pickupAddress.trim() || undefined : undefined,
+      pickupZip: pickupDifferent ? pickupZip.trim() || undefined : undefined,
       personalMessage: personalMessage.trim() || undefined,
     });
 
@@ -289,6 +353,54 @@ export function GiftPurchaseFlow({ packages }: Props) {
               message={coverageMessage}
             />
           </div>
+
+          {/* ── Pickup address (optional override) ────────────────────
+              By default totes are picked up from the same address they
+              were delivered to. Realtors flip this on when the recipient
+              has moved on by the end of the rental, or when the rental
+              spans a relocation (delivery to old place, pickup at new). */}
+          <div className="mt-4">
+            <label className="flex items-start gap-2.5 text-xs text-stone-300">
+              <input
+                type="checkbox"
+                checked={pickupDifferent}
+                onChange={(e) => setPickupDifferent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-yellow-400 focus:ring-yellow-400/30"
+              />
+              <span className="leading-relaxed">
+                Pickup address is different than delivery
+                <span className="block text-[11px] text-stone-500">
+                  Check this if the totes should be retrieved somewhere other than the delivery address.
+                </span>
+              </span>
+            </label>
+          </div>
+          {pickupDifferent && (
+            <div className="mt-3 grid gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 sm:grid-cols-2">
+              <TextField
+                label="Pickup address (optional)"
+                value={pickupAddress}
+                onChange={setPickupAddress}
+                placeholder="456 Other St, Other City"
+                className="sm:col-span-2"
+              />
+              <TextField
+                label="Pickup ZIP"
+                value={pickupZip}
+                onChange={(v) => setPickupZip(v.replace(/\D/g, "").slice(0, 5))}
+                placeholder="62705"
+                maxLength={5}
+                required
+              />
+              <div className="sm:col-span-2">
+                <CoverageStatusPill
+                  status={pickupCoverageStatus}
+                  message={pickupCoverageMessage}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="mt-3">
             <label className="mb-1.5 block text-xs font-medium text-stone-400">
               Personal note (optional)
@@ -346,7 +458,14 @@ export function GiftPurchaseFlow({ packages }: Props) {
 
               <button
                 onClick={handleSubmit}
-                disabled={loading || coverageStatus === "no_coverage" || coverageStatus === "checking"}
+                disabled={
+                  loading ||
+                  coverageStatus === "no_coverage" ||
+                  coverageStatus === "checking" ||
+                  (pickupDifferent &&
+                    (pickupCoverageStatus === "no_coverage" ||
+                      pickupCoverageStatus === "checking"))
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3 text-base font-bold text-slate-950 transition-all hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (

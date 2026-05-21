@@ -13,6 +13,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Gift, Package as PackageIcon, Check } from "lucide-react";
 
+
 import { lookupGiftByToken } from "@/app/actions/realtor-gifts";
 import { GiftRecipientFlow } from "./GiftRecipientFlow";
 
@@ -39,52 +40,21 @@ export default async function GiftRecipientPage({ params }: PageProps) {
           <span className="text-sm font-bold tracking-tight text-stone-300">Storage Network</span>
         </div>
 
-        {/* ── Brand banner — co-branded with the realtor.
-            Three optional layers (all set via /realtors/dashboard/settings):
-              - Photo: circular head-shot above the eyebrow line.
-              - Logo:  small badge next to the brokerage name.
-              - Signature: italic closing line that falls back ONLY when
-                no per-gift personalMessage was supplied — the per-gift
-                note always wins because it's contextual to this recipient.
-            Each layer renders only when its field is set; with none set,
-            the banner is text-only, matching the pre-branding behavior. */}
         <div className="mb-10 rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-6 text-center">
-          {gift.realtorPhotoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={gift.realtorPhotoUrl}
-              alt={gift.realtorName}
-              className="mx-auto mb-4 h-20 w-20 rounded-full border-2 border-yellow-400/40 object-cover"
-            />
-          )}
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-yellow-400">
             A closing gift for {gift.recipientName.split(" ")[0]}
           </p>
           <h1 className="mb-1 text-2xl font-black sm:text-3xl">
             From {gift.realtorName}
           </h1>
-          {(gift.realtorBrokerage || gift.realtorLogoUrl) && (
-            <div className="mt-1 flex items-center justify-center gap-2 text-sm text-stone-400">
-              {gift.realtorLogoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={gift.realtorLogoUrl}
-                  alt={gift.realtorBrokerage || "Brokerage logo"}
-                  className="h-6 w-auto max-w-[5rem] object-contain"
-                />
-              )}
-              {gift.realtorBrokerage && <span>{gift.realtorBrokerage}</span>}
-            </div>
+          {gift.realtorBrokerage && (
+            <p className="mt-1 text-sm text-stone-400">{gift.realtorBrokerage}</p>
           )}
-          {gift.personalMessage ? (
+          {gift.personalMessage && (
             <p className="mt-5 max-w-xl mx-auto text-base italic leading-relaxed text-stone-200">
               &ldquo;{gift.personalMessage}&rdquo;
             </p>
-          ) : gift.realtorSignature ? (
-            <p className="mt-5 max-w-xl mx-auto text-base italic leading-relaxed text-stone-200">
-              &ldquo;{gift.realtorSignature}&rdquo;
-            </p>
-          ) : null}
+          )}
         </div>
 
         {/* ── Package details — always visible ──────────────────────── */}

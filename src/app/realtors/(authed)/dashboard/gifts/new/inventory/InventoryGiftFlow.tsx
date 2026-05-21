@@ -68,9 +68,18 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
   const [deliveryZip, setDeliveryZip] = useState("");
   const [personalMessage, setPersonalMessage] = useState("");
 
+  // Pickup defaults to the delivery address; checkbox reveals an override.
+  // See migration 123. The pickup ZIP is gated independently so the
+  // realtor sees coverage feedback before submit.
+  const [pickupDifferent, setPickupDifferent] = useState(false);
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [pickupZip, setPickupZip] = useState("");
+
   // ── Distance preview state (debounced on deliveryZip changes) ─────────
   const [previewLoading, setPreviewLoading] = useState(false);
   const [preview, setPreview] = useState<DeliveryPreview | null>(null);
+  const [pickupPreviewLoading, setPickupPreviewLoading] = useState(false);
+  const [pickupPreview, setPickupPreview] = useState<DeliveryPreview | null>(null);
 
   useEffect(() => {
     const zip = deliveryZip.trim();
@@ -91,6 +100,30 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
     return () => clearTimeout(handle);
   }, [deliveryZip]);
 
+  useEffect(() => {
+    if (!pickupDifferent) {
+      setPickupPreview(null);
+      setPickupPreviewLoading(false);
+      return;
+    }
+    const zip = pickupZip.trim();
+    if (!/^\d{5}$/.test(zip)) {
+      setPickupPreview(null);
+      setPickupPreviewLoading(false);
+      return;
+    }
+    setPickupPreviewLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const result = await previewToteGiftDelivery({ deliveryZip: zip });
+        setPickupPreview(result);
+      } finally {
+        setPickupPreviewLoading(false);
+      }
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [pickupDifferent, pickupZip]);
+
   // ── Top-up + submit state ─────────────────────────────────────────────
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +131,12 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
 
   const insufficientBalance = balance < toteCount;
   const shortfall = Math.max(0, toteCount - balance);
+  const pickupOk =
+    !pickupDifferent ||
+    (/^\d{5}$/.test(pickupZip.trim()) &&
+      !!pickupPreview &&
+      pickupPreview.tier !== "no_coverage");
+
   const canSend =
     !insufficientBalance &&
     !!preview &&
@@ -105,7 +144,8 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
     !!recipientName.trim() &&
     !!recipientEmail.trim() &&
     !!deliveryAddress.trim() &&
-    /^\d{5}$/.test(deliveryZip.trim());
+    /^\d{5}$/.test(deliveryZip.trim()) &&
+    pickupOk;
 
   const surchargeCents = preview?.tier === "surcharge" ? preview.surchargeCents : 0;
 
@@ -118,6 +158,8 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
         recipientPhone: recipientPhone.trim() || undefined,
         deliveryAddress: deliveryAddress.trim(),
         deliveryZip: deliveryZip.trim(),
+        pickupAddress: pickupDifferent ? pickupAddress.trim() || undefined : undefined,
+        pickupZip: pickupDifferent ? pickupZip.trim() || undefined : undefined,
         personalMessage: personalMessage.trim() || undefined,
         toteCount,
         durationDays,
@@ -215,6 +257,57 @@ export function InventoryGiftFlow({ balance, packs, custom }: Props) {
               maxLength={5}
             />
           </div>
+
+          {/* ── Pickup override ───────────────────────────────────────
+              Default: pickup happens at the delivery address. Checkbox
+              opens a separate pickup address + ZIP, which is validated
+              against installer coverage so we don't take a gift we can't
+              actually retrieve at the end of the rental. */}
+          <div className="mt-4">
+            <label className="flex items-start gap-2.5 text-xs text-stone-300">
+              <input
+                type="checkbox"
+                checked={pickupDifferent}
+                onChange={(e) => setPickupDifferent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-yellow-400 focus:ring-yellow-400/30"
+              />
+              <span className="leading-relaxed">
+                Pickup address is different than delivery
+                <span className="block text-[11px] text-stone-500">
+                  Check this if the totes should be retrieved somewhere other than the delivery address.
+                </span>
+              </span>
+            </label>
+          </div>
+          {pickupDifferent && (
+            <div className="mt-3 grid gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 sm:grid-cols-2">
+              <TextField
+                label="Pickup address (optional)"
+                value={pickupAddress}
+                onChange={setPickupAddress}
+                placeholder="456 Other St, Other City"
+                className="sm:col-span-2"
+              />
+              <TextField
+                label="Pickup ZIP"
+                value={pickupZip}
+                onChange={(v) => setPickupZip(v.replace(/\D/g, "").slice(0, 5))}
+                placeholder="62705"
+                maxLength={5}
+              />
+              <div className="sm:col-span-2">
+                {pickupPreviewLoading ? (
+                  <p className="text-[11px] text-stone-400">Checking pickup coverage…</p>
+                ) : pickupPreview && pickupPreview.tier === "no_coverage" ? (
+                  <p className="text-[11px] text-amber-300">
+                    No installer covers that pickup ZIP yet — try a different one.
+                  </p>
+                ) : pickupPreview && /^\d{5}$/.test(pickupZip.trim()) ? (
+                  <p className="text-[11px] text-emerald-300">Pickup ZIP covered.</p>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <div className="mt-3">
             <label className="mb-1.5 block text-xs font-medium text-stone-400">

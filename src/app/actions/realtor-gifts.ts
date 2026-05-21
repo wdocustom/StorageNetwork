@@ -98,6 +98,10 @@ export interface CreateGiftCheckoutInput {
   recipientPhone?: string;
   propertyAddress?: string;
   propertyZip?: string;
+  /** Optional. Where the installer retrieves totes at end of rental.
+   *  When unset, pickup happens at propertyAddress (same as delivery). */
+  pickupAddress?: string;
+  pickupZip?: string;
   personalMessage?: string;
 }
 
@@ -173,6 +177,30 @@ export async function createGiftCheckout(
     return { success: false, error: coverage.message };
   }
 
+  // Pickup address is optional; default is "same as delivery". When the
+  // realtor explicitly supplies a different pickup ZIP, validate that an
+  // installer in our network covers that ZIP too. findEligibleInstaller
+  // tightens this at assignment time by requiring ONE installer who
+  // covers BOTH addresses; this check just protects against the obvious
+  // "no network presence at all" case at form-fill time.
+  const pickupZipTrimmed = input.pickupZip?.trim() ?? "";
+  if (pickupZipTrimmed) {
+    if (!/^\d{5}$/.test(pickupZipTrimmed)) {
+      return { success: false, error: "Pickup ZIP must be 5 digits." };
+    }
+    if (pickupZipTrimmed !== propertyZipTrimmed) {
+      const pickupCoverage = await previewToteGiftDelivery({ deliveryZip: pickupZipTrimmed });
+      if (pickupCoverage.tier === "no_coverage") {
+        return {
+          success: false,
+          error:
+            "No installer covers the pickup ZIP yet — we can't retrieve totes from " +
+            "that address. Try a different pickup ZIP or uncheck the different-pickup option.",
+        };
+      }
+    }
+  }
+
   // Resolve package + price from the catalog (don't trust client-supplied price).
   const { data: pkg } = await db
     .from("tote_rental_packages")
@@ -210,6 +238,8 @@ export async function createGiftCheckout(
       recipient_phone: recipientPhone,
       property_address: input.propertyAddress?.trim() || null,
       property_zip: input.propertyZip?.trim() || null,
+      pickup_address: input.pickupAddress?.trim() || null,
+      pickup_zip: pickupZipTrimmed || null,
       personal_message: input.personalMessage?.trim() || null,
       status: "pending_payment",
     })
@@ -234,7 +264,7 @@ export async function createGiftCheckout(
             currency: "usd",
             product_data: {
               name: `Closing Gift — ${productLabel}`,
-              description: `Reusable moving totes delivered to ${recipientName}, co-branded for ${realtorName}.`,
+              description: `Reusable moving totes delivered to ${recipientName} on behalf of ${realtorName}.`,
             },
             unit_amount: tier.price_cents,
           },
@@ -471,11 +501,6 @@ export interface RecipientGiftView {
   scheduled: boolean;
   realtorName: string;
   realtorBrokerage: string | null;
-  /** Custom-branding fields (migration 111). Null when the realtor hasn't
-   *  uploaded one — recipient page falls back to text-only co-branding. */
-  realtorPhotoUrl: string | null;
-  realtorLogoUrl: string | null;
-  realtorSignature: string | null;
   propertyAddress: string | null;
   propertyZip: string | null;
   deliveryAddress: string | null;
@@ -517,8 +542,7 @@ export async function lookupGiftByToken(
       installer_id,
       tote_rental_packages ( name, description, features ),
       realtor:profiles!tote_rental_gifts_realtor_id_fkey (
-        first_name, last_name, realtor_brokerage,
-        realtor_photo_url, realtor_logo_url, realtor_signature
+        first_name, last_name, realtor_brokerage
       ),
       installer:profiles!tote_rental_gifts_installer_id_fkey (
         first_name, last_name, business_name, slug
@@ -539,9 +563,6 @@ export async function lookupGiftByToken(
         first_name: string | null;
         last_name: string | null;
         realtor_brokerage: string | null;
-        realtor_photo_url: string | null;
-        realtor_logo_url: string | null;
-        realtor_signature: string | null;
       }
     | null;
   const installer = row.installer as unknown as
@@ -568,9 +589,6 @@ export async function lookupGiftByToken(
     realtorName:
       [realtor?.first_name, realtor?.last_name].filter(Boolean).join(" ") || "Your realtor",
     realtorBrokerage: realtor?.realtor_brokerage ?? null,
-    realtorPhotoUrl: realtor?.realtor_photo_url ?? null,
-    realtorLogoUrl: realtor?.realtor_logo_url ?? null,
-    realtorSignature: realtor?.realtor_signature ?? null,
     propertyAddress: (row.property_address as string | null) ?? null,
     propertyZip: (row.property_zip as string | null) ?? null,
     deliveryAddress: (row.delivery_address as string | null) ?? null,

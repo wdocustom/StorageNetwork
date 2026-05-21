@@ -61,19 +61,29 @@ interface EligibleInstaller {
 
 async function findEligibleInstaller(
   deliveryZip: string,
-  toteCount: number
+  toteCount: number,
+  pickupZip?: string | null
 ): Promise<EligibleInstaller | null> {
   const db = getServiceClient();
 
   // 1. Pull every opted-in installer whose service_zips covers this ZIP
-  //    AND has enough stock for the requested package.
+  //    (and the pickup ZIP, when one is set and differs) AND has enough
+  //    stock for the requested package.
   //    Priority mirrors the lead-routing convention from customer.ts:
   //      is_pro DESC, completed_jobs DESC, current_month_leads ASC.
+  //
+  //    `.contains("service_zips", [a, b])` selects installers whose array
+  //    contains BOTH elements — exactly the "one installer for both stops"
+  //    constraint we need so we never strand totes at the recipient's
+  //    house with no one able to retrieve them.
   //
   //    Also filter to installers with stripe_account_id set — we cannot
   //    pay them without one. An installer without Stripe Connect onboarded
   //    will not appear in the routing pool; they'll see prompting on
   //    /dashboard/tote-rentals to complete onboarding (TODO: surface that).
+  const requiredZips =
+    pickupZip && pickupZip !== deliveryZip ? [deliveryZip, pickupZip] : [deliveryZip];
+
   const { data: candidates } = await db
     .from("profiles")
     .select(
@@ -81,7 +91,7 @@ async function findEligibleInstaller(
     )
     .eq("tote_fulfillment_active", true)
     .gte("tote_fulfillment_stock", toteCount)
-    .contains("service_zips", [deliveryZip])
+    .contains("service_zips", requiredZips)
     .not("stripe_account_id", "is", null)
     .order("is_pro", { ascending: false })
     .order("completed_jobs", { ascending: false })
@@ -130,8 +140,8 @@ export async function assignFulfillmentInstaller(
   const { data: gift } = await db
     .from("tote_rental_gifts")
     .select(
-      `id, status, installer_id, delivery_zip, tote_count, duration_days,
-       recipient_name, recipient_email, delivery_address,
+      `id, status, installer_id, delivery_zip, pickup_zip, tote_count, duration_days,
+       recipient_name, recipient_email, delivery_address, pickup_address,
        delivery_window_start, delivery_window_end,
        pickup_window_start, pickup_window_end,
        gift_token, realtor_id,
@@ -154,7 +164,8 @@ export async function assignFulfillmentInstaller(
 
   const installer = await findEligibleInstaller(
     gift.delivery_zip as string,
-    gift.tote_count as number
+    gift.tote_count as number,
+    (gift.pickup_zip as string | null) ?? null
   );
 
   if (!installer) {
@@ -162,7 +173,7 @@ export async function assignFulfillmentInstaller(
     // realtor dashboard surfaces a "Sourcing installer" state. Ops can
     // run a manual sweep later or we can fall back to a default partner.
     console.warn(
-      `[Fulfillment] No eligible installer for gift ${giftId} (zip=${gift.delivery_zip}, totes=${gift.tote_count})`
+      `[Fulfillment] No eligible installer for gift ${giftId} (delivery_zip=${gift.delivery_zip}, pickup_zip=${gift.pickup_zip ?? "(same)"}, totes=${gift.tote_count})`
     );
     return { ok: false, error: "No installer available in that area yet." };
   }
@@ -221,6 +232,7 @@ export async function assignFulfillmentInstaller(
     installerName: installer.first_name || installerName,
     recipientName: gift.recipient_name as string,
     deliveryAddress: (gift.delivery_address as string) || "",
+    pickupAddress: (gift.pickup_address as string | null) ?? null,
     deliveryWindowStart: (gift.delivery_window_start as string) || "",
     deliveryWindowEnd: (gift.delivery_window_end as string) || "",
     pickupWindowStart: (gift.pickup_window_start as string) || "",

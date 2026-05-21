@@ -69,6 +69,10 @@ export interface CreateInventoryGiftInput {
   recipientPhone?: string;
   deliveryAddress: string;
   deliveryZip: string;
+  /** Optional. Where the installer retrieves totes at end of rental.
+   *  When unset, pickup happens at deliveryAddress (same as delivery). */
+  pickupAddress?: string;
+  pickupZip?: string;
   personalMessage?: string;
   toteCount: number;
   durationDays: number;
@@ -109,6 +113,8 @@ export async function createInventoryGiftDispatch(
   const recipientPhone = normalizePhone(input.recipientPhone);
   const deliveryAddress = input.deliveryAddress?.trim();
   const deliveryZip = input.deliveryZip?.trim();
+  const pickupAddress = input.pickupAddress?.trim() || null;
+  const pickupZip = input.pickupZip?.trim() || null;
   const personalMessage = input.personalMessage?.trim() || null;
   const toteCount = Math.floor(input.toteCount);
   const durationDays = Math.floor(input.durationDays);
@@ -124,6 +130,9 @@ export async function createInventoryGiftDispatch(
   }
   if (!/^\d{5}$/.test(deliveryZip)) {
     return { success: false, error: "Delivery ZIP must be 5 digits." };
+  }
+  if (pickupZip && !/^\d{5}$/.test(pickupZip)) {
+    return { success: false, error: "Pickup ZIP must be 5 digits." };
   }
   if (toteCount < MIN_TOTES_PER_GIFT || toteCount > MAX_TOTES_PER_GIFT) {
     return {
@@ -167,6 +176,21 @@ export async function createInventoryGiftDispatch(
         "No installer covers that ZIP yet — we can't fulfill a gift to this " +
         "address. Try a different delivery ZIP or contact support.",
     };
+  }
+
+  // When a different pickup ZIP is supplied, validate it the same way.
+  // findEligibleInstaller enforces "one installer covers both" at routing
+  // time; this is the form-fill guard against the obvious uncovered case.
+  if (pickupZip && pickupZip !== deliveryZip) {
+    const pickupCoverage = await previewToteGiftDelivery({ deliveryZip: pickupZip });
+    if (pickupCoverage.tier === "no_coverage") {
+      return {
+        success: false,
+        error:
+          "No installer covers the pickup ZIP yet — we can't retrieve totes from " +
+          "that address. Try a different pickup ZIP or uncheck the different-pickup option.",
+      };
+    }
   }
 
   const surchargeCents = preview.surchargeCents;
@@ -215,14 +239,16 @@ export async function createInventoryGiftDispatch(
   const status = dispatch.status as string;
   const newBalance = dispatch.new_balance as number;
 
-  // Phone (added in migration 117) isn't part of the dispatch RPC signature,
-  // so stamp it on a follow-up UPDATE. If this fails the gift still works —
-  // the installer just falls back to email.
-  if (recipientPhone) {
-    await db
-      .from("tote_rental_gifts")
-      .update({ recipient_phone: recipientPhone })
-      .eq("id", giftId);
+  // Phone (added in migration 117) and pickup-address overrides (migration
+  // 123) aren't part of the dispatch RPC signature, so stamp them on a
+  // follow-up UPDATE. If this fails the gift still works — the installer
+  // falls back to email and to picking up at the delivery address.
+  const patch: Record<string, unknown> = {};
+  if (recipientPhone) patch.recipient_phone = recipientPhone;
+  if (pickupAddress) patch.pickup_address = pickupAddress;
+  if (pickupZip) patch.pickup_zip = pickupZip;
+  if (Object.keys(patch).length > 0) {
+    await db.from("tote_rental_gifts").update(patch).eq("id", giftId);
   }
 
   // ── Free path: send invite immediately, done. ────────────────────────
