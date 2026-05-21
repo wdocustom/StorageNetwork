@@ -13,7 +13,6 @@ import {
   Gift,
   Package,
   MapPin,
-  Heart,
 } from "lucide-react";
 
 import { onboardRealtor } from "@/app/actions/onboard-realtor";
@@ -35,19 +34,13 @@ const VALUE_PROPS = [
     icon: Gift,
     label: "THE GIFT",
     title: "Best Closing Gift on the Market",
-    desc: "Reusable totes, delivered to your buyer or seller. Branded with your name. No cardboard, no mess.",
+    desc: "Reusable totes, delivered to your buyer or seller. No cardboard, no mess.",
   },
   {
     icon: Package,
     label: "WHITE GLOVE",
     title: "Local Pro Delivers & Picks Up",
-    desc: "A vetted local installer handles delivery and pickup. You hand over a link. They handle the rest.",
-  },
-  {
-    icon: Heart,
-    label: "STAYING POWER",
-    title: "Your Name on the Box",
-    desc: "Every tote arrives co-branded with your photo, your brokerage, your message. Buyers remember.",
+    desc: "A vetted local installer handles delivery and pickup. We route the job automatically — you don't manage any hand-off.",
   },
 ];
 
@@ -138,7 +131,7 @@ function RealtorJoinPageInner() {
             The smartest <span className="text-yellow-400">closing gift</span> you'll ever send.
           </h1>
           <p className="mb-10 max-w-xl text-base leading-relaxed text-stone-400 sm:text-lg">
-            Reusable moving totes &mdash; co-branded with you &mdash; delivered to your buyer or seller before the move and picked up after they're settled. Pick a package, send a link. We handle the rest.
+            Reusable moving totes delivered to your buyer or seller before the move and picked up after they're settled. Pick a package, send a link. We handle the rest.
           </p>
 
           <div className="space-y-5">

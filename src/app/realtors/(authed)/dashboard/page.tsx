@@ -9,7 +9,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { Gift, Package, Settings } from "lucide-react";
+import { Gift, Package } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { AnalyticsSection } from "./AnalyticsSection";
@@ -67,13 +67,6 @@ export default async function RealtorDashboardPage({
               <p className="mt-1 text-sm text-stone-400">{profile.realtor_brokerage}</p>
             )}
           </div>
-          <Link
-            href="/realtors/dashboard/settings"
-            className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-300 hover:border-slate-600 sm:px-4 sm:text-sm"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-          </Link>
         </div>
 
         {/* ── Action tiles ─────────────────────────────────────────── */}
@@ -115,7 +108,7 @@ export default async function RealtorDashboardPage({
             <Step
               n={4}
               title="A local pro delivers and picks up"
-              desc="We route fulfillment to the nearest vetted installer in our network. Every tote arrives co-branded with your name."
+              desc="We route fulfillment to the nearest vetted installer in our network. Delivery, rental, and pickup — all handled."
             />
           </ol>
         </div>
@@ -152,15 +145,6 @@ export default async function RealtorDashboardPage({
           <ReferralsSection />
         </div>
 
-        {/* ── Settings shortcut ────────────────────────────────────── */}
-        <div className="mt-8">
-          <SettingsLinkCard
-            icon={Settings}
-            title="Custom branding"
-            desc="Add your photo, brokerage logo, and a signature line to every recipient page."
-            href="/realtors/dashboard/settings"
-          />
-        </div>
       </div>
     </div>
   );
@@ -226,25 +210,3 @@ function Step({ n, title, desc }: { n: number; title: string; desc: string }) {
   );
 }
 
-function SettingsLinkCard({
-  icon: Icon,
-  title,
-  desc,
-  href,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group block rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-5 transition-all hover:border-yellow-400/60 hover:bg-yellow-400/10"
-    >
-      <Icon className="mb-3 h-5 w-5 text-yellow-400" />
-      <p className="mb-1 text-sm font-bold text-stone-200 group-hover:text-yellow-300">{title}</p>
-      <p className="text-xs leading-relaxed text-stone-400">{desc}</p>
-    </Link>
-  );
-}
