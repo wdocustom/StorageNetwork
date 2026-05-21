@@ -50,6 +50,7 @@ const ALLOWED_PATHS = [
   "/features",
   "/join",
   "/partner/join",
+  "/realtors/join",
   "/installers/",
   "/installers/*",
   "/become-installer/",

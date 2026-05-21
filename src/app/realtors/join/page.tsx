@@ -1,233 +1,158 @@
-"use client";
-
-import { Suspense, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import {
-  Loader2,
-  Mail,
-  Lock,
-  User,
-  Building2,
-  Award,
-  Gift,
-  Package,
-  MapPin,
-} from "lucide-react";
-
-import { onboardRealtor } from "@/app/actions/onboard-realtor";
-import { isDisposableEmail } from "@/lib/disposable-emails";
-import { stampLastLogin } from "@/app/actions/profile";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import type { Metadata } from "next";
+import RealtorJoinPageClient from "./RealtorJoinPageClient";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Realtor Onboarding — Closing-Gift Toolkit Signup
+// /realtors/join — server wrapper so we can export metadata + JSON-LD
+// around the existing "use client" signup page. The client component
+// owns the signup form + the visible FAQ section; this server shell's
+// only job is SEO.
 //
-// Mirrors /partner/join in structure (same auth handoff, same brand palette)
-// but the angle is different: realtors are credibility-driven and care about
-// relationship + brand. The pitch leads with the closing-gift moment, not
-// money or tooling.
+// Keyword strategy — note: unlike the homeowner side, this keyword set
+// isn't validated by a paid campaign. Picks are based on intent
+// patterns (realtors searching for closing-gift ideas, moving-tote
+// rental, etc.). Once the realtor product has its own Search Ads
+// campaign running, prune this list against actual converter data.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VALUE_PROPS = [
-  {
-    icon: Gift,
-    label: "THE GIFT",
-    title: "Best Closing Gift on the Market",
-    desc: "Reusable totes, delivered to your buyer or seller. No cardboard, no mess.",
+export const metadata: Metadata = {
+  title:
+    "Realtor Closing Gifts — Reusable Moving Tote Rentals | Storage Network",
+  description:
+    "The closing gift that gets remembered. Storage Network sends 20–50 reusable moving totes to your buyer or seller — delivered and picked up by a local pro. Free realtor account, no subscription, only pay when you send.",
+  keywords: [
+    // Core realtor / closing gift intent
+    "real estate closing gifts",
+    "realtor closing gifts",
+    "closing gift for buyers",
+    "closing gift for sellers",
+    "closing gift ideas",
+    "realtor closing gift ideas",
+    "best closing gifts",
+    "unique closing gifts",
+    "closing gift for new homeowners",
+    "realtor gift",
+    // Moving tote / rental intent (high-volume adjacent)
+    "moving tote rental",
+    "reusable moving boxes",
+    "rent moving totes",
+    "moving box rental",
+    "plastic moving boxes",
+    "reusable moving box rental",
+    "moving tote service",
+    // Platform / brand
+    "storage network closing gift",
+    "realtor marketing gift",
+    "realtor branded gift",
+  ],
+  alternates: {
+    canonical: "/realtors/join",
   },
-  {
-    icon: Package,
-    label: "WHITE GLOVE",
-    title: "Local Pro Delivers & Picks Up",
-    desc: "A vetted local installer handles delivery and pickup. We route the job automatically — you don't manage any hand-off.",
+  openGraph: {
+    title:
+      "Realtor Closing Gifts — Reusable Moving Tote Rentals | Storage Network",
+    description:
+      "The smartest closing gift on the market. Reusable moving totes delivered to your buyer or seller before the move and picked up after — no cardboard, no mess.",
+    type: "website",
   },
-];
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
+
+// FAQPage schema — must mirror the visible FAQ section on the client
+// page (Google penalizes FAQPage that isn't actually on the page).
+// If you edit the visible Q&A in RealtorJoinPageClient.tsx, update
+// these answer strings to match.
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What's the best closing gift for buyers right now?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "The closing gifts that get remembered are the ones that arrive when your client is using them — and nobody's using a wine glass during their move. Reusable moving totes show up before the move-in date, get filled, get returned. Your name is the one they think of every time they pack a box.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How much should a realtor spend on a closing gift?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Most agents land between $100 and $400 depending on commission size and relationship. Storage Network packages start around $200 for a 20-tote starter and run up to $500 for a 50-tote premium move — priced per-package, no subscription, only pay when you send.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Are reusable moving totes actually a good closing gift?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "They're a closing gift that doubles as a service. Buyers and sellers consistently rank moving as the most stressful part of the transaction; handing them 20–50 stackable, reusable totes plus a local pro who delivers and picks them up removes the worst part of the day they remember you for.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "When should I send the closing gift — at signing or before move-in?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Send the gift link as soon as you've got a closing date. The recipient picks their own delivery window through the link, so the totes show up the week of the move, not the week of the signature.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What if my client is in a city where you don't have an installer?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "We confirm coverage at checkout — if no installer covers the delivery ZIP, the gift won't go through and you won't be charged. Coverage is expanding monthly, but you can always check a specific area before committing.",
+      },
+    },
+  ],
+};
+
+// Service schema — closing-gift / moving-tote-rental product framed
+// in schema.org's Service vocabulary so the offering can be matched
+// against intent-rich queries beyond pure keyword density.
+const serviceSchema = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  name: "Realtor Closing Gift — Reusable Moving Tote Rental",
+  serviceType: "Real Estate Closing Gift",
+  provider: {
+    "@type": "Organization",
+    name: "Storage Network",
+    url: "https://storage-network.app",
+  },
+  audience: {
+    "@type": "BusinessAudience",
+    audienceType: "Real Estate Agents and Brokers",
+  },
+  description:
+    "Realtors send a closing gift of 20–50 reusable moving totes to their buyer or seller. A local pro delivers the totes before the move and picks them up after — no cardboard, no follow-up, only pay when you send.",
+  offers: {
+    "@type": "AggregateOffer",
+    priceCurrency: "USD",
+    lowPrice: "200",
+    highPrice: "500",
+    offerCount: "4",
+    description:
+      "Starter (20 totes), Standard (30), Pro (40), and Premium (50). 7- or 14-day rental windows. Pricing matches the published catalog.",
+  },
+};
 
 export default function RealtorJoinPage() {
   return (
-    <Suspense>
-      <RealtorJoinPageInner />
-    </Suspense>
-  );
-}
-
-function RealtorJoinPageInner() {
-  const [name, setName] = useState("");
-  const [brokerage, setBrokerage] = useState("");
-  const [licenseNumber, setLicenseNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit() {
-    setError("");
-
-    if (!name.trim() || !brokerage.trim() || !email.trim() || !password) {
-      setError("Name, brokerage, email, and password are all required.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (isDisposableEmail(email)) {
-      setError("Please use your real brokerage or personal email. Temporary and alias email services are not accepted.");
-      return;
-    }
-
-    setLoading(true);
-    const result = await onboardRealtor({
-      name: name.trim(),
-      brokerage: brokerage.trim(),
-      licenseNumber: licenseNumber.trim() || undefined,
-      email: email.trim(),
-      password,
-    });
-
-    if (result.success) {
-      const supabase = getSupabaseBrowserClient();
-      const { data: signInData } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      if (signInData?.user) {
-        await stampLastLogin(signInData.user.id);
-      }
-      window.location.href = result.redirectUrl || "/realtors/dashboard";
-    } else {
-      setError(result.error || "Something went wrong.");
-      setLoading(false);
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") handleSubmit();
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950">
-      {/* ── HERO ─────────────────────────────────────────────────── */}
-      <div className="relative flex flex-col lg:min-h-screen lg:flex-row">
-        {/* Left: pitch */}
-        <div className="flex flex-col justify-center px-6 py-16 lg:w-1/2 lg:px-16">
-          <Link href="/" className="mb-10 flex items-center gap-3">
-            <Image
-              src="/landing_page_logo.png"
-              alt="Storage Network"
-              width={48}
-              height={48}
-              className="h-12 w-12 object-contain"
-              priority
-            />
-            <span className="text-lg font-bold tracking-tight text-white">Storage Network</span>
-          </Link>
-
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-yellow-400">
-            For Realtors
-          </p>
-          <h1 className="mb-5 text-4xl font-black leading-tight text-white sm:text-5xl">
-            The smartest <span className="text-yellow-400">closing gift</span> you'll ever send.
-          </h1>
-          <p className="mb-10 max-w-xl text-base leading-relaxed text-stone-400 sm:text-lg">
-            Reusable moving totes delivered to your buyer or seller before the move and picked up after they're settled. Pick a package, send a link. We handle the rest.
-          </p>
-
-          <div className="space-y-5">
-            {VALUE_PROPS.map(({ icon: Icon, label, title, desc }) => (
-              <div key={title} className="flex gap-4 rounded-xl border border-slate-800 bg-slate-900/40 p-5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 ring-1 ring-yellow-400/30">
-                  <Icon className="h-5 w-5 text-yellow-400" />
-                </div>
-                <div>
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-yellow-400">{label}</p>
-                  <p className="mb-1 text-base font-bold text-white">{title}</p>
-                  <p className="text-sm leading-relaxed text-stone-400">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: signup form */}
-        <div className="flex items-center justify-center bg-slate-900/30 px-6 py-16 lg:w-1/2 lg:px-16">
-          <div className="w-full max-w-md">
-            <h2 className="mb-2 text-2xl font-black text-white">Start sending gifts</h2>
-            <p className="mb-8 text-sm text-stone-400">Free to join. You only pay when you send a package.</p>
-
-            <div className="space-y-4">
-              <Field icon={User} placeholder="Full name" value={name} onChange={setName} onKeyDown={handleKeyDown} autoComplete="name" />
-              <Field icon={Building2} placeholder="Brokerage" value={brokerage} onChange={setBrokerage} onKeyDown={handleKeyDown} autoComplete="organization" />
-              <Field icon={Award} placeholder="License # (optional)" value={licenseNumber} onChange={setLicenseNumber} onKeyDown={handleKeyDown} />
-              <Field icon={Mail} placeholder="Work email" value={email} onChange={setEmail} onKeyDown={handleKeyDown} type="email" autoComplete="email" />
-              <Field icon={Lock} placeholder="Password (min 6)" value={password} onChange={setPassword} onKeyDown={handleKeyDown} type="password" autoComplete="new-password" />
-            </div>
-
-            {error && (
-              <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-6 py-3.5 text-base font-bold text-slate-950 transition-all hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating account…
-                </>
-              ) : (
-                <>Create Realtor Account</>
-              )}
-            </button>
-
-            <p className="mt-4 text-center text-xs text-stone-500">
-              Already have an account?{" "}
-              <Link href="/realtors/login" className="font-semibold text-yellow-400 hover:underline">
-                Sign in
-              </Link>
-            </p>
-
-            <div className="mt-8 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-4 text-xs text-stone-500">
-              <MapPin className="h-4 w-4 shrink-0 text-yellow-400" />
-              <span>
-                Fulfillment is handled by our local installer network. We&apos;ll confirm coverage in your buyer&apos;s area before each gift is finalized.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface FieldProps {
-  icon: React.ComponentType<{ className?: string }>;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  type?: string;
-  autoComplete?: string;
-}
-
-function Field({ icon: Icon, placeholder, value, onChange, onKeyDown, type = "text", autoComplete }: FieldProps) {
-  return (
-    <div className="relative">
-      <Icon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-11 pr-4 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-    </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
+      />
+      <RealtorJoinPageClient />
+    </>
   );
 }
