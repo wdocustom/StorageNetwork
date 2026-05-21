@@ -7,18 +7,20 @@ import InlineConfigurator from "@/components/landing/InlineConfigurator";
 import { AnimatedBadge } from "@/components/landing/AnimatedTrustBadges";
 
 export const metadata: Metadata = {
-  title: "Storage Network | Professional Tote Storage Systems — Design, Build & Install",
+  title: "Storage Network | Tote Storage Systems — Custom Design, Build & Install",
   description:
-    "Design your custom 27-gallon tote storage system in 30 seconds. Heavy-duty shelving for garages, basements & sheds. Free 3D configurator with instant pricing. Professional installation by certified local pros. Lifetime warranty.",
+    "Design your custom tote storage system in 30 seconds. Heavy-duty tote racks, tote shelving, and built-in storage for garages, basements, sheds, and pantries. Free 3D configurator with instant pricing. Professional storage installation by certified local pros. Lifetime warranty.",
   keywords: [
-    "tote storage system", "garage storage", "tote rack", "tote shelving",
-    "garage organization", "HDX tote storage", "27 gallon tote rack",
-    "custom tote organizer", "garage shelving installation",
+    "tote storage system", "tote storage rack", "tote racks", "tote shelving",
+    "tote organizers", "garage storage", "garage organization", "garage shelving installation",
+    "27 gallon tote rack", "HDX tote storage", "custom storage", "custom storage system",
+    "storage systems", "storage design", "storage installation", "shelf installation",
+    "shelf system", "built in storage", "build storage", "tool storage system",
     "professional garage storage", "tote storage near me",
   ],
   openGraph: {
-    title: "Storage Network | Professional Tote Storage Systems",
-    description: "Design your custom tote storage system in 30 seconds. Free 3D configurator. Professional installation by certified local pros.",
+    title: "Storage Network | Tote Storage Systems — Custom Design, Build & Install",
+    description: "Design your custom tote storage system in 30 seconds. Free 3D configurator. Professional storage installation by certified local pros.",
     type: "website",
   },
   alternates: {
@@ -148,6 +150,83 @@ export default function LandingPage() {
                 desc="Real reviews from real customers, verified by the platform. Read before you book."
               />
             </AnimatedBadge>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          WHAT WE BUILD — SEO content block
+          Plain, scannable copy that gives search engines + first-time
+          visitors a clear summary of the product surface. The phrasing
+          intentionally folds in the long-tail terms our Google Ads
+          campaigns validate (tote storage systems, custom storage
+          installation, tote racks, shelf system, etc.) so the page
+          ranks for what people actually search.
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="border-t border-stone-800 bg-gray-950 px-4 py-20">
+        <div className="mx-auto max-w-4xl">
+          <p className="mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-stone-600">
+            What We Build
+          </p>
+
+          <div className="grid gap-8 sm:grid-cols-2">
+            <div>
+              <h2 className="mb-3 text-lg font-extrabold text-white">
+                Custom Tote Storage Systems
+              </h2>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Heavy-duty tote storage racks built around the 27-gallon
+                HDX and Greenmade totes you can buy at any home center. A
+                4&times;5 unit fits 20 totes against a single wall &mdash;
+                bigger walls run 5&times;6 or 6&times;6. Same lumber, same
+                hardware, sized to your room.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-extrabold text-white">
+                Built-In Storage & Shelf Systems
+              </h2>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Tote shelving and built-in storage for garages, basements,
+                pantries, mudrooms, and sheds. Anchored into wall studs and
+                rated to 2,000 lb per unit, our shelf system replaces
+                wire racks and plastic-bin chaos with one clean
+                wall-to-ceiling install.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-extrabold text-white">
+                Tool Storage & Workshop Organizers
+              </h2>
+              <p className="text-sm leading-relaxed text-stone-400">
+                The same frame doubles as a tool storage system &mdash;
+                drop in mini-tote shelves for fasteners and parts, or
+                full-depth totes for power tools and consumables. Every
+                slot is labeled, every bin lifts straight out, every
+                workshop turns over in an afternoon.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-extrabold text-white">
+                Professional Storage Design & Installation
+              </h2>
+              <p className="text-sm leading-relaxed text-stone-400">
+                Use our{" "}
+                <a href="/design" className="font-semibold text-yellow-400 hover:underline">
+                  free 3D storage designer
+                </a>{" "}
+                to lay out your wall in 30 seconds, then route the build
+                to a certified pro in your area through the{" "}
+                <a href="/installer-network" className="font-semibold text-yellow-400 hover:underline">
+                  installer network
+                </a>
+                . Custom storage installation, shelf installation, and
+                full system builds &mdash; you don&apos;t touch a tool.
+              </p>
+            </div>
           </div>
         </div>
       </section>

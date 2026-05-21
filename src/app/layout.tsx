@@ -14,20 +14,39 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  title: "Storage Network | Custom Tote Storage Systems",
+  title: "Storage Network | Custom Tote Storage Systems & Installation",
   description:
-    "Design custom tote storage in 30 seconds. Free 3D configurator for garages, basements & sheds. Find certified installers or DIY with our cut lists.",
+    "Custom tote storage systems designed in 3D and installed by certified local pros. Heavy-duty tote racks, tote shelving, and built-in storage for garages, basements, sheds, and pantries. Free configurator, instant pricing, lifetime warranty.",
   keywords: [
+    // Core product
     "tote storage",
-    "27 gallon tote rack",
-    "garage organization",
-    "basement storage",
-    "HDX tote shelving",
-    "custom storage system",
+    "tote storage system",
+    "tote storage rack",
+    "tote rack",
+    "tote racks",
+    "tote shelving",
     "tote organizer",
+    "tote organizers",
+    "27 gallon tote rack",
+    "HDX tote shelving",
+    // Build / design / installation intent
+    "storage systems",
+    "custom storage",
+    "custom storage system",
+    "storage design",
+    "storage installation",
+    "shelf installation",
+    "shelf system",
+    "built in storage",
+    "build storage",
+    "tool storage system",
+    // Use cases
+    "garage organization",
+    "garage shelving system",
+    "basement storage",
+    // Platform
     "2x4 storage rack",
     "tote rack builder",
-    "garage shelving system",
     "DIY tote rack plans",
     "storage network installer",
   ],
@@ -82,7 +101,7 @@ const jsonLdGraph = {
         url: "https://storage-network.app/landing_page_logo.png",
       },
       description:
-        "The operating system for professional tote-rack builders. Storage Network connects homeowners with verified installers and provides an industry-standard 3D configurator, automated cut plans, and built-in scheduling for custom 2×4 and 27-gallon tote storage systems.",
+        "The operating system for professional tote-rack builders. Storage Network connects homeowners with verified installers and provides an industry-standard 3D configurator, automated cut plans, and built-in scheduling for custom 2×4 tote storage systems, tote shelving, and built-in storage installations using 27-gallon totes.",
       foundingDate: "2024",
       founder: { "@id": "https://storage-network.app/#founder" },
       contactPoint: {
