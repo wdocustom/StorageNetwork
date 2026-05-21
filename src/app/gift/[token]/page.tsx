@@ -41,6 +41,14 @@ export default async function GiftRecipientPage({ params }: PageProps) {
         </div>
 
         <div className="mb-10 rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-6 text-center">
+          {gift.realtorPhotoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={gift.realtorPhotoUrl}
+              alt={gift.realtorName}
+              className="mx-auto mb-4 h-20 w-20 rounded-full border-2 border-yellow-400/40 object-cover"
+            />
+          )}
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-yellow-400">
             A closing gift for {gift.recipientName.split(" ")[0]}
           </p>

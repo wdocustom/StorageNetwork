@@ -149,7 +149,7 @@ export async function createInventoryGiftDispatch(
   // Confirm caller is a realtor (defense in depth — route is gated).
   const { data: profile } = await db
     .from("profiles")
-    .select("is_realtor, first_name, last_name, realtor_brokerage, email")
+    .select("is_realtor, first_name, last_name, realtor_brokerage, realtor_photo_url, email")
     .eq("id", user.id)
     .single();
 
@@ -405,7 +405,7 @@ export async function finalizeInventoryGiftSurcharge(opts: {
   // Fire emails. Fire-and-forget; finalize must not fail if Resend hiccups.
   const { data: realtor } = await db
     .from("profiles")
-    .select("first_name, last_name, realtor_brokerage, email")
+    .select("first_name, last_name, realtor_brokerage, realtor_photo_url, email")
     .eq("id", updated.realtor_id)
     .single();
 
@@ -450,6 +450,7 @@ async function sendInventoryGiftEmails(args: {
     first_name?: string | null;
     last_name?: string | null;
     realtor_brokerage?: string | null;
+    realtor_photo_url?: string | null;
     email?: string | null;
   } | null;
 }): Promise<void> {
@@ -457,12 +458,14 @@ async function sendInventoryGiftEmails(args: {
     [args.realtor?.first_name, args.realtor?.last_name].filter(Boolean).join(" ") ||
     "Your realtor";
   const brokerage = args.realtor?.realtor_brokerage || "";
+  const realtorPhotoUrl = args.realtor?.realtor_photo_url ?? null;
   const giftUrl = `${getAppUrl()}/gift/${args.giftToken}`;
 
   await sendGiftRecipientInvite(args.recipientEmail, {
     recipientName: args.recipientName,
     realtorName,
     brokerage,
+    realtorPhotoUrl,
     packageName: `${args.toteCount} totes`,
     toteCount: args.toteCount,
     durationDays: args.durationDays,

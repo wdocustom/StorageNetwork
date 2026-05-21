@@ -86,6 +86,9 @@ export async function sendGiftRecipientInvite(
     recipientName: string;
     realtorName: string;
     brokerage: string;
+    /** Optional. When set, rendered as a circular avatar above the
+     *  "From X" line so the recipient sees a familiar face. */
+    realtorPhotoUrl?: string | null;
     packageName: string;
     toteCount: number;
     durationDays: number;
@@ -96,6 +99,16 @@ export async function sendGiftRecipientInvite(
   const giverLine = data.brokerage
     ? `${escapeHtml(data.realtorName)} &middot; ${escapeHtml(data.brokerage)}`
     : escapeHtml(data.realtorName);
+
+  // Inline avatar — width/height attrs + bulletproof border-radius styling
+  // so it stays circular in Gmail, Outlook, and Apple Mail.
+  const photoBlock = data.realtorPhotoUrl
+    ? `
+      <div style="text-align:center;margin:0 0 20px;">
+        <img src="${escapeHtml(data.realtorPhotoUrl)}" alt="${escapeHtml(data.realtorName)}" width="88" height="88" style="display:inline-block;width:88px;height:88px;border-radius:50%;border:2px solid #facc15;object-fit:cover;" />
+      </div>
+    `
+    : "";
 
   const messageBlock = data.personalMessage
     ? `
@@ -109,6 +122,7 @@ export async function sendGiftRecipientInvite(
   const html = masterEmailLayout(
     "You've been gifted a move",
     `
+    ${photoBlock}
     <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hi ${escapeHtml(data.recipientName)},</p>
     <p style="margin:0 0 24px;color:#a3a3a3;font-size:15px;line-height:1.7;">
       <strong style="color:#ffffff;">${giverLine}</strong> just sent you a closing gift &mdash; a full set of reusable moving totes, delivered to your door and picked up after you've settled in. No cardboard, no mess.
