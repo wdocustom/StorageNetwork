@@ -381,7 +381,7 @@ export async function finalizeGiftPurchase(opts: {
     db.from("tote_rental_packages").select("name").eq("id", updated.package_id).single(),
     db
       .from("profiles")
-      .select("first_name, last_name, realtor_brokerage, email")
+      .select("first_name, last_name, realtor_brokerage, realtor_photo_url, email")
       .eq("id", updated.realtor_id)
       .single(),
   ]);
@@ -389,6 +389,7 @@ export async function finalizeGiftPurchase(opts: {
   const realtorName =
     [realtor?.first_name, realtor?.last_name].filter(Boolean).join(" ") || "Your realtor";
   const brokerage = realtor?.realtor_brokerage || "";
+  const realtorPhotoUrl = (realtor?.realtor_photo_url as string | null) ?? null;
   const packageName = pkg?.name || "Closing Gift";
   const giftUrl = `${getAppUrl()}/gift/${updated.gift_token}`;
 
@@ -396,6 +397,7 @@ export async function finalizeGiftPurchase(opts: {
     recipientName: updated.recipient_name,
     realtorName,
     brokerage,
+    realtorPhotoUrl,
     packageName,
     toteCount: updated.tote_count,
     durationDays: updated.duration_days,
@@ -501,6 +503,9 @@ export interface RecipientGiftView {
   scheduled: boolean;
   realtorName: string;
   realtorBrokerage: string | null;
+  /** Optional head-shot uploaded via /realtors/dashboard/settings.
+   *  Shown on the recipient gift page and in the invite email. */
+  realtorPhotoUrl: string | null;
   propertyAddress: string | null;
   propertyZip: string | null;
   deliveryAddress: string | null;
@@ -542,7 +547,7 @@ export async function lookupGiftByToken(
       installer_id,
       tote_rental_packages ( name, description, features ),
       realtor:profiles!tote_rental_gifts_realtor_id_fkey (
-        first_name, last_name, realtor_brokerage
+        first_name, last_name, realtor_brokerage, realtor_photo_url
       ),
       installer:profiles!tote_rental_gifts_installer_id_fkey (
         first_name, last_name, business_name, slug
@@ -563,6 +568,7 @@ export async function lookupGiftByToken(
         first_name: string | null;
         last_name: string | null;
         realtor_brokerage: string | null;
+        realtor_photo_url: string | null;
       }
     | null;
   const installer = row.installer as unknown as
@@ -589,6 +595,7 @@ export async function lookupGiftByToken(
     realtorName:
       [realtor?.first_name, realtor?.last_name].filter(Boolean).join(" ") || "Your realtor",
     realtorBrokerage: realtor?.realtor_brokerage ?? null,
+    realtorPhotoUrl: realtor?.realtor_photo_url ?? null,
     propertyAddress: (row.property_address as string | null) ?? null,
     propertyZip: (row.property_zip as string | null) ?? null,
     deliveryAddress: (row.delivery_address as string | null) ?? null,

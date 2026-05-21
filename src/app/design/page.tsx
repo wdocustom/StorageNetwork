@@ -30,6 +30,19 @@ export const metadata: Metadata = {
     "custom shelving planner",
     "HDX tote system",
     "basement storage design",
+    "tote storage system",
+    "tote storage rack",
+    "tote racks",
+    "tote shelving",
+    "tote organizers",
+    "custom storage",
+    "storage design",
+    "storage installation",
+    "shelf system",
+    "shelf installation",
+    "built in storage",
+    "build storage",
+    "tool storage system",
   ],
   alternates: {
     canonical: "/design",
@@ -111,6 +124,30 @@ const faqSchema = {
       acceptedAnswer: {
         "@type": "Answer",
         text: "Our heavy-duty 2x4 frame construction supports 1,000+ lbs per unit. Each individual tote slot can safely hold 100+ lbs when properly installed into wall studs.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can the same frame be used as a tool storage system?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. The same 2×4 frame supports 27-gallon totes for bulk items and 6.5-quart mini totes for tool storage. Workshops typically mix both: full-depth totes on the lower rows for power tools and consumables, mini-tote shelves at eye level for fasteners and parts.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Do you handle full custom storage installation or just the design?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Both. Use the configurator to design your tote racks or shelf system, then choose your path: route the build to a certified installer in your area for a full storage installation (frame, shelf installation, totes loaded), or download the cut list and material guide and build it yourself.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Where does this tote storage system work best?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Garages, basements, pantries, mudrooms, and sheds. The system replaces wire shelves and floor-piled plastic totes with anchored, labeled built-in storage rated for 1,000+ lb per unit. Same frame, sized to your wall.",
       },
     },
   ],

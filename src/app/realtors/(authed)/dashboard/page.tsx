@@ -9,7 +9,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { Gift, Package } from "lucide-react";
+import { Gift, Package, Camera } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { AnalyticsSection } from "./AnalyticsSection";
@@ -67,6 +67,13 @@ export default async function RealtorDashboardPage({
               <p className="mt-1 text-sm text-stone-400">{profile.realtor_brokerage}</p>
             )}
           </div>
+          <Link
+            href="/realtors/dashboard/settings"
+            className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-300 hover:border-slate-600 sm:px-4 sm:text-sm"
+          >
+            <Camera className="h-4 w-4" />
+            <span className="hidden sm:inline">Your photo</span>
+          </Link>
         </div>
 
         {/* ── Action tiles ─────────────────────────────────────────── */}
