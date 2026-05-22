@@ -742,7 +742,7 @@ export async function getToteFulfillmentOnboarding(): Promise<
   if (!user) return null;
 
   const db = getServiceClient();
-  const { data } = await db
+  const { data, error } = await db
     .from("profiles")
     .select(
       `tote_fulfillment_active, tote_fulfillment_stock, tote_fulfillment_capacity,
@@ -752,7 +752,43 @@ export async function getToteFulfillmentOnboarding(): Promise<
     .eq("id", user.id)
     .single();
 
-  if (!data) return null;
+  // If the profile lookup fails (missing row, transient DB error), fall
+  // back to a synthetic onboarding object with every gate failing
+  // rather than returning null. Returning null silently hid the entire
+  // opt-in UI on /dashboard/tote-rentals, leaving the page blank below
+  // the header. With a synthetic object we always render the pitch +
+  // gates + opt-in form, and the user gets clear pointers to fix what's
+  // missing (Stripe Connect / service area).
+  if (!data) {
+    if (error) {
+      console.error(
+        "[Fulfillment] getToteFulfillmentOnboarding profile lookup failed for user",
+        user.id,
+        error
+      );
+    } else {
+      console.warn(
+        "[Fulfillment] getToteFulfillmentOnboarding: no profile row for user",
+        user.id
+      );
+    }
+    return {
+      active: false,
+      stock: 0,
+      capacity: 5,
+      gates: {
+        stripeConnect: { passed: false, hasAccount: false, detailsSubmitted: false },
+        serviceArea: {
+          passed: false,
+          homeZip: null,
+          radiusMiles: null,
+          coveredZipCount: 0,
+          withinRealtorCapCount: 0,
+        },
+      },
+      allGatesPassed: false,
+    };
+  }
 
   const hasAccount = !!(data.stripe_account_id as string | null);
   const detailsSubmitted = !!(data.stripe_details_submitted as boolean | null);
