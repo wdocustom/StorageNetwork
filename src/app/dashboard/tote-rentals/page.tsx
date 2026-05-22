@@ -71,50 +71,66 @@ export default async function ToteRentalsPage() {
           </p>
         </div>
 
-        {readiness && (readiness.active ? (
-          <>
-            <ToteFulfillmentSettings
-              initial={{ active: readiness.active, stock: readiness.stock, capacity: readiness.capacity }}
-              jobsInFlight={jobs.filter((j) => j.status === "assigned" || j.status === "delivered").length}
-            />
+        {/* Render order: live state → onboarding → defensive fallback.
+            The fallback only fires if the readiness probe returned null
+            (e.g. unauthenticated request slipped through, profile row
+            missing). Before this fallback existed, that case rendered
+            nothing below the header — leaving the page silently empty
+            with no opt-in CTA. */}
+        {readiness ? (
+          readiness.active ? (
+            <>
+              <ToteFulfillmentSettings
+                initial={{ active: readiness.active, stock: readiness.stock, capacity: readiness.capacity }}
+                jobsInFlight={jobs.filter((j) => j.status === "assigned" || j.status === "delivered").length}
+              />
 
-            {(earnings.paidCents > 0 || earnings.pendingCents > 0) && (
-              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <EarningsCard
-                  label="Paid out"
-                  cents={earnings.paidCents}
-                  tint="emerald"
-                  hint="Stripe transfers landed on your connected account."
-                />
-                <EarningsCard
-                  label="Pending"
-                  cents={earnings.pendingCents}
-                  tint="yellow"
-                  hint="Earned on jobs not yet completed, plus any completed gifts awaiting transfer."
-                />
-              </div>
-            )}
-
-            {jobs.length > 0 ? (
-              <div className="mt-10">
-                <ToteJobsTable jobs={jobs} />
-              </div>
-            ) : (
-              <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-16 text-center">
-                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10 ring-1 ring-yellow-400/40">
-                  <Package className="h-7 w-7 text-yellow-400" />
+              {(earnings.paidCents > 0 || earnings.pendingCents > 0) && (
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <EarningsCard
+                    label="Paid out"
+                    cents={earnings.paidCents}
+                    tint="emerald"
+                    hint="Stripe transfers landed on your connected account."
+                  />
+                  <EarningsCard
+                    label="Pending"
+                    cents={earnings.pendingCents}
+                    tint="yellow"
+                    hint="Earned on jobs not yet completed, plus any completed gifts awaiting transfer."
+                  />
                 </div>
-                <h2 className="mb-2 text-xl font-bold">No active jobs yet</h2>
-                <p className="mx-auto max-w-md text-sm text-stone-400">
-                  You&apos;re live. We&apos;ll route the next realtor gift in your area to you and email
-                  you the moment it lands.
-                </p>
-              </div>
-            )}
-          </>
+              )}
+
+              {jobs.length > 0 ? (
+                <div className="mt-10">
+                  <ToteJobsTable jobs={jobs} />
+                </div>
+              ) : (
+                <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-16 text-center">
+                  <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10 ring-1 ring-yellow-400/40">
+                    <Package className="h-7 w-7 text-yellow-400" />
+                  </div>
+                  <h2 className="mb-2 text-xl font-bold">No active jobs yet</h2>
+                  <p className="mx-auto max-w-md text-sm text-stone-400">
+                    You&apos;re live. We&apos;ll route the next realtor gift in your area to you and email
+                    you the moment it lands.
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <ToteFulfillmentOnboarding readiness={readiness} />
+          )
         ) : (
-          <ToteFulfillmentOnboarding readiness={readiness} />
-        ))}
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-6 text-sm text-amber-100">
+            <p className="mb-1 font-bold">Couldn&rsquo;t load your fulfillment profile.</p>
+            <p className="text-amber-200/80">
+              Refresh the page or sign out and back in. If it keeps happening,
+              email support so we can check your account.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
