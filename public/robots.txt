@@ -82,6 +82,7 @@ Allow: /about
 Allow: /about/*
 Allow: /join
 Allow: /partner/join
+Allow: /realtors/join
 Allow: /installers/
 Allow: /installers/*
 Allow: /become-installer/

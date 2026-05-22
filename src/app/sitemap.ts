@@ -91,6 +91,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/features`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${BASE}/partner/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${BASE}/realtors/join`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
 
     // Public pages
     { url: `${BASE}/installer-network`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
