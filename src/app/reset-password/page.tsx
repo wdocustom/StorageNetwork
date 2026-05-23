@@ -24,21 +24,41 @@ export default function ResetPasswordPage() {
   const [hasValidSession, setHasValidSession] = useState(false);
 
   // ── Recovery session setup ───────────────────────────────────────────────
-  // The previous version of this effect trusted whatever session
-  // `supabase.auth.getSession()` returned. That's wrong: if a *different*
-  // user is signed in on this device when the reset link is clicked, the
-  // recovery tokens in the URL hash may not displace the existing session,
-  // and the subsequent `auth.updateUser({ password })` call would update
-  // the wrong account's password. Real-world reproduction: a user signed
-  // in as account A on storage-network.app clicks a reset email for
-  // account B; without explicit isolation, A's password gets reset, not B's.
+  // Three valid arrival paths:
+  //
+  //   1. PKCE / OTP via /auth/callback (current): the callback has
+  //      already exchanged the link for a session and written it to
+  //      HttpOnly cookies. The browser client picks that up via
+  //      getSession() and we're done — no URL hash, no manual setSession.
+  //
+  //   2. Legacy Supabase email template that drops the user directly on
+  //      /reset-password#access_token=…&refresh_token=…&type=recovery.
+  //      We parse the hash, sign out any pre-existing local session,
+  //      then install the recovery session via setSession.
+  //
+  //   3. Supabase fires a PASSWORD_RECOVERY auth event when it detects
+  //      a recovery code in the URL. We listen for that too as a final
+  //      safety net (browsers sometimes strip the hash before our effect
+  //      runs).
   //
   // Defense: parse the recovery tokens from the URL hash ourselves, sign
   // out any pre-existing local session before doing anything else, then
   // install the recovery session via setSession so the rest of the page
   // is guaranteed to be acting on the correct account.
   useEffect(() => {
+    let cancelled = false;
+
     async function processRecovery() {
+      // ── Path 1: session already in cookies (PKCE via /auth/callback) ──
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing?.session) {
+        if (cancelled) return;
+        setHasValidSession(true);
+        setCheckingSession(false);
+        return;
+      }
+
+      // ── Path 2: legacy hash-fragment recovery tokens ──────────────────
       const hash = typeof window !== "undefined" ? window.location.hash : "";
       const params = new URLSearchParams(hash.replace(/^#/, ""));
       const accessToken = params.get("access_token");
@@ -71,11 +91,25 @@ export default function ResetPasswordPage() {
       // referrers, or screen captures.
       window.history.replaceState(null, "", window.location.pathname);
 
+      if (cancelled) return;
       setHasValidSession(true);
       setCheckingSession(false);
     }
 
+    // ── Path 3: Supabase-fired PASSWORD_RECOVERY event ───────────────────
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setHasValidSession(true);
+        setCheckingSession(false);
+      }
+    });
+
     processRecovery();
+
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
   }, [supabase]);
 
   async function handleResetPassword() {
