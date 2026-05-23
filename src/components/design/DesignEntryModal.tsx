@@ -94,6 +94,14 @@ export default function DesignEntryModal({
   const [gridPreview, setGridPreview] = useState<{ totalW: number; totalH: number } | null>(null);
   const [gridLoading, setGridLoading] = useState(false);
 
+  // Touched flags — gate the yellow "active card" styling on actual user
+  // interaction. Without these, the grid card defaulted to highlighted on
+  // first paint because gridCols/gridRows have defaults (4/4), which
+  // immediately produced a preview. The user landing on this step should
+  // see both cards gray; whichever they touch first turns yellow.
+  const [wallTouched, setWallTouched] = useState(false);
+  const [gridTouched, setGridTouched] = useState(false);
+
   // Site-measure form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -353,7 +361,7 @@ export default function DesignEntryModal({
                   {/* Wall measurements */}
                   <section
                     className={`flex flex-col rounded-xl border p-4 transition-colors ${
-                      wallReady
+                      wallTouched
                         ? "border-yellow-400/60 bg-yellow-400/5"
                         : "border-zinc-800 bg-zinc-900/40"
                     }`}
@@ -372,7 +380,10 @@ export default function DesignEntryModal({
                           type="number"
                           inputMode="decimal"
                           value={wallW}
-                          onChange={(e) => setWallW(e.target.value)}
+                          onChange={(e) => {
+                            setWallW(e.target.value);
+                            setWallTouched(true);
+                          }}
                           placeholder="e.g. 100"
                           className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
                         />
@@ -385,7 +396,10 @@ export default function DesignEntryModal({
                           type="number"
                           inputMode="decimal"
                           value={wallH}
-                          onChange={(e) => setWallH(e.target.value)}
+                          onChange={(e) => {
+                            setWallH(e.target.value);
+                            setWallTouched(true);
+                          }}
                           placeholder="e.g. 96"
                           className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
                         />
@@ -431,7 +445,7 @@ export default function DesignEntryModal({
                   {/* Grid picker */}
                   <section
                     className={`flex flex-col rounded-xl border p-4 transition-colors ${
-                      gridReady
+                      gridTouched
                         ? "border-yellow-400/60 bg-yellow-400/5"
                         : "border-zinc-800 bg-zinc-900/40"
                     }`}
@@ -455,6 +469,7 @@ export default function DesignEntryModal({
                             const n = parseInt(e.target.value, 10);
                             if (!Number.isFinite(n)) return;
                             setGridCols(Math.min(12, Math.max(1, n)));
+                            setGridTouched(true);
                           }}
                           className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
                         />
@@ -472,6 +487,7 @@ export default function DesignEntryModal({
                             const n = parseInt(e.target.value, 10);
                             if (!Number.isFinite(n)) return;
                             setGridRows(Math.min(maxRows, Math.max(1, n)));
+                            setGridTouched(true);
                           }}
                           className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-yellow-400 focus:outline-none"
                         />
@@ -493,6 +509,7 @@ export default function DesignEntryModal({
                           onClick={() => {
                             setGridCols(c);
                             setGridRows(Math.min(maxRows, r));
+                            setGridTouched(true);
                           }}
                           className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                             gridCols === c && gridRows === r
