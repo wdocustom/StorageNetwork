@@ -25,6 +25,7 @@ import {
   Activity,
   Gift,
   Building2,
+  Package,
 } from "lucide-react";
 import SetupChecklist from "@/components/dashboard/SetupChecklist";
 import ActionNudge from "@/components/dashboard/ActionNudge";
@@ -476,6 +477,17 @@ export default function DashboardPage() {
                 <Gift className="h-5 w-5" />
               </div>
               <span className="text-sm font-bold text-white">Tote Rentals</span>
+            </a>
+
+            {/* Smart Inventory — manual edit + reset */}
+            <a
+              href="/dashboard/inventory"
+              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
+                <Package className="h-5 w-5" />
+              </div>
+              <span className="text-sm font-bold text-white">Inventory</span>
             </a>
           </div>
 
