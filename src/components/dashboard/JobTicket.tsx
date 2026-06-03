@@ -1588,7 +1588,7 @@ export default function JobTicket({
                   className="flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-300 transition-colors hover:bg-slate-700 hover:text-white"
                 >
                   <Link className="h-3 w-3" />
-                  {copyLinkSuccess ? "Copied!" : "Pay Link"}
+                  {copyLinkSuccess ? "Copied!" : depositPaid ? "Balance Link" : "Full Pay Link"}
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
