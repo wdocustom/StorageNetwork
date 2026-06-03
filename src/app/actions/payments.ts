@@ -536,7 +536,7 @@ export async function createBalanceCheckout(
   // Look up lead — public, no auth required
   const { data: lead, error: leadError } = await supabase
     .from("leads")
-    .select("installer_id, estimated_price, deposit_amount, sales_tax_amount, customer_email, customer_name, status, payout_status")
+    .select("installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, customer_email, customer_name, status, payout_status")
     .eq("id", leadId)
     .single();
 
@@ -549,8 +549,17 @@ export async function createBalanceCheckout(
     return { success: false, alreadyPaid: true, error: "This order has already been paid." };
   }
 
-  // Calculate balance
-  const balance = (lead.estimated_price || 0) - (lead.deposit_amount || 0) + (lead.sales_tax_amount || 0);
+  // Calculate balance.
+  // Only credit the deposit when it was actually collected (deposit_paid).
+  // The previous version unconditionally subtracted deposit_amount, which
+  // is the *expected* 25% deposit calculated at quote time — so a quote
+  // where the installer skipped the deposit and went straight to billing
+  // the customer would show the post-deposit balance (~75% of the quote)
+  // instead of the full amount owed. Real-world repro: Allison Anderson
+  // quote was $1,431 with deposit_amount=$357.75; no deposit ever paid;
+  // pay link asked the customer for $1,073.25.
+  const depositCredit = lead.deposit_paid ? (lead.deposit_amount || 0) : 0;
+  const balance = (lead.estimated_price || 0) - depositCredit + (lead.sales_tax_amount || 0);
   if (balance <= 0) {
     return { success: false, alreadyPaid: true, error: "No balance due." };
   }
@@ -650,7 +659,7 @@ export async function chargeBalanceOffSession(
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select(
-      "installer_id, estimated_price, deposit_amount, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
+      "installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
     )
     .eq("id", leadId)
     .single();
@@ -662,11 +671,14 @@ export async function chargeBalanceOffSession(
   }
 
   // Mirror createBalanceCheckout's balance math — discount reduces balance,
-  // tax is added (installer collects tax with balance).
+  // tax is added (installer collects tax with balance). Deposit only credits
+  // when actually collected (deposit_paid); see createBalanceCheckout for
+  // the full rationale.
   const discountAmt = lead.discount_amount ?? 0;
+  const depositCredit = lead.deposit_paid ? (lead.deposit_amount || 0) : 0;
   const balance =
     (lead.estimated_price || 0) -
-    (lead.deposit_amount || 0) -
+    depositCredit -
     discountAmt +
     (lead.sales_tax_amount || 0);
   if (balance <= 0) {
