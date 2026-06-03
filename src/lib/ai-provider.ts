@@ -11,7 +11,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GROQ_FALLBACK_MODEL = "llama-3.3-70b-versatile";
 
 function getGeminiModel(): LanguageModel | null {
