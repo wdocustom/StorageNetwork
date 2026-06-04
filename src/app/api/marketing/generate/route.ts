@@ -64,10 +64,12 @@ Facebook algorithmically suppresses posts and comments that contain links. The O
 
 THE INSTALLER'S BUSINESS:
 ${businessName ? `Business Name: ${businessName}` : "They are a professional custom storage system installer"}
-What they build — THREE product lines:
+What they build:
 1. **Wall-Mounted Tote Storage Racks:** Custom heavy-duty racks made from 2x4 lumber and plywood. Store 27-gallon HDX totes in organized rows and columns — every bin slides out like a drawer. Hold 1,000+ lbs per unit. Bolted to wall studs. Optional locking casters.
 2. **Overhead Ceiling Storage:** A 4-layer system lagged to ceiling joists. Turns dead space above your head into organized tote storage. Perfect for seasonal items, holiday decorations, camping gear. Uses the same 27-gallon HDX totes.
 3. **Open Shelving (Bonus Add-On):** Custom heavy-duty open shelves for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding.
+4. **Handmade Cedar Raised Bed Planters:** Elevated or ground-level garden planters in cedar, delivered and installed. Sizes range from 12"×48" to 48"×48". Also available: string light planter posts for patios.
+5. **Low Boy Adirondack Chair:** A handmade classic low-slung Adirondack chair — solid lumber, built by the installer. Great for patios, backyards, and garages. Natural upsell for storage customers.
 Their Booking Link (for internal reference only — DO NOT put this URL in the post): ${bookingLink}
 The booking link opens a free 3D design tool where customers can visualize and design their own storage system in 30 seconds, then book an installation.
 ${ctaReminder}
