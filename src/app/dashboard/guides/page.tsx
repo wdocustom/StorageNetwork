@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -95,6 +95,14 @@ export default function GuidesPage() {
     });
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#chair-plans") return;
+    const timer = setTimeout(() => {
+      document.getElementById("chair-plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -127,9 +135,11 @@ export default function GuidesPage() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Adirondack Chair Plans ($18 Plans / $60 Bundle)
         ═══════════════════════════════════════════════════════════════ */}
-        <Suspense fallback={null}>
-          <AdirondackChairPlans />
-        </Suspense>
+        <div id="chair-plans">
+          <Suspense fallback={null}>
+            <AdirondackChairPlans />
+          </Suspense>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Instagram Showcase

@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import {
+  ArrowRight,
   Calendar,
   Camera,
   CheckCircle2,
   ChevronDown,
   CreditCard,
   DollarSign,
+  FileText,
   Loader2,
   Mail,
   MessageSquare,
@@ -1776,6 +1778,57 @@ export default function JobTicket({
             )}
           </div>
         </details>
+        );
+      })()}
+
+      {/* ── Chair Materials & Build Plans ───────────────────────────── */}
+      {(() => {
+        const chairUnits = (quoteData as (MaterialConfig & { chairId?: string; quantity?: number })[] | null)?.filter((u) => u.chairId) ?? [];
+        if (chairUnits.length === 0) return null;
+        const totalChairs = chairUnits.reduce((sum, u) => sum + (u.quantity ?? 1), 0);
+        return (
+          <section className="rounded-xl border border-amber-500/20 bg-slate-900 overflow-hidden">
+            <div className="h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500" />
+            <div className="p-4">
+              <div className="mb-3 flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/10">
+                  <FileText className="h-4 w-4 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">
+                    Low Boy Adirondack Chair{totalChairs > 1 ? ` (×${totalChairs})` : ""}
+                  </p>
+                  <p className="text-[10px] text-amber-400/70">Materials per chair — see plans for cuts</p>
+                </div>
+              </div>
+
+              <div className="mb-3 space-y-1.5 rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+                {[
+                  { qty: `${totalChairs * 5}×`, name: "2×6 × 8′ dimensional lumber" },
+                  { qty: `${totalChairs}×`, name: "2×8 × 8′ dimensional lumber" },
+                  { qty: "—", name: "2-1/2″ outdoor pocket hole screws" },
+                  { qty: "—", name: "2″ & 3″ exterior deck screws, 2″ lag screws" },
+                  { qty: "—", name: "Titebond III outdoor wood glue" },
+                ].map((item) => (
+                  <div key={item.name} className="flex items-center gap-2.5">
+                    <span className="w-8 text-right text-[11px] font-bold text-amber-400/80">{item.qty}</span>
+                    <span className="text-[11px] text-stone-400">{item.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <a
+                href="/dashboard/guides#chair-plans"
+                className="flex w-full items-center justify-between rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-gray-950 transition-all hover:bg-amber-300 active:scale-[0.98]"
+              >
+                <span>Open Build Plans</span>
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <p className="mt-2 text-center text-[10px] text-stone-600">
+                Opens in Guides &amp; Training · Purchase plans if not already unlocked
+              </p>
+            </div>
+          </section>
         );
       })()}
 

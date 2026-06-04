@@ -40,7 +40,7 @@ interface PricingSettingsProps {
   embedded?: boolean;
 }
 
-type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
+type PricingNumericKey = Exclude<keyof InstallerPricing, "totes_disabled" | "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "adirondack_chair_enabled" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "bestseller_rack_city_roller_disabled" | "bestseller_mayor_of_rack_city_disabled" | "addon_pricing">;
 
 interface PriceField {
   key: PricingNumericKey;
@@ -50,7 +50,7 @@ interface PriceField {
   /** When true, the default is computed dynamically from the installer's
    *  slot/plywood pricing and shown as "Auto" when empty. */
   dynamicDefault?: boolean;
-  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving" | "overhead" | "raised_beds_elevated" | "raised_beds_ground" | "raised_beds_addons";
+  category: "standard" | "mini" | "addons" | "bestsellers" | "shelving" | "overhead" | "raised_beds_elevated" | "raised_beds_ground" | "raised_beds_addons" | "chairs";
 }
 
 /**
@@ -288,6 +288,14 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
     defaultValue: defs.raisedBedAddons.raised_bed_high_wind_weighted_addon,
     category: "raised_beds_addons" as const,
   },
+  // Adirondack Chair base price override
+  {
+    key: "adirondack_chair" as PricingNumericKey,
+    label: "Low Boy Adirondack Chair",
+    description: "Base price per chair (platform default: $265)",
+    defaultValue: 265,
+    category: "chairs" as const,
+  },
 ]; }
 
 /** Row component for each addon type — toggle + price input */
@@ -384,6 +392,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
   const [shelvingEnabled, setShelvingEnabled] = useState(false);
   const [overheadEnabled, setOverheadEnabled] = useState(false);
   const [raisedBedEnabled, setRaisedBedEnabled] = useState(false);
+  const [chairEnabled, setChairEnabled] = useState(false);
   const [totesDisabled, setTotesDisabled] = useState(false);
   const [use2x4Rails, setUse2x4Rails] = useState(false);
   const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({});
@@ -416,7 +425,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     }, 800); // 800ms debounce
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, totesDisabled, use2x4Rails, presetToggles, addonEnabled, addonValues, addonToggles]);
+  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, chairEnabled, totesDisabled, use2x4Rails, presetToggles, addonEnabled, addonValues, addonToggles]);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -437,6 +446,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       setShelvingEnabled(result.pricing.open_shelving_enabled === true);
       setOverheadEnabled(result.pricing.overhead_storage_enabled === true);
       setRaisedBedEnabled(result.pricing.raised_bed_enabled === true);
+      setChairEnabled(result.pricing.adirondack_chair_enabled === true);
       setPresetToggles({
         indiana_joe: result.pricing.bestseller_indiana_joe_disabled !== true,
         long_ranger: result.pricing.bestseller_long_ranger_disabled !== true,
@@ -504,6 +514,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     if (shelvingEnabled) pricing.open_shelving_enabled = true;
     if (overheadEnabled) pricing.overhead_storage_enabled = true;
     if (raisedBedEnabled) pricing.raised_bed_enabled = true;
+    if (chairEnabled) pricing.adirondack_chair_enabled = true;
     if (presetToggles.indiana_joe === false) pricing.bestseller_indiana_joe_disabled = true;
     if (presetToggles.long_ranger === false) pricing.bestseller_long_ranger_disabled = true;
     if (presetToggles.gas_station === false) pricing.bestseller_gas_station_disabled = true;
@@ -549,6 +560,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       setShelvingEnabled(false);
       setOverheadEnabled(false);
       setRaisedBedEnabled(false);
+      setChairEnabled(false);
       setPresetToggles({});
       setAddonEnabled(true);
       setAddonValues({});
@@ -575,6 +587,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       || shelvingEnabled
       || overheadEnabled
       || raisedBedEnabled
+      || chairEnabled
       || Object.values(presetToggles).some((v) => v === false)
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
@@ -647,6 +660,12 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       label: "Raised Bed Add-Ons",
       hint: "Override add-on prices for stain, liner, paint, depth increase, and bottom shelf.",
       fields: PRICE_FIELDS.filter((f) => f.category === "raised_beds_addons"),
+    },
+    {
+      key: "chairs",
+      label: "Adirondack Chair",
+      hint: "Set your price per chair. Leave empty to use the platform default ($265).",
+      fields: PRICE_FIELDS.filter((f) => f.category === "chairs"),
     },
   ];
 
@@ -832,6 +851,34 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
         </button>
       </div>
 
+      <div className="mb-5">
+        <button
+          type="button"
+          onClick={() => setChairEnabled(!chairEnabled)}
+          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+            chairEnabled
+              ? "border-amber-500/30 bg-amber-500/5"
+              : "border-slate-700 bg-slate-800/30"
+          }`}
+        >
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${chairEnabled ? "bg-amber-500" : "bg-slate-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${chairEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className={`text-sm font-medium ${chairEnabled ? "text-amber-400" : "text-white"}`}>
+                {chairEnabled ? "Adirondack Chair Enabled" : "Enable Adirondack Chair"}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-500">
+              {chairEnabled
+                ? "Low Boy Adirondack Chair is available on your build page"
+                : "Toggle to add the Adirondack Chair to your build menu"}
+            </p>
+          </div>
+        </button>
+      </div>
+
       {/* Pricing Categories — collapsible */}
       <div className="space-y-2">
         {categories.map((cat) => {
@@ -839,7 +886,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
             (cat.key === "mini" && !miniEnabled) ||
             (cat.key === "shelving" && !shelvingEnabled) ||
             (cat.key === "overhead" && !overheadEnabled) ||
-            (cat.key.startsWith("raised_beds") && !raisedBedEnabled);
+            (cat.key.startsWith("raised_beds") && !raisedBedEnabled) ||
+            (cat.key === "chairs" && !chairEnabled);
           const isExpanded = expandedCategory === cat.key;
           const hasCustom = cat.fields.some((f) => values[f.key] !== undefined && values[f.key] !== "");
 
