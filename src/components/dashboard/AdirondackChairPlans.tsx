@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, Package, FileText, ChevronRight } from "lucide-react";
+import { ArrowRight, Check, Package, FileText, ChevronRight, X } from "lucide-react";
 import {
   checkChairPlanAccess,
   createChairPlanCheckout,
@@ -25,6 +26,7 @@ export default function AdirondackChairPlans() {
   });
   const [loading, setLoading] = useState<"plans" | "bundle" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imgOpen, setImgOpen] = useState(false);
 
   useEffect(() => {
     checkChairPlanAccess().then((result) => {
@@ -135,11 +137,48 @@ export default function AdirondackChairPlans() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/10">
             <FileText className="h-5 w-5 text-amber-400" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-bold text-white">Low Boy Adirondack Chair</p>
             <p className="text-[10px] font-medium text-amber-400/70">Pro Build Plans + MDF Template</p>
           </div>
+          <button
+            onClick={() => setImgOpen(true)}
+            className="shrink-0 overflow-hidden rounded-lg border border-slate-700 transition-opacity hover:opacity-80"
+            aria-label="View completed chair"
+          >
+            <Image
+              src="/images/chair-plans/low-back-adirondack-preview.png"
+              alt="Completed Low Boy Adirondack Chair"
+              width={56}
+              height={56}
+              className="h-14 w-14 object-cover"
+            />
+          </button>
         </div>
+
+        {/* Lightbox */}
+        {imgOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+            onClick={() => setImgOpen(false)}
+          >
+            <div className="relative max-w-sm w-full" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <button
+                onClick={() => setImgOpen(false)}
+                className="absolute -top-3 -right-3 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <Image
+                src="/images/chair-plans/low-back-adirondack-preview.png"
+                alt="Completed Low Boy Adirondack Chair"
+                width={400}
+                height={400}
+                className="w-full rounded-xl object-contain"
+              />
+            </div>
+          </div>
+        )}
 
         <p className="mb-4 text-[13px] leading-relaxed text-stone-400">
           A sleek, low-profile Adirondack built from standard dimensional lumber. Weekend build,
