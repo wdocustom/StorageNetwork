@@ -20,9 +20,9 @@ export function useUnitBuilder({ pricing, globalTotesDisabled }: UseUnitBuilderP
   const [rows, setRows] = useState<number | string>(4);
   const [toteType, setToteType] = useState<ToteType>("HDX");
   const [toteColor, setToteColor] = useState<ToteColor>("black");
-  const [hasTotes, setHasTotes] = useState(true);
-  const [hasWheels, setHasWheels] = useState(true);
-  const [hasTop, setHasTop] = useState(true);
+  const [hasTotes, setHasTotes] = useState(false);
+  const [hasWheels, setHasWheels] = useState(false);
+  const [hasTop, setHasTop] = useState(false);
   const [addons, setAddons] = useState<SectionAddon[]>([]);
   const [indoorDelivery, setIndoorDelivery] = useState(false);
 
@@ -232,9 +232,9 @@ export function useUnitBuilder({ pricing, globalTotesDisabled }: UseUnitBuilderP
     setPaintFrameColor(null);
     setPaintDoorColor(null);
     setPaintSidePanelColor(null);
-    setHasWheels(true);
-    setHasTop(true);
-    setHasTotes(true);
+    setHasWheels(false);
+    setHasTop(false);
+    setHasTotes(false);
     setIndoorDelivery(false);
   }, []);
 
