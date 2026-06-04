@@ -11,6 +11,7 @@ const nextConfig = {
     // that handles /api/chair-plans so they're available at runtime on Vercel.
     outputFileTracingIncludes: {
       "/api/chair-plans": ["./private/**/*"],
+      "/api/plans/view": ["./private/**/*"],
     },
   },
   images: {
