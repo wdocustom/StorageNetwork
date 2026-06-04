@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import LadderJigPlans from "@/components/dashboard/LadderJigPlans";
+import AdirondackChairPlans from "@/components/dashboard/AdirondackChairPlans";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -121,6 +122,13 @@ export default function GuidesPage() {
         ═══════════════════════════════════════════════════════════════ */}
         <Suspense fallback={null}>
           <LadderJigPlans />
+        </Suspense>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION: Adirondack Chair Plans ($12 Digital Download)
+        ═══════════════════════════════════════════════════════════════ */}
+        <Suspense fallback={null}>
+          <AdirondackChairPlans />
         </Suspense>
 
         {/* ═══════════════════════════════════════════════════════════════
