@@ -568,145 +568,49 @@ function ChairAngleDiagram({ blurred = false }: { blurred?: boolean }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DIAGRAM 3 — Assembly Sequence (side-profile schematic)
-// Shows the chair being built in 5 stages, viewed from the right side.
+// DIAGRAM 3 — Assembly Guide
+// 5 step-specific instructional panels, each with a distinct view type
+// that shows the builder exactly what to do at that stage.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Small pocket hole symbol (⊕)
+function PH({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={4.5} fill="#0f172a" stroke="#38bdf8" strokeWidth="1.2" />
+      <line x1={cx - 2.5} y1={cy - 2.5} x2={cx + 2.5} y2={cy + 2.5} stroke="#38bdf8" strokeWidth="0.9" />
+      <line x1={cx + 2.5} y1={cy - 2.5} x2={cx - 2.5} y2={cy + 2.5} stroke="#38bdf8" strokeWidth="0.9" />
+    </g>
+  );
+}
+
+// Screw symbol (cross-in-circle)
+function Screw({ cx, cy, color }: { cx: number; cy: number; color: string }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={5.5} fill="#0f172a" stroke={color} strokeWidth="1.5" />
+      <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} stroke={color} strokeWidth="1.2" />
+      <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} stroke={color} strokeWidth="1.2" />
+    </g>
+  );
+}
+
+// Step header badge
+function StepBadge({ y, color, step, title }: { y: number; color: string; step: number; title: string }) {
+  return (
+    <g>
+      <rect x="20" y={y} width="54" height="18" rx="9" fill={color} fillOpacity="0.18" />
+      <text x="47" y={y + 12} textAnchor="middle" fill={color}
+        fontSize="9" fontWeight="bold" fontFamily="system-ui">
+        STEP {step}
+      </text>
+      <text x="84" y={y + 12} fill="#94a3b8" fontSize="9" fontFamily="system-ui">{title}</text>
+    </g>
+  );
+}
+
 function ChairAssemblyDiagram({ blurred = false }: { blurred?: boolean }) {
-  // Shared chair geometry (scale ≈ 2.2px/inch)
-  // Panel: 500px wide × 95px tall per stage
-  // Ground at py + 88 in each panel
-  // Front of chair is on the right side of each panel
-
-  type Stage = {
-    label: string;
-    color: string;
-    note: string;
-  };
-
-  const stages: Stage[] = [
-    { label: "STEP 1", color: "#f97316", note: "Base Rail + Back Support (L-shape)" },
-    { label: "STEP 2", color: "#eab308", note: "3 Back Slats added (1/4\" spacer gaps)" },
-    { label: "STEP 3", color: "#22c55e", note: "3 Seat Slats added (flip chair upside down)" },
-    { label: "STEP 4", color: "#38bdf8", note: "Legs attached at front base" },
-    { label: "STEP 5", color: "#a855f7", note: "Arm Rests attached (lag screw rear, 3 screws front)" },
-  ];
-
-  // Helper: draw the chair profile at a given stage
-  // Panel origin (px, py), ground at py+88
-  // showBase, showBackSlats, showSeatSlats, showLegs, showArmrests
-  function chairProfile(
-    px: number,
-    py: number,
-    showBase: boolean,
-    showBackSupport: boolean,
-    showBackSlats: boolean,
-    showSeatSlats: boolean,
-    showLegs: boolean,
-    showArmrests: boolean,
-    highlightColor: string,
-  ) {
-    const ground = py + 88;
-
-    // Key geometry (all coords relative to px, py)
-    // Base rail: runs from front-right to rear-left, slightly angled
-    const baseFrontX = px + 350, baseFrontY = ground - 26; // front of base (seat height ~12")
-    const baseRearX  = px + 200, baseRearY  = ground - 20; // rear of base (slightly lower)
-    const baseH = 14; // base rail thickness
-
-    // Back support: attached to rear of base, angles up-right (toward the back)
-    // 17.5" long at 2.2px/in = 38.5px, angled ~70° from horizontal
-    const bsStartX = baseRearX + 8,  bsStartY = baseRearY - baseH;
-    const bsEndX   = bsStartX  - 14, bsEndY   = bsStartY - 36;
-
-    // Back slats: 23.25" long = 51px at 2.2px/in, nearly vertical, attached to back supports
-    // 3 slats shown as thin parallel lines
-    const slat1StartX = bsStartX,      slat1StartY = bsStartY;
-    const slat1EndX   = slat1StartX - 11, slat1EndY = slat1StartY - 46;
-    const slatSpacing = 4; // 1/4" spacer shown as gap between lines
-
-    // Seat slats: 3 horizontal boards on top of the base, front to back
-    // Shown as thin horizontal lines
-    const seatStartX = baseFrontX - 8, seatY = baseFrontY - 3;
-    const seatEndX   = baseRearX  + 8;
-
-    // Leg: vertical-ish board from front of base to ground
-    const legX = baseFrontX, legTopY = baseFrontY + baseH;
-    const legW = 11, legH = ground - legTopY;
-
-    // Armrest: near-horizontal from top-of-leg extending back over seat
-    const armFrontX = legX + legW / 2, armFrontY = baseFrontY - 4;
-    const armRearX  = bsEndX + 8,      armRearY  = bsEndY + 4;
-
-    // Determine which new elements to highlight
-    const baseColor       = showBase        ? "#f97316" : "#334155";
-    const bsColor         = showBackSupport ? highlightColor : "#334155";
-    const backSlatColor   = showBackSlats   ? "#eab308" : "#334155";
-    const seatSlatColor   = showSeatSlats   ? "#22c55e" : "#334155";
-    const legColor        = showLegs        ? "#38bdf8" : "#334155";
-    const armColor        = showArmrests    ? "#a855f7" : "#334155";
-
-    return (
-      <g>
-        {/* Ground line */}
-        <line x1={px + 150} y1={ground} x2={px + 420} y2={ground} stroke="#1e293b" strokeWidth="1" />
-        <text x={px + 160} y={ground + 9} fill="#1e293b" fontSize="7" fontFamily="monospace">ground</text>
-
-        {/* Base rail */}
-        {showBase && (
-          <polygon
-            points={`${baseFrontX},${baseFrontY} ${baseRearX},${baseRearY} ${baseRearX},${baseRearY + baseH} ${baseFrontX},${baseFrontY + baseH}`}
-            fill="#7c2d12" fillOpacity="0.4" stroke={baseColor} strokeWidth="2"
-          />
-        )}
-
-        {/* Back support */}
-        {showBackSupport && (
-          <line x1={bsStartX} y1={bsStartY} x2={bsEndX} y2={bsEndY}
-            stroke={bsColor} strokeWidth="8" strokeLinecap="round" />
-        )}
-
-        {/* Back slats (3 lines) */}
-        {showBackSlats && [0, 1, 2].map((i) => (
-          <line
-            key={`bs-${i}`}
-            x1={slat1StartX - i * (slatSpacing + 1)}
-            y1={slat1StartY - i * 3}
-            x2={slat1EndX - i * (slatSpacing + 1)}
-            y2={slat1EndY - i * 3}
-            stroke={backSlatColor} strokeWidth="5" strokeLinecap="round"
-          />
-        ))}
-
-        {/* Seat slats (3 horizontal lines) */}
-        {showSeatSlats && [0, 1, 2].map((i) => (
-          <line
-            key={`ss-${i}`}
-            x1={seatStartX - i * 22}
-            y1={seatY}
-            x2={seatStartX - i * 22}
-            y2={seatY + 6}
-            stroke={seatSlatColor} strokeWidth="5" strokeLinecap="round"
-            transform={`rotate(90 ${seatStartX - i * 22} ${seatY + 3})`}
-          />
-        ))}
-
-        {/* Legs */}
-        {showLegs && (
-          <rect x={legX - legW / 2} y={legTopY} width={legW} height={legH}
-            fill="#1e3a5f" fillOpacity="0.5" stroke={legColor} strokeWidth="2" />
-        )}
-
-        {/* Armrests */}
-        {showArmrests && (
-          <line x1={armFrontX} y1={armFrontY} x2={armRearX} y2={armRearY}
-            stroke={armColor} strokeWidth="6" strokeLinecap="round" />
-        )}
-      </g>
-    );
-  }
-
-  const panelH = 105;
-  const totalH = 40 + stages.length * (panelH + 36) + 30;
+  const totalH = 960;
 
   return (
     <div className={`relative ${blurred ? "select-none" : ""}`}>
@@ -719,60 +623,249 @@ function ChairAssemblyDiagram({ blurred = false }: { blurred?: boolean }) {
         className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50"
       >
         <rect width="500" height={totalH} fill="#0f172a" rx="12" />
-
         <text x="250" y="26" textAnchor="middle" fill="#e2e8f0" fontSize="13" fontWeight="bold" fontFamily="system-ui">
-          ASSEMBLY SEQUENCE — Side Profile View
+          ASSEMBLY GUIDE — 5 Steps
         </text>
-        <line x1="50" y1="34" x2="450" y2="34" stroke="#334155" strokeWidth="1" />
+        <line x1="50" y1="35" x2="450" y2="35" stroke="#334155" strokeWidth="1" />
 
-        {stages.map((stage, i) => {
-          const py = 44 + i * (panelH + 36);
+        {/* ══════════════════════════════════════════════════════════
+            STEP 1 — Side profile: L-shape (base + back support)
+            Shows both assemblies as a mirrored pair with pocket holes.
+        ══════════════════════════════════════════════════════════ */}
+        <StepBadge y={42} color="#f97316" step={1} title="Attach Back Supports to Base Rails" />
+        <rect x="20" y={60} width="460" height="148" rx="6" fill="#080d14" stroke="#1e293b" strokeWidth="1" />
 
-          return (
-            <g key={stage.label}>
-              {/* Step label */}
-              <rect x="15" y={py} width="56" height="18" rx="9"
-                fill={stage.color} fillOpacity="0.15" />
-              <text x="43" y={py + 12} textAnchor="middle" fill={stage.color}
-                fontSize="9" fontWeight="black" fontFamily="system-ui">
-                {stage.label}
-              </text>
-              <text x="80" y={py + 12} fill="#94a3b8" fontSize="9" fontFamily="system-ui">
-                {stage.note}
-              </text>
+        {/* Left assembly */}
+        {/* Back support (vertical) */}
+        <rect x="58" y={72} width="13" height="55" rx="2"
+          fill="#134e4a" fillOpacity="0.5" stroke="#2dd4bf" strokeWidth="1.5" />
+        {/* Base rail (horizontal) */}
+        <rect x="58" y={127} width="116" height="22" rx="2"
+          fill="#7c2d12" fillOpacity="0.4" stroke="#f97316" strokeWidth="1.5" />
+        {/* Pocket holes on inside face of back support */}
+        <PH cx={76} cy={89} />
+        <PH cx={76} cy={108} />
+        {/* Pocket holes on top of base near rear */}
+        <PH cx={65} cy={126} />
+        <PH cx={82} cy={126} />
+        {/* Glue dots at joint */}
+        {[63, 73, 83, 93, 103].map((x) => (
+          <circle key={x} cx={x} cy={128} r={1.5} fill="#fbbf24" fillOpacity="0.7" />
+        ))}
+        {/* "Glue" label */}
+        <text x="60" y={156} fill="#fbbf24" fontSize="7" fontFamily="system-ui">glue</text>
 
-              {/* Panel bg */}
-              <rect x="15" y={py + 22} width="470" height={panelH} rx="6"
-                fill="#0f172a" stroke="#1e293b" strokeWidth="1" />
+        {/* Right assembly (mirrored — back support on right end) */}
+        <rect x="387" y={72} width="13" height="55" rx="2"
+          fill="#134e4a" fillOpacity="0.3" stroke="#2dd4bf" strokeWidth="1" strokeDasharray="3 2" />
+        <rect x="271" y={127} width="116" height="22" rx="2"
+          fill="#7c2d12" fillOpacity="0.25" stroke="#f97316" strokeWidth="1" strokeDasharray="3 2" />
+        <PH cx={382} cy={89} />
+        <PH cx={382} cy={108} />
+        <PH cx={380} cy={126} />
+        <PH cx={363} cy={126} />
 
-              {/* Chair profile for this stage */}
-              {chairProfile(
-                0, py + 22,
-                true,                // base always shown after step 1
-                true,                // back support always shown after step 1
-                i >= 1,              // back slats from step 2
-                i >= 2,              // seat slats from step 3
-                i >= 3,              // legs from step 4
-                i >= 4,              // armrests step 5
-                stage.color,
-              )}
+        {/* Mirror label between */}
+        <text x="248" y={100} textAnchor="middle" fill="#475569" fontSize="8" fontFamily="system-ui">← mirror →</text>
+        <text x="248" y={112} textAnchor="middle" fill="#475569" fontSize="7" fontFamily="system-ui">×2 pair</text>
 
-              {/* Highlight label for new part added in this step */}
-              <text x="30" y={py + panelH + 15} fill={stage.color}
-                fontSize="8" fontFamily="system-ui" fontStyle="italic">
-                {i === 0 && "▶ Pocket holes + glue. Build both L-shapes as mirror images."}
-                {i === 1 && "▶ Start from bottom slat. Use 1/4\" spacer between each board."}
-                {i === 2 && "▶ Flip chair upside down. Front slat flush with base front edge."}
-                {i === 3 && "▶ Prop chair on rear angle. Clamp steady before fastening."}
-                {i === 4 && "▶ Rear: lag screw into back support. Front: 3 deck screws into leg."}
-              </text>
-            </g>
-          );
-        })}
+        {/* Pocket hole callout line + label */}
+        <line x1="78" y1="95" x2="110" y2="95" stroke="#38bdf8" strokeWidth="0.7" strokeDasharray="2 2" />
+        <text x="112" y={99} fill="#38bdf8" fontSize="8" fontFamily="system-ui">⊕ Pocket holes</text>
+        <text x="112" y={109} fill="#38bdf8" fontSize="8" fontFamily="system-ui">on INSIDE face</text>
+
+        <text x="30" y={196} fill="#f97316" fontSize="8" fontFamily="system-ui" fontStyle="italic">
+          ▶ Apply glue, clamp, then drive 2-1/2&quot; pocket hole screws. Pocket holes face inward — hidden in finished chair.
+        </text>
+
+        {/* ══════════════════════════════════════════════════════════
+            STEP 2 — Front view: 3 Back Slats with 1/4" spacer
+        ══════════════════════════════════════════════════════════ */}
+        <StepBadge y={212} color="#eab308" step={2} title="Attach 3 Back Slats — start from bottom" />
+        <rect x="20" y={230} width="460" height="148" rx="6" fill="#080d14" stroke="#1e293b" strokeWidth="1" />
+
+        {/* Left rail (back support) */}
+        <rect x="36" y={238} width="14" height="132" rx="2"
+          fill="#134e4a" fillOpacity="0.4" stroke="#2dd4bf" strokeWidth="1.5" />
+        {/* Right rail */}
+        <rect x="450" y={238} width="14" height="132" rx="2"
+          fill="#134e4a" fillOpacity="0.4" stroke="#2dd4bf" strokeWidth="1.5" />
+
+        {/* Three back slats (bottom to top) */}
+        {/* Slat 1 — bottom (highlighted "start here") */}
+        <rect x="50" y={338} width="400" height="22" rx="2"
+          fill="#78350f" fillOpacity="0.6" stroke="#f59e0b" strokeWidth="2" />
+        <text x="250" y={353} textAnchor="middle" fill="#fbbf24" fontSize="8" fontWeight="bold" fontFamily="monospace">
+          ▼ START HERE — bottom slat first
+        </text>
+        {/* Slat 2 — middle */}
+        <rect x="50" y={306} width="400" height="22" rx="2"
+          fill="#78350f" fillOpacity="0.45" stroke="#d97706" strokeWidth="1.5" />
+        {/* Slat 3 — top */}
+        <rect x="50" y={274} width="400" height="22" rx="2"
+          fill="#78350f" fillOpacity="0.35" stroke="#d97706" strokeWidth="1.5" />
+
+        {/* Spacer blocks between slats */}
+        <rect x="210" y={328} width="80" height="10" rx="3"
+          fill="#15803d" fillOpacity="0.7" stroke="#4ade80" strokeWidth="1.2" />
+        <rect x="210" y={296} width="80" height="10" rx="3"
+          fill="#15803d" fillOpacity="0.7" stroke="#4ade80" strokeWidth="1.2" />
+
+        {/* Spacer label */}
+        <line x1="292" y1="333" x2="340" y2="333" stroke="#4ade80" strokeWidth="0.8" strokeDasharray="2 2" />
+        <text x="342" y={337} fill="#4ade80" fontSize="8" fontFamily="system-ui">1/4&quot; spacer</text>
+        <line x1="292" y1="301" x2="340" y2="301" stroke="#4ade80" strokeWidth="0.8" strokeDasharray="2 2" />
+
+        {/* Pocket holes on each slat end */}
+        <PH cx={47} cy={349} /><PH cx={47} cy={317} /><PH cx={47} cy={285} />
+        <PH cx={453} cy={349} /><PH cx={453} cy={317} /><PH cx={453} cy={285} />
+
+        <text x="30" y={370} fill="#eab308" fontSize="8" fontFamily="system-ui" fontStyle="italic">
+          ▶ Glue + 2-1/2&quot; pocket hole screws on each slat. Set spacer block, clamp, fasten, repeat upward.
+        </text>
+
+        {/* ══════════════════════════════════════════════════════════
+            STEP 3 — Plan view (upside down): 3 Seat Slats
+        ══════════════════════════════════════════════════════════ */}
+        <StepBadge y={390} color="#22c55e" step={3} title="Attach 3 Seat Slats" />
+        <rect x="20" y={408} width="460" height="148" rx="6" fill="#080d14" stroke="#1e293b" strokeWidth="1" />
+
+        {/* FLIP banner */}
+        <rect x="30" y={414} width="440" height="22" rx="4" fill="#7c2d12" fillOpacity="0.5" stroke="#f97316" strokeWidth="1" />
+        <text x="250" y={429} textAnchor="middle" fill="#fb923c" fontSize="9" fontWeight="bold" fontFamily="system-ui">
+          ↕  FLIP CHAIR COMPLETELY UPSIDE DOWN FIRST
+        </text>
+
+        {/* Plan view (top-down) — base rails horizontal, seat slats vertical */}
+        {/* Left base rail */}
+        <rect x="42" y={444} width="416" height="16" rx="2"
+          fill="#7c2d12" fillOpacity="0.4" stroke="#f97316" strokeWidth="1.5" />
+        {/* Right base rail */}
+        <rect x="42" y={516} width="416" height="16" rx="2"
+          fill="#7c2d12" fillOpacity="0.4" stroke="#f97316" strokeWidth="1.5" />
+
+        {/* 3 seat slats running perpendicular between rails */}
+        {/* Slat 1 — rear (start here) */}
+        <rect x="62" y={460} width="28" height="56" rx="2"
+          fill="#14532d" fillOpacity="0.6" stroke="#4ade80" strokeWidth="1.5" />
+        <text x="76" y={495} textAnchor="middle" fill="#4ade80" fontSize="7"
+          fontFamily="system-ui" transform="rotate(-90 76 495)">REAR ▶ START</text>
+        {/* Slat 2 — middle */}
+        <rect x="228" y={460} width="28" height="56" rx="2"
+          fill="#14532d" fillOpacity="0.5" stroke="#22c55e" strokeWidth="1.5" />
+        {/* Slat 3 — front */}
+        <rect x="388" y={460} width="28" height="56" rx="2"
+          fill="#14532d" fillOpacity="0.5" stroke="#22c55e" strokeWidth="1.5" />
+
+        {/* Spacer indicators */}
+        <rect x="90" y={478} width="8" height="20" rx="2" fill="#15803d" fillOpacity="0.6" stroke="#4ade80" strokeWidth="0.8" />
+        <rect x="256" y={478} width="8" height="20" rx="2" fill="#15803d" fillOpacity="0.6" stroke="#4ade80" strokeWidth="0.8" />
+
+        {/* FRONT label */}
+        <text x="460" y={494} textAnchor="start" fill="#f97316" fontSize="8" fontFamily="system-ui">← FRONT</text>
+        <text x="461" y={504} textAnchor="start" fill="#64748b" fontSize="7" fontFamily="system-ui">flush edge</text>
+
+        {/* 1/4" spacer callout */}
+        <line x1="98" y1="488" x2="130" y2="455" stroke="#4ade80" strokeWidth="0.7" strokeDasharray="2 2" />
+        <text x="132" y={452} fill="#4ade80" fontSize="7" fontFamily="system-ui">1/4&quot; spacer</text>
+
+        <text x="30" y={548} fill="#22c55e" fontSize="8" fontFamily="system-ui" fontStyle="italic">
+          ▶ Chair stays upside down. Seat slats span width of chair (front to rear). Front slat flush with base front edge.
+        </text>
+
+        {/* ══════════════════════════════════════════════════════════
+            STEP 4 — Side view: Leg attachment at front corner
+        ══════════════════════════════════════════════════════════ */}
+        <StepBadge y={568} color="#38bdf8" step={4} title="Attach Legs — prop on rear angle first" />
+        <rect x="20" y={586} width="460" height="148" rx="6" fill="#080d14" stroke="#1e293b" strokeWidth="1" />
+
+        {/* Base rail */}
+        <rect x="60" y={608} width="220" height="22" rx="2"
+          fill="#7c2d12" fillOpacity="0.4" stroke="#f97316" strokeWidth="1.5" />
+        {/* Leg hanging from front of base */}
+        <rect x="262" y={630} width="18" height="88" rx="2"
+          fill="#1e3a5f" fillOpacity="0.6" stroke="#38bdf8" strokeWidth="2" />
+        {/* Ground line */}
+        <line x1="50" y1="718" x2="420" y2="718" stroke="#334155" strokeWidth="1.2" strokeDasharray="4 3" />
+        <text x="425" y={721} fill="#334155" fontSize="7" fontFamily="monospace">ground</text>
+
+        {/* Clamp symbol (C-shape) */}
+        <path d="M 285,606 L 304,606 L 304,614 L 316,614 L 316,646 L 304,646 L 304,654 L 285,654"
+          fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinejoin="round" />
+        <text x="318" y={624} fill="#94a3b8" fontSize="8" fontFamily="system-ui">clamp</text>
+        <text x="318" y={634} fill="#64748b" fontSize="7" fontFamily="system-ui">before screwing</text>
+
+        {/* Screw callouts */}
+        <Screw cx={270} cy={648} color="#38bdf8" />
+        <Screw cx={270} cy={668} color="#38bdf8" />
+        <line x1="278" y1="658" x2="310" y2="658" stroke="#38bdf8" strokeWidth="0.7" strokeDasharray="2 2" />
+        <text x="312" y={662} fill="#38bdf8" fontSize="8" fontFamily="system-ui">2&quot; deck screws</text>
+
+        {/* 3" screw from above */}
+        <Screw cx={270} cy={633} color="#a78bfa" />
+        <line x1="278" y1="633" x2="310" y2="633" stroke="#a78bfa" strokeWidth="0.7" strokeDasharray="2 2" />
+        <text x="312" y={637} fill="#a78bfa" fontSize="8" fontFamily="system-ui">3&quot; screw (from above)</text>
+
+        {/* Prop indicator */}
+        <text x="62" y={605} fill="#f97316" fontSize="8" fontFamily="system-ui">prop rear of chair on ground first →</text>
+
+        <text x="30" y={726} fill="#38bdf8" fontSize="8" fontFamily="system-ui" fontStyle="italic">
+          ▶ Prop chair on rear angle, clamp leg before fastening. 2&quot; deck screws through leg face, 3&quot; from above.
+        </text>
+
+        {/* ══════════════════════════════════════════════════════════
+            STEP 5 — Top-down view: Armrest fastener positions
+        ══════════════════════════════════════════════════════════ */}
+        <StepBadge y={746} color="#a855f7" step={5} title="Cut &amp; Attach Armrests" />
+        <rect x="20" y={764} width="460" height="170" rx="6" fill="#080d14" stroke="#1e293b" strokeWidth="1" />
+
+        {/* Armrest plan view (top-down). Round front (right), square rear (left) */}
+        {/* Rear square end at x=75, front round end near x=290 */}
+        <path d="M 75,840 L 272,840 A 16,16 0 0,1 272,872 L 75,872 Z"
+          fill="#3b0764" fillOpacity="0.5" stroke="#a855f7" strokeWidth="2" />
+
+        {/* Leg top (what armrest mounts to at front) */}
+        <rect x="252" y={840} width="40" height="32" rx="2"
+          fill="#1e3a5f" fillOpacity="0.6" stroke="#38bdf8" strokeWidth="1.5" />
+        <text x="272" y={883} textAnchor="middle" fill="#38bdf8" fontSize="7" fontFamily="system-ui">top of leg</text>
+
+        {/* Back support at rear (what lag screw goes into) */}
+        <rect x="62" y={836} width="14" height="40" rx="2"
+          fill="#134e4a" fillOpacity="0.5" stroke="#2dd4bf" strokeWidth="1.2" />
+        <text x="76" y={893} textAnchor="middle" fill="#2dd4bf" fontSize="7" fontFamily="system-ui">back support</text>
+
+        {/* LAG SCREW at rear */}
+        <Screw cx={84} cy={856} color="#f97316" />
+        <circle cx={84} cy={856} r={8} fill="none" stroke="#f97316" strokeWidth="1" strokeDasharray="2 2" />
+        <line x1="94" y1="856" x2="130" y2="830" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" />
+        <text x="132" y={827} fill="#f97316" fontSize="8" fontFamily="system-ui">2&quot; LAG SCREW</text>
+        <text x="132" y={837} fill="#64748b" fontSize="7" fontFamily="system-ui">into back support</text>
+
+        {/* 3 DECK SCREWS at front, offset 3/4" from edge */}
+        <Screw cx={250} cy={845} color="#a855f7" />
+        <Screw cx={250} cy={856} color="#a855f7" />
+        <Screw cx={250} cy={867} color="#a855f7" />
+        <line x1="240" y1="856" x2="200" y2="830" stroke="#a855f7" strokeWidth="0.8" strokeDasharray="2 2" />
+        <text x="115" y={827} textAnchor="end" fill="#a855f7" fontSize="8" fontFamily="system-ui">3× deck screws</text>
+        <text x="115" y={837} textAnchor="end" fill="#64748b" fontSize="7" fontFamily="system-ui">into leg top</text>
+
+        {/* 3/4" from edge measurement */}
+        <line x1="75" y1="840" x2="250" y2="840" stroke="#334155" strokeWidth="0.5" />
+        <line x1="250" y1="836" x2="250" y2="844" stroke="#64748b" strokeWidth="0.8" />
+        <line x1="75"  y1="836" x2="75"  y2="844" stroke="#64748b" strokeWidth="0.8" />
+        <text x="163" y={836} textAnchor="middle" fill="#475569" fontSize="7" fontFamily="monospace">3/4&quot; from side edge (pre-drill)</text>
+
+        {/* Round-over callout */}
+        <text x="295" y={854} fill="#a855f7" fontSize="7" fontFamily="system-ui">jig saw</text>
+        <text x="295" y={863} fill="#a855f7" fontSize="7" fontFamily="system-ui">round-over</text>
+
+        <text x="30" y={924} fill="#a855f7" fontSize="8" fontFamily="system-ui" fontStyle="italic">
+          ▶ Rip to 4&quot;, round-over front with jig saw. Lag screw rear into back support. 3 pre-drilled deck screws into leg.
+        </text>
 
         {/* Footer */}
-        <text x="250" y={totalH - 8} textAnchor="middle" fill="#334155" fontSize="8" fontFamily="system-ui">
-          storage-network.app | Assembly Sequence Reference
+        <text x="250" y={952} textAnchor="middle" fill="#334155" fontSize="8" fontFamily="system-ui">
+          storage-network.app | Low Boy Adirondack Chair Plans v1.0
         </text>
       </svg>
     </div>
