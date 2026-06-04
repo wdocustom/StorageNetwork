@@ -486,7 +486,7 @@ async function resolveRegion(slug: string): Promise<ResolvedRegion | null> {
 // on first visit and is cached by Vercel after that, AND it appears in the
 // sitemap. This keeps the build time roughly constant as installer rosters
 // grow instead of scaling linearly with the network's coverage footprint.
-const DYNAMIC_PRERENDER_CAP = 100;
+const DYNAMIC_PRERENDER_CAP = 20;
 
 export async function generateStaticParams() {
   const curated = Object.keys(REGIONS);
