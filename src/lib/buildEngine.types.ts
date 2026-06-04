@@ -40,6 +40,8 @@ export interface QuoteUnit {
   shelvingConfigId?: string;
   /** When set, this unit is an overhead ceiling storage unit — routed to overhead handler */
   overheadGridPresetId?: string;
+  /** When set, this unit is an Adirondack Chair — skips cut plan, shows Build Plans link */
+  chairId?: string;
   /** Compound preset sub-units (e.g. "The Gass Station" = 1x4 + 4x2 + 1x4).
    *  Present on old DB records where the preset was stored as one aggregate item.
    *  New leads expand these client-side before saving, so this field is absent. */

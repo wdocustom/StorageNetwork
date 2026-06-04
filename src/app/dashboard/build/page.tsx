@@ -37,6 +37,7 @@ import CustomUnitDrawer from "@/components/build/CustomUnitDrawer";
 import ShelvingDrawer from "@/components/build/ShelvingDrawer";
 import OverheadDrawer from "@/components/build/OverheadDrawer";
 import RaisedBedDrawer from "@/components/build/RaisedBedDrawer";
+import ChairDrawer from "@/components/build/ChairDrawer";
 import CartBar from "@/components/build/CartBar";
 import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
@@ -681,6 +682,29 @@ export default function BuildConfiguratorPage() {
       slots: 0,
       desc,
       raisedBedConfig: config,
+    };
+    setUnits((prev) => [...prev, newUnit]);
+    setActiveDrawer(null);
+  }
+
+  function handleAddChair(quantity: number, price: number, desc: string) {
+    const newUnit: UnitConfig = {
+      id: `chair-${Date.now()}`,
+      cols: 0,
+      rows: 0,
+      toteType: "HDX",
+      unitType: "standard",
+      hasTotes: false,
+      hasWheels: false,
+      hasTop: false,
+      price,
+      totalW: 0,
+      totalH: 0,
+      depth: 0,
+      slots: 0,
+      desc,
+      chairId: "adirondack",
+      quantity,
     };
     setUnits((prev) => [...prev, newUnit]);
     setActiveDrawer(null);
@@ -1482,6 +1506,13 @@ export default function BuildConfiguratorPage() {
         onClose={() => setActiveDrawer(null)}
         installerPricing={installerPricing}
         onAddRaisedBed={handleAddRaisedBed}
+      />
+
+      <ChairDrawer
+        isOpen={activeDrawer === "chair"}
+        onClose={() => setActiveDrawer(null)}
+        installerPricing={installerPricing}
+        onAddChair={handleAddChair}
       />
 
       {/* ═══════════════════════════════════════════════════════════════════

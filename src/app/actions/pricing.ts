@@ -72,7 +72,7 @@ export async function updateInstallerPricing(
 
     // Validate pricing values — must be positive numbers or undefined/null
     const validated: InstallerPricing = {};
-    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "use_2x4_rails" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
+    const fields: Exclude<keyof InstallerPricing, "mini_disabled" | "mini_enabled" | "open_shelving_disabled" | "open_shelving_enabled" | "overhead_storage_enabled" | "raised_bed_enabled" | "adirondack_chair_enabled" | "use_2x4_rails" | "bestseller_indiana_joe_disabled" | "bestseller_long_ranger_disabled" | "bestseller_gas_station_disabled" | "addon_pricing">[] = [
       "standard_slot", "mini_slot",
       "standard_tote", "standard_tote_clear", "mini_tote",
       "standard_wheels", "mini_wheels",
@@ -84,6 +84,7 @@ export async function updateInstallerPricing(
       "shelving_shelf_4ft_tall", "shelving_shelf_5ft_tall", "shelving_shelf_6ft_tall",
       "overhead_2x2", "overhead_2x3", "overhead_3x2",
       "overhead_3x3", "overhead_3x4", "overhead_4x4",
+      "adirondack_chair",
     ];
 
     for (const field of fields) {
@@ -114,6 +115,9 @@ export async function updateInstallerPricing(
     }
     if (pricing.raised_bed_enabled === true) {
       (validated as Record<string, unknown>).raised_bed_enabled = true;
+    }
+    if (pricing.adirondack_chair_enabled === true) {
+      (validated as Record<string, unknown>).adirondack_chair_enabled = true;
     }
     if (pricing.use_2x4_rails === true) {
       (validated as Record<string, unknown>).use_2x4_rails = true;
