@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import LadderJigPlans from "@/components/dashboard/LadderJigPlans";
-// import AdirondackChairPlans from "@/components/dashboard/AdirondackChairPlans";
+import AdirondackChairPlans from "@/components/dashboard/AdirondackChairPlans";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Guides & Training Page — Tutorials + Installation Checklist
@@ -125,11 +125,11 @@ export default function GuidesPage() {
         </Suspense>
 
         {/* ═══════════════════════════════════════════════════════════════
-            SECTION: Adirondack Chair Plans ($12 Digital Download) — disabled
+            SECTION: Adirondack Chair Plans ($18 Plans / $60 Bundle)
         ═══════════════════════════════════════════════════════════════ */}
-        {/* <Suspense fallback={null}>
+        <Suspense fallback={null}>
           <AdirondackChairPlans />
-        </Suspense> */}
+        </Suspense>
 
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Instagram Showcase
