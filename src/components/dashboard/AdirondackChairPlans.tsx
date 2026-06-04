@@ -236,9 +236,9 @@ function ChairPartsDiagram({ blurred = false }: { blurred?: boolean }) {
                   {/* Dimension lines */}
                   <line x1={ox} y1={oy + baseH + 10} x2={ox + baseW} y2={oy + baseH + 10}
                     stroke="#94a3b8" strokeWidth="0.8" />
-                  <line x1={ox} y1={oy + baseH + 7} x2={ox} y1={oy + baseH + 13}
+                  <line x1={ox} y1={oy + baseH + 7} x2={ox} y2={oy + baseH + 13}
                     stroke="#94a3b8" strokeWidth="0.8" />
-                  <line x1={ox + baseW} y1={oy + baseH + 7} x2={ox + baseW} y1={oy + baseH + 13}
+                  <line x1={ox + baseW} y1={oy + baseH + 7} x2={ox + baseW} y2={oy + baseH + 13}
                     stroke="#94a3b8" strokeWidth="0.8" />
                   <text x={ox + baseW / 2} y={oy + baseH + 23} textAnchor="middle"
                     fill="#94a3b8" fontSize="9" fontFamily="monospace">38&quot;</text>
@@ -290,8 +290,8 @@ function ChairPartsDiagram({ blurred = false }: { blurred?: boolean }) {
                   </text>
                   {/* offset arrows */}
                   <line x1={ox} y1={oy + legH + 8} x2={ox + off} y2={oy + legH + 8} stroke="#4ade80" strokeWidth="1" />
-                  <line x1={ox} y1={oy + legH + 5} x2={ox} y1={oy + legH + 11} stroke="#4ade80" strokeWidth="0.8" />
-                  <line x1={ox + off} y1={oy + legH + 5} x2={ox + off} y1={oy + legH + 11} stroke="#4ade80" strokeWidth="0.8" />
+                  <line x1={ox} y1={oy + legH + 5} x2={ox} y2={oy + legH + 11} stroke="#4ade80" strokeWidth="0.8" />
+                  <line x1={ox + off} y1={oy + legH + 5} x2={ox + off} y2={oy + legH + 11} stroke="#4ade80" strokeWidth="0.8" />
                   <text x={ox + 5} y={oy + legH + 20} fill="#4ade80" fontSize="8" fontFamily="monospace">1-3/8&quot;</text>
                 </>
               )}
