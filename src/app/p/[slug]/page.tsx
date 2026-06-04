@@ -577,6 +577,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${businessName} | Verified Storage Network Installer`,
     description: `${businessName}${locationStr} — Verified Storage Network installer. Design your custom tote storage system with their free 3D configurator. Professional installation, instant pricing.`,
+    alternates: {
+      canonical: `/p/${slug}`,
+    },
     keywords: [
       businessName,
       "tote storage installer",

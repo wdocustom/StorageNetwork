@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   getInstallerDerivedRegions,
   getInstallersForRegionSlug,
@@ -508,6 +509,9 @@ export async function generateMetadata({
   return {
     title: `Tote Rack Installers in ${region.label}, ${region.state} | Storage Network`,
     description: region.description,
+    alternates: {
+      canonical: `/installers/${region.slug}`,
+    },
     openGraph: {
       title: `Tote Rack Installers in ${region.label}, ${region.state}`,
       description: region.description,
@@ -533,20 +537,10 @@ function designUrl(installer: RegionInstaller, zip: string | null): string {
 export default async function InstallerRegionPage({ params }: PageProps) {
   const region = await resolveRegion(params.region);
 
-  if (!region) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="text-center">
-          <h1 className="mb-2 text-2xl font-bold text-white">
-            Region Not Found
-          </h1>
-          <Link href="/" className="text-yellow-400 hover:underline">
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // notFound() emits a real 404 response. The previous render returned a
+  // "Region Not Found" body with HTTP 200, which Google flagged as a Soft
+  // 404 — surfacing on GSC and pulling crawl budget away from real pages.
+  if (!region) notFound();
 
   const installers = await getInstallersForRegionSlug(region.slug, 3);
   const primaryInstaller = installers[0] ?? null;
