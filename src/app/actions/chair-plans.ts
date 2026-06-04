@@ -23,9 +23,18 @@ import { siteConfig } from "@/config/site";
 // Requires migrations: 124_chair_plan_purchased.sql + 125_chair_template_purchased.sql
 // ═══════════════════════════════════════════════════════════════════════════
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-12-15.clover",
-});
+// Lazy initialization — Stripe and Supabase are created on first use, not at
+// module load time. This prevents build failures when env vars aren't available
+// during Next.js's static page-data collection phase.
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2025-12-15.clover",
+    });
+  }
+  return _stripe;
+}
 
 const supabase = getServiceClient();
 
@@ -79,7 +88,7 @@ export async function createChairPlanCheckout(): Promise<{
 
   try {
     const baseUrl = siteConfig.baseUrl;
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -118,7 +127,7 @@ export async function createChairBundleCheckout(): Promise<{
 
   try {
     const baseUrl = siteConfig.baseUrl;
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -164,7 +173,7 @@ export async function createChairTemplateCheckout(): Promise<{
 
   try {
     const baseUrl = siteConfig.baseUrl;
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [
         {
@@ -203,7 +212,7 @@ export async function verifyChairPlanPurchase(
   if (!user) return { success: false, verified: false };
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     if (
       session.payment_status === "paid" &&
       session.metadata?.type === "chair_plan" &&
@@ -225,7 +234,7 @@ export async function verifyChairBundlePurchase(
   if (!user) return { success: false, verified: false };
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     if (
       session.payment_status === "paid" &&
       session.metadata?.type === "chair_bundle" &&
@@ -250,7 +259,7 @@ export async function verifyChairTemplatePurchase(
   if (!user) return { success: false, verified: false };
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     if (
       session.payment_status === "paid" &&
       session.metadata?.type === "chair_template" &&
