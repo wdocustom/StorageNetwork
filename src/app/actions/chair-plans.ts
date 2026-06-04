@@ -36,16 +36,27 @@ export async function checkChairPlanAccess(): Promise<{
   const user = await getAuthenticatedUser();
   if (!user) return { hasAccess: false, isAdmin: false };
 
-  const { data: profile } = await supabase
+  // Check is_admin first — this column exists from migration 031 and is
+  // always safe to query. Admin bypass must not depend on migration 124.
+  const { data: adminProfile } = await supabase
     .from("profiles")
-    .select("chair_plan_purchased, is_admin")
+    .select("is_admin")
     .eq("id", user.id)
     .single();
 
-  const isAdmin = profile?.is_admin === true;
+  const isAdmin = adminProfile?.is_admin === true;
+  if (isAdmin) return { hasAccess: true, isAdmin: true };
+
+  // Only check chair_plan_purchased after migration 124 has run.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("chair_plan_purchased")
+    .eq("id", user.id)
+    .single();
+
   const purchased = profile?.chair_plan_purchased === true;
 
-  return { hasAccess: purchased || isAdmin, isAdmin };
+  return { hasAccess: purchased, isAdmin: false };
 }
 
 export async function createChairPlanCheckout(): Promise<{
