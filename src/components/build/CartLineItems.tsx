@@ -72,7 +72,8 @@ export default function CartLineItems({
           unit.rows === 0 &&
           !unit.overheadGridPresetId &&
           !unit.shelvingConfigId &&
-          !unit.raisedBedConfig;
+          !unit.raisedBedConfig &&
+          !unit.chairId;
 
         return (
           <div
@@ -85,7 +86,9 @@ export default function CartLineItems({
           >
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
-                {unit.raisedBedConfig ? (
+                {unit.chairId ? (
+                  unit.desc
+                ) : unit.raisedBedConfig ? (
                   unit.desc
                 ) : isCustom ? (
                   <>
@@ -106,7 +109,14 @@ export default function CartLineItems({
                 )}
               </p>
               <p className="text-[11px] text-stone-500">
-                {unit.raisedBedConfig ? (
+                {unit.chairId ? (
+                  <>
+                    Adirondack Chair
+                    {unit.quantity && unit.quantity > 1
+                      ? ` • Qty: ${unit.quantity}`
+                      : ""}
+                  </>
+                ) : unit.raisedBedConfig ? (
                   <>
                     Raised Bed
                     {unit.quantity && unit.quantity > 1
@@ -149,7 +159,7 @@ export default function CartLineItems({
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-yellow-400">
-                {unit.quantity && unit.quantity > 1 && unit.raisedBedConfig ? (
+                {unit.quantity && unit.quantity > 1 && (unit.raisedBedConfig || unit.chairId) ? (
                   <>
                     <span className="text-[10px] font-normal text-stone-400">
                       ${Math.round((unit.price || 0) / unit.quantity).toLocaleString()} × {unit.quantity} ={" "}

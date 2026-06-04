@@ -1,9 +1,9 @@
 "use client";
 
-import { Star, Grid3X3, ArrowUpFromLine, Flower2, Hammer } from "lucide-react";
+import { Star, Grid3X3, ArrowUpFromLine, Flower2, Hammer, Package } from "lucide-react";
 import type { InstallerPricing } from "@/types/viewModels";
 
-export type DrawerType = "bestseller" | "custom" | "shelving" | "overhead" | "raisedBed";
+export type DrawerType = "bestseller" | "custom" | "shelving" | "overhead" | "raisedBed" | "chair";
 
 interface ProductTileProps {
   icon: React.ReactNode;
@@ -56,6 +56,7 @@ export default function ProductTilesGrid({
   const shelvingEnabled = installerPricing?.open_shelving_enabled === true;
   const overheadEnabled = installerPricing?.overhead_storage_enabled === true;
   const raisedBedEnabled = installerPricing?.raised_bed_enabled === true;
+  const chairEnabled = installerPricing?.adirondack_chair_enabled === true;
 
   return (
     <section>
@@ -105,6 +106,15 @@ export default function ProductTilesGrid({
             name="Raised Beds"
             description="Planters & garden boxes"
             onTap={() => onTileTap("raisedBed")}
+            accent="amber"
+          />
+        )}
+        {chairEnabled && (
+          <ProductTile
+            icon={<Package className="h-5 w-5" />}
+            name="Adirondack Chair"
+            description="Low Boy build — natural upsell"
+            onTap={() => onTileTap("chair")}
             accent="amber"
           />
         )}

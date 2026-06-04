@@ -154,7 +154,7 @@ export const FEATURES: PlatformFeature[] = [
     name: "Multiple Product Lines",
     audience: "both",
     description: "Not just tote racks — overhead ceiling storage, open shelving, raised bed planters.",
-    details: "Installers can enable/disable product lines from their profile settings. Each has its own 3D configurator, pricing controls, and material lists. Overhead ceiling storage (2x2 to 4x4 grids), open shelving (4-6ft, short/tall), and raised bed planters (8 sizes, 4 finishes, pest covers). One platform, multiple revenue streams.",
+    details: "Installers can enable/disable product lines from their profile settings. Each has its own configurator or tools, pricing controls, and material lists. Overhead ceiling storage (2x2 to 4x4 grids), open shelving (4-6ft, short/tall), raised bed planters (8 sizes, 4 finishes, pest covers), and Low Boy Adirondack Chair (outdoor seating upsell, $265 default, full build plans included). One platform, multiple revenue streams.",
   },
   {
     id: "referral-bounty",
@@ -197,6 +197,13 @@ export const FEATURES: PlatformFeature[] = [
     audience: "installer",
     description: "$9 digital download for a ladder-style building jig — speeds up assembly.",
     details: "Available from /dashboard/guides. The jig helps installers build racks faster and more consistently. One-time purchase, instant PDF download.",
+  },
+  {
+    id: "adirondack-chair",
+    name: "Low Boy Adirondack Chair",
+    audience: "installer",
+    description: "Buildable outdoor seating product installers can quote and sell — natural upsell after any garage build.",
+    details: "The Low Boy Adirondack Chair is a sleek, low-profile outdoor chair built from standard dimensional lumber. Installers enable it from their profile pricing settings. Default price: $265 per chair (fully customizable). Added directly to quotes from the build page. When a customer pays for a chair job, the job ticket shows the materials list (lumber and hardware) and a Build Plans button linking to the installer's build plans guide. No automated cut list — build plans are available at /dashboard/guides after purchasing ($18 digital plans or $60 bundle with MDF template).",
   },
   {
     id: "discount-codes",
@@ -262,7 +269,7 @@ export const FAQ: PlatformFaq[] = [
   { question: "Can I set my own prices?", answer: "100%. You control per-slot pricing, per-tote costs, add-on prices (wheels, plywood top), and even preset pricing overrides. The platform provides defaults but you override them to match your market.", audience: "installer" },
   { question: "What if I don't get any jobs?", answer: "Then you've spent zero dollars. The trial is free. But the installers who succeed put up photos of their work and share their portfolio link.", audience: "installer" },
   { question: "Are there other installers in my area?", answer: "Multiple installers can serve the same area. When a customer books, jobs are routed via tiered priority: Pro installers first, then by experience (completed jobs), then by who has the fewest leads that month. More installers in a region means more marketing investment and more total customers for everyone.", audience: "installer" },
-  { question: "What products can I build?", answer: "Tote storage racks (27-gallon and optional 6.5qt mini), open shelving, overhead ceiling storage, and raised bed planters. Each has its own 3D configurator and material lists. You enable/disable what you offer from your profile.", audience: "installer" },
+  { question: "What products can I build?", answer: "Tote storage racks (27-gallon and optional 6.5qt mini), open shelving, overhead ceiling storage, raised bed planters, and Low Boy Adirondack Chairs ($265 default). Each can be enabled/disabled from your profile. Tote racks, shelving, and overhead get full automated cut plans. Chairs come with a build plans guide (digital plans available from /dashboard/guides).", audience: "installer" },
   { question: "How do customers find me?", answer: "Customers enter their ZIP code on the landing page. The platform matches them with the highest-priority installer in that area. They can also reach you directly via your portfolio link (storage-network.app/p/your-name) or QR code.", audience: "installer" },
   { question: "How do payments work?", answer: "Customers pay a deposit through the platform via Stripe. You get paid directly to your bank account. No invoicing, no check-chasing. The platform handles all payment processing.", audience: "installer" },
   { question: "What's the AI Design Assistant?", answer: "An AI chatbot on every design page that guides customers through building their storage system. Uses your name, your exact pricing, and only the products you offer. Gives accurate quotes 24/7. Helps convert customers who feel overwhelmed by the 3D configurator.", audience: "both" },
