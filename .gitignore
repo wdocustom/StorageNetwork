@@ -4,3 +4,6 @@ node_modules/
 .env.local
 .env.production
 *.tsbuildinfo
+
+# Claude Code internal
+.claude/
