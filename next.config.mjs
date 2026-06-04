@@ -7,6 +7,11 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "12mb",
     },
+    // Ensure private/ files are bundled into the serverless function
+    // that handles /api/chair-plans so they're available at runtime on Vercel.
+    outputFileTracingIncludes: {
+      "/api/chair-plans": ["./private/**/*"],
+    },
   },
   images: {
     remotePatterns: [
