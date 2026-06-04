@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import {
   getInstallerDerivedRegions,
+  getInstallersForRegionSlug,
   regionSlug as buildRegionSlug,
 } from "@/lib/server/region-pages";
 
@@ -110,6 +111,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Union of curated metros + every (city, state) covered by an active
   // installer's service_zips, so any city an installer joins shows up in
   // the sitemap on the next regeneration (Next.js fetches this on demand).
+  //
+  // Empty regions are SKIPPED — pre-GSC-Tier-2 we emitted every curated
+  // metro regardless of whether anyone actually serviced it, which gave
+  // Google a stream of thin / "Crawled, not indexed" pages and pulled
+  // crawl budget away from real ones. /installers/[region] now returns a
+  // proper 404 when the region exists but resolveRegion can't match it;
+  // here we skip regions whose installer count is zero so we don't ask
+  // Google to index pages with nothing on them.
   const dynamicRegionSlugs = await getInstallerDerivedRegions()
     .then((rows) => rows.map((r) => buildRegionSlug(r.city, r.stateCode)))
     .catch((err) => {
@@ -120,7 +129,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     new Set([...INSTALLER_REGIONS.map((r) => r.slug), ...dynamicRegionSlugs]),
   );
 
-  const installerPages: MetadataRoute.Sitemap = regionSlugs.map((slug) => ({
+  // Parallel "does this region have installers?" probe.
+  const populatedRegionSlugs = (
+    await Promise.all(
+      regionSlugs.map(async (slug) => {
+        try {
+          const installers = await getInstallersForRegionSlug(slug, 1);
+          return installers.length > 0 ? slug : null;
+        } catch {
+          return null;
+        }
+      })
+    )
+  ).filter((s): s is string => s !== null);
+
+  const installerPages: MetadataRoute.Sitemap = populatedRegionSlugs.map((slug) => ({
     url: `${BASE}/installers/${slug}`,
     lastModified: now,
     changeFrequency: "weekly" as const,
@@ -147,14 +170,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Only include actual installer portfolios:
+    //   - has a slug
+    //   - is_realtor=false (realtor accounts get auto-generated slugs but
+    //     /p/[slug] for a realtor renders a thin page Google flags as
+    //     "Crawled, not indexed")
+    //   - has at least a business name or trade name so the page has real
+    //     content instead of a placeholder skeleton
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("slug, updated_at")
-      .not("slug", "is", null);
+      .select("slug, updated_at, business_name, trade_name, is_realtor")
+      .not("slug", "is", null)
+      .neq("is_realtor", true);
 
     if (profiles && profiles.length > 0) {
       portfolioPages = profiles
-        .filter((p) => p.slug && p.slug.trim() !== "")
+        .filter(
+          (p) =>
+            !!p.slug &&
+            p.slug.trim() !== "" &&
+            (!!p.business_name || !!p.trade_name)
+        )
         .map((p) => ({
           url: `${BASE}/p/${p.slug}`,
           lastModified: p.updated_at || now,
