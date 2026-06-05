@@ -412,7 +412,10 @@ export async function createQuote(
     }
 
     // ── 2. Calculate Totals Server-Side ─────────────────────────────────
-    const serverTotal = effectiveQuoteData.reduce((sum, unit) => sum + unit.price, 0);
+    const serverBuildTotal = effectiveQuoteData.reduce((sum, unit) => sum + unit.price, 0);
+    const serverIndoorTotal = effectiveQuoteData.reduce((sum, unit) =>
+      sum + (unit.indoorDelivery && unit.indoorDeliveryFee ? unit.indoorDeliveryFee : 0), 0);
+    const serverTotal = serverBuildTotal + serverIndoorTotal + (delivery_fee || 0);
     const finalTotal = serverTotal > 0 ? serverTotal : effectiveTotal;
 
     // Use the effective installer's custom deposit config (min 15% enforced by fee engine)
@@ -434,8 +437,7 @@ export async function createQuote(
 
     // ── Estimated Sales Tax ─────────────────────────────────────────────
     // Derive state from the entered ZIP and compute tax at quote time.
-    // finalTotal is sum(unit.price) — already excludes delivery fees and
-    // indoor delivery (those are tracked separately and are tax-exempt).
+    // Delivery fees and indoor delivery are tax-exempt (tracked separately).
     // Cleanout / custom_service items are also tax-exempt (labor).
     const hasServiceItem = effectiveQuoteData.some(
       (u) => u.toteType === "cleanout" || u.toteType === "custom_service"
@@ -444,7 +446,7 @@ export async function createQuote(
       ? effectiveQuoteData
           .filter((u) => u.toteType !== "cleanout" && u.toteType !== "custom_service")
           .reduce((sum, u) => sum + (u.price || 0), 0)
-      : finalTotal;
+      : serverBuildTotal;
 
     const taxQuote = await getEstimatedSalesTax(taxableAmount, deliveryZip, installer_id);
 
