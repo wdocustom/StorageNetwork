@@ -173,14 +173,14 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-slate-950">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900/95 px-4 py-3.5 backdrop-blur-sm">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3.5 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <a
             href="/dashboard"
-            className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
                 className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
                   range === r
                     ? "bg-[#F5D033]/15 text-[#F5D033]"
-                    : "text-zinc-500 hover:text-white"
+                    : "text-slate-500 hover:text-white"
                 }`}
               >
                 {r}D
@@ -279,7 +279,7 @@ export default function AnalyticsPage() {
 
             {/* Daily Trend */}
             {data && data.viewsByDay.length > 0 && (
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-blue-400" />} title="Daily Trend">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 text-[10px] text-blue-400">
@@ -302,7 +302,7 @@ export default function AnalyticsPage() {
             {data && (data.groupedReferrers.length > 0 || data.deviceBreakdown.length > 0) && (
               <div className="grid gap-4 md:grid-cols-2">
                 {data.groupedReferrers.length > 0 && (
-                  <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                  <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                     <SectionHeader icon={<Globe className="h-4 w-4 text-amber-400" />} title="Traffic Sources" />
                     <div className="grid grid-cols-2 gap-2">
                       {data.groupedReferrers.map((group: GroupedReferrer) => (
@@ -312,7 +312,7 @@ export default function AnalyticsPage() {
                   </section>
                 )}
                 {data.deviceBreakdown.length > 0 && (
-                  <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                  <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                     <SectionHeader icon={<Monitor className="h-4 w-4 text-cyan-400" />} title="Devices" />
                     <div className="space-y-2">
                       {data.deviceBreakdown.map((d) => {
@@ -322,15 +322,15 @@ export default function AnalyticsPage() {
                         return (
                           <div key={d.device} className="flex items-center gap-3">
                             <DeviceIcon className="h-4 w-4 shrink-0 text-cyan-400" />
-                            <span className="w-16 text-xs font-medium text-zinc-400">{d.device}</span>
-                            <div className="h-4 flex-1 overflow-hidden rounded bg-zinc-800">
+                            <span className="w-16 text-xs font-medium text-slate-400">{d.device}</span>
+                            <div className="h-4 flex-1 overflow-hidden rounded bg-slate-800">
                               <div
                                 className="h-full rounded bg-cyan-500/60 transition-all duration-500"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
                             <span className="w-12 text-right text-xs font-bold text-white">{pct}%</span>
-                            <span className="w-10 text-right text-[10px] text-zinc-500">{d.count}</span>
+                            <span className="w-10 text-right text-[10px] text-slate-500">{d.count}</span>
                           </div>
                         );
                       })}
@@ -342,11 +342,11 @@ export default function AnalyticsPage() {
 
             {/* Recent Activity */}
             {data && data.recentViews.length > 0 && (
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
                 <SectionHeader icon={<Activity className="h-4 w-4 text-purple-400" />} title="Recent Visits">
-                  <span className="text-[10px] text-zinc-600">Last 20</span>
+                  <span className="text-[10px] text-slate-600">Last 20</span>
                 </SectionHeader>
-                <div className="mb-2 hidden items-center gap-3 px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-600 md:flex">
+                <div className="mb-2 hidden items-center gap-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-600 md:flex">
                   <span className="w-24">Page</span>
                   <span className="flex-1">Source</span>
                   <span className="w-16 text-center">Device</span>
@@ -357,7 +357,7 @@ export default function AnalyticsPage() {
                     const VisitIcon =
                       v.device === "Mobile" ? Smartphone : v.device === "Tablet" ? Tablet : Monitor;
                     return (
-                      <div key={i} className="flex items-center gap-3 rounded-lg bg-zinc-800/30 px-3 py-2">
+                      <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-800/30 px-3 py-2">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
                           <Eye className="h-3 w-3 text-blue-400" />
                         </div>
@@ -372,16 +372,16 @@ export default function AnalyticsPage() {
                                 ? "Portfolio"
                                 : v.page}
                             </span>
-                            <span className="hidden text-[10px] text-zinc-500 md:inline">
+                            <span className="hidden text-[10px] text-slate-500 md:inline">
                               via {v.referrer ? cleanReferrerDisplay(v.referrer) : "Direct"}
                             </span>
                           </div>
-                          <p className="text-[10px] text-zinc-500 md:hidden">
+                          <p className="text-[10px] text-slate-500 md:hidden">
                             {v.referrer ? cleanReferrerDisplay(v.referrer) : "Direct"} · {v.device}
                           </p>
                         </div>
-                        <VisitIcon className="hidden h-3.5 w-3.5 shrink-0 text-zinc-600 md:block" />
-                        <span className="shrink-0 text-[10px] text-zinc-600">{timeAgo(v.created_at)}</span>
+                        <VisitIcon className="hidden h-3.5 w-3.5 shrink-0 text-slate-600 md:block" />
+                        <span className="shrink-0 text-[10px] text-slate-600">{timeAgo(v.created_at)}</span>
                       </div>
                     );
                   })}
@@ -391,7 +391,7 @@ export default function AnalyticsPage() {
 
             {/* QR Scans */}
             {qrData && qrData.totalScans > 0 && (
-              <section className="rounded-2xl border border-purple-500/20 bg-zinc-900 p-5">
+              <section className="rounded-2xl border border-purple-500/20 bg-slate-900 p-5">
                 <SectionHeader icon={<QrCode className="h-4 w-4 text-purple-400" />} title="QR Code Scans">
                   <span className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[10px] font-black text-purple-400">
                     {qrData.totalScans} total
@@ -399,15 +399,15 @@ export default function AnalyticsPage() {
                 </SectionHeader>
                 <div className="grid grid-cols-2 gap-3">
                   {qrData.topLocations.length > 0 && (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3">
-                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                         Top Locations
                       </h3>
                       <div className="space-y-1.5">
                         {qrData.topLocations.slice(0, 5).map((loc) => (
                           <div key={loc.location} className="flex items-center gap-1.5">
-                            <MapPin className="h-2.5 w-2.5 shrink-0 text-zinc-600" />
-                            <span className="flex-1 truncate text-[11px] text-zinc-400">{loc.location}</span>
+                            <MapPin className="h-2.5 w-2.5 shrink-0 text-slate-600" />
+                            <span className="flex-1 truncate text-[11px] text-slate-400">{loc.location}</span>
                             <span className="text-[10px] font-bold text-white">{loc.count}</span>
                           </div>
                         ))}
@@ -415,14 +415,14 @@ export default function AnalyticsPage() {
                     </div>
                   )}
                   {qrData.deviceBreakdown.length > 0 && (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-800/30 p-3">
-                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Devices</h3>
+                    <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-3">
+                      <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Devices</h3>
                       <div className="space-y-1.5">
                         {qrData.deviceBreakdown.map((d) => {
                           const pct = qrData.totalScans > 0 ? Math.round((d.count / qrData.totalScans) * 100) : 0;
                           return (
                             <div key={d.device} className="flex items-center justify-between">
-                              <span className="text-[11px] capitalize text-zinc-400">{d.device}</span>
+                              <span className="text-[11px] capitalize text-slate-400">{d.device}</span>
                               <span className="text-[10px] font-bold text-white">{pct}%</span>
                             </div>
                           );
@@ -436,10 +436,10 @@ export default function AnalyticsPage() {
 
             {/* Empty state */}
             {data && data.totalViews === 0 && data.totalOrders === 0 && (
-              <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/50 p-8 text-center">
-                <BarChart3 className="mx-auto mb-3 h-10 w-10 text-zinc-600" />
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center">
+                <BarChart3 className="mx-auto mb-3 h-10 w-10 text-slate-600" />
                 <h3 className="mb-2 text-sm font-bold text-white">No traffic yet</h3>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-slate-500">
                   Share your installer link to start tracking visits and conversions.
                 </p>
               </div>
@@ -467,7 +467,7 @@ function SectionHeader({
   return (
     <div className="mb-4 flex items-center gap-2">
       {icon}
-      <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">{title}</h2>
+      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}</h2>
       {children && <div className="ml-auto flex items-center gap-2">{children}</div>}
     </div>
   );
@@ -489,7 +489,7 @@ function MoneyMovesBanner({
   const item = insights[active];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#F5D033]/20 bg-zinc-900">
+    <div className="relative overflow-hidden rounded-2xl border border-[#F5D033]/20 bg-slate-900">
       {/* Left accent bar */}
       <div className="absolute inset-y-0 left-0 w-1 rounded-l-2xl bg-[#F5D033]" />
       {/* Ambient glow */}
@@ -507,17 +507,17 @@ function MoneyMovesBanner({
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#F5D033]">
               Money Move
             </span>
-            <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[9px] font-bold text-zinc-500">
+            <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
               {active + 1}/{insights.length}
             </span>
           </div>
           <p className="mb-1 text-sm font-bold text-white">{item.headline}</p>
-          <p className="mb-3 text-xs leading-relaxed text-zinc-400">{item.body}</p>
+          <p className="mb-3 text-xs leading-relaxed text-slate-400">{item.body}</p>
           <div className="flex items-center gap-3">
             {item.cta && (
               <a
                 href={item.cta.href}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5D033] px-3 py-1.5 text-[11px] font-bold text-zinc-900 transition-all hover:bg-yellow-300 hover:shadow-lg hover:shadow-[#F5D033]/20"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5D033] px-3 py-1.5 text-[11px] font-bold text-slate-900 transition-all hover:bg-yellow-300 hover:shadow-lg hover:shadow-[#F5D033]/20"
               >
                 {item.cta.label}
                 <ArrowRight className="h-3 w-3" />
@@ -526,7 +526,7 @@ function MoneyMovesBanner({
             {insights.length > 1 && (
               <button
                 onClick={onNext}
-                className="text-[11px] font-semibold text-zinc-500 transition-colors hover:text-zinc-300"
+                className="text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-300"
               >
                 Next insight →
               </button>
@@ -545,7 +545,7 @@ function MoneyMovesBanner({
               Array.from({ length: Math.abs(i - active) }).forEach(() => onNext())
             }
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              i === active ? "w-4 bg-[#F5D033]" : "w-1.5 bg-zinc-700 hover:bg-zinc-500"
+              i === active ? "w-4 bg-[#F5D033]" : "w-1.5 bg-slate-700 hover:bg-slate-500"
             }`}
           />
         ))}
@@ -581,14 +581,14 @@ function MetricCard({
   const { text, bg, glow } = CARD_ACCENTS[accent];
   return (
     <div
-      className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${glow}`}
+      className={`rounded-2xl border border-slate-800 bg-slate-900 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${glow}`}
     >
       <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
         <div className={text}>{icon}</div>
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</p>
       <p className="my-1 text-2xl font-black leading-none text-white">{value}</p>
-      <p className="text-[10px] leading-tight text-zinc-600">{sub}</p>
+      <p className="text-[10px] leading-tight text-slate-600">{sub}</p>
     </div>
   );
 }
@@ -612,7 +612,7 @@ function FunnelSection({ funnel }: { funnel: FunnelStage[] }) {
   }
 
   return (
-    <section className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+    <section className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <SectionHeader
         icon={<Filter className="h-4 w-4 text-red-400" />}
         title="Lost Revenue Funnel"
@@ -630,35 +630,35 @@ function FunnelSection({ funnel }: { funnel: FunnelStage[] }) {
               {/* Drop-off connector */}
               {dropPct !== null && (
                 <div className="my-1.5 flex items-center gap-2">
-                  <div className="h-px flex-1 border-t border-dashed border-zinc-800" />
+                  <div className="h-px flex-1 border-t border-dashed border-slate-800" />
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                       dropPct > 60
                         ? "bg-red-500/10 text-red-400"
                         : dropPct > 30
                         ? "bg-amber-500/10 text-amber-400"
-                        : "bg-zinc-800 text-zinc-500"
+                        : "bg-slate-800 text-slate-500"
                     }`}
                   >
                     −{dropPct}%
                   </span>
-                  <div className="h-px flex-1 border-t border-dashed border-zinc-800" />
+                  <div className="h-px flex-1 border-t border-dashed border-slate-800" />
                 </div>
               )}
 
               {/* Stage row */}
               <div className="flex items-center gap-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
-                  <StageIcon className="h-3.5 w-3.5 text-zinc-400" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800">
+                  <StageIcon className="h-3.5 w-3.5 text-slate-400" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-zinc-300">{stage.stage}</span>
+                    <span className="text-xs font-semibold text-slate-300">{stage.stage}</span>
                     <span className="text-xs font-black text-white tabular-nums">
                       {stage.count.toLocaleString()}
                     </span>
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${widthPct}%`, backgroundColor: FUNNEL_COLORS[i] }}
@@ -675,7 +675,7 @@ function FunnelSection({ funnel }: { funnel: FunnelStage[] }) {
       <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
         <div className="flex items-start gap-2">
           <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-          <p className="text-[11px] leading-relaxed text-zinc-400">
+          <p className="text-[11px] leading-relaxed text-slate-400">
             <span className="font-bold text-amber-400">Biggest drop-off</span> is at the &ldquo;
             {funnel[worstIdx]?.stage}&rdquo; stage ({Math.round(worstDrop)}% of leads lost).
             Consider offering a BNPL / Klarna option on your next quote to reduce friction.
@@ -692,13 +692,13 @@ function FunnelSection({ funnel }: { funnel: FunnelStage[] }) {
 
 function HotZonesSection({ zones }: { zones: HotZone[] }) {
   return (
-    <section className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+    <section className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <SectionHeader icon={<MapPin className="h-4 w-4 text-[#F5D033]" />} title="Hot Zones" />
 
       {/* Table */}
       <div className="mb-4 flex-1">
         {/* Header */}
-        <div className="mb-2 grid grid-cols-[2fr_1fr_1.5fr] gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+        <div className="mb-2 grid grid-cols-[2fr_1fr_1.5fr] gap-2 px-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
           <span>ZIP</span>
           <span className="text-center">Jobs Won</span>
           <span className="text-right">Avg Job $</span>
@@ -712,7 +712,7 @@ function HotZonesSection({ zones }: { zones: HotZone[] }) {
               className={`grid grid-cols-[2fr_1fr_1.5fr] items-center gap-2 rounded-xl px-3 py-3 ${
                 i === 0
                   ? "border border-[#F5D033]/15 bg-[#F5D033]/5"
-                  : "bg-zinc-800/40"
+                  : "bg-slate-800/40"
               }`}
             >
               {/* Rank + ZIP */}
@@ -720,8 +720,8 @@ function HotZonesSection({ zones }: { zones: HotZone[] }) {
                 <div
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
                     i === 0
-                      ? "bg-[#F5D033] text-zinc-900"
-                      : "bg-zinc-700 text-zinc-400"
+                      ? "bg-[#F5D033] text-slate-900"
+                      : "bg-slate-700 text-slate-400"
                   }`}
                 >
                   {i + 1}
@@ -751,7 +751,7 @@ function HotZonesSection({ zones }: { zones: HotZone[] }) {
                   <TrendingDown className="h-3.5 w-3.5 text-red-400" />
                 )}
                 {zone.trend === "flat" && (
-                  <div className="h-0.5 w-3 rounded-full bg-zinc-600" />
+                  <div className="h-0.5 w-3 rounded-full bg-slate-600" />
                 )}
               </div>
             </div>
@@ -763,7 +763,7 @@ function HotZonesSection({ zones }: { zones: HotZone[] }) {
       <div className="rounded-xl border border-[#F5D033]/15 bg-[#F5D033]/5 p-3">
         <div className="flex items-start gap-2">
           <Award className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#F5D033]" />
-          <p className="text-[11px] leading-relaxed text-zinc-400">
+          <p className="text-[11px] leading-relaxed text-slate-400">
             <span className="font-bold text-[#F5D033]">Focus your Facebook ads</span> and yard
             signs on ZIP {zones[0]?.zip}. It&apos;s your most profitable neighborhood right now.
           </p>
@@ -781,9 +781,9 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
   const totalRevenue = mix.reduce((s, m) => s + m.revenue, 0);
 
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <SectionHeader icon={<Package className="h-4 w-4 text-emerald-400" />} title="Product Mix">
-        <span className="text-[10px] text-zinc-500">Revenue breakdown by type</span>
+        <span className="text-[10px] text-slate-500">Revenue breakdown by type</span>
       </SectionHeader>
 
       {/* Stacked bar */}
@@ -814,8 +814,8 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
         {mix.map((item) => (
           <div key={item.label} className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
-            <span className="text-xs font-semibold text-zinc-300">{item.label}</span>
-            <span className="text-[10px] text-zinc-500">
+            <span className="text-xs font-semibold text-slate-300">{item.label}</span>
+            <span className="text-[10px] text-slate-500">
               ${item.revenue.toLocaleString()} · {item.pct}%
             </span>
           </div>
@@ -826,8 +826,8 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
       <div className="space-y-3">
         {mix.map((item) => (
           <div key={item.label} className="flex items-center gap-3">
-            <span className="w-24 text-xs font-medium text-zinc-400">{item.label}</span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-800">
+            <span className="w-24 text-xs font-medium text-slate-400">{item.label}</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${item.pct}%`, backgroundColor: item.color }}
@@ -844,7 +844,7 @@ function ProductMixSection({ mix }: { mix: ProductMixItem[] }) {
       <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
         <div className="flex items-start gap-2">
           <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
-          <p className="text-[11px] leading-relaxed text-zinc-400">
+          <p className="text-[11px] leading-relaxed text-slate-400">
             <span className="font-bold text-emerald-400">Upsell opportunity:</span> {mix[0]?.pct}%
             of your revenue comes from tote packages. Every Frame Only sale that gets upgraded
             adds ${Math.round((mix[0]?.revenue ?? 0) / (mix[1]?.revenue ?? 1) * 100)} in average
@@ -892,13 +892,13 @@ function DualBarChart({
               >
                 {orders > 0 && (
                   <div
-                    className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-emerald-400 ring-2 ring-zinc-900"
+                    className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-emerald-400 ring-2 ring-slate-900"
                     title={`${orders} order${orders > 1 ? "s" : ""}`}
                   />
                 )}
               </div>
             </div>
-            <span className="hidden text-[8px] leading-none text-zinc-600 sm:block">
+            <span className="hidden text-[8px] leading-none text-slate-600 sm:block">
               {fmtDate.toLocaleDateString("en-US", { day: "numeric" })}
             </span>
           </div>
@@ -928,7 +928,7 @@ const SOURCE_COLORS: Record<string, string> = {
   Yahoo:       "bg-purple-500/15 text-purple-400 border-purple-500/20",
   Craigslist:  "bg-violet-500/15 text-violet-400 border-violet-500/20",
 };
-const DEFAULT_COLOR = "bg-zinc-700/30 text-zinc-300 border-zinc-600/30";
+const DEFAULT_COLOR = "bg-slate-700/30 text-slate-300 border-slate-600/30";
 
 function TrafficSourceTile({
   group,
