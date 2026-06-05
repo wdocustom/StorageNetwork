@@ -1047,6 +1047,40 @@ export default function DesignConfigurator({
                   {presets.compoundBuild.presetName}
                 </span>
               </>
+            ) : cart.showMultiUnit3D && cart.orderItems.some((it) => !it.raisedBedConfig && !it.overheadStorageConfig) ? (
+              (() => {
+                const rackItems = cart.orderItems.filter(
+                  (it) => !it.raisedBedConfig && !it.overheadStorageConfig,
+                );
+                const combinedW = rackItems.reduce(
+                  (s, it) => s + (it.totalW || 0) * (it.quantity || 1), 0,
+                );
+                const maxH = Math.max(...rackItems.map((it) => it.totalH || 0));
+                const depth = rackItems[0]?.depth || 30;
+                const slotParts: string[] = [];
+                let totalSlots = 0;
+                for (const it of rackItems) {
+                  const qty = it.quantity || 1;
+                  const slots = it.presetUnits
+                    ? it.presetUnits.reduce((s, su) => s + su.cols * su.rows, 0)
+                    : it.cols * it.rows;
+                  for (let q = 0; q < qty; q++) {
+                    slotParts.push(`${it.cols}×${it.rows}`);
+                    totalSlots += slots;
+                  }
+                }
+                return (
+                  <>
+                    {combinedW > 0 ? combinedW.toFixed(1) : "—"}&quot; W &times;{" "}
+                    {maxH > 0 ? maxH.toFixed(1) : "—"}&quot; H &times;{" "}
+                    {depth}&quot; D &nbsp;&mdash;&nbsp;
+                    <span className="font-bold text-gray-900">
+                      {slotParts.join(" + ")} ={" "}
+                      {totalSlots} slots
+                    </span>
+                  </>
+                );
+              })()
             ) : (
               <>
                 {builder.build.totalW > 0 ? builder.build.totalW.toFixed(1) : "—"}&quot; W

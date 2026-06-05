@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { verifyAndCreatePlanAccess, validatePlanToken } from "@/app/actions/public-plans";
 import { getPlanById } from "@/lib/plans-config";
 import { Loader2, CheckCircle, AlertCircle, Maximize2, BookOpen } from "lucide-react";
 import Image from "next/image";
 
-export default function PlansAccessPage() {
+function PlansAccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -191,5 +191,20 @@ export default function PlansAccessPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PlansAccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-yellow-400" />
+          <p className="text-sm text-stone-500">Verifying your purchase…</p>
+        </div>
+      </div>
+    }>
+      <PlansAccessInner />
+    </Suspense>
   );
 }
