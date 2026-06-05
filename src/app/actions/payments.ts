@@ -920,9 +920,7 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ["card"],
         ...(stripeCustomerId && { customer: stripeCustomerId }),
         setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
@@ -974,9 +972,7 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ["card"],
         ...(stripeCustomerId && { customer: stripeCustomerId }),
         setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
@@ -1025,9 +1021,7 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ["card"],
         ...(stripeCustomerId && { customer: stripeCustomerId }),
         setup_future_usage: "off_session",
         application_fee_amount: platformFeeCents,
@@ -1070,9 +1064,7 @@ export async function createDepositIntent(
       paymentIntent = await stripe.paymentIntents.create({
         amount: depositAmountCents,
         currency: "usd",
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ["card"],
         ...(stripeCustomerId && { customer: stripeCustomerId }),
         setup_future_usage: "off_session",
         receipt_email: customerEmail || undefined,
