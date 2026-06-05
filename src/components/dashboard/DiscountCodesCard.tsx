@@ -112,7 +112,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
 
       {/* ── Create Form ────────────────────────────────────────────── */}
       {showForm && (
-        <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-3">
+        <div className="mb-4 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
@@ -124,7 +124,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 onChange={(e) => setNewCode(e.target.value.toUpperCase().replace(/\s/g, ""))}
                 placeholder="SAVE10"
                 maxLength={20}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-mono text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm font-mono text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
               />
             </div>
             <div>
@@ -134,7 +134,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
               <select
                 value={discountType}
                 onChange={(e) => setDiscountType(e.target.value as "percent" | "fixed")}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none"
               >
                 <option value="percent">Percentage (%)</option>
                 <option value="fixed">Fixed ($)</option>
@@ -155,9 +155,9 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                   placeholder={discountType === "percent" ? "10" : "25"}
                   min="1"
                   max={discountType === "percent" ? "100" : undefined}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 pr-8 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 pr-8 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-500">
+                <span className="absolute right-3 top-1/2 -tranzinc-y-1/2 text-xs text-stone-500">
                   {discountType === "percent" ? "%" : "$"}
                 </span>
               </div>
@@ -172,7 +172,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 onChange={(e) => setMaxUses(e.target.value)}
                 placeholder="Unlimited"
                 min="1"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
               />
             </div>
             <div>
@@ -184,7 +184,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
                 min={new Date().toISOString().split("T")[0]}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none"
               />
             </div>
             <div>
@@ -197,7 +197,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 onChange={(e) => setMinUnits(e.target.value)}
                 placeholder="Any"
                 min="2"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none"
               />
               {minUnits && Number(minUnits) >= 2 && (
                 <p className="mt-1 text-[10px] text-stone-600">Requires {minUnits}+ units in order</p>
@@ -230,7 +230,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 setShowForm(false);
                 setError("");
               }}
-              className="rounded-lg px-3 py-2 text-xs text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+              className="rounded-lg px-3 py-2 text-xs text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
             >
               Cancel
             </button>
@@ -244,7 +244,7 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
           <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
         </div>
       ) : codes.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-700 py-8 text-center">
+        <div className="rounded-xl border border-dashed border-zinc-700 py-8 text-center">
           <Tag className="mx-auto mb-2 h-6 w-6 text-stone-600" />
           <p className="text-sm text-stone-500">No discount codes yet</p>
           <p className="mt-1 text-[11px] text-stone-600">
@@ -262,8 +262,8 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
                 key={code.id}
                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
                   code.active && !isExpired && !isMaxed
-                    ? "border-slate-700 bg-slate-800/50"
-                    : "border-slate-800 bg-slate-900/50 opacity-60"
+                    ? "border-zinc-700 bg-zinc-800/50"
+                    : "border-zinc-800 bg-zinc-900/50 opacity-60"
                 }`}
               >
                 <div className="flex-1 min-w-0">
@@ -334,13 +334,13 @@ export default function DiscountCodesCard({ userId, embedded }: DiscountCodesCar
   if (embedded) return body;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center gap-2">
         <Tag className="h-4 w-4 text-yellow-400" />
         <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
           Discount Codes
         </h2>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+        <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-stone-500">
           {codes.filter((c) => c.active).length} active
         </span>
       </div>

@@ -239,7 +239,7 @@ export default function JobTicketPage() {
   // ── Loading / Error ───────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -247,7 +247,7 @@ export default function JobTicketPage() {
 
   if (error || !lead) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4">
         <p className="mb-4 text-lg font-bold text-red-400">{error}</p>
         <a
           href="/dashboard"
@@ -263,9 +263,9 @@ export default function JobTicketPage() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard/leads"
@@ -290,7 +290,7 @@ export default function JobTicketPage() {
         {/* ── Customer Info ────────────────────────────────────────── */}
         {lead.status === "waitlisted" ? (
           /* Waitlisted lead — mask contact details, show upgrade CTA */
-          <section className="rounded-xl border border-amber-500/30 bg-slate-900 p-4">
+          <section className="rounded-xl border border-amber-500/30 bg-zinc-900 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400">
                 Waitlisted Customer
@@ -326,7 +326,7 @@ export default function JobTicketPage() {
           /* Normal lead — full contact info, editable */
           <section
             onClick={openContactEdit}
-            className="cursor-pointer rounded-xl border border-slate-800 bg-slate-900 p-4 transition-colors hover:border-yellow-400/40"
+            className="cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-colors hover:border-yellow-400/40"
           >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -369,7 +369,7 @@ export default function JobTicketPage() {
                 {lead.address}
               </a>
             ) : lead.address_line1 ? (
-              <div className="mt-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+              <div className="mt-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2">
                 <p className="flex items-center gap-1 text-sm font-semibold text-white">
                   <MapPin className="h-3 w-3 text-yellow-400" />
                   {lead.address_line1}
@@ -414,14 +414,14 @@ export default function JobTicketPage() {
         {/* ── Customer Contact Edit Modal ─────────────────────────────── */}
         {showContactEdit && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+            <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-white">
                   Edit Contact Info
                 </h3>
                 <button
                   onClick={() => setShowContactEdit(false)}
-                  className="rounded-lg p-1 text-stone-500 hover:bg-slate-800 hover:text-white"
+                  className="rounded-lg p-1 text-stone-500 hover:bg-zinc-800 hover:text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -435,7 +435,7 @@ export default function JobTicketPage() {
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">
                 Email
               </label>
-              <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5">
                 <Mail className="h-4 w-4 shrink-0 text-stone-500" />
                 <input
                   type="email"
@@ -450,7 +450,7 @@ export default function JobTicketPage() {
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-stone-500">
                 Phone
               </label>
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5">
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5">
                 <Phone className="h-4 w-4 shrink-0 text-stone-500" />
                 <input
                   type="tel"
@@ -465,7 +465,7 @@ export default function JobTicketPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowContactEdit(false)}
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
+                  className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-bold text-stone-400 transition-colors hover:text-white"
                 >
                   Cancel
                 </button>
@@ -489,7 +489,7 @@ export default function JobTicketPage() {
         {lead.deposit_paid &&
           lead.status === "open" &&
           lead.customer_phone && (
-          <section className="overflow-hidden rounded-xl border border-yellow-400/20 bg-gradient-to-r from-yellow-400/5 to-slate-900">
+          <section className="overflow-hidden rounded-xl border border-yellow-400/20 bg-gradient-to-r from-yellow-400/5 to-zinc-900">
             <div className="p-4">
               {tripSent ? (
                 <div className="flex items-center gap-3">

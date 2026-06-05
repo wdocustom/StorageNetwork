@@ -6,8 +6,8 @@ import ProPill from "@/components/dashboard/ProPill";
 
 export default function SchedulePage() {
   return (
-    <div className="min-h-screen bg-slate-950">
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+    <div className="min-h-screen bg-zinc-950">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard"

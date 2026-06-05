@@ -3,7 +3,7 @@
 //
 // Sortable-on-load table of every realtor on the platform, with search and
 // pagination. Mirrors the visual conventions of the partner-portal admin
-// surface (slate-950 / yellow-400) but with realtor-flavored columns:
+// surface (zinc-950 / yellow-400) but with realtor-flavored columns:
 // brokerage, gifts sent, revenue, in-flight count, suspended state.
 //
 // Each row links to /dashboard/admin/realtors/[id] for the detail view
@@ -48,7 +48,7 @@ export default async function RealtorAdminListPage({
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-6 py-10 sm:py-14">
         <Link
           href="/dashboard/partner"
@@ -65,7 +65,7 @@ export default async function RealtorAdminListPage({
             </p>
             <h1 className="text-3xl font-black sm:text-4xl">Realtor accounts</h1>
             <p className="mt-2 max-w-2xl text-sm text-stone-400">
-              Every account flagged <code className="rounded bg-slate-900 px-1.5 py-0.5 text-[11px] text-yellow-400">is_realtor=true</code>.
+              Every account flagged <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-[11px] text-yellow-400">is_realtor=true</code>.
               Click a row to view their gifts, suspend the account, or delete it.
             </p>
           </div>
@@ -87,9 +87,9 @@ export default async function RealtorAdminListPage({
           <EmptyState search={search} />
         ) : (
           <>
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40">
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-800 bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                <thead className="border-b border-zinc-800 bg-zinc-900/60 text-[10px] font-bold uppercase tracking-wider text-stone-400">
                   <tr>
                     <th className="px-4 py-3">Realtor</th>
                     <th className="px-4 py-3">Brokerage</th>
@@ -100,12 +100,12 @@ export default async function RealtorAdminListPage({
                     <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-zinc-800/60">
                   {result.rows.map((r) => {
                     const displayName =
                       [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email;
                     return (
-                      <tr key={r.id} className="hover:bg-slate-900/50">
+                      <tr key={r.id} className="hover:bg-zinc-900/50">
                         <td className="px-4 py-3">
                           <Link
                             href={`/dashboard/admin/realtors/${r.id}`}
@@ -180,7 +180,7 @@ export default async function RealtorAdminListPage({
 
 function EmptyState({ search }: { search: string }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-16 text-center">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-16 text-center">
       <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10 ring-1 ring-yellow-400/40">
         <Search className="h-7 w-7 text-yellow-400" />
       </div>
@@ -210,7 +210,7 @@ function PaginationLink({
   const href = `/dashboard/admin/realtors?page=${page}${search ? `&q=${encodeURIComponent(search)}` : ""}`;
   if (disabled) {
     return (
-      <span className="rounded-md border border-slate-800 px-3 py-1.5 text-[11px] font-semibold text-stone-600">
+      <span className="rounded-md border border-zinc-800 px-3 py-1.5 text-[11px] font-semibold text-stone-600">
         {label}
       </span>
     );
@@ -218,7 +218,7 @@ function PaginationLink({
   return (
     <Link
       href={href}
-      className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-stone-200 hover:border-yellow-400 hover:text-yellow-300"
+      className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-stone-200 hover:border-yellow-400 hover:text-yellow-300"
     >
       {label}
     </Link>

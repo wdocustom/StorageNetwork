@@ -70,13 +70,13 @@ export function ToteJobsTable({ jobs }: { jobs: InstallerToteJob[] }) {
               className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
                 isActive
                   ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-300"
-                  : "border-slate-800 bg-slate-900/40 text-stone-300 hover:border-slate-700"
+                  : "border-zinc-800 bg-zinc-900/40 text-stone-300 hover:border-zinc-700"
               }`}
             >
               {TAB_LABEL[t]}
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] ${
-                  isActive ? "bg-yellow-400/20 text-yellow-200" : "bg-slate-800 text-stone-400"
+                  isActive ? "bg-yellow-400/20 text-yellow-200" : "bg-zinc-800 text-stone-400"
                 }`}
               >
                 {tabCounts[t]}
@@ -87,7 +87,7 @@ export function ToteJobsTable({ jobs }: { jobs: InstallerToteJob[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-12 text-center text-sm text-stone-400">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-12 text-center text-sm text-stone-400">
           Nothing in this state yet.
         </div>
       ) : (
@@ -145,7 +145,7 @@ function JobRow({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-baseline gap-3">
@@ -279,7 +279,7 @@ function PayoutBadge({
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-semibold text-stone-300">
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-[11px] font-semibold text-stone-300">
       <DollarSign className="h-3 w-3" />
       ${dollars} on completion
     </span>
@@ -301,7 +301,7 @@ function ActionButton({
     <button
       onClick={onClick}
       disabled={loading}
-      className="flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-yellow-300 disabled:opacity-60"
+      className="flex items-center gap-2 rounded-xl bg-yellow-400 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-yellow-300 disabled:opacity-60"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
       {label}

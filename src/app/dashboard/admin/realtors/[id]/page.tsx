@@ -52,7 +52,7 @@ export default async function RealtorAdminDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-6xl px-6 py-10 sm:py-14">
         <Link
           href="/dashboard/admin/realtors"
@@ -73,7 +73,7 @@ export default async function RealtorAdminDetailPage({
 
 function ErrorShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-3xl px-6 py-14">
         <Link
           href="/dashboard/admin/realtors"

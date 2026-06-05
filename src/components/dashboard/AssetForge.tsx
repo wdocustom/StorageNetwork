@@ -175,11 +175,11 @@ export default function AssetForge() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+    <section className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950">
       {COMING_SOON && <ComingSoonOverlay />}
       <div className={COMING_SOON ? "pointer-events-none select-none blur-[1px]" : ""}>
       {/* ── Forge Header ──────────────────────────────────────── */}
-      <header className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/60 px-5 py-4">
+      <header className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900/60 px-5 py-4">
         <div className="flex items-center gap-2">
           <div className="rounded-lg bg-yellow-400/10 p-1.5">
             <Sparkles className="h-4 w-4 text-yellow-400" />
@@ -193,7 +193,7 @@ export default function AssetForge() {
       </header>
 
       {/* ── How credits work ──────────────────────────────────── */}
-      <div className="border-b border-slate-800 bg-slate-900/40 px-5 py-2.5">
+      <div className="border-b border-zinc-800 bg-zinc-900/40 px-5 py-2.5">
         <p className="text-[11px] leading-relaxed text-stone-400">
           <span className="font-bold text-yellow-300">+10 credits</span> are added automatically every time you complete a job. New installers start with{" "}
           <span className="font-bold text-yellow-300">10 credits</span>. Each generated asset costs 1 credit.
@@ -234,14 +234,14 @@ export default function AssetForge() {
         </StepCard>
 
         {/* ── Customize (collapsible) ───────────────────────── */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40">
           <button
             type="button"
             onClick={() => setShowCustomize((v) => !v)}
-            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-900/70"
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-900/70"
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-stone-400">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-stone-400">
                 <Sliders className="h-3 w-3" />
               </span>
               <div>
@@ -257,7 +257,7 @@ export default function AssetForge() {
           </button>
 
           {showCustomize && (
-            <div className="space-y-5 border-t border-slate-800 px-4 py-4">
+            <div className="space-y-5 border-t border-zinc-800 px-4 py-4">
               {/* Aspect ratio */}
               <div>
                 <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">
@@ -293,11 +293,11 @@ export default function AssetForge() {
                         className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
                           active
                             ? "border-yellow-400 bg-yellow-400/10 text-yellow-300"
-                            : "border-slate-700 bg-slate-800/60 text-stone-300 hover:border-slate-600"
+                            : "border-zinc-700 bg-zinc-800/60 text-stone-300 hover:border-zinc-600"
                         }`}
                       >
                         <span
-                          className="h-3.5 w-3.5 rounded-full border border-slate-600"
+                          className="h-3.5 w-3.5 rounded-full border border-zinc-600"
                           style={{ background: opt.swatch }}
                         />
                         {opt.label}
@@ -308,7 +308,7 @@ export default function AssetForge() {
                     <button
                       type="button"
                       onClick={() => setBrandColor(null)}
-                      className="rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-[11px] font-semibold text-stone-500 hover:text-stone-300"
+                      className="rounded-full border border-zinc-700 bg-zinc-800/60 px-3 py-1.5 text-[11px] font-semibold text-stone-500 hover:text-stone-300"
                     >
                       Clear
                     </button>
@@ -332,7 +332,7 @@ export default function AssetForge() {
                   onChange={(e) => setCustomDetail(e.target.value.slice(0, CUSTOM_DETAIL_MAX))}
                   rows={3}
                   placeholder='e.g. "winter, snow visible through the open garage door" · "with my company logo on the back wall" · "bright red sports car parked inside"'
-                  className="w-full resize-none rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
             </div>
@@ -346,7 +346,7 @@ export default function AssetForge() {
             disabled={!ready}
             className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-6 py-4 text-sm font-extrabold uppercase tracking-wider text-gray-950 shadow-lg shadow-yellow-500/20 transition-all hover:shadow-yellow-500/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
-            <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+            <span className="absolute inset-0 -tranzinc-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:tranzinc-x-full" />
             {generating ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -374,7 +374,7 @@ export default function AssetForge() {
 
         {/* ── Result Preview ────────────────────────────────── */}
         {(resultUrl || generating) && (
-          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-500">Preview</p>
               {resultUrl && (
@@ -384,22 +384,22 @@ export default function AssetForge() {
                     target="_blank"
                     rel="noopener noreferrer"
                     download
-                    className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    className="flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
                   >
                     <Download className="h-3 w-3" /> Download
                   </a>
                   <button
                     onClick={handleReset}
-                    className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    className="flex items-center gap-1 rounded-md border border-zinc-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
                   >
                     <RefreshCw className="h-3 w-3" /> Reset
                   </button>
                 </div>
               )}
             </div>
-            <div className={`relative w-full overflow-hidden rounded-lg bg-slate-900 ${PREVIEW_ASPECT_CLASS[resultAspect]}`}>
+            <div className={`relative w-full overflow-hidden rounded-lg bg-zinc-900 ${PREVIEW_ASPECT_CLASS[resultAspect]}`}>
               {generating && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 px-6 text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-950/80 px-6 text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
                   <p
                     key={sayingIdx}
@@ -434,14 +434,14 @@ export default function AssetForge() {
 
 function ComingSoonOverlay() {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-zinc-950/85 backdrop-blur-sm">
       {/* animated gradient halo */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
 
-      <div className="relative mx-6 max-w-md overflow-hidden rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-7 shadow-2xl shadow-yellow-500/10">
+      <div className="relative mx-6 max-w-md overflow-hidden rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 p-7 shadow-2xl shadow-yellow-500/10">
         {/* shimmer sweep */}
-        <span className="pointer-events-none absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent" />
+        <span className="pointer-events-none absolute inset-0 -tranzinc-x-full animate-shimmer bg-gradient-to-r from-transparent via-yellow-400/10 to-transparent" />
 
         {/* top eyebrow with pulsing dot */}
         <div className="mb-3 flex items-center gap-2">
@@ -512,7 +512,7 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
       <div className="mb-3 flex items-center gap-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400/15 text-[11px] font-extrabold text-yellow-400">
           {step}
@@ -547,12 +547,12 @@ function ToggleTile({
       className={`group flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-all active:scale-[0.99] ${
         active
           ? "border-yellow-400 bg-yellow-400/10 shadow-md shadow-yellow-500/10"
-          : "border-slate-800 bg-slate-900 hover:border-slate-700 hover:bg-slate-800/60"
+          : "border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800/60"
       }`}
     >
       <div
         className={`rounded-md p-1.5 transition-colors ${
-          active ? "bg-yellow-400/20 text-yellow-400" : "bg-slate-800 text-stone-400 group-hover:text-white"
+          active ? "bg-yellow-400/20 text-yellow-400" : "bg-zinc-800 text-stone-400 group-hover:text-white"
         }`}
       >
         <Icon className="h-4 w-4" />

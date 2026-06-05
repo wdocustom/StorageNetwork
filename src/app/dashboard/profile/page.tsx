@@ -677,7 +677,7 @@ function ProfilePageInner() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -687,13 +687,13 @@ function ProfilePageInner() {
   const portfolioUrl = profile?.slug ? `/p/${profile.slug}` : null;
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
           <a
             href="/dashboard"
-            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
@@ -719,7 +719,7 @@ function ProfilePageInner() {
               href={portfolioUrl!}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
+              className="flex flex-col items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400"
             >
               <ExternalLink className="h-5 w-5" />
               <span className="text-[10px] font-bold uppercase tracking-wider">Portfolio</span>
@@ -728,7 +728,7 @@ function ProfilePageInner() {
               <button
                 onClick={handleStripeDashboard}
                 disabled={stripeLoading}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
               >
                 {stripeLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -743,7 +743,7 @@ function ProfilePageInner() {
               <button
                 onClick={handleStripeConnect}
                 disabled={stripeLoading}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 p-3 text-stone-400 transition-all hover:border-yellow-400/40 hover:text-yellow-400 disabled:opacity-50"
               >
                 {stripeLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -768,7 +768,7 @@ function ProfilePageInner() {
           </p>
         )}
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
-        <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-1">
+        <nav className="flex gap-1 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900 p-1">
           {(["business", "pricing", "portfolio", "account"] as const).map((tab) => {
             const labels = { business: "Business", pricing: "Pricing", portfolio: "Portfolio", account: "Account" };
             return (
@@ -785,7 +785,7 @@ function ProfilePageInner() {
         {activeTab === "business" && (<>
 
         {/* ── Personal & Business Info ──────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <User className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">Personal & Business Info</h2>
@@ -802,7 +802,7 @@ function ProfilePageInner() {
                 className="hidden"
               />
               {/* Avatar display - strictly circular */}
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-slate-700 bg-slate-800">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-zinc-700 bg-zinc-800">
                 {avatarUrl ? (
                   <Image
                     src={avatarUrl}
@@ -819,7 +819,7 @@ function ProfilePageInner() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-slate-900 bg-slate-700 text-white transition-colors hover:bg-yellow-400 hover:text-gray-950 disabled:opacity-50"
+                className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-700 text-white transition-colors hover:bg-yellow-400 hover:text-gray-950 disabled:opacity-50"
                 title="Change photo"
               >
                 {uploadingPhoto ? (
@@ -856,7 +856,7 @@ function ProfilePageInner() {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="John"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
               <div>
@@ -868,7 +868,7 @@ function ProfilePageInner() {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
             </div>
@@ -883,7 +883,7 @@ function ProfilePageInner() {
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Best Garage Solutions LLC"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
               <div>
@@ -895,7 +895,7 @@ function ProfilePageInner() {
                   value={tradeName}
                   onChange={(e) => setTradeName(e.target.value)}
                   placeholder="Best Garage"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
             </div>
@@ -910,7 +910,7 @@ function ProfilePageInner() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(555) 123-4567"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
               <div>
@@ -926,7 +926,7 @@ function ProfilePageInner() {
                     setServiceZip(e.target.value.replace(/\D/g, "").slice(0, 5))
                   }
                   placeholder="90210"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                 />
               </div>
             </div>
@@ -940,7 +940,7 @@ function ProfilePageInner() {
                 value={addressLine1}
                 onChange={(e) => setAddressLine1(e.target.value)}
                 placeholder="1234 Main St"
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
               />
               <p className="mt-0.5 text-[10px] text-stone-600">Used for delivery distance calculations</p>
             </div>
@@ -955,8 +955,8 @@ function ProfilePageInner() {
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Los Angeles"
-                  className={`w-full rounded-lg border bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
-                    !city.trim() ? "border-red-500/50" : "border-slate-700"
+                  className={`w-full rounded-lg border bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
+                    !city.trim() ? "border-red-500/50" : "border-zinc-700"
                   }`}
                 />
               </div>
@@ -970,8 +970,8 @@ function ProfilePageInner() {
                   onChange={(e) => setState(e.target.value)}
                   placeholder="CA"
                   maxLength={2}
-                  className={`w-full rounded-lg border bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
-                    !state.trim() ? "border-red-500/50" : "border-slate-700"
+                  className={`w-full rounded-lg border bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400 ${
+                    !state.trim() ? "border-red-500/50" : "border-zinc-700"
                   }`}
                 />
               </div>
@@ -1003,14 +1003,14 @@ function ProfilePageInner() {
         </div>
 
         {/* ── Service Area ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <Target className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">Service Area</h2>
-            {serviceZip && <span className="ml-auto rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold text-stone-400">{serviceRadius} mi from {serviceZip}{zipsCovered ? ` · ${zipsCovered.toLocaleString()} ZIPs` : ""}</span>}
+            {serviceZip && <span className="ml-auto rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] font-bold text-stone-400">{serviceRadius} mi from {serviceZip}{zipsCovered ? ` · ${zipsCovered.toLocaleString()} ZIPs` : ""}</span>}
           </div>
           {/* Current ZIP Display */}
-          <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="mb-5 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400/10">
@@ -1050,7 +1050,7 @@ function ProfilePageInner() {
             {/* Custom Slider Track */}
             <div className="relative">
               {/* Track background */}
-              <div className="h-3 rounded-full bg-slate-700">
+              <div className="h-3 rounded-full bg-zinc-700">
                 {/* Filled portion */}
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-400"
@@ -1069,7 +1069,7 @@ function ProfilePageInner() {
               />
               {/* Custom thumb */}
               <div
-                className="pointer-events-none absolute top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-yellow-400 bg-slate-900 shadow-lg transition-all"
+                className="pointer-events-none absolute top-1/2 h-6 w-6 -tranzinc-y-1/2 rounded-full border-4 border-yellow-400 bg-zinc-900 shadow-lg transition-all"
                 style={{ left: `calc(${((serviceRadius - 5) / 80) * 100}% - 12px)` }}
               />
             </div>
@@ -1083,7 +1083,7 @@ function ProfilePageInner() {
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                     serviceRadius === preset
                       ? "bg-yellow-400 text-gray-950"
-                      : "bg-slate-800 text-stone-400 hover:bg-slate-700 hover:text-white"
+                      : "bg-zinc-800 text-stone-400 hover:bg-zinc-700 hover:text-white"
                   }`}
                 >
                   {preset} mi
@@ -1093,7 +1093,7 @@ function ProfilePageInner() {
           </div>
 
           {/* Visual Distance Reference */}
-          <div className="mb-5 rounded-lg border border-slate-700 bg-slate-800/30 p-3">
+          <div className="mb-5 rounded-lg border border-zinc-700 bg-zinc-800/30 p-3">
             <p className="text-xs text-stone-400">
               <span className="font-semibold text-white">{serviceRadius} miles</span> ≈{" "}
               {serviceRadius <= 15
@@ -1159,12 +1159,12 @@ function ProfilePageInner() {
             <button
               onClick={() => setDeliveryFeeEnabled(!deliveryFeeEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                deliveryFeeEnabled ? "bg-yellow-400" : "bg-slate-700"
+                deliveryFeeEnabled ? "bg-yellow-400" : "bg-zinc-700"
               }`}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  deliveryFeeEnabled ? "translate-x-6" : "translate-x-1"
+                  deliveryFeeEnabled ? "tranzinc-x-6" : "tranzinc-x-1"
                 }`}
               />
             </button>
@@ -1185,8 +1185,8 @@ function ProfilePageInner() {
                       key={idx}
                       className={`rounded-lg border p-3 transition-colors ${
                         tier.enabled
-                          ? "border-slate-700 bg-slate-800"
-                          : "border-slate-800 bg-slate-800/30 opacity-60"
+                          ? "border-zinc-700 bg-zinc-800"
+                          : "border-zinc-800 bg-zinc-800/30 opacity-60"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -1194,12 +1194,12 @@ function ProfilePageInner() {
                         <button
                           onClick={() => updateDeliveryTier(idx, { enabled: !tier.enabled })}
                           className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                            tier.enabled ? "bg-yellow-400" : "bg-slate-600"
+                            tier.enabled ? "bg-yellow-400" : "bg-zinc-600"
                           }`}
                         >
                           <span
                             className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                              tier.enabled ? "translate-x-5" : "translate-x-1"
+                              tier.enabled ? "tranzinc-x-5" : "tranzinc-x-1"
                             }`}
                           />
                         </button>
@@ -1221,7 +1221,7 @@ function ProfilePageInner() {
                             if (!v || v <= prevMax) updateDeliveryTier(idx, { max_miles: prevMax + 1 });
                           }}
                           onFocus={(e) => e.target.select()}
-                          className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                          className="w-16 rounded border border-zinc-600 bg-zinc-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
                         />
                         <span className="text-xs text-stone-500">mi</span>
 
@@ -1237,7 +1237,7 @@ function ProfilePageInner() {
                             value={tier.fee}
                             onChange={(e) => updateDeliveryTier(idx, { fee: e.target.value === "" ? 0 : Number(e.target.value) })}
                             onFocus={(e) => e.target.select()}
-                            className="w-16 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                            className="w-16 rounded border border-zinc-600 bg-zinc-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
                           />
                         </div>
 
@@ -1260,7 +1260,7 @@ function ProfilePageInner() {
               {/* Add Tier button */}
               <button
                 onClick={addDeliveryTier}
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 py-2 text-xs font-semibold text-stone-500 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-700 py-2 text-xs font-semibold text-stone-500 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Distance Tier
@@ -1275,7 +1275,7 @@ function ProfilePageInner() {
           )}
 
           {/* ── Indoor Delivery Fee ─────────────────────────────── */}
-          <div className="mt-6 border-t border-slate-700/50 pt-4">
+          <div className="mt-6 border-t border-zinc-700/50 pt-4">
             <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
               Indoor Delivery Fee
             </h4>
@@ -1289,19 +1289,19 @@ function ProfilePageInner() {
               <button
                 onClick={() => setIndoorDeliveryEnabled(!indoorDeliveryEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  indoorDeliveryEnabled ? "bg-yellow-400" : "bg-slate-700"
+                  indoorDeliveryEnabled ? "bg-yellow-400" : "bg-zinc-700"
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    indoorDeliveryEnabled ? "translate-x-6" : "translate-x-1"
+                    indoorDeliveryEnabled ? "tranzinc-x-6" : "tranzinc-x-1"
                   }`}
                 />
               </button>
             </div>
 
             {indoorDeliveryEnabled && (
-              <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 p-3">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 p-3">
                 <span className="text-xs font-bold text-stone-400">$</span>
                 <input
                   type="number"
@@ -1310,7 +1310,7 @@ function ProfilePageInner() {
                   value={indoorDeliveryFee}
                   onChange={(e) => setIndoorDeliveryFee(e.target.value === "" ? 0 : Number(e.target.value))}
                   onFocus={(e) => e.target.select()}
-                  className="w-20 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
+                  className="w-20 rounded border border-zinc-600 bg-zinc-700 px-2 py-1 text-center text-xs font-bold text-white outline-none focus:border-yellow-400"
                 />
                 <span className="text-xs text-stone-500">per item</span>
               </div>
@@ -1385,7 +1385,7 @@ function ProfilePageInner() {
                   className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
                     depositType === "percentage"
                       ? "bg-yellow-400 text-gray-950"
-                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                      : "border border-zinc-700 bg-zinc-800 text-stone-400 hover:border-yellow-400/50"
                   }`}
                 >
                   <Percent className="h-3.5 w-3.5" />
@@ -1396,7 +1396,7 @@ function ProfilePageInner() {
                   className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
                     depositType === "flat"
                       ? "bg-yellow-400 text-gray-950"
-                      : "border border-slate-700 bg-slate-800 text-stone-400 hover:border-yellow-400/50"
+                      : "border border-zinc-700 bg-zinc-800 text-stone-400 hover:border-yellow-400/50"
                   }`}
                 >
                   <DollarSign className="h-3.5 w-3.5" />
@@ -1405,7 +1405,7 @@ function ProfilePageInner() {
               </div>
 
               {/* Deposit Value Input */}
-              <div className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+              <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
                 <div className="flex items-center gap-3">
                   {depositType === "flat" && (
                     <span className="text-lg font-bold text-stone-400">$</span>
@@ -1422,7 +1422,7 @@ function ProfilePageInner() {
                       if (depositType === "flat" && depositValue < 1) setDepositValue(1);
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="w-24 rounded border border-slate-600 bg-slate-700 px-3 py-2 text-center text-lg font-bold text-white outline-none focus:border-yellow-400"
+                    className="w-24 rounded border border-zinc-600 bg-zinc-700 px-3 py-2 text-center text-lg font-bold text-white outline-none focus:border-yellow-400"
                   />
                   {depositType === "percentage" && (
                     <span className="text-lg font-bold text-stone-400">%</span>
@@ -1474,10 +1474,10 @@ function ProfilePageInner() {
             </CollapsibleSection>
 
             {/* ── Sales Tax Toggle ─────────────────────────────────── */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800">
                     <Percent className="h-4 w-4 text-stone-400" />
                   </div>
                   <div>
@@ -1493,12 +1493,12 @@ function ProfilePageInner() {
                   onClick={handleToggleSalesTax}
                   disabled={salesTaxSaving}
                   className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                    salesTaxEnabled ? "bg-yellow-400" : "bg-slate-700"
+                    salesTaxEnabled ? "bg-yellow-400" : "bg-zinc-700"
                   }`}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-                      salesTaxEnabled ? "translate-x-6" : "translate-x-1"
+                      salesTaxEnabled ? "tranzinc-x-6" : "tranzinc-x-1"
                     }`}
                   />
                 </button>
@@ -1548,7 +1548,7 @@ function ProfilePageInner() {
                   state={profile.state || undefined}
                 />
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center">
@@ -1572,12 +1572,12 @@ function ProfilePageInner() {
                         setProfile({ ...profile, show_reviews: newValue });
                       }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-slate-700"
+                        (profile.show_reviews ?? true) ? "bg-yellow-400" : "bg-zinc-700"
                       }`}
                     >
                       <span
                         className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-                          (profile.show_reviews ?? true) ? "translate-x-6" : "translate-x-1"
+                          (profile.show_reviews ?? true) ? "tranzinc-x-6" : "tranzinc-x-1"
                         }`}
                       />
                     </button>
@@ -1590,7 +1590,7 @@ function ProfilePageInner() {
                 />
               </>
             ) : (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
                 <ExternalLink className="mx-auto mb-3 h-8 w-8 text-stone-600" />
                 <p className="text-sm font-semibold text-white">Portfolio Not Available</p>
                 <p className="mt-1 text-xs text-stone-500">Complete your Business profile to unlock portfolio, services, and reviews.</p>
@@ -1605,12 +1605,12 @@ function ProfilePageInner() {
         {activeTab === "account" && (
           <div className="space-y-4">
             {/* ── Stripe Connect (Payouts) ──────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="mb-4 flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-[#635BFF]" />
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white">Payouts (Stripe Connect)</h2>
               </div>
-          <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="mb-4 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-stone-400">Payout Status</span>
               {stripeStatus?.charges_enabled ? (
@@ -1653,7 +1653,7 @@ function ProfilePageInner() {
             <button
               onClick={handleStripeDashboard}
               disabled={stripeLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
             >
               {stripeLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1718,10 +1718,10 @@ function ProfilePageInner() {
             )}
 
             {/* ── Change Password ──────────────────────────────────── */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800">
                     <KeyRound className="h-4 w-4 text-stone-400" />
                   </div>
                   <div>
@@ -1731,7 +1731,7 @@ function ProfilePageInner() {
                 </div>
                 <button
                   onClick={() => setShowPasswordModal(true)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-white"
+                  className="rounded-lg border border-zinc-700 px-4 py-2 text-xs font-bold text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-white"
                 >
                   Change
                 </button>
@@ -1745,7 +1745,7 @@ function ProfilePageInner() {
                 on whether they have an agreement on file (active OR
                 proposed) and the latest application status. */}
             {!profile?.is_partner && (
-              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900">
                 <div className="p-5">
                   <div className="mb-3 flex items-center gap-2">
                     <Handshake className="h-4 w-4 text-yellow-400" />
@@ -1795,7 +1795,7 @@ function ProfilePageInner() {
                   {/* Application states (only when no agreement is on file). */}
                   {!affiliateHasAgreement &&
                     affiliateApplication?.status === "pending" && (
-                      <div className="rounded-lg border border-yellow-400/30 bg-slate-900 p-3">
+                      <div className="rounded-lg border border-yellow-400/30 bg-zinc-900 p-3">
                         <p className="text-sm font-bold text-white">
                           Application under review
                         </p>
@@ -1841,7 +1841,7 @@ function ProfilePageInner() {
 
             {/* ── Partner Portal (legacy partners — Elite Storage Systems) ── */}
             {profile?.is_partner && (
-              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+              <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900">
                 <div className="p-5">
                   <div className="mb-3 flex items-center gap-2">
                     <Handshake className="h-4 w-4 text-yellow-400" />
@@ -1864,7 +1864,7 @@ function ProfilePageInner() {
             )}
 
             {/* ── Danger Zone ──────────────────────────────────────── */}
-            <section className="rounded-2xl border border-red-900/50 bg-slate-900 p-6">
+            <section className="rounded-2xl border border-red-900/50 bg-zinc-900 p-6">
               <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-red-400">
                 Danger Zone
               </h2>
@@ -1909,7 +1909,7 @@ function ProfilePageInner() {
                     <button
                       onClick={() => setShowDeactivateConfirm(false)}
                       disabled={deactivating}
-                      className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+                      className="rounded-lg border border-zinc-600 px-4 py-2 text-sm font-semibold text-stone-400 transition-all hover:bg-zinc-800 disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -1926,7 +1926,7 @@ function ProfilePageInner() {
       ═══════════════════════════════════════════════════════════════════ */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 p-6">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6">
             {/* Modal Header */}
             <div className="mb-5 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1944,7 +1944,7 @@ function ProfilePageInner() {
                   setPasswordError("");
                   setPasswordMessage("");
                 }}
-                className="rounded-lg p-1 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1974,7 +1974,7 @@ function ProfilePageInner() {
                     setPasswordError("");
                   }}
                   placeholder="Min 6 characters"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                   autoComplete="new-password"
                 />
               </div>
@@ -1991,7 +1991,7 @@ function ProfilePageInner() {
                     setPasswordError("");
                   }}
                   placeholder="Re-enter password"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                   autoComplete="new-password"
                 />
               </div>
@@ -2028,7 +2028,7 @@ function ProfilePageInner() {
                   setPasswordMessage("");
                 }}
                 disabled={passwordLoading}
-                className="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-stone-400 transition-all hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm font-semibold text-stone-400 transition-all hover:bg-zinc-800 disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -257,7 +257,7 @@ export default function AIScriptGenerator({
                 className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-center transition-all ${
                   active
                     ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                    : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+                    : "border-zinc-700 bg-zinc-800/50 text-stone-400 hover:border-zinc-600 hover:text-stone-300"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -283,7 +283,7 @@ export default function AIScriptGenerator({
                 className={`rounded-lg border px-3 py-2 text-center transition-all ${
                   active
                     ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                    : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+                    : "border-zinc-700 bg-zinc-800/50 text-stone-400 hover:border-zinc-600 hover:text-stone-300"
                 }`}
               >
                 <span className="text-xs font-bold">{t.label}</span>
@@ -310,7 +310,7 @@ export default function AIScriptGenerator({
                 className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
                   active
                     ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                    : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+                    : "border-zinc-700 bg-zinc-800/50 text-stone-400 hover:border-zinc-600 hover:text-stone-300"
                 }`}
               >
                 {preset.label}
@@ -323,7 +323,7 @@ export default function AIScriptGenerator({
           value={customTopic}
           onChange={(e) => setCustomTopic(e.target.value)}
           placeholder="e.g. Spring cleaning season, recent install I did, overhead ceiling storage..."
-          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
+          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
         />
       </div>
 
@@ -360,14 +360,14 @@ export default function AIScriptGenerator({
 
       {/* ── AI output (markdown) ─────────────────────────────── */}
       {script && (
-        <div className="prose prose-invert prose-sm prose-yellow max-w-none rounded-xl border border-slate-700 bg-slate-800 p-4 prose-headings:text-yellow-400 prose-headings:font-black prose-h2:text-base prose-h3:text-sm prose-strong:text-white prose-li:text-stone-300 prose-p:text-stone-300 prose-p:leading-relaxed">
+        <div className="prose prose-invert prose-sm prose-yellow max-w-none rounded-xl border border-zinc-700 bg-zinc-800 p-4 prose-headings:text-yellow-400 prose-headings:font-black prose-h2:text-base prose-h3:text-sm prose-strong:text-white prose-li:text-stone-300 prose-p:text-stone-300 prose-p:leading-relaxed">
           <ReactMarkdown>{script}</ReactMarkdown>
         </div>
       )}
 
       {/* ── Shared Action Bar (shows when there's output) ────── */}
       {hasOutput && (
-        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+        <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={handleCopy}
@@ -397,7 +397,7 @@ export default function AIScriptGenerator({
 
             <button
               onClick={handleShareNative}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 sm:hidden"
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-700 sm:hidden"
             >
               <Share2 className="h-3.5 w-3.5" />
               More
@@ -406,14 +406,14 @@ export default function AIScriptGenerator({
             <button
               onClick={generate}
               disabled={loading}
-              className="hidden items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50 sm:flex"
+              className="hidden items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 sm:flex"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               New
             </button>
           </div>
 
-          <div className="hidden items-start gap-2 rounded-lg border border-slate-700/50 bg-slate-900/50 px-3 py-2.5 sm:flex">
+          <div className="hidden items-start gap-2 rounded-lg border border-zinc-700/50 bg-zinc-900/50 px-3 py-2.5 sm:flex">
             <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-500" />
             <p className="text-[11px] leading-relaxed text-stone-500">
               <span className="font-bold text-stone-400">Desktop tip:</span>{" "}

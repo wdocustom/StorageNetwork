@@ -22,7 +22,7 @@ export default async function InventoryPage() {
   const inventory = await getInstallerInventory(user.id);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
         <Link
           href="/dashboard"

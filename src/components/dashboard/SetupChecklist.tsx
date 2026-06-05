@@ -138,7 +138,7 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <div className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
         <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
       </div>
     );
@@ -151,7 +151,7 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
   const nextStep = status.steps.find((s) => !s.completed);
 
   return (
-    <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 to-slate-900/80 p-5">
+    <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-zinc-900 to-zinc-900/80 p-5">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}
@@ -179,7 +179,7 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
       </button>
 
       {/* Progress Bar */}
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
         <div
           className="h-full rounded-full bg-yellow-400 transition-all duration-500"
           style={{ width: `${progressPct}%` }}
@@ -236,7 +236,7 @@ export default function SetupChecklist({ userId, bookingLink }: SetupChecklistPr
                     className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
                       isNext
                         ? "bg-yellow-400 text-gray-950 hover:bg-yellow-300"
-                        : "bg-slate-800 text-stone-400 hover:bg-slate-700 hover:text-white"
+                        : "bg-zinc-800 text-stone-400 hover:bg-zinc-700 hover:text-white"
                     }`}
                   >
                     {step.ctaLabel}

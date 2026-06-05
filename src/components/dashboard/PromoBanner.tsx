@@ -31,10 +31,10 @@ export default function PromoBanner({
   if (!visible) return null;
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-yellow-500/30 bg-slate-900/95 shadow-lg shadow-yellow-400/5">
+    <div className="relative w-full overflow-hidden rounded-2xl border border-yellow-500/30 bg-zinc-900/95 shadow-lg shadow-yellow-400/5">
       <button
         onClick={handleDismiss}
-        className="absolute right-3 top-3 z-10 rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+        className="absolute right-3 top-3 z-10 rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
         aria-label="Dismiss"
       >
         <X className="h-4 w-4" />

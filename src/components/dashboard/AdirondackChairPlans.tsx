@@ -50,12 +50,12 @@ export default function AdirondackChairPlans() {
   // Loading skeleton
   if (!access.checked) {
     return (
-      <section className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+      <section className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
         <div className="h-1 bg-amber-400/30" />
         <div className="p-5 space-y-3 animate-pulse">
-          <div className="h-4 w-2/5 rounded bg-slate-800" />
-          <div className="h-3 w-3/5 rounded bg-slate-800" />
-          <div className="h-3 w-1/2 rounded bg-slate-800" />
+          <div className="h-4 w-2/5 rounded bg-zinc-800" />
+          <div className="h-3 w-3/5 rounded bg-zinc-800" />
+          <div className="h-3 w-1/2 rounded bg-zinc-800" />
         </div>
       </section>
     );
@@ -64,7 +64,7 @@ export default function AdirondackChairPlans() {
   // ── Purchased state ──────────────────────────────────────────────────────
   if (access.hasAccess) {
     return (
-      <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-slate-900">
+      <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-zinc-900">
         <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
 
@@ -96,7 +96,7 @@ export default function AdirondackChairPlans() {
             </Link>
 
             {!access.hasTemplate && (
-              <div className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3">
+              <div className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/40 px-4 py-3">
                 <div className="flex items-center gap-2.5">
                   <Package className="h-4 w-4 text-stone-500" />
                   <div>
@@ -114,7 +114,7 @@ export default function AdirondackChairPlans() {
             )}
 
             {access.hasTemplate && (
-              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3">
+              <div className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/40 px-4 py-3">
                 <Check className="h-4 w-4 text-emerald-400 shrink-0" />
                 <p className="text-xs text-stone-400">MDF Template Set — ordered</p>
               </div>
@@ -127,7 +127,7 @@ export default function AdirondackChairPlans() {
 
   // ── Pre-purchase state ───────────────────────────────────────────────────
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-slate-900">
+    <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-zinc-900">
       <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
       <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
 
@@ -143,7 +143,7 @@ export default function AdirondackChairPlans() {
           </div>
           <button
             onClick={() => setImgOpen(true)}
-            className="shrink-0 overflow-hidden rounded-lg border border-slate-700 transition-opacity hover:opacity-80"
+            className="shrink-0 overflow-hidden rounded-lg border border-zinc-700 transition-opacity hover:opacity-80"
             aria-label="View completed chair"
           >
             <Image
@@ -165,7 +165,7 @@ export default function AdirondackChairPlans() {
             <div className="relative max-w-sm w-full" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <button
                 onClick={() => setImgOpen(false)}
-                className="absolute -top-3 -right-3 flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-600"
+                className="absolute -top-3 -right-3 flex h-7 w-7 items-center justify-center rounded-full bg-zinc-700 text-white hover:bg-zinc-600"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -203,7 +203,7 @@ export default function AdirondackChairPlans() {
         {/* Pricing cards */}
         <div className="mb-4 grid grid-cols-2 gap-3">
           {/* Plans only */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <p className="text-[10px] font-black uppercase tracking-wider text-stone-500 mb-1">Plans Only</p>
             <p className="text-2xl font-black text-white mb-0.5">$18</p>
             <p className="text-[10px] text-stone-500 mb-3">Digital download</p>
@@ -218,7 +218,7 @@ export default function AdirondackChairPlans() {
 
           {/* Bundle */}
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-4 relative">
-            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+            <div className="absolute -top-2.5 left-1/2 -tranzinc-x-1/2">
               <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-gray-950">
                 Save $30
               </span>
@@ -240,7 +240,7 @@ export default function AdirondackChairPlans() {
         </div>
 
         {/* Template note */}
-        <div className="flex items-start gap-2 rounded-lg bg-slate-800/40 px-3 py-2.5">
+        <div className="flex items-start gap-2 rounded-lg bg-zinc-800/40 px-3 py-2.5">
           <Package className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-500" />
           <p className="text-[11px] text-stone-500">
             <span className="font-semibold text-stone-400">MDF Template:</span> 1/2&quot; CNC-cut template

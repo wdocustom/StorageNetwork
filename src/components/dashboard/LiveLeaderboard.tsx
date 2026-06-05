@@ -60,7 +60,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="flex items-center justify-center gap-2 py-8">
           <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
           <span className="text-xs font-semibold text-stone-500">Loading leaderboard...</span>
@@ -78,9 +78,9 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
   const leader = entries[0];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+    <div className="relative overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-950">
       {/* Top accent glow */}
-      <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2">
+      <div className="pointer-events-none absolute -top-24 left-1/2 -tranzinc-x-1/2">
         <div className="h-48 w-96 rounded-full bg-yellow-400/8 blur-3xl" />
       </div>
 
@@ -88,7 +88,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="relative flex w-full items-center justify-between border-b border-slate-800 px-5 py-4 text-left transition-colors hover:bg-slate-800/30"
+        className="relative flex w-full items-center justify-between border-b border-zinc-800 px-5 py-4 text-left transition-colors hover:bg-zinc-800/30"
       >
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/10">
@@ -131,7 +131,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
 
       {/* ── Podium — Top 3 ────────────────────────────────────────────── */}
       {top3.length > 0 && (
-        <div className="border-b border-slate-800 px-5 py-5">
+        <div className="border-b border-zinc-800 px-5 py-5">
           <div className="flex items-end justify-center gap-3">
             {/* 2nd place (left) */}
             {top3.length >= 2 && (
@@ -163,11 +163,11 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
                 <div key={entry.id}>
                   {showSep && (
                     <div className="flex items-center gap-2 py-1.5">
-                      <div className="h-px flex-1 bg-slate-800" />
+                      <div className="h-px flex-1 bg-zinc-800" />
                       <span className="text-[9px] font-bold uppercase tracking-widest text-stone-600">
                         Your Position
                       </span>
-                      <div className="h-px flex-1 bg-slate-800" />
+                      <div className="h-px flex-1 bg-zinc-800" />
                     </div>
                   )}
                   <RankRow entry={entry} isEngagement={isEngagement} />
@@ -180,7 +180,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
 
       {/* ── Your Rank Summary (if not in top 10) ──────────────────────── */}
       {currentUserRank && currentUserRank > 10 && (
-        <div className="border-t border-slate-800 bg-yellow-400/5 px-5 py-3">
+        <div className="border-t border-zinc-800 bg-yellow-400/5 px-5 py-3">
           <div className="flex items-center gap-2">
             <ChevronUp className="h-3.5 w-3.5 text-yellow-400" />
             <span className="text-xs font-bold text-yellow-400">
@@ -194,7 +194,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
       )}
 
       {/* ── Countdown Bar ─────────────────────────────────────────────── */}
-      <div className="border-t border-slate-800 bg-slate-950/50 px-5 py-2.5">
+      <div className="border-t border-zinc-800 bg-zinc-950/50 px-5 py-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Zap className="h-3 w-3 text-amber-400" />
@@ -206,7 +206,7 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
                   : `${daysLeft} days left`}
             </span>
           </div>
-          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-800">
             <div
               className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-amber-400 transition-all"
               style={{
@@ -306,7 +306,7 @@ function PodiumSlot({
           />
         ) : (
           <div
-            className={`${avatarSizes[position]} flex items-center justify-center rounded-full bg-slate-800 ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""} transition-transform group-hover/avatar:scale-110`}
+            className={`${avatarSizes[position]} flex items-center justify-center rounded-full bg-zinc-800 ring-2 ${ringColors[position]} ${isCurrentUser ? "ring-4" : ""} transition-transform group-hover/avatar:scale-110`}
           >
             <span className={`font-black text-stone-400 ${position === 1 ? "text-base" : "text-xs"}`}>
               {initials}
@@ -316,7 +316,7 @@ function PodiumSlot({
 
         {/* Rank badge */}
         <div
-          className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-b shadow-lg ${badgeColors[position]}`}
+          className={`absolute -bottom-1.5 left-1/2 -tranzinc-x-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-b shadow-lg ${badgeColors[position]}`}
         >
           <span className="text-[9px] font-black">{position}</span>
         </div>
@@ -406,7 +406,7 @@ function RankRow({ entry, isEngagement = false }: { entry: LeaderboardEntry; isE
       className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
         entry.isCurrentUser
           ? "bg-yellow-400/10 border border-yellow-400/20"
-          : "hover:bg-slate-800/50"
+          : "hover:bg-zinc-800/50"
       }`}
     >
       {/* Rank */}
@@ -426,10 +426,10 @@ function RankRow({ entry, isEngagement = false }: { entry: LeaderboardEntry; isE
             <img
               src={entry.avatarUrl}
               alt={entry.businessName}
-              className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-700"
+              className="h-8 w-8 rounded-full object-cover ring-1 ring-zinc-700"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 ring-1 ring-slate-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-zinc-700">
               <span className="text-[10px] font-bold text-stone-500">{initials}</span>
             </div>
           )}
@@ -439,10 +439,10 @@ function RankRow({ entry, isEngagement = false }: { entry: LeaderboardEntry; isE
         <img
           src={entry.avatarUrl}
           alt={entry.businessName}
-          className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-700"
+          className="h-8 w-8 rounded-full object-cover ring-1 ring-zinc-700"
         />
       ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 ring-1 ring-slate-700">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-zinc-700">
           <span className="text-[10px] font-bold text-stone-500">{initials}</span>
         </div>
       )}

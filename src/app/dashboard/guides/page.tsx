@@ -104,13 +104,13 @@ export default function GuidesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <a
             href="/dashboard"
-            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
@@ -144,7 +144,7 @@ export default function GuidesPage() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Instagram Showcase
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="relative overflow-hidden rounded-2xl border border-pink-500/20 bg-slate-900">
+        <section className="relative overflow-hidden rounded-2xl border border-pink-500/20 bg-zinc-900">
           {/* IG gradient header bar */}
           <div
             className="h-1"
@@ -207,7 +207,7 @@ export default function GuidesPage() {
                   href={IG_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 transition-all hover:border-pink-500/30 hover:scale-[1.02]"
+                  className="group relative aspect-square overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-800 transition-all hover:border-pink-500/30 hover:scale-[1.02]"
                 >
                   {/* Gradient fill simulating post thumbnail */}
                   <div
@@ -278,15 +278,15 @@ export default function GuidesPage() {
 
             {/* Divider */}
             <div className="relative my-0 flex items-center">
-              <div className="flex-1 border-t border-slate-700/50" />
+              <div className="flex-1 border-t border-zinc-700/50" />
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-600">
                 Grow Your Brand
               </span>
-              <div className="flex-1 border-t border-slate-700/50" />
+              <div className="flex-1 border-t border-zinc-700/50" />
             </div>
 
             {/* Installer CTA — start posting */}
-            <div className="mt-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4">
+            <div className="mt-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4">
               <p className="mb-3 text-[13px] font-semibold leading-relaxed text-stone-300">
                 Your builds are your best marketing. Start sharing them.
               </p>
@@ -323,7 +323,7 @@ export default function GuidesPage() {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-lg bg-slate-700/30 px-3 py-2.5">
+              <div className="mt-4 rounded-lg bg-zinc-700/30 px-3 py-2.5">
                 <p className="text-[11px] leading-relaxed text-stone-500">
                   <span className="font-semibold text-stone-400">Pro tip:</span>{" "}
                   Use hashtags like{" "}
@@ -340,7 +340,7 @@ export default function GuidesPage() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION: Community CTA
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="relative overflow-hidden rounded-2xl border border-yellow-500/20 bg-slate-900">
+        <section className="relative overflow-hidden rounded-2xl border border-yellow-500/20 bg-zinc-900">
           {/* Yellow accent bar */}
           <div className="h-1 bg-gradient-to-r from-yellow-400 to-amber-500" />
 
@@ -421,7 +421,7 @@ export default function GuidesPage() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION A: Tutorials
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <PlayCircle className="h-4 w-4 text-purple-400" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -507,9 +507,9 @@ export default function GuidesPage() {
             </a>
             {/* Tutorial 4 — Using the How-To Guide (Coming Soon) */}
             <div
-              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+              className="group flex items-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4 opacity-60"
             >
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-700/40">
                 <Play className="h-5 w-5 text-stone-500" />
               </div>
               <div className="flex-1">
@@ -520,16 +520,16 @@ export default function GuidesPage() {
                   Navigate the guides section, find answers fast, and make the most of every resource.
                 </p>
               </div>
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-zinc-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
                 Coming Soon
               </span>
             </div>
 
             {/* Tutorial 5 — General Features of Storage-Network.app (Coming Soon) */}
             <div
-              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+              className="group flex items-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4 opacity-60"
             >
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-700/40">
                 <Play className="h-5 w-5 text-stone-500" />
               </div>
               <div className="flex-1">
@@ -540,16 +540,16 @@ export default function GuidesPage() {
                   A complete walkthrough of the platform — dashboard, leads, scheduling, and everything in between.
                 </p>
               </div>
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-zinc-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
                 Coming Soon
               </span>
             </div>
 
             {/* Tutorial 6 — Building your Tote Organizer (Coming Soon) */}
             <div
-              className="group flex items-center gap-4 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 opacity-60"
+              className="group flex items-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4 opacity-60"
             >
-              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-700/40">
+              <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-700/40">
                 <Play className="h-5 w-5 text-stone-500" />
               </div>
               <div className="flex-1">
@@ -560,7 +560,7 @@ export default function GuidesPage() {
                   Step-by-step assembly instructions from framing to final tote placement.
                 </p>
               </div>
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-zinc-700/40 px-2.5 py-0.5 text-[10px] font-bold text-stone-500">
                 Coming Soon
               </span>
             </div>
@@ -570,7 +570,7 @@ export default function GuidesPage() {
         {/* ═══════════════════════════════════════════════════════════════
             SECTION B: Installation Checklist
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-emerald-400" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -592,7 +592,7 @@ export default function GuidesPage() {
                   className={`flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all active:scale-[0.98] ${
                     checked
                       ? "border-emerald-500/30 bg-emerald-500/10"
-                      : "border-slate-700 bg-slate-800/50"
+                      : "border-zinc-700 bg-zinc-800/50"
                   }`}
                 >
                   <div className="mt-0.5">
@@ -626,14 +626,14 @@ export default function GuidesPage() {
           </div>
 
           {/* Progress */}
-          <div className="mt-4 border-t border-slate-700 pt-4">
+          <div className="mt-4 border-t border-zinc-700 pt-4">
             <div className="mb-2 flex items-center justify-between text-xs">
               <span className="text-stone-500">Progress</span>
               <span className="font-bold text-emerald-400">
                 {checkedItems.size} / {INSTALLATION_CHECKLIST.length}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-700">
               <div
                 className="h-full bg-emerald-400 transition-all duration-300"
                 style={{

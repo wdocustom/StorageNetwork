@@ -63,7 +63,7 @@ export function ToteFulfillmentSettings({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="flex h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30" />
@@ -75,7 +75,7 @@ export function ToteFulfillmentSettings({
         <button
           onClick={() => save({ active: false })}
           disabled={saving}
-          className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-stone-300 hover:border-slate-600 disabled:opacity-60"
+          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-stone-300 hover:border-zinc-600 disabled:opacity-60"
         >
           Pause new jobs
         </button>
@@ -138,7 +138,7 @@ function InlineNumberField({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onCommit}
         onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
-        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
       />
     </div>
   );

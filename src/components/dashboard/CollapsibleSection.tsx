@@ -34,7 +34,7 @@ export default function CollapsibleSection({
   defaultOpen = false,
   isOpen: controlledOpen,
   onToggle,
-  borderClass = "border-slate-800",
+  borderClass = "border-zinc-800",
   iconColor = "text-yellow-400",
   badge,
   badgeColor = "bg-yellow-400/10 text-yellow-400",
@@ -43,7 +43,7 @@ export default function CollapsibleSection({
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
   return (
-    <section className={`rounded-2xl border ${borderClass} bg-slate-900 overflow-hidden`}>
+    <section className={`rounded-2xl border ${borderClass} bg-zinc-900 overflow-hidden`}>
       {/* Header / Toggle */}
       <button
         type="button"
@@ -52,7 +52,7 @@ export default function CollapsibleSection({
           setInternalOpen(next);
           onToggle?.(next);
         }}
-        className="flex w-full items-center gap-3 p-5 text-left transition-colors hover:bg-slate-800/30"
+        className="flex w-full items-center gap-3 p-5 text-left transition-colors hover:bg-zinc-800/30"
       >
         <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
         <div className="min-w-0 flex-1">
@@ -90,7 +90,7 @@ export default function CollapsibleSection({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-slate-800/50 px-5 pb-5 pt-4">
+            <div className="border-t border-zinc-800/50 px-5 pb-5 pt-4">
               {children}
             </div>
           </motion.div>

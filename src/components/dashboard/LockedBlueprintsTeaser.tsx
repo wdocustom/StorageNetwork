@@ -9,7 +9,7 @@ import { Lock, FileText } from "lucide-react";
 
 export default function LockedBlueprintsTeaser() {
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
       {/* Header */}
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400/10">
@@ -35,7 +35,7 @@ export default function LockedBlueprintsTeaser() {
       {/* Example images grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Material List & Module Layout example */}
-        <div className="group relative overflow-hidden rounded-lg border border-slate-700/50">
+        <div className="group relative overflow-hidden rounded-lg border border-zinc-700/50">
           <div className="relative">
             <Image
               src="/images/example-material-list.webp"
@@ -44,7 +44,7 @@ export default function LockedBlueprintsTeaser() {
               height={400}
               className="w-full object-cover opacity-50 blur-[1px] transition-all group-hover:opacity-60"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <Lock className="mb-2 h-6 w-6 text-stone-500" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
@@ -55,7 +55,7 @@ export default function LockedBlueprintsTeaser() {
         </div>
 
         {/* Cut Plan example */}
-        <div className="group relative overflow-hidden rounded-lg border border-slate-700/50">
+        <div className="group relative overflow-hidden rounded-lg border border-zinc-700/50">
           <div className="relative">
             <Image
               src="/images/example-cut-plan.webp"
@@ -64,7 +64,7 @@ export default function LockedBlueprintsTeaser() {
               height={400}
               className="w-full object-cover opacity-50 blur-[1px] transition-all group-hover:opacity-60"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/40 to-transparent" />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <Lock className="mb-2 h-6 w-6 text-stone-500" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
@@ -77,7 +77,7 @@ export default function LockedBlueprintsTeaser() {
 
       {/* CTA */}
       <div className="mt-4 flex items-center justify-center">
-        <span className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2.5 text-xs font-semibold text-stone-500">
+        <span className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 text-xs font-semibold text-stone-500">
           <FileText className="h-3.5 w-3.5" />
           Unlocked on Paid Job Ticket
         </span>

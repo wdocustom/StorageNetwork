@@ -76,7 +76,7 @@ export default function SocialGenerator({
             setTone(e.target.value as Tone);
             setCopied(false);
           }}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-white outline-none focus:border-yellow-400"
+          className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-white outline-none focus:border-yellow-400"
         >
           {Object.entries(TEMPLATES).map(([key, t]) => (
             <option key={key} value={key}>
@@ -87,7 +87,7 @@ export default function SocialGenerator({
       </div>
 
       {/* Preview */}
-      <div className="rounded-lg border border-slate-700 bg-slate-800 p-3">
+      <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-3">
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">
           {postText}
         </p>
@@ -121,7 +121,7 @@ export default function SocialGenerator({
         {/* Mobile copy fallback */}
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700 sm:hidden"
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-zinc-700 sm:hidden"
         >
           {copied ? (
             <>

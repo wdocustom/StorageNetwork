@@ -193,7 +193,7 @@ export default function PlatformAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -201,7 +201,7 @@ export default function PlatformAnalyticsPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <div className="text-center">
           <p className="text-red-400 font-bold mb-2">Access Denied</p>
           <p className="text-stone-500 text-sm">{error}</p>
@@ -236,12 +236,12 @@ export default function PlatformAnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm px-4 py-3">
+      <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-900/95 backdrop-blur-sm px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/dashboard" className="rounded-lg p-1.5 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors">
+            <a href="/dashboard" className="rounded-lg p-1.5 text-stone-500 hover:bg-zinc-800 hover:text-white transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </a>
             <div>
@@ -257,20 +257,20 @@ export default function PlatformAnalyticsPage() {
             <button
               onClick={() => fetchData(true)}
               disabled={refreshing}
-              className="rounded-lg p-2 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+              className="rounded-lg p-2 text-stone-500 hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             </button>
             {/* Time Range */}
-            <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+            <div className="flex rounded-lg border border-zinc-700 overflow-hidden">
               {([7, 30, 90] as TimeRange[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
                   className={`px-3 py-1.5 text-xs font-bold transition-colors ${
                     range === r
-                      ? "bg-yellow-400 text-slate-900"
-                      : "bg-slate-800 text-stone-400 hover:text-white"
+                      ? "bg-yellow-400 text-zinc-900"
+                      : "bg-zinc-800 text-stone-400 hover:text-white"
                   }`}
                 >
                   {r}d
@@ -283,29 +283,29 @@ export default function PlatformAnalyticsPage() {
 
       <main className="mx-auto max-w-5xl px-4 py-6 space-y-5">
         {/* ── KPI Strip ────────────────────────────────────────────── */}
-        <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
           <div className="flex flex-1 items-center justify-around">
             <div className="text-center px-2">
               <p className="text-lg font-black text-white">{kpis.totalViews.toLocaleString()}</p>
               <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Views</p>
             </div>
-            <div className="h-8 w-px bg-slate-800" />
+            <div className="h-8 w-px bg-zinc-800" />
             <div className="text-center px-2">
               <p className="text-lg font-black text-white">{kpis.uniqueVisitors.toLocaleString()}</p>
               <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Unique</p>
             </div>
-            <div className="h-8 w-px bg-slate-800" />
+            <div className="h-8 w-px bg-zinc-800" />
             <div className="text-center px-2">
               <p className="text-lg font-black text-yellow-400">{kpis.activeNow}</p>
               <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Active Now</p>
             </div>
-            <div className="h-8 w-px bg-slate-800" />
+            <div className="h-8 w-px bg-zinc-800" />
             <div className="text-center px-2">
               <p className="text-lg font-black text-white">{kpis.avgPagesPerSession}</p>
               <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">Pg/Session</p>
             </div>
             {kpis.botViews > 0 && (<>
-              <div className="h-8 w-px bg-slate-800" />
+              <div className="h-8 w-px bg-zinc-800" />
               <div className="text-center px-2 opacity-50">
                 <p className="text-lg font-black text-stone-500">{kpis.botViews.toLocaleString()}</p>
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-600">Bots</p>
@@ -315,14 +315,14 @@ export default function PlatformAnalyticsPage() {
         </div>
 
         {/* ── Tab Navigation ─────────────────────────────────────────── */}
-        <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900 p-1">
           {(["traffic", "live", "sessions", "watchlist", "installers", "business"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                 activeTab === tab
-                  ? "bg-yellow-400 text-slate-900"
+                  ? "bg-yellow-400 text-zinc-900"
                   : "text-stone-500 hover:text-white"
               }`}
             >
@@ -345,7 +345,7 @@ export default function PlatformAnalyticsPage() {
         {activeTab === "traffic" && (
           <div className="space-y-5">
             {/* Views by Day Chart */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
               <h3 className="text-sm font-bold text-white mb-4">Views Over Time</h3>
               <div className="flex items-stretch gap-[2px] h-32">
                 {data.viewsByDay.slice(-Math.min(data.viewsByDay.length, range)).map((d) => (
@@ -354,7 +354,7 @@ export default function PlatformAnalyticsPage() {
                       className="w-full bg-blue-500/80 rounded-t hover:bg-blue-400 transition-colors min-h-[2px]"
                       style={{ height: `${(d.views / maxDayViews) * 100}%` }}
                     />
-                    <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[10px] whitespace-nowrap z-10">
+                    <div className="absolute bottom-full mb-1 hidden group-hover:block bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[10px] whitespace-nowrap z-10">
                       <p className="text-white font-bold">{d.views} views</p>
                       <p className="text-stone-400">{d.unique} unique</p>
                       <p className="text-stone-500">{d.date}</p>
@@ -371,7 +371,7 @@ export default function PlatformAnalyticsPage() {
             {/* Hourly + Devices + Sources — 3-col on desktop */}
             <div className="grid gap-4 md:grid-cols-3">
               {/* Hourly Pattern */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Hourly Pattern</h3>
                 <div className="flex items-stretch gap-[1px] h-20">
                   {data.viewsByHour.map((h) => (
@@ -380,7 +380,7 @@ export default function PlatformAnalyticsPage() {
                         className="w-full bg-purple-500/70 rounded-t hover:bg-purple-400 transition-colors min-h-[1px]"
                         style={{ height: `${(h.views / maxHourViews) * 100}%` }}
                       />
-                      <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[10px] whitespace-nowrap z-10">
+                      <div className="absolute bottom-full mb-1 hidden group-hover:block bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[10px] whitespace-nowrap z-10">
                         <p className="text-white font-bold">{h.views} views</p>
                         <p className="text-stone-500">{h.hour}:00</p>
                       </div>
@@ -396,7 +396,7 @@ export default function PlatformAnalyticsPage() {
               </div>
 
               {/* Devices */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Devices</h3>
                 <div className="space-y-2.5">
                   {data.deviceBreakdown.map((d) => (
@@ -407,7 +407,7 @@ export default function PlatformAnalyticsPage() {
                         </span>
                         <span className="text-[10px] text-stone-500">{d.count.toLocaleString()} ({d.pct}%)</span>
                       </div>
-                      <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
                         <div className={`h-full rounded-full ${d.device === "mobile" ? "bg-blue-500" : d.device === "tablet" ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${d.pct}%` }} />
                       </div>
                     </div>
@@ -416,7 +416,7 @@ export default function PlatformAnalyticsPage() {
               </div>
 
               {/* Traffic Sources */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Sources</h3>
                 <div className="space-y-1.5">
                   {data.trafficSources.slice(0, 8).map((s) => {
@@ -424,7 +424,7 @@ export default function PlatformAnalyticsPage() {
                     return (
                       <div key={s.source} className="flex items-center gap-2">
                         <span className="w-24 truncate text-xs text-stone-300">{s.source}</span>
-                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                           <div className="h-full rounded-full bg-yellow-500/70" style={{ width: `${(s.count / maxSource) * 100}%` }} />
                         </div>
                         <span className="w-8 text-right text-[10px] text-stone-500 font-bold">{s.count}</span>
@@ -438,13 +438,13 @@ export default function PlatformAnalyticsPage() {
             {/* Top Pages + Top Cities side by side */}
             <div className="grid gap-4 md:grid-cols-2">
               {/* Top Pages */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">Top Pages</h3>
                   <span className="text-[9px] text-stone-600">Views / Unique</span>
                 </div>
                 {data.topPages.slice(0, 10).map((p) => (
-                  <div key={p.page} className="flex items-center justify-between px-4 py-2 border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors">
+                  <div key={p.page} className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
                     <span className="text-xs text-stone-300 truncate font-mono mr-3">{p.page}</span>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-white font-bold">{p.views.toLocaleString()}</span>
@@ -458,13 +458,13 @@ export default function PlatformAnalyticsPage() {
               </div>
 
               {/* Top Cities */}
-              <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
                   <Globe2 className="h-3.5 w-3.5 text-blue-400" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">Top Cities</h3>
                 </div>
                 {data.topCities.slice(0, 10).map((c, i) => (
-                  <div key={`${c.city}-${c.region}-${i}`} className="flex items-center justify-between px-4 py-2 border-b border-slate-800/30 hover:bg-slate-800/50 transition-colors">
+                  <div key={`${c.city}-${c.region}-${i}`} className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
                     <div className="min-w-0">
                       <span className="text-xs text-stone-300">{c.city}</span>
                       {c.region && <span className="text-[10px] text-stone-500 ml-1">{c.region}</span>}
@@ -497,11 +497,11 @@ export default function PlatformAnalyticsPage() {
               </button>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden divide-y divide-slate-800/50">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden divide-y divide-zinc-800/50">
               {data.liveActivity.map((a, i) => (
                 <div
                   key={i}
-                  className={`px-4 py-3 hover:bg-slate-800/50 transition-colors ${a.is_bot ? "opacity-40" : ""} ${a.watchlist_label ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}`}
+                  className={`px-4 py-3 hover:bg-zinc-800/50 transition-colors ${a.is_bot ? "opacity-40" : ""} ${a.watchlist_label ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 min-w-0">
@@ -564,7 +564,7 @@ export default function PlatformAnalyticsPage() {
                     key={h}
                     onClick={() => setSessionsHours(h)}
                     className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase ${
-                      sessionsHours === h ? "bg-yellow-400 text-slate-900" : "bg-slate-800 text-stone-400"
+                      sessionsHours === h ? "bg-yellow-400 text-zinc-900" : "bg-zinc-800 text-stone-400"
                     }`}
                   >
                     {h === 24 ? "24h" : h === 72 ? "3d" : "7d"}
@@ -581,7 +581,7 @@ export default function PlatformAnalyticsPage() {
                 <button
                   onClick={fetchSessions}
                   disabled={sessionsLoading}
-                  className="rounded bg-slate-800 p-1.5 text-stone-400 hover:text-white"
+                  className="rounded bg-zinc-800 p-1.5 text-stone-400 hover:text-white"
                 >
                   <RefreshCw className={`h-3 w-3 ${sessionsLoading ? "animate-spin" : ""}`} />
                 </button>
@@ -595,20 +595,20 @@ export default function PlatformAnalyticsPage() {
             )}
 
             {!sessionsLoading && sessions.length === 0 && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-8 text-center text-stone-600 text-sm">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-8 text-center text-stone-600 text-sm">
                 No sessions in the selected window.
               </div>
             )}
 
             {!sessionsLoading && sessions.length > 0 && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900 divide-y divide-slate-800/50">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800/50">
                 {sessions.map((s) => {
                   const isOpen = expandedSession === s.session_key;
                   const score = s.suspicion_score;
                   const scoreColor =
                     score >= 60 ? "text-red-400 bg-red-500/10 border-red-500/30" :
                     score >= 30 ? "text-amber-300 bg-amber-500/10 border-amber-500/30" :
-                    "text-stone-500 bg-slate-800 border-slate-700";
+                    "text-stone-500 bg-zinc-800 border-zinc-700";
                   return (
                     <div
                       key={s.session_key}
@@ -677,7 +677,7 @@ export default function PlatformAnalyticsPage() {
                       </button>
 
                       {isOpen && (
-                        <div className="mt-3 space-y-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                        <div className="mt-3 space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="text-[10px] text-stone-500">
                               session_id: <span className="font-mono text-stone-300">{s.session_id ?? "—"}</span>
@@ -739,13 +739,13 @@ export default function PlatformAnalyticsPage() {
               <button
                 onClick={fetchWatchlist}
                 disabled={watchlistLoading}
-                className="rounded bg-slate-800 p-1.5 text-stone-400 hover:text-white"
+                className="rounded bg-zinc-800 p-1.5 text-stone-400 hover:text-white"
               >
                 <RefreshCw className={`h-3 w-3 ${watchlistLoading ? "animate-spin" : ""}`} />
               </button>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
               <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-stone-500">
                 Pin a visitor
               </p>
@@ -754,25 +754,25 @@ export default function PlatformAnalyticsPage() {
                   value={newWatchLabel}
                   onChange={(e) => setNewWatchLabel(e.target.value)}
                   placeholder="Label (e.g. Alex - home IP)"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
                 />
                 <input
                   value={newWatchIp}
                   onChange={(e) => setNewWatchIp(e.target.value)}
                   placeholder="IP address (optional)"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
                 />
                 <input
                   value={newWatchVisitor}
                   onChange={(e) => setNewWatchVisitor(e.target.value)}
                   placeholder="Visitor ID (optional)"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white font-mono outline-none focus:border-yellow-400"
                 />
                 <input
                   value={newWatchNote}
                   onChange={(e) => setNewWatchNote(e.target.value)}
                   placeholder="Note (optional)"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
+                  className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-white outline-none focus:border-yellow-400"
                 />
               </div>
               <div className="mt-3 flex items-center justify-between gap-3">
@@ -786,7 +786,7 @@ export default function PlatformAnalyticsPage() {
                 <button
                   onClick={handleAddWatch}
                   disabled={addingWatch}
-                  className="flex items-center gap-1 rounded-md bg-yellow-400 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-900 hover:bg-yellow-300 disabled:opacity-40"
+                  className="flex items-center gap-1 rounded-md bg-yellow-400 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-zinc-900 hover:bg-yellow-300 disabled:opacity-40"
                 >
                   {addingWatch ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
                   Pin
@@ -801,13 +801,13 @@ export default function PlatformAnalyticsPage() {
             )}
 
             {!watchlistLoading && watchlist.length === 0 && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-8 text-center text-stone-600 text-sm">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-8 text-center text-stone-600 text-sm">
                 No watchlist entries yet. Pin one above, or click &quot;Pin to Watchlist&quot; on a suspicious session.
               </div>
             )}
 
             {!watchlistLoading && watchlist.length > 0 && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900 divide-y divide-slate-800/50">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 divide-y divide-zinc-800/50">
                 {watchlist.map((w) => (
                   <div key={w.id} className="px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -837,7 +837,7 @@ export default function PlatformAnalyticsPage() {
                       </div>
                       <button
                         onClick={() => handleRemoveWatch(w.id)}
-                        className="rounded p-1.5 text-stone-500 hover:bg-slate-800 hover:text-red-400"
+                        className="rounded p-1.5 text-stone-500 hover:bg-zinc-800 hover:text-red-400"
                         title="Remove"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -861,7 +861,7 @@ export default function PlatformAnalyticsPage() {
               <button
                 onClick={fetchInstallerActivity}
                 disabled={installerLoading}
-                className="rounded-lg p-2 text-stone-500 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+                className="rounded-lg p-2 text-stone-500 hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`h-4 w-4 ${installerLoading ? "animate-spin" : ""}`} />
               </button>
@@ -872,24 +872,24 @@ export default function PlatformAnalyticsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
               </div>
             ) : installerData.length === 0 ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-900 px-5 py-12 text-center text-stone-600 text-sm">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-12 text-center text-stone-600 text-sm">
                 No installer activity recorded yet. Activity will appear as installers use the dashboard.
               </div>
             ) : (
               <div className="space-y-3">
                 {installerData.map((inst) => (
-                  <div key={inst.installerId} className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+                  <div key={inst.installerId} className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
                     {/* Installer Summary Row */}
                     <button
                       onClick={() => setExpandedInstaller(expandedInstaller === inst.installerId ? null : inst.installerId)}
-                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-800/50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-zinc-800/50 transition-colors text-left"
                     >
                       {/* Avatar */}
                       {inst.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={inst.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover border-2 border-slate-700 shrink-0" />
+                        <img src={inst.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover border-2 border-zinc-700 shrink-0" />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center shrink-0">
                           <span className="text-sm font-bold text-stone-500">{inst.installerName.charAt(0).toUpperCase()}</span>
                         </div>
                       )}
@@ -921,7 +921,7 @@ export default function PlatformAnalyticsPage() {
 
                     {/* Expanded Detail */}
                     {expandedInstaller === inst.installerId && (
-                      <div className="border-t border-slate-800 px-5 py-4 space-y-4">
+                      <div className="border-t border-zinc-800 px-5 py-4 space-y-4">
                         {/* Top Pages + Top Actions side-by-side */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           {/* Top Pages */}
@@ -958,9 +958,9 @@ export default function PlatformAnalyticsPage() {
                           <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-2">Recent Activity</p>
                           <div className="space-y-1 max-h-64 overflow-y-auto">
                             {inst.recentActivity.map((act, i) => (
-                              <div key={i} className="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2 text-xs">
+                              <div key={i} className="flex items-center gap-3 rounded-lg bg-zinc-800/50 px-3 py-2 text-xs">
                                 <span className="text-stone-600 text-[10px] font-mono shrink-0 w-16">{timeAgo(act.created_at)}</span>
-                                <span className="inline-block rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-stone-300 shrink-0">
+                                <span className="inline-block rounded bg-zinc-700 px-1.5 py-0.5 text-[10px] font-bold text-stone-300 shrink-0">
                                   {act.action.replace(/_/g, " ")}
                                 </span>
                                 {act.page_path && (
@@ -988,7 +988,7 @@ export default function PlatformAnalyticsPage() {
           <div className="space-y-5">
             {/* Business KPI Strip */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
                 <p className="text-2xl font-black text-white">{data.businessMetrics.totalInstallers}</p>
                 <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500 mt-1">Total Installers</p>
               </div>
@@ -1011,8 +1011,8 @@ export default function PlatformAnalyticsPage() {
             </div>
 
             {/* Top Installers by Bookings */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-2">
                   <TrendingUp className="h-3.5 w-3.5 text-yellow-400" />
                   Top Installers by Bookings
@@ -1020,17 +1020,17 @@ export default function PlatformAnalyticsPage() {
                 <span className="text-[9px] text-stone-600">Last {range} days</span>
               </div>
               {data.businessMetrics.topInstallersByBookings.length > 0 ? (
-                <div className="divide-y divide-slate-800/50">
+                <div className="divide-y divide-zinc-800/50">
                   {data.businessMetrics.topInstallersByBookings.map((inst, i) => {
                     const maxBookings = data.businessMetrics.topInstallersByBookings[0]?.bookings || 1;
                     return (
-                      <div key={i} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-800/50 transition-colors">
+                      <div key={i} className="flex items-center gap-4 px-5 py-3 hover:bg-zinc-800/50 transition-colors">
                         <span className={`text-sm font-black w-6 text-center ${i < 3 ? "text-yellow-400" : "text-stone-600"}`}>
                           {i + 1}
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{inst.name}</p>
-                          <div className="mt-1 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
                             <div
                               className="h-full rounded-full bg-yellow-500/70"
                               style={{ width: `${(inst.bookings / maxBookings) * 100}%` }}
@@ -1057,7 +1057,7 @@ export default function PlatformAnalyticsPage() {
             </div>
 
             {/* Funnel Summary */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4 flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-amber-400" />
                 Conversion Funnel

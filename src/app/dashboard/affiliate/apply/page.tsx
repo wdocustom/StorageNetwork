@@ -102,7 +102,7 @@ export default function AffiliateApplyPage() {
 
   if (loadingStatus) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     );
@@ -112,7 +112,7 @@ export default function AffiliateApplyPage() {
   if (submitted) {
     return (
       <PageShell>
-        <div className="rounded-2xl border border-emerald-500/30 bg-slate-900/60 p-8 backdrop-blur-sm">
+        <div className="rounded-2xl border border-emerald-500/30 bg-zinc-900/60 p-8 backdrop-blur-sm">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15">
             <Check className="h-7 w-7 text-emerald-400" strokeWidth={3} />
           </div>
@@ -138,7 +138,7 @@ export default function AffiliateApplyPage() {
   if (blockReason) {
     return (
       <PageShell>
-        <div className="rounded-2xl border border-yellow-400/30 bg-slate-900/60 p-8 backdrop-blur-sm">
+        <div className="rounded-2xl border border-yellow-400/30 bg-zinc-900/60 p-8 backdrop-blur-sm">
           <h1 className="mb-2 text-xl font-bold text-white">You&rsquo;re all set</h1>
           <p className="mb-6 text-sm text-stone-400">{blockReason}</p>
           <button
@@ -157,7 +157,7 @@ export default function AffiliateApplyPage() {
     <PageShell>
       <div className="space-y-5">
         {/* Intro */}
-        <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-6">
+        <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900 p-6">
           <div className="mb-3 flex items-center gap-2">
             <Handshake className="h-4 w-4 text-yellow-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
@@ -185,7 +185,7 @@ export default function AffiliateApplyPage() {
             placeholder="e.g. I know a bunch of cabinet guys looking for a side stream..."
             maxLength={1000}
             rows={4}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
           />
           <CharCount value={why} max={1000} />
         </FormField>
@@ -201,7 +201,7 @@ export default function AffiliateApplyPage() {
             placeholder="e.g. I host a monthly meet-up for local trades and have ~30 regulars..."
             maxLength={1000}
             rows={4}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
           />
           <CharCount value={howToRecruit} max={1000} />
         </FormField>
@@ -220,18 +220,18 @@ export default function AffiliateApplyPage() {
                 className={`flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
                   audienceSize === opt.value
                     ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-slate-700 bg-slate-900 hover:border-slate-600"
+                    : "border-zinc-700 bg-zinc-900 hover:border-zinc-600"
                 }`}
               >
                 <div
                   className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                     audienceSize === opt.value
                       ? "border-yellow-400 bg-yellow-400"
-                      : "border-slate-500"
+                      : "border-zinc-500"
                   }`}
                 >
                   {audienceSize === opt.value && (
-                    <Check className="h-3 w-3 text-slate-900" strokeWidth={3} />
+                    <Check className="h-3 w-3 text-zinc-900" strokeWidth={3} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -244,7 +244,7 @@ export default function AffiliateApplyPage() {
         </FormField>
 
         {/* Terms */}
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-700 bg-slate-900 p-4 transition-colors hover:border-slate-600">
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-700 bg-zinc-900 p-4 transition-colors hover:border-zinc-600">
           <input
             type="checkbox"
             checked={termsAccepted}
@@ -287,8 +287,8 @@ export default function AffiliateApplyPage() {
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 px-4 py-4">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="border-b border-zinc-800 px-4 py-4">
         <div className="mx-auto max-w-lg">
           <a
             href="/dashboard"

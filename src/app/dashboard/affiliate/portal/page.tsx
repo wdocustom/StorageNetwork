@@ -152,7 +152,7 @@ export default function AffiliatePortalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     );
@@ -173,7 +173,7 @@ export default function AffiliatePortalPage() {
   if (!data?.agreement) {
     return (
       <Shell>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <h1 className="mb-2 text-lg font-bold text-white">Not an affiliate yet</h1>
           <p className="mb-4 text-sm text-stone-400">
             You don&rsquo;t have an affiliate agreement on file. Apply to join the program.
@@ -238,7 +238,7 @@ export default function AffiliatePortalPage() {
       )}
 
       {/* Hero — agreement summary */}
-      <section className="rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/10 to-slate-900 p-5">
+      <section className="rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/10 to-zinc-900 p-5">
         <div className="mb-2 flex items-center gap-2">
           <Handshake className="h-4 w-4 text-yellow-400" />
           <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
@@ -261,7 +261,7 @@ export default function AffiliatePortalPage() {
       </section>
 
       {/* Earnings */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <div className="mb-3 flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-emerald-400" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
@@ -285,7 +285,7 @@ export default function AffiliatePortalPage() {
       </section>
 
       {/* Recruits */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-stone-300" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-stone-300">
@@ -296,7 +296,7 @@ export default function AffiliatePortalPage() {
           </span>
         </div>
         {data.recruits.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center">
+          <div className="rounded-xl border border-dashed border-zinc-700 p-6 text-center">
             <p className="text-sm text-stone-400">No recruits yet.</p>
             <p className="mt-1 text-[11px] text-stone-500">
               Once an installer signs up through your link or invite, they&rsquo;ll show up here.
@@ -307,7 +307,7 @@ export default function AffiliatePortalPage() {
             {data.recruits.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 px-3 py-2.5"
+                className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">{r.name}</p>
@@ -338,7 +338,7 @@ export default function AffiliatePortalPage() {
           generates one if missing, so this should be present for any
           actively-accepted agreement. The empty state handles the rare
           case (e.g., agreement accepted before Phase 6.6 shipped). */}
-      <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-5">
+      <section className="rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Link2 className="h-4 w-4 text-yellow-400" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
@@ -354,7 +354,7 @@ export default function AffiliatePortalPage() {
             </p>
             <button
               onClick={() => handleCopyReferralLink(data.referralLink!)}
-              className="group flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-3 text-left transition-colors hover:border-yellow-400 hover:bg-slate-800"
+              className="group flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-3 text-left transition-colors hover:border-yellow-400 hover:bg-zinc-800"
             >
               <span className="min-w-0 flex-1 truncate font-mono text-xs text-yellow-400">
                 {data.referralLink}
@@ -385,7 +385,7 @@ export default function AffiliatePortalPage() {
       </section>
 
       {/* Refer-an-installer — Phase 6 working invite form + sent list */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Mail className="h-4 w-4 text-stone-300" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-stone-300">
@@ -426,7 +426,7 @@ export default function AffiliatePortalPage() {
                 value={inviteName}
                 onChange={(e) => setInviteName(e.target.value)}
                 placeholder="First name helps personalize the email"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
                 disabled={inviteSending}
               />
             </div>
@@ -440,7 +440,7 @@ export default function AffiliatePortalPage() {
                 onChange={(e) => setInviteEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSendInvite(); }}
                 placeholder="installer@theirbusiness.com"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
                 disabled={inviteSending}
                 autoFocus
               />
@@ -461,7 +461,7 @@ export default function AffiliatePortalPage() {
               <button
                 onClick={() => { setShowInviteForm(false); setInviteError(null); }}
                 disabled={inviteSending}
-                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-400 hover:bg-slate-800"
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-stone-400 hover:bg-zinc-800"
               >
                 Cancel
               </button>
@@ -487,7 +487,7 @@ export default function AffiliatePortalPage() {
 
         {/* Sent invites list */}
         {invites.length > 0 && (
-          <div className="mt-5 border-t border-slate-800 pt-4 space-y-2">
+          <div className="mt-5 border-t border-zinc-800 pt-4 space-y-2">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               Sent
             </p>
@@ -512,7 +512,7 @@ function InviteRow({ invite }: { invite: AffiliateEmailInvite }) {
     : new Date(invite.created_at).toLocaleDateString();
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-white">{display}</p>
         <p className="text-[10px] text-stone-500">Sent {when}</p>
@@ -527,7 +527,7 @@ function InvitePill({ status }: { status: AffiliateInviteStatus }) {
     AffiliateInviteStatus,
     { bg: string; fg: string; label: string; icon?: React.ComponentType<{ className?: string }> }
   > = {
-    sent:         { bg: "bg-slate-700/40",   fg: "text-stone-400",   label: "SENT" },
+    sent:         { bg: "bg-zinc-700/40",   fg: "text-stone-400",   label: "SENT" },
     opened:       { bg: "bg-blue-500/15",    fg: "text-blue-300",    label: "OPENED" },
     clicked:      { bg: "bg-yellow-400/15",  fg: "text-yellow-300",  label: "CLICKED" },
     signed_up:    { bg: "bg-emerald-500/15", fg: "text-emerald-300", label: "JOINED", icon: CheckCircle2 },
@@ -550,8 +550,8 @@ function InvitePill({ status }: { status: AffiliateInviteStatus }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 px-4 py-4">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="border-b border-zinc-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
           <a
             href="/dashboard"
@@ -576,7 +576,7 @@ function Stat({
   secondary?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
       <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{label}</p>
       <p className="mt-1 text-xl font-bold text-white">{value}</p>
       {secondary && <p className="mt-0.5 text-[11px] text-stone-500">{secondary}</p>}

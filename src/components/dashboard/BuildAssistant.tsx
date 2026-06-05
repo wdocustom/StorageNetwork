@@ -212,7 +212,7 @@ export default function BuildAssistant({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400 text-slate-900 shadow-lg shadow-yellow-400/25 transition-all hover:scale-105 hover:bg-yellow-300 hover:shadow-yellow-400/40 active:scale-95"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400 text-zinc-900 shadow-lg shadow-yellow-400/25 transition-all hover:scale-105 hover:bg-yellow-300 hover:shadow-yellow-400/40 active:scale-95"
         aria-label="Open Build Assistant"
       >
         <Sparkles className="h-6 w-6" />
@@ -222,23 +222,23 @@ export default function BuildAssistant({
 
   // ── Chat Panel (expanded) ──────────────────────────────────────────────
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex h-[min(550px,80vh)] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/50">
+    <div className="fixed bottom-6 right-6 z-50 flex h-[min(550px,80vh)] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-900 shadow-2xl shadow-black/50">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur-xl">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900/95 px-4 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-400/15">
             <Sparkles className="h-4 w-4 text-yellow-400" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">Build Assistant</h3>
-            <p className="text-[10px] text-slate-500">Materials, pricing, profit & custom items</p>
+            <p className="text-[10px] text-zinc-500">Materials, pricing, profit & custom items</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
             <button
               onClick={handleReset}
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-300"
+              className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
               title="Clear chat"
             >
               <RotateCcw className="h-4 w-4" />
@@ -246,7 +246,7 @@ export default function BuildAssistant({
           )}
           <button
             onClick={() => setOpen(false)}
-            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-300"
+            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
           >
             <X className="h-4 w-4" />
           </button>
@@ -260,10 +260,10 @@ export default function BuildAssistant({
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-400/10">
               <MessageCircle className="h-6 w-6 text-yellow-400" />
             </div>
-            <p className="text-sm font-medium text-slate-300">
+            <p className="text-sm font-medium text-zinc-300">
               Ask me anything about your builds
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-zinc-500">
               Screws, materials, pricing, planter boxes — I know it all
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
@@ -271,7 +271,7 @@ export default function BuildAssistant({
                 <button
                   key={chip}
                   onClick={() => handleChipClick(chip)}
-                  className="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-[11px] font-medium text-slate-400 transition-all hover:border-yellow-400/40 hover:bg-yellow-400/10 hover:text-yellow-300"
+                  className="rounded-full border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition-all hover:border-yellow-400/40 hover:bg-yellow-400/10 hover:text-yellow-300"
                 >
                   {chip}
                 </button>
@@ -288,11 +288,11 @@ export default function BuildAssistant({
                 className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
                   msg.role === "user"
                     ? "bg-yellow-400/15 text-yellow-100"
-                    : "bg-slate-800/80 text-slate-300"
+                    : "bg-zinc-800/80 text-zinc-300"
                 }`}
               >
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-slate-700/50 prose-code:px-1 prose-code:rounded">
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:text-yellow-400 prose-headings:text-sm prose-strong:text-white prose-code:text-yellow-300 prose-code:bg-zinc-700/50 prose-code:px-1 prose-code:rounded">
                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                   </div>
                 ) : (
@@ -306,7 +306,7 @@ export default function BuildAssistant({
         {/* Loading indicator */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-xl bg-slate-800/80 px-3.5 py-2.5 text-[13px] text-slate-400">
+            <div className="flex items-center gap-2 rounded-xl bg-zinc-800/80 px-3.5 py-2.5 text-[13px] text-zinc-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-yellow-400" />
               <span>Calculating...</span>
             </div>
@@ -316,13 +316,13 @@ export default function BuildAssistant({
 
       {/* Quick chips (when conversation started) */}
       {messages.length > 0 && !isLoading && (
-        <div className="shrink-0 border-t border-slate-800/50 px-3 py-2">
+        <div className="shrink-0 border-t border-zinc-800/50 px-3 py-2">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             {chips.slice(0, 4).map((chip) => (
               <button
                 key={chip}
                 onClick={() => handleChipClick(chip)}
-                className="shrink-0 rounded-full border border-slate-700/60 bg-slate-800/50 px-2.5 py-1 text-[10px] font-medium text-slate-500 transition-all hover:border-yellow-400/30 hover:text-yellow-400"
+                className="shrink-0 rounded-full border border-zinc-700/60 bg-zinc-800/50 px-2.5 py-1 text-[10px] font-medium text-zinc-500 transition-all hover:border-yellow-400/30 hover:text-yellow-400"
               >
                 {chip}
               </button>
@@ -334,21 +334,21 @@ export default function BuildAssistant({
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="shrink-0 border-t border-slate-800 bg-slate-900/95 px-3 py-3 backdrop-blur-xl"
+        className="shrink-0 border-t border-zinc-800 bg-zinc-900/95 px-3 py-3 backdrop-blur-xl"
       >
-        <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 focus-within:border-yellow-400/50 transition-colors">
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2 focus-within:border-yellow-400/50 transition-colors">
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Materials, pricing, planter boxes..."
-            className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-white placeholder-zinc-500 outline-none"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-slate-900 transition-all hover:bg-yellow-300 disabled:opacity-30 disabled:hover:bg-yellow-400"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-yellow-400 text-zinc-900 transition-all hover:bg-yellow-300 disabled:opacity-30 disabled:hover:bg-yellow-400"
           >
             <Send className="h-3.5 w-3.5" />
           </button>

@@ -68,8 +68,8 @@ export default function AdminAffiliatesPage() {
   }, [tab, load]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 px-4 py-4">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="border-b border-zinc-800 px-4 py-4">
         <div className="mx-auto max-w-3xl">
           <a
             href="/dashboard"
@@ -97,7 +97,7 @@ export default function AdminAffiliatesPage() {
                 className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
                   tab === t.id
                     ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                    : "border-slate-700 bg-slate-900 text-stone-400 hover:border-slate-600"
+                    : "border-zinc-700 bg-zinc-900 text-stone-400 hover:border-zinc-600"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -118,7 +118,7 @@ export default function AdminAffiliatesPage() {
             <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-12 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-12 text-center">
             <Inbox className="mx-auto mb-2 h-6 w-6 text-stone-600" />
             <p className="text-sm text-stone-400">No {tab !== "all" ? tab : ""} applications.</p>
           </div>
@@ -155,7 +155,7 @@ function ApplicationRow({ row }: { row: AdminApplicationRow }) {
   return (
     <a
       href={`/dashboard/admin/affiliates/${row.id}`}
-      className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4 transition-colors hover:border-yellow-400/40"
+      className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 transition-colors hover:border-yellow-400/40"
     >
       <StatusPill status={row.status} />
       <div className="flex-1 min-w-0">
@@ -190,7 +190,7 @@ function StatusPill({ status }: { status: AffiliateApplicationStatus }) {
     pending:   { bg: "bg-yellow-400/15",  fg: "text-yellow-400",  label: "PENDING" },
     approved:  { bg: "bg-emerald-500/15", fg: "text-emerald-400", label: "APPROVED" },
     rejected:  { bg: "bg-red-500/15",     fg: "text-red-400",     label: "REJECTED" },
-    withdrawn: { bg: "bg-slate-700/40",   fg: "text-stone-400",   label: "WITHDRAWN" },
+    withdrawn: { bg: "bg-zinc-700/40",   fg: "text-stone-400",   label: "WITHDRAWN" },
   };
   const s = map[status];
   return (

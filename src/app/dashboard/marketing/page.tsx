@@ -64,7 +64,7 @@ export default function MarketingPage() {
 
   if (loading || !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     );
@@ -80,13 +80,13 @@ export default function MarketingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="border-b border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
           <a
             href="/dashboard"
-            className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
@@ -100,7 +100,7 @@ export default function MarketingPage() {
 
       <main className="mx-auto max-w-lg space-y-4 p-4 pt-5 md:max-w-3xl lg:max-w-4xl">
         {/* ── Booking Link Strip ────────────────────────────────── */}
-        <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
           <p className="min-w-0 flex-1 truncate text-sm font-medium text-blue-400">
             {bookingLink}
           </p>
@@ -114,7 +114,7 @@ export default function MarketingPage() {
             href={bookingLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex shrink-0 items-center rounded-lg border border-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="flex shrink-0 items-center rounded-lg border border-zinc-700 p-2 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
             title="Open booking link"
           >
             <ExternalLink className="h-4 w-4" />
@@ -122,7 +122,7 @@ export default function MarketingPage() {
         </div>
 
         {/* ── AI Script Generator ─────────────────────────────── */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-1 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-yellow-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-white">

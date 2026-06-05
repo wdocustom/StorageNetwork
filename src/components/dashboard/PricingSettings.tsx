@@ -322,7 +322,7 @@ function AddonPricingRow({
 }) {
   return (
     <div className={`mt-2 flex items-center gap-3 rounded-lg border p-3 transition-all ${
-      enabled ? "border-slate-700 bg-slate-800/30" : "border-slate-700/50 bg-slate-900/50 opacity-50"
+      enabled ? "border-zinc-700 bg-zinc-800/30" : "border-zinc-700/50 bg-zinc-900/50 opacity-50"
     }`}>
       <button
         type="button"
@@ -330,8 +330,8 @@ function AddonPricingRow({
         className="shrink-0"
         title={enabled ? `Disable ${label}` : `Enable ${label}`}
       >
-        <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-yellow-400" : "bg-slate-600"}`}>
-          <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
+        <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? "bg-yellow-400" : "bg-zinc-600"}`}>
+          <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${enabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
         </div>
       </button>
       <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ function AddonPricingRow({
         <p className="text-[11px] text-stone-500">{description}</p>
       </div>
       <div className="relative">
-        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">$</span>
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -tranzinc-y-1/2 text-sm text-stone-500">$</span>
         <input
           type="text"
           inputMode="decimal"
@@ -353,7 +353,7 @@ function AddonPricingRow({
           }}
           placeholder={String(defaultPrice)}
           disabled={!enabled}
-          className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
+          className="w-20 rounded-lg border border-zinc-600 bg-zinc-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
         />
       </div>
     </div>
@@ -601,7 +601,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     ) : (
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
         </div>
@@ -672,7 +672,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
   const body = (
     <>
       {/* Info Banner */}
-      <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+      <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
         <p className="text-xs leading-relaxed text-stone-400">
           Set your own customer-facing prices. Leave a field empty to use the
@@ -689,7 +689,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 transition-all ${
             totesDisabled
               ? "border-red-500/30 bg-red-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
           <div className="text-left">
@@ -700,8 +700,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               {totesDisabled ? "Totes are disabled. Customers will not see tote options." : "Toggle on to build frame-only units without totes."}
             </p>
           </div>
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${totesDisabled ? "bg-red-400" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${totesDisabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${totesDisabled ? "bg-red-400" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${totesDisabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
         </button>
       </div>
@@ -714,7 +714,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 transition-all ${
             use2x4Rails
               ? "border-yellow-500/30 bg-yellow-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
           <div className="text-left">
@@ -725,8 +725,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               {use2x4Rails ? "Using ripped 2x4 rails. 21\" universal openings. Tote type is not relevant." : "Toggle on to use ripped 2x4 rails instead of plywood strips."}
             </p>
           </div>
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${use2x4Rails ? "bg-yellow-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${use2x4Rails ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${use2x4Rails ? "bg-yellow-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${use2x4Rails ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
         </button>
       </div>
@@ -739,11 +739,11 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
             miniEnabled
               ? "border-yellow-500/30 bg-yellow-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${miniEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${miniEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${miniEnabled ? "bg-yellow-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${miniEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -769,11 +769,11 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
             shelvingEnabled
               ? "border-yellow-500/30 bg-yellow-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${shelvingEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${shelvingEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${shelvingEnabled ? "bg-yellow-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${shelvingEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -799,11 +799,11 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
             overheadEnabled
               ? "border-yellow-500/30 bg-yellow-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${overheadEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${overheadEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${overheadEnabled ? "bg-yellow-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${overheadEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -829,11 +829,11 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
             raisedBedEnabled
               ? "border-yellow-500/30 bg-yellow-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${raisedBedEnabled ? "bg-yellow-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${raisedBedEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${raisedBedEnabled ? "bg-yellow-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${raisedBedEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -858,11 +858,11 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
             chairEnabled
               ? "border-amber-500/30 bg-amber-500/5"
-              : "border-slate-700 bg-slate-800/30"
+              : "border-zinc-700 bg-zinc-800/30"
           }`}
         >
-          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${chairEnabled ? "bg-amber-500" : "bg-slate-600"}`}>
-            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${chairEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${chairEnabled ? "bg-amber-500" : "bg-zinc-600"}`}>
+            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${chairEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -896,7 +896,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               <button
                 type="button"
                 onClick={() => setExpandedCategory(isExpanded ? null : cat.key)}
-                className="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2.5 text-left transition-colors hover:bg-slate-800/60"
+                className="flex w-full items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800/30 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/60"
               >
                 <div className="flex items-center gap-2">
                   <h3 className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -926,7 +926,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                   return (
                     <div
                       key={field.key}
-                      className={`flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/30 p-3 transition-all ${isPresetDisabled ? "opacity-40" : ""}`}
+                      className={`flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-800/30 p-3 transition-all ${isPresetDisabled ? "opacity-40" : ""}`}
                     >
                       {/* Per-bestseller toggle */}
                       {presetId && (
@@ -937,7 +937,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                           title={isPresetDisabled ? `Enable ${field.label}` : `Disable ${field.label}`}
                         >
                           <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${isPresetDisabled ? "bg-red-500" : "bg-emerald-500"}`}>
-                            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${isPresetDisabled ? "translate-x-0.5" : "translate-x-4"}`} />
+                            <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${isPresetDisabled ? "tranzinc-x-0.5" : "tranzinc-x-4"}`} />
                           </div>
                         </button>
                       )}
@@ -951,7 +951,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">
+                          <span className="pointer-events-none absolute left-2.5 top-1/2 -tranzinc-y-1/2 text-sm text-stone-500">
                             $
                           </span>
                           <input
@@ -961,7 +961,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                             onChange={(e) => handleChange(field.key, e.target.value)}
                             placeholder={field.dynamicDefault ? "Auto" : String(field.defaultValue)}
                             disabled={isPresetDisabled}
-                            className="w-24 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
+                            className="w-24 rounded-lg border border-zinc-600 bg-zinc-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400 disabled:opacity-50"
                           />
                         </div>
                       </div>
@@ -981,7 +981,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
         <button
           type="button"
           onClick={() => setAddonExpanded(!addonExpanded)}
-          className="flex w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+          className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-left transition-colors hover:bg-zinc-800"
         >
           <Wrench className="h-4 w-4 text-yellow-400" />
           <div className="flex-1 min-w-0">
@@ -998,7 +998,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
         </button>
 
         {addonExpanded && (
-          <div className="mt-3 space-y-4 rounded-lg border border-slate-700 bg-slate-800/20 p-4">
+          <div className="mt-3 space-y-4 rounded-lg border border-zinc-700 bg-zinc-800/20 p-4">
             {/* Master toggle */}
             <button
               type="button"
@@ -1009,8 +1009,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                   : "border-emerald-500/30 bg-emerald-500/5"
               }`}
             >
-              <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${addonEnabled ? "bg-emerald-500" : "bg-slate-600"}`}>
-                <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${addonEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+              <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${addonEnabled ? "bg-emerald-500" : "bg-zinc-600"}`}>
+                <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${addonEnabled ? "tranzinc-x-4" : "tranzinc-x-0.5"}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${addonEnabled ? "text-emerald-400" : "text-red-400"}`}>
@@ -1056,7 +1056,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
 
               {/* Blum Concealed Hinge Pair */}
               <AddonPricingRow
-                icon={<Wrench className="h-4 w-4 text-slate-400" />}
+                icon={<Wrench className="h-4 w-4 text-zinc-400" />}
                 label="Concealed Hinge Pair"
                 description="Per pair of Blum concealed hinges (included in door price for customers)"
                 priceKey="concealed_hinge_pair"
@@ -1097,7 +1097,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
               />
 
               {/* ── Paint Options ─────────────────────────────── */}
-              <div className="mt-3 border-t border-slate-700/50 pt-3">
+              <div className="mt-3 border-t border-zinc-700/50 pt-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Paintbrush className="h-4 w-4 text-rose-400" />
                   <p className="text-xs font-bold uppercase tracking-wider text-stone-400">Paint Options</p>
@@ -1109,7 +1109,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                     ].map((c) => (
                       <div
                         key={c.label}
-                        className="h-3.5 w-3.5 rounded-full border border-slate-600"
+                        className="h-3.5 w-3.5 rounded-full border border-zinc-600"
                         style={{ backgroundColor: c.hex }}
                         title={c.label}
                       />
@@ -1185,7 +1185,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
   if (embedded) return body;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center gap-2">
         <DollarSign className="h-4 w-4 text-yellow-400" />
         <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">

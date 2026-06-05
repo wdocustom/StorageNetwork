@@ -52,7 +52,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
   const phoneDisplay = formatPhoneForDisplay(job.recipient_phone);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-5xl px-6 py-10 sm:py-14">
         <Link
           href="/dashboard/tote-rentals"
@@ -169,14 +169,14 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
             />
 
             {job.personal_message && (
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-yellow-300" />
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
                     Realtor&rsquo;s note to recipient
                   </p>
                 </div>
-                <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-4 text-sm italic leading-relaxed text-stone-200">
+                <p className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4 text-sm italic leading-relaxed text-stone-200">
                   &ldquo;{job.personal_message}&rdquo;
                 </p>
                 <p className="mt-3 text-[11px] text-stone-500">
@@ -222,7 +222,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
 
           {/* Right: summary + payout + timeline */}
           <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <Package className="h-4 w-4 text-yellow-300" />
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
@@ -244,7 +244,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
               </dl>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <CircleDollarSign className="h-4 w-4 text-emerald-300" />
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
@@ -257,7 +257,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
                   value={`$${(totalPayoutCents / 100).toFixed(2)}`}
                 />
               </dl>
-              <div className="mt-4 flex items-end justify-between border-t border-slate-800 pt-4">
+              <div className="mt-4 flex items-end justify-between border-t border-zinc-800 pt-4">
                 <span className="text-sm text-stone-400">Total</span>
                 <span className="text-2xl font-black text-emerald-300">
                   ${(totalPayoutCents / 100).toFixed(2)}
@@ -274,7 +274,7 @@ export default async function InstallerJobDetailPage({ params }: PageProps) {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-yellow-300" />
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
@@ -317,7 +317,7 @@ function StatusPill({ status }: { status: string }) {
   };
   const meta = map[status] ?? {
     label: status,
-    cls: "border-slate-700 bg-slate-900 text-stone-300",
+    cls: "border-zinc-700 bg-zinc-900 text-stone-300",
   };
   return (
     <span
@@ -348,7 +348,7 @@ function ContactCard({
   const borderClass =
     accent === "yellow"
       ? "border-yellow-400/30 bg-yellow-400/[0.03]"
-      : "border-slate-800 bg-slate-900/40";
+      : "border-zinc-800 bg-zinc-900/40";
 
   const iconClass = accent === "yellow" ? "text-yellow-300" : "text-stone-400";
 
@@ -379,7 +379,7 @@ function ContactCard({
 
 function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-slate-800 pb-2 last:border-0 last:pb-0">
+    <div className="flex items-baseline justify-between gap-4 border-b border-zinc-800 pb-2 last:border-0 last:pb-0">
       <dt className="text-stone-500">{label}</dt>
       <dd className="text-right font-medium text-white">{value}</dd>
     </div>
@@ -402,17 +402,17 @@ function Timeline({
   ];
 
   return (
-    <ol className="relative space-y-4 border-l border-slate-800 pl-6">
+    <ol className="relative space-y-4 border-l border-zinc-800 pl-6">
       {items.map((step) => {
         const Icon = step.icon;
         return (
           <li key={step.label} className="relative">
             <span
-              className={`absolute -left-[27px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-slate-950 ${
-                step.done ? "bg-emerald-400" : "bg-slate-700"
+              className={`absolute -left-[27px] flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-zinc-950 ${
+                step.done ? "bg-emerald-400" : "bg-zinc-700"
               }`}
             >
-              {step.done && <Icon className="h-2.5 w-2.5 text-slate-950" strokeWidth={3} />}
+              {step.done && <Icon className="h-2.5 w-2.5 text-zinc-950" strokeWidth={3} />}
             </span>
             <p className={`text-sm font-semibold ${step.done ? "text-white" : "text-stone-500"}`}>
               {step.label}

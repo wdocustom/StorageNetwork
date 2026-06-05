@@ -196,11 +196,11 @@ export default function SalesInsightsPage() {
   return (
     <div className="min-h-screen bg-gray-950 pb-24">
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-gray-950/95 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-gray-950/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
           <Link
             href="/dashboard"
-            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -215,7 +215,7 @@ export default function SalesInsightsPage() {
       <div className="mx-auto max-w-2xl space-y-4 p-4">
         {/* ══ Phase 1: KPI Top Tiles — Gross Revenue + Net Payout ══ */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
             <DollarSign className="mx-auto mb-1 h-5 w-5 text-yellow-400" />
             <p className="text-lg font-black text-white sm:text-xl">
               {fmt(data.totalSales)}
@@ -227,7 +227,7 @@ export default function SalesInsightsPage() {
               Net Payout: {fmt(data.netPayout)}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
             <ShoppingCart className="mx-auto mb-1 h-5 w-5 text-amber-400" />
             <p className="text-lg font-black text-white sm:text-xl">
               {fmt(data.totalCOGS)}
@@ -236,7 +236,7 @@ export default function SalesInsightsPage() {
               Cost of Goods
             </p>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
             <Package className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
             <p className="text-lg font-black text-white sm:text-xl">
               {data.totalOrders}
@@ -248,7 +248,7 @@ export default function SalesInsightsPage() {
         </div>
 
         {/* ── Gross Margin Bar ──────────────────────────────────────── */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
           <div className="mb-1.5 flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               <TrendingUp className="h-3 w-3 text-emerald-400" />
@@ -256,7 +256,7 @@ export default function SalesInsightsPage() {
             </span>
             <span className="text-xs font-black text-emerald-400">{grossMargin}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
               style={{ width: `${Math.min(grossMargin, 100)}%` }}
@@ -270,7 +270,7 @@ export default function SalesInsightsPage() {
 
         {/* ── Popular Units ────────────────────────────────────────── */}
         {data.popularUnits.length > 0 && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
             <h2 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               <Star className="h-3.5 w-3.5 text-yellow-400" />
               Top Configurations
@@ -279,14 +279,14 @@ export default function SalesInsightsPage() {
               {data.popularUnits.slice(0, 5).map((unit, i) => (
                 <div
                   key={unit.config}
-                  className="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2"
+                  className="flex items-center gap-3 rounded-lg bg-zinc-800/50 px-3 py-2"
                 >
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
                     i === 0
                       ? "bg-yellow-400/20 text-yellow-400"
                       : i === 1
                       ? "bg-stone-400/20 text-stone-300"
-                      : "bg-slate-700 text-stone-500"
+                      : "bg-zinc-700 text-stone-500"
                   }`}>
                     {i + 1}
                   </span>
@@ -308,13 +308,13 @@ export default function SalesInsightsPage() {
         {/* ── Search ───────────────────────────────────────────────── */}
         <div className="sticky top-[53px] z-10 -mx-4 bg-gray-950/95 px-4 py-2 backdrop-blur">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -tranzinc-y-1/2 text-stone-500" />
             <input
               type="text"
               placeholder="Search customers, addresses, configs, or try &quot;popular unit&quot;..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
             />
           </div>
           {popularSearchMessage && (
@@ -396,7 +396,7 @@ function OperationalStatusPills({
                   : opt.value === "scheduled"
                   ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40"
                   : "bg-yellow-400/20 text-yellow-400 ring-1 ring-yellow-400/40"
-                : "bg-slate-800 text-stone-600 hover:bg-slate-700 hover:text-stone-400"
+                : "bg-zinc-800 text-stone-600 hover:bg-zinc-700 hover:text-stone-400"
             }`}
           >
             {opt.label}
@@ -423,11 +423,11 @@ function OrderRow({
   onOpStatusChange: (orderId: string, status: OperationalStatus) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
       {/* Summary row */}
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-slate-800/50"
+        className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-zinc-800/50"
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-white">
@@ -455,7 +455,7 @@ function OrderRow({
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-slate-800 bg-slate-800/30 p-3 space-y-3">
+        <div className="border-t border-zinc-800 bg-zinc-800/30 p-3 space-y-3">
           {/* Customer info */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             {order.customerEmail && (
@@ -492,7 +492,7 @@ function OrderRow({
           <div className="grid grid-cols-3 gap-2">
             <a
               href={order.customerPhone ? `tel:${order.customerPhone}` : undefined}
-              className={`flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-bold transition-all ${
                 order.customerPhone
                   ? "text-stone-300 hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
                   : "pointer-events-none text-stone-700"
@@ -505,7 +505,7 @@ function OrderRow({
               href={order.address ? `https://maps.google.com/?q=${encodeURIComponent(order.address)}` : undefined}
               target="_blank"
               rel="noopener noreferrer"
-              className={`flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-bold transition-all ${
                 order.address
                   ? "text-stone-300 hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
                   : "pointer-events-none text-stone-700"
@@ -516,7 +516,7 @@ function OrderRow({
             </a>
             <Link
               href={`/dashboard/leads/${order.id}`}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-stone-300 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 text-xs font-bold text-stone-300 transition-all hover:border-yellow-400/50 hover:bg-yellow-400/10 hover:text-yellow-400 active:scale-95"
             >
               <Ruler className="h-3.5 w-3.5" />
               Blueprints
@@ -524,7 +524,7 @@ function OrderRow({
           </div>
 
           {/* ══ Phase 3: Status Row — Payment + Operational Pipeline ══ */}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Payment:</span>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
@@ -559,7 +559,7 @@ function OrderRow({
               return (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg bg-slate-800 px-2.5 py-2"
+                  className="flex items-center justify-between rounded-lg bg-zinc-800 px-2.5 py-2"
                 >
                   <div>
                     <p className="text-xs font-semibold text-white">{u.desc}</p>
@@ -574,7 +574,7 @@ function OrderRow({
           </div>
 
           {/* ══ Phase 4: Financial Summary Mini-Card ══ */}
-          <div className="rounded-xl border border-slate-700/50 bg-slate-900 p-3">
+          <div className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-3">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
               Financial Summary
             </p>

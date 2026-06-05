@@ -279,7 +279,7 @@ export default function PartnerDashboardPage() {
   // ── Loading State ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -288,7 +288,7 @@ export default function PartnerDashboardPage() {
   // ── Error / Not Authorized ─────────────────────────────────────────────
   if (error || !partner || !commission) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4">
         <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
         <h1 className="mb-2 text-xl font-bold text-white">Access Denied</h1>
         <p className="mb-6 max-w-sm text-center text-sm text-stone-400">
@@ -296,7 +296,7 @@ export default function PartnerDashboardPage() {
         </p>
         <a
           href="/dashboard"
-          className="rounded-lg bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+          className="rounded-lg bg-zinc-800 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700"
         >
           Back to Dashboard
         </a>
@@ -311,13 +311,13 @@ export default function PartnerDashboardPage() {
   const inactiveCount = referrals.filter((r) => r.status === "inactive").length;
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-4 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900/95 px-4 py-4 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           <a
             href="/dashboard/profile"
-            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </a>
@@ -346,7 +346,7 @@ export default function PartnerDashboardPage() {
         {/* ═══════════════════════════════════════════════════════════════
             HERO: Referral Link
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+        <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900">
           <div className="p-5">
             <div className="mb-3 flex items-center gap-2">
               <Link2 className="h-4 w-4 text-yellow-400" />
@@ -355,7 +355,7 @@ export default function PartnerDashboardPage() {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800/80 px-4 py-3">
+              <div className="flex-1 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-3">
                 <p className="truncate font-mono text-sm text-white">
                   {siteConfig.baseUrl}/join/{partner.slug}
                 </p>
@@ -388,7 +388,7 @@ export default function PartnerDashboardPage() {
         ═══════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Current Tier */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="mb-2 flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-yellow-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
@@ -402,7 +402,7 @@ export default function PartnerDashboardPage() {
           </div>
 
           {/* Active Pro Referrals */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="mb-2 flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-emerald-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
@@ -416,7 +416,7 @@ export default function PartnerDashboardPage() {
           </div>
 
           {/* Projected Monthly */}
-          <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-slate-900 p-4">
+          <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-zinc-900 p-4">
             <div className="mb-2 flex items-center gap-1.5">
               <DollarSign className="h-3.5 w-3.5 text-yellow-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
@@ -430,7 +430,7 @@ export default function PartnerDashboardPage() {
           </div>
 
           {/* Pipeline */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="mb-2 flex items-center gap-1.5">
               <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
@@ -449,7 +449,7 @@ export default function PartnerDashboardPage() {
         {/* ═══════════════════════════════════════════════════════════════
             TIER BREAKDOWN
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center gap-2">
             <Award className="h-4 w-4 text-yellow-400" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -461,7 +461,7 @@ export default function PartnerDashboardPage() {
               className={`rounded-xl border p-4 ${
                 activeCount <= 50
                   ? "border-yellow-400/30 bg-yellow-400/5"
-                  : "border-slate-700 bg-slate-800/30"
+                  : "border-zinc-700 bg-zinc-800/30"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -479,7 +479,7 @@ export default function PartnerDashboardPage() {
               className={`rounded-xl border p-4 ${
                 activeCount > 50
                   ? "border-yellow-400/30 bg-yellow-400/5"
-                  : "border-slate-700 bg-slate-800/30"
+                  : "border-zinc-700 bg-zinc-800/30"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -503,7 +503,7 @@ export default function PartnerDashboardPage() {
         {/* ═══════════════════════════════════════════════════════════════
             INSTALLER LEDGER
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-yellow-400" />
@@ -521,7 +521,7 @@ export default function PartnerDashboardPage() {
                 </span>
               )}
               {inactiveCount > 0 && (
-                <span className="rounded-full bg-slate-700 px-2.5 py-1 text-[10px] font-bold text-stone-400">
+                <span className="rounded-full bg-zinc-700 px-2.5 py-1 text-[10px] font-bold text-stone-400">
                   {inactiveCount} Inactive
                 </span>
               )}
@@ -529,7 +529,7 @@ export default function PartnerDashboardPage() {
           </div>
 
           {referrals.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-700 py-12 text-center">
+            <div className="rounded-xl border border-dashed border-zinc-700 py-12 text-center">
               <Users className="mx-auto mb-3 h-8 w-8 text-stone-600" />
               <p className="text-sm font-medium text-stone-400">
                 No referrals yet
@@ -539,9 +539,9 @@ export default function PartnerDashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-700">
+            <div className="overflow-hidden rounded-xl border border-zinc-700">
               {/* Table Header */}
-              <div className="grid grid-cols-12 gap-2 border-b border-slate-700 bg-slate-800/50 px-4 py-2.5">
+              <div className="grid grid-cols-12 gap-2 border-b border-zinc-700 bg-zinc-800/50 px-4 py-2.5">
                 <span className="col-span-5 text-[10px] font-bold uppercase tracking-widest text-stone-500">
                   Installer
                 </span>
@@ -560,7 +560,7 @@ export default function PartnerDashboardPage() {
               {referrals.map((ref) => (
                 <div
                   key={ref.id}
-                  className="grid grid-cols-12 items-center gap-2 border-b border-slate-800 px-4 py-3 last:border-0"
+                  className="grid grid-cols-12 items-center gap-2 border-b border-zinc-800 px-4 py-3 last:border-0"
                 >
                   {/* Name */}
                   <div className="col-span-5">
@@ -594,7 +594,7 @@ export default function PartnerDashboardPage() {
                             ? "bg-emerald-500/10 text-emerald-400"
                             : ref.status === "pending"
                             ? "bg-amber-500/10 text-amber-400"
-                            : "bg-slate-700 text-stone-400"
+                            : "bg-zinc-700 text-stone-400"
                         }`}
                       >
                         {ref.status}
@@ -604,7 +604,7 @@ export default function PartnerDashboardPage() {
                           PRO
                         </span>
                       ) : (
-                        <span className="inline-flex w-fit rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-bold text-stone-600">
+                        <span className="inline-flex w-fit rounded-full bg-zinc-800 px-2 py-0.5 text-[9px] font-bold text-stone-600">
                           FREE
                         </span>
                       )}
@@ -635,7 +635,7 @@ export default function PartnerDashboardPage() {
             keeps it discoverable for admins).
         ═══════════════════════════════════════════════════════════════ */}
         {isAdmin && (
-          <section className="mb-6 rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-slate-900 p-5">
+          <section className="mb-6 rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-yellow-400/5 to-zinc-900 p-5">
             <div className="mb-3 flex items-center gap-2">
               <Shield className="h-4 w-4 text-yellow-400" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -660,14 +660,14 @@ export default function PartnerDashboardPage() {
             ADMIN: All Platform Users (admin only)
         ═══════════════════════════════════════════════════════════════ */}
         {isAdmin && (
-          <section className="rounded-2xl border border-red-500/20 bg-gradient-to-b from-red-500/5 to-slate-900 p-5">
+          <section className="rounded-2xl border border-red-500/20 bg-gradient-to-b from-red-500/5 to-zinc-900 p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-red-400" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">
                   All Platform Users
                 </h2>
-                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-stone-400">
+                <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-stone-400">
                   {platformUsers.length}
                 </span>
               </div>
@@ -675,7 +675,7 @@ export default function PartnerDashboardPage() {
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
                   {platformUsers.filter((u) => u.is_pro).length} Pro
                 </span>
-                <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
+                <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-stone-400">
                   {platformUsers.filter((u) => !u.is_pro).length} Free
                 </span>
               </div>
@@ -683,13 +683,13 @@ export default function PartnerDashboardPage() {
 
             {/* Search */}
             <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -tranzinc-y-1/2 text-stone-500" />
               <input
                 type="text"
                 placeholder="Search by name, business, email, or slug..."
                 value={adminSearch}
                 onChange={(e) => setAdminSearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-yellow-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-yellow-400/50 focus:outline-none"
               />
             </div>
 
@@ -718,12 +718,12 @@ export default function PartnerDashboardPage() {
                     return (
                       <div
                         key={u.id}
-                        className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50"
+                        className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/50"
                       >
                         {/* Row Header — always visible */}
                         <button
                           onClick={() => setExpandedUser(isExpanded ? null : u.id)}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-800"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -786,7 +786,7 @@ export default function PartnerDashboardPage() {
 
                         {/* Expanded Detail Panel */}
                         {isExpanded && (
-                          <div className="border-t border-slate-700 bg-slate-900/50 px-4 py-4">
+                          <div className="border-t border-zinc-700 bg-zinc-900/50 px-4 py-4">
                             <div className="grid grid-cols-2 gap-3 text-xs">
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Email</p>
@@ -846,14 +846,14 @@ export default function PartnerDashboardPage() {
                                 Booking Link
                               </p>
                               <div className="flex items-center gap-2">
-                                <div className="flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 px-3 py-2">
+                                <div className="flex-1 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2">
                                   <p className="truncate font-mono text-[11px] text-blue-400">
                                     {u.booking_link}
                                   </p>
                                 </div>
                                 <button
                                   onClick={() => handleCopyBookingLink(u.booking_link, u.id)}
-                                  className="flex-shrink-0 rounded-lg bg-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-600 hover:text-white"
+                                  className="flex-shrink-0 rounded-lg bg-zinc-700 p-2 text-stone-400 transition-colors hover:bg-zinc-600 hover:text-white"
                                 >
                                   {copiedLink === u.id ? (
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
@@ -865,7 +865,7 @@ export default function PartnerDashboardPage() {
                                   href={u.booking_link}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-shrink-0 rounded-lg bg-slate-700 p-2 text-stone-400 transition-colors hover:bg-slate-600 hover:text-white"
+                                  className="flex-shrink-0 rounded-lg bg-zinc-700 p-2 text-stone-400 transition-colors hover:bg-zinc-600 hover:text-white"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
@@ -886,7 +886,7 @@ export default function PartnerDashboardPage() {
                             )}
 
                             {/* Account Lock Toggle */}
-                            <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                            <div className="mt-3 flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <Ban className="h-3.5 w-3.5 text-stone-500" />
                                 <div>
@@ -919,7 +919,7 @@ export default function PartnerDashboardPage() {
                             </div>
 
                             {/* Marketing Credits — admin top-up */}
-                            <div className="mt-3 rounded-lg border border-yellow-400/20 bg-slate-800 px-4 py-3">
+                            <div className="mt-3 rounded-lg border border-yellow-400/20 bg-zinc-800 px-4 py-3">
                               <div className="mb-2 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <Coins className="h-3.5 w-3.5 text-yellow-400" />
@@ -947,7 +947,7 @@ export default function PartnerDashboardPage() {
                                     setCreditAmount((prev) => ({ ...prev, [u.id]: e.target.value }))
                                   }
                                   placeholder="Amount to add"
-                                  className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
+                                  className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
                                 />
                                 <button
                                   onClick={() => handleAddCredits(u)}
@@ -1010,11 +1010,11 @@ export default function PartnerDashboardPage() {
             onClick={closeDeleteModal}
           >
             <div
-              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl"
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-red-500/30 bg-zinc-900 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-start justify-between border-b border-slate-800 px-5 py-4">
+              <div className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-red-300">
                     Delete User — Permanent
@@ -1029,7 +1029,7 @@ export default function PartnerDashboardPage() {
                 <button
                   onClick={closeDeleteModal}
                   disabled={deleteInFlight}
-                  className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                  className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-40"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1081,7 +1081,7 @@ export default function PartnerDashboardPage() {
                     )}
 
                     {/* Counts */}
-                    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                       <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
                         Linked data
                       </p>
@@ -1104,7 +1104,7 @@ export default function PartnerDashboardPage() {
                     </div>
 
                     {/* Stripe */}
-                    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
                       <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-stone-400">
                         Stripe state
                       </p>
@@ -1142,7 +1142,7 @@ export default function PartnerDashboardPage() {
                           onChange={(e) => setDeleteConfirmText(e.target.value)}
                           disabled={deleteInFlight}
                           autoFocus
-                          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-red-400 disabled:opacity-50"
+                          className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-red-400 disabled:opacity-50"
                           placeholder="DELETE"
                         />
                       </div>
@@ -1155,7 +1155,7 @@ export default function PartnerDashboardPage() {
                       </div>
                     )}
                     {deleteLog.length > 0 && (
-                      <div className="mb-3 rounded-lg border border-slate-800 bg-black p-2 font-mono text-[10px] text-green-300">
+                      <div className="mb-3 rounded-lg border border-zinc-800 bg-black p-2 font-mono text-[10px] text-green-300">
                         {deleteLog.map((l, i) => (
                           <div key={i}>{l}</div>
                         ))}
@@ -1166,11 +1166,11 @@ export default function PartnerDashboardPage() {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-2 border-t border-slate-800 px-5 py-3">
+              <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-5 py-3">
                 <button
                   onClick={closeDeleteModal}
                   disabled={deleteInFlight}
-                  className="rounded-lg px-4 py-2 text-xs font-semibold text-stone-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+                  className="rounded-lg px-4 py-2 text-xs font-semibold text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-40"
                 >
                   Cancel
                 </button>
@@ -1201,7 +1201,7 @@ export default function PartnerDashboardPage() {
             ADMIN: Network Referral Bounties (admin only)
         ═══════════════════════════════════════════════════════════════ */}
         {isAdmin && (
-          <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-slate-900 p-5">
+          <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-zinc-900 p-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Banknote className="h-4 w-4 text-amber-400" />
@@ -1217,7 +1217,7 @@ export default function PartnerDashboardPage() {
                   <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-400">
                     ~${bountyTotals.totalPending.toFixed(2)} Pending
                   </span>
-                  <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
+                  <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-stone-400">
                     {bountyTotals.totalReferrals} Total
                   </span>
                 </div>
@@ -1235,7 +1235,7 @@ export default function PartnerDashboardPage() {
                   <p className="text-lg font-black text-amber-400">~${bountyTotals.totalPending.toFixed(2)}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Est. Pending</p>
                 </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-3 text-center">
+                <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-3 text-center">
                   <p className="text-lg font-black text-white">{bountyTotals.totalReferrals}</p>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Total Referrals</p>
                 </div>
@@ -1244,13 +1244,13 @@ export default function PartnerDashboardPage() {
 
             {/* Search */}
             <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -tranzinc-y-1/2 text-stone-500" />
               <input
                 type="text"
                 placeholder="Search referrer by name or business..."
                 value={bountySearch}
                 onChange={(e) => setBountySearch(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-amber-400/50 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder-stone-500 focus:border-amber-400/50 focus:outline-none"
               />
             </div>
 
@@ -1259,7 +1259,7 @@ export default function PartnerDashboardPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
               </div>
             ) : bountyReferrers.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-700 py-12 text-center">
+              <div className="rounded-xl border border-dashed border-zinc-700 py-12 text-center">
                 <Banknote className="mx-auto mb-3 h-8 w-8 text-stone-600" />
                 <p className="text-sm font-medium text-stone-400">No referral bounties yet</p>
                 <p className="mt-1 text-xs text-stone-600">Bounties appear when installers refer out-of-area customers.</p>
@@ -1281,12 +1281,12 @@ export default function PartnerDashboardPage() {
                     return (
                       <div
                         key={referrer.installer_id}
-                        className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/50"
+                        className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/50"
                       >
                         {/* Row header */}
                         <button
                           onClick={() => setExpandedReferrer(isExpanded ? null : referrer.installer_id)}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-800"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -1298,7 +1298,7 @@ export default function PartnerDashboardPage() {
                                   PRO
                                 </span>
                               ) : (
-                                <span className="flex-shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-stone-400">
+                                <span className="flex-shrink-0 rounded bg-zinc-700 px-1.5 py-0.5 text-[9px] font-bold text-stone-400">
                                   FREE
                                 </span>
                               )}
@@ -1337,9 +1337,9 @@ export default function PartnerDashboardPage() {
 
                         {/* Expanded: individual leads */}
                         {isExpanded && (
-                          <div className="border-t border-slate-700 bg-slate-900/50">
+                          <div className="border-t border-zinc-700 bg-zinc-900/50">
                             {/* Summary stats */}
-                            <div className="grid grid-cols-4 gap-2 border-b border-slate-700/50 px-4 py-3">
+                            <div className="grid grid-cols-4 gap-2 border-b border-zinc-700/50 px-4 py-3">
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Paid</p>
                                 <p className="text-sm font-bold text-emerald-400">{referrer.paid_count}</p>
@@ -1359,7 +1359,7 @@ export default function PartnerDashboardPage() {
                             </div>
 
                             {/* Lead table header */}
-                            <div className="grid grid-cols-12 gap-1 border-b border-slate-700/50 bg-slate-800/30 px-4 py-2">
+                            <div className="grid grid-cols-12 gap-1 border-b border-zinc-700/50 bg-zinc-800/30 px-4 py-2">
                               <span className="col-span-3 text-[9px] font-bold uppercase tracking-widest text-stone-500">Assigned To</span>
                               <span className="col-span-2 text-[9px] font-bold uppercase tracking-widest text-stone-500">Location</span>
                               <span className="col-span-2 text-[9px] font-bold uppercase tracking-widest text-stone-500">Deposit</span>
@@ -1372,7 +1372,7 @@ export default function PartnerDashboardPage() {
                             {referrer.leads.map((lead) => (
                               <div
                                 key={lead.id}
-                                className="grid grid-cols-12 items-center gap-1 border-b border-slate-800/50 px-4 py-2.5 last:border-0"
+                                className="grid grid-cols-12 items-center gap-1 border-b border-zinc-800/50 px-4 py-2.5 last:border-0"
                               >
                                 <div className="col-span-3 min-w-0">
                                   <p className="truncate text-xs font-medium text-stone-300">
@@ -1417,7 +1417,7 @@ export default function PartnerDashboardPage() {
                                       ? "bg-emerald-500/10 text-emerald-400"
                                       : lead.bounty_status === "pending"
                                       ? "bg-amber-500/10 text-amber-400"
-                                      : "bg-slate-700 text-stone-400"
+                                      : "bg-zinc-700 text-stone-400"
                                   }`}>
                                     {lead.bounty_status}
                                   </span>

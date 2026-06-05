@@ -161,16 +161,16 @@ export default function LeadsListPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard"
@@ -191,7 +191,7 @@ export default function LeadsListPage() {
       </header>
 
       {/* ── Tabs ──────────────────────────────────────────────────────── */}
-      <div className="border-b border-slate-800 bg-slate-900/50">
+      <div className="border-b border-zinc-800 bg-zinc-900/50">
         <div className="mx-auto flex max-w-2xl">
           <button
             onClick={() => setTab("active")}
@@ -244,7 +244,7 @@ export default function LeadsListPage() {
       <main className="mx-auto max-w-2xl p-4">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-zinc-900">
               <Briefcase className="h-10 w-10 text-stone-600" />
             </div>
             <p className="text-lg font-bold text-stone-400">
@@ -270,7 +270,7 @@ export default function LeadsListPage() {
           <div className="space-y-6">
             {Object.entries(grouped).map(([dateString, jobs]) => (
               <div key={dateString}>
-                <h3 className="mb-3 border-b border-slate-700 pb-2 text-sm font-semibold uppercase tracking-wider text-stone-400">
+                <h3 className="mb-3 border-b border-zinc-700 pb-2 text-sm font-semibold uppercase tracking-wider text-stone-400">
                   {dateString}
                   <span className="ml-2 text-yellow-400">({jobs.length})</span>
                 </h3>
@@ -339,10 +339,10 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
   }
 
   return (
-    <li className="group relative rounded-xl border border-slate-800 bg-slate-900 transition-all hover:border-slate-700">
+    <li className="group relative rounded-xl border border-zinc-800 bg-zinc-900 transition-all hover:border-zinc-700">
       {/* Delete confirmation overlay */}
       {confirmDelete && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-900/95 backdrop-blur-sm">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-zinc-900/95 backdrop-blur-sm">
           <div className="text-center">
             <p className="mb-3 text-sm font-bold text-red-400">Delete this quote?</p>
             <p className="mb-4 text-xs text-stone-400">
@@ -351,7 +351,7 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-700"
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-zinc-700"
               >
                 Cancel
               </button>
@@ -414,7 +414,7 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
 
         {/* Collect amount hint */}
         {lead.balance_due && lead.balance_due > 0 && (
-          <div className="mt-2 rounded-lg bg-slate-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
+          <div className="mt-2 rounded-lg bg-zinc-800 px-3 py-1.5 text-center text-xs font-semibold text-stone-400">
             Collect on completion:{" "}
             <span className="text-white">
               ${lead.balance_due.toLocaleString()}
@@ -425,18 +425,18 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
 
       {/* Edit + Delete buttons for unpaid quotes */}
       {showDelete && (
-        <div className="flex border-t border-slate-800">
+        <div className="flex border-t border-zinc-800">
           <a
             href={`/dashboard/build?edit=${lead.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-yellow-400/70 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400"
+            className="flex flex-1 items-center justify-center gap-2 border-r border-zinc-800 px-4 py-2.5 text-xs font-semibold text-yellow-400/70 transition-colors hover:bg-yellow-400/10 hover:text-yellow-400"
           >
             <PenLine className="h-3.5 w-3.5" />
             Edit Quote
           </a>
           <button
             onClick={handleCopyPayLink}
-            className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-emerald-400/70 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+            className="flex flex-1 items-center justify-center gap-2 border-r border-zinc-800 px-4 py-2.5 text-xs font-semibold text-emerald-400/70 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
           >
             <Link className="h-3.5 w-3.5" />
             {linkCopied ? "Copied!" : lead.deposit_paid ? "Balance Link" : "Full Pay Link"}

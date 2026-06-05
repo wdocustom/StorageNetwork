@@ -581,7 +581,7 @@ function MetricCard({
   const { text, bg, glow } = CARD_ACCENTS[accent];
   return (
     <div
-      className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${glow}`}
+      className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-4 transition-all duration-200 hover:-tranzinc-y-0.5 hover:shadow-lg ${glow}`}
     >
       <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
         <div className={text}>{icon}</div>
@@ -892,7 +892,7 @@ function DualBarChart({
               >
                 {orders > 0 && (
                   <div
-                    className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-emerald-400 ring-2 ring-zinc-900"
+                    className="absolute bottom-0 left-1/2 h-2 w-2 -tranzinc-x-1/2 rounded-full bg-emerald-400 ring-2 ring-zinc-900"
                     title={`${orders} order${orders > 1 ? "s" : ""}`}
                   />
                 )}

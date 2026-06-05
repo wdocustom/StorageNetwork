@@ -131,7 +131,7 @@ function JigBuildDiagram({ blurred = false }: { blurred?: boolean }) {
       <svg
         viewBox="0 0 600 720"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50"
+        className="w-full rounded-xl border border-zinc-700/50 bg-zinc-800/50"
       >
         {/* Background */}
         <rect width="600" height="720" fill="#0f172a" rx="12" />
@@ -342,7 +342,7 @@ export default function LadderJigPlans() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-slate-900">
+    <section className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-zinc-900">
       {/* Emerald accent bar */}
       <div className="h-1 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" />
 
@@ -443,7 +443,7 @@ export default function LadderJigPlans() {
               <JigBuildDiagram blurred />
 
               {/* Overlay CTA */}
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-slate-950/60 transition-all group-hover:bg-slate-950/40">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-zinc-950/60 transition-all group-hover:bg-zinc-950/40">
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 backdrop-blur-sm transition-transform group-hover:scale-110">
                   <Lock className="h-7 w-7 text-emerald-400" />
                 </div>
@@ -510,7 +510,7 @@ export default function LadderJigPlans() {
                 <JigBuildDiagram />
 
                 {/* ── Materials List ─────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <ShoppingCart className="h-4 w-4 text-yellow-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -521,7 +521,7 @@ export default function LadderJigPlans() {
                     {MATERIALS.map((m, i) => (
                       <div
                         key={i}
-                        className="flex items-start gap-3 rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 py-2.5"
+                        className="flex items-start gap-3 rounded-lg border border-zinc-700/30 bg-zinc-900/50 px-3 py-2.5"
                       >
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-yellow-500/10 text-[11px] font-black text-yellow-400">
                           {m.qty}
@@ -538,7 +538,7 @@ export default function LadderJigPlans() {
                 </div>
 
                 {/* ── Tools Needed ───────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-blue-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -559,7 +559,7 @@ export default function LadderJigPlans() {
                 </div>
 
                 {/* ── Cut List (Job Ticket Style) ────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Scissors className="h-4 w-4 text-rose-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -570,7 +570,7 @@ export default function LadderJigPlans() {
                     {CUT_LIST.map((cut, i) => (
                       <div
                         key={i}
-                        className="rounded-lg border border-slate-700/30 bg-slate-900/50 p-3"
+                        className="rounded-lg border border-zinc-700/30 bg-zinc-900/50 p-3"
                       >
                         <div className="mb-1 flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -581,7 +581,7 @@ export default function LadderJigPlans() {
                               {cut.piece}
                             </p>
                           </div>
-                          <span className="rounded bg-slate-700/50 px-2 py-0.5 text-[10px] font-mono font-bold text-stone-300">
+                          <span className="rounded bg-zinc-700/50 px-2 py-0.5 text-[10px] font-mono font-bold text-stone-300">
                             {cut.dimensions}
                           </span>
                         </div>
@@ -595,7 +595,7 @@ export default function LadderJigPlans() {
                 </div>
 
                 {/* ── Rung Mark Positions ─────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <Ruler className="h-4 w-4 text-pink-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -626,7 +626,7 @@ export default function LadderJigPlans() {
                 </div>
 
                 {/* ── Build Steps ─────────────────────────────────────── */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <ClipboardIcon className="h-4 w-4 text-emerald-400" />
                     <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -637,7 +637,7 @@ export default function LadderJigPlans() {
                     {BUILD_STEPS.map((s) => (
                       <div
                         key={s.step}
-                        className="flex gap-3 rounded-lg border border-slate-700/30 bg-slate-900/50 p-3"
+                        className="flex gap-3 rounded-lg border border-zinc-700/30 bg-zinc-900/50 p-3"
                       >
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-[12px] font-black text-emerald-400">
                           {s.step}
@@ -656,7 +656,7 @@ export default function LadderJigPlans() {
                 </div>
 
                 {/* ── Pro Tip ─────────────────────────────────────────── */}
-                <div className="rounded-lg bg-slate-700/30 px-3 py-2.5">
+                <div className="rounded-lg bg-zinc-700/30 px-3 py-2.5">
                   <p className="text-[11px] leading-relaxed text-stone-500">
                     <span className="font-semibold text-emerald-400">Pro tip:</span>{" "}
                     Once you build the jig, lean it against the wall or hang it in your

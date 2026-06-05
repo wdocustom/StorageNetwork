@@ -143,7 +143,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -154,9 +154,9 @@ export default function DashboardPage() {
   const leadLink = profile ? getInstallerLink(profile) : "";
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950">
+    <div className="flex min-h-screen flex-col bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="shrink-0 border-b border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
           <div className="flex items-center gap-3">
             <Image
@@ -179,7 +179,7 @@ export default function DashboardPage() {
             {profile?.is_realtor && (
               <a
                 href="/realtors/dashboard"
-                className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
                 title="Switch to realtor portal"
               >
                 <Building2 className="h-5 w-5" />
@@ -187,14 +187,14 @@ export default function DashboardPage() {
             )}
             <a
               href="/dashboard/profile"
-              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               title="Settings"
             >
               <Settings className="h-5 w-5" />
             </a>
             <button
               onClick={handleSignOut}
-              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              className="rounded-lg p-2 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               title="Sign out"
             >
               <LogOut className="h-5 w-5" />
@@ -204,7 +204,7 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Status Bar ──────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-slate-800 bg-slate-900/50 px-4 py-2.5">
+      <div className="shrink-0 border-b border-zinc-800 bg-zinc-900/50 px-4 py-2.5">
         <div className="mx-auto flex max-w-lg items-center justify-center gap-4 md:max-w-3xl lg:max-w-4xl">
           <div className="flex items-center gap-1.5">
             {trialStatus?.onTrial ? (
@@ -216,7 +216,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="h-3 w-px bg-slate-700" />
+          <div className="h-3 w-px bg-zinc-700" />
 
           <div className="flex items-center gap-1.5">
             {hasStripe ? (
@@ -332,18 +332,18 @@ export default function DashboardPage() {
           )}
 
           {/* ── Stats Strip ────────────────────────────────────────── */}
-          <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+          <div className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
             <div className="flex flex-1 items-center justify-around">
               <div className="text-center">
                 <p className="text-lg font-black text-white">${totalSales.toLocaleString()}</p>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Revenue</p>
               </div>
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-6 w-px bg-zinc-800" />
               <div className="text-center">
                 <p className="text-lg font-black text-white">{completedCount}</p>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">Jobs Done</p>
               </div>
-              <div className="h-6 w-px bg-slate-800" />
+              <div className="h-6 w-px bg-zinc-800" />
               <div className="text-center">
                 <p className="text-lg font-black text-white">{newLeadCount}</p>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">New Leads</p>
@@ -351,7 +351,7 @@ export default function DashboardPage() {
             </div>
             <a
               href="/dashboard/sales"
-              className="ml-3 shrink-0 rounded-lg p-2 text-stone-600 transition-colors hover:bg-slate-800 hover:text-yellow-400"
+              className="ml-3 shrink-0 rounded-lg p-2 text-stone-600 transition-colors hover:bg-zinc-800 hover:text-yellow-400"
               title="Sales details"
             >
               <ChevronRight className="h-4 w-4" />
@@ -363,7 +363,7 @@ export default function DashboardPage() {
             {/* Jobs / Leads */}
             <a
               href="/dashboard/leads"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group relative flex items-center gap-5 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
                 <Briefcase className="h-8 w-8" />
@@ -385,7 +385,7 @@ export default function DashboardPage() {
             {/* Create Quote */}
             <a
               href="/dashboard/build"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group relative flex items-center gap-5 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 transition-colors group-hover:bg-blue-500/20">
                 <HardHat className="h-8 w-8" />
@@ -400,7 +400,7 @@ export default function DashboardPage() {
             {/* Marketing */}
             <a
               href="/dashboard/marketing"
-              className="group relative flex items-center gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group relative flex items-center gap-5 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 transition-colors group-hover:bg-amber-500/20">
                 <Megaphone className="h-8 w-8" />
@@ -421,7 +421,7 @@ export default function DashboardPage() {
             {/* Analytics */}
             <a
               href="/dashboard/analytics"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400 transition-colors group-hover:bg-purple-500/20">
                 <BarChart3 className="h-5 w-5" />
@@ -432,7 +432,7 @@ export default function DashboardPage() {
             {/* Schedule */}
             <a
               href="/dashboard/schedule"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-400 transition-colors group-hover:bg-red-500/20">
                 <CalendarOff className="h-5 w-5" />
@@ -443,7 +443,7 @@ export default function DashboardPage() {
             {/* Community */}
             <a
               href="/community"
-              className="group relative flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-yellow-400/50 hover:from-yellow-500/10 active:scale-[0.98]"
+              className="group relative flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-zinc-900 to-zinc-900 p-4 transition-all hover:border-yellow-400/50 hover:from-yellow-500/10 active:scale-[0.98]"
             >
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10 text-yellow-400 transition-colors group-hover:bg-yellow-400/20">
                 <Users className="h-5 w-5" />
@@ -460,7 +460,7 @@ export default function DashboardPage() {
             {/* Plans & Guides */}
             <a
               href="/dashboard/guides"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
                 <BookOpen className="h-5 w-5" />
@@ -471,7 +471,7 @@ export default function DashboardPage() {
             {/* Tote Rentals — closing-gift fulfillment */}
             <a
               href="/dashboard/tote-rentals"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 transition-colors group-hover:bg-amber-500/20">
                 <Gift className="h-5 w-5" />
@@ -482,7 +482,7 @@ export default function DashboardPage() {
             {/* Smart Inventory — manual edit + reset */}
             <a
               href="/dashboard/inventory"
-              className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-slate-800 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all hover:border-yellow-400/30 hover:bg-zinc-800 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
                 <Package className="h-5 w-5" />
@@ -495,7 +495,7 @@ export default function DashboardPage() {
           {profile?.is_admin && (
             <a
               href="/dashboard/platform-analytics"
-              className="group flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-slate-900 to-slate-900 p-4 transition-all hover:border-cyan-400/50 hover:from-cyan-500/10 active:scale-[0.98]"
+              className="group flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/5 via-zinc-900 to-zinc-900 p-4 transition-all hover:border-cyan-400/50 hover:from-cyan-500/10 active:scale-[0.98]"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 transition-colors group-hover:bg-cyan-500/20">
                 <Activity className="h-5 w-5" />
@@ -516,7 +516,7 @@ export default function DashboardPage() {
       </main>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
-      <footer className="shrink-0 border-t border-slate-800 px-4 py-3 text-center text-[10px] text-stone-700">
+      <footer className="shrink-0 border-t border-zinc-800 px-4 py-3 text-center text-[10px] text-stone-700">
         {siteConfig.name} &copy; {new Date().getFullYear()}
       </footer>
     </div>

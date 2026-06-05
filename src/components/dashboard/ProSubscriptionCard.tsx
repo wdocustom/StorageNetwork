@@ -121,7 +121,7 @@ export default function ProSubscriptionCard({
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900 p-5">
+      <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-zinc-900 to-zinc-900 p-5">
         <div className="flex items-center justify-center gap-2 py-4">
           <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
           <span className="text-sm text-stone-400">Loading subscription...</span>
@@ -133,7 +133,7 @@ export default function ProSubscriptionCard({
   const isCanceling = status?.cancelAtPeriodEnd === true;
 
   return (
-    <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-slate-900 to-slate-900 p-5">
+    <section className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 via-zinc-900 to-zinc-900 p-5">
       {/* Header */}
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400">
@@ -183,7 +183,7 @@ export default function ProSubscriptionCard({
 
       {/* Custom Link */}
       {slug && (
-        <div className="mb-4 rounded-lg bg-slate-800/50 px-3 py-2">
+        <div className="mb-4 rounded-lg bg-zinc-800/50 px-3 py-2">
           <p className="text-[11px] font-medium uppercase tracking-wider text-stone-500">
             Your Custom Link
           </p>
@@ -230,7 +230,7 @@ export default function ProSubscriptionCard({
             <button
               onClick={handleManageSubscription}
               disabled={actionLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-800 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-600 bg-zinc-800 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
             >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -294,7 +294,7 @@ export default function ProSubscriptionCard({
                       setShowCancelConfirm(false);
                       setBountySummary(null);
                     }}
-                    className="flex-1 rounded-lg border border-slate-600 bg-slate-800 py-2 text-xs font-medium text-white hover:bg-slate-700"
+                    className="flex-1 rounded-lg border border-zinc-600 bg-zinc-800 py-2 text-xs font-medium text-white hover:bg-zinc-700"
                   >
                     Keep Pro
                   </button>

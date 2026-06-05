@@ -85,7 +85,7 @@ Stop chasing leads. Start building.
           ))}
         </div>
 
-        <div className="mt-auto border-t border-slate-700 pt-3">
+        <div className="mt-auto border-t border-zinc-700 pt-3">
           <p className="text-center text-sm font-black uppercase tracking-wider text-yellow-400">
             Upgrade now at our site
           </p>
@@ -137,7 +137,7 @@ The platform handles the sales so you can focus on what you do best — building
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -186,7 +186,7 @@ Sample earnings:
           </p>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -246,7 +246,7 @@ The customer sells themselves. You just build.
           </div>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="mt-auto flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">3D Visualizer</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -293,14 +293,14 @@ Stop staring at a blank screen. Start posting and getting leads.
           {/* Platform icons row */}
           <div className="mt-6 flex gap-4">
             {["IG", "X", "WEB", "TT", "FB", "IN"].map((p) => (
-              <div key={p} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 text-[10px] font-bold text-stone-400">
+              <div key={p} className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-600 text-[10px] font-bold text-stone-400">
                 {p}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -342,7 +342,7 @@ Pro members only. No spam. No noise.
           </p>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -407,7 +407,7 @@ It's that simple.
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -459,7 +459,7 @@ $49/mo. Everything included. No upsells.
             { icon: "👥", label: "Community" },
             { icon: "📊", label: "Analytics" },
           ].map((f) => (
-            <div key={f.label} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2">
+            <div key={f.label} className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2">
               <span className="text-base">{f.icon}</span>
               <span className="text-[11px] font-bold text-stone-300">{f.label}</span>
             </div>
@@ -471,7 +471,7 @@ $49/mo. Everything included. No upsells.
           <p className="text-[10px] text-yellow-400/60">Was $99 · Limited time for next 50 installers</p>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="mt-auto flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">The Platform</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -516,7 +516,7 @@ No spreadsheets. No math. Just build.
         </p>
 
         <div className="space-y-3 flex-1">
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-3">
             <p className="text-xs font-black text-yellow-400 mb-1.5">📦 MATERIAL LIST</p>
             <ul className="space-y-0.5 text-[11px] text-stone-400">
               <li>• Exact quantities — 2x4s, plywood, screws, totes</li>
@@ -524,7 +524,7 @@ No spreadsheets. No math. Just build.
               <li>• Accounts for existing inventory</li>
             </ul>
           </div>
-          <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+          <div className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-3">
             <p className="text-xs font-black text-yellow-400 mb-1.5">✂️ CUT PLAN</p>
             <ul className="space-y-0.5 text-[11px] text-stone-400">
               <li>• Board-by-board with fractional measurements</li>
@@ -534,7 +534,7 @@ No spreadsheets. No math. Just build.
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Installer Network</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -596,7 +596,7 @@ Stay tuned. 👀
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-700 pt-3">
+        <div className="flex items-center justify-between border-t border-zinc-700 pt-3">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600">Pro Subscribers</span>
           <span className="text-yellow-400">→</span>
         </div>
@@ -621,7 +621,7 @@ export default function IGSalesImages() {
   const post = POSTS[selectedIdx];
 
   return (
-    <section className="rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/5 to-slate-900 p-5">
+    <section className="rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/5 to-zinc-900 p-5">
       <div className="mb-1 flex items-center gap-2">
         <ImageIcon className="h-4 w-4 text-cyan-400" />
         <h2 className="text-sm font-bold uppercase tracking-wider text-white">
@@ -644,7 +644,7 @@ export default function IGSalesImages() {
             className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold transition-all ${
               selectedIdx === i
                 ? "border-yellow-400/50 bg-yellow-400/10 text-yellow-400"
-                : "border-slate-700 bg-slate-800 text-stone-500 hover:text-white"
+                : "border-zinc-700 bg-zinc-800 text-stone-500 hover:text-white"
             }`}
           >
             {i + 1}. {p.title.length > 18 ? p.title.slice(0, 18) + "…" : p.title}
@@ -657,7 +657,7 @@ export default function IGSalesImages() {
         <button
           onClick={() => setSelectedIdx(Math.max(0, selectedIdx - 1))}
           disabled={selectedIdx === 0}
-          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
+          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
         >
           <ChevronLeft className="h-3 w-3" /> Prev
         </button>
@@ -665,7 +665,7 @@ export default function IGSalesImages() {
         <button
           onClick={() => setSelectedIdx(Math.min(POSTS.length - 1, selectedIdx + 1))}
           disabled={selectedIdx === POSTS.length - 1}
-          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
+          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
         >
           Next <ChevronRight className="h-3 w-3" />
         </button>
@@ -674,7 +674,7 @@ export default function IGSalesImages() {
       {/* Post Preview — 1:1 aspect ratio */}
       <div
         ref={cardRef}
-        className="relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-xl border border-slate-700"
+        className="relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-xl border border-zinc-700"
       >
         {post.render()}
       </div>
@@ -694,7 +694,7 @@ export default function IGSalesImages() {
       </div>
 
       {/* Caption preview */}
-      <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Instagram Caption
         </p>
@@ -704,7 +704,7 @@ export default function IGSalesImages() {
       </div>
 
       {/* Tip */}
-      <div className="mt-4 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3">
+      <div className="mt-4 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3">
         <p className="text-[10px] text-stone-500">
           <span className="font-bold text-stone-400">Tip:</span> Screenshot the preview above for a quick post, or copy the caption and pair it with your own visuals in Canva. Post one per day for consistent reach.
         </p>

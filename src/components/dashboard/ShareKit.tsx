@@ -120,7 +120,7 @@ export default function ShareKit({
   }
 
   return (
-    <section className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] via-slate-900 to-slate-900">
+    <section className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] via-zinc-900 to-zinc-900">
       {/* Header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
@@ -151,7 +151,7 @@ export default function ShareKit({
 
       {/* Posts — collapsible */}
       {expanded && (
-        <div className="space-y-3 border-t border-slate-800/60 px-5 pb-5 pt-4">
+        <div className="space-y-3 border-t border-zinc-800/60 px-5 pb-5 pt-4">
           {/* Instruction callout */}
           <div className="flex items-start gap-2 rounded-lg bg-blue-500/5 border border-blue-500/15 px-3 py-2.5">
             <Facebook className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
@@ -168,7 +168,7 @@ export default function ShareKit({
             return (
               <div
                 key={tmpl.id}
-                className="rounded-xl border border-slate-800 bg-slate-900/80 overflow-hidden"
+                className="rounded-xl border border-zinc-800 bg-zinc-900/80 overflow-hidden"
               >
                 {/* Post label */}
                 <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -186,7 +186,7 @@ export default function ShareKit({
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 border-t border-slate-800/60 px-4 py-3 bg-slate-900/50">
+                <div className="flex gap-2 border-t border-zinc-800/60 px-4 py-3 bg-zinc-900/50">
                   {/* Mobile: Share (native sheet) */}
                   <button
                     onClick={() => sharePost(tmpl)}
@@ -217,7 +217,7 @@ export default function ShareKit({
                   {/* Mobile: Copy fallback */}
                   <button
                     onClick={() => copyPost(tmpl)}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 sm:hidden"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-700 sm:hidden"
                   >
                     {isCopied ? (
                       <Check className="h-3.5 w-3.5 text-emerald-400" />

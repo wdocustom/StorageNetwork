@@ -72,7 +72,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
   }
 
   return (
-    <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-slate-900 to-slate-900/80 p-5">
+    <div className="rounded-2xl border border-yellow-400/20 bg-gradient-to-b from-zinc-900 to-zinc-900/80 p-5">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -85,7 +85,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
         </div>
         <button
           onClick={handleDismiss}
-          className="rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-slate-800 hover:text-stone-400"
+          className="rounded-lg p-1.5 text-stone-600 transition-colors hover:bg-zinc-800 hover:text-stone-400"
           title="Dismiss"
         >
           <X className="h-4 w-4" />
@@ -101,7 +101,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
                 activeStep === step.id
                   ? "bg-yellow-400 text-gray-950"
-                  : "bg-slate-800 text-stone-500 hover:bg-slate-700 hover:text-stone-300"
+                  : "bg-zinc-800 text-stone-500 hover:bg-zinc-700 hover:text-stone-300"
               }`}
             >
               <step.icon className="h-3 w-3" />
@@ -124,7 +124,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
               through it is tracked as{" "}
               <span className="font-semibold text-white">your lead</span>.
             </p>
-            <div className="rounded-lg border border-slate-700 bg-slate-800 p-3">
+            <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-3">
               <p className="mb-3 select-all break-all text-xs font-medium text-blue-400">
                 {bookingLink}
               </p>
@@ -149,7 +149,7 @@ export default function MissionBriefing({ userId, slug, isPro }: MissionBriefing
                   href={bookingLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded border border-slate-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-slate-700"
+                  className="flex items-center gap-1.5 rounded border border-zinc-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-zinc-700"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Open Link

@@ -125,7 +125,7 @@ export function RealtorAdminDetailClient({
       </div>
 
       {/* ── Profile details ─────────────────────────────────────────────── */}
-      <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+      <section className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-stone-300">
           Profile
         </h2>
@@ -157,7 +157,7 @@ export function RealtorAdminDetailClient({
         do gifts above. */}
 
       {/* ── Account controls ────────────────────────────────────────────── */}
-      <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+      <section className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-stone-300">
           Account controls
         </h2>
@@ -198,7 +198,7 @@ export function RealtorAdminDetailClient({
           </div>
 
           {/* Delete button (separate, destructive) */}
-          <div className="min-w-0 flex-1 border-l border-slate-800 pl-6">
+          <div className="min-w-0 flex-1 border-l border-zinc-800 pl-6">
             <div className="mb-2 flex items-center gap-2 text-sm font-bold text-red-300">
               <Trash2 className="h-4 w-4" />
               Permanent deletion
@@ -218,8 +218,8 @@ export function RealtorAdminDetailClient({
       </section>
 
       {/* ── Gifts table ─────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40">
-        <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40">
+        <header className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-stone-300">
             Gifts ({gifts.length})
           </h2>
@@ -231,7 +231,7 @@ export function RealtorAdminDetailClient({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+              <thead className="bg-zinc-900/60 text-[10px] font-bold uppercase tracking-wider text-stone-500">
                 <tr>
                   <th className="px-4 py-3">Created</th>
                   <th className="px-4 py-3">Recipient</th>
@@ -241,7 +241,7 @@ export function RealtorAdminDetailClient({
                   <th className="px-4 py-3">Installer</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-zinc-800/60">
                 {gifts.map((g) => (
                   <tr key={g.id}>
                     <td className="px-4 py-3 text-stone-400">
@@ -308,7 +308,7 @@ function StatCard({
       ? "border-yellow-400/30 bg-yellow-400/5 text-yellow-200"
       : tint === "emerald"
         ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200"
-        : "border-slate-800 bg-slate-900/40 text-stone-200";
+        : "border-zinc-800 bg-zinc-900/40 text-stone-200";
   return (
     <div className={`rounded-xl border p-4 ${tintClass}`}>
       <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">
@@ -351,7 +351,7 @@ function StatusBadge({ status }: { status: string }) {
     returned: { label: "Returned", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" },
     cancelled: { label: "Cancelled", cls: "border-red-500/40 bg-red-500/10 text-red-300" },
   };
-  const meta = map[status] ?? { label: status, cls: "border-slate-700 bg-slate-800 text-stone-300" };
+  const meta = map[status] ?? { label: status, cls: "border-zinc-700 bg-zinc-800 text-stone-300" };
   return (
     <span className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold ${meta.cls}`}>
       {meta.label}
@@ -418,12 +418,12 @@ function DeleteConfirmModal({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-10"
     >
-      <div className="relative w-full max-w-xl rounded-2xl border border-red-500/40 bg-slate-950 p-6 shadow-2xl">
+      <div className="relative w-full max-w-xl rounded-2xl border border-red-500/40 bg-zinc-950 p-6 shadow-2xl">
         <button
           onClick={onClose}
           disabled={inFlight}
           aria-label="Close"
-          className="absolute right-4 top-4 rounded-md p-1 text-stone-500 hover:bg-slate-800 hover:text-stone-200 disabled:opacity-40"
+          className="absolute right-4 top-4 rounded-md p-1 text-stone-500 hover:bg-zinc-800 hover:text-stone-200 disabled:opacity-40"
         >
           <X className="h-4 w-4" />
         </button>
@@ -441,7 +441,7 @@ function DeleteConfirmModal({
         </div>
 
         {preflightLoading ? (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-6 text-center text-sm text-stone-400">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center text-sm text-stone-400">
             <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-yellow-400" />
             Computing what will be deleted…
           </div>
@@ -469,7 +469,7 @@ function DeleteConfirmModal({
               </ul>
             )}
 
-            <div className="mb-5 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+            <div className="mb-5 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
               <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-stone-500">
                 What will be deleted
               </p>
@@ -485,7 +485,7 @@ function DeleteConfirmModal({
                 />
               </dl>
               {preflight.counts.installer_payouts_cents > 0 && (
-                <p className="mt-3 border-t border-slate-800 pt-3 text-[11px] text-stone-400">
+                <p className="mt-3 border-t border-zinc-800 pt-3 text-[11px] text-stone-400">
                   ${(preflight.counts.installer_payouts_cents / 100).toFixed(2)} previously transferred to installers — those records stay in Stripe.
                 </p>
               )}
@@ -493,7 +493,7 @@ function DeleteConfirmModal({
 
             <div className="mb-3">
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                Type <code className="rounded bg-slate-800 px-1.5 py-0.5 text-yellow-400">DELETE</code> to confirm
+                Type <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-yellow-400">DELETE</code> to confirm
               </label>
               <input
                 type="text"
@@ -501,7 +501,7 @@ function DeleteConfirmModal({
                 onChange={(e) => setConfirmText(e.target.value)}
                 disabled={!preflight.ok || inFlight}
                 placeholder="DELETE"
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-red-500/60 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-stone-600 focus:border-red-500/60 focus:outline-none"
               />
             </div>
 
@@ -512,7 +512,7 @@ function DeleteConfirmModal({
             )}
 
             {log.length > 0 && (
-              <details className="mb-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-[11px] text-stone-400">
+              <details className="mb-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-[11px] text-stone-400">
                 <summary className="cursor-pointer font-bold text-stone-300">Deletion log</summary>
                 <pre className="mt-2 whitespace-pre-wrap text-[10px] leading-relaxed text-stone-400">
 {log.join("\n")}
@@ -524,7 +524,7 @@ function DeleteConfirmModal({
               <button
                 onClick={onClose}
                 disabled={inFlight}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-stone-300 hover:bg-slate-800 disabled:opacity-40"
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-stone-300 hover:bg-zinc-800 disabled:opacity-40"
               >
                 Cancel
               </button>

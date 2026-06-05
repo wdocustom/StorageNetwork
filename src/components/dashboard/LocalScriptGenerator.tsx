@@ -61,7 +61,7 @@ export default function LocalScriptGenerator({
     : [];
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-1 flex items-center gap-2">
         <MapPin className="h-4 w-4 text-emerald-400" />
         <h2 className="text-sm font-bold uppercase tracking-wider text-white">
@@ -96,7 +96,7 @@ export default function LocalScriptGenerator({
           {scripts.map((script, i) => (
             <div
               key={i}
-              className="rounded-xl border border-slate-700 bg-slate-800/50 p-4"
+              className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4"
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
@@ -129,7 +129,7 @@ export default function LocalScriptGenerator({
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 -tranzinc-x-1/2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg">
           Script copied! Paste it into Facebook/Instagram.
         </div>
       )}

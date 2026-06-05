@@ -50,7 +50,7 @@ export default async function ToteRentalsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       <div className="mx-auto max-w-5xl px-6 py-10 sm:py-14">
         <Link
           href="/dashboard"
@@ -107,7 +107,7 @@ export default async function ToteRentalsPage() {
                   <ToteJobsTable jobs={jobs} />
                 </div>
               ) : (
-                <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/40 px-6 py-16 text-center">
+                <div className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 px-6 py-16 text-center">
                   <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-400/10 ring-1 ring-yellow-400/40">
                     <Package className="h-7 w-7 text-yellow-400" />
                   </div>

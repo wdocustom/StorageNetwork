@@ -160,9 +160,9 @@ function StepCard({
   body: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-[11px] font-black text-slate-950">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-[11px] font-black text-zinc-950">
           {n}
         </span>
         <Icon className="h-4 w-4 text-yellow-300" />
@@ -182,7 +182,7 @@ function PayoutBreakdown() {
   const examples = [10, 20, 30, 50];
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 sm:p-8">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:p-8">
       <div className="mb-4 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-400/40">
           <CircleDollarSign className="h-5 w-5 text-emerald-400" />
@@ -190,7 +190,7 @@ function PayoutBreakdown() {
         <h2 className="text-lg font-bold">What you earn per job</h2>
       </div>
 
-      <div className="mb-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-stone-300">
+      <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-sm text-stone-300">
         <p className="mb-1 font-mono text-xs text-yellow-300">
           payout = ${base.toFixed(0)} base + ${perTote.toFixed(0)} &times; totes
         </p>
@@ -200,19 +200,19 @@ function PayoutBreakdown() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-800">
+      <div className="overflow-hidden rounded-xl border border-zinc-800">
         <table className="w-full text-sm">
-          <thead className="bg-slate-950/60 text-[10px] font-bold uppercase tracking-[0.15em] text-stone-500">
+          <thead className="bg-zinc-950/60 text-[10px] font-bold uppercase tracking-[0.15em] text-stone-500">
             <tr>
               <th className="px-4 py-2.5 text-left">Gift size</th>
               <th className="px-4 py-2.5 text-right">Payout per gift</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-zinc-800">
             {examples.map((n) => {
               const payout = calcInstallerPayoutCents(n) / 100;
               return (
-                <tr key={n} className="bg-slate-950/20">
+                <tr key={n} className="bg-zinc-950/20">
                   <td className="px-4 py-2.5 font-medium text-stone-300">{n} totes</td>
                   <td className="px-4 py-2.5 text-right font-bold text-emerald-300">
                     ${payout.toFixed(0)}
@@ -231,9 +231,9 @@ function PayoutBreakdown() {
 
 function RequirementsPanel({ gates }: { gates: Onboarding["gates"] }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 sm:p-8">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:p-8">
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 ring-1 ring-slate-700">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-800 ring-1 ring-zinc-700">
           <Check className="h-5 w-5 text-stone-300" />
         </div>
         <h2 className="text-lg font-bold">Before you turn it on</h2>
@@ -388,7 +388,7 @@ function OptInForm({
     <div
       className={`rounded-2xl border p-6 sm:p-8 ${
         disabled
-          ? "border-slate-800 bg-slate-900/30"
+          ? "border-zinc-800 bg-zinc-900/30"
           : "border-yellow-400/30 bg-yellow-400/5"
       }`}
     >
@@ -396,7 +396,7 @@ function OptInForm({
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${
             disabled
-              ? "bg-slate-800 ring-slate-700"
+              ? "bg-zinc-800 ring-zinc-700"
               : "bg-yellow-400/10 ring-yellow-400/40"
           }`}
         >
@@ -437,7 +437,7 @@ function OptInForm({
       <button
         onClick={onSubmit}
         disabled={disabled || saving}
-        className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-slate-950 transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-zinc-950 transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? (
           <>
@@ -476,7 +476,7 @@ function NumberField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-white placeholder:text-stone-500 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30 disabled:cursor-not-allowed disabled:opacity-50"
       />
       <p className="mt-1 text-[11px] text-stone-500">{help}</p>
     </div>

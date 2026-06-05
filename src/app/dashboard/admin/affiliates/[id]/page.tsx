@@ -182,7 +182,7 @@ export default function AdminAffiliateDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     );
@@ -215,7 +215,7 @@ export default function AdminAffiliateDetailPage() {
   return (
     <Shell>
       {/* Applicant header */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs text-stone-500">Applicant</p>
@@ -271,7 +271,7 @@ export default function AdminAffiliateDetailPage() {
       {canAct && !detail.existing_agreement && (
         <>
           {/* Agreement Editor */}
-          <section className="rounded-2xl border border-yellow-400/30 bg-slate-900/40 p-5 space-y-4">
+          <section className="rounded-2xl border border-yellow-400/30 bg-zinc-900/40 p-5 space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-yellow-400">
               Propose Agreement
             </h2>
@@ -286,7 +286,7 @@ export default function AdminAffiliateDetailPage() {
                     className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                       cutType === t
                         ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                        : "border-slate-700 bg-slate-900 text-stone-400 hover:border-slate-600"
+                        : "border-zinc-700 bg-zinc-900 text-stone-400 hover:border-zinc-600"
                     }`}
                   >
                     {t}
@@ -305,7 +305,7 @@ export default function AdminAffiliateDetailPage() {
                     step="0.01"
                     value={flatAmountDollars}
                     onChange={(e) => setFlatAmountDollars(parseFloat(e.target.value) || 0)}
-                    className="w-32 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                    className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
                   />
                 </Field>
                 <Field label="Basis">
@@ -314,7 +314,7 @@ export default function AdminAffiliateDetailPage() {
                     onChange={(e) =>
                       setFlatBasis(e.target.value as "per_active_recruit_per_month" | "per_invoice")
                     }
-                    className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
                   >
                     <option value="per_active_recruit_per_month">
                       Per active recruit, per month
@@ -336,7 +336,7 @@ export default function AdminAffiliateDetailPage() {
                     step="0.5"
                     value={percent}
                     onChange={(e) => setPercent(parseFloat(e.target.value) || 0)}
-                    className="w-32 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                    className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
                   />
                   <span className="text-sm text-stone-400">%</span>
                 </div>
@@ -354,7 +354,7 @@ export default function AdminAffiliateDetailPage() {
                         <span className="w-14 shrink-0 text-[11px] text-stone-500">
                           Tier {i + 1}
                         </span>
-                        <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+                        <div className="flex flex-1 items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
                           <span className="text-[11px] text-stone-500">Up to</span>
                           {isLast ? (
                             <span className="text-sm font-bold text-yellow-400">unlimited</span>
@@ -386,7 +386,7 @@ export default function AdminAffiliateDetailPage() {
                         {!isLast && tiers.length > 2 && (
                           <button
                             onClick={() => removeTier(i)}
-                            className="rounded-lg p-1.5 text-stone-500 hover:bg-slate-800 hover:text-red-400"
+                            className="rounded-lg p-1.5 text-stone-500 hover:bg-zinc-800 hover:text-red-400"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -396,7 +396,7 @@ export default function AdminAffiliateDetailPage() {
                   })}
                   <button
                     onClick={addTier}
-                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-stone-400 hover:border-yellow-400 hover:text-yellow-400"
+                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-700 px-3 py-2 text-xs text-stone-400 hover:border-yellow-400 hover:text-yellow-400"
                   >
                     <Plus className="h-3.5 w-3.5" /> Add tier
                   </button>
@@ -414,7 +414,7 @@ export default function AdminAffiliateDetailPage() {
                   step="0.01"
                   value={signupBonusDollars}
                   onChange={(e) => setSignupBonusDollars(parseFloat(e.target.value) || 0)}
-                  className="w-32 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                  className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
               </div>
             </Field>
@@ -427,7 +427,7 @@ export default function AdminAffiliateDetailPage() {
                   className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                     durationMonths === null
                       ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                      : "border-slate-700 bg-slate-900 text-stone-400 hover:border-slate-600"
+                      : "border-zinc-700 bg-zinc-900 text-stone-400 hover:border-zinc-600"
                   }`}
                 >
                   Lifetime
@@ -442,7 +442,7 @@ export default function AdminAffiliateDetailPage() {
                     const v = parseInt(e.target.value);
                     setDurationMonths(Number.isFinite(v) && v > 0 ? v : null);
                   }}
-                  className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                  className="w-20 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
                 <span className="text-xs text-stone-400">months</span>
               </div>
@@ -454,7 +454,7 @@ export default function AdminAffiliateDetailPage() {
                 value={termsMarkdown}
                 onChange={(e) => setTermsMarkdown(e.target.value)}
                 rows={10}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-white focus:border-yellow-400 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-mono text-white focus:border-yellow-400 focus:outline-none"
               />
             </Field>
 
@@ -465,7 +465,7 @@ export default function AdminAffiliateDetailPage() {
                 onChange={(e) => setInternalNotes(e.target.value)}
                 rows={2}
                 placeholder="Optional context for future you."
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
               />
             </Field>
 
@@ -490,7 +490,7 @@ export default function AdminAffiliateDetailPage() {
           </section>
 
           {/* Reject panel — separate destructive action */}
-          <section className="rounded-2xl border border-red-900/40 bg-slate-900/40 p-5">
+          <section className="rounded-2xl border border-red-900/40 bg-zinc-900/40 p-5">
             {!rejectOpen ? (
               <button
                 onClick={() => setRejectOpen(true)}
@@ -511,13 +511,13 @@ export default function AdminAffiliateDetailPage() {
                   onChange={(e) => setRejectNotes(e.target.value)}
                   rows={3}
                   placeholder="Internal notes (private)"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-yellow-400 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-yellow-400 focus:outline-none"
                 />
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setRejectOpen(false)}
                     disabled={rejectInFlight}
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-stone-400 hover:bg-slate-800"
+                    className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-stone-400 hover:bg-zinc-800"
                   >
                     Cancel
                   </button>
@@ -542,7 +542,7 @@ export default function AdminAffiliateDetailPage() {
 
       {/* Already-acted note */}
       {!canAct && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-xs text-stone-400">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 text-xs text-stone-400">
           This application is <strong className="text-white">{detail.status}</strong>. No further
           action available.
         </div>
@@ -555,8 +555,8 @@ export default function AdminAffiliateDetailPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 px-4 py-4">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="border-b border-zinc-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
           <a
             href="/dashboard/admin/affiliates"
@@ -573,7 +573,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">{title}</p>
       {children}
     </section>
@@ -608,7 +608,7 @@ function StatusBadge({ status }: { status: AdminApplicationDetail["status"] }) {
     pending: { bg: "bg-yellow-400/15", fg: "text-yellow-400" },
     approved: { bg: "bg-emerald-500/15", fg: "text-emerald-400" },
     rejected: { bg: "bg-red-500/15", fg: "text-red-400" },
-    withdrawn: { bg: "bg-slate-700/40", fg: "text-stone-400" },
+    withdrawn: { bg: "bg-zinc-700/40", fg: "text-stone-400" },
   } as const;
   const s = map[status];
   return (

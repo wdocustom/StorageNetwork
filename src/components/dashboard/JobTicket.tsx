@@ -667,7 +667,7 @@ export default function JobTicket({
       {/* ── 3-Box Layout ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2">
         {/* Box 1: Est. Materials (slate) */}
-        <div className="rounded-xl border border-slate-700 bg-slate-800 p-3 text-center">
+        <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-3 text-center">
           <div className="mb-1 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-stone-500">
             <Package className="h-3 w-3" />
             Materials
@@ -776,7 +776,7 @@ export default function JobTicket({
           </div>
 
           {/* ── Inventory QR Section ──────────────────────────────── */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-4 w-4 text-yellow-400" />
               <span className="text-xs font-bold uppercase tracking-wider text-stone-300">
@@ -797,7 +797,7 @@ export default function JobTicket({
                 <button
                   onClick={handleCreateInventoryRacks}
                   disabled={inventoryCreating || !quoteData || quoteData.length === 0}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-50 transition-colors"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-zinc-900 hover:bg-yellow-300 disabled:opacity-50 transition-colors"
                 >
                   {inventoryCreating ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -814,7 +814,7 @@ export default function JobTicket({
                   return (
                     <div
                       key={rack.id}
-                      className="rounded-lg border border-slate-700 bg-slate-900/50 p-3"
+                      className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-3"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-white">
@@ -833,7 +833,7 @@ export default function JobTicket({
                             setCopyLinkSuccess(true);
                             setTimeout(() => setCopyLinkSuccess(false), 2000);
                           }}
-                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                          className="flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-zinc-700 transition-colors"
                         >
                           <Link className="h-3 w-3" />
                           {copyLinkSuccess ? "Copied!" : "Copy Link"}
@@ -844,7 +844,7 @@ export default function JobTicket({
                           href={rackUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                          className="flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-zinc-700 transition-colors"
                         >
                           <Package className="h-3 w-3" />
                           Open
@@ -856,7 +856,7 @@ export default function JobTicket({
                             const printUrl = `${window.location.origin}/rack/${rack.access_token}/qr`;
                             window.open(printUrl, "_blank");
                           }}
-                          className="flex items-center gap-1.5 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-slate-700 transition-colors"
+                          className="flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-stone-300 hover:bg-zinc-700 transition-colors"
                         >
                           <Camera className="h-3 w-3" />
                           Print QR
@@ -892,7 +892,7 @@ export default function JobTicket({
           </div>
 
           {/* ── Customer Review Section ─────────────────────────────── */}
-          <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+          <div className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Star className="h-4 w-4 text-yellow-400" />
               <span className="text-xs font-bold uppercase tracking-wider text-stone-300">
@@ -964,7 +964,7 @@ export default function JobTicket({
                       disabled={reviewEmailing}
                       className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                         reviewRequested
-                          ? "bg-slate-800 border border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
+                          ? "bg-zinc-800 border border-zinc-700 text-stone-400 hover:bg-zinc-700 hover:text-white"
                           : "bg-yellow-400/20 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/30"
                       }`}
                     >
@@ -1010,7 +1010,7 @@ export default function JobTicket({
                     className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                       reviewLinkCopied
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                        : "bg-slate-800 border-slate-700 text-stone-400 hover:bg-slate-700 hover:text-white"
+                        : "bg-zinc-800 border-zinc-700 text-stone-400 hover:bg-zinc-700 hover:text-white"
                     }`}
                   >
                     {reviewCopying ? (
@@ -1032,7 +1032,7 @@ export default function JobTicket({
                       setReviewLinkCopied(true);
                       setTimeout(() => setReviewLinkCopied(false), 3000);
                     }}
-                    className="cursor-pointer rounded-lg bg-slate-900 border border-slate-800 px-3 py-2"
+                    className="cursor-pointer rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2"
                   >
                     <p className="text-[9px] text-stone-600 uppercase font-bold tracking-wider mb-0.5">Review Link</p>
                     <p className="text-[10px] text-stone-500 font-mono break-all select-all">{reviewLink}</p>
@@ -1055,7 +1055,7 @@ export default function JobTicket({
 
           {/* Tax + Discount Breakdown */}
           {(tax > 0 || appliedDiscount > 0) && (
-            <div className="space-y-1 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-xs">
+            <div className="space-y-1 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-xs">
               <div className="flex justify-between text-stone-400">
                 <span>Subtotal</span>
                 <span className="font-bold text-white">{fmt(totalPrice)}</span>
@@ -1074,7 +1074,7 @@ export default function JobTicket({
                   <span className="font-bold text-emerald-400">-{fmt(appliedDiscount)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-slate-700 pt-1 text-stone-300">
+              <div className="flex justify-between border-t border-zinc-700 pt-1 text-stone-300">
                 <span className="font-bold">Total to Collect</span>
                 <span className="font-black text-orange-400">{fmt(collectFromCustomer)}</span>
               </div>
@@ -1096,7 +1096,7 @@ export default function JobTicket({
                   </div>
                   <button
                     onClick={handleRemoveDiscount}
-                    className="rounded p-1 text-stone-500 transition-colors hover:bg-slate-700 hover:text-red-400"
+                    className="rounded p-1 text-stone-500 transition-colors hover:bg-zinc-700 hover:text-red-400"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -1109,12 +1109,12 @@ export default function JobTicket({
                     onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
                     placeholder="Discount code"
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-stone-600 focus:border-orange-400 focus:outline-none"
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-xs text-white placeholder-stone-600 focus:border-orange-400 focus:outline-none"
                   />
                   <button
                     onClick={handleApplyDiscount}
                     disabled={!discountInput.trim() || discountLoading}
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-600 hover:text-white disabled:opacity-40"
+                    className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-zinc-600 hover:text-white disabled:opacity-40"
                   >
                     {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
                   </button>
@@ -1138,7 +1138,7 @@ export default function JobTicket({
 
           {/* Dropdown menu — same options as payment_pending */}
           {showGetPaidMenu && (
-            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+            <div className="space-y-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
               {payError && (
                 <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
                   {payError}
@@ -1166,7 +1166,7 @@ export default function JobTicket({
               <button
                 onClick={handleEnterCard}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
@@ -1186,7 +1186,7 @@ export default function JobTicket({
                 <button
                   onClick={handleResendInvoice}
                   disabled={payLoading}
-                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
                   <div>
@@ -1202,7 +1202,7 @@ export default function JobTicket({
               <button
                 onClick={handleCopyPaymentLink}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
@@ -1223,7 +1223,7 @@ export default function JobTicket({
               <button
                 onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <div>
@@ -1235,7 +1235,7 @@ export default function JobTicket({
               </button>
 
               {/* Delete Quote */}
-              <div className="border-t border-slate-700 pt-2">
+              <div className="border-t border-zinc-700 pt-2">
                 <button
                   onClick={() => { setShowGetPaidMenu(false); setShowDeleteConfirm(true); }}
                   className="flex w-full items-center gap-3 rounded-lg px-4 py-3.5 text-left transition-colors hover:bg-red-500/10"
@@ -1266,7 +1266,7 @@ export default function JobTicket({
           {/* GET PAID button */}
           <button
             onClick={() => setShowGetPaidMenu(!showGetPaidMenu)}
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-zinc-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98]"
           >
             <DollarSign className="h-6 w-6" />
             GET PAID — {fmt(collectFromCustomer)}
@@ -1275,7 +1275,7 @@ export default function JobTicket({
 
           {/* Dropdown menu */}
           {showGetPaidMenu && (
-            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+            <div className="space-y-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
               {/* Payment error banner */}
               {payError && (
                 <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
@@ -1304,7 +1304,7 @@ export default function JobTicket({
               <button
                 onClick={handleEnterCard}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
@@ -1324,7 +1324,7 @@ export default function JobTicket({
                 <button
                   onClick={handleResendInvoice}
                   disabled={payLoading}
-                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
                   <div>
@@ -1340,7 +1340,7 @@ export default function JobTicket({
               <button
                 onClick={handleCopyPaymentLink}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
@@ -1361,7 +1361,7 @@ export default function JobTicket({
               <button
                 onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <div>
@@ -1385,7 +1385,7 @@ export default function JobTicket({
               }
               setShowGetPaidMenu(!showGetPaidMenu);
             }}
-            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-slate-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-xl bg-yellow-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-zinc-900 shadow-lg shadow-yellow-500/20 transition-all hover:bg-yellow-400 hover:shadow-yellow-400/30 active:scale-[0.98] disabled:opacity-50"
             disabled={payLoading}
           >
             {payLoading ? (
@@ -1401,7 +1401,7 @@ export default function JobTicket({
 
           {/* Dropdown menu (same as payment_pending) */}
           {showGetPaidMenu && (
-            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+            <div className="space-y-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3">
               {payError && (
                 <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
                   {payError}
@@ -1428,7 +1428,7 @@ export default function JobTicket({
               <button
                 onClick={handleEnterCard}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
@@ -1445,7 +1445,7 @@ export default function JobTicket({
                 <button
                   onClick={handleResendInvoice}
                   disabled={payLoading}
-                  className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                  className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
                 >
                   <Mail className="h-5 w-5 text-blue-400" />
                   <div>
@@ -1458,7 +1458,7 @@ export default function JobTicket({
               <button
                 onClick={handleCopyPaymentLink}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 {payLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin text-violet-400" />
@@ -1476,7 +1476,7 @@ export default function JobTicket({
               <button
                 onClick={() => { setShowGetPaidMenu(false); setShowManualPayModal(true); }}
                 disabled={payLoading}
-                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+                className="flex w-full items-center gap-3 rounded-lg bg-zinc-800 px-4 py-3.5 text-left transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <div>
@@ -1491,7 +1491,7 @@ export default function JobTicket({
 
       {/* ── Completion Photo (if exists) ─────────────────────────────── */}
       {uploadedPhotoUrl && (
-        <div className="overflow-hidden rounded-xl border border-slate-800">
+        <div className="overflow-hidden rounded-xl border border-zinc-800">
           <NextImage
             src={uploadedPhotoUrl}
             alt="Completed installation"
@@ -1500,7 +1500,7 @@ export default function JobTicket({
             className="w-full object-cover"
             style={{ maxHeight: 240 }}
           />
-          <div className="bg-slate-900 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+          <div className="bg-zinc-900 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
             Proof of Completion
           </div>
         </div>
@@ -1512,7 +1512,7 @@ export default function JobTicket({
           {customerPhone && (
             <a
               href={`tel:${customerPhone}`}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-blue-400/50 hover:text-blue-400"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-blue-400/50 hover:text-blue-400"
             >
               <Phone className="h-3.5 w-3.5" />
               Call
@@ -1521,7 +1521,7 @@ export default function JobTicket({
           {customerPhone && (
             <a
               href={`sms:${customerPhone}`}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-emerald-400/50 hover:text-emerald-400"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-emerald-400/50 hover:text-emerald-400"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               Text
@@ -1530,7 +1530,7 @@ export default function JobTicket({
           {scheduledAt ? (
             <button
               onClick={() => setShowRescheduleModal(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
             >
               <Calendar className="h-3.5 w-3.5" />
               Reschedule
@@ -1538,7 +1538,7 @@ export default function JobTicket({
           ) : (
             <button
               onClick={() => setShowScheduleModal(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-xs font-semibold text-stone-300 transition-colors hover:border-yellow-400/50 hover:text-yellow-400"
             >
               <Calendar className="h-3.5 w-3.5" />
               Schedule
@@ -1549,7 +1549,7 @@ export default function JobTicket({
 
       {/* ── Scheduled Date Display ─────────────────────────────────────── */}
       {scheduledAt && (
-        <div className="rounded-lg bg-slate-800 px-3 py-2 text-center">
+        <div className="rounded-lg bg-zinc-800 px-3 py-2 text-center">
           <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
             Scheduled{" "}
           </span>
@@ -1570,7 +1570,7 @@ export default function JobTicket({
 
       {/* ── Unit Summary (directly above purchase list) ───────────── */}
       {quoteData && quoteData.length > 0 && (
-        <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
               <Ruler className="h-4 w-4 text-yellow-400" />
@@ -1587,7 +1587,7 @@ export default function JobTicket({
                 </a>
                 <button
                   onClick={handleCopyPaymentLink}
-                  className="flex items-center gap-1 rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-300 transition-colors hover:bg-slate-700 hover:text-white"
+                  className="flex items-center gap-1 rounded-lg border border-zinc-600 bg-zinc-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-300 transition-colors hover:bg-zinc-700 hover:text-white"
                 >
                   <Link className="h-3 w-3" />
                   {copyLinkSuccess ? "Copied!" : depositPaid ? "Balance Link" : "Full Pay Link"}
@@ -1629,7 +1629,7 @@ export default function JobTicket({
               return (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-lg bg-slate-800 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg bg-zinc-800 px-3 py-2"
                 >
                   <div>
                     <p className="text-sm font-semibold text-white">
@@ -1667,7 +1667,7 @@ export default function JobTicket({
         };
 
         return (
-        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Purchase List
             {Object.values(checkedItems).filter(Boolean).length > 0 && (
@@ -1681,7 +1681,7 @@ export default function JobTicket({
               </span>
             )}
           </summary>
-          <div className="border-t border-slate-800">
+          <div className="border-t border-zinc-800">
             {netPurchase.items
               .filter((item) => !item.covered)
               .map((item, i) => {
@@ -1691,8 +1691,8 @@ export default function JobTicket({
                 return (
                   <div
                     key={i}
-                    className={`flex w-full items-center gap-3 border-b border-slate-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
-                      isChecked ? "bg-slate-800/30" : "hover:bg-slate-800/50"
+                    className={`flex w-full items-center gap-3 border-b border-zinc-800/50 px-4 py-3 text-left transition-colors last:border-b-0 ${
+                      isChecked ? "bg-zinc-800/30" : "hover:bg-zinc-800/50"
                     }`}
                   >
                     {/* Checkbox — tappable */}
@@ -1702,7 +1702,7 @@ export default function JobTicket({
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${
                         isChecked
                           ? "border-emerald-400 bg-emerald-400/20 text-emerald-400"
-                          : "border-slate-600 text-transparent"
+                          : "border-zinc-600 text-transparent"
                       }`}
                     >
                       {isChecked && <CheckCircle2 className="h-3.5 w-3.5" />}
@@ -1738,7 +1738,7 @@ export default function JobTicket({
                     )}
 
                     {/* Qty */}
-                    <span className={`shrink-0 rounded bg-slate-700 px-2 py-0.5 font-mono text-xs font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-yellow-400"}`}>
+                    <span className={`shrink-0 rounded bg-zinc-700 px-2 py-0.5 font-mono text-xs font-bold ${isChecked ? "text-stone-600 line-through opacity-40" : "text-yellow-400"}`}>
                       {item.qty}
                     </span>
                   </div>
@@ -1747,7 +1747,7 @@ export default function JobTicket({
 
             {/* In-stock summary (collapsed, shows what's covered by inventory) */}
             {netPurchase.coveredCount > 0 && (
-              <details className="border-t border-slate-800/50">
+              <details className="border-t border-zinc-800/50">
                 <summary className="cursor-pointer px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-emerald-400/60 hover:text-emerald-400">
                   {netPurchase.coveredCount} item{netPurchase.coveredCount > 1 ? "s" : ""} covered by inventory
                 </summary>
@@ -1769,7 +1769,7 @@ export default function JobTicket({
 
             {/* Total cost row */}
             {materialBreakdown && (
-              <div className="flex items-center justify-between border-t border-slate-700 px-4 py-3">
+              <div className="flex items-center justify-between border-t border-zinc-700 px-4 py-3">
                 <span className="text-xs font-bold text-stone-400">Est. Material Cost</span>
                 <span className="text-xs font-mono font-black text-yellow-400">
                   ${materialBreakdown.totalCost.toFixed(2)}
@@ -1787,7 +1787,7 @@ export default function JobTicket({
         if (chairUnits.length === 0) return null;
         const totalChairs = chairUnits.reduce((sum, u) => sum + (u.quantity ?? 1), 0);
         return (
-          <section className="rounded-xl border border-amber-500/20 bg-slate-900 overflow-hidden">
+          <section className="rounded-xl border border-amber-500/20 bg-zinc-900 overflow-hidden">
             <div className="h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500" />
             <div className="p-4">
               <div className="mb-3 flex items-center gap-2.5">
@@ -1802,7 +1802,7 @@ export default function JobTicket({
                 </div>
               </div>
 
-              <div className="mb-3 space-y-1.5 rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+              <div className="mb-3 space-y-1.5 rounded-lg border border-zinc-700 bg-zinc-800/40 p-3">
                 {[
                   { qty: `${totalChairs * 5}×`, name: "2×6 × 8′ dimensional lumber" },
                   { qty: `${totalChairs}×`, name: "2×8 × 8′ dimensional lumber" },
@@ -1844,11 +1844,11 @@ export default function JobTicket({
 
       {/* ── Cut Plan (expandable — fractions, plywood, posts) ──────────── */}
       {buildManifest && buildManifest.cut_plan_visuals.length > 0 && (
-        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Cut Plan
           </summary>
-          <div className="border-t border-slate-800 p-4 space-y-6">
+          <div className="border-t border-zinc-800 p-4 space-y-6">
             {(() => { const _bo = getBuildOrderColors(buildManifest.cut_plan_visuals); return buildManifest.cut_plan_visuals.map((mod, mi) => {
               const _mc = _bo[mi]?.color ?? "#f59e0b";
               const _bn = _bo[mi]?.buildOrder ?? mi + 1;
@@ -1871,7 +1871,7 @@ export default function JobTicket({
                   {mod.boards.map((board, bi) => (
                     <div
                       key={bi}
-                      className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
+                      className="rounded-md border border-zinc-700 bg-zinc-800/50 p-2 shadow-sm"
                     >
                       <div className="mb-1 flex justify-between text-[10px]">
                         <span className="font-semibold text-stone-400">
@@ -1882,10 +1882,10 @@ export default function JobTicket({
                           {toFraction(board.rem)}&quot; waste
                         </span>
                       </div>
-                      <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
+                      <div className="flex h-8 overflow-hidden rounded-md bg-zinc-700">
                         {board.priorUsed != null && board.priorUsed > 0 && (
                           <div
-                            className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-stone-500"
+                            className="flex items-center justify-center border-r border-zinc-900/60 font-mono text-[9px] font-semibold text-stone-500"
                             style={{
                               width: `${(board.priorUsed / 96) * 100}%`,
                               background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.25), rgba(100,116,139,0.25) 3px, rgba(71,85,105,0.15) 3px, rgba(71,85,105,0.15) 6px)",
@@ -1903,7 +1903,7 @@ export default function JobTicket({
                           return (
                             <div
                               key={ci}
-                              className="flex items-center justify-center border-r border-slate-900/60 text-[10px] font-extrabold text-white"
+                              className="flex items-center justify-center border-r border-zinc-900/60 text-[10px] font-extrabold text-white"
                               style={{
                                 width: `${pct}%`,
                                 backgroundColor: color,
@@ -1919,7 +1919,7 @@ export default function JobTicket({
                         })}
                         {board.laterUsed != null && board.laterUsed > 0 && (
                           <div
-                            className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-emerald-400/80"
+                            className="flex items-center justify-center border-r border-zinc-900/60 font-mono text-[9px] font-semibold text-emerald-400/80"
                             style={{
                               width: `${(board.laterUsed / 96) * 100}%`,
                               background: "repeating-linear-gradient(45deg, rgba(16,185,129,0.15), rgba(16,185,129,0.15) 3px, rgba(5,150,105,0.08) 3px, rgba(5,150,105,0.08) 6px)",
@@ -1945,7 +1945,7 @@ export default function JobTicket({
                 </div>
 
                 {/* Plywood Rails & Post Spacing */}
-                <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                <div className="mt-2 space-y-1 rounded-md border border-zinc-700/50 bg-zinc-800/30 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
                     Plywood Rails
                   </p>
@@ -1964,7 +1964,7 @@ export default function JobTicket({
             }); })()}
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
+            <div className="flex flex-wrap items-center gap-4 border-t border-zinc-800 pt-3 text-[10px] font-semibold text-stone-400">
               <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded-sm bg-blue-500" />
                 Vertical Posts
@@ -1990,11 +1990,11 @@ export default function JobTicket({
 
       {/* ── Shelving Cut Plan (open shelving units) ────────────────────── */}
       {buildManifest && buildManifest.shelving_cut_plans && buildManifest.shelving_cut_plans.length > 0 && (
-        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Shelving Cut Plan
           </summary>
-          <div className="border-t border-slate-800 p-4 space-y-6">
+          <div className="border-t border-zinc-800 p-4 space-y-6">
             {buildManifest.shelving_cut_plans.map((mod, mi) => (
               <div key={mi} className="rounded-lg border-l-[3px] border-l-emerald-500 pl-3">
                 <h3 className="mb-1 text-sm font-bold text-emerald-400">
@@ -2009,7 +2009,7 @@ export default function JobTicket({
                   {mod.boards.map((board, bi) => (
                     <div
                       key={bi}
-                      className="rounded-md border border-slate-700 bg-slate-800/50 p-2 shadow-sm"
+                      className="rounded-md border border-zinc-700 bg-zinc-800/50 p-2 shadow-sm"
                     >
                       <div className="mb-1 flex justify-between text-[10px]">
                         <span className="font-semibold text-stone-400">
@@ -2020,10 +2020,10 @@ export default function JobTicket({
                           {toFraction(board.rem)}&quot; waste
                         </span>
                       </div>
-                      <div className="flex h-8 overflow-hidden rounded-md bg-slate-700">
+                      <div className="flex h-8 overflow-hidden rounded-md bg-zinc-700">
                         {board.priorUsed != null && board.priorUsed > 0 && (
                           <div
-                            className="flex items-center justify-center border-r border-slate-900/60 font-mono text-[9px] font-semibold text-stone-500"
+                            className="flex items-center justify-center border-r border-zinc-900/60 font-mono text-[9px] font-semibold text-stone-500"
                             style={{
                               width: `${(board.priorUsed / 96) * 100}%`,
                               background: "repeating-linear-gradient(45deg, rgba(100,116,139,0.25), rgba(100,116,139,0.25) 3px, rgba(71,85,105,0.15) 3px, rgba(71,85,105,0.15) 6px)",
@@ -2041,7 +2041,7 @@ export default function JobTicket({
                           return (
                             <div
                               key={ci}
-                              className="flex items-center justify-center border-r border-slate-900/60 text-[10px] font-extrabold text-white"
+                              className="flex items-center justify-center border-r border-zinc-900/60 text-[10px] font-extrabold text-white"
                               style={{
                                 width: `${pct}%`,
                                 backgroundColor: color,
@@ -2070,7 +2070,7 @@ export default function JobTicket({
                 </div>
 
                 {/* Shelving dimensions summary */}
-                <div className="mt-2 space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                <div className="mt-2 space-y-1 rounded-md border border-zinc-700/50 bg-zinc-800/30 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
                     Frame
                   </p>
@@ -2082,7 +2082,7 @@ export default function JobTicket({
             ))}
 
             {/* Legend */}
-            <div className="flex flex-wrap items-center gap-4 border-t border-slate-800 pt-3 text-[10px] font-semibold text-stone-400">
+            <div className="flex flex-wrap items-center gap-4 border-t border-zinc-800 pt-3 text-[10px] font-semibold text-stone-400">
               <div className="flex items-center gap-1.5">
                 <div className="h-3 w-3 rounded-sm bg-blue-500" />
                 Vertical Posts
@@ -2108,11 +2108,11 @@ export default function JobTicket({
 
       {/* ── Overhead Cut Plan (ceiling storage units) ─────────────────── */}
       {buildManifest && buildManifest.overhead_cut_plans && buildManifest.overhead_cut_plans.length > 0 && (
-        <details className="group rounded-xl border border-slate-800 bg-slate-900" open={!isPaid}>
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-900" open={!isPaid}>
           <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-wider text-stone-500 transition-colors hover:text-stone-300">
             Overhead Ceiling Storage — Purchase List
           </summary>
-          <div className="border-t border-slate-800 p-4 space-y-6">
+          <div className="border-t border-zinc-800 p-4 space-y-6">
             {buildManifest.overhead_cut_plans.map((mod, mi) => (
               <div key={mi} className="rounded-lg border-l-[3px] border-l-yellow-500 pl-3">
                 <h3 className="mb-1 text-sm font-bold text-yellow-400">
@@ -2123,7 +2123,7 @@ export default function JobTicket({
                 </p>
 
                 {/* Materials list */}
-                <div className="space-y-1 rounded-md border border-slate-700/50 bg-slate-800/30 px-3 py-2">
+                <div className="space-y-1 rounded-md border border-zinc-700/50 bg-zinc-800/30 px-3 py-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-stone-500">
                     Materials
                   </p>
@@ -2146,13 +2146,13 @@ export default function JobTicket({
       {/* ── Photo Completion Modal ───────────────────────────────────── */}
       {showCompletionModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Complete Job</h3>
               <button
                 onClick={() => setShowCompletionModal(false)}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2183,7 +2183,7 @@ export default function JobTicket({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingPhoto}
-                    className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/50 py-8 text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-yellow-400 disabled:opacity-50"
+                    className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-600 bg-zinc-800/50 py-8 text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-yellow-400 disabled:opacity-50"
                   >
                     {uploadingPhoto ? (
                       <Loader2 className="h-8 w-8 animate-spin" />
@@ -2210,7 +2210,7 @@ export default function JobTicket({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingPhoto}
-                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-[11px] font-semibold text-stone-400 transition-colors hover:text-white disabled:opacity-50"
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-[11px] font-semibold text-stone-400 transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Upload className="h-3 w-3" />
                     Or upload from gallery
@@ -2243,12 +2243,12 @@ export default function JobTicket({
       {/* ── Charge Card on File Confirmation Modal ───────────────────── */}
       {showChargeCardConfirm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Charge Saved Card</h3>
               <button
                 onClick={() => { setShowChargeCardConfirm(false); setChargeCardFallbackUrl(null); setPayError(null); }}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2258,7 +2258,7 @@ export default function JobTicket({
                 Charge <span className="font-bold text-white">{fmt(collectFromCustomer)}</span> to{" "}
                 <span className="font-bold text-white">{customerName}</span>&apos;s card on file?
               </p>
-              <div className="flex items-center gap-2.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2.5">
+              <div className="flex items-center gap-2.5 rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2.5">
                 <CreditCard className="h-4 w-4 shrink-0 text-stone-400" />
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -2290,7 +2290,7 @@ export default function JobTicket({
                         // best-effort
                       }
                     }}
-                    className="w-full truncate rounded bg-slate-800 px-2 py-1.5 text-left text-[11px] font-mono text-blue-300 hover:bg-slate-700"
+                    className="w-full truncate rounded bg-zinc-800 px-2 py-1.5 text-left text-[11px] font-mono text-blue-300 hover:bg-zinc-700"
                   >
                     {chargeCardFallbackUrl}
                   </button>
@@ -2325,12 +2325,12 @@ export default function JobTicket({
       {/* ── Manual Pay Confirmation Modal ─────────────────────────────── */}
       {showManualPayModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Confirm Payment</h3>
               <button
                 onClick={() => setShowManualPayModal(false)}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2346,7 +2346,7 @@ export default function JobTicket({
                 <select
                   value={manualPayMethod}
                   onChange={(e) => setManualPayMethod(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 >
                   <option value="cash">Cash</option>
                   <option value="venmo">Venmo</option>
@@ -2382,12 +2382,12 @@ export default function JobTicket({
       {/* ── Reschedule Modal ───────────────────────────────────────────── */}
       {showRescheduleModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Reschedule Job</h3>
               <button
                 onClick={() => setShowRescheduleModal(false)}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2402,13 +2402,13 @@ export default function JobTicket({
                   value={rescheduleDate}
                   onChange={(e) => setRescheduleDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
               </div>
               <button
                 onClick={handleReschedule}
                 disabled={!rescheduleDate || rescheduling}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-zinc-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
               >
                 {rescheduling ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -2427,12 +2427,12 @@ export default function JobTicket({
       {/* ── Schedule Modal (manual date assignment) ─────────────────────── */}
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Schedule Install Date</h3>
               <button
                 onClick={() => { setShowScheduleModal(false); setScheduleDate(""); }}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2450,13 +2450,13 @@ export default function JobTicket({
                   value={scheduleDate}
                   onChange={(e) => setScheduleDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
               </div>
               <button
                 onClick={handleSchedule}
                 disabled={!scheduleDate || scheduling}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-slate-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black uppercase tracking-wider text-zinc-900 transition-all hover:bg-yellow-400 disabled:opacity-50"
               >
                 {scheduling ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -2475,12 +2475,12 @@ export default function JobTicket({
       {/* ── Delete Confirmation Modal ─────────────────────────────────── */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-500/30 bg-zinc-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <h3 className="text-base font-bold text-red-400">Delete Quote</h3>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+                className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -2490,7 +2490,7 @@ export default function JobTicket({
                 Are you sure you want to delete this quote for <span className="font-bold text-white">{customerName}</span>?
               </p>
               {totalPrice > 0 && (
-                <div className="rounded-lg bg-slate-800 px-3 py-2 text-center">
+                <div className="rounded-lg bg-zinc-800 px-3 py-2 text-center">
                   <span className="text-xs text-stone-500">Quote total: </span>
                   <span className="text-sm font-bold text-white">{fmt(totalPrice)}</span>
                 </div>
@@ -2501,7 +2501,7 @@ export default function JobTicket({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-stone-300 transition-colors hover:bg-slate-700"
+                  className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-bold text-stone-300 transition-colors hover:bg-zinc-700"
                 >
                   Cancel
                 </button>

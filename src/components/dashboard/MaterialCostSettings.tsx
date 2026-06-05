@@ -214,7 +214,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     ) : (
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
         </div>
@@ -225,7 +225,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
   const body = (
     <>
       {/* Info Banner */}
-      <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+      <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
         <p className="text-xs leading-relaxed text-stone-400">
           Set your actual wholesale material costs. These are used by the profit
@@ -246,8 +246,8 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
               <label className="mb-0.5 block text-[9px] font-semibold uppercase text-stone-600">
                 {f.label}
               </label>
-              <div className="flex overflow-hidden rounded-md border border-slate-700 bg-slate-800 focus-within:border-yellow-400">
-                <span className="flex items-center bg-slate-700/50 px-2 text-[10px] font-bold text-stone-500">$</span>
+              <div className="flex overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 focus-within:border-yellow-400">
+                <span className="flex items-center bg-zinc-700/50 px-2 text-[10px] font-bold text-stone-500">$</span>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -257,7 +257,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
                   onChange={(e) => handleSimpleChange(f.key as string, e.target.value)}
                   className="w-full bg-transparent px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none"
                 />
-                <span className="flex items-center bg-slate-700/50 px-2 text-[9px] text-stone-600">/{f.unit}</span>
+                <span className="flex items-center bg-zinc-700/50 px-2 text-[9px] text-stone-600">/{f.unit}</span>
               </div>
             </div>
           ))}
@@ -269,7 +269,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
         <button
           type="button"
           onClick={() => setScrewsExpanded(!screwsExpanded)}
-          className="flex w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+          className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-left transition-colors hover:bg-zinc-800"
         >
           <Package className="h-4 w-4 text-yellow-400" />
           <div className="flex-1 min-w-0">
@@ -286,7 +286,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
         </button>
 
         {screwsExpanded && (
-          <div className="mt-3 space-y-4 rounded-lg border border-slate-700 bg-slate-800/20 p-4">
+          <div className="mt-3 space-y-4 rounded-lg border border-zinc-700 bg-zinc-800/20 p-4">
             <p className="text-[11px] leading-relaxed text-stone-500">
               By default, screws are purchased in standard retail boxes. If you buy
               in bulk (e.g. a 25 lbs bucket), enter the count and price per package
@@ -301,7 +301,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
               return (
                 <div
                   key={f.key}
-                  className="rounded-lg border border-slate-700 bg-slate-800/30 p-3"
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/30 p-3"
                 >
                   <div className="mb-2">
                     <p className="text-sm font-medium text-white">{f.label}</p>
@@ -322,7 +322,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
                         placeholder={def.label}
                         value={sv.label}
                         onChange={(e) => handleScrewChange(f.key, "label", e.target.value)}
-                        className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                       />
                     </div>
 
@@ -337,7 +337,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
                         placeholder={String(def.count)}
                         value={sv.count}
                         onChange={(e) => handleScrewChange(f.key, "count", e.target.value)}
-                        className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                       />
                     </div>
 
@@ -346,8 +346,8 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
                       <label className="mb-0.5 block text-[9px] font-semibold uppercase text-stone-600">
                         Price / Package
                       </label>
-                      <div className="flex overflow-hidden rounded-md border border-slate-700 bg-slate-800 focus-within:border-yellow-400">
-                        <span className="flex items-center bg-slate-700/50 px-2 text-[10px] font-bold text-stone-500">$</span>
+                      <div className="flex overflow-hidden rounded-md border border-zinc-700 bg-zinc-800 focus-within:border-yellow-400">
+                        <span className="flex items-center bg-zinc-700/50 px-2 text-[10px] font-bold text-stone-500">$</span>
                         <input
                           type="number"
                           inputMode="decimal"
@@ -393,7 +393,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
           <button
             onClick={handleReset}
             disabled={resetting}
-            className="flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-stone-400 transition-colors hover:bg-slate-700 hover:text-white disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-semibold text-stone-400 transition-colors hover:bg-zinc-700 hover:text-white disabled:opacity-50"
             title="Reset to defaults"
           >
             {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
@@ -418,7 +418,7 @@ export default function MaterialCostSettings({ userId, embedded }: Props) {
   if (embedded) return body;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center gap-2">
         <Package className="h-4 w-4 text-yellow-400" />
         <h2 className="text-xs font-bold uppercase tracking-wider text-stone-400">

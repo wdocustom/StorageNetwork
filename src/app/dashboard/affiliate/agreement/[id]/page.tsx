@@ -87,7 +87,7 @@ export default function AcceptAgreementPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-yellow-400" />
       </div>
     );
@@ -129,7 +129,7 @@ export default function AcceptAgreementPage() {
   if (agreement.status === "terminated" || agreement.status === "paused") {
     return (
       <Shell>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
           <div className="mb-3 flex items-center gap-2">
             <Lock className="h-5 w-5 text-stone-400" />
             <h1 className="text-lg font-bold text-white">
@@ -152,7 +152,7 @@ export default function AcceptAgreementPage() {
   return (
     <Shell>
       {/* Hero */}
-      <section className="rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/5 to-slate-900 p-6">
+      <section className="rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-400/5 to-zinc-900 p-6">
         <div className="mb-3 flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-yellow-400" />
           <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">
@@ -177,7 +177,7 @@ export default function AcceptAgreementPage() {
       </section>
 
       {/* Duration card */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-stone-400" />
           <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
@@ -194,7 +194,7 @@ export default function AcceptAgreementPage() {
       </section>
 
       {/* Terms body */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-stone-400">
           Full agreement
         </p>
@@ -204,7 +204,7 @@ export default function AcceptAgreementPage() {
       </section>
 
       {/* Acceptance */}
-      <section className="rounded-2xl border border-yellow-400/30 bg-slate-900/40 p-5 space-y-4">
+      <section className="rounded-2xl border border-yellow-400/30 bg-zinc-900/40 p-5 space-y-4">
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
@@ -246,8 +246,8 @@ export default function AcceptAgreementPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800 px-4 py-4">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <header className="border-b border-zinc-800 px-4 py-4">
         <div className="mx-auto max-w-2xl">
           <a
             href="/dashboard"

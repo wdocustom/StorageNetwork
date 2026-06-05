@@ -52,7 +52,7 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
   return (
     <a
       href="/dashboard/referrals"
-      className="group block rounded-xl border p-4 text-center transition-all border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900 hover:border-yellow-400/40 hover:from-yellow-400/10"
+      className="group block rounded-xl border p-4 text-center transition-all border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-zinc-900 hover:border-yellow-400/40 hover:from-yellow-400/10"
     >
       <div className="mb-1 flex items-center justify-center gap-1.5">
         <DollarSign className="h-5 w-5 text-yellow-400" />
@@ -70,18 +70,18 @@ export default function NetworkPassiveIncome({ userId }: NetworkPassiveIncomePro
             <Info className="h-3 w-3" />
           </button>
           {showTooltip && (
-            <div className="absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-800 p-2.5 text-left shadow-xl">
+            <div className="absolute bottom-full left-1/2 z-10 mb-2 w-52 -tranzinc-x-1/2 rounded-lg border border-zinc-700 bg-zinc-800 p-2.5 text-left shadow-xl">
               <p className="text-[11px] leading-relaxed text-stone-300">
                 Share your link anywhere. When someone outside your area books with a local installer, you earn 30% of their deposit (min $15).
               </p>
-              <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-700" />
+              <div className="absolute left-1/2 top-full -tranzinc-x-1/2 border-4 border-transparent border-t-zinc-700" />
             </div>
           )}
         </div>
       </div>
 
       {loading ? (
-        <div className="h-8 w-20 mx-auto animate-pulse rounded bg-slate-800" />
+        <div className="h-8 w-20 mx-auto animate-pulse rounded bg-zinc-800" />
       ) : hasActivity ? (
         <>
           <p className="text-2xl font-black text-yellow-400">

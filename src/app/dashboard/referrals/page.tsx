@@ -113,16 +113,16 @@ export default function ReferralsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard"
@@ -143,9 +143,9 @@ export default function ReferralsPage() {
       </header>
 
       {/* ── Summary Stats ──────────────────────────────────────────── */}
-      <div className="border-b border-slate-800 bg-slate-900/50 px-4 py-4">
+      <div className="border-b border-zinc-800 bg-zinc-900/50 px-4 py-4">
         <div className="mx-auto grid max-w-2xl grid-cols-3 gap-3">
-          <div className="rounded-xl border border-yellow-400/20 bg-slate-900 p-3 text-center">
+          <div className="rounded-xl border border-yellow-400/20 bg-zinc-900 p-3 text-center">
             <DollarSign className="mx-auto mb-1 h-4 w-4 text-yellow-400" />
             <p className="text-lg font-black text-yellow-400">
               ${Math.round(totalEarnings * 100 / 100).toLocaleString()}
@@ -154,14 +154,14 @@ export default function ReferralsPage() {
               Earned
             </p>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-center">
             <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-emerald-400" />
             <p className="text-lg font-black text-white">{paidReferrals.length}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
               Paid
             </p>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-center">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-center">
             <Clock className="mx-auto mb-1 h-4 w-4 text-amber-400" />
             <p className="text-lg font-black text-white">{pendingCount}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-500">
@@ -172,7 +172,7 @@ export default function ReferralsPage() {
       </div>
 
       {/* ── How It Works ───────────────────────────────────────────── */}
-      <div className="border-b border-slate-800 px-4 py-5">
+      <div className="border-b border-zinc-800 px-4 py-5">
         <div className="mx-auto max-w-2xl">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-400">
             How Network Bounties Work
@@ -228,7 +228,7 @@ export default function ReferralsPage() {
               return (
                 <div
                   key={ref.id}
-                  className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+                  className="rounded-xl border border-zinc-800 bg-zinc-900 p-4"
                 >
                   <div className="flex items-start justify-between">
                     {/* Location & installer info */}
@@ -281,7 +281,7 @@ export default function ReferralsPage() {
                           ~${bountyAmt}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
                           No bounty
                         </span>
                       )}

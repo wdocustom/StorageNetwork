@@ -36,13 +36,13 @@ export default async function ChairPlansPage({
   const justPurchased = !!sessionId;
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-zinc-950">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 px-4 py-4">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <Link
             href="/dashboard/guides"
-            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-2 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -75,7 +75,7 @@ export default async function ChairPlansPage({
         {!hasTemplate && <TemplateUpsell />}
 
         {/* ── Plans launcher card ─────────────────────────────────── */}
-        <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-slate-900">
+        <section className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-zinc-900">
           <div className="h-1 bg-gradient-to-r from-amber-400 to-yellow-500" />
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/5 blur-3xl" />
 
@@ -111,7 +111,7 @@ export default async function ChairPlansPage({
 
         {/* ── Template status (if purchased) ─────────────────────── */}
         {hasTemplate && (
-          <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/40 px-4 py-3">
+          <div className="flex items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/40 px-4 py-3">
             <Package className="h-4 w-4 shrink-0 text-amber-400" />
             <div>
               <p className="text-xs font-semibold text-stone-300">1/2&quot; MDF Template Set — ordered</p>

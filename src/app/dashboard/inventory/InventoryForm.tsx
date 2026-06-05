@@ -86,7 +86,7 @@ export function InventoryForm({ initial }: Props) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
           Screws (individual count)
         </h2>
@@ -97,7 +97,7 @@ export function InventoryForm({ initial }: Props) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
           Plywood rail strips
         </h2>
@@ -117,7 +117,7 @@ export function InventoryForm({ initial }: Props) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+      <section className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
           2×4 lumber offcuts
         </h2>
@@ -129,7 +129,7 @@ export function InventoryForm({ initial }: Props) {
           onChange={(e) => setOffcuts(e.target.value)}
           placeholder="48, 36, 30"
           rows={3}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
         />
       </section>
 
@@ -144,7 +144,7 @@ export function InventoryForm({ initial }: Props) {
         <button
           onClick={handleSave}
           disabled={pending}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-bold text-zinc-950 hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -171,7 +171,7 @@ export function InventoryForm({ initial }: Props) {
             <button
               onClick={() => setConfirmClear(false)}
               disabled={pending}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-stone-300 hover:bg-slate-800 disabled:opacity-60"
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 font-semibold text-stone-300 hover:bg-zinc-800 disabled:opacity-60"
             >
               Cancel
             </button>
@@ -180,7 +180,7 @@ export function InventoryForm({ initial }: Props) {
           <button
             onClick={() => setConfirmClear(true)}
             disabled={pending}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-stone-300 hover:bg-slate-800 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-stone-300 hover:bg-zinc-800 disabled:opacity-60"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Clear all
@@ -210,7 +210,7 @@ function NumberField({
         min={0}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
       />
       {help && <p className="mt-1 text-[10px] text-stone-500">{help}</p>}
     </div>

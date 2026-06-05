@@ -262,7 +262,7 @@ export default function AvailabilityManager() {
   return (
     <div className="space-y-6">
       {/* ── Scheduling Toggle ─────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="mb-1 flex items-center gap-2">
@@ -283,12 +283,12 @@ export default function AvailabilityManager() {
             onClick={toggleScheduling}
             disabled={savingToggle}
             className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-              schedulingEnabled ? "bg-yellow-400" : "bg-slate-700"
+              schedulingEnabled ? "bg-yellow-400" : "bg-zinc-700"
             }`}
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                schedulingEnabled ? "translate-x-6" : "translate-x-1"
+                schedulingEnabled ? "tranzinc-x-6" : "tranzinc-x-1"
               }`}
             />
           </button>
@@ -296,7 +296,7 @@ export default function AvailabilityManager() {
       </div>
 
       {/* ── Default Work Days ─────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-white">Default Work Days</h3>
@@ -315,7 +315,7 @@ export default function AvailabilityManager() {
                 className={`rounded-lg py-2.5 text-center text-xs font-bold uppercase tracking-wider transition-all ${
                   active
                     ? "border border-yellow-400/30 bg-yellow-400/10 text-yellow-400"
-                    : "border border-slate-700 bg-slate-800 text-stone-600"
+                    : "border border-zinc-700 bg-zinc-800 text-stone-600"
                 }`}
               >
                 {day}
@@ -326,13 +326,13 @@ export default function AvailabilityManager() {
       </div>
 
       {/* ── 2-Week Grid Calendar ─────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900">
         {/* Navigation header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <button
             onClick={() => { setWeekOffset(Math.max(weekOffset - 2, 0)); setSelectedDay(null); }}
             disabled={weekOffset === 0}
-            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-30"
+            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-30"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -342,14 +342,14 @@ export default function AvailabilityManager() {
           </div>
           <button
             onClick={() => { setWeekOffset(weekOffset + 2); setSelectedDay(null); }}
-            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-7 border-b border-slate-800/50 px-2 pt-3 pb-1.5">
+        <div className="grid grid-cols-7 border-b border-zinc-800/50 px-2 pt-3 pb-1.5">
           {ALL_DAYS.map(d => (
             <div key={d} className="text-center text-[9px] font-bold uppercase tracking-widest text-stone-600">{d}</div>
           ))}
@@ -361,7 +361,7 @@ export default function AvailabilityManager() {
           const selectedInThisWeek = weekDays.find(d => d.dateStr === selectedDay);
 
           return (
-            <div key={weekIdx} className={weekIdx === 1 ? "border-t border-slate-800/50" : ""}>
+            <div key={weekIdx} className={weekIdx === 1 ? "border-t border-zinc-800/50" : ""}>
               {/* 7-day grid */}
               <div className="grid grid-cols-7 gap-1 px-2 py-2">
                 {weekDays.map(day => {
@@ -385,16 +385,16 @@ export default function AvailabilityManager() {
                           : isSelected
                             ? "ring-2 ring-yellow-400 bg-yellow-400/10"
                             : day.isToday
-                              ? "bg-yellow-400 text-slate-900"
+                              ? "bg-yellow-400 text-zinc-900"
                               : state.isBlackout
                                 ? "bg-red-500/10"
                                 : isOff
-                                  ? "bg-slate-800/30"
-                                  : "bg-slate-800 hover:bg-slate-700"
+                                  ? "bg-zinc-800/30"
+                                  : "bg-zinc-800 hover:bg-zinc-700"
                       }`}
                     >
                       <span className={`text-lg font-black leading-tight ${
-                        day.isToday && !isSelected ? "text-slate-900" : isOff || state.isBlackout ? "text-stone-600" : "text-white"
+                        day.isToday && !isSelected ? "text-zinc-900" : isOff || state.isBlackout ? "text-stone-600" : "text-white"
                       }`}>
                         {day.date.getDate()}
                       </span>
@@ -404,8 +404,8 @@ export default function AvailabilityManager() {
                           <div className="h-1 w-1 rounded-full bg-red-400" />
                         ) : (
                           <>
-                            <div className={`h-1 w-1 rounded-full ${state.morning ? "bg-emerald-400" : "bg-slate-700"}`} />
-                            <div className={`h-1 w-1 rounded-full ${state.afternoon ? "bg-emerald-400" : "bg-slate-700"}`} />
+                            <div className={`h-1 w-1 rounded-full ${state.morning ? "bg-emerald-400" : "bg-zinc-700"}`} />
+                            <div className={`h-1 w-1 rounded-full ${state.afternoon ? "bg-emerald-400" : "bg-zinc-700"}`} />
                           </>
                         )}
                         {hasJobs && <div className="h-1 w-1 rounded-full bg-yellow-400" />}
@@ -432,7 +432,7 @@ export default function AvailabilityManager() {
                 }
 
                 return (
-                  <div className="mx-2 mb-2 rounded-lg border border-slate-700 bg-slate-800/50 p-2.5">
+                  <div className="mx-2 mb-2 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2.5">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
                         {day.dayName} {day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -446,7 +446,7 @@ export default function AvailabilityManager() {
                         className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border py-2 text-[10px] font-bold uppercase tracking-wider transition-all ${
                           state.morning
                             ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
-                            : "border-slate-600 bg-slate-800 text-stone-600 hover:border-slate-500"
+                            : "border-zinc-600 bg-zinc-800 text-stone-600 hover:border-zinc-500"
                         }`}
                       >
                         <Sun className="h-3 w-3" />
@@ -458,7 +458,7 @@ export default function AvailabilityManager() {
                         className={`flex flex-1 items-center justify-center gap-1.5 rounded-md border py-2 text-[10px] font-bold uppercase tracking-wider transition-all ${
                           state.afternoon
                             ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
-                            : "border-slate-600 bg-slate-800 text-stone-600 hover:border-slate-500"
+                            : "border-zinc-600 bg-zinc-800 text-stone-600 hover:border-zinc-500"
                         }`}
                       >
                         <Sunset className="h-3 w-3" />
@@ -484,13 +484,13 @@ export default function AvailabilityManager() {
         })}
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-4 border-t border-slate-800 px-4 py-2.5">
+        <div className="flex items-center justify-center gap-4 border-t border-zinc-800 px-4 py-2.5">
           <span className="flex items-center gap-1 text-[9px] text-stone-500">
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             On
           </span>
           <span className="flex items-center gap-1 text-[9px] text-stone-500">
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-700" />
+            <div className="h-1.5 w-1.5 rounded-full bg-zinc-700" />
             Off
           </span>
           <span className="flex items-center gap-1 text-[9px] text-stone-500">

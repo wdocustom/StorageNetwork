@@ -78,7 +78,7 @@ export default function ActionNudge({ userId }: ActionNudgeProps) {
   const colorClass = COLOR_MAP[nudge.icon] || "text-yellow-400 bg-yellow-400/10";
 
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800/50 p-4">
+    <div className="rounded-2xl border border-zinc-700/60 bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-800/50 p-4">
       <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colorClass}`}>
           <Icon className="h-5 w-5" />
@@ -88,7 +88,7 @@ export default function ActionNudge({ userId }: ActionNudgeProps) {
             <p className="text-sm font-bold text-white">{nudge.title}</p>
             <button
               onClick={handleDismiss}
-              className="shrink-0 rounded-lg p-1 text-stone-600 transition-colors hover:bg-slate-800 hover:text-stone-400"
+              className="shrink-0 rounded-lg p-1 text-stone-600 transition-colors hover:bg-zinc-800 hover:text-stone-400"
               title="Dismiss for 48 hours"
             >
               <X className="h-3.5 w-3.5" />

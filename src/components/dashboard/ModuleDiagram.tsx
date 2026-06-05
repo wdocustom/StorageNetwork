@@ -239,7 +239,7 @@ export default function ModuleDiagram({
   const sortedForRender = [...rects].sort((a, b) => a.buildOrder - b.buildOrder);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
       <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
         <svg className="h-4 w-4 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
@@ -247,7 +247,7 @@ export default function ModuleDiagram({
         Module Layout
       </h2>
 
-      <div className="relative overflow-hidden rounded-lg border border-slate-700 bg-slate-950 p-2">
+      <div className="relative overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950 p-2">
         <svg
           viewBox={`0 0 ${svgW} ${svgH}`}
           className="mx-auto block w-full"
@@ -399,7 +399,7 @@ export default function ModuleDiagram({
               <button
                 key={r.cpIdx}
                 onClick={() => scrollToModule(r.cpIdx)}
-                className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-slate-800"
+                className="flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-zinc-800"
                 style={{ borderColor: color.stroke, color: color.label }}
               >
                 <span

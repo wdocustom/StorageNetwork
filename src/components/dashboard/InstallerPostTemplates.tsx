@@ -39,7 +39,7 @@ interface PostTemplate {
 // Shared footer bar for all cards
 function CardFooter({ biz }: { biz: string }) {
   return (
-    <div className="flex items-center justify-between border-t border-slate-700 pt-4">
+    <div className="flex items-center justify-between border-t border-zinc-700 pt-4">
       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-600 truncate max-w-[70%]">{biz}</span>
       <span className="text-yellow-400">→</span>
     </div>
@@ -276,7 +276,7 @@ Try the designer 👇
                 { icon: "🎨", label: "Select colors" },
                 { icon: "💰", label: "See price live" },
               ].map((f) => (
-                <div key={f.label} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 flex items-center gap-2">
+                <div key={f.label} className="rounded-lg border border-zinc-700 bg-zinc-900/50 p-3 flex items-center gap-2">
                   <span className="text-base">{f.icon}</span>
                   <span className="text-[11px] font-bold text-stone-300">{f.label}</span>
                 </div>
@@ -429,7 +429,7 @@ Try the designer — it's free to play with 👇
                 { size: "Full wall (8-12ft)", price: "$500-900" },
                 { size: "Double / L-shape", price: "$800-1,500+" },
               ].map((row) => (
-                <div key={row.size} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/50 px-4 py-2.5">
+                <div key={row.size} className="flex items-center justify-between rounded-lg border border-zinc-700 bg-zinc-900/50 px-4 py-2.5">
                   <span className="text-xs text-stone-400">{row.size}</span>
                   <span className="text-sm font-black text-yellow-400">{row.price}</span>
                 </div>
@@ -484,7 +484,7 @@ Spots fill up fast. Design yours today 👇
             </p>
             <div className="mt-5 grid grid-cols-2 gap-2">
               {["Any wall size", "Heavy-duty bins", "Real lumber", "Single visit"].map((f) => (
-                <div key={f} className="rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 text-center">
+                <div key={f} className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-3 py-2 text-center">
                   <span className="text-[11px] font-bold text-stone-300">{f}</span>
                 </div>
               ))}
@@ -569,7 +569,7 @@ export default function InstallerPostTemplates({ businessName, city, state, book
   const post = POSTS[selectedIdx];
 
   return (
-    <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-slate-900 p-5">
+    <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-zinc-900 p-5">
       <div className="mb-1 flex items-center gap-2">
         <User className="h-4 w-4 text-amber-400" />
         <h2 className="text-sm font-bold uppercase tracking-wider text-white">
@@ -582,7 +582,7 @@ export default function InstallerPostTemplates({ businessName, city, state, book
       <p className="mb-2 text-sm text-stone-500">
         Personalized posts written from <span className="font-semibold text-amber-400">{biz}</span>&apos;s perspective to attract customers in <span className="font-semibold text-amber-400">{loc}</span>.
       </p>
-      <div className="mb-5 flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2">
+      <div className="mb-5 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2">
         <Sparkles className="h-3 w-3 text-yellow-400 shrink-0" />
         <p className="text-[10px] text-stone-500">
           These include your booking link: <span className="text-blue-400 font-mono break-all">{bookingLink}</span>
@@ -598,7 +598,7 @@ export default function InstallerPostTemplates({ businessName, city, state, book
             className={`shrink-0 rounded-lg border px-3 py-2 text-[10px] font-bold transition-all ${
               selectedIdx === i
                 ? "border-amber-400/50 bg-amber-400/10 text-amber-400"
-                : "border-slate-700 bg-slate-800 text-stone-500 hover:text-white"
+                : "border-zinc-700 bg-zinc-800 text-stone-500 hover:text-white"
             }`}
           >
             {i + 1}. {p.title.length > 16 ? p.title.slice(0, 16) + "…" : p.title}
@@ -611,7 +611,7 @@ export default function InstallerPostTemplates({ businessName, city, state, book
         <button
           onClick={() => setSelectedIdx(Math.max(0, selectedIdx - 1))}
           disabled={selectedIdx === 0}
-          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
+          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
         >
           <ChevronLeft className="h-3 w-3" /> Prev
         </button>
@@ -619,14 +619,14 @@ export default function InstallerPostTemplates({ businessName, city, state, book
         <button
           onClick={() => setSelectedIdx(Math.min(POSTS.length - 1, selectedIdx + 1))}
           disabled={selectedIdx === POSTS.length - 1}
-          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
+          className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-stone-400 transition-colors hover:text-white disabled:opacity-30"
         >
           Next <ChevronRight className="h-3 w-3" />
         </button>
       </div>
 
       {/* Post Preview — 1:1 aspect ratio */}
-      <div className="relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-xl border border-slate-700">
+      <div className="relative mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-xl border border-zinc-700">
         {post.render(biz, loc, bookingLink)}
       </div>
 
@@ -643,7 +643,7 @@ export default function InstallerPostTemplates({ businessName, city, state, book
       </div>
 
       {/* Caption preview */}
-      <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">
           Instagram Caption — Personalized
         </p>
