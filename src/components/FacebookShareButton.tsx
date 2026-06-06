@@ -1,29 +1,64 @@
 "use client";
 
-import { Facebook } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Facebook, CheckCircle2, Loader2 } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { applyFbShareDiscount } from "@/app/actions/fb-share";
 
 interface FacebookShareButtonProps {
   leadId: string;
-  className?: string;
+  onDiscountApplied?: (amount: number) => void;
+  disabled?: boolean;
 }
 
-export default function FacebookShareButton({ leadId, className }: FacebookShareButtonProps) {
-  const shareUrl = `${siteConfig.baseUrl}/design?source=fb_referral&ref_lead=${leadId}`;
+export default function FacebookShareButton({ leadId, onDiscountApplied, disabled }: FacebookShareButtonProps) {
+  const [shared, setShared] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handleShare() {
+  const handleShare = useCallback(() => {
+    if (shared || loading) return;
+
+    const shareUrl = `${siteConfig.baseUrl}/design?source=fb_referral&ref_lead=${leadId}`;
     const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-    window.open(fbShareUrl, "_blank", "noopener,noreferrer,width=600,height=400");
+    const popup = window.open(fbShareUrl, "fb_share", "width=600,height=400,noopener");
+
+    setLoading(true);
+
+    const timer = setInterval(async () => {
+      if (!popup || popup.closed) {
+        clearInterval(timer);
+        const result = await applyFbShareDiscount(leadId);
+        setLoading(false);
+        if (result.success) {
+          setShared(true);
+          onDiscountApplied?.(result.discountAmount);
+        }
+      }
+    }, 500);
+  }, [leadId, shared, loading, onDiscountApplied]);
+
+  if (shared) {
+    return (
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-600/10 px-4 py-3 text-sm font-semibold text-emerald-400">
+        <CheckCircle2 className="h-4 w-4" />
+        10% Discount Applied
+      </div>
+    );
   }
 
   return (
     <button
       type="button"
       onClick={handleShare}
-      className={className ?? "flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/10 px-4 py-3 text-sm font-semibold text-blue-400 transition-all hover:bg-blue-600/20 hover:text-blue-300"}
+      disabled={disabled || loading}
+      className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/10 px-4 py-3 text-sm font-semibold text-blue-400 transition-all hover:bg-blue-600/20 hover:text-blue-300 disabled:opacity-50"
     >
-      <Facebook className="h-4 w-4" />
-      Share with a Neighbor
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Facebook className="h-4 w-4" />
+      )}
+      Share to Facebook for 10% Off
     </button>
   );
 }

@@ -77,6 +77,9 @@ export default function ResumePaymentPage() {
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
+  // Facebook share discount (platform-funded)
+  const [fbShareDiscount, setFbShareDiscount] = useState(0);
+
   // Contact installer state
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactMessage, setContactMessage] = useState("");
@@ -245,9 +248,10 @@ export default function ResumePaymentPage() {
   // Deposit uses installer's configured rate (min 15%) — recalculated when add-ons selected
   const effectiveDeposit = addonDeposit ?? (lead?.deposit_amount || 0);
 
-  // Balance at installation = remaining build cost - discount + sales tax
+  // Balance at installation = remaining build cost - discounts + sales tax
+  // fbShareDiscount is platform-funded (reduces platform fee, not installer revenue)
   const balanceAtInstall = lead
-    ? (effectiveEstimatedPrice - effectiveDeposit - discountAmount) + (taxInfo?.taxAmount || 0)
+    ? (effectiveEstimatedPrice - effectiveDeposit - discountAmount - fbShareDiscount) + (taxInfo?.taxAmount || 0)
     : 0;
 
   // Address validation
@@ -395,6 +399,8 @@ export default function ResumePaymentPage() {
         // Discount code
         discountCode: discountApplied?.code,
         discountCodeAmount: discountApplied?.amount,
+        // Facebook share discount (platform-funded)
+        fbShareDiscountAmount: fbShareDiscount || undefined,
       });
 
       if (!result.success || !result.clientSecret) {
@@ -995,7 +1001,7 @@ export default function ResumePaymentPage() {
             {leadId && lead?.source !== "partner_link" && lead?.source !== "installer_manual" && (
               <div className="pt-3">
                 <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
-                <FacebookShareButton leadId={leadId} />
+                <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
               </div>
             )}
           </div>

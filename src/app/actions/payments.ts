@@ -803,6 +803,8 @@ export interface DepositIntentInput {
   discountCodeAmount?: number;       // Resolved dollar amount to deduct from balance
   // Delivery fee (tax-exempt, but included in totalPrice for fee calculation)
   deliveryFeeAmount?: number;        // Delivery fee in dollars (0 or undefined = no delivery fee)
+  // Facebook share discount (platform-funded — reduces platform fee, not installer revenue)
+  fbShareDiscountAmount?: number;    // Dollar amount absorbed by platform from its network fee
 }
 
 export interface DepositIntentResult {
@@ -826,6 +828,7 @@ const depositIntentSchema = z.object({
   discountCode: z.string().max(50).optional(),
   discountCodeAmount: z.number().min(0).max(100_000).optional(),
   deliveryFeeAmount: z.number().min(0).max(10_000).optional(),
+  fbShareDiscountAmount: z.number().min(0).max(100_000).optional(),
 });
 
 export async function createDepositIntent(
@@ -837,9 +840,10 @@ export async function createDepositIntent(
     return { success: false, error: "Invalid input: " + parsed.error.issues[0]?.message };
   }
 
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount } = parsed.data;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount, fbShareDiscountAmount } = parsed.data;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
+  const fbShareDiscountCents = fbShareDiscountAmount ? Math.round(fbShareDiscountAmount * 100) : 0;
 
   if (!leadId || !amount || !installerId || !totalPrice) {
     const missing = [
@@ -865,8 +869,10 @@ export async function createDepositIntent(
   const depositAmountCents = Math.round(amount * 100);
   const totalPriceCents = Math.round(totalPrice * 100);
   const taxCents = salesTaxAmount ? Math.round(salesTaxAmount * 100) : 0;
-  // Balance = (totalPrice - deposit - discount) + tax. Installer absorbs discount from their balance.
-  const balanceWithTaxCents = (totalPriceCents - depositAmountCents - promoCodeCents) + taxCents;
+  // Balance = (totalPrice - deposit - discounts) + tax.
+  // promoCodeCents: installer-funded discount code (installer absorbs from balance)
+  // fbShareDiscountCents: platform-funded share discount (platform absorbs from fee)
+  const balanceWithTaxCents = (totalPriceCents - depositAmountCents - promoCodeCents - fbShareDiscountCents) + taxCents;
 
   try {
     // ── Determine fee routing based on Pro status and Stripe connection ───────
@@ -1016,7 +1022,9 @@ export async function createDepositIntent(
       const isDirectLead = source === "partner_link" || source === "installer_manual";
       const isNetworkLead = source === "platform" || source === "facebook_referral";
       const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
-      const platformFeeCents = Math.round(totalPriceCents * platformFeeRate);
+      const basePlatformFeeCents = Math.round(totalPriceCents * platformFeeRate);
+      // FB share discount: platform absorbs the discount from its own fee (installer unaffected)
+      const platformFeeCents = Math.max(0, basePlatformFeeCents - fbShareDiscountCents);
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
       paymentIntent = await stripe.paymentIntents.create({
@@ -1052,6 +1060,7 @@ export async function createDepositIntent(
           discount_code: discountCode || "",
           discount_code_cents: String(promoCodeCents),
           delivery_fee_cents: String(deliveryFeeCents),
+          fb_share_discount_cents: String(fbShareDiscountCents),
         },
       }, {
         idempotencyKey: `deposit-${leadId}`,
@@ -1113,14 +1122,15 @@ export async function createDepositIntent(
     };
     // If discount applied, reduce balance_due (installer absorbs the discount)
     // Deposit amount stays unchanged at the full 15%
-    if (promoCodeCents > 0) {
-      leadUpdate.balance_due = totalPrice - (depositAmountCents / 100) - (promoCodeCents / 100);
+    if (promoCodeCents > 0 || fbShareDiscountCents > 0) {
+      leadUpdate.balance_due = totalPrice - (depositAmountCents / 100) - (promoCodeCents / 100) - (fbShareDiscountCents / 100);
     }
     // Store discount code info on the lead for tracking
     if (discountCode) {
       leadUpdate.discount_code = discountCode;
       leadUpdate.discount_amount = (promoCodeCents / 100);
     }
+    // fb_share_discount is already set by applyFbShareDiscount server action
     // Store delivery fee on the lead and update estimated_price to include it
     if (deliveryFeeCents > 0) {
       leadUpdate.delivery_fee = (deliveryFeeCents / 100);
