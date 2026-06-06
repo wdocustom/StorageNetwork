@@ -573,6 +573,14 @@ export default function BookingModal({
                 </div>
               )}
 
+              {/* Facebook share for network leads */}
+              {leadId && source !== "partner_link" && source !== "installer_manual" && (
+                <div>
+                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
+                  <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
+                </div>
+              )}
+
               {/* Pay & Book button */}
               <button
                 onClick={handleInitPayment}
@@ -685,12 +693,6 @@ export default function BookingModal({
                 )}
               </button>
 
-              {leadId && source !== "partner_link" && (
-                <div className="pt-2">
-                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
-                  <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
-                </div>
-              )}
             </div>
           )}
         </div>
