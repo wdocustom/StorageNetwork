@@ -60,7 +60,8 @@ export interface DesignConfiguratorProps {
   initialZip: string;
   mode: string;
   isDemo?: boolean;
-  leadSource?: "platform" | "partner_link";
+  leadSource?: "platform" | "partner_link" | "facebook_referral";
+  parentLeadId?: string;
   savedSignal?: SavedSignalData;
   initialInstallerAtCapacity?: boolean;
   initialConfig?: Record<string, unknown> | null;

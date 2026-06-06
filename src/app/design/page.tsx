@@ -174,6 +174,8 @@ export default async function DesignPage({ searchParams }: PageProps) {
   const mode = typeof params.mode === "string" ? params.mode : "";
   const fromNetwork = params.from === "network"; // Came from platform ZIP lookup
   const fromChat = params.from === "chat"; // Came from AI chat configurator
+  const fromFbReferral = params.source === "fb_referral"; // Came from customer Facebook share
+  const refLeadId = typeof params.ref_lead === "string" ? params.ref_lead : "";
   const signalId = typeof params.signal_id === "string" ? params.signal_id : "";
   const refInstaller = typeof params.ref_installer === "string" ? params.ref_installer : "";
 
@@ -215,8 +217,12 @@ export default async function DesignPage({ searchParams }: PageProps) {
   // Determine lead source:
   // - Direct lead (partner_link): customer used installer's custom link (ref param or slug)
   // - Network lead (platform): customer found installer via platform ZIP lookup (from=network)
-  // If from=network is set, it's always a platform lead even if installer param exists
-  const isDirectLead = !fromNetwork && !!(rawInstaller && (ref || installerId || installerParam));
+  // - Facebook referral (facebook_referral): customer clicked a shared design link on Facebook
+  // fb_referral and from=network always override installer params → platform-owned traffic
+  const isDirectLead = !fromNetwork && !fromFbReferral && !!(rawInstaller && (ref || installerId || installerParam));
+  const leadSource: "platform" | "partner_link" | "facebook_referral" = fromFbReferral
+    ? "facebook_referral"
+    : isDirectLead ? "partner_link" : "platform";
 
   // ── Trial cap check — is the installer at their 3-job limit? ────────
   // If so, we pass a flag to the configurator so it can swap the booking
@@ -303,7 +309,8 @@ export default async function DesignPage({ searchParams }: PageProps) {
           initialData={viewModel}
           initialZip={zip}
           mode={mode}
-          leadSource={isDirectLead ? "partner_link" : "platform"}
+          leadSource={leadSource}
+          parentLeadId={refLeadId || undefined}
           initialInstallerAtCapacity={capacityStatus?.atCapacity ?? false}
           initialConfig={chatConfig}
           savedSignal={savedSignal ? {

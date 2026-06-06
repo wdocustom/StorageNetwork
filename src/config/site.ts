@@ -31,6 +31,10 @@ export const siteConfig = {
       name: "sn_affiliate_slug",
       maxAge: 60 * 60 * 24 * 30, // 30 days in seconds
     },
+    fbReferral: {
+      name: "sn_fb_ref",
+      maxAge: 60 * 60 * 24 * 7, // 7 days in seconds
+    },
   },
 
   // Feature Flags

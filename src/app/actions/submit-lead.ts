@@ -73,7 +73,8 @@ export interface SubmitQuoteInput {
   grand_total: number;
   installer_id?: string;
   referring_installer_id?: string; // Network Bounty: original installer who drove the traffic
-  source?: "platform" | "partner_link";
+  source?: "platform" | "partner_link" | "facebook_referral";
+  parent_lead_id?: string;
   scheduled_at?: string;
   /** When true, bypasses the trial cap block and creates the lead with
    *  status "waitlisted" instead of "pending_payment". Used when the
@@ -105,7 +106,8 @@ const submitLeadSchema = z.object({
   grand_total: z.number().positive("Total must be positive").max(1_000_000),
   installer_id: z.string().uuid("Invalid installer ID").optional(),
   referring_installer_id: z.string().uuid().optional(),
-  source: z.enum(["platform", "partner_link"]).optional(),
+  source: z.enum(["platform", "partner_link", "facebook_referral"]).optional(),
+  parent_lead_id: z.string().uuid().optional(),
   scheduled_at: z.string().max(30).optional(),
   waitlisted: z.boolean().optional(),
   build_snapshot_url: z.string().url().max(2000).optional(),
@@ -315,6 +317,7 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         deposit_paid: false,
         balance_due: balanceDue,
         source: input.source || (input.installer_id ? "partner_link" : "platform"),
+        parent_lead_id: input.parent_lead_id || null,
         status: input.waitlisted ? "waitlisted" : "pending_payment",
         scheduled_at: input.scheduled_at || null,
         // Network Referral Bounty: track the original installer who drove traffic

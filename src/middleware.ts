@@ -135,13 +135,30 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── Facebook Referral Cookie ────────────────────────────────────────────
+  // When a customer shares their design on Facebook, the link carries
+  // source=fb_referral&ref_lead=<uuid>. Persist both values in a single
+  // cookie so the attribution survives navigation across the design flow.
+  const fbSource = request.nextUrl.searchParams.get("source");
+  const refLead = request.nextUrl.searchParams.get("ref_lead");
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (fbSource === "fb_referral" && refLead && uuidPattern.test(refLead)) {
+    response.cookies.set({
+      name: siteConfig.cookies.fbReferral.name,
+      value: refLead,
+      maxAge: siteConfig.cookies.fbReferral.maxAge,
+      path: "/",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+  }
+
   // ── Affiliate Cookie Tracking ──────────────────────────────────────────
   const installerId = request.nextUrl.searchParams.get("installer_id");
 
   if (installerId) {
-    const uuidPattern =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
     if (uuidPattern.test(installerId)) {
       response.cookies.set({
         name: siteConfig.cookies.partnerRef.name,

@@ -13,6 +13,7 @@ import {
   Truck,
   Mail,
 } from "lucide-react";
+import FacebookShareButton from "@/components/FacebookShareButton";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -129,6 +130,9 @@ export default function BookingModal({
   const [discountLoading, setDiscountLoading] = useState(false);
   const [discountError, setDiscountError] = useState("");
 
+  // Facebook share discount (platform-funded, reduces platform fee not installer revenue)
+  const [fbShareDiscount, setFbShareDiscount] = useState(0);
+
   // Delivery fee state
   const [deliveryFee, setDeliveryFee] = useState<DeliveryFeeResult | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
@@ -189,8 +193,9 @@ export default function BookingModal({
   // Discount only reduces balance, not deposit. Installer absorbs their own discounts.
   const discountAmount = discountApplied?.amount || 0;
 
-  // Balance at installation = grand total - deposit - discount + sales tax (tax only on build price)
-  const balanceAtInstall = (grandTotalWithDelivery - effectiveDeposit - discountAmount) + (taxInfo?.taxAmount || 0);
+  // Balance at installation = grand total - deposit - discounts + sales tax (tax only on build price)
+  // fbShareDiscount is platform-funded (reduces platform fee, not installer revenue)
+  const balanceAtInstall = (grandTotalWithDelivery - effectiveDeposit - discountAmount - fbShareDiscount) + (taxInfo?.taxAmount || 0);
 
   // Apply discount code
   async function handleApplyDiscount() {
@@ -270,6 +275,8 @@ export default function BookingModal({
       discountCodeAmount: discountApplied?.amount,
       // Delivery fee (tax-exempt, but included in fee basis)
       deliveryFeeAmount: deliveryFeeAmount || undefined,
+      // Facebook share discount (platform-funded — reduces platform fee, not installer revenue)
+      fbShareDiscountAmount: fbShareDiscount || undefined,
     });
 
     setInitLoading(false);
@@ -280,7 +287,7 @@ export default function BookingModal({
     } else {
       setError(result.error || "Failed to initialize payment.");
     }
-  }, [selectedDate, timePreference, schedulingEnabled, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount]);
+  }, [selectedDate, timePreference, schedulingEnabled, leadId, effectiveDeposit, grandTotalWithDelivery, installerId, source, customerEmail, customerName, taxInfo, address.state, discountApplied, deliveryFeeAmount, fbShareDiscount]);
 
   // Auto-init payment when both address and date are pre-filled from sidebar
   const autoInitRef = useRef(false);
@@ -677,6 +684,13 @@ export default function BookingModal({
                   </>
                 )}
               </button>
+
+              {leadId && source !== "partner_link" && (
+                <div className="pt-2">
+                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
+                  <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
+                </div>
+              )}
             </div>
           )}
         </div>
