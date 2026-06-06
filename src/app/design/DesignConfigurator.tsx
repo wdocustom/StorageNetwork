@@ -44,6 +44,7 @@ export default function DesignConfigurator({
   mode,
   isDemo = false,
   leadSource = "platform",
+  parentLeadId,
   savedSignal,
   initialInstallerAtCapacity = false,
   initialConfig,
@@ -510,6 +511,7 @@ export default function DesignConfigurator({
         installer_id: installer.installerId || undefined,
         referring_installer_id: serviceArea.referringInstallerId || undefined,
         source: leadSource,
+        parent_lead_id: parentLeadId || undefined,
         build_snapshot_url: snapshotUrl || undefined,
       });
 
@@ -545,7 +547,7 @@ export default function DesignConfigurator({
     productAddons.selectedCleanout, productAddons.cleanoutPrice,
     pricingState.paintTotal, pricingState.grandTotal,
     builder.paintFrameColor, builder.paintDoorColor, builder.paintSidePanelColor,
-    leadSource,
+    leadSource, parentLeadId,
   ]);
 
   const handleJoinTrialCapWaitlist = useCallback(async () => {

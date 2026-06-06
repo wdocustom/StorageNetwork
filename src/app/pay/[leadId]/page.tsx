@@ -34,6 +34,7 @@ import { formatCurrency, formatTaxRate } from "@/utils/paymentHelpers";
 import { getSalesTax, getDepositAmount, type SalesTaxResult } from "@/app/actions/fee-engine";
 import { contactInstaller } from "@/app/actions/contact-installer";
 import { updateLeadWithAddons } from "@/app/actions/cleanout-upsell";
+import FacebookShareButton from "@/components/FacebookShareButton";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Resume Payment Page — /pay/[leadId]
@@ -990,6 +991,13 @@ export default function ResumePaymentPage() {
               Continue to Review
               <ChevronRight className="h-4 w-4" />
             </button>
+
+            {leadId && (
+              <div className="pt-3">
+                <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
+                <FacebookShareButton leadId={leadId} />
+              </div>
+            )}
           </div>
         )}
 

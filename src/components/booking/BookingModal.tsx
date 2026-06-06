@@ -13,6 +13,7 @@ import {
   Truck,
   Mail,
 } from "lucide-react";
+import FacebookShareButton from "@/components/FacebookShareButton";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -677,6 +678,13 @@ export default function BookingModal({
                   </>
                 )}
               </button>
+
+              {leadId && (
+                <div className="pt-2">
+                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
+                  <FacebookShareButton leadId={leadId} />
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -783,7 +783,7 @@ export async function chargeBalanceOffSession(
 // Used by BookingModal for inline deposit collection.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type LeadSource = "platform" | "partner_link" | "installer_manual";
+export type LeadSource = "platform" | "partner_link" | "installer_manual" | "facebook_referral";
 
 export interface DepositIntentInput {
   leadId: string;
@@ -816,7 +816,7 @@ const depositIntentSchema = z.object({
   amount: z.number().positive("Deposit must be positive").max(100_000, "Amount too large"),
   totalPrice: z.number().positive("Total price must be positive").max(1_000_000, "Price too large"),
   installerId: z.string().uuid("Invalid installer ID").optional(),
-  source: z.enum(["platform", "partner_link", "installer_manual"]),
+  source: z.enum(["platform", "partner_link", "installer_manual", "facebook_referral"]),
   customerEmail: z.union([z.email("Invalid email"), z.literal("")]).optional().transform(v => v || undefined),
   customerName: z.string().max(200).optional(),
   scheduledAt: z.string().max(30).optional(),
@@ -1014,7 +1014,8 @@ export async function createDepositIntent(
       // pay 3%. Whatever the rate, it's deducted from the deposit; installer
       // receives the remainder via Stripe Connect destination charge.
       const isDirectLead = source === "partner_link" || source === "installer_manual";
-      const platformFeeRate = isDirectLead ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
+      const isNetworkLead = source === "platform" || source === "facebook_referral";
+      const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
       const platformFeeCents = Math.round(totalPriceCents * platformFeeRate);
       const installerReceivesCents = depositAmountCents - platformFeeCents;
 
