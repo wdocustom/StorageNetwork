@@ -992,7 +992,7 @@ export default function ResumePaymentPage() {
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {leadId && (
+            {leadId && lead?.source !== "partner_link" && lead?.source !== "installer_manual" && (
               <div className="pt-3">
                 <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
                 <FacebookShareButton leadId={leadId} />

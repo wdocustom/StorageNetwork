@@ -679,7 +679,7 @@ export default function BookingModal({
                 )}
               </button>
 
-              {leadId && (
+              {leadId && source !== "partner_link" && (
                 <div className="pt-2">
                   <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
                   <FacebookShareButton leadId={leadId} />
