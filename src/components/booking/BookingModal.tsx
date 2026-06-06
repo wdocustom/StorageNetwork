@@ -12,6 +12,7 @@ import {
   Tag,
   Truck,
   Mail,
+  Facebook,
 } from "lucide-react";
 import FacebookShareButton from "@/components/FacebookShareButton";
 import { loadStripe } from "@stripe/stripe-js";
@@ -538,8 +539,15 @@ export default function BookingModal({
                 </p>
               )}
 
-              {/* Discount Code Input */}
-              {!discountApplied ? (
+              {/* Discount Code Input — hidden when FB share discount is active */}
+              {fbShareDiscount > 0 ? (
+                <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                  <Facebook className="h-4 w-4 text-emerald-400" />
+                  <span className="flex-1 text-sm font-semibold text-emerald-400">
+                    Facebook Share — 10% off applied
+                  </span>
+                </div>
+              ) : !discountApplied ? (
                 <div>
                   <label className="mb-1 block text-[10px] font-bold uppercase text-stone-500">
                     Discount Code
