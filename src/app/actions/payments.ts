@@ -798,6 +798,10 @@ export interface DepositIntentInput {
   // Tax info for installer records
   salesTaxAmount?: number;           // Tax amount in dollars (on build price only, NOT delivery fee)
   billingState?: string;             // 2-letter state code
+  billingLine1?: string;             // Street address
+  billingLine2?: string;             // Apt / suite
+  billingCity?: string;              // City
+  billingZip?: string;               // 5-digit ZIP
   // Discount code (installer-specific promo codes — reduces balance, not deposit)
   discountCode?: string;             // The code string (for tracking)
   discountCodeAmount?: number;       // Resolved dollar amount to deduct from balance
@@ -825,6 +829,10 @@ const depositIntentSchema = z.object({
   timePreference: z.enum(["morning", "afternoon"]).optional(),
   salesTaxAmount: z.number().min(0).max(100_000).optional(),
   billingState: z.string().max(2).optional(),
+  billingLine1: z.string().max(200).optional(),
+  billingLine2: z.string().max(200).optional(),
+  billingCity: z.string().max(100).optional(),
+  billingZip: z.string().max(10).optional(),
   discountCode: z.string().max(50).optional(),
   discountCodeAmount: z.number().min(0).max(100_000).optional(),
   deliveryFeeAmount: z.number().min(0).max(10_000).optional(),
@@ -840,7 +848,7 @@ export async function createDepositIntent(
     return { success: false, error: "Invalid input: " + parsed.error.issues[0]?.message };
   }
 
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, discountCode, discountCodeAmount, deliveryFeeAmount, fbShareDiscountAmount } = parsed.data;
+  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, billingLine1, billingLine2, billingCity, billingZip, discountCode, discountCodeAmount, deliveryFeeAmount, fbShareDiscountAmount } = parsed.data;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
   const fbShareDiscountCents = fbShareDiscountAmount ? Math.round(fbShareDiscountAmount * 100) : 0;
@@ -1115,6 +1123,11 @@ export async function createDepositIntent(
       time_preference: timePreference || null,
       sales_tax_amount: salesTaxAmount || null,
       billing_state: billingState || null,
+      ...(billingLine1 && { address_line1: billingLine1 }),
+      ...(billingLine2 && { address_line2: billingLine2 }),
+      ...(billingCity && { address_city: billingCity, city: billingCity }),
+      ...(billingState && { address_state: billingState, state: billingState }),
+      ...(billingZip && { address_zip: billingZip }),
       ...(customerEmail && { customer_email: customerEmail }),
       updated_at: new Date().toISOString(),
       // Mark fee as waived if this is one of the installer's first 3 free jobs

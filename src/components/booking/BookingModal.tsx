@@ -270,6 +270,10 @@ export default function BookingModal({
       // Tax info for installer records (collected at installation — on build price only)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
+      billingLine1: address.line1 || undefined,
+      billingLine2: address.line2 || undefined,
+      billingCity: address.city || undefined,
+      billingZip: address.zip || undefined,
       // Discount code (reduces balance at installation, not deposit)
       discountCode: discountApplied?.code,
       discountCodeAmount: discountApplied?.amount,
@@ -573,6 +577,14 @@ export default function BookingModal({
                 </div>
               )}
 
+              {/* Facebook share for network leads */}
+              {leadId && source !== "partner_link" && source !== "installer_manual" && (
+                <div>
+                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
+                  <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
+                </div>
+              )}
+
               {/* Pay & Book button */}
               <button
                 onClick={handleInitPayment}
@@ -685,12 +697,6 @@ export default function BookingModal({
                 )}
               </button>
 
-              {leadId && source !== "partner_link" && (
-                <div className="pt-2">
-                  <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
-                  <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
-                </div>
-              )}
             </div>
           )}
         </div>
