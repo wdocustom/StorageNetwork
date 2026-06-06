@@ -391,6 +391,10 @@ export default function ResumePaymentPage() {
         // Tax info for records (collected at installation)
         salesTaxAmount: taxInfo?.taxAmount || 0,
         billingState: address.state,
+        billingLine1: address.line1 || undefined,
+        billingLine2: address.line2 || undefined,
+        billingCity: address.city || undefined,
+        billingZip: address.zip || undefined,
         // Discount code
         discountCode: discountApplied?.code,
         discountCodeAmount: discountApplied?.amount,

@@ -270,6 +270,10 @@ export default function BookingModal({
       // Tax info for installer records (collected at installation — on build price only)
       salesTaxAmount: taxInfo?.taxAmount || 0,
       billingState: address.state,
+      billingLine1: address.line1 || undefined,
+      billingLine2: address.line2 || undefined,
+      billingCity: address.city || undefined,
+      billingZip: address.zip || undefined,
       // Discount code (reduces balance at installation, not deposit)
       discountCode: discountApplied?.code,
       discountCodeAmount: discountApplied?.amount,
