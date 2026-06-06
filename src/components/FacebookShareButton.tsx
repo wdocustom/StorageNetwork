@@ -5,7 +5,7 @@ import { Facebook, CheckCircle2, Loader2 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import { applyFbShareDiscount } from "@/app/actions/fb-share";
 
-const MIN_SHARE_DURATION_MS = 15_000;
+const MIN_SHARE_DURATION_MS = 5_000;
 
 interface FacebookShareButtonProps {
   leadId: string;
