@@ -280,6 +280,136 @@ async function processRealtorReferralCredit(leadId: string) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// processPromoterCommission — Promoter Program (migration 129)
+//
+// When a "plans" checkout session carries `metadata.promoter_id` (dropped
+// there by /promo/<code> attribution at session-creation time), pay that
+// promoter their INDIVIDUALIZED cut — set per-promoter in their
+// `promoter_agreements.agreement_config` — via a Stripe Connect transfer
+// straight to their connected account.
+//
+// Idempotency: a UNIQUE(agreement_id, stripe_session_id) index on
+// promoter_payouts means the first INSERT wins; webhook retries hit a
+// 23505 unique-violation and we treat that as "already handled" and bail.
+// This mirrors the affiliate_payouts dedup pattern from migration 106.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const PLAN_PURCHASE_TYPES = new Set([
+  "chair_plan",
+  "chair_bundle",
+  "chair_template",
+  "diy_plan",
+  "public_plan",
+]);
+
+async function processPromoterCommission(session: Stripe.Checkout.Session) {
+  const metadata = session.metadata || {};
+  const promoterId = metadata.promoter_id;
+  if (!promoterId || !stripe) return;
+
+  try {
+    const saleAmountCents = session.amount_total ?? 0;
+    if (saleAmountCents <= 0) return;
+
+    // 1. Active agreement = the individualized cut for this promoter.
+    const { data: agreement, error: agreementErr } = await getDb()
+      .from("promoter_agreements")
+      .select("id, agreement_config, status")
+      .eq("promoter_id", promoterId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (agreementErr || !agreement) {
+      console.log(`[Promoter] No active agreement for ${promoterId.slice(0, 8)}… — skipping commission`);
+      return;
+    }
+
+    const { computePromoterCommissionCents } = await import("@/lib/promoter-cuts");
+    const config = agreement.agreement_config as { type: "percentage"; percent: number };
+    const commissionCents = computePromoterCommissionCents(config, saleAmountCents);
+    if (commissionCents <= 0) return;
+
+    // 2. Claim the payout row first (idempotency gate). A 23505 here means
+    //    a previous delivery of this same event already inserted it.
+    const { data: payoutRow, error: insertErr } = await getDb()
+      .from("promoter_payouts")
+      .insert({
+        promoter_id: promoterId,
+        agreement_id: agreement.id,
+        stripe_session_id: session.id,
+        plan_id: metadata.plan_id || null,
+        sale_amount_cents: saleAmountCents,
+        commission_cents: commissionCents,
+        status: "pending",
+        notes: `${config.percent}% of $${(saleAmountCents / 100).toFixed(2)} = $${(commissionCents / 100).toFixed(2)}`,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !payoutRow) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((insertErr as any)?.code === "23505") {
+        console.log(`[Promoter] Commission already recorded for session ${session.id} — skipping`);
+        return;
+      }
+      console.error("[Promoter] payout insert failed:", insertErr);
+      return;
+    }
+
+    // 3. Fetch the promoter's connected Stripe account.
+    const { data: promoter, error: profileErr } = await getDb()
+      .from("profiles")
+      .select("stripe_account_id, stripe_details_submitted, email, business_name, first_name")
+      .eq("id", promoterId)
+      .single();
+
+    if (profileErr || !promoter?.stripe_account_id || !promoter.stripe_details_submitted) {
+      console.warn(`[Promoter] ${promoterId.slice(0, 8)}… has no connected Stripe account — leaving payout pending`);
+      await getDb()
+        .from("promoter_payouts")
+        .update({ status: "failed", failure_reason: "no_connected_stripe_account", updated_at: new Date().toISOString() })
+        .eq("id", payoutRow.id);
+      return;
+    }
+
+    // 4. Execute the transfer.
+    const transfer = await stripe.transfers.create({
+      amount: commissionCents,
+      currency: "usd",
+      destination: promoter.stripe_account_id,
+      transfer_group: session.id,
+      description: `Promoter commission (${config.percent}%) — session ${session.id.slice(0, 16)}…`,
+    });
+
+    await getDb()
+      .from("promoter_payouts")
+      .update({
+        status: "paid",
+        stripe_transfer_id: transfer.id,
+        paid_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payoutRow.id);
+
+    console.log(
+      `[Promoter] Paid $${(commissionCents / 100).toFixed(2)} → ${promoterId.slice(0, 8)}… (transfer ${transfer.id}) for session ${session.id}`
+    );
+  } catch (err) {
+    console.error("[Promoter] Commission processing failed (non-fatal):", err);
+    // Best-effort: mark the row failed so an admin can see + retry rather
+    // than it silently sitting in 'pending' forever.
+    try {
+      await getDb()
+        .from("promoter_payouts")
+        .update({ status: "failed", failure_reason: "transfer_error", updated_at: new Date().toISOString() })
+        .eq("promoter_id", promoterId)
+        .eq("stripe_session_id", session.id)
+        .eq("status", "pending");
+    } catch { /* best-effort */ }
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
@@ -402,6 +532,16 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         console.error("[Webhook] inventory_gift_surcharge handler crashed:", err);
       }
+      return NextResponse.json({ received: true });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // PROMOTER PROGRAM — individualized-cut commission on plan-purchase
+    // sales attributed to a promoter's referral link. Plan-purchase sessions
+    // carry no leadId, so this must run before the leadId guard below.
+    // ═════════════════════════════════════════════════════════════════════
+    if (PLAN_PURCHASE_TYPES.has(metadata.type || "") && metadata.promoter_id) {
+      fireAndForget("promoter commission", () => processPromoterCommission(session));
       return NextResponse.json({ received: true });
     }
 
