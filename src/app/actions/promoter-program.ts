@@ -4,6 +4,11 @@ import { cookies } from "next/headers";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAppUrl } from "@/lib/url-helper";
+import {
+  sendPromoterApplicationReceivedEmail,
+  sendPromoterApplicationAdminAlert,
+  sendPromoterAgreementAcceptedAdminAlert,
+} from "@/lib/email";
 import type {
   PromoterApplication,
   PromoterApplicationStatus,
@@ -95,7 +100,7 @@ export async function applyToBePromoter(
 
   const { data: profile, error: profileErr } = await db()
     .from("profiles")
-    .select("id, is_promoter")
+    .select("id, email, first_name, last_name, business_name, is_promoter")
     .eq("id", user.id)
     .maybeSingle();
   if (profileErr) {
@@ -140,7 +145,73 @@ export async function applyToBePromoter(
     return { success: false, error: "Could not submit your application. Please try again." };
   }
 
+  // ── Notifications — fire-and-forget so a slow email server doesn't
+  //    leave the applicant staring at a spinner. The application is
+  //    persisted; the worst case is the admin doesn't get a courtesy
+  //    nudge (they'll still see the row in the queue).
+  const applicantName =
+    (profile.business_name as string | null) ||
+    [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
+    "An installer";
+  const applicantEmail = (profile.email as string | null) || user.email || null;
+
+  if (applicantEmail) {
+    void sendPromoterApplicationReceivedEmail(applicantEmail, {
+      name: applicantName,
+    }).catch((err) => console.warn("[Promoter] applicant email failed:", err));
+  }
+
+  void notifyAdminsOfApplication({
+    applicantName,
+    applicantEmail: applicantEmail || "(no email on file)",
+    applicationId: inserted.id as string,
+    applicationData,
+  });
+
   return { success: true, applicationId: inserted.id as string };
+}
+
+async function notifyAdminsOfApplication(payload: {
+  applicantName: string;
+  applicantEmail: string;
+  applicationId: string;
+  applicationData: Record<string, unknown>;
+}) {
+  try {
+    const { data: admins } = await db()
+      .from("profiles")
+      .select("email")
+      .eq("is_admin", true);
+    if (!admins) return;
+    for (const a of admins) {
+      const email = a.email as string | null;
+      if (!email) continue;
+      void sendPromoterApplicationAdminAlert(email, payload).catch((err) =>
+        console.warn("[Promoter] admin email failed:", err)
+      );
+    }
+  } catch (err) {
+    console.warn("[Promoter] notifyAdminsOfApplication lookup failed:", err);
+  }
+}
+
+async function notifyAdminsOfAcceptance(payload: { promoterName: string; agreementId: string }) {
+  try {
+    const { data: admins } = await db()
+      .from("profiles")
+      .select("email")
+      .eq("is_admin", true);
+    if (!admins) return;
+    for (const a of admins) {
+      const email = a.email as string | null;
+      if (!email) continue;
+      void sendPromoterAgreementAcceptedAdminAlert(email, payload).catch((err) =>
+        console.warn("[Promoter] acceptance admin email failed:", err)
+      );
+    }
+  } catch (err) {
+    console.warn("[Promoter] notifyAdminsOfAcceptance lookup failed:", err);
+  }
 }
 
 export interface MyPromoterStatusResult {
@@ -284,10 +355,18 @@ export async function acceptMyPromoterAgreement(
     return { success: false, error: "Could not accept the agreement. Try again." };
   }
 
-  await db()
+  const { data: profile } = await db()
     .from("profiles")
     .update({ is_promoter: true })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("first_name, last_name, business_name")
+    .maybeSingle();
+
+  const promoterName =
+    (profile?.business_name as string | null) ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+    "A promoter";
+  void notifyAdminsOfAcceptance({ promoterName, agreementId });
 
   return { success: true };
 }

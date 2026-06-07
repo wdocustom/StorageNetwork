@@ -64,6 +64,14 @@ export {
 } from "./emails/affiliateTemplates";
 
 export {
+  sendPromoterApplicationReceivedEmail,
+  sendPromoterApplicationAdminAlert,
+  sendPromoterAgreementProposedEmail,
+  sendPromoterApplicationRejectedEmail,
+  sendPromoterAgreementAcceptedAdminAlert,
+} from "./emails/promoterTemplates";
+
+export {
   sendRealtorWelcomeEmail,
   sendGiftRecipientInvite,
   sendGiftMagicCodeEmail,
