@@ -45,10 +45,24 @@ export async function verifyAndCreatePlanAccess(
       return { success: true, token: existing.access_token, email };
     }
 
-    // First time — insert and send email
+    // First time — insert and send email. Promoter attribution (if any)
+    // rides in the session metadata (set at checkout-creation time by
+    // /api/plans/checkout) — snapshot it here for the audit trail. The
+    // commission itself is computed and paid independently by the Stripe
+    // webhook, which doesn't depend on this row existing.
+    const promoterId = session.metadata?.promoter_id || null;
+    const promoterCode = session.metadata?.promoter_referral_code || null;
+
     const { data: inserted, error: insertError } = await supabase
       .from("public_plan_purchases")
-      .insert({ email, plan_id: planId, stripe_session_id: sessionId, email_sent: false })
+      .insert({
+        email,
+        plan_id: planId,
+        stripe_session_id: sessionId,
+        email_sent: false,
+        referred_by_promoter_id: promoterId,
+        promoter_referral_code_snapshot: promoterCode,
+      })
       .select("access_token")
       .single();
 

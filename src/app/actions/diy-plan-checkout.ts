@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { siteConfig } from "@/config/site";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import { resolvePromoterAttributionForCheckout } from "@/app/actions/promoter-program";
 import {
   enforceActionRateLimit,
   RateLimitError,
@@ -104,6 +105,12 @@ export async function createDIYPlanCheckout(
   try {
     const baseUrl = siteConfig.baseUrl;
 
+    // Promoter attribution — if the buyer arrived via a /promo/<code> link,
+    // stash the promoter id + code in metadata so the webhook can compute
+    // and pay their individualized commission on checkout.session.completed.
+    const buyer = await getAuthenticatedUser();
+    const attribution = await resolvePromoterAttributionForCheckout(buyer?.id ?? null);
+
     // Serialize config into the success URL so the PDF generator can use it
     const configParam = encodeURIComponent(JSON.stringify(config));
     const desc = `${config.cols}×${config.rows} ${config.unitType === "mini" ? "Mini" : "Standard"} Tote Organizer`;
@@ -130,6 +137,9 @@ export async function createDIYPlanCheckout(
         config: JSON.stringify(config),
         ...(config.installerId ? { installer_id: config.installerId } : {}),
         ...(config.installerSlug ? { installer_slug: config.installerSlug } : {}),
+        ...(attribution
+          ? { promoter_id: attribution.promoterId, promoter_referral_code: attribution.code }
+          : {}),
       },
     });
 

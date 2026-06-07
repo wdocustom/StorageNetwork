@@ -17,6 +17,8 @@ import {
 import { deactivateAccount } from "@/app/actions/debug";
 import { getMyAffiliateStatus } from "@/app/actions/affiliate-program";
 import type { AffiliateApplication } from "@/types/affiliate";
+import { getMyPromoterStatus } from "@/app/actions/promoter-program";
+import type { PromoterApplication } from "@/types/promoter";
 import {
   ArrowLeft,
   Camera,
@@ -40,6 +42,7 @@ import {
   DollarSign,
   Tag,
   Package,
+  Megaphone,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import CollapsibleSection from "@/components/dashboard/CollapsibleSection";
@@ -190,6 +193,12 @@ function ProfilePageInner() {
     useState<AffiliateApplication | null>(null);
   const [affiliateHasAgreement, setAffiliateHasAgreement] = useState(false);
 
+  // Promoter program state — fetched once on mount, same shape as affiliates.
+  const [promoterApplication, setPromoterApplication] =
+    useState<PromoterApplication | null>(null);
+  const [promoterHasAgreement, setPromoterHasAgreement] = useState(false);
+  const [isPromoter, setIsPromoter] = useState(false);
+
   // Deactivate state
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
@@ -305,6 +314,23 @@ function ProfilePageInner() {
         setAffiliateHasAgreement(res.hasAgreement);
       } catch (err) {
         console.warn("[Profile] affiliate status fetch failed:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Promoter status — same pattern as the affiliate fetch above.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getMyPromoterStatus();
+        if (cancelled) return;
+        setPromoterApplication(res.application);
+        setPromoterHasAgreement(res.hasAgreement);
+        setIsPromoter(res.isPromoter);
+      } catch (err) {
+        console.warn("[Profile] promoter status fetch failed:", err);
       }
     })();
     return () => { cancelled = true; };
@@ -1838,6 +1864,102 @@ function ProfilePageInner() {
                 </div>
               </section>
             )}
+
+            {/* ── Promoter Program ─────────────────────────────────── */}
+            {/* Share build-plan links and earn an individualized cut of
+                each plan sale, paid directly to your connected Stripe
+                account. Renders one of three states based on whether the
+                installer has an agreement on file (active/proposed) or an
+                application in flight — same shape as the affiliate CTA. */}
+            <section className="overflow-hidden rounded-2xl border border-yellow-400/20 bg-gradient-to-br from-yellow-400/5 to-slate-900">
+              <div className="p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-yellow-400" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+                    Promote Build Plans, Earn a Cut
+                  </h2>
+                </div>
+
+                {(promoterHasAgreement || isPromoter) && (
+                  <>
+                    <p className="mb-4 text-sm text-stone-400">
+                      Your custom commission terms are private to you. Open the portal to
+                      grab your share link and track your sales and earnings.
+                    </p>
+                    <a
+                      href="/dashboard/promoter/portal"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                      Open Promoter Portal
+                    </a>
+                  </>
+                )}
+
+                {!promoterHasAgreement && !isPromoter && !promoterApplication && (
+                  <>
+                    <p className="mb-4 text-sm text-stone-400">
+                      Share our build plans with your audience and earn a custom cut of
+                      every sale you drive — paid directly to your connected Stripe
+                      account. Each promoter&rsquo;s rate is negotiated individually.
+                    </p>
+                    <a
+                      href="/dashboard/promoter/apply"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                      Apply to Be a Promoter
+                    </a>
+                  </>
+                )}
+
+                {!promoterHasAgreement &&
+                  !isPromoter &&
+                  promoterApplication?.status === "pending" && (
+                    <div className="rounded-lg border border-yellow-400/30 bg-slate-900 p-3">
+                      <p className="text-sm font-bold text-white">
+                        Application under review
+                      </p>
+                      <p className="mt-1 text-xs text-stone-400">
+                        Submitted{" "}
+                        {new Date(promoterApplication.submitted_at).toLocaleDateString()}{" "}
+                        &middot; We respond personally within 3 business days.
+                      </p>
+                    </div>
+                  )}
+                {!promoterHasAgreement &&
+                  !isPromoter &&
+                  promoterApplication?.status === "rejected" && (
+                    <>
+                      <p className="mb-3 text-sm text-stone-400">
+                        Your last application wasn&rsquo;t a fit, but you&rsquo;re welcome to apply
+                        again whenever circumstances change.
+                      </p>
+                      <a
+                        href="/dashboard/promoter/apply"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        Apply Again
+                      </a>
+                    </>
+                  )}
+                {!promoterHasAgreement &&
+                  !isPromoter &&
+                  promoterApplication?.status === "withdrawn" && (
+                    <>
+                      <p className="mb-3 text-sm text-stone-400">
+                        You withdrew your previous application. Re-apply any time.
+                      </p>
+                      <a
+                        href="/dashboard/promoter/apply"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-yellow-400 py-3 text-sm font-bold uppercase tracking-wider text-gray-950 transition-all hover:bg-yellow-300"
+                      >
+                        Apply Again
+                      </a>
+                    </>
+                  )}
+              </div>
+            </section>
 
             {/* ── Partner Portal (legacy partners — Elite Storage Systems) ── */}
             {profile?.is_partner && (

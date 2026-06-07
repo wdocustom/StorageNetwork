@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
+import { resolvePromoterAttributionForCheckout } from "@/app/actions/promoter-program";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Chair Plans — Digital Plans + Physical MDF Template
@@ -41,6 +42,21 @@ const supabase = getServiceClient();
 const CHAIR_PLAN_PRICE_CENTS = 1800;     // $18.00
 const CHAIR_TEMPLATE_PRICE_CENTS = 7200; // $72.00
 const CHAIR_BUNDLE_PRICE_CENTS = 6000;   // $60.00
+
+// ── Promoter attribution ───────────────────────────────────────────────────
+// If the buyer arrived via a promoter's /promo/<code> link (cookie set
+// there), stash the promoter id + code snapshot in the session metadata so
+// the Stripe webhook can compute and pay their individualized commission on
+// checkout.session.completed. Returns {} when there's no attribution —
+// spread freely into `metadata` without branching at call sites.
+async function promoterMetadata(buyerUserId: string): Promise<Record<string, string>> {
+  const attribution = await resolvePromoterAttributionForCheckout(buyerUserId);
+  if (!attribution) return {};
+  return {
+    promoter_id: attribution.promoterId,
+    promoter_referral_code: attribution.code,
+  };
+}
 
 // ── Access checks ──────────────────────────────────────────────────────────
 
@@ -106,7 +122,7 @@ export async function createChairPlanCheckout(): Promise<{
       ],
       success_url: `${baseUrl}/dashboard/chair-plans?session_id={CHECKOUT_SESSION_ID}&type=plans`,
       cancel_url: `${baseUrl}/dashboard/guides`,
-      metadata: { type: "chair_plan", user_id: user.id },
+      metadata: { type: "chair_plan", user_id: user.id, ...(await promoterMetadata(user.id)) },
     });
 
     if (!session.url) return { success: false, error: "Failed to create checkout session." };
@@ -146,7 +162,7 @@ export async function createChairBundleCheckout(): Promise<{
       shipping_address_collection: { allowed_countries: ["US"] },
       success_url: `${baseUrl}/dashboard/chair-plans?session_id={CHECKOUT_SESSION_ID}&type=bundle`,
       cancel_url: `${baseUrl}/dashboard/guides`,
-      metadata: { type: "chair_bundle", user_id: user.id },
+      metadata: { type: "chair_bundle", user_id: user.id, ...(await promoterMetadata(user.id)) },
     });
 
     if (!session.url) return { success: false, error: "Failed to create checkout session." };
@@ -192,7 +208,7 @@ export async function createChairTemplateCheckout(): Promise<{
       shipping_address_collection: { allowed_countries: ["US"] },
       success_url: `${baseUrl}/dashboard/chair-plans?session_id={CHECKOUT_SESSION_ID}&type=template`,
       cancel_url: `${baseUrl}/dashboard/chair-plans`,
-      metadata: { type: "chair_template", user_id: user.id },
+      metadata: { type: "chair_template", user_id: user.id, ...(await promoterMetadata(user.id)) },
     });
 
     if (!session.url) return { success: false, error: "Failed to create checkout session." };
