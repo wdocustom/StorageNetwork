@@ -643,16 +643,25 @@ export default function PartnerDashboardPage() {
               </h2>
             </div>
             <p className="mb-4 text-xs text-stone-400">
-              Installers + affiliates live below in this portal. Realtors have their own admin
-              section with gift history, lock toggle, and deletion.
+              Installers + affiliates live below in this portal. Realtors and promoters have
+              their own admin sections.
             </p>
-            <Link
-              href="/dashboard/admin/realtors"
-              className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-yellow-300 transition-colors hover:bg-yellow-400/20"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              Manage realtors →
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/dashboard/admin/realtors"
+                className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-yellow-300 transition-colors hover:bg-yellow-400/20"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Manage realtors →
+              </Link>
+              <Link
+                href="/dashboard/admin/promoters"
+                className="inline-flex items-center gap-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-yellow-300 transition-colors hover:bg-yellow-400/20"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Manage promoters →
+              </Link>
+            </div>
           </section>
         )}
 
