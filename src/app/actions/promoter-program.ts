@@ -93,11 +93,15 @@ export async function applyToBePromoter(
     };
   }
 
-  const { data: profile } = await db()
+  const { data: profile, error: profileErr } = await db()
     .from("profiles")
     .select("id, is_promoter")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileErr) {
+    console.error("[Promoter] profile lookup failed:", profileErr);
+    return { success: false, error: "Could not load your profile. Please try again in a moment." };
+  }
   if (!profile) return { success: false, error: "Profile not found." };
   if (profile.is_promoter) {
     return {
@@ -149,11 +153,14 @@ export async function getMyPromoterStatus(): Promise<MyPromoterStatusResult> {
   const user = await getAuthenticatedUser();
   if (!user) return { application: null, isPromoter: false, hasAgreement: false };
 
-  const { data: profile } = await db()
+  const { data: profile, error: profileErr } = await db()
     .from("profiles")
     .select("is_promoter")
     .eq("id", user.id)
     .maybeSingle();
+  if (profileErr) {
+    console.error("[Promoter] status profile lookup failed:", profileErr);
+  }
 
   const { data: app } = await db()
     .from("promoter_applications")
@@ -309,6 +316,7 @@ export async function ensurePromoterReferralCode(): Promise<{
     .single();
 
   if (readErr || !profile) {
+    if (readErr) console.error("[Promoter] referral code profile lookup failed:", readErr);
     return { success: false, error: "Profile not found." };
   }
   if (!profile.is_promoter) {
