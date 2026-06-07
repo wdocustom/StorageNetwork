@@ -2,6 +2,10 @@
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase-server";
+import {
+  sendPromoterApplicationRejectedEmail,
+  sendPromoterAgreementProposedEmail,
+} from "@/lib/email";
 import type {
   PromoterApplicationStatus,
   PromoterAgreementConfig,
@@ -185,6 +189,7 @@ export async function rejectPromoterApplication(input: {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await db()
     .from("promoter_applications")
     .update({
@@ -196,7 +201,10 @@ export async function rejectPromoterApplication(input: {
     })
     .eq("id", input.applicationId)
     .eq("status", "pending")
-    .select("id")
+    .select(`
+      id, applicant_id,
+      profiles:applicant_id (email, first_name, last_name, business_name)
+    `)
     .maybeSingle();
 
   if (error) {
@@ -204,6 +212,19 @@ export async function rejectPromoterApplication(input: {
     return { success: false, error: "Could not reject application." };
   }
   if (!data) return { success: false, error: "Application not pending — already acted on." };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profile = (data as any).profiles;
+  const email = profile?.email as string | null;
+  const name =
+    (profile?.business_name as string | null) ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+    "There";
+  if (email) {
+    void sendPromoterApplicationRejectedEmail(email, { name }).catch((err) =>
+      console.warn("[Promoter.admin] reject email failed:", err)
+    );
+  }
 
   return { success: true };
 }
@@ -243,17 +264,23 @@ export async function proposePromoterAgreement(
     return { success: false, error: "Agreement body is required." };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: app } = await db()
     .from("promoter_applications")
-    .select("id, applicant_id, status")
+    .select(`
+      id, applicant_id, status,
+      profiles:applicant_id (email, first_name, last_name, business_name)
+    `)
     .eq("id", input.applicationId)
     .maybeSingle();
   if (!app) return { success: false, error: "Application not found." };
-  if (app.status !== "pending") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((app as any).status !== "pending") {
     return { success: false, error: "Application is no longer pending." };
   }
 
-  const applicantId = app.applicant_id as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applicantId = (app as any).applicant_id as string;
 
   const { data: existing } = await db()
     .from("promoter_agreements")
@@ -300,6 +327,21 @@ export async function proposePromoterAgreement(
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.applicationId);
+
+  // ── Notify the applicant. Fire-and-forget. ────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profile = (app as any).profiles;
+  const email = profile?.email as string | null;
+  const name =
+    (profile?.business_name as string | null) ||
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+    "There";
+  if (email) {
+    void sendPromoterAgreementProposedEmail(email, {
+      name,
+      agreementId: agreement.id as string,
+    }).catch((err) => console.warn("[Promoter.admin] propose email failed:", err));
+  }
 
   return { success: true, agreementId: agreement.id as string };
 }
