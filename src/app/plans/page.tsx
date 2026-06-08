@@ -222,7 +222,7 @@ export default function PlansPage() {
             Installers get plans included with their dashboard plus quoting tools, pay links, and job management.
           </p>
           <a
-            href="/register"
+            href="/invite"
             className="inline-block rounded-xl border border-yellow-400/30 px-5 py-2.5 text-xs font-bold text-yellow-400 transition hover:bg-yellow-400/10"
           >
             Join as an Installer
