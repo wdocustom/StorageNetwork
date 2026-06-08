@@ -1,0 +1,11 @@
+-- 130: Expand material_inventory JSONB with new tracked fields
+--
+-- New fields added to the material_inventory JSONB column:
+--   plywood_sheets_full  — full 4×8 plywood sheets on hand
+--   lumber_2x4_full      — full 8ft 2×4 boards on hand
+--   rails_2x4_pieces     — pre-ripped 2×4 rail pieces on hand
+--   caster_kits          — 4-pack caster kits on hand
+--
+-- No schema change needed — these are new keys in the existing JSONB.
+-- The normalizeInventory() function defaults missing keys to 0,
+-- so existing rows work without migration of data.
