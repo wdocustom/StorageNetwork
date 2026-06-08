@@ -32,21 +32,38 @@ export interface LumberOffcut {
 }
 
 export interface MaterialInventory {
+  // ── Screws ──────────────────────────────────────────────────────────
   screws_1_5_8: number; // individual count
   screws_3: number; // individual count
   screws_1: number; // individual count
+
+  // ── Plywood ─────────────────────────────────────────────────────────
+  plywood_sheets_full: number; // full 4x8 sheets on hand (uncut)
   plywood_strips: number; // standard-width rail strips (1-7/8") from offcuts
   plywood_strips_mini: number; // mini-width rail strips (1") from offcuts
+
+  // ── 2×4 Lumber ──────────────────────────────────────────────────────
+  lumber_2x4_full: number; // full 8ft 2x4 boards on hand (uncut)
   lumber_offcuts: LumberOffcut[]; // 2x4 offcuts from previous builds
+
+  // ── 2×4 Rail Construction ───────────────────────────────────────────
+  rails_2x4_pieces: number; // pre-ripped 2x4 rail pieces on hand
+
+  // ── Casters ─────────────────────────────────────────────────────────
+  caster_kits: number; // 4-pack caster kits on hand
 }
 
 export const EMPTY_INVENTORY: MaterialInventory = {
   screws_1_5_8: 0,
   screws_3: 0,
   screws_1: 0,
+  plywood_sheets_full: 0,
   plywood_strips: 0,
   plywood_strips_mini: 0,
+  lumber_2x4_full: 0,
   lumber_offcuts: [],
+  rails_2x4_pieces: 0,
+  caster_kits: 0,
 };
 
 /** Ensure we always have a valid inventory object. */
@@ -69,9 +86,13 @@ export function normalizeInventory(raw: unknown): MaterialInventory {
     screws_1_5_8: Math.max(0, Number(inv.screws_1_5_8) || 0),
     screws_3: Math.max(0, Number(inv.screws_3) || 0),
     screws_1: Math.max(0, Number(inv.screws_1) || 0),
+    plywood_sheets_full: Math.max(0, Math.floor(Number(inv.plywood_sheets_full) || 0)),
     plywood_strips: Math.max(0, Number(inv.plywood_strips) || 0),
     plywood_strips_mini: Math.max(0, Number(inv.plywood_strips_mini) || 0),
+    lumber_2x4_full: Math.max(0, Math.floor(Number(inv.lumber_2x4_full) || 0)),
     lumber_offcuts: offcuts,
+    rails_2x4_pieces: Math.max(0, Math.floor(Number(inv.rails_2x4_pieces) || 0)),
+    caster_kits: Math.max(0, Math.floor(Number(inv.caster_kits) || 0)),
   };
 }
 
@@ -163,6 +184,10 @@ export interface RawJobNeeds {
   wheel_kits: number;
   /** Individual 2x4 part lengths (inches) for offcut-aware bin packing. */
   lumber_part_lengths?: number[];
+  /** Total 2×4 rail pieces needed (when use2x4Rails is enabled). */
+  rails_2x4_pieces?: number;
+  /** 2×4 boards needed specifically for rail ripping. */
+  rails_2x4_boards?: number;
 }
 
 // ── Net Purchase Item ────────────────────────────────────────────────────
@@ -201,23 +226,52 @@ export function calculateNetPurchaseList(
   const items: NetPurchaseItem[] = [];
   let coveredCount = 0;
 
-  // ── Lumber ─────────────────────────────────────────────────────────────
-  // If we have offcuts in inventory AND the job provides part lengths,
-  // fill from offcuts first and only buy fresh stock for the rest.
+  // ── Lumber (full boards + offcuts) ────────────────────────────────────
+  // Priority: 1) offcuts, 2) full boards from inventory, 3) buy new
   const partLengths = raw.lumber_part_lengths ?? [];
   let boardsToBuy = raw.lumber_boards;
   let offcutsUsed = 0;
+  let fullBoardsUsed = 0;
   let offcutsAfterLumber = inventory.lumber_offcuts;
   let newOffcuts: LumberOffcut[] = [];
+  let fullBoardsRemaining = inventory.lumber_2x4_full;
 
-  if (partLengths.length > 0 && inventory.lumber_offcuts.length > 0) {
-    const result = fillPartsFromOffcuts(partLengths, inventory.lumber_offcuts);
-    offcutsUsed = result.placedCount;
-    offcutsAfterLumber = result.offcutsAfter;
+  if (partLengths.length > 0) {
+    // Step 1: Fill from offcuts
+    if (inventory.lumber_offcuts.length > 0) {
+      const result = fillPartsFromOffcuts(partLengths, inventory.lumber_offcuts);
+      offcutsUsed = result.placedCount;
+      offcutsAfterLumber = result.offcutsAfter;
 
-    // Bin-pack remaining parts into fresh 2x4s
-    if (result.remainingParts.length > 0) {
-      const sorted = [...result.remainingParts].sort((a, b) => b - a);
+      // Step 2: Bin-pack remaining parts, using full boards from inventory first
+      if (result.remainingParts.length > 0) {
+        const sorted = [...result.remainingParts].sort((a, b) => b - a);
+        const bins: number[] = [];
+        for (const len of sorted) {
+          let placed = false;
+          for (let b = 0; b < bins.length; b++) {
+            if (bins[b] >= len + KERF) {
+              bins[b] -= len + KERF;
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            bins.push(STOCK_LENGTH - len);
+          }
+        }
+        const totalBoardsNeeded = bins.length;
+        fullBoardsUsed = Math.min(fullBoardsRemaining, totalBoardsNeeded);
+        fullBoardsRemaining -= fullBoardsUsed;
+        boardsToBuy = totalBoardsNeeded - fullBoardsUsed;
+        newOffcuts = bins.filter((rem) => rem >= 6).map((rem) => ({ length: rem }));
+      } else {
+        boardsToBuy = 0;
+        newOffcuts = [];
+      }
+    } else {
+      // No offcuts — bin-pack all parts, using full boards from inventory first
+      const sorted = [...partLengths].sort((a, b) => b - a);
       const bins: number[] = [];
       for (const len of sorted) {
         let placed = false;
@@ -232,73 +286,130 @@ export function calculateNetPurchaseList(
           bins.push(STOCK_LENGTH - len);
         }
       }
-      boardsToBuy = bins.length;
-      // Collect new offcuts from fresh boards
+      const totalBoardsNeeded = bins.length;
+      fullBoardsUsed = Math.min(fullBoardsRemaining, totalBoardsNeeded);
+      fullBoardsRemaining -= fullBoardsUsed;
+      boardsToBuy = totalBoardsNeeded - fullBoardsUsed;
       newOffcuts = bins.filter((rem) => rem >= 6).map((rem) => ({ length: rem }));
-    } else {
-      boardsToBuy = 0;
-      newOffcuts = [];
     }
-  } else if (partLengths.length > 0) {
-    // No offcuts in inventory — calculate new offcuts from all parts
-    newOffcuts = calculateNewOffcuts(partLengths);
+  } else if (raw.lumber_boards > 0) {
+    // No part lengths — simple board count (rare fallback)
+    fullBoardsUsed = Math.min(fullBoardsRemaining, raw.lumber_boards);
+    fullBoardsRemaining -= fullBoardsUsed;
+    boardsToBuy = raw.lumber_boards - fullBoardsUsed;
   }
 
+  const totalLumberSaved = offcutsUsed + fullBoardsUsed;
+
   if (boardsToBuy > 0) {
-    const detail = offcutsUsed > 0
-      ? `Cut to length per plan — ${offcutsUsed} part${offcutsUsed > 1 ? "s" : ""} from offcuts`
-      : "Cut to length per plan";
+    const savingsNote = totalLumberSaved > 0
+      ? ` — ${offcutsUsed > 0 ? `${offcutsUsed} from offcuts` : ""}${offcutsUsed > 0 && fullBoardsUsed > 0 ? ", " : ""}${fullBoardsUsed > 0 ? `${fullBoardsUsed} from stock` : ""}`
+      : "";
     items.push({
       name: "2×4 Lumber (8ft)",
-      detail,
+      detail: `Cut to length per plan${savingsNote}`,
       qty: boardsToBuy,
       covered: false,
     });
-  } else if (raw.lumber_boards > 0 && offcutsUsed > 0) {
-    // All parts covered by offcuts
+  } else if (raw.lumber_boards > 0 && totalLumberSaved > 0) {
     coveredCount++;
     items.push({
       name: "2×4 Lumber (8ft)",
-      detail: `In stock — all ${offcutsUsed} parts from offcuts`,
+      detail: `In stock — all parts covered`,
       qty: 0,
       covered: true,
     });
   }
 
-  // ── Plywood ──────────────────────────────────────────────────────────
-  // Top sheets are always purchased fresh (cut to unit width)
-  // Shelving sheets are always purchased fresh
+  // ── 2×4 Rail Pieces (inventory-tracked) ───────────────────────────────
+  const railPiecesNeeded = raw.rails_2x4_pieces ?? 0;
+  let railPiecesFromStock = 0;
+  let railBoardsToBuy = raw.rails_2x4_boards ?? 0;
+  let railPiecesRemaining = inventory.rails_2x4_pieces;
+
+  if (railPiecesNeeded > 0 && railPiecesRemaining > 0) {
+    railPiecesFromStock = Math.min(railPiecesRemaining, railPiecesNeeded);
+    railPiecesRemaining -= railPiecesFromStock;
+    const piecesStillNeeded = railPiecesNeeded - railPiecesFromStock;
+    if (piecesStillNeeded <= 0) {
+      railBoardsToBuy = 0;
+    } else {
+      // Recalculate boards needed for remaining rail pieces
+      // Use the yield from raw counts ratio
+      const yieldPerBoard = railPiecesNeeded > 0 && (raw.rails_2x4_boards ?? 0) > 0
+        ? Math.ceil(railPiecesNeeded / (raw.rails_2x4_boards ?? 1))
+        : 6; // fallback: standard depth yields 6/board
+      railBoardsToBuy = Math.ceil(piecesStillNeeded / yieldPerBoard);
+    }
+  }
+
+  // New rail pieces from fresh boards (leftover after cutting what's needed)
+  let newRailPieces = 0;
+  if (railBoardsToBuy > 0 && railPiecesNeeded > 0) {
+    const yieldPerBoard = railPiecesNeeded > 0 && (raw.rails_2x4_boards ?? 0) > 0
+      ? Math.ceil(railPiecesNeeded / (raw.rails_2x4_boards ?? 1))
+      : 6;
+    const totalFromFresh = railBoardsToBuy * yieldPerBoard;
+    const piecesStillNeeded = railPiecesNeeded - railPiecesFromStock;
+    newRailPieces = Math.max(0, totalFromFresh - piecesStillNeeded);
+  }
+
+  // ── Plywood (full sheets + strips) ───────────────────────────────────
+  // Full sheets from inventory can serve as structural sheets (72 strips each)
+  // or top sheets. Priority: use full sheets for structural needs first.
   //
-  // Standard strips (1-7/8"): use inventory + top offcuts first
+  // First build logic: when buying a full sheet for structural strips,
+  // the ENTIRE sheet is ripped (72 strips) because partial-sheet offcuts
+  // can't serve as tops (need 30" depth). So first structural sheet
+  // purchase = 72 strips into inventory, then the build consumes what it needs.
+
   const stripsFromTops = raw.plywood_top_sheets * BOX_SIZES.plywood_strips_per_top_offcut;
   const availableStrips = inventory.plywood_strips + stripsFromTops;
   const netStripNeed = Math.max(0, raw.plywood_strips - availableStrips);
-  const structSheetsToBuy = Math.ceil(netStripNeed / BOX_SIZES.plywood_strips_per_struct_sheet);
+  let structSheetsToBuy = Math.ceil(netStripNeed / BOX_SIZES.plywood_strips_per_struct_sheet);
 
-  // Mini strips (1"): use inventory strips (any width works) + mini top offcuts first
-  // Standard 1-7/8" strips from inventory can serve as 1" mini rails — wider is fine.
-  // But only use standard inventory for mini AFTER standard needs are met.
+  // Use full plywood sheets from inventory for structural needs
+  let fullSheetsUsedForStruct = 0;
+  let fullSheetsRemaining = inventory.plywood_sheets_full;
+  if (structSheetsToBuy > 0 && fullSheetsRemaining > 0) {
+    fullSheetsUsedForStruct = Math.min(fullSheetsRemaining, structSheetsToBuy);
+    fullSheetsRemaining -= fullSheetsUsedForStruct;
+    structSheetsToBuy -= fullSheetsUsedForStruct;
+  }
+
+  // Mini strips
   const standardInventoryAfterStandard = Math.max(0,
-    inventory.plywood_strips + stripsFromTops + structSheetsToBuy * BOX_SIZES.plywood_strips_per_struct_sheet - raw.plywood_strips
+    inventory.plywood_strips + stripsFromTops
+    + (structSheetsToBuy + fullSheetsUsedForStruct) * BOX_SIZES.plywood_strips_per_struct_sheet
+    - raw.plywood_strips
   );
-  const miniStripsFromTops = raw.plywood_top_sheets > 0 ? 0 : 0; // mini top offcuts handled by calculate-materials
-  const availableMiniStrips = inventory.plywood_strips_mini + standardInventoryAfterStandard + miniStripsFromTops;
+  const availableMiniStrips = inventory.plywood_strips_mini + standardInventoryAfterStandard;
   const netMiniStripNeed = Math.max(0, (raw.plywood_strips_mini ?? 0) - availableMiniStrips);
-  const miniStructSheetsToBuy = Math.ceil(netMiniStripNeed / BOX_SIZES.plywood_mini_strips_per_struct_sheet);
+  let miniStructSheetsToBuy = Math.ceil(netMiniStripNeed / BOX_SIZES.plywood_mini_strips_per_struct_sheet);
+
+  // Use full sheets for mini structural if needed
+  let fullSheetsUsedForMini = 0;
+  if (miniStructSheetsToBuy > 0 && fullSheetsRemaining > 0) {
+    fullSheetsUsedForMini = Math.min(fullSheetsRemaining, miniStructSheetsToBuy);
+    fullSheetsRemaining -= fullSheetsUsedForMini;
+    miniStructSheetsToBuy -= fullSheetsUsedForMini;
+  }
 
   const shelvingSheets = raw.plywood_shelving_sheets || 0;
   const addonSheets = raw.plywood_addon_sheets || 0;
   const totalPlywoodSheets = raw.plywood_top_sheets + structSheetsToBuy + miniStructSheetsToBuy + shelvingSheets + addonSheets;
 
   // Remaining strips after this job
+  const totalStructSheets = structSheetsToBuy + fullSheetsUsedForStruct;
   const stripsAfter =
     availableStrips +
-    structSheetsToBuy * BOX_SIZES.plywood_strips_per_struct_sheet -
+    totalStructSheets * BOX_SIZES.plywood_strips_per_struct_sheet -
     raw.plywood_strips;
 
+  const totalMiniStructSheets = miniStructSheetsToBuy + fullSheetsUsedForMini;
   const miniStripsAfter =
     availableMiniStrips +
-    miniStructSheetsToBuy * BOX_SIZES.plywood_mini_strips_per_struct_sheet -
+    totalMiniStructSheets * BOX_SIZES.plywood_mini_strips_per_struct_sheet -
     (raw.plywood_strips_mini ?? 0);
 
   if (totalPlywoodSheets > 0) {
@@ -311,13 +422,16 @@ export function calculateNetPurchaseList(
 
     let detail = parts.length > 1 ? parts.join(" + ") : "Total Sheets";
 
-    // If strips fully covered by inventory/offcuts, note savings
     const totalStripsNeeded = raw.plywood_strips + (raw.plywood_strips_mini ?? 0);
     if (totalStripsNeeded > 0 && structSheetsToBuy === 0 && miniStructSheetsToBuy === 0 && parts.length > 0) {
       detail += " (strips from offcuts)";
     }
 
-    // Show savings from inventory
+    const totalFromStock = fullSheetsUsedForStruct + fullSheetsUsedForMini;
+    if (totalFromStock > 0) {
+      detail += ` (${totalFromStock} from stock)`;
+    }
+
     const fullStructSheets = Math.ceil(
       Math.max(0, raw.plywood_strips - stripsFromTops) /
         BOX_SIZES.plywood_strips_per_struct_sheet
@@ -326,9 +440,17 @@ export function calculateNetPurchaseList(
 
     items.push({
       name: "Plywood Sheet",
-      detail: saved > 0 ? `${detail} (${saved} saved from stock)` : detail,
+      detail: saved > 0 && totalFromStock === 0 ? `${detail} (${saved} saved from strips)` : detail,
       qty: totalPlywoodSheets,
       covered: false,
+    });
+  } else if ((raw.plywood_strips > 0 || (raw.plywood_strips_mini ?? 0) > 0) && (fullSheetsUsedForStruct > 0 || fullSheetsUsedForMini > 0)) {
+    coveredCount++;
+    items.push({
+      name: "Plywood Sheet",
+      detail: "In stock — all sheets covered",
+      qty: 0,
+      covered: true,
     });
   }
 
@@ -342,19 +464,36 @@ export function calculateNetPurchaseList(
     });
   }
 
-  // ── Wheels (per-job, no inventory tracking) ───────────────────────────
-  if (raw.wheel_kits > 0) {
-    items.push({
-      name: "Caster Kit (4pk)",
-      detail: "Mounted to base",
-      qty: raw.wheel_kits,
-      covered: false,
-    });
+  // ── Caster Kits (inventory-tracked) ──────────────────────────────────
+  const casterKitsNeeded = raw.wheel_kits;
+  let casterKitsFromStock = 0;
+  let casterKitsToBuy = casterKitsNeeded;
+  let casterKitsRemaining = inventory.caster_kits;
+
+  if (casterKitsNeeded > 0) {
+    casterKitsFromStock = Math.min(casterKitsRemaining, casterKitsNeeded);
+    casterKitsRemaining -= casterKitsFromStock;
+    casterKitsToBuy = casterKitsNeeded - casterKitsFromStock;
+
+    if (casterKitsToBuy > 0) {
+      items.push({
+        name: "Caster Kit (4pk)",
+        detail: `Mounted to base${casterKitsFromStock > 0 ? ` — ${casterKitsFromStock} from stock` : ""}`,
+        qty: casterKitsToBuy,
+        covered: false,
+      });
+    } else {
+      coveredCount++;
+      items.push({
+        name: "Caster Kit (4pk)",
+        detail: `In stock (${inventory.caster_kits} on hand, using ${casterKitsNeeded})`,
+        qty: 0,
+        covered: true,
+      });
+    }
   }
 
   // ── Screws (inventory-tracked) ────────────────────────────────────────
-  // NOTE: raw screw counts already include a 5% human error factor
-  // (applied in calculate-materials.ts) for dropped/miscounted/damaged screws.
   const screwTypes: {
     key: keyof Pick<MaterialInventory, "screws_1_5_8" | "screws_3" | "screws_1">;
     name: string;
@@ -394,7 +533,6 @@ export function calculateNetPurchaseList(
     screwsAfter[st.key] = remaining;
 
     if (boxesToBuy === 0) {
-      // Fully covered by inventory — omit from purchase list
       coveredCount++;
       items.push({
         name: st.name,
@@ -424,9 +562,13 @@ export function calculateNetPurchaseList(
       screws_1_5_8: screwsAfter.screws_1_5_8,
       screws_3: screwsAfter.screws_3,
       screws_1: screwsAfter.screws_1,
+      plywood_sheets_full: fullSheetsRemaining,
       plywood_strips: Math.max(0, stripsAfter),
       plywood_strips_mini: Math.max(0, miniStripsAfter),
+      lumber_2x4_full: fullBoardsRemaining,
       lumber_offcuts: combinedOffcuts,
+      rails_2x4_pieces: railPiecesRemaining + newRailPieces,
+      caster_kits: casterKitsRemaining,
     },
   };
 }

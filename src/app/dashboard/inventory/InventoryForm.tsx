@@ -9,27 +9,33 @@ import {
 } from "@/app/actions/inventory";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Manual inventory editor — five numeric counts plus lumber offcuts.
-// Offcuts are edited as a comma-separated list of inch lengths so the
-// installer can type "48, 36, 30" without a per-item form.
-// ═══════════════════════════════════════════════════════════════════════════
-
 interface Props {
   initial: MaterialInventory;
+  use2x4Rails?: boolean;
 }
 
-export function InventoryForm({ initial }: Props) {
+export function InventoryForm({ initial, use2x4Rails }: Props) {
+  // Screws
   const [screws158, setScrews158] = useState(String(initial.screws_1_5_8));
   const [screws3, setScrews3] = useState(String(initial.screws_3));
   const [screws1, setScrews1] = useState(String(initial.screws_1));
+
+  // Plywood
+  const [plywoodSheetsFull, setPlywoodSheetsFull] = useState(String(initial.plywood_sheets_full));
   const [plywoodStrips, setPlywoodStrips] = useState(String(initial.plywood_strips));
-  const [plywoodStripsMini, setPlywoodStripsMini] = useState(
-    String(initial.plywood_strips_mini)
-  );
+  const [plywoodStripsMini, setPlywoodStripsMini] = useState(String(initial.plywood_strips_mini));
+
+  // 2×4 Lumber
+  const [lumber2x4Full, setLumber2x4Full] = useState(String(initial.lumber_2x4_full));
   const [offcuts, setOffcuts] = useState(
     initial.lumber_offcuts.map((o) => o.length).join(", ")
   );
+
+  // 2×4 Rails
+  const [rails2x4Pieces, setRails2x4Pieces] = useState(String(initial.rails_2x4_pieces));
+
+  // Casters
+  const [casterKits, setCasterKits] = useState(String(initial.caster_kits));
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +57,13 @@ export function InventoryForm({ initial }: Props) {
         screws_1_5_8: Number(screws158) || 0,
         screws_3: Number(screws3) || 0,
         screws_1: Number(screws1) || 0,
+        plywood_sheets_full: Number(plywoodSheetsFull) || 0,
         plywood_strips: Number(plywoodStrips) || 0,
         plywood_strips_mini: Number(plywoodStripsMini) || 0,
+        lumber_2x4_full: Number(lumber2x4Full) || 0,
         lumber_offcuts: parseOffcuts(offcuts),
+        rails_2x4_pieces: Number(rails2x4Pieces) || 0,
+        caster_kits: Number(casterKits) || 0,
       });
       if (!result.success) {
         setError(result.error ?? "Could not save inventory.");
@@ -75,9 +85,13 @@ export function InventoryForm({ initial }: Props) {
       setScrews158("0");
       setScrews3("0");
       setScrews1("0");
+      setPlywoodSheetsFull("0");
       setPlywoodStrips("0");
       setPlywoodStripsMini("0");
+      setLumber2x4Full("0");
       setOffcuts("");
+      setRails2x4Pieces("0");
+      setCasterKits("0");
       setConfirmClear(false);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
@@ -86,51 +100,118 @@ export function InventoryForm({ initial }: Props) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
-          Screws (individual count)
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <NumberField label='1-5/8" #8' value={screws158} onChange={setScrews158} help="158 per box" />
-          <NumberField label='3" frame' value={screws3} onChange={setScrews3} help="137 per box" />
-          <NumberField label='1" mini' value={screws1} onChange={setScrews1} help="90 per box" />
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-        <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
-          Plywood rail strips
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumberField
-            label="Standard (1-7/8″)"
-            value={plywoodStrips}
-            onChange={setPlywoodStrips}
-            help="From offcuts"
-          />
-          <NumberField
-            label="Mini (1″)"
-            value={plywoodStripsMini}
-            onChange={setPlywoodStripsMini}
-            help="From offcuts"
-          />
-        </div>
-      </section>
-
+      {/* ── 2×4 Lumber ──────────────────────────────────────────────── */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
         <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
-          2×4 lumber offcuts
+          2×4 Lumber
         </h2>
-        <p className="mb-3 text-[11px] text-stone-500">
-          Comma-separated lengths in inches. E.g. <span className="font-mono text-stone-400">48, 36, 30</span>.
+        <p className="mb-4 text-[11px] text-stone-500">
+          Full boards and leftover offcuts from previous builds.
         </p>
-        <textarea
-          value={offcuts}
-          onChange={(e) => setOffcuts(e.target.value)}
-          placeholder="48, 36, 30"
-          rows={3}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+        <div className="mb-4">
+          <NumberField
+            label="Full 8ft boards"
+            value={lumber2x4Full}
+            onChange={setLumber2x4Full}
+            help="Uncut 2×4 × 8' boards on hand"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-medium text-stone-400">Offcuts</label>
+          <p className="mb-2 text-[10px] text-stone-500">
+            Comma-separated lengths in inches. E.g. <span className="font-mono text-stone-400">48, 36, 30</span>.
+            Auto-updated after each build — edit to match what&apos;s actually on hand.
+          </p>
+          <textarea
+            value={offcuts}
+            onChange={(e) => setOffcuts(e.target.value)}
+            placeholder="48, 36, 30"
+            rows={3}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-stone-600 focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/30"
+          />
+        </div>
+      </section>
+
+      {/* ── Plywood ─────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
+          Plywood
+        </h2>
+        <p className="mb-4 text-[11px] text-stone-500">
+          Full sheets for tops and structural cuts. Rail strips are auto-generated
+          from builds — adjust here if your actual count differs.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <NumberField
+            label="Full 4×8 sheets"
+            value={plywoodSheetsFull}
+            onChange={setPlywoodSheetsFull}
+            help="Uncut sheets on hand"
+          />
+          <NumberField
+            label='Rail strips (1-7/8")'
+            value={plywoodStrips}
+            onChange={setPlywoodStrips}
+            help="Standard width — from offcuts"
+          />
+          <NumberField
+            label='Mini strips (1")'
+            value={plywoodStripsMini}
+            onChange={setPlywoodStripsMini}
+            help="Mini width — from offcuts"
+          />
+        </div>
+      </section>
+
+      {/* ── 2×4 Rail Pieces (shown when 2x4 rail mode is enabled) ── */}
+      {use2x4Rails && (
+        <section className="rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5">
+          <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-yellow-400">
+            2×4 Rail Construction
+          </h2>
+          <p className="mb-4 text-[11px] text-stone-500">
+            Pre-ripped rail pieces from previous builds. Auto-updated when builds
+            produce leftovers — adjust to match actual on-hand count.
+          </p>
+          <NumberField
+            label="Rail pieces on hand"
+            value={rails2x4Pieces}
+            onChange={setRails2x4Pieces}
+            help="Ripped 2×4 rail strips ready to install"
+          />
+        </section>
+      )}
+
+      {/* ── Casters ─────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
+          Casters
+        </h2>
+        <p className="mb-4 text-[11px] text-stone-500">
+          Wheel kits on hand. Each kit includes 4 casters for one unit base.
+        </p>
+        <NumberField
+          label="Caster kits (4-pack)"
+          value={casterKits}
+          onChange={setCasterKits}
+          help="1 kit per wheeled unit"
         />
+      </section>
+
+      {/* ── Screws ──────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+        <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-stone-400">
+          Screws (individual count)
+        </h2>
+        <p className="mb-4 text-[11px] text-stone-500">
+          Enter the number of individual screws, not boxes. The system
+          converts to boxes automatically on purchase lists.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <NumberField label='1-5/8" #8' value={screws158} onChange={setScrews158} help="158 per box — rail screws" />
+          <NumberField label='3" frame' value={screws3} onChange={setScrews3} help="137 per box — structural" />
+          <NumberField label='1" mini' value={screws1} onChange={setScrews1} help="90 per box — caster screws" />
+        </div>
       </section>
 
       {error && (

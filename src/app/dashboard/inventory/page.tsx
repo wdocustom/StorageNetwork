@@ -5,21 +5,18 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Package } from "lucide-react";
 
 import { getAuthenticatedUser } from "@/lib/auth";
-import { getInstallerInventory } from "@/app/actions/inventory";
+import { getInstallerInventory, getInstallerUse2x4Rails } from "@/app/actions/inventory";
 import { InventoryForm } from "./InventoryForm";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// /dashboard/inventory — manual edit + reset for the auto-tracked
-// material inventory. The Smart Inventory system deducts items as jobs
-// complete; this page is the escape hatch when that drifts out of sync
-// with what's actually in the shop.
-// ═══════════════════════════════════════════════════════════════════════════
 
 export default async function InventoryPage() {
   const user = await getAuthenticatedUser();
-  if (!user) redirect("/login");
+  if (!user) return redirect("/login");
 
-  const inventory = await getInstallerInventory(user.id);
+  const userId = user.id;
+  const [inventory, use2x4Rails] = await Promise.all([
+    getInstallerInventory(userId),
+    getInstallerUse2x4Rails(userId),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -42,14 +39,15 @@ export default async function InventoryPage() {
             </p>
             <h1 className="text-2xl font-black sm:text-3xl">Materials on hand</h1>
             <p className="mt-2 max-w-xl text-sm text-stone-400">
-              Edit any value below to match what&apos;s actually in your shop, or use
+              Quantities are auto-updated after each build. Edit any value
+              below to match what&apos;s actually in your shop, or use
               <span className="font-bold text-stone-300"> Clear All </span>
-              to reset everything to zero when the auto-tracking has drifted.
+              to reset everything to zero.
             </p>
           </div>
         </div>
 
-        <InventoryForm initial={inventory} />
+        <InventoryForm initial={inventory} use2x4Rails={use2x4Rails} />
       </div>
     </div>
   );

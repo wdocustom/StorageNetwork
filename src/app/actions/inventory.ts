@@ -29,6 +29,20 @@ export async function getInstallerInventory(
   return normalizeInventory(data?.material_inventory);
 }
 
+/** Check if the installer has 2×4 rail construction enabled. */
+export async function getInstallerUse2x4Rails(
+  installerId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("pricing_config")
+    .eq("id", installerId)
+    .single();
+
+  const config = data?.pricing_config as Record<string, unknown> | null;
+  return config?.use_2x4_rails === true;
+}
+
 /**
  * Update inventory after a job is completed.
  * Calculates what was purchased and what remains, then persists.
