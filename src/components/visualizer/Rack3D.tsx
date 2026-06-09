@@ -2132,16 +2132,16 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
   const backBaseZ = rearSlatZ - 1;
   const backBaseY = runnerTopY(backBaseZ);
 
-  // ── Front legs — positioned where runner is tall, legs extend DOWN ──
-  // Plans: "near the front" of the base, screw from seat into top of leg.
-  // Leg TOP aligns with runner TOP. Leg extends downward from there.
-  const legZ = seatSlats[0].z - 2; // slightly behind front slat
-  const legTopY = runnerTopY(legZ); // runner top at leg position
-  const legBottomY = legTopY - legH; // leg extends downward
-  const legCY = legTopY - legH / 2; // center Y of leg
+  // ── Front legs — bottom at runner bottom, extending up to armrest ────
+  // The leg is on the OUTSIDE of the runner. Its lower portion overlaps
+  // the runner vertically; the upper portion extends above to support
+  // the armrest. The 3" deck screw goes from the seat area down through
+  // the base into the leg's top, securing the overlap zone.
+  const legZ  = seatSlats[0].z - 1;
+  const legCY = legH / 2;           // bottom at Y≈0, top at Y≈20.25
 
   // ── Armrests — on top of legs, with 2" front overhang ───────────────
-  const armTopY   = legTopY + T / 2;
+  const armTopY   = legH + T / 2;   // 21"
   const armFrontZ = legZ + W6 / 2 + 2;
   const armCZ     = armFrontZ - armL / 2;
 
@@ -2166,7 +2166,6 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
           </mesh>
 
           {/* ── Front Legs (2×6, outside of runners) ───────────────── */}
-          {/* Legs attach to runner face with TOP at runner TOP level */}
           {[-1, 1].map((side, i) => (
             <mesh key={`leg-${i}`} material={darkMat}
               position={[side * (RS + T), legCY, legZ]}
@@ -2225,9 +2224,9 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
 function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
-    const d = 1.6;
-    camera.position.set(d * 0.75, d * 0.32, d * 0.85);
-    camera.lookAt(0, 0.20, -0.05);
+    const d = 1.4;
+    camera.position.set(d * 0.95, d * 0.45, d * 0.70);
+    camera.lookAt(0, 0.18, 0);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return null;
