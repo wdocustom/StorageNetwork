@@ -77,6 +77,11 @@ export default function DesignConfigurator({
     setOrderItems: cart.setOrderItems,
   });
 
+  // Chair configurator state (flows through Steps 1→3→4)
+  const [chairSelected, setChairSelected] = useState(false);
+  const [chairFinish, setChairFinish] = useState<import("@/lib/chairs").ChairFinish>("natural");
+  const [chairQuantity, setChairQuantity] = useState(1);
+
   const booking = useBookingForm({
     installerId: installer.installerId,
   });
@@ -786,7 +791,7 @@ export default function DesignConfigurator({
 
           // Presets
           activePreset={presets.activePreset}
-          onPresetChange={(v) => { presets.setActivePreset(v); presets.setCompoundBuild(null); productAddons.setRaisedBedPreview(null); productAddons.setOverheadPreview(null); }}
+          onPresetChange={(v) => { presets.setActivePreset(v); presets.setCompoundBuild(null); productAddons.setRaisedBedPreview(null); productAddons.setOverheadPreview(null); setChairSelected(false); productAddons.setChairPreview(null); }}
           presetOptions={installer.filteredPresets}
           compoundBuild={presets.compoundBuild}
           presetLoading={presets.presetLoading}
@@ -817,10 +822,33 @@ export default function DesignConfigurator({
 
           // Adirondack Chair
           chairHidden={!installer.chairEnabled}
+          chairSelected={chairSelected}
+          onChairSelect={() => {
+            setChairSelected(true);
+            setChairFinish("natural");
+            setChairQuantity(1);
+            productAddons.setChairPreview({ finish: "natural" });
+            productAddons.setOverheadPreview(null);
+            productAddons.setRaisedBedPreview(null);
+            presets.setActivePreset(null);
+            presets.setCompoundBuild(null);
+          }}
+          chairFinish={chairFinish}
+          onChairFinishChange={(f) => {
+            setChairFinish(f);
+            productAddons.setChairPreview({ finish: f });
+          }}
+          chairQuantity={chairQuantity}
+          onChairQuantityChange={setChairQuantity}
           chairPreviewPrice={productAddons.chairPreviewPrice}
           onChairPriceChange={productAddons.setChairPreviewPrice}
-          onAddChair={productAddons.handleAddChair}
+          onAddChair={(config, price, desc) => {
+            productAddons.handleAddChair(config, price, desc);
+            setChairSelected(false);
+            productAddons.setChairPreview(null);
+          }}
           onChairPreview={(v) => { productAddons.setChairPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setRaisedBedPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
+          chairInstallerPricing={installer.data?.pricing as Record<string, unknown> | undefined}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={cart.showMultiUnit3D}
