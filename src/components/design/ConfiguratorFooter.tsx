@@ -20,6 +20,7 @@ import type { ConfiguratorSidebarProps } from "./configurator-types";
 import { RollingPrice } from "./configurator-primitives";
 import { checkDIYPlanAccess } from "@/app/actions/diy-plan-checkout";
 import { formatCurrency } from "@/utils/paymentHelpers";
+import { getChairDescription } from "@/lib/chairs";
 
 export default function ConfiguratorFooter({
   props,
@@ -47,10 +48,10 @@ export default function ConfiguratorFooter({
       <div className="mb-3 flex items-end justify-between">
         <div>
           <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            {hasQuoteItems ? "Grand Total" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : activeStep === 1 && props.raisedBedPreviewPrice != null ? "Raised Bed" : activeStep === 1 && props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
+            {hasQuoteItems ? "Grand Total" : props.chairSelected && props.chairPreviewPrice != null ? "Adirondack Chair" : props.activePreset && props.compoundBuild ? props.compoundBuild.presetName : activeStep === 1 && props.raisedBedPreviewPrice != null ? "Raised Bed" : activeStep === 1 && props.shelvingConfigId ? "Open Shelving" : "Current Unit"}
           </div>
           <div className="text-3xl font-black text-white">
-            <RollingPrice value={hasQuoteItems ? props.grandTotal : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : activeStep === 1 && props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : activeStep === 1 && props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
+            <RollingPrice value={hasQuoteItems ? props.grandTotal : props.chairSelected && props.chairPreviewPrice != null ? props.chairPreviewPrice : props.activePreset && props.compoundBuild ? props.compoundBuild.totalPrice : activeStep === 1 && props.raisedBedPreviewPrice != null ? props.raisedBedPreviewPrice : activeStep === 1 && props.shelvingConfigId && props.shelvingPrice != null ? props.shelvingPrice : props.build.price} />
           </div>
           {/* Deposit anchoring — show prominent deposit below total */}
           {props.stripeAccountId && hasQuoteItems && (
@@ -144,35 +145,56 @@ export default function ConfiguratorFooter({
           are added by their own dropdowns in step 1, so on step 3 they
           just review the summary. */}
       {activeStep < 4 && (() => {
+        const isChairFlow = props.chairSelected === true;
         const isAddToQuoteStep =
           activeStep === 3 && !props.activePreset && !props.shelvingConfigId;
-        const addDisabled =
-          isAddToQuoteStep && (props.buildLoading || props.build.price === 0);
+        const isChairAddStep = activeStep === 3 && isChairFlow;
+        const addDisabled = isChairAddStep
+          ? (props.chairPreviewPrice == null || props.chairPreviewPrice === 0)
+          : isAddToQuoteStep && (props.buildLoading || props.build.price === 0);
 
         const handleClick = () => {
+          if (isChairAddStep) {
+            const finish = props.chairFinish ?? "natural";
+            const qty = props.chairQuantity ?? 1;
+            const config = { finish, quantity: qty };
+            const desc = getChairDescription(config);
+            props.onAddChair(config, props.chairPreviewPrice ?? 0, desc);
+            setActiveStep(4);
+            return;
+          }
           if (isAddToQuoteStep) {
             props.onAddUnit();
             setActiveStep(4);
             return;
           }
+          // Skip Step 2 for chair flow
+          if (activeStep === 1 && isChairFlow) {
+            setActiveStep(3);
+            return;
+          }
           setActiveStep(activeStep === 3 ? 4 : activeStep + 1);
         };
 
-        const label = hasQuoteItems && activeStep < 3
+        const label = hasQuoteItems && activeStep < 3 && !isChairFlow
           ? "Return to My Quote"
+          : activeStep === 1 && isChairFlow
+          ? "Next: Customize Your Chair"
           : activeStep === 1
           ? "Next: Choose Your Style"
           : activeStep === 2
           ? "Next: Customize Your Build"
+          : isChairAddStep
+          ? "Add to My Quote"
           : isAddToQuoteStep
           ? "Add to My Quote"
           : "Review Summary";
 
-        const onClickFinal = hasQuoteItems && activeStep < 3
+        const onClickFinal = hasQuoteItems && activeStep < 3 && !isChairFlow
           ? () => setActiveStep(4)
           : handleClick;
 
-        const filled = hasQuoteItems && activeStep < 3 ? true : isAddToQuoteStep;
+        const filled = (hasQuoteItems && activeStep < 3 && !isChairFlow) ? true : isAddToQuoteStep || isChairAddStep;
 
         return (
           <motion.button

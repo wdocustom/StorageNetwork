@@ -252,13 +252,11 @@ export default function StepSize({
       {/* Low Boy Adirondack Chair Dropdown */}
       {!props.chairHidden && (
         <ChairDropdown
-          onAddChair={(config, price, desc) => {
-            props.onAddChair(config, price, desc);
-            setActiveStep(4);
+          selected={props.chairSelected ?? false}
+          onSelect={() => {
+            props.onChairSelect?.();
+            setActiveStep(3);
           }}
-          onConfigPreview={props.onChairPreview}
-          onPriceChange={props.onChairPriceChange}
-          installerPricing={props.pricing as Record<string, unknown> | undefined}
         />
       )}
 

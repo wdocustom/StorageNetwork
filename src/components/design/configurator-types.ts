@@ -296,10 +296,22 @@ export interface ConfiguratorSidebarProps {
 
   // Adirondack Chair
   chairHidden?: boolean;
+  /** When true, the chair is the active product being configured */
+  chairSelected?: boolean;
+  /** Called when user clicks the chair tile in Step 1 */
+  onChairSelect?: () => void;
+  /** Chair finish being configured (for Step 3 UI) */
+  chairFinish?: import("@/lib/chairs").ChairFinish;
+  onChairFinishChange?: (finish: import("@/lib/chairs").ChairFinish) => void;
+  /** Chair quantity being configured */
+  chairQuantity?: number;
+  onChairQuantityChange?: (qty: number) => void;
   chairPreviewPrice?: number | null;
   onChairPriceChange?: (price: number | null) => void;
   onAddChair: (config: import("@/lib/chairs").ChairConfig, price: number, desc: string) => void;
   onChairPreview?: (preview: { finish: string } | null) => void;
+  /** Installer pricing for chair calculations */
+  chairInstallerPricing?: Record<string, unknown>;
 
   // Indoor delivery fee
   indoorDeliveryConfig?: { enabled: boolean; fee: number };
