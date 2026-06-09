@@ -2085,7 +2085,7 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     });
   }, [cloned, woodMat]);
 
-  return <primitive object={cloned} scale={0.02} position={[0, 0, 0]} />;
+  return <primitive object={cloned} scale={0.5} position={[0, 0, 0]} />;
 }
 
 function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
