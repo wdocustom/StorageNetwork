@@ -33,6 +33,7 @@ export interface UnitConfig {
   shelvingConfigId?: string;
   overheadGridPresetId?: string;
   chairId?: string;
+  chairFinish?: string;
   raisedBedConfig?: RaisedBedConfig;
   quantity?: number;
   addons?: SectionAddon[];

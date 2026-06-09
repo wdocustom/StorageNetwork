@@ -46,6 +46,7 @@ export function useInstallerContext({ initialData }: UseInstallerContextParams) 
   const shelvingEnabled = useMemo(() => data?.pricing?.open_shelving_enabled === true, [data?.pricing?.open_shelving_enabled]);
   const overheadStorageEnabled = useMemo(() => data?.pricing?.overhead_storage_enabled === true, [data?.pricing?.overhead_storage_enabled]);
   const raisedBedEnabled = useMemo(() => data?.pricing?.raised_bed_enabled === true, [data?.pricing?.raised_bed_enabled]);
+  const chairEnabled = useMemo(() => data?.pricing?.adirondack_chair_enabled === true, [data?.pricing?.adirondack_chair_enabled]);
   const globalTotesDisabled = useMemo(() => data?.pricing?.totes_disabled === true, [data?.pricing?.totes_disabled]);
   const globalUse2x4Rails = useMemo(() => data?.pricing?.use_2x4_rails === true, [data?.pricing?.use_2x4_rails]);
 
@@ -62,6 +63,7 @@ export function useInstallerContext({ initialData }: UseInstallerContextParams) 
     shelvingEnabled,
     overheadStorageEnabled,
     raisedBedEnabled,
+    chairEnabled,
     globalTotesDisabled,
     globalUse2x4Rails,
     effectiveLeadTime,

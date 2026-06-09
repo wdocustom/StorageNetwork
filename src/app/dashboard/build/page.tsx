@@ -687,7 +687,7 @@ export default function BuildConfiguratorPage() {
     setActiveDrawer(null);
   }
 
-  function handleAddChair(quantity: number, price: number, desc: string) {
+  function handleAddChair(quantity: number, price: number, desc: string, finish?: string) {
     const newUnit: UnitConfig = {
       id: `chair-${Date.now()}`,
       cols: 0,
@@ -704,6 +704,7 @@ export default function BuildConfiguratorPage() {
       slots: 0,
       desc,
       chairId: "adirondack",
+      chairFinish: finish || "natural",
       quantity,
     };
     setUnits((prev) => [...prev, newUnit]);
@@ -997,6 +998,8 @@ export default function BuildConfiguratorPage() {
         desc: u.desc || `${u.cols} Wide × ${u.rows} High`,
         shelvingConfigId: u.shelvingConfigId,
         overheadGridPresetId: u.overheadGridPresetId,
+        chairId: u.chairId,
+        chairFinish: u.chairFinish,
         addons: u.addons,
         paintFrameColor: u.paintFrameColor,
         paintDoorColor: u.paintDoorColor,

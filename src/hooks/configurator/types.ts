@@ -1,6 +1,7 @@
 import type { UnitType, Orientation } from "@/app/actions/calculator";
 import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 import type { RaisedBedConfig } from "@/lib/raised-beds";
+import type { ChairConfig } from "@/lib/chairs";
 
 export type ToteType = "HDX" | "GM";
 export type ToteColor = "black" | "clear";
@@ -28,6 +29,7 @@ export interface UnitConfig {
   overheadStorageConfig?: import("@/lib/overhead-storage").OverheadStorageConfig;
   presetUnits?: import("@/lib/buildEngine.types").PresetSubUnitConfig[];
   raisedBedConfig?: RaisedBedConfig;
+  chairConfig?: ChairConfig;
   drawerSlideRows?: number;
   drawerSlideColumns?: number[];
   quantity?: number;

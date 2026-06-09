@@ -813,7 +813,14 @@ export default function DesignConfigurator({
           raisedBedPreviewPrice={productAddons.raisedBedPreviewPrice}
           onRaisedBedPriceChange={productAddons.setRaisedBedPreviewPrice}
           onAddRaisedBed={productAddons.handleAddRaisedBed}
-          onRaisedBedPreview={(v) => { productAddons.setRaisedBedPreview(v); if (v) { productAddons.setOverheadPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
+          onRaisedBedPreview={(v) => { productAddons.setRaisedBedPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setChairPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
+
+          // Adirondack Chair
+          chairHidden={!installer.chairEnabled}
+          chairPreviewPrice={productAddons.chairPreviewPrice}
+          onChairPriceChange={productAddons.setChairPreviewPrice}
+          onAddChair={productAddons.handleAddChair}
+          onChairPreview={(v) => { productAddons.setChairPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setRaisedBedPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
 
           // Multi-unit 3D visualization
           showMultiUnit3D={cart.showMultiUnit3D}
@@ -987,6 +994,7 @@ export default function DesignConfigurator({
               shelvingConfig={productAddons.activeShelvingConfig}
               overheadConfig={productAddons.overheadPreview ? { slotsWide: productAddons.overheadPreview.slotsWide, slotsDeep: productAddons.overheadPreview.slotsDeep, toteType: productAddons.overheadPreview.toteType, hasTotes: productAddons.overheadPreview.hasTotes } : undefined}
               raisedBedConfig={productAddons.raisedBedPreview || undefined}
+              chairConfig={productAddons.chairPreview || undefined}
               watermarkText={installer.data?.branding.title || "Storage-Network.app"}
               use2x4Rails={installer.data?.pricing?.use_2x4_rails === true}
               multiUnitItems={cart.multiUnitItems as MultiUnitItem[] | undefined}

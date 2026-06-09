@@ -111,6 +111,8 @@ interface RackVisualizerProps {
   overheadConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes?: boolean };
   /** When set, renders a raised bed planter */
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
+  /** When set, renders a Low Boy Adirondack Chair */
+  chairConfig?: { finish: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnitItem[];
   /** Controls for the multi-unit overlay (rendered on the 3D canvas) */
@@ -151,6 +153,7 @@ export interface MultiUnitItem {
   shelvingConfig?: { widthIn: number; frameH: number; depth: number; shelves: number };
   overheadStorageConfig?: { slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM" };
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
+  chairConfig?: { finish: string };
   presetUnits?: Array<{ cols: number; rows: number; totalW: number; totalH: number; hasTop: boolean; hasWheels: boolean }>;
   drawerSlideRows?: number;
   drawerSlideColumns?: number[];
@@ -302,6 +305,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
 
   const bp2dShelvingConfig = activeMultiUnit?.shelvingConfig ?? props.shelvingConfig;
   const bp2dIsRaisedBed = !!(activeMultiUnit?.raisedBedConfig || props.raisedBedConfig);
+  const bp2dIsChair = !!(activeMultiUnit?.chairConfig || props.chairConfig);
 
   const bp2dCols = activeMultiUnit ? activeMultiUnit.cols : props.cols;
   const bp2dRows = activeMultiUnit ? activeMultiUnit.rows : props.rows;
@@ -388,6 +392,14 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 <p className="text-xs text-stone-400 mt-1">Switch to 3D for a full preview</p>
               </div>
             </div>
+          ) : bp2dIsChair ? (
+            <div className="flex items-center justify-center h-full w-full">
+              <div className="text-center">
+                <p className="text-4xl mb-2">{"🪑"}</p>
+                <p className="text-sm font-bold text-stone-700">Low Boy Adirondack Chair</p>
+                <p className="text-xs text-stone-400 mt-1">Switch to 3D for a full preview</p>
+              </div>
+            </div>
           ) : (
             <BlueprintCanvas
               cols={bp2dCols}
@@ -428,6 +440,14 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                   <div className="text-center">
                     <p className="text-4xl mb-2">{"\u{1F331}"}</p>
                     <p className="text-sm font-bold text-stone-700">Raised Bed Planter</p>
+                    <p className="text-xs text-stone-400 mt-1">Loading 3D preview...</p>
+                  </div>
+                </div>
+              ) : bp2dIsChair ? (
+                <div className="flex items-center justify-center h-full w-full">
+                  <div className="text-center">
+                    <p className="text-4xl mb-2">{"🪑"}</p>
+                    <p className="text-sm font-bold text-stone-700">Low Boy Adirondack Chair</p>
                     <p className="text-xs text-stone-400 mt-1">Loading 3D preview...</p>
                   </div>
                 </div>
@@ -492,6 +512,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                 shelvingConfig={props.shelvingConfig}
                 overheadConfig={props.overheadConfig}
                 raisedBedConfig={props.raisedBedConfig}
+                chairConfig={props.chairConfig}
                 // The 3D scene composes the full cart only when the
                 // step-gated showMultiUnit3D flag is on (step 4 with cart
                 // items). At steps 1-3 we keep the single-unit preview UX

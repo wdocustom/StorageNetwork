@@ -18,6 +18,7 @@ import BestsellerDropdown from "../BestsellerDropdown";
 import ShelvingDropdown from "../ShelvingDropdown";
 import OverheadStorageDropdown from "../OverheadStorageDropdown";
 import RaisedBedDropdown from "../RaisedBedDropdown";
+import ChairDropdown from "../ChairDropdown";
 
 export default function StepSize({
   props,
@@ -245,6 +246,19 @@ export default function StepSize({
           onConfigPreview={props.onRaisedBedPreview}
           onPriceChange={props.onRaisedBedPriceChange}
           installerPricing={props.pricing as import("@/types/viewModels").InstallerPricing | undefined}
+        />
+      )}
+
+      {/* Low Boy Adirondack Chair Dropdown */}
+      {!props.chairHidden && (
+        <ChairDropdown
+          onAddChair={(config, price, desc) => {
+            props.onAddChair(config, price, desc);
+            setActiveStep(4);
+          }}
+          onConfigPreview={props.onChairPreview}
+          onPriceChange={props.onChairPriceChange}
+          installerPricing={props.pricing as Record<string, unknown> | undefined}
         />
       )}
 

@@ -80,6 +80,8 @@ interface MultiUnit3DItem {
   presetUnits?: SubUnit3D[];
   /** When set, this item is a raised bed planter */
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
+  /** When set, this item is a Low Boy Adirondack Chair */
+  chairConfig?: { finish: string };
   /** Number of bottom rows with drawer slides */
   drawerSlideRows?: number;
   /** Column indices that have drawer slides (e.g. [0, 3]) */
@@ -125,6 +127,8 @@ interface Rack3DProps {
   overheadConfig?: OverheadConfig3D;
   /** When set, renders a raised bed planter */
   raisedBedConfig?: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number };
+  /** When set, renders a Low Boy Adirondack Chair */
+  chairConfig?: { finish: string };
   /** Multi-unit mode: renders multiple finished units side-by-side */
   multiUnitItems?: MultiUnit3DItem[];
   /** When true, renders 2x4 ripped rail construction instead of plywood strips */
@@ -1885,6 +1889,9 @@ function computeItemOverallH(item: MultiUnit3DItem): number {
     const totalDrop = CEIL_NAILER_H + CEIL_PADDING_LAYERS * CEIL_SPACER_H + CEIL_RAIL_H + TOTE_BODY_H + TOTE_RIM_H;
     return totalDrop;
   }
+  if (item.chairConfig) {
+    return 34; // totalH
+  }
   // Raised bed planter (include string light post height if present)
   if (item.raisedBedConfig) {
     let h = item.raisedBedConfig.heightIn;
@@ -1988,7 +1995,9 @@ function MultiUnitAssembly({ items, drawersOpen }: { items: MultiUnit3DItem[]; d
         offsetX += item.totalW + GAP;
         return (
           <group key={i} position={[x, y, 0]}>
-            {item.overheadConfig ? (
+            {item.chairConfig ? (
+              <AdirondackChairAssembly config={item.chairConfig} />
+            ) : item.overheadConfig ? (
               <OverheadAssembly config={item.overheadConfig} />
             ) : item.raisedBedConfig ? (
               <RaisedBedAssembly config={item.raisedBedConfig} />
@@ -2053,6 +2062,113 @@ function TextureGuard() {
   return null;
 }
 
+function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
+  const boardColor = config.finish === "white" ? "#f5f5f0"
+    : config.finish === "black" ? "#1c1c1c"
+    : "#c87533";
+  const darkColor = config.finish === "white" ? "#e7e5e4"
+    : config.finish === "black" ? "#111111"
+    : "#a0522d";
+
+  const mat = useMemo(() => new MeshStandardMaterial({
+    color: new Color(boardColor), roughness: 0.7, metalness: 0.0,
+  }), [boardColor]);
+  const darkMat = useMemo(() => new MeshStandardMaterial({
+    color: new Color(darkColor), roughness: 0.8, metalness: 0.0,
+  }), [darkColor]);
+
+  // All dims in inches, scaled by S
+  const seatW = 23.25;
+  const seatD = 20;
+  const seatH = 12;
+  const backH = 22;
+  const armW = 4;
+  const armL = 24.25;
+  const baseL = 38;
+  const totalW = 30;
+  const legH = 20.25;
+  const slat = 1.5;   // 2x6 thickness
+  const slatW = 5.5;  // 2x6 width
+  const baseW = 7.5;  // 2x8 width
+
+  // The chair sits centered at origin on the ground plane.
+  // Base runners are angled but we approximate with boxes for performance.
+  // Ground plane is y=0.
+
+  return (
+    <group scale={[S, S, S]}>
+      {/* Two base runners (2x8, 38" long) - angled, approximated as tilted boxes */}
+      {[-totalW / 2 + baseW / 2, totalW / 2 - baseW / 2].map((x, i) => (
+        <mesh key={`base-${i}`} material={darkMat}
+          position={[x, 3, 0]}
+          rotation={[0.15, 0, 0]}
+        >
+          <boxGeometry args={[baseW, slat, baseL]} />
+        </mesh>
+      ))}
+
+      {/* Front legs (2x6, angled) */}
+      {[-totalW / 2 + baseW / 2, totalW / 2 - baseW / 2].map((x, i) => (
+        <mesh key={`leg-${i}`} material={darkMat}
+          position={[x, seatH / 2 + 1, seatD / 2 - 2]}
+          rotation={[0.1, 0, 0]}
+        >
+          <boxGeometry args={[slatW, legH, slat]} />
+        </mesh>
+      ))}
+
+      {/* Back supports (2x6 ripped to 4.25", angled back) */}
+      {[-totalW / 2 + baseW / 2, totalW / 2 - baseW / 2].map((x, i) => (
+        <mesh key={`back-support-${i}`} material={darkMat}
+          position={[x, seatH + backH / 2 - 2, -seatD / 2 + 3]}
+          rotation={[-0.18, 0, 0]}
+        >
+          <boxGeometry args={[4.25, backH + 4, slat]} />
+        </mesh>
+      ))}
+
+      {/* Seat slats (3 × 2x6 slats, 23.25" wide) */}
+      {[0, 1, 2].map((row) => (
+        <mesh key={`seat-${row}`} material={mat}
+          position={[0, seatH - slat / 2, seatD / 2 - 3 - row * (slatW + 0.25)]}
+        >
+          <boxGeometry args={[seatW, slat, slatW]} />
+        </mesh>
+      ))}
+
+      {/* Back slats (3 × 2x6 slats, 23.25" wide, angled backward) */}
+      {[0, 1, 2].map((row) => (
+        <mesh key={`back-${row}`} material={mat}
+          position={[0, seatH + 3 + row * (slatW + 0.25), -seatD / 2 + 5]}
+          rotation={[-0.18, 0, 0]}
+        >
+          <boxGeometry args={[seatW, slatW, slat]} />
+        </mesh>
+      ))}
+
+      {/* Arm rests (2x6 ripped to 4", 24.25" long) */}
+      {[-totalW / 2 + armW / 2, totalW / 2 - armW / 2].map((x, i) => (
+        <mesh key={`arm-${i}`} material={mat}
+          position={[x, seatH + backH - 6, 2]}
+        >
+          <boxGeometry args={[armW, slat, armL]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    const d = 1.8;
+    camera.position.set(d * 0.8, d * 0.6, d * 1.0);
+    camera.lookAt(0, 0.15, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, config]);
+  return null;
+}
+
 export default function Rack3D(props: Rack3DProps) {
   // Dispose textures and cached materials when the 3D canvas unmounts
   // to free GPU memory and prevent leaks on SPA navigation.
@@ -2070,6 +2186,7 @@ export default function Rack3D(props: Rack3DProps) {
   const isRaisedBed = !!props.raisedBedConfig;
   const isCompound = props.presetUnits && props.presetUnits.length > 0;
   const isShelving = !!props.shelvingConfig;
+  const isChair = !!props.chairConfig;
   const wmText = props.watermarkText || "Storage-Network.app";
 
   return (
@@ -2148,6 +2265,11 @@ export default function Rack3D(props: Rack3DProps) {
           <>
             <OverheadCameraRig config={props.overheadConfig!} />
             <OverheadAssembly config={props.overheadConfig!} />
+          </>
+        ) : isChair ? (
+          <>
+            <AdirondackChairCameraRig config={props.chairConfig!} />
+            <AdirondackChairAssembly config={props.chairConfig!} />
           </>
         ) : isRaisedBed ? (
           <>

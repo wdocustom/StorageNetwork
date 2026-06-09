@@ -3,6 +3,7 @@ import { calculateShelvingUnit } from "@/app/actions/calculator";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
 import { RAISED_BED_SIZES, type RaisedBedConfig } from "@/lib/raised-beds";
 import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
+import { CHAIR_DIMS, type ChairConfig, getChairDescription } from "@/lib/chairs";
 import type { ShelvingConfig3D } from "@/components/visualizer/RackVisualizer";
 import type { DesignPageViewModel } from "@/types/viewModels";
 import type { UnitConfig, ToteType, ToteColor } from "./types";
@@ -28,6 +29,9 @@ export function useProductAddons({ pricing, servicesConfig, setOrderItems }: Use
   const [overheadPreview, setOverheadPreview] = useState<{
     slotsWide: number; slotsDeep: number; toteType: "HDX" | "GM"; hasTotes: boolean;
   } | null>(null);
+
+  const [chairPreview, setChairPreview] = useState<{ finish: string } | null>(null);
+  const [chairPreviewPrice, setChairPreviewPrice] = useState<number | null>(null);
 
   const [selectedCleanout, setSelectedCleanout] = useState<string | null>(null);
 
@@ -112,6 +116,34 @@ export function useProductAddons({ pricing, servicesConfig, setOrderItems }: Use
     ]);
   }, [setOrderItems]);
 
+  const handleAddChair = useCallback((
+    config: ChairConfig,
+    price: number,
+    desc: string,
+  ) => {
+    setOrderItems((prev) => [
+      ...prev,
+      {
+        cols: 0,
+        rows: 0,
+        toteType: "HDX" as ToteType,
+        toteColor: "black" as ToteColor,
+        unitType: "standard",
+        orientation: "standard",
+        hasTotes: false,
+        hasWheels: false,
+        hasTop: false,
+        price,
+        totalW: CHAIR_DIMS.totalW,
+        totalH: CHAIR_DIMS.totalH,
+        depth: CHAIR_DIMS.totalD,
+        desc,
+        addons: [],
+        chairConfig: config,
+      } as UnitConfig,
+    ]);
+  }, [setOrderItems]);
+
   const handleAddOverheadUnit = useCallback((
     result: import("@/lib/overhead-storage").OverheadStorageResult,
     config: import("@/lib/overhead-storage").OverheadStorageConfig,
@@ -147,11 +179,14 @@ export function useProductAddons({ pricing, servicesConfig, setOrderItems }: Use
     activeShelvingConfig,
     raisedBedPreview, setRaisedBedPreview,
     raisedBedPreviewPrice, setRaisedBedPreviewPrice,
+    chairPreview, setChairPreview,
+    chairPreviewPrice, setChairPreviewPrice,
     overheadPreview, setOverheadPreview,
     selectedCleanout, setSelectedCleanout,
     cleanoutPrice,
     handleAddShelvingUnit,
     handleAddRaisedBed,
+    handleAddChair,
     handleAddOverheadUnit,
   };
 }

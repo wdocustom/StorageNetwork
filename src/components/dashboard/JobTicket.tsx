@@ -539,7 +539,12 @@ export default function JobTicket({
   async function handleCreateInventoryRacks() {
     if (!quoteData || quoteData.length === 0 || !installerId) return;
     setInventoryCreating(true);
-    const configs = quoteData.map((q: any) => ({
+    const rackUnits = quoteData.filter((q: any) =>
+      q.hasTotes && (q.cols ?? q.width ?? 0) > 0 && (q.rows ?? q.height ?? 0) > 0
+      && !q.shelvingConfigId && !q.overheadGridPresetId && !q.chairId
+    );
+    if (rackUnits.length === 0) { setInventoryCreating(false); return; }
+    const configs = rackUnits.map((q: any) => ({
       cols: q.cols ?? q.width ?? 4,
       rows: q.rows ?? q.height ?? 3,
       hasWheels: q.hasWheels ?? q.wheels ?? false,
@@ -775,7 +780,11 @@ export default function JobTicket({
             </span>
           </div>
 
-          {/* ── Inventory QR Section ──────────────────────────────── */}
+          {/* ── Inventory QR Section (only for jobs with tote racks) ── */}
+          {(inventoryRacks.length > 0 || (quoteData ?? []).some((q: any) =>
+            q.hasTotes && (q.cols ?? q.width ?? 0) > 0 && (q.rows ?? q.height ?? 0) > 0
+            && !q.shelvingConfigId && !q.overheadGridPresetId && !q.chairId
+          )) && (
           <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-4 w-4 text-yellow-400" />
@@ -890,6 +899,7 @@ export default function JobTicket({
               </div>
             )}
           </div>
+          )}
 
           {/* ── Customer Review Section ─────────────────────────────── */}
           <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
@@ -1783,9 +1793,10 @@ export default function JobTicket({
 
       {/* ── Chair Materials & Build Plans ───────────────────────────── */}
       {(() => {
-        const chairUnits = (quoteData as (MaterialConfig & { chairId?: string; quantity?: number })[] | null)?.filter((u) => u.chairId) ?? [];
+        const chairUnits = (quoteData as (MaterialConfig & { chairId?: string; chairFinish?: string; quantity?: number })[] | null)?.filter((u) => u.chairId) ?? [];
         if (chairUnits.length === 0) return null;
         const totalChairs = chairUnits.reduce((sum, u) => sum + (u.quantity ?? 1), 0);
+        const paintedCount = chairUnits.reduce((sum, u) => (u.chairFinish === "white" || u.chairFinish === "black") ? sum + (u.quantity ?? 1) : sum, 0);
         return (
           <section className="rounded-xl border border-amber-500/20 bg-slate-900 overflow-hidden">
             <div className="h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500" />
@@ -1809,6 +1820,8 @@ export default function JobTicket({
                   { qty: "—", name: "2-1/2″ outdoor pocket hole screws" },
                   { qty: "—", name: "2″ & 3″ exterior deck screws, 2″ lag screws" },
                   { qty: "—", name: "Titebond III outdoor wood glue" },
+                  ...(paintedCount > 0 ? [{ qty: `${paintedCount}×`, name: "Exterior paint (white or black per spec)" }] : []),
+                  ...((totalChairs - paintedCount) > 0 ? [{ qty: `${totalChairs - paintedCount}×`, name: "Exterior clear sealant / natural finish" }] : []),
                 ].map((item) => (
                   <div key={item.name} className="flex items-center gap-2.5">
                     <span className="w-8 text-right text-[11px] font-bold text-amber-400/80">{item.qty}</span>
@@ -1821,11 +1834,11 @@ export default function JobTicket({
                 href="/dashboard/guides#chair-plans"
                 className="flex w-full items-center justify-between rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-gray-950 transition-all hover:bg-amber-300 active:scale-[0.98]"
               >
-                <span>Open Build Plans</span>
+                <span>Purchase / View Build Plans</span>
                 <ArrowRight className="h-4 w-4" />
               </a>
               <p className="mt-2 text-center text-[10px] text-stone-600">
-                Opens in Guides &amp; Training · Purchase plans if not already unlocked
+                Plans &amp; MDF template available in Guides &amp; Training
               </p>
             </div>
           </section>

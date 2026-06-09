@@ -333,6 +333,11 @@ export function generateBuildManifest(quoteData: QuoteUnit[], customDepositRate?
       return;
     }
 
+    if (unit.chairId) {
+      gRetail += unit.price;
+      return;
+    }
+
     if (totalCols < 1 || totalRows < 1) return;
 
     // Get config based on unit type, orientation, and 2x4 rail mode
