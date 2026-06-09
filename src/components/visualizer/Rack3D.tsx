@@ -2065,25 +2065,27 @@ function TextureGuard() {
 
 function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
   const { scene } = useGLTF("/models/adirondack-chair.glb");
-
-  const woodMat = useMemo(() => {
-    if (config.finish === "white") return createPaintedMaterial("#f5f5f0");
-    if (config.finish === "black") return createPaintedMaterial("#1c1c1c");
-    return createDougFirMaterial(42);
-  }, [config.finish]);
+  const isPainted = config.finish === "white" || config.finish === "black";
 
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
   useEffect(() => {
+    let meshIndex = 0;
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        mesh.material = woodMat;
+        if (isPainted) {
+          const hex = config.finish === "white" ? "#f5f5f0" : "#1c1c1c";
+          mesh.material = createPaintedMaterial(hex);
+        } else {
+          mesh.material = createDougFirMaterial(40 + meshIndex * 7);
+        }
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        meshIndex++;
       }
     });
-  }, [cloned, woodMat]);
+  }, [cloned, config.finish, isPainted]);
 
   return <primitive object={cloned} scale={0.5} position={[0, 0, 0]} />;
 }
@@ -2096,7 +2098,24 @@ function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
     camera.lookAt(0, 0.20, 0);
     camera.updateProjectionMatrix();
   }, [camera, config]);
-  return null;
+  return (
+    <>
+      <GroundShadow bottomY={-0.01} footprint={1.5} />
+      <OrbitControls
+        autoRotate
+        autoRotateSpeed={0.5}
+        enablePan
+        panSpeed={0.5}
+        rotateSpeed={0.6}
+        zoomSpeed={0.8}
+        minPolarAngle={0.1}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={0.3}
+        maxDistance={6}
+        target={[0, 0.2, 0]}
+      />
+    </>
+  );
 }
 
 export default function Rack3D(props: Rack3DProps) {
