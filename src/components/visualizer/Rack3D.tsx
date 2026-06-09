@@ -2091,12 +2091,12 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
 
   const RS = (seatSlatW - T) / 2; // 10.875"
 
-  const groundTilt = 0.227; // 13° from plans
-  const backAngle = 0.26;   // ~15° relative to tilted frame
+  const backAngle = 0.35;   // ~20° back recline for natural Adirondack posture
 
   // ── Exact runner profile from SVG blueprint ─────────────────────────
   // Plans polygon: (0,3.5) (19.5,0) (38,3.5) (36,7.5) (6.5,7.5) (0,5)
   // Converted: shapeX = svgX - 19 (→ world Z), shapeY = 7.5 - svgY (→ world Y)
+  // The runner sits flat — the 13° in plans is the nose edge angle, not a whole-chair tilt.
   const runnerGeo = useMemo(() => {
     const shape = new Shape();
     shape.moveTo(-HL, 4.0);
@@ -2111,9 +2111,6 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     geo.computeVertexNormals();
     return geo;
   }, []);
-
-  // Y offset: front ground contact (Z=17, Y=0) must sit at world Y=0 after tilt
-  const yLift = 17 * Math.sin(groundTilt);
 
   // Runner top height at a given Z position (peaked profile)
   const runnerTopY = (z: number) =>
@@ -2147,8 +2144,7 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
 
   return (
     <group scale={[S, S, S]}>
-      <group position={[0, yLift, 0]}>
-        <group rotation={[groundTilt, 0, 0]}>
+      <group>
 
           {/* ── Base Runners — exact plan profile ──────────────────── */}
           {[-RS, RS].map((x, i) => (
@@ -2215,7 +2211,6 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
             </mesh>
           ))}
 
-        </group>
       </group>
     </group>
   );
@@ -2225,8 +2220,8 @@ function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
     const d = 1.4;
-    camera.position.set(d * 0.95, d * 0.45, d * 0.70);
-    camera.lookAt(0, 0.18, 0);
+    camera.position.set(d * 0.85, d * 0.40, d * 0.80);
+    camera.lookAt(0, 0.15, -0.02);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return null;
