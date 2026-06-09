@@ -2129,17 +2129,20 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
   const backBaseZ = rearSlatZ - 1;
   const backBaseY = runnerTopY(backBaseZ);
 
-  // ── Front legs — bottom at runner bottom, extending up to armrest ────
-  // The leg is on the OUTSIDE of the runner. Its lower portion overlaps
-  // the runner vertically; the upper portion extends above to support
-  // the armrest. The 3" deck screw goes from the seat area down through
-  // the base into the leg's top, securing the overlap zone.
-  const legZ  = seatSlats[0].z - 1;
-  const legCY = legH / 2;           // bottom at Y≈0, top at Y≈20.25
+  // ── Front legs — tilted backward, crossing through front of runner ──
+  // Per build plans: legs lean back ~15° from vertical, attached with
+  // 2" deck screws where they cross the runner/seat front.
+  const legTilt   = -0.26;  // ~15° backward lean
+  const legPivotZ = seatSlats[0].z;         // pivot at front seat slat
+  const legPivotY = runnerTopY(legPivotZ);  // at runner top height there
+  // Leg top & bottom positions after tilt (relative to pivot)
+  const legAbove = legH - legPivotY;        // portion above pivot
+  const legTopY  = legPivotY + legAbove * Math.cos(legTilt) ;
+  const legTopZ  = legPivotZ + legAbove * Math.sin(legTilt);
 
-  // ── Armrests — on top of legs, with 2" front overhang ───────────────
-  const armTopY   = legH + T / 2;   // 21"
-  const armFrontZ = legZ + W6 / 2 + 2;
+  // ── Armrests — on top of tilted legs, extending backward ────────────
+  const armTopY   = legTopY + T / 2;
+  const armFrontZ = legTopZ + 2;            // 2" overhang past leg top
   const armCZ     = armFrontZ - armL / 2;
 
   return (
@@ -2161,13 +2164,18 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
             <boxGeometry args={[RS * 2 - T, 3.5, T]} />
           </mesh>
 
-          {/* ── Front Legs (2×6, outside of runners) ───────────────── */}
+          {/* ── Front Legs (2×6, tilted backward ~15°) ───────────── */}
           {[-1, 1].map((side, i) => (
-            <mesh key={`leg-${i}`} material={darkMat}
-              position={[side * (RS + T), legCY, legZ]}
+            <group key={`leg-${i}`}
+              position={[side * (RS + T), legPivotY, legPivotZ]}
+              rotation={[legTilt, 0, 0]}
             >
-              <boxGeometry args={[T, legH, W6]} />
-            </mesh>
+              <mesh material={darkMat}
+                position={[0, legH / 2 - legPivotY, 0]}
+              >
+                <boxGeometry args={[T, legH, W6]} />
+              </mesh>
+            </group>
           ))}
 
           {/* ── Seat Slats (3 × 2×6, following runner top slope) ───── */}
@@ -2205,7 +2213,7 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
           {/* ── Arm Rests (ripped to 4", 24.25" long) ──────────────── */}
           {[-1, 1].map((side, i) => (
             <mesh key={`arm-${i}`} material={mat}
-              position={[side * (RS + T / 2), armTopY, armCZ]}
+              position={[side * (RS + T / 2 + 0.25), armTopY, armCZ]}
             >
               <boxGeometry args={[armW, T, armL]} />
             </mesh>
