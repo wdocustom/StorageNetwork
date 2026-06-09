@@ -1834,11 +1834,11 @@ export default function JobTicket({
                 href="/dashboard/guides#chair-plans"
                 className="flex w-full items-center justify-between rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-gray-950 transition-all hover:bg-amber-300 active:scale-[0.98]"
               >
-                <span>Open Build Plans</span>
+                <span>Purchase / View Build Plans</span>
                 <ArrowRight className="h-4 w-4" />
               </a>
               <p className="mt-2 text-center text-[10px] text-stone-600">
-                Opens in Guides &amp; Training · Purchase plans if not already unlocked
+                Plans &amp; MDF template available in Guides &amp; Training
               </p>
             </div>
           </section>
