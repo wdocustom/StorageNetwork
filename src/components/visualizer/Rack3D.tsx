@@ -6,7 +6,7 @@ import { OrbitControls, ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color, Shape, ExtrudeGeometry, type Side } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
-import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
+import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, createConstructionLumberMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
 import type { PaintColorId } from "@/types/viewModels";
 import { PAINT_COLORS } from "@/types/viewModels";
 
@@ -2078,7 +2078,7 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
           const hex = config.finish === "white" ? "#f5f5f0" : "#1c1c1c";
           mesh.material = createPaintedMaterial(hex);
         } else {
-          mesh.material = createDougFirMaterial(40 + meshIndex * 7);
+          mesh.material = createConstructionLumberMaterial(40 + meshIndex * 7);
         }
         mesh.castShadow = true;
         mesh.receiveShadow = true;

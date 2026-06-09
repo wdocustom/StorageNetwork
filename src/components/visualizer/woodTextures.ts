@@ -450,6 +450,151 @@ export function createDougFirMaterial(seed = 42): MeshStandardMaterial {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CONSTRUCTION LUMBER TEXTURE — clean, straight grain like dimensional pine/fir
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function createConstructionLumberCanvas(
+  width = 512,
+  height = 512,
+  seed = 42,
+): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+  const rand = seededRandom(seed);
+
+  // Pale pine/fir base — lighter than doug fir
+  ctx.fillStyle = "#E2D1A8";
+  ctx.fillRect(0, 0, width, height);
+
+  // Subtle warm/cool banding (very gentle)
+  for (let i = 0; i < 4; i++) {
+    const y = rand() * height;
+    const bandH = 60 + rand() * 120;
+    const warm = rand() > 0.5;
+    const color = warm ? "210, 185, 140" : "225, 205, 165";
+    const grad = ctx.createLinearGradient(0, y, 0, y + bandH);
+    grad.addColorStop(0, `rgba(${color}, 0)`);
+    grad.addColorStop(0.5, `rgba(${color}, 0.12)`);
+    grad.addColorStop(1, `rgba(${color}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, y, width, bandH);
+  }
+
+  // Straight grain lines — long, mostly parallel, minimal wave
+  for (let i = 0; i < 35; i++) {
+    const baseY = (i / 35) * height + (rand() - 0.5) * 8;
+    const darkness = 0.05 + rand() * 0.12;
+    const lineWidth = 0.4 + rand() * 1.2;
+
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let x = 0; x <= width; x += 16) {
+      const wave = Math.sin(x * 0.003 + rand() * 6) * (0.5 + rand() * 1.5);
+      ctx.lineTo(x, baseY + wave);
+    }
+    ctx.strokeStyle = `rgba(160, 120, 60, ${darkness})`;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+
+  // Fine secondary grain — very subtle
+  for (let i = 0; i < 50; i++) {
+    const baseY = rand() * height;
+    const darkness = 0.02 + rand() * 0.05;
+
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let x = 0; x <= width; x += 20) {
+      const wave = Math.sin(x * 0.004 + rand() * 10) * (0.3 + rand() * 0.8);
+      ctx.lineTo(x, baseY + wave);
+    }
+    ctx.strokeStyle = `rgba(170, 130, 70, ${darkness})`;
+    ctx.lineWidth = 0.2 + rand() * 0.4;
+    ctx.stroke();
+  }
+
+  // Latewood banding — very subtle
+  for (let i = 0; i < 6; i++) {
+    const y = (i / 6) * height + rand() * 40;
+    const bandH = 6 + rand() * 14;
+    const alpha = 0.02 + rand() * 0.05;
+    ctx.fillStyle = `rgba(150, 110, 55, ${alpha})`;
+    ctx.fillRect(0, y, width, bandH);
+  }
+
+  // Occasional small knot (0-2 per board)
+  const numKnots = Math.floor(rand() * 2.5);
+  for (let k = 0; k < numKnots; k++) {
+    const kx = 80 + rand() * (width - 160);
+    const ky = 80 + rand() * (height - 160);
+    const kr = 4 + rand() * 8;
+
+    const knotGrad = ctx.createRadialGradient(kx, ky, 0, kx, ky, kr);
+    knotGrad.addColorStop(0, "rgba(100, 65, 30, 0.5)");
+    knotGrad.addColorStop(0.5, "rgba(130, 90, 45, 0.3)");
+    knotGrad.addColorStop(1, "rgba(180, 140, 80, 0)");
+
+    ctx.beginPath();
+    ctx.ellipse(kx, ky, kr, kr * (0.7 + rand() * 0.3), rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fillStyle = knotGrad;
+    ctx.fill();
+
+    for (let ring = 0; ring < 3; ring++) {
+      const rr = kr * (0.3 + ring * 0.25) + rand() * 1.5;
+      ctx.beginPath();
+      ctx.ellipse(kx, ky, rr, rr * (0.6 + rand() * 0.3), rand() * 0.2, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(120, 80, 35, ${0.08 + rand() * 0.1})`;
+      ctx.lineWidth = 0.4 + rand() * 0.5;
+      ctx.stroke();
+    }
+  }
+
+  // Minimal surface noise
+  for (let i = 0; i < 800; i++) {
+    const x = rand() * width;
+    const y = rand() * height;
+    const bright = rand() > 0.5;
+    ctx.fillStyle = bright
+      ? `rgba(240, 220, 180, ${0.02 + rand() * 0.04})`
+      : `rgba(140, 100, 50, ${0.01 + rand() * 0.03})`;
+    ctx.fillRect(x, y, 1 + rand(), 1);
+  }
+
+  return canvas;
+}
+
+export function createConstructionLumberMaterial(seed = 42): MeshStandardMaterial {
+  const canvas = createConstructionLumberCanvas(512, 512, seed);
+  if (!canvas) {
+    return new MeshStandardMaterial({ color: new Color("#E2D1A8"), roughness: 0.75, metalness: 0.0 });
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  trackTexture(texture, canvas);
+
+  const bumpCanvas = createConstructionLumberCanvas(256, 256, seed + 1);
+  const bumpTexture = bumpCanvas ? new CanvasTexture(bumpCanvas) : null;
+  if (bumpTexture) {
+    bumpTexture.wrapS = RepeatWrapping;
+    bumpTexture.wrapT = RepeatWrapping;
+    trackTexture(bumpTexture, bumpCanvas!);
+  }
+
+  return new MeshStandardMaterial({
+    map: texture,
+    ...(bumpTexture ? { bumpMap: bumpTexture, bumpScale: 0.15 } : {}),
+    roughness: 0.72,
+    metalness: 0.0,
+    color: new Color("#F0E4C8"),
+  });
+}
+
 /**
  * Creates a realistic plywood material with procedural texture.
  */
