@@ -2071,43 +2071,44 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     : "#a0522d";
 
   const mat = useMemo(() => new MeshStandardMaterial({
-    color: new Color(boardColor), roughness: 0.7, metalness: 0.0,
+    color: new Color(boardColor), roughness: 0.65, metalness: 0.0,
   }), [boardColor]);
   const darkMat = useMemo(() => new MeshStandardMaterial({
     color: new Color(darkColor), roughness: 0.75, metalness: 0.0,
   }), [darkColor]);
 
+  // ── Dimensions from plans ───────────────────────────────────────────
   const T   = 1.5;     // board thickness (2× stock)
   const W6  = 5.5;     // 2×6 width
-  const W8  = 7.5;     // 2×8 width
+  const HL  = 19;      // half of 38" runner
 
-  const halfLen     = 19;     // half of 38" runner
-  const seatSlatW   = 23.25;  // seat/back slat span (X-axis)
-  const legH        = 20.25;  // front leg height
-  const backSuppH   = 17.5;   // back support height
-  const backSuppW   = 4.25;   // back support rip width
-  const armW        = 4;      // armrest rip width
-  const armL        = 24.25;  // armrest length
+  const seatSlatW  = 23.25;
+  const legH       = 20.25;
+  const backSuppH  = 17.5;
+  const backSuppW  = 4.25;
+  const armW       = 4;
+  const armL       = 24.25;
+  const seatGap    = 0.25;
 
-  const runnerSpace = 12;     // runner center-to-center X distance
-  const seatTilt    = 0.07;   // ~4° backward seat tilt
-  const backAngle   = 0.40;   // ~23° recline
-  const groundTilt  = 0.065;  // ~3.7° whole-chair lean
+  // Runner spacing: slats flush with outside edges of runners
+  const RS = (seatSlatW - T) / 2; // 10.875" center-to-center
 
-  // Custom runner side-profile with tapered front and rear cuts.
-  // The taper creates the distinctive forward-extending blade shape
-  // visible in the real chair's side profile.
-  // Shape X = runner front-to-back (Z in world after rotation)
-  // Shape Y = runner up-down (Y in world)
-  // Extruded along Shape Z → world X (runner thickness)
+  // Plans: chair sits on ground at 13° recline angle
+  const groundTilt = 0.227;
+  // Back support angle relative to tilted frame (~15°, total ~28° from vertical)
+  const backAngle = 0.26;
+
+  // ── Exact runner profile from SVG blueprint ─────────────────────────
+  // Plans polygon: (0,3.5) (19.5,0) (38,3.5) (36,7.5) (6.5,7.5) (0,5)
+  // Converted: Z = svgX - 19, Y = 7.5 - svgY
   const runnerGeo = useMemo(() => {
     const shape = new Shape();
-    shape.moveTo(halfLen, W8);
-    shape.lineTo(halfLen, 4.0);
-    shape.lineTo(halfLen - 6, 0);
-    shape.lineTo(-halfLen + 2.5, 0);
-    shape.lineTo(-halfLen, 1.8);
-    shape.lineTo(-halfLen, W8);
+    shape.moveTo(-HL, 4.0);       // (0, 3.5)  rear upper
+    shape.lineTo(0.5, 7.5);       // (19.5, 0) peak/top
+    shape.lineTo(HL, 4.0);        // (38, 3.5) front upper
+    shape.lineTo(17, 0);          // (36, 7.5) front ground contact
+    shape.lineTo(-12.5, 0);       // (6.5, 7.5) rear ground contact
+    shape.lineTo(-HL, 2.5);       // (0, 5)    rear lower
     shape.closePath();
     const geo = new ExtrudeGeometry(shape, { depth: T, bevelEnabled: false });
     geo.translate(0, 0, -T / 2);
@@ -2115,103 +2116,111 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     return geo;
   }, []);
 
-  const seatCY     = W8 + T / 2;
-  const seatGap    = 0.25;
-  const seatFrontZ = halfLen - 4;
+  // Y offset so front ground contact (Z=17, Y=0) sits at world Y=0 after tilt
+  const yLift = 17 * Math.sin(groundTilt);
 
-  // Back supports start just behind the rear seat slat
-  const backBaseZ = seatFrontZ - 2 * (W6 + seatGap) - W6 / 2 - 1;
-  const backBaseY = W8;
+  // ── Runner top height at a given Z (for placing seat slats) ─────────
+  // Peak at Z=0.5, Y=7.5. Front slope to (Z=19, Y=4.0). Rear slope to (Z=-19, Y=4.0).
+  const runnerTopY = (z: number) =>
+    z >= 0.5
+      ? 7.5 - (z - 0.5) * (3.5 / 18.5)
+      : 7.5 - (0.5 - z) * (3.5 / 19.5);
 
-  const legZ   = seatFrontZ - W6 / 2;
-  const legCY  = legH / 2;
+  // ── Seat slats — positioned individually on runner top slope ────────
+  // Front slat flush with front of runner. 1/4" gaps between slats.
+  const seatSlats = [0, 1, 2].map((i) => {
+    const z = HL - W6 / 2 - i * (W6 + seatGap);
+    const y = runnerTopY(z) + T / 2;
+    return { z, y };
+  });
 
-  const armTopY  = legH + T / 2;
+  // ── Back supports — just behind rear seat slat ──────────────────────
+  const rearSlatZ = seatSlats[2].z - W6 / 2;
+  const backBaseZ = rearSlatZ - 1;
+  const backBaseY = runnerTopY(backBaseZ);
+
+  // ── Front legs — on outside of runners, near front of seat ──────────
+  const legZ  = seatSlats[0].z;
+  const legCY = legH / 2;
+
+  // ── Armrests — on top of legs, extending back to back supports ──────
+  const armTopY   = legH + T / 2;
   const armFrontZ = legZ + W6 / 2 + 2;
-  const armCZ    = armFrontZ - armL / 2;
+  const armCZ     = armFrontZ - armL / 2;
 
   return (
     <group scale={[S, S, S]}>
-      <group rotation={[groundTilt, 0, 0]}>
+      {/* Lift so lowest point (front ground contact) sits at Y=0 */}
+      <group position={[0, yLift, 0]}>
+        {/* 13° backward recline from plans */}
+        <group rotation={[groundTilt, 0, 0]}>
 
-        {/* ── Side Panels / Base Runners — custom tapered profile ───── */}
-        {[-runnerSpace, runnerSpace].map((x, i) => (
-          <mesh key={`runner-${i}`} geometry={runnerGeo} material={darkMat}
-            position={[x, 0, 0]}
-            rotation={[0, -Math.PI / 2, 0]}
-          />
-        ))}
+          {/* ── Base Runners — exact plan profile ──────────────────── */}
+          {[-RS, RS].map((x, i) => (
+            <mesh key={`runner-${i}`} geometry={runnerGeo} material={darkMat}
+              position={[x, 0, 0]}
+              rotation={[0, -Math.PI / 2, 0]}
+            />
+          ))}
 
-        {/* ── Cross-brace (2×4 between runners under seat front) ───── */}
-        <mesh material={darkMat}
-          position={[0, W8 * 0.45, seatFrontZ - W6]}
-        >
-          <boxGeometry args={[runnerSpace * 2 - T, 3.5, T]} />
-        </mesh>
-
-        {/* ── Front Legs (2×6, on outside of each runner) ────────────── */}
-        {[-1, 1].map((side, i) => (
-          <mesh key={`leg-${i}`} material={darkMat}
-            position={[
-              side * (runnerSpace + T),
-              legCY,
-              legZ,
-            ]}
+          {/* ── Cross-brace (between runners under seat) ───────────── */}
+          <mesh material={darkMat}
+            position={[0, runnerTopY(seatSlats[1].z) * 0.5, seatSlats[1].z]}
           >
-            <boxGeometry args={[T, legH, W6]} />
+            <boxGeometry args={[RS * 2 - T, 3.5, T]} />
           </mesh>
-        ))}
 
-        {/* ── Seat Slats (3 × 2×6, 23.25" wide) ───────────────────── */}
-        <group rotation={[seatTilt, 0, 0]} position={[0, seatCY, 0]}>
-          {[0, 1, 2].map((row) => (
-            <mesh key={`seat-${row}`} material={mat}
-              position={[0, 0, seatFrontZ - row * (W6 + seatGap)]}
+          {/* ── Front Legs (2×6, outside of runners) ───────────────── */}
+          {[-1, 1].map((side, i) => (
+            <mesh key={`leg-${i}`} material={darkMat}
+              position={[side * (RS + T), legCY, legZ]}
+            >
+              <boxGeometry args={[T, legH, W6]} />
+            </mesh>
+          ))}
+
+          {/* ── Seat Slats (3 × 2×6, following runner top slope) ───── */}
+          {seatSlats.map((sl, i) => (
+            <mesh key={`seat-${i}`} material={mat}
+              position={[0, sl.y, sl.z]}
             >
               <boxGeometry args={[seatSlatW, T, W6]} />
             </mesh>
           ))}
-        </group>
 
-        {/* ── Back Supports (angled ~23° backward) ─────────────────── */}
-        {[-runnerSpace, runnerSpace].map((x, i) => (
-          <group key={`bs-${i}`}
-            position={[x, backBaseY, backBaseZ]}
-            rotation={[backAngle, 0, 0]}
-          >
-            <mesh material={darkMat} position={[0, backSuppH / 2, 0]}>
-              <boxGeometry args={[T, backSuppH, backSuppW]} />
-            </mesh>
-          </group>
-        ))}
+          {/* ── Back Supports (angled backward) ────────────────────── */}
+          {[-RS, RS].map((x, i) => (
+            <group key={`bs-${i}`}
+              position={[x, backBaseY, backBaseZ]}
+              rotation={[backAngle, 0, 0]}
+            >
+              <mesh material={darkMat} position={[0, backSuppH / 2, 0]}>
+                <boxGeometry args={[T, backSuppH, backSuppW]} />
+              </mesh>
+            </group>
+          ))}
 
-        {/* ── Back Slats (3 × 2×6, tilted with supports) ──────────── */}
-        <group position={[0, backBaseY, backBaseZ]} rotation={[backAngle, 0, 0]}>
-          {[0, 1, 2].map((row) => {
-            const offsetY = T / 2 + row * (W6 + seatGap);
-            return (
+          {/* ── Back Slats (3 × 2×6, on back supports) ────────────── */}
+          <group position={[0, backBaseY, backBaseZ]} rotation={[backAngle, 0, 0]}>
+            {[0, 1, 2].map((row) => (
               <mesh key={`back-${row}`} material={mat}
-                position={[0, offsetY, 0]}
+                position={[0, T / 2 + row * (W6 + seatGap), 0]}
               >
                 <boxGeometry args={[seatSlatW, W6, T]} />
               </mesh>
-            );
-          })}
+            ))}
+          </group>
+
+          {/* ── Arm Rests (ripped to 4", 24.25" long) ──────────────── */}
+          {[-1, 1].map((side, i) => (
+            <mesh key={`arm-${i}`} material={mat}
+              position={[side * (RS + T / 2), armTopY, armCZ]}
+            >
+              <boxGeometry args={[armW, T, armL]} />
+            </mesh>
+          ))}
+
         </group>
-
-        {/* ── Arm Rests (ripped to 4", 24.25" long) ────────────────── */}
-        {[-1, 1].map((side, i) => (
-          <mesh key={`arm-${i}`} material={mat}
-            position={[
-              side * (runnerSpace + T / 2),
-              armTopY,
-              armCZ,
-            ]}
-          >
-            <boxGeometry args={[armW, T, armL]} />
-          </mesh>
-        ))}
-
       </group>
     </group>
   );
@@ -2220,9 +2229,9 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
 function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
-    const d = 1.5;
-    camera.position.set(d * 0.88, d * 0.38, d * 0.92);
-    camera.lookAt(0, 0.16, -0.03);
+    const d = 1.6;
+    camera.position.set(d * 0.80, d * 0.35, d * 0.85);
+    camera.lookAt(0, 0.22, -0.04);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return null;

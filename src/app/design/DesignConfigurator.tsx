@@ -1053,6 +1053,13 @@ export default function DesignConfigurator({
                   Raised Bed
                 </span>
               </>
+            ) : productAddons.chairPreview ? (
+              <>
+                30&quot; W &times; 34&quot; H &times; 38&quot; D
+                <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                  Adirondack Chair
+                </span>
+              </>
             ) : cart.showMultiUnit3D && cart.orderItems.length > 0 && cart.orderItems.every((it) => it.raisedBedConfig) ? (
               <>
                 {cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0)} Raised Bed{cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0) > 1 ? "s" : ""}
