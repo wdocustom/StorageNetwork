@@ -2087,15 +2087,15 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     });
   }, [cloned, config.finish, isPainted]);
 
-  return <primitive object={cloned} scale={0.5} position={[0, 0, 0]} />;
+  return <primitive object={cloned} scale={0.3} position={[0, 0, 0]} />;
 }
 
 function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
-    const d = 1.6;
+    const d = 1.0;
     camera.position.set(d * 0.75, d * 0.45, d * 0.85);
-    camera.lookAt(0, 0.20, 0);
+    camera.lookAt(0, 0.12, 0);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return (
