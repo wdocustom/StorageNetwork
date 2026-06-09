@@ -2066,33 +2066,24 @@ function TextureGuard() {
 function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
   const { scene } = useGLTF("/models/adirondack-chair.glb");
 
-  const boardColor = config.finish === "white" ? "#f5f5f0"
-    : config.finish === "black" ? "#1c1c1c"
-    : "#c87533";
+  const woodMat = useMemo(() => {
+    if (config.finish === "white") return createPaintedMaterial("#f5f5f0");
+    if (config.finish === "black") return createPaintedMaterial("#1c1c1c");
+    return createDougFirMaterial(42);
+  }, [config.finish]);
 
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
   useEffect(() => {
-    const color = new Color(boardColor);
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        if (Array.isArray(mesh.material)) {
-          mesh.material = mesh.material.map((m) => {
-            const mat = (m as THREE.MeshStandardMaterial).clone();
-            mat.color.set(color);
-            return mat;
-          });
-        } else {
-          const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
-          mat.color.set(color);
-          mesh.material = mat;
-        }
+        mesh.material = woodMat;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
       }
     });
-  }, [cloned, boardColor]);
+  }, [cloned, woodMat]);
 
   return <primitive object={cloned} scale={0.02} position={[0, 0, 0]} />;
 }
