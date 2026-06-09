@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, ContactShadows } from "@react-three/drei";
+import { OrbitControls, ContactShadows, useGLTF } from "@react-three/drei";
+import * as THREE from "three";
 import { BufferGeometry, BufferAttribute, DoubleSide, MeshStandardMaterial, Color, Shape, ExtrudeGeometry, type Side } from "three";
 import IndustrialCaster, { CASTER_HEIGHT } from "./IndustrialCaster";
 import { createDougFirMaterial, createPlywoodMaterial, createPlywoodTopMaterial, createPaintedMaterial, restoreAllTextures, disposeAllTextures } from "./woodTextures";
@@ -2063,173 +2064,36 @@ function TextureGuard() {
 }
 
 function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
-  const boardColor = config.finish === "white" ? "#f5f5f0"
-    : config.finish === "black" ? "#1c1c1c"
-    : "#c87533";
-  const darkColor = config.finish === "white" ? "#e7e5e4"
-    : config.finish === "black" ? "#111111"
-    : "#a0522d";
+  const { scene } = useGLTF("/models/adirondack-chair.glb");
 
-  const mat = useMemo(() => new MeshStandardMaterial({
-    color: new Color(boardColor), roughness: 0.65, metalness: 0.0,
-  }), [boardColor]);
-  const darkMat = useMemo(() => new MeshStandardMaterial({
-    color: new Color(darkColor), roughness: 0.75, metalness: 0.0,
-  }), [darkColor]);
+  const woodMat = useMemo(() => {
+    if (config.finish === "white") return createPaintedMaterial("#f5f5f0");
+    if (config.finish === "black") return createPaintedMaterial("#1c1c1c");
+    return createDougFirMaterial(42);
+  }, [config.finish]);
 
-  const T   = 1.5;
-  const W6  = 5.5;
-  const HL  = 19;
+  const cloned = useMemo(() => scene.clone(true), [scene]);
 
-  const seatSlatW  = 23.25;
-  const legH       = 20.25;
-  const backSuppH  = 17.5;
-  const backSuppW  = 4.25;
-  const armW       = 4;
-  const armL       = 24.25;
-  const seatGap    = 0.25;
+  useEffect(() => {
+    cloned.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.material = woodMat;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+  }, [cloned, woodMat]);
 
-  const RS = (seatSlatW - T) / 2; // 10.875"
-
-  const backAngle = 0.35;   // ~20° back recline for natural Adirondack posture
-
-  // ── Exact runner profile from SVG blueprint ─────────────────────────
-  // Plans polygon: (0,3.5) (19.5,0) (38,3.5) (36,7.5) (6.5,7.5) (0,5)
-  // Converted: shapeX = svgX - 19 (→ world Z), shapeY = 7.5 - svgY (→ world Y)
-  // The runner sits flat — the 13° in plans is the nose edge angle, not a whole-chair tilt.
-  const runnerGeo = useMemo(() => {
-    const shape = new Shape();
-    shape.moveTo(-HL, 4.0);
-    shape.lineTo(0.5, 7.5);
-    shape.lineTo(HL, 4.0);
-    shape.lineTo(17, 0);
-    shape.lineTo(-12.5, 0);
-    shape.lineTo(-HL, 2.5);
-    shape.closePath();
-    const geo = new ExtrudeGeometry(shape, { depth: T, bevelEnabled: false });
-    geo.translate(0, 0, -T / 2);
-    geo.computeVertexNormals();
-    return geo;
-  }, []);
-
-  // Runner top height at a given Z position (peaked profile)
-  const runnerTopY = (z: number) =>
-    z >= 0.5
-      ? 7.5 - (z - 0.5) * (3.5 / 18.5)
-      : 7.5 - (0.5 - z) * (3.5 / 19.5);
-
-  // ── Seat slats — front slat flush with front of runner ──────────────
-  const seatSlats = [0, 1, 2].map((i) => {
-    const z = HL - W6 / 2 - i * (W6 + seatGap);
-    return { z, y: runnerTopY(z) + T / 2 };
-  });
-
-  // ── Back supports — behind rear seat slat ───────────────────────────
-  const rearSlatZ = seatSlats[2].z - W6 / 2;
-  const backBaseZ = rearSlatZ - 1;
-  const backBaseY = runnerTopY(backBaseZ);
-
-  // ── Front legs — tilted backward, crossing through front of runner ──
-  // Per build plans: legs lean back ~15° from vertical, attached with
-  // 2" deck screws where they cross the runner/seat front.
-  const legTilt   = -0.26;  // ~15° backward lean
-  const legPivotZ = seatSlats[0].z;         // pivot at front seat slat
-  const legPivotY = runnerTopY(legPivotZ);  // at runner top height there
-  // Leg top & bottom positions after tilt (relative to pivot)
-  const legAbove = legH - legPivotY;        // portion above pivot
-  const legTopY  = legPivotY + legAbove * Math.cos(legTilt) ;
-  const legTopZ  = legPivotZ + legAbove * Math.sin(legTilt);
-
-  // ── Armrests — on top of tilted legs, extending backward ────────────
-  const armTopY   = legTopY + T / 2;
-  const armFrontZ = legTopZ + 2;            // 2" overhang past leg top
-  const armCZ     = armFrontZ - armL / 2;
-
-  return (
-    <group scale={[S, S, S]}>
-      <group>
-
-          {/* ── Base Runners — exact plan profile ──────────────────── */}
-          {[-RS, RS].map((x, i) => (
-            <mesh key={`runner-${i}`} geometry={runnerGeo} material={darkMat}
-              position={[x, 0, 0]}
-              rotation={[0, -Math.PI / 2, 0]}
-            />
-          ))}
-
-          {/* ── Cross-brace (between runners under seat) ───────────── */}
-          <mesh material={darkMat}
-            position={[0, runnerTopY(seatSlats[1].z) * 0.45, seatSlats[1].z]}
-          >
-            <boxGeometry args={[RS * 2 - T, 3.5, T]} />
-          </mesh>
-
-          {/* ── Front Legs (2×6, tilted backward ~15°) ───────────── */}
-          {[-1, 1].map((side, i) => (
-            <group key={`leg-${i}`}
-              position={[side * (RS + T), legPivotY, legPivotZ]}
-              rotation={[legTilt, 0, 0]}
-            >
-              <mesh material={darkMat}
-                position={[0, legH / 2 - legPivotY, 0]}
-              >
-                <boxGeometry args={[T, legH, W6]} />
-              </mesh>
-            </group>
-          ))}
-
-          {/* ── Seat Slats (3 × 2×6, following runner top slope) ───── */}
-          {seatSlats.map((sl, i) => (
-            <mesh key={`seat-${i}`} material={mat}
-              position={[0, sl.y, sl.z]}
-            >
-              <boxGeometry args={[seatSlatW, T, W6]} />
-            </mesh>
-          ))}
-
-          {/* ── Back Supports (angled backward) ────────────────────── */}
-          {[-RS, RS].map((x, i) => (
-            <group key={`bs-${i}`}
-              position={[x, backBaseY, backBaseZ]}
-              rotation={[backAngle, 0, 0]}
-            >
-              <mesh material={darkMat} position={[0, backSuppH / 2, 0]}>
-                <boxGeometry args={[T, backSuppH, backSuppW]} />
-              </mesh>
-            </group>
-          ))}
-
-          {/* ── Back Slats (3 × 2×6, on back supports) ────────────── */}
-          <group position={[0, backBaseY, backBaseZ]} rotation={[backAngle, 0, 0]}>
-            {[0, 1, 2].map((row) => (
-              <mesh key={`back-${row}`} material={mat}
-                position={[0, T / 2 + row * (W6 + seatGap), 0]}
-              >
-                <boxGeometry args={[seatSlatW, W6, T]} />
-              </mesh>
-            ))}
-          </group>
-
-          {/* ── Arm Rests (ripped to 4", 24.25" long) ──────────────── */}
-          {[-1, 1].map((side, i) => (
-            <mesh key={`arm-${i}`} material={mat}
-              position={[side * (RS + T / 2 + 0.25), armTopY, armCZ]}
-            >
-              <boxGeometry args={[armW, T, armL]} />
-            </mesh>
-          ))}
-
-      </group>
-    </group>
-  );
+  return <primitive object={cloned} scale={0.02} position={[0, 0, 0]} />;
 }
 
 function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
-    const d = 1.4;
-    camera.position.set(d * 0.85, d * 0.40, d * 0.80);
-    camera.lookAt(0, 0.15, -0.02);
+    const d = 1.6;
+    camera.position.set(d * 0.75, d * 0.45, d * 0.85);
+    camera.lookAt(0, 0.20, 0);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return null;
