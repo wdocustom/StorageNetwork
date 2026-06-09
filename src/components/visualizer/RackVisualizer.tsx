@@ -542,6 +542,7 @@ export default function RackVisualizer(props: RackVisualizerProps) {
                         shelvingConfig: u.shelvingConfig,
                         overheadConfig: u.overheadStorageConfig ? { slotsWide: u.overheadStorageConfig.slotsWide, slotsDeep: u.overheadStorageConfig.slotsDeep, toteType: u.overheadStorageConfig.toteType } : undefined,
                         raisedBedConfig: u.raisedBedConfig,
+                        chairConfig: u.chairConfig,
                         presetUnits: u.presetUnits,
                         drawerSlideRows: u.drawerSlideRows,
                         drawerSlideColumns: u.drawerSlideColumns,

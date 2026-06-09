@@ -1092,10 +1092,27 @@ export default function DesignConfigurator({
                   {presets.compoundBuild.presetName}
                 </span>
               </>
-            ) : cart.showMultiUnit3D && cart.orderItems.some((it) => !it.raisedBedConfig && !it.overheadStorageConfig) ? (
+            ) : cart.showMultiUnit3D && cart.orderItems.every((it) => !!it.chairConfig) ? (
+              (() => {
+                const totalChairs = cart.orderItems.reduce((s, it) => s + (it.quantity || 1), 0);
+                return (
+                  <>
+                    30&quot; W &times; 34&quot; H &times; 38&quot; D
+                    {totalChairs > 1 && (
+                      <span className="ml-1 font-bold text-gray-900">
+                        &times; {totalChairs}
+                      </span>
+                    )}
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                      Adirondack Chair{totalChairs > 1 ? "s" : ""}
+                    </span>
+                  </>
+                );
+              })()
+            ) : cart.showMultiUnit3D && cart.orderItems.some((it) => !it.raisedBedConfig && !it.overheadStorageConfig && !it.chairConfig) ? (
               (() => {
                 const rackItems = cart.orderItems.filter(
-                  (it) => !it.raisedBedConfig && !it.overheadStorageConfig,
+                  (it) => !it.raisedBedConfig && !it.overheadStorageConfig && !it.chairConfig,
                 );
                 const combinedW = rackItems.reduce(
                   (s, it) => s + (it.totalW || 0) * (it.quantity || 1), 0,
