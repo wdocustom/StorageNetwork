@@ -150,3 +150,45 @@ export async function getPlatformDefaults() {
     },
   };
 }
+
+// ── Server-side chair price calculator ─────────────────────────────────
+
+export async function calculateChairPriceServer(config: {
+  finish: string;
+  quantity: number;
+  installerPricing?: Record<string, unknown>;
+}): Promise<{ total: number; breakdown: { label: string; amount: number }[] }> {
+  const basePrice = Number(config.installerPricing?.adirondack_chair_base) || 350;
+  const paintAddon = Number(config.installerPricing?.adirondack_chair_paint_addon) || 75;
+
+  const breakdown: { label: string; amount: number }[] = [];
+  breakdown.push({ label: "Low Boy Adirondack Chair", amount: basePrice });
+
+  if (config.finish === "white" || config.finish === "black") {
+    const finishLabel = config.finish === "white" ? "White Paint" : "Black Paint";
+    breakdown.push({ label: finishLabel, amount: paintAddon });
+  }
+
+  const perUnit = breakdown.reduce((sum, item) => sum + item.amount, 0);
+
+  if (config.quantity > 1) {
+    return {
+      total: perUnit * config.quantity,
+      breakdown: [{ label: `${config.quantity}× Low Boy Adirondack`, amount: perUnit * config.quantity }],
+    };
+  }
+
+  return { total: perUnit, breakdown };
+}
+
+// ── Get chair option prices (for UI display) ───────────────────────────
+
+export async function getChairOptionPrices(installerPricing?: Record<string, unknown>): Promise<{
+  basePrice: number;
+  paintAddon: number;
+}> {
+  return {
+    basePrice: Number(installerPricing?.adirondack_chair_base) || 350,
+    paintAddon: Number(installerPricing?.adirondack_chair_paint_addon) || 75,
+  };
+}

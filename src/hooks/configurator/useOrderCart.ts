@@ -59,6 +59,9 @@ function buildMultiUnitItem(
           } : undefined;
         })()
       : undefined,
+    chairConfig: item.chairConfig
+      ? { finish: item.chairConfig.finish }
+      : undefined,
     presetUnits: item.presetUnits,
     drawerSlideRows: item.drawerSlideRows,
     drawerSlideColumns: item.drawerSlideColumns,

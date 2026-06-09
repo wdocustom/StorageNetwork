@@ -294,6 +294,13 @@ export interface ConfiguratorSidebarProps {
   onAddRaisedBed: (config: import("@/lib/raised-beds").RaisedBedConfig, price: number, desc: string) => void;
   onRaisedBedPreview?: (preview: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover: string; finish: string; hasStringLightPost?: boolean; postHeightIn?: number } | null) => void;
 
+  // Adirondack Chair
+  chairHidden?: boolean;
+  chairPreviewPrice?: number | null;
+  onChairPriceChange?: (price: number | null) => void;
+  onAddChair: (config: import("@/lib/chairs").ChairConfig, price: number, desc: string) => void;
+  onChairPreview?: (preview: { finish: string } | null) => void;
+
   // Indoor delivery fee
   indoorDeliveryConfig?: { enabled: boolean; fee: number };
   indoorDelivery: boolean;
