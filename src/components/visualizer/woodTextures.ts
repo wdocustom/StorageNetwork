@@ -594,6 +594,8 @@ export function createConstructionLumberMaterial(seed = 42): MeshStandardMateria
     color: new Color("#F0E4C8"),
   });
 }
+
+/**
  * Creates a realistic plywood material with procedural texture.
  */
 export function createPlywoodMaterial(seed = 137): MeshStandardMaterial {
