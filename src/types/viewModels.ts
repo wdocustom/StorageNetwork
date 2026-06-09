@@ -168,8 +168,10 @@ export interface InstallerPricing {
   raised_bed_high_wind_weighted_addon?: number;
   /** When true, Low Boy Adirondack Chair product is shown on build pages (default: off) */
   adirondack_chair_enabled?: boolean;
-  /** Per-chair price override (platform default: $265) */
+  /** Per-chair base price override (platform default: $265) */
   adirondack_chair?: number;
+  /** Paint finish addon per chair (platform default: $75) */
+  adirondack_chair_paint_addon?: number;
 }
 
 // All platform pricing constants moved to src/app/actions/platform-defaults.ts (server-only)

@@ -158,7 +158,7 @@ export async function calculateChairPriceServer(config: {
   quantity: number;
   installerPricing?: Record<string, unknown>;
 }): Promise<{ total: number; breakdown: { label: string; amount: number }[] }> {
-  const basePrice = Number(config.installerPricing?.adirondack_chair_base) || 350;
+  const basePrice = Number(config.installerPricing?.adirondack_chair) || 265;
   const paintAddon = Number(config.installerPricing?.adirondack_chair_paint_addon) || 75;
 
   const breakdown: { label: string; amount: number }[] = [];
@@ -188,7 +188,7 @@ export async function getChairOptionPrices(installerPricing?: Record<string, unk
   paintAddon: number;
 }> {
   return {
-    basePrice: Number(installerPricing?.adirondack_chair_base) || 350,
+    basePrice: Number(installerPricing?.adirondack_chair) || 265,
     paintAddon: Number(installerPricing?.adirondack_chair_paint_addon) || 75,
   };
 }

@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, Package } from "lucide-react";
+import { Minus, Plus, Package, Check } from "lucide-react";
 import BottomDrawer from "./BottomDrawer";
 import type { InstallerPricing } from "@/types/viewModels";
+import { CHAIR_FINISHES, type ChairFinish } from "@/lib/chairs";
 
 const CHAIR_DEFAULT_PRICE = 265;
+const CHAIR_PAINT_ADDON_DEFAULT = 75;
 
 interface ChairDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   installerPricing?: InstallerPricing;
-  onAddChair: (quantity: number, price: number, desc: string) => void;
+  onAddChair: (quantity: number, price: number, desc: string, finish: ChairFinish) => void;
 }
 
 export default function ChairDrawer({
@@ -21,16 +23,22 @@ export default function ChairDrawer({
   onAddChair,
 }: ChairDrawerProps) {
   const [quantity, setQuantity] = useState(1);
-  const priceEach = installerPricing?.adirondack_chair ?? CHAIR_DEFAULT_PRICE;
+  const [finish, setFinish] = useState<ChairFinish>("natural");
+
+  const basePrice = installerPricing?.adirondack_chair ?? CHAIR_DEFAULT_PRICE;
+  const paintAddon = installerPricing?.adirondack_chair_paint_addon ?? CHAIR_PAINT_ADDON_DEFAULT;
+  const isPainted = finish === "white" || finish === "black";
+  const priceEach = basePrice + (isPainted ? paintAddon : 0);
   const total = priceEach * quantity;
 
   function handleAdd() {
-    const desc =
-      quantity > 1
-        ? `Low Boy Adirondack Chair (×${quantity})`
-        : "Low Boy Adirondack Chair";
-    onAddChair(quantity, total, desc);
+    const finishObj = CHAIR_FINISHES.find((f) => f.id === finish);
+    const finishLabel = finishObj?.label ?? "Natural";
+    const qtyLabel = quantity > 1 ? ` (×${quantity})` : "";
+    const desc = `Low Boy Adirondack Chair — ${finishLabel}${qtyLabel}`;
+    onAddChair(quantity, total, desc, finish);
     setQuantity(1);
+    setFinish("natural");
   }
 
   return (
@@ -46,6 +54,38 @@ export default function ChairDrawer({
           A sleek, low-profile Adirondack built from standard dimensional lumber.
           Weekend build, beginner-friendly.
         </p>
+
+        {/* Finish selector */}
+        <div>
+          <p className="mb-2.5 text-sm font-semibold text-white">Finish</p>
+          <div className="flex gap-3">
+            {CHAIR_FINISHES.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFinish(f.id)}
+                className={`flex flex-1 flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
+                  finish === f.id
+                    ? "border-amber-400/60 bg-amber-400/5"
+                    : "border-slate-700 bg-slate-800/30 hover:border-slate-500"
+                }`}
+              >
+                <div
+                  className="relative h-8 w-8 rounded-full border border-white/10"
+                  style={{ backgroundColor: f.hex }}
+                >
+                  {finish === f.id && (
+                    <Check className={`absolute inset-0 m-auto h-4 w-4 ${f.id === "black" ? "text-white" : "text-gray-900"}`} />
+                  )}
+                </div>
+                <span className="text-[11px] font-medium text-stone-400">{f.label}</span>
+                {(f.id === "white" || f.id === "black") && (
+                  <span className="text-[10px] text-amber-400/70">+${paintAddon}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Quantity selector */}
         <div className="flex items-center justify-between">

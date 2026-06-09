@@ -816,7 +816,7 @@ export default function DesignConfigurator({
           onRaisedBedPreview={(v) => { productAddons.setRaisedBedPreview(v); if (v) { productAddons.setOverheadPreview(null); productAddons.setChairPreview(null); presets.setActivePreset(null); presets.setCompoundBuild(null); } }}
 
           // Adirondack Chair
-          chairHidden={false}
+          chairHidden={!installer.chairEnabled}
           chairPreviewPrice={productAddons.chairPreviewPrice}
           onChairPriceChange={productAddons.setChairPreviewPrice}
           onAddChair={productAddons.handleAddChair}

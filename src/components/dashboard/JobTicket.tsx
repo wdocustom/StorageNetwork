@@ -1793,9 +1793,10 @@ export default function JobTicket({
 
       {/* ── Chair Materials & Build Plans ───────────────────────────── */}
       {(() => {
-        const chairUnits = (quoteData as (MaterialConfig & { chairId?: string; quantity?: number })[] | null)?.filter((u) => u.chairId) ?? [];
+        const chairUnits = (quoteData as (MaterialConfig & { chairId?: string; chairFinish?: string; quantity?: number })[] | null)?.filter((u) => u.chairId) ?? [];
         if (chairUnits.length === 0) return null;
         const totalChairs = chairUnits.reduce((sum, u) => sum + (u.quantity ?? 1), 0);
+        const paintedCount = chairUnits.reduce((sum, u) => (u.chairFinish === "white" || u.chairFinish === "black") ? sum + (u.quantity ?? 1) : sum, 0);
         return (
           <section className="rounded-xl border border-amber-500/20 bg-slate-900 overflow-hidden">
             <div className="h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500" />
@@ -1819,6 +1820,8 @@ export default function JobTicket({
                   { qty: "—", name: "2-1/2″ outdoor pocket hole screws" },
                   { qty: "—", name: "2″ & 3″ exterior deck screws, 2″ lag screws" },
                   { qty: "—", name: "Titebond III outdoor wood glue" },
+                  ...(paintedCount > 0 ? [{ qty: `${paintedCount}×`, name: "Exterior paint (white or black per spec)" }] : []),
+                  ...((totalChairs - paintedCount) > 0 ? [{ qty: `${totalChairs - paintedCount}×`, name: "Exterior clear sealant / natural finish" }] : []),
                 ].map((item) => (
                   <div key={item.name} className="flex items-center gap-2.5">
                     <span className="w-8 text-right text-[11px] font-bold text-amber-400/80">{item.qty}</span>

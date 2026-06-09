@@ -292,8 +292,15 @@ function getPriceFields(defs: typeof EMPTY_DEFAULTS): PriceField[] { return [
   {
     key: "adirondack_chair" as PricingNumericKey,
     label: "Low Boy Adirondack Chair",
-    description: "Base price per chair (platform default: $265)",
+    description: "Base price per chair — natural finish (platform default: $265)",
     defaultValue: 265,
+    category: "chairs" as const,
+  },
+  {
+    key: "adirondack_chair_paint_addon" as PricingNumericKey,
+    label: "Paint Finish Add-On",
+    description: "Extra per chair for white or black paint (platform default: $75)",
+    defaultValue: 75,
     category: "chairs" as const,
   },
 ]; }
@@ -872,8 +879,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
             </div>
             <p className="text-[11px] text-stone-500">
               {chairEnabled
-                ? "Low Boy Adirondack Chair is available on your build page"
-                : "Toggle to add the Adirondack Chair to your build menu"}
+                ? "Low Boy Adirondack Chair is available on your design & build pages"
+                : "Toggle to add the Adirondack Chair to your design & build pages"}
             </p>
           </div>
         </button>
