@@ -2077,10 +2077,9 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     color: new Color(darkColor), roughness: 0.75, metalness: 0.0,
   }), [darkColor]);
 
-  // ── Dimensions from plans ───────────────────────────────────────────
-  const T   = 1.5;     // board thickness (2× stock)
-  const W6  = 5.5;     // 2×6 width
-  const HL  = 19;      // half of 38" runner
+  const T   = 1.5;
+  const W6  = 5.5;
+  const HL  = 19;
 
   const seatSlatW  = 23.25;
   const legH       = 20.25;
@@ -2090,25 +2089,22 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
   const armL       = 24.25;
   const seatGap    = 0.25;
 
-  // Runner spacing: slats flush with outside edges of runners
-  const RS = (seatSlatW - T) / 2; // 10.875" center-to-center
+  const RS = (seatSlatW - T) / 2; // 10.875"
 
-  // Plans: chair sits on ground at 13° recline angle
-  const groundTilt = 0.227;
-  // Back support angle relative to tilted frame (~15°, total ~28° from vertical)
-  const backAngle = 0.26;
+  const groundTilt = 0.227; // 13° from plans
+  const backAngle = 0.26;   // ~15° relative to tilted frame
 
   // ── Exact runner profile from SVG blueprint ─────────────────────────
   // Plans polygon: (0,3.5) (19.5,0) (38,3.5) (36,7.5) (6.5,7.5) (0,5)
-  // Converted: Z = svgX - 19, Y = 7.5 - svgY
+  // Converted: shapeX = svgX - 19 (→ world Z), shapeY = 7.5 - svgY (→ world Y)
   const runnerGeo = useMemo(() => {
     const shape = new Shape();
-    shape.moveTo(-HL, 4.0);       // (0, 3.5)  rear upper
-    shape.lineTo(0.5, 7.5);       // (19.5, 0) peak/top
-    shape.lineTo(HL, 4.0);        // (38, 3.5) front upper
-    shape.lineTo(17, 0);          // (36, 7.5) front ground contact
-    shape.lineTo(-12.5, 0);       // (6.5, 7.5) rear ground contact
-    shape.lineTo(-HL, 2.5);       // (0, 5)    rear lower
+    shape.moveTo(-HL, 4.0);
+    shape.lineTo(0.5, 7.5);
+    shape.lineTo(HL, 4.0);
+    shape.lineTo(17, 0);
+    shape.lineTo(-12.5, 0);
+    shape.lineTo(-HL, 2.5);
     shape.closePath();
     const geo = new ExtrudeGeometry(shape, { depth: T, bevelEnabled: false });
     geo.translate(0, 0, -T / 2);
@@ -2116,43 +2112,42 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
     return geo;
   }, []);
 
-  // Y offset so front ground contact (Z=17, Y=0) sits at world Y=0 after tilt
+  // Y offset: front ground contact (Z=17, Y=0) must sit at world Y=0 after tilt
   const yLift = 17 * Math.sin(groundTilt);
 
-  // ── Runner top height at a given Z (for placing seat slats) ─────────
-  // Peak at Z=0.5, Y=7.5. Front slope to (Z=19, Y=4.0). Rear slope to (Z=-19, Y=4.0).
+  // Runner top height at a given Z position (peaked profile)
   const runnerTopY = (z: number) =>
     z >= 0.5
       ? 7.5 - (z - 0.5) * (3.5 / 18.5)
       : 7.5 - (0.5 - z) * (3.5 / 19.5);
 
-  // ── Seat slats — positioned individually on runner top slope ────────
-  // Front slat flush with front of runner. 1/4" gaps between slats.
+  // ── Seat slats — front slat flush with front of runner ──────────────
   const seatSlats = [0, 1, 2].map((i) => {
     const z = HL - W6 / 2 - i * (W6 + seatGap);
-    const y = runnerTopY(z) + T / 2;
-    return { z, y };
+    return { z, y: runnerTopY(z) + T / 2 };
   });
 
-  // ── Back supports — just behind rear seat slat ──────────────────────
+  // ── Back supports — behind rear seat slat ───────────────────────────
   const rearSlatZ = seatSlats[2].z - W6 / 2;
   const backBaseZ = rearSlatZ - 1;
   const backBaseY = runnerTopY(backBaseZ);
 
-  // ── Front legs — on outside of runners, near front of seat ──────────
-  const legZ  = seatSlats[0].z;
-  const legCY = legH / 2;
+  // ── Front legs — positioned where runner is tall, legs extend DOWN ──
+  // Plans: "near the front" of the base, screw from seat into top of leg.
+  // Leg TOP aligns with runner TOP. Leg extends downward from there.
+  const legZ = seatSlats[0].z - 2; // slightly behind front slat
+  const legTopY = runnerTopY(legZ); // runner top at leg position
+  const legBottomY = legTopY - legH; // leg extends downward
+  const legCY = legTopY - legH / 2; // center Y of leg
 
-  // ── Armrests — on top of legs, extending back to back supports ──────
-  const armTopY   = legH + T / 2;
+  // ── Armrests — on top of legs, with 2" front overhang ───────────────
+  const armTopY   = legTopY + T / 2;
   const armFrontZ = legZ + W6 / 2 + 2;
   const armCZ     = armFrontZ - armL / 2;
 
   return (
     <group scale={[S, S, S]}>
-      {/* Lift so lowest point (front ground contact) sits at Y=0 */}
       <group position={[0, yLift, 0]}>
-        {/* 13° backward recline from plans */}
         <group rotation={[groundTilt, 0, 0]}>
 
           {/* ── Base Runners — exact plan profile ──────────────────── */}
@@ -2165,12 +2160,13 @@ function AdirondackChairAssembly({ config }: { config: { finish: string } }) {
 
           {/* ── Cross-brace (between runners under seat) ───────────── */}
           <mesh material={darkMat}
-            position={[0, runnerTopY(seatSlats[1].z) * 0.5, seatSlats[1].z]}
+            position={[0, runnerTopY(seatSlats[1].z) * 0.45, seatSlats[1].z]}
           >
             <boxGeometry args={[RS * 2 - T, 3.5, T]} />
           </mesh>
 
           {/* ── Front Legs (2×6, outside of runners) ───────────────── */}
+          {/* Legs attach to runner face with TOP at runner TOP level */}
           {[-1, 1].map((side, i) => (
             <mesh key={`leg-${i}`} material={darkMat}
               position={[side * (RS + T), legCY, legZ]}
@@ -2230,8 +2226,8 @@ function AdirondackChairCameraRig({ config }: { config: { finish: string } }) {
   const { camera } = useThree();
   useEffect(() => {
     const d = 1.6;
-    camera.position.set(d * 0.80, d * 0.35, d * 0.85);
-    camera.lookAt(0, 0.22, -0.04);
+    camera.position.set(d * 0.75, d * 0.32, d * 0.85);
+    camera.lookAt(0, 0.20, -0.05);
     camera.updateProjectionMatrix();
   }, [camera, config]);
   return null;
