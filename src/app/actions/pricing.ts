@@ -85,6 +85,7 @@ export async function updateInstallerPricing(
       "overhead_2x2", "overhead_2x3", "overhead_3x2",
       "overhead_3x3", "overhead_3x4", "overhead_4x4",
       "adirondack_chair",
+      "adirondack_chair_paint_addon",
     ];
 
     for (const field of fields) {
