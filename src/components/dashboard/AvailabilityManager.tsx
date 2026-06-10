@@ -53,6 +53,8 @@ export default function AvailabilityManager() {
   // Profile settings
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
   const [savingToggle, setSavingToggle] = useState(false);
+  const [acceptingNewLeads, setAcceptingNewLeads] = useState(true);
+  const [savingAccepting, setSavingAccepting] = useState(false);
   const [workingDays, setWorkingDays] = useState<string[]>(DEFAULT_WORKING_DAYS);
   const [savingDays, setSavingDays] = useState(false);
   const [daysSaved, setDaysSaved] = useState(false);
@@ -101,7 +103,7 @@ export default function AvailabilityManager() {
     setUserId(user.id);
 
     const [profileRes, overridesRes, jobsRes, blackoutsRes] = await Promise.all([
-      supabase.from("profiles").select("working_days, scheduling_enabled").eq("id", user.id).single(),
+      supabase.from("profiles").select("working_days, scheduling_enabled, accepting_new_leads").eq("id", user.id).single(),
       getScheduleOverrides(user.id, windowStart, windowEnd),
       getScheduledJobs(user.id, windowStart, windowEnd),
       getBlackoutDates(user.id),
@@ -112,6 +114,9 @@ export default function AvailabilityManager() {
     }
     if (profileRes.data && typeof profileRes.data.scheduling_enabled === "boolean") {
       setSchedulingEnabled(profileRes.data.scheduling_enabled);
+    }
+    if (profileRes.data && typeof profileRes.data.accepting_new_leads === "boolean") {
+      setAcceptingNewLeads(profileRes.data.accepting_new_leads);
     }
     if (overridesRes.success) setOverrides(overridesRes.overrides);
     if (jobsRes.success) setJobs(jobsRes.jobs);
@@ -239,6 +244,16 @@ export default function AvailabilityManager() {
     setSavingToggle(false);
   }
 
+  async function toggleAcceptingNewLeads() {
+    if (!userId) return;
+    setSavingAccepting(true);
+    const next = !acceptingNewLeads;
+    setAcceptingNewLeads(next);
+    await supabase.from("profiles").update({ accepting_new_leads: next }).eq("id", userId);
+    await invalidateInstallerCache(userId);
+    setSavingAccepting(false);
+  }
+
   // Week navigation label
   const weekLabel = useMemo(() => {
     if (days.length === 0) return "";
@@ -261,6 +276,36 @@ export default function AvailabilityManager() {
 
   return (
     <div className="space-y-6">
+      {/* ── Accepting New Jobs Toggle ─────────────────────────────── */}
+      <div className={`rounded-2xl border p-5 ${acceptingNewLeads ? "border-slate-800 bg-slate-900" : "border-red-900/40 bg-red-950/20"}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <Users className={`h-4 w-4 ${acceptingNewLeads ? "text-yellow-400" : "text-red-400"}`} />
+              <h3 className="text-sm font-bold text-white">Accepting New Jobs</h3>
+            </div>
+            <p className="text-[11px] leading-relaxed text-stone-500">
+              {acceptingNewLeads
+                ? "You're open for business — new quotes and inbound leads come to you normally."
+                : "Inactive — new quotes you send from the build page will forward to the next available installer in your area. They handle the job; you earn the standard referral bounty."}
+            </p>
+          </div>
+          <button
+            onClick={toggleAcceptingNewLeads}
+            disabled={savingAccepting}
+            className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+              acceptingNewLeads ? "bg-yellow-400" : "bg-red-900"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                acceptingNewLeads ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* ── Scheduling Toggle ─────────────────────────────────────── */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="flex items-start justify-between gap-4">

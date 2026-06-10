@@ -126,13 +126,22 @@ export async function checkDeliveryZip(
   }
 
   const trimmed = zip.trim();
-  const areaCheck = await validateServiceArea(installerId, trimmed);
+
+  // Check whether the installer is currently accepting new leads.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("accepting_new_leads")
+    .eq("id", installerId)
+    .maybeSingle();
+  const notAccepting = profile?.accepting_new_leads === false;
+
+  const areaCheck = notAccepting ? { inArea: false } : await validateServiceArea(installerId, trimmed);
 
   if (areaCheck.inArea) {
     return { in_area: true, waitlist: false };
   }
 
-  // Out of area — check for a covering installer
+  // Out of area or not accepting — check for a covering installer
   const localResult = await rerouteToLocalInstaller(trimmed, installerId);
 
   if (localResult.available && localResult.installer_id) {
@@ -222,7 +231,7 @@ export async function createQuote(
   // ── Resolve installer profile server-side (never trust client values) ──
   const { data: installerProfile, error: profileErr } = await supabase
     .from("profiles")
-    .select("business_name, first_name, phone, email")
+    .select("business_name, first_name, phone, email, accepting_new_leads")
     .eq("id", installer_id)
     .single();
 
@@ -263,10 +272,14 @@ export async function createQuote(
       return { success: false, error: "A valid 5-digit ZIP code is required." };
     }
 
-    const areaCheck = await validateServiceArea(installer_id, deliveryZip);
+    // Treat "not accepting new leads" exactly like an out-of-area handoff so
+    // the same covering-installer logic and bounty flow kicks in for same-area
+    // referrals (e.g. an installer who delegates all builds to another installer).
+    const notAccepting = installerProfile.accepting_new_leads === false;
+    const areaCheck = notAccepting ? { inArea: false } : await validateServiceArea(installer_id, deliveryZip);
 
     if (!areaCheck.inArea) {
-      // Out of area — try to find a covering installer
+      // Out of area (or installer not accepting) — try to find a covering installer
       const localResult = await rerouteToLocalInstaller(deliveryZip, installer_id);
 
       if (localResult.available && localResult.installer_id) {
