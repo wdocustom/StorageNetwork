@@ -65,6 +65,7 @@ export function useServiceArea({
   const [deliveryFeeResult, setDeliveryFeeResult] = useState<DeliveryFeeResult | null>(null);
 
   const [referringInstallerId, setReferringInstallerId] = useState<string | null>(null);
+  const referrerLockedRef = useRef(false); // true when referrer was set from URL (ref_installer param)
   const originalInstallerId = useRef(initialData?.routing.installerId || "");
   const [handedOff, setHandedOff] = useState(false);
   const [handoffInstallerName, setHandoffInstallerName] = useState("");
@@ -175,7 +176,11 @@ export function useServiceArea({
           );
         }
       } else {
-        setReferringInstallerId(null);
+        // Only clear the referrer if it wasn't explicitly set via URL (ref_installer param).
+        // Same-service-area referrals use a locked referrer that must survive in-area checks.
+        if (!referrerLockedRef.current) {
+          setReferringInstallerId(null);
+        }
         setHandedOff(false);
         setHandoffInstallerName("");
         calculateDeliveryFee(validationTargetId, trimmedZip)
@@ -209,6 +214,7 @@ export function useServiceArea({
 
     if (savedSignal.sourceInstallerId) {
       setReferringInstallerId(savedSignal.sourceInstallerId);
+      referrerLockedRef.current = true; // referrer from URL — don't clear on ZIP check
     }
 
     if (savedSignal.customerName) {
