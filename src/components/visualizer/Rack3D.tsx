@@ -1621,42 +1621,45 @@ function StringLightPlanterGLB({ config }: { config: { widthIn: number; lengthIn
   const { scene } = useGLTF("/models/string-light-planter.glb");
   const { finish } = config;
 
-  const boardColor = finish === "painted_white" ? "#f5f5f4" : finish === "stain" ? "#8b5e3c" : CEDAR_COLOR;
-  const postColor = finish === "painted_white" ? "#e7e5e4" : finish === "stain" ? "#6d4427" : CEDAR_DARK;
   const isPainted = finish === "painted_white";
+  const boardColor = finish === "painted_white" ? "#f5f5f4" : finish === "stain" ? "#8b5e3c" : CEDAR_COLOR;
 
   const cloned = useMemo(() => scene.clone(true), [scene]);
 
+  const woodMat = useMemo(() => {
+    if (isPainted) return createPaintedMaterial(boardColor);
+    const mat = createConstructionLumberMaterial(55);
+    if (finish === "stain") mat.color.set(boardColor);
+    return mat;
+  }, [finish, isPainted, boardColor]);
+
   useEffect(() => {
-    let meshIndex = 0;
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        const name = (mesh.name || "").toLowerCase();
-        const isPost = name.includes("post") || name.includes("leg") || name.includes("trim") || name.includes("frame");
-        const isCap = name.includes("cap") || name.includes("solar") || name.includes("top");
-
-        if (isCap) {
-          mesh.material = new MeshStandardMaterial({ color: new Color(POST_CAP_COLOR), roughness: 0.3, metalness: 0.1 });
-        } else if (isPainted) {
-          mesh.material = createPaintedMaterial(isPost ? postColor : boardColor);
-        } else if (isPost) {
-          mesh.material = createConstructionLumberMaterial(100 + meshIndex * 11);
-          (mesh.material as MeshStandardMaterial).color.set(postColor);
-        } else {
-          mesh.material = createConstructionLumberMaterial(50 + meshIndex * 7);
-          if (finish === "stain") {
-            (mesh.material as MeshStandardMaterial).color.set(boardColor);
-          }
-        }
+        mesh.material = woodMat;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        meshIndex++;
       }
     });
-  }, [cloned, finish, boardColor, postColor, isPainted]);
+  }, [cloned, woodMat]);
 
-  return <primitive object={cloned} scale={0.3} position={[0, 0, 0]} />;
+  // GLB bounds: Y goes 0→1.903, width ~0.4. At scale=0.3, top is at ~0.571
+  const glbScale = 0.3;
+  const capY = 1.903 * glbScale;
+  const capSize = 0.092 * glbScale;  // ~5.5" post cap
+  const capH = 0.025 * glbScale;
+
+  return (
+    <group>
+      <primitive object={cloned} scale={glbScale} position={[0, 0, 0]} />
+      {/* Black post cap at top of string light post */}
+      <mesh position={[0, capY + capH / 2, 0]}>
+        <boxGeometry args={[capSize, capH, capSize]} />
+        <meshStandardMaterial color={POST_CAP_COLOR} roughness={0.3} metalness={0.1} />
+      </mesh>
+    </group>
+  );
 }
 
 function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number } }) {
