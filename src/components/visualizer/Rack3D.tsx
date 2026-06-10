@@ -1613,11 +1613,60 @@ function OverheadCameraRig({ config }: { config: OverheadConfig3D }) {
 const CEDAR_COLOR = "#c87533";
 const CEDAR_DARK = "#a0522d";
 const SOIL_COLOR = "#3e2723";
-
+const POST_CAP_COLOR = "#1a1a1a";
 const WIRE_COLOR = "#94a3b8";
 const FRAME_WIRE_COLOR = "#78716c";
 
+function StringLightPlanterGLB({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number } }) {
+  const { scene } = useGLTF("/models/string-light-planter.glb");
+  const { finish } = config;
+
+  const boardColor = finish === "painted_white" ? "#f5f5f4" : finish === "stain" ? "#8b5e3c" : CEDAR_COLOR;
+  const postColor = finish === "painted_white" ? "#e7e5e4" : finish === "stain" ? "#6d4427" : CEDAR_DARK;
+  const isPainted = finish === "painted_white";
+
+  const cloned = useMemo(() => scene.clone(true), [scene]);
+
+  useEffect(() => {
+    let meshIndex = 0;
+    cloned.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const name = (mesh.name || "").toLowerCase();
+        const isPost = name.includes("post") || name.includes("leg") || name.includes("trim") || name.includes("frame");
+        const isCap = name.includes("cap") || name.includes("solar") || name.includes("top");
+
+        if (isCap) {
+          mesh.material = new MeshStandardMaterial({ color: new Color(POST_CAP_COLOR), roughness: 0.3, metalness: 0.1 });
+        } else if (isPainted) {
+          mesh.material = createPaintedMaterial(isPost ? postColor : boardColor);
+        } else if (isPost) {
+          mesh.material = createConstructionLumberMaterial(100 + meshIndex * 11);
+          (mesh.material as MeshStandardMaterial).color.set(postColor);
+        } else {
+          mesh.material = createConstructionLumberMaterial(50 + meshIndex * 7);
+          if (finish === "stain") {
+            (mesh.material as MeshStandardMaterial).color.set(boardColor);
+          }
+        }
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        meshIndex++;
+      }
+    });
+  }, [cloned, finish, boardColor, postColor, isPainted]);
+
+  return <primitive object={cloned} scale={0.3} position={[0, 0, 0]} />;
+}
+
 function RaisedBedAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number } }) {
+  if (config.hasStringLightPost) {
+    return <StringLightPlanterGLB config={config} />;
+  }
+  return <RaisedBedBoxAssembly config={config} />;
+}
+
+function RaisedBedBoxAssembly({ config }: { config: { widthIn: number; lengthIn: number; heightIn: number; hasLegs: boolean; groundClearance: number; pestCover?: string; finish?: string; hasStringLightPost?: boolean; postHeightIn?: number } }) {
   const { widthIn, lengthIn, heightIn, hasLegs, groundClearance, pestCover, finish, hasStringLightPost, postHeightIn } = config;
 
   // Color based on finish
