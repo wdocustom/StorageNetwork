@@ -720,19 +720,21 @@ export async function POST(request: NextRequest) {
         balance_due: balanceDue,
         payout_status: "deposit_collected",
         status: "open",
-        // Address fields — match migration 016 column names
-        address_line1: stripeAddress?.line1 ?? "Address Pending",
-        address_city: stripeAddress?.city ?? "",
-        address_state: stripeAddress?.state ?? "",
-        address_zip: stripeAddress?.postal_code ?? "",
-        // Also write to migration 012 column names for backward compat
-        city: stripeAddress?.city ?? "",
-        state: stripeAddress?.state ?? "",
       };
 
-      // Composite address for display
-      if (fullAddress) {
-        updatePayload.address = fullAddress;
+      // Only overwrite address fields if Stripe actually has address data.
+      // When address was collected on the /pay page, createDepositIntent() already
+      // saved it to the DB — clobbering here would replace real data with "Address Pending".
+      if (stripeAddress) {
+        updatePayload.address_line1 = stripeAddress.line1 ?? "Address Pending";
+        updatePayload.address_city = stripeAddress.city ?? "";
+        updatePayload.address_state = stripeAddress.state ?? "";
+        updatePayload.address_zip = stripeAddress.postal_code ?? "";
+        updatePayload.city = stripeAddress.city ?? "";
+        updatePayload.state = stripeAddress.state ?? "";
+        if (fullAddress) {
+          updatePayload.address = fullAddress;
+        }
       }
 
       if (stripeEmail) {

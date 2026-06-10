@@ -1128,6 +1128,10 @@ export async function createDepositIntent(
       ...(billingCity && { address_city: billingCity, city: billingCity }),
       ...(billingState && { address_state: billingState, state: billingState }),
       ...(billingZip && { address_zip: billingZip }),
+      ...(() => {
+        const parts = [billingLine1, billingLine2, billingCity, billingState, billingZip].filter(Boolean);
+        return parts.length ? { address: parts.join(", ") } : {};
+      })(),
       ...(customerEmail && { customer_email: customerEmail }),
       updated_at: new Date().toISOString(),
       // Mark fee as waived if this is one of the installer's first 3 free jobs
