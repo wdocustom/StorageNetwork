@@ -22,7 +22,10 @@ import {
   MessageCircle,
   ArrowRight,
   Zap,
+  Tag,
+  X,
 } from "lucide-react";
+import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI Script Generator — Platform-specific marketing copy + follow-up scripts.
@@ -154,6 +157,7 @@ interface AIScriptGeneratorProps {
   state: string | null;
   zip: string | null;
   businessName: string | null;
+  userId: string;
   onActiveTextChange?: (text: string | null) => void;
 }
 
@@ -163,6 +167,7 @@ export default function AIScriptGenerator({
   state,
   zip,
   businessName,
+  userId,
   onActiveTextChange,
 }: AIScriptGeneratorProps) {
   const [mode, setMode] = useState<Mode>("post");
@@ -184,6 +189,7 @@ export default function AIScriptGenerator({
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [sectionCopied, setSectionCopied] = useState<string | null>(null);
+  const [showDiscountPanel, setShowDiscountPanel] = useState(false);
 
   // Reset output when switching modes
   function switchMode(next: Mode) {
@@ -528,6 +534,26 @@ export default function AIScriptGenerator({
             </div>
           </div>
 
+          {/* ── Discount reminder (shown when a discount offer is selected) ── */}
+          {(followUpOffer === "10-off" || followUpOffer === "20-off") && (
+            <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3">
+              <Tag className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-yellow-300">Discount code required before you offer this</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-yellow-400/70">
+                  When a customer asks for the code you mentioned in your script, you need one ready. Make sure it&apos;s created and active before you start sending.
+                </p>
+                <button
+                  onClick={() => setShowDiscountPanel(true)}
+                  className="mt-2 flex items-center gap-1.5 rounded-lg bg-yellow-400/15 px-3 py-1.5 text-[11px] font-bold text-yellow-300 transition-colors hover:bg-yellow-400/25"
+                >
+                  <Tag className="h-3 w-3" />
+                  Check Discount Codes
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Platform (follow-up) ─────────────────────────────── */}
           <div>
             <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -643,25 +669,15 @@ export default function AIScriptGenerator({
             </div>
           )}
 
-          {/* Copy all + regenerate bar */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleCopy}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-yellow-400 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
-            >
-              {copied ? (
-                <><Check className="h-3.5 w-3.5" /> Copied All!</>
-              ) : (
-                <><Copy className="h-3.5 w-3.5" /> Copy All Versions</>
-              )}
-            </button>
+          {/* Regenerate bar */}
+          <div className="flex justify-end">
             <button
               onClick={generate}
               disabled={loading}
               className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              New
+              Regenerate
             </button>
           </div>
 
@@ -781,6 +797,31 @@ export default function AIScriptGenerator({
             </div>
           )}
         </>
+      )}
+      {/* ── Discount Codes Modal ─────────────────────────────── */}
+      {showDiscountPanel && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDiscountPanel(false); }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-700 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-yellow-400" />
+                <span className="text-sm font-bold text-white">Discount Codes</span>
+              </div>
+              <button
+                onClick={() => setShowDiscountPanel(false)}
+                className="rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              <DiscountCodesCard userId={userId} embedded />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

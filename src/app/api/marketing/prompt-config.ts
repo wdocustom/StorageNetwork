@@ -445,7 +445,7 @@ Generate exactly these four sections:
 **## Group Post Version**
 (For broadcasting in buy/sell groups rather than 1:1 DMs. Slightly longer. More public-facing language. Can include a stronger CTA.)
 
-Then include a **### Sending Tips:** section with 2-3 specific, actionable bullets on WHEN and HOW to send, including the photo strategy.
+Then include a **## Sending Tips:** section with 2-3 specific, actionable bullets on WHEN and HOW to send, including the photo strategy.
 
 RULES FOR ALL DM VERSIONS:
 - Under 120 words per DM version. Shorter is almost always better.

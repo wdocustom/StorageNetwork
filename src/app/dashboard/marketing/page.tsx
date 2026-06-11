@@ -147,6 +147,7 @@ export default function MarketingPage() {
             state={profile.state}
             zip={profile.service_zip}
             businessName={profile.business_name}
+            userId={profile.id}
           />
         </section>
 
