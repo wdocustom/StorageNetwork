@@ -9,6 +9,8 @@ import {
   buildLocationContext,
   buildPlatformGuide,
   TONE_GUIDES,
+  buildFollowUpSystemMessage,
+  buildFollowUpUserMessage,
 } from "../prompt-config";
 
 export async function POST(request: NextRequest) {
@@ -23,6 +25,9 @@ export async function POST(request: NextRequest) {
       bookingLink,
       businessName,
       customTopic,
+      mode = "post",
+      followUpHook = "circle-back",
+      followUpOffer = "none",
     } = body as {
       platform: string;
       tone: string;
@@ -32,6 +37,9 @@ export async function POST(request: NextRequest) {
       bookingLink: string;
       businessName?: string;
       customTopic?: string;
+      mode?: "post" | "followup";
+      followUpHook?: string;
+      followUpOffer?: string;
     };
 
     if (!bookingLink) {
@@ -43,6 +51,34 @@ export async function POST(request: NextRequest) {
     }
 
     const model = getChatModel();
+
+    // ── Follow-up mode uses separate prompt builders ───────────────────
+    if (mode === "followup") {
+      const systemMessage = buildFollowUpSystemMessage();
+      const userMessage = buildFollowUpUserMessage(
+        followUpHook,
+        followUpOffer,
+        platform,
+        city,
+        state,
+        businessName,
+        bookingLink,
+      );
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const result = await generateTextWithFallback({ model, system: systemMessage, prompt: userMessage });
+          return NextResponse.json({ script: result.text });
+        } catch (err: unknown) {
+          lastError = err;
+          const errMsg = err instanceof Error ? err.message : JSON.stringify(err);
+          const isRateLimit = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate") || errMsg.includes("RESOURCE_EXHAUSTED");
+          if (!isRateLimit || attempt === 2) throw err;
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+        }
+      }
+      throw lastError;
+    }
 
     const isFacebook = platform.startsWith("facebook-");
     const locationContext = buildLocationContext(city, state, zip);
