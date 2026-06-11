@@ -137,12 +137,14 @@ const FOLLOW_UP_OFFERS: { value: FollowUpOffer; label: string; desc: string }[] 
 // ── Parse follow-up output into named sections for individual copy ───────
 function parseFollowUpSections(text: string): Array<{ title: string; content: string }> {
   const sections: Array<{ title: string; content: string }> = [];
-  const parts = text.split(/^##\s+/m);
+  // Strip any leading bold markers the AI might wrap around headings (e.g. **## Version A**)
+  const normalized = text.replace(/^\*\*(##\s)/gm, "$1").replace(/\*\*$/gm, "");
+  const parts = normalized.split(/^##\s+/m);
   for (const part of parts) {
     if (!part.trim()) continue;
     const newlineIdx = part.indexOf("\n");
     if (newlineIdx === -1) continue;
-    const title = part.slice(0, newlineIdx).trim();
+    const title = part.slice(0, newlineIdx).trim().replace(/\*\*/g, "");
     const content = part.slice(newlineIdx).trim();
     if (title && content) sections.push({ title, content });
   }
