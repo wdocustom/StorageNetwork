@@ -573,6 +573,38 @@ export async function POST(request: NextRequest) {
     // FINAL PAYMENT — Customer paid the balance via payment link
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {
+      // ── CRITICAL: Verify payment was actually collected before marking paid ──
+      // checkout.session.completed fires for ALL checkout completions — including
+      // cases where payment_status is "unpaid" (card declined, bank redirect pending, etc.).
+      // Without this guard, a declined payment would still trigger "Payment Cleared" emails
+      // and mark the job as paid in the DB.
+      if (session.payment_status !== "paid") {
+        console.warn(
+          `[Webhook] Final payment session ${session.id} has payment_status="${session.payment_status}" — payment not collected, skipping`
+        );
+        return NextResponse.json({ received: true });
+      }
+
+      // Belt-and-suspenders: verify the underlying PaymentIntent also succeeded.
+      // Covers edge cases where session.payment_status is stale or the PI was refunded/voided
+      // between the session completing and this handler running.
+      const piId = session.payment_intent as string | null;
+      if (piId && stripe) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(piId);
+          if (pi.status !== "succeeded") {
+            console.warn(
+              `[Webhook] PaymentIntent ${piId} has status="${pi.status}" — not marking lead as paid`
+            );
+            return NextResponse.json({ received: true });
+          }
+        } catch (piErr) {
+          console.error("[Webhook] Failed to retrieve PaymentIntent for verification:", piErr);
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          return NextResponse.json({ error: "Payment verification failed" }, { status: 500 });
+        }
+      }
+
       try {
         // State guard: only update if the job is in a pre-paid state.
         // Prevents re-processing if the installer already marked it paid manually.
