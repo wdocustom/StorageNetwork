@@ -631,10 +631,15 @@ export async function POST(request: NextRequest) {
         }
 
         if (!updated) {
-          console.log("[Webhook] Final payment: lead already in terminal state, skipping DB update for:", leadId);
-        } else {
-          console.log("SUCCESS: Job marked PAID (final payment) for lead:", leadId);
+          // Lead is already in a terminal state — e.g. installer collected via Venmo/cash
+          // and manually marked it paid before Stripe's webhook arrived (or this is a retry).
+          // Do NOT send emails: they already went out on the first processing, and firing again
+          // with Stripe payout language would be confusing when payment was off-platform.
+          console.log("[Webhook] Final payment: lead already in terminal state, skipping emails for:", leadId);
+          return NextResponse.json({ received: true });
         }
+
+        console.log("SUCCESS: Job marked PAID (final payment) for lead:", leadId);
       } catch (err) {
         console.error("[Webhook] Final payment update threw:", err);
         // Return 500 so Stripe retries
@@ -642,7 +647,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Final payment update exception" }, { status: 500 });
       }
 
-      // Fire-and-forget: emails are non-critical — return 200 to Stripe immediately
+      // Fire-and-forget: only reached when we actually updated the lead row above.
+      // Emails are non-critical — return 200 to Stripe immediately.
       fireAndForget("final_payment_emails", async () => {
         const { data: lead } = await getDb()
           .from("leads")
