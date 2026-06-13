@@ -450,27 +450,6 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
     return { success: false, error: "Failed to update payment status." };
   }
 
-  // Best-effort: expire any open Stripe balance checkout sessions for this lead.
-  // createBalanceCheckout already blocks NEW sessions once status="paid", but a
-  // session the customer already opened (mid-checkout) stays active until Stripe
-  // expires it (~24h). Expiring it now prevents double-charging when the installer
-  // collected via Venmo/cash and the customer still has a Stripe tab open.
-  stripe.checkout.sessions
-    .search({
-      query: `metadata['lead_id']:'${leadId}' AND status:'open'`,
-      limit: 5,
-    })
-    .then((result) =>
-      Promise.allSettled(
-        result.data.map((s) => stripe.checkout.sessions.expire(s.id))
-      ).then(() => {
-        if (result.data.length > 0) {
-          console.log(`[MarkPaid] Expired ${result.data.length} open Stripe checkout session(s) for lead:`, leadId);
-        }
-      })
-    )
-    .catch((err: unknown) => console.warn("[MarkPaid] Could not expire Stripe sessions (non-fatal):", err));
-
   // Fire booking confirmation email to customer (non-blocking)
   console.log("[MarkPaid] Firing booking confirmation for lead:", leadId);
   import("@/lib/email").then(async ({ sendBookingConfirmation, quoteDataToBookingUnits }) => {
