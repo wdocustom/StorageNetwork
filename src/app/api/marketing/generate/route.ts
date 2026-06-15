@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       mode = "post",
       followUpHook = "circle-back",
       followUpOffer = "none",
+      productCategory,
     } = body as {
       platform: string;
       tone: string;
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
       mode?: "post" | "followup";
       followUpHook?: string;
       followUpOffer?: string;
+      productCategory?: string;
     };
 
     if (!bookingLink) {
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
         state,
         businessName,
         bookingLink,
+        productCategory,
       );
       let lastError: unknown;
       for (let attempt = 0; attempt < 3; attempt++) {

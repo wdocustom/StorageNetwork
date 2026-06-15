@@ -24,6 +24,12 @@ import {
   Zap,
   Tag,
   X,
+  Box,
+  Layers,
+  LayoutGrid,
+  Flower2,
+  Lightbulb,
+  Armchair,
 } from "lucide-react";
 import DiscountCodesCard from "@/components/dashboard/DiscountCodesCard";
 
@@ -61,6 +67,111 @@ type FollowUpHook =
 
 type FollowUpOffer = "10-off" | "20-off" | "priority" | "none";
 
+// ── Service / product categories ─────────────────────────────────────────
+// serviceKey matches the future profile.enabled_services field values.
+// When enabledServices prop is provided, only categories whose serviceKey
+// is included will be shown. null serviceKey = always visible.
+// TODO: When profile service fields are added to DB, wire up enabledServices
+//       in the marketing page by passing profile.enabled_services here.
+
+type ProductCategory =
+  | "tote-racks"
+  | "overhead"
+  | "open-shelving"
+  | "full-garage"
+  | "raised-beds"
+  | "string-light"
+  | "adirondack";
+
+interface ServiceCategory {
+  value: ProductCategory;
+  label: string;
+  desc: string;
+  icon: typeof Box;
+  prompt: string;
+  serviceKey: string | null;
+}
+
+const SERVICE_CATEGORIES: ServiceCategory[] = [
+  {
+    value: "tote-racks",
+    label: "Tote Racks",
+    desc: "Wall-mounted",
+    icon: Box,
+    prompt:
+      "Focus on the wall-mounted sliding tote rack system — the core product. 27-gallon HDX bins, every bin slides out independently, 1,000+ lbs capacity, 2x4 construction bolted to wall studs.",
+    serviceKey: "tote_racks",
+  },
+  {
+    value: "overhead",
+    label: "Overhead",
+    desc: "Ceiling storage",
+    icon: Layers,
+    prompt:
+      "Focus on overhead ceiling storage. Hook: the dead space above your head in the garage. Totes bolted directly to ceiling joists — out of the way but easy to pull down. Perfect for seasonal items, holiday decorations, camping gear.",
+    serviceKey: "overhead_storage",
+  },
+  {
+    value: "open-shelving",
+    label: "Shelving",
+    desc: "Open add-on",
+    icon: LayoutGrid,
+    prompt:
+      "Focus on custom open shelving as a bonus add-on. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Same 2x4 construction, wall-mounted or freestanding.",
+    serviceKey: "open_shelving",
+  },
+  {
+    value: "full-garage",
+    label: "Full Garage",
+    desc: "Wall + ceiling + shelves",
+    icon: LayoutGrid,
+    prompt:
+      "Pitch the complete garage transformation — wall racks + overhead ceiling storage + open shelving. Top to bottom, wall to wall. One installer, one visit, total system.",
+    serviceKey: null,
+  },
+  {
+    value: "raised-beds",
+    label: "Raised Beds",
+    desc: "Cedar planters",
+    icon: Flower2,
+    prompt:
+      "Focus on handmade cedar raised bed planters. Two styles: elevated on legs for comfortable gardening without bending, and ground-level for traditional garden beds. Cedar, stained, or painted white. Pest protection covers available.",
+    serviceKey: "cedar_planters",
+  },
+  {
+    value: "string-light",
+    label: "String Lights",
+    desc: "Patio planter post",
+    icon: Lightbulb,
+    prompt:
+      "Focus on the 24x24 cedar planter base with a 7-foot center post for hanging outdoor string lights. Perfect for patios, outdoor dining, entertaining. Handmade cedar — natural, stained, or painted white.",
+    serviceKey: "cedar_planters",
+  },
+  {
+    value: "adirondack",
+    label: "Adirondack",
+    desc: "Low Boy chair",
+    icon: Armchair,
+    prompt:
+      "Focus on the handmade Low Boy Adirondack Chair. Solid lumber, classic low-slung profile — great for patios, backyards, garages. Handmade, not a box store chair. Natural upsell when customers are already getting storage work done.",
+    serviceKey: "adirondack_chairs",
+  },
+];
+
+// Seasonal occasion chips — shown below the category filter in post mode
+const SEASONAL_PRESETS = [
+  {
+    label: "Spring Cleaning",
+    prompt:
+      "Seasonal spring cleaning angle — garage season is here. Getting the wall sorted before summer means not tripping over everything all season.",
+  },
+  {
+    label: "Holiday Prep",
+    prompt:
+      "Holiday season angle — holiday decorations need a home. Overhead ceiling storage is exactly what that dead space above your head is for.",
+  },
+];
+
 const PLATFORMS: { value: Platform; label: string; icon: typeof Facebook; desc: string }[] = [
   { value: "facebook-group", label: "FB Group", icon: Facebook, desc: "Local community groups" },
   { value: "facebook-marketplace", label: "FB Market", icon: ShoppingBag, desc: "Marketplace listings" },
@@ -82,48 +193,41 @@ const TONES: { value: Tone; label: string; desc: string }[] = [
   { value: "reverse-psychology", label: "Reverse Psych", desc: "\"Don't buy this...\"" },
 ];
 
-const TOPIC_PRESETS = [
-  { label: "Tote Racks", value: "Focus on the wall-mounted sliding tote rack system — the core product." },
-  { label: "Overhead Storage", value: "Focus on overhead ceiling storage. Hook: Is there usable space above your head in the garage? Most people never look up — let's capitalize on that dead space. Totes mounted to the ceiling joists, out of the way but easy to grab." },
-  { label: "Open Shelving", value: "Focus on custom open shelving as a bonus add-on. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding." },
-  { label: "Full Garage System", value: "Pitch the complete garage organization system — wall racks + overhead ceiling storage + open shelving. Top to bottom, wall to wall. One installer, one visit, total transformation." },
-  { label: "Raised Beds", value: "Focus on handmade cedar raised bed planters. Two styles: elevated on legs for comfortable gardening without bending, and ground-level for traditional garden beds. Natural cedar, cedar stain, or painted white finishes. Pest protection covers available. Mention the string light planter post for patios." },
-  { label: "String Light Post", value: "Focus on the 24x24 planter base with a 7-foot center post for hanging outdoor string lights. Perfect for patios, entertaining areas, outdoor dining. Handmade cedar, available in natural, stained, or painted white." },
-  { label: "Adirondack Chair", value: "Focus on the handmade Low Boy Adirondack Chair. Built from solid lumber with a classic low-slung profile — great for patios, backyards, garages, or workshops. Natural upsell for storage customers: they're fixing up the garage anyway, why not add a piece they'll actually sit in? Handmade, not a box store chair." },
-  { label: "Spring Cleaning", value: "Seasonal spring cleaning angle — time to get organized before summer." },
-  { label: "Holiday Prep", value: "Holiday season angle — get decorations organized and accessible with overhead ceiling storage." },
-];
-
 const FOLLOW_UP_HOOKS: { value: FollowUpHook; label: string; desc: string; detail: string }[] = [
   {
     value: "just-sold",
     label: "Just Sold One",
     desc: "Heading to store — limited offer",
-    detail: "Reach out to people who showed interest. Tell them you just sold one and you're heading to pick up materials — offer to grab theirs too at a discount.",
+    detail:
+      "Reach out to people who showed interest. Tell them you just sold one and you're heading to pick up materials — offer to grab theirs too at a discount.",
   },
   {
     value: "last-spots",
     label: "Last Spots",
     desc: "Running out of openings",
-    detail: "You're booked up or taking a break soon. Give warm leads a heads-up before your schedule fills completely.",
+    detail:
+      "You're booked up or taking a break soon. Give warm leads a heads-up before your schedule fills completely.",
   },
   {
     value: "price-change",
     label: "Price Lock",
     desc: "Rates going up soon",
-    detail: "Lumber costs went up. You're adjusting pricing soon. Anyone who deposits before [date] locks in current rates.",
+    detail:
+      "Lumber costs went up. You're adjusting pricing soon. Anyone who deposits before [date] locks in current rates.",
   },
   {
     value: "season",
     label: "Seasonal",
     desc: "Spring, fall, holiday timing",
-    detail: "Connect your service to whatever season is here — spring garage cleanup, holiday storage, winter prep.",
+    detail:
+      "Connect your service to whatever season is here — spring garage cleanup, holiday storage, winter prep.",
   },
   {
     value: "circle-back",
     label: "Circle Back",
     desc: "Low-pressure warm check-in",
-    detail: "No specific event — just reconnecting with someone you talked to a while back who never committed.",
+    detail:
+      "No specific event — just reconnecting with someone you talked to a while back who never committed.",
   },
 ];
 
@@ -137,8 +241,8 @@ const FOLLOW_UP_OFFERS: { value: FollowUpOffer; label: string; desc: string }[] 
 // ── Parse follow-up output into named sections for individual copy ───────
 function parseFollowUpSections(text: string): Array<{ title: string; content: string }> {
   const sections: Array<{ title: string; content: string }> = [];
-  // Strip any leading bold markers the AI might wrap around headings (e.g. **## Version A**)
-  const normalized = text.replace(/^\*\*(##\s)/gm, "$1").replace(/\*\*$/gm, "");
+  // Strip any bold wrappers the model may have added around ## headers
+  const normalized = text.replace(/^\*\*(##\s)/gm, "$1").replace(/\*\*\s*$/gm, "");
   const parts = normalized.split(/^##\s+/m);
   for (const part of parts) {
     if (!part.trim()) continue;
@@ -151,6 +255,46 @@ function parseFollowUpSections(text: string): Array<{ title: string; content: st
   return sections;
 }
 
+// ── Shared category filter chip component ────────────────────────────────
+function CategoryFilter({
+  categories,
+  selected,
+  onSelect,
+}: {
+  categories: ServiceCategory[];
+  selected: ProductCategory | null;
+  onSelect: (v: ProductCategory | null) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
+        Service Focus <span className="font-normal text-stone-600">(optional)</span>
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {categories.map((cat) => {
+          const Icon = cat.icon;
+          const active = selected === cat.value;
+          return (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => onSelect(active ? null : cat.value)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                active
+                  ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                  : "border-slate-700 bg-slate-800/50 text-stone-400 hover:border-slate-600 hover:text-stone-300"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────
 
 interface AIScriptGeneratorProps {
@@ -160,6 +304,10 @@ interface AIScriptGeneratorProps {
   zip: string | null;
   businessName: string | null;
   userId: string;
+  // TODO: wire to profile.enabled_services once that DB column exists.
+  // Pass string[] of service keys to filter visible categories.
+  // null / undefined = show all categories.
+  enabledServices?: string[] | null;
   onActiveTextChange?: (text: string | null) => void;
 }
 
@@ -170,6 +318,7 @@ export default function AIScriptGenerator({
   zip,
   businessName,
   userId,
+  enabledServices,
   onActiveTextChange,
 }: AIScriptGeneratorProps) {
   const [mode, setMode] = useState<Mode>("post");
@@ -185,6 +334,7 @@ export default function AIScriptGenerator({
   const [followUpPlatform, setFollowUpPlatform] = useState<Platform>("facebook-group");
 
   // Shared state
+  const [productCategory, setProductCategory] = useState<ProductCategory | null>(null);
   const [script, setScript] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -192,6 +342,14 @@ export default function AIScriptGenerator({
   const [linkCopied, setLinkCopied] = useState(false);
   const [sectionCopied, setSectionCopied] = useState<string | null>(null);
   const [showDiscountPanel, setShowDiscountPanel] = useState(false);
+
+  // Filter visible categories by enabled services.
+  // TODO: when profile.enabled_services is wired up, this filtering becomes active automatically.
+  const visibleCategories = enabledServices
+    ? SERVICE_CATEGORIES.filter(
+        (c) => c.serviceKey === null || enabledServices.includes(c.serviceKey)
+      )
+    : SERVICE_CATEGORIES;
 
   // Reset output when switching modes
   function switchMode(next: Mode) {
@@ -207,6 +365,11 @@ export default function AIScriptGenerator({
     setError("");
     setScript("");
     try {
+      const categoryPrompt =
+        productCategory
+          ? SERVICE_CATEGORIES.find((c) => c.value === productCategory)?.prompt
+          : undefined;
+
       const payload =
         mode === "followup"
           ? {
@@ -214,6 +377,7 @@ export default function AIScriptGenerator({
               platform: followUpPlatform,
               followUpHook,
               followUpOffer,
+              productCategory: categoryPrompt,
               city,
               state,
               zip,
@@ -229,7 +393,8 @@ export default function AIScriptGenerator({
               zip,
               bookingLink,
               businessName,
-              customTopic: customTopic.trim() || undefined,
+              // Category prompt feeds the custom topic slot; freetext overrides if provided
+              customTopic: customTopic.trim() || categoryPrompt || undefined,
             };
 
       const res = await fetch("/api/marketing/generate", {
@@ -297,7 +462,8 @@ export default function AIScriptGenerator({
   }
 
   function handleCopySection(title: string, content: string) {
-    navigator.clipboard.writeText(stripMarkdown(`## ${title}\n\n${content}`));
+    // Copy only the message content — no section title (e.g. "Version A") in the paste
+    navigator.clipboard.writeText(stripMarkdown(content));
     setSectionCopied(title);
     setTimeout(() => setSectionCopied(null), 2500);
   }
@@ -375,6 +541,13 @@ export default function AIScriptGenerator({
       ══════════════════════════════════════════════════════════════ */}
       {mode === "post" && (
         <>
+          {/* ── Service focus filter ─────────────────────────────── */}
+          <CategoryFilter
+            categories={visibleCategories}
+            selected={productCategory}
+            onSelect={setProductCategory}
+          />
+
           {/* ── Platform selector ────────────────────────────────── */}
           <div>
             <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
@@ -428,19 +601,19 @@ export default function AIScriptGenerator({
             </div>
           </div>
 
-          {/* ── Custom topic ─────────────────────────────────────── */}
+          {/* ── Custom topic / seasonal chips ────────────────────── */}
           <div>
             <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-              Custom Angle <span className="font-normal text-stone-600">(optional)</span>
+              Additional Angle <span className="font-normal text-stone-600">(optional)</span>
             </label>
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {TOPIC_PRESETS.map((preset) => {
-                const active = customTopic === preset.value;
+              {SEASONAL_PRESETS.map((preset) => {
+                const active = customTopic === preset.prompt;
                 return (
                   <button
-                    key={preset.value}
+                    key={preset.label}
                     type="button"
-                    onClick={() => setCustomTopic(active ? "" : preset.value)}
+                    onClick={() => setCustomTopic(active ? "" : preset.prompt)}
                     className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
                       active
                         ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
@@ -456,7 +629,7 @@ export default function AIScriptGenerator({
               type="text"
               value={customTopic}
               onChange={(e) => setCustomTopic(e.target.value)}
-              placeholder="e.g. Spring cleaning season, recent install I did, overhead ceiling storage..."
+              placeholder="e.g. Spring cleaning season, recent install I did, new product highlight..."
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-stone-600 outline-none focus:border-yellow-400"
             />
           </div>
@@ -474,6 +647,13 @@ export default function AIScriptGenerator({
               <span className="font-bold text-amber-300">Pro technique:</span> When you sell a unit, reach out to 10–20 people who showed interest but never committed. Tell them you just sold one and you&apos;re heading to the store — offer to bring materials for theirs too at a discount. These scripts use that same psychology.
             </p>
           </div>
+
+          {/* ── Service focus filter ─────────────────────────────── */}
+          <CategoryFilter
+            categories={visibleCategories}
+            selected={productCategory}
+            onSelect={setProductCategory}
+          />
 
           {/* ── Hook selector ────────────────────────────────────── */}
           <div>
@@ -800,6 +980,7 @@ export default function AIScriptGenerator({
           )}
         </>
       )}
+
       {/* ── Discount Codes Modal ─────────────────────────────── */}
       {showDiscountPanel && (
         <div
