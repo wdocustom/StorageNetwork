@@ -431,7 +431,7 @@ WHAT SEPARATES A GREAT FOLLOW-UP FROM A BAD ONE:
 ✗ It doesn't explain why the product is good — they already know, that's why they were interested
 
 OUTPUT FORMAT:
-Generate exactly these four sections:
+Generate exactly these four sections using these EXACT headers (no bold wrappers, no extra punctuation):
 
 ## Version A — Direct + Offer
 (Front-loads the hook and offer. Gets straight to the point. Best open rate.)
@@ -445,12 +445,13 @@ Generate exactly these four sections:
 ## Group Post Version
 (For broadcasting in buy/sell groups rather than 1:1 DMs. Slightly longer. More public-facing language. Can include a stronger CTA.)
 
-Then include a ## Sending Tips: section with 2-3 specific, actionable bullets on WHEN and HOW to send, including the photo strategy.
+## Sending Tips
+Include 2-3 specific, actionable bullets on WHEN and HOW to send, including the photo strategy.
 
 RULES FOR ALL DM VERSIONS:
 - Under 120 words per DM version. Shorter is almost always better.
 - Sound like a real text message, not a marketing email
-- Use [Name] as a placeholder if a first name intro fits naturally — or skip it entirely
+- NEVER use [Name] or any bracketed placeholder. Write the opener so it works exactly as-is, copy-paste ready without editing. Start with "Hey!" or jump straight into the hook — both work. The installer will personalize when sending.
 - ZERO corporate language: no "don't hesitate to reach out", "I'd love to help", "transform your space", "dream garage", "reach out at your convenience"
 - The offer (if any) must be tied to a REAL reason from the hook — not just "because I want your business"
 - End with ONE easy question or next step — not multiple options, not a full paragraph
@@ -469,6 +470,7 @@ export function buildFollowUpUserMessage(
   state?: string,
   businessName?: string,
   bookingLink?: string,
+  productCategory?: string,
 ): string {
   const hookData = FOLLOW_UP_HOOK_GUIDES[hook] || FOLLOW_UP_HOOK_GUIDES["circle-back"];
   const offerGuide = FOLLOW_UP_OFFER_LABELS[offer] || FOLLOW_UP_OFFER_LABELS["none"];
@@ -483,13 +485,17 @@ export function buildFollowUpUserMessage(
     ? "Platform: Facebook. DM versions are for Messenger. Group post is for buy/sell groups. No URLs anywhere — installer sends the configurator link separately via Messenger once they get a reply."
     : `Platform: ${platform}. DM versions are for direct messages. No URLs in any version — installer sends the booking link separately once someone replies.`;
 
+  const productFocus = productCategory
+    ? `\nPRODUCT FOCUS — Center these scripts around this specific product/service:\n${productCategory}\nDon't mention the full product line — keep the message tight and specific to this one thing.\n`
+    : "\nPRODUCT FOCUS — Default to wall-mounted tote racks as the primary angle, with optional brief mention of ceiling storage as a natural companion.\n";
+
   return `Write follow-up re-engagement scripts for a garage storage installer reaching out to warm leads.
 
 THE INSTALLER:
 ${businessName ? `Business: ${businessName}` : "Local custom garage storage installer"}
 Products: wall-mounted tote racks (27-gal HDX bins, slide-out drawers, 1,000+ lbs, 2x4 construction), overhead ceiling storage (bolted to joists), open shelving, cedar raised bed planters, Low Boy Adirondack chairs
 Booking/configurator link (DO NOT put in any message — sent separately once they reply): ${bookingLink || "[booking link]"}
-
+${productFocus}
 THE HOOK — What's happening right now that creates the real urgency:
 ${hookData.guide}
 
