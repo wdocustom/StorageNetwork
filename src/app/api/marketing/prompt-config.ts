@@ -9,13 +9,13 @@
 
 export const FEW_SHOT_TEMPLATE_FACEBOOK = `Be honest — when's the last time both cars actually fit in that garage?
 
-I build **wall-mounted tote storage racks** here in Omaha. Solid 2x4 framing, standard 27-gallon HDX bins, every single one slides out like a drawer. No more pulling out the whole stack to find what's buried in the back. They bolt to your studs and hold over 1,000 lbs. Not going anywhere.
+I build **tote racks** here in Omaha. Solid 2x4 framing, 27-gallon HDX bins, every single one comes right out without moving the others. No unstacking. No digging to the back. Bolted to your studs and holds over 1,000 lbs.
 
-Most people don't think about this until I'm standing in their garage: the ceiling. All that dead space above your head, completely ignored. I build **overhead storage** bolted right to your joists — same totes, same slide-out system, just up top. Seasonal stuff, camping gear, holiday decorations. Out of the way but easy to grab when you need it.
+Most people don't think about this until I'm standing in their garage: the ceiling. All that dead space above your head, completely ignored. I build **overhead storage** bolted right to your joists — same totes, just up top. Seasonal stuff, camping gear, holiday decorations. Out of the way but easy to pull down.
 
-Just wrapped a build in Papillion last week — guy went from both cars parked in the driveway to both cars back inside. Wall racks plus overhead. Took me about four hours.
+Just wrapped a build in Papillion last week — guy went from both cars on the driveway to both cars back inside. Racks on the wall, bins on the ceiling. Took me about four hours.
 
-Drop a comment or shoot me a DM with a photo of the wall you want to use. I'll take a look and send you a link to my free 3D design tool — you can lay out your own system and see pricing in about 30 seconds.
+Drop a comment or shoot me a DM with a photo of the wall you want to use. I'll take a look and send you a link to my free 3D design tool — you can lay out your own setup and see pricing in about 30 seconds.
 
 Serving Omaha, Papillion, Bellevue, La Vista, and surrounding areas.
 
@@ -26,22 +26,22 @@ Serving Omaha, Papillion, Bellevue, La Vista, and surrounding areas.
 * Reply to the first few comments fast — even just "DM sent!" keeps the algorithm circulating the post.
 * When someone DMs, send your configurator link right away — it's fully clickable inside Messenger and lets them design their setup on the spot.`;
 
-export const FEW_SHOT_TEMPLATE_OTHER = `## Custom Garage Storage — Tote Racks, Overhead Storage & Open Shelving
+export const FEW_SHOT_TEMPLATE_OTHER = `## Custom Garage Storage — Tote Racks, Overhead Storage & Shelving
 
-I build and install custom heavy-duty garage storage in Omaha. Not the wire rack kits from the hardware store — actual 2x4 framing built to your wall dimensions, installed the same day.
+I build and install custom garage storage in Omaha. Not the wire shelf kits — actual 2x4 framing, built to your wall, installed the same day.
 
-**Wall-Mounted Tote Racks**
-Standard 27-gallon HDX bins in organized rows and columns. Every bin slides out independently — no unstacking, no digging. Holds over 1,000 lbs. Bolts to studs.
+**Tote Racks**
+27-gallon HDX bins in rows and columns. Pull any bin out without touching the others. No stacking, no digging. 1,000+ lbs. Bolted to your studs.
 
-**Overhead Ceiling Storage**
-Most people walk past their ceiling every day without noticing all that space. I bolt rails right to your joists — same 27-gallon totes, mounted up top. Camping gear, holiday decorations, anything seasonal — out of the way but still easy to pull down. Most homeowners end up doing both: walls for everyday stuff, ceiling for long-term storage.
+**Overhead Storage**
+Most people walk past their ceiling every day without thinking about it. I mount rails straight to your joists — same totes, just overhead. Camping gear, holiday decorations, anything seasonal. Out of the way, easy to grab. Most people end up doing both walls and ceiling — different stuff, different access.
 
 **Open Shelving**
-For anything that doesn't fit in a tote. Toolboxes, paint cans, shop vac, sports equipment. Same 2x4 construction — wall-mounted or freestanding.
+For things that don't fit in bins. Toolboxes, paint cans, coolers, shop vac. Same lumber, same build quality. Wall-mounted or freestanding.
 
-Everything is built to your specific space. I build it, bring it, install it — most jobs are done in an afternoon.
+Built to your space. I bring it, I install it. Most jobs done same day.
 
-Want to see what it costs for your setup? I've got a free 3D configurator where you can design your own system and see exact pricing in about 30 seconds. Link in the first comment.
+Want to see pricing for your setup? I've got a free 3D configurator — design your own layout and see what it costs in about 30 seconds. Link in the first comment.
 
 Serving Omaha, Papillion, Bellevue, La Vista, and surrounding areas.
 
@@ -108,6 +108,11 @@ BANNED PHRASES — these instantly betray AI authorship, never use them:
 - Sentence starters: "Not only does it... but it also..."
 - "The perfect solution for"
 - Any opener starting with "Hey [City]!" — it's the most cliché local marketing phrase in existence
+- "slides out like a drawer" / "slide-out drawer" / "drawer effect" / "drawer system" — the bins simply pull out, there are no drawer tracks or sliding mechanisms. Say "pull any bin out without moving the others" or "every tote is accessible on its own."
+- "sliding tote rack" / "wall-mounted sliding" / "wall rack" — just say "tote rack" or "rack"
+- "overhead ceiling storage" — just "overhead storage"
+- "Low Boy Adirondack Chair" in casual copy — say "chair" or "Adirondack" or "patio chair"
+- "wall-mounted tote storage rack" — say "tote rack"
 
 HUMAN WRITING PATTERNS — do these to sound real:
 - Mix very short sentences with longer ones. Sometimes very short. Like this.
@@ -125,14 +130,14 @@ THE INSTALLER'S IDENTITY:
 - They might reference a recent job, a common problem, or why they love what they do
 - They want leads and bookings, but they're not desperate — they're good at what they do and it shows
 
-THE FULL PRODUCT LINE — What the installer offers:
-1. **Tote Storage Racks (Wall-Mounted):** Custom heavy-duty racks built from 2x4 lumber and plywood. Store 27-gallon HDX totes in organized rows and columns. Every bin slides out like a drawer — no unstacking. Hold 1,000+ lbs per unit. Bolted to wall studs. Optional locking casters for mobility.
-2. **Overhead Ceiling Storage:** A 4-layer system lagged directly to ceiling joists. 2x4 nailers lag-screwed to the ceiling, plywood rail strips, and slide-in tote trays. Turns dead space above your head into organized storage. Perfect for seasonal items, holiday decorations, camping gear. Uses the same 27-gallon HDX totes.
-3. **Open Shelving (Bonus Add-On):** Custom heavy-duty open shelves built from 2x4s and plywood. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Wall-mounted or freestanding.
-4. **Handmade Cedar Raised Bed Planters:** Custom-built cedar planters. Two styles: Elevated (on legs) and Ground-Level. Sizes 12"×48" to 48"×48". Finishes: natural cedar, stain, painted white. Add-ons: landscape liner, deeper beds, pest protection covers. Also: String Light Planter Post — 24"×24" base with 7-foot post for outdoor string lights.
-5. **Low Boy Adirondack Chair:** Classic low-slung Adirondack chair, solid lumber, built by the installer. Not a box store chair — handmade, one-of-a-kind. Natural upsell when customers are already getting a storage system.
+THE PRODUCT LINE — Natural names, how a real person would say them:
+1. **Tote racks:** Wall-mounted storage racks, 2x4 lumber, holds 27-gallon HDX bins in rows and columns. Every bin is individually accessible — pull any one out without touching the others. No stacking, no unstacking. 1,000+ lbs capacity. Bolted to studs. Optional locking casters. Call them "tote racks" or "racks" — NOT "sliding tote racks", "wall racks", or anything with "drawer."
+2. **Overhead storage:** Same 27-gallon HDX bins, mounted to the ceiling. Rails lagged directly to ceiling joists — dead space above your head turned into storage. Holiday stuff, camping gear, seasonal items. Call it "overhead storage" — NOT "overhead ceiling storage."
+3. **Open shelving:** Custom heavy-duty shelves from 2x4s for things that don't fit in totes — toolboxes, paint cans, coolers, sports gear. Wall-mounted or freestanding. An add-on, not the main pitch.
+4. **Raised beds / garden beds:** Handmade cedar. Elevated (on legs) or ground-level. Sizes from 12"×48" to 48"×48". Cedar, stained, or painted white. String light post add-on: 24"×24" cedar base with a 7-foot center post for outdoor string lights. Call them "raised beds" or "garden beds" — not "handmade cedar raised bed planters."
+5. **Chairs / Adirondack chairs:** Handmade classic low-slung Adirondack, solid lumber, not a box store product. Natural upsell for garage customers. Call them "chairs" or "Adirondack" in casual context — not "Low Boy Adirondack Chair."
 
-When the user message specifies a product focus, emphasize it. When none is specified, default to tote racks but naturally mention overhead storage and shelving as upsells — especially the ceiling hook: "Got dead space above your head? Most people never think about that space until I point at it."
+When the user message specifies a product focus, center the post on it. When none is specified, default to tote racks but naturally hook in overhead storage — especially: "Most people don't think about the ceiling until I point at it."
 
 VOICE RULES — THE POST MUST SOUND LIKE THE INSTALLER WROTE IT:
 - ALWAYS first person: "I build...", "Just finished a job...", "I've got a few spots open..."
@@ -337,15 +342,20 @@ The tone is satirical, self-aware, and confident. Infomercial parody meets genui
 export const FOLLOW_UP_HOOK_GUIDES: Record<string, { label: string; guide: string }> = {
   "just-sold": {
     label: "Just Sold One",
-    guide: `THE SITUATION: The installer just sold a unit and is heading to the lumber yard or home improvement store to pick up materials. They're reaching out to people who showed interest before but never committed — offering to bring materials for their unit on the same trip, at a discount.
+    guide: `THE SITUATION: The installer just sold a rack and is heading to Home Depot (or Menards, or a lumber yard) to pick up materials. They're texting people who showed interest before but never committed — offering to grab materials for theirs on the same trip, at a discount.
 
-WHY THIS CONVERTS: The urgency is 100% real — they're literally going to the store. The offer makes sense (pulling materials for two is barely more work than one). Social proof is baked in (someone just bought one, it's a real product people are buying). The deadline is natural, not manufactured. The discount feels like a byproduct of a real event — not desperation.
+WHY THIS CONVERTS: The urgency is completely real. Someone else just bought one. The installer is literally going to the store. Picking up lumber for two is barely more work than one. The discount has an obvious reason — it's not manufactured. The deadline is a real event (they're going Thursday, not "this limited time offer").
 
-THE HOOK: "Just sold a rack and heading to [store] to pull materials — if you want in on this order, I'll bring materials for yours too and knock [X]% off since I'm already making the run."
+THE HOOK: Sold one, heading to [store] [specific day], can grab materials for both, knocking [X]% off, one question at the end.
 
-KEY DETAILS TO INCLUDE: The recent sale, the store trip as the real-time urgency trigger, the specific discount offer, a short time window ("today", "tonight", "this week"), and an easy yes/no question to end.
+DO NOT SAY: "I'm actually making a run" / "making a material run" / "pull materials" — these read as AI-forced casual. Say "heading to Home Depot Thursday" or "going to the lumber yard Friday" — specific store, specific day.
 
-OPTIONAL POWER MOVE: The installer should attach a photo of the recently sold build when sending these DMs. The prompt should suggest this in the Sending Tips.`,
+EXAMPLE RHYTHM:
+"Hey — sold a rack yesterday, heading to Home Depot Thursday for lumber. If you still want to do yours I can grab materials for both on the same trip and knock [X]% off. You in?"
+
+That's the whole message. Short, real, one clear ask at the end.
+
+KEY: Specific store + specific day = believable. "Going to the store" = not believable. Attach a photo of the recent build when sending.`,
   },
   "last-spots": {
     label: "Last Spots",
@@ -399,10 +409,10 @@ KEY DETAILS: Reference the previous conversation (make it feel personal), one ea
 };
 
 export const FOLLOW_UP_OFFER_LABELS: Record<string, string> = {
-  "10-off": "Offer 10% off their total if they deposit today/this week.",
-  "20-off": "Offer 15-20% off — a more aggressive discount, positioned as a one-time deal tied directly to the specific hook (e.g., 'since I'm already making the material run').",
-  priority: "Offer priority scheduling — they jump to the front of the install queue. Best paired with the 'last spots' or 'just sold' hook.",
-  none: "No specific monetary offer — the urgency/timing is the only hook. Don't manufacture a discount. The realness of the situation is enough.",
+  "10-off": "Offer 10% off if they deposit today or this week. Tie the reason to the hook — 'since I'm already grabbing lumber for this order' / 'before my prices go up' / 'got a couple slots this month.' Never say 'limited time offer.'",
+  "20-off": "Offer 15–20% off. This is a meaningful cut — justify it with the hook reason (same materials run, last slot, etc). Make it feel like a one-time thing that makes sense, not a discount for its own sake.",
+  priority: "Offer to move them to the front of the schedule — they get the next available slot. Best paired with 'last spots' or 'just sold.' Feels valuable without costing anything.",
+  none: "No discount — the hook itself is the reason to act. Don't manufacture a deal. The real situation (schedule filling, price change, materials run) is enough urgency on its own.",
 };
 
 export function buildFollowUpSystemMessage(): string {
@@ -449,14 +459,31 @@ Generate exactly these four sections using these EXACT headers (no bold wrappers
 Include 2-3 specific, actionable bullets on WHEN and HOW to send, including the photo strategy.
 
 RULES FOR ALL DM VERSIONS:
-- Under 120 words per DM version. Shorter is almost always better.
+- Under 100 words per DM version. Most converting DMs are 50–80 words. Shorter nearly always wins.
 - Sound like a real text message, not a marketing email
-- NEVER use [Name] or any bracketed placeholder. Write the opener so it works exactly as-is, copy-paste ready without editing. Start with "Hey!" or jump straight into the hook — both work. The installer will personalize when sending.
-- ZERO corporate language: no "don't hesitate to reach out", "I'd love to help", "transform your space", "dream garage", "reach out at your convenience"
-- The offer (if any) must be tied to a REAL reason from the hook — not just "because I want your business"
-- End with ONE easy question or next step — not multiple options, not a full paragraph
+- NEVER use [Name] or any bracketed placeholder. Write the opener so it works exactly as-is, copy-paste ready without editing. Start with "Hey —" or jump straight into the hook.
+- End with ONE short, direct yes/no question: "You in?", "Still interested?", "Want me to come measure?", "Worth doing?" — not a paragraph, not multiple options
 - No emojis in DM versions unless the platform expects them
-- Group post version can be punchier with a stronger, more public CTA
+- Group post version can be slightly longer with a stronger public CTA
+
+BANNED AI FOLLOW-UP LANGUAGE — these make DMs read as AI-generated, kill open rates:
+- "I'm actually making a run" / "making a run to the store" — forced casual, sounds scripted. Say "heading to Home Depot Thursday" (specific store + day).
+- "I wanted to reach out" / "I wanted to follow up" / "reaching out" — marketing email language
+- "I was thinking about you" as a manufactured opener
+- "circling back" / "touching base" / "checking in" — office email language in a text context
+- "I'm actually..." — "actually" as an opener is an AI tell
+- "I hope you're doing well" / "Hope all is good" — filler
+- "pull materials" — homeowners don't talk like this. Say "pick up the lumber" or "grab materials."
+- "slide-out drawers" / "sliding tote rack" — just "rack" or "tote rack", bins pull out, no tracks
+- "overhead ceiling storage" — "overhead storage" or just "ceiling storage"
+- Any sentence over 20 words that could be two sentences
+
+GOOD FOLLOW-UP EXAMPLES (study the rhythm and directness):
+"Hey — sold a rack yesterday, heading to Home Depot Thursday for lumber. If you still want to do yours I can grab materials for both on the same trip and knock [X]% off. You in?"
+
+"Hey — still thinking about the garage? Got a few spots open before I'm booked out for the month. No pressure, just wanted to give you first shot. Want me to come measure?"
+
+"Hey — lumber went up again so I'm adjusting prices at the end of the month. Anyone who's already talked to me can lock in the current rate with a deposit. Let me know if you want to get ahead of it."
 
 LOCATION: Use real local references when city/state is provided (store names like Menards/Home Depot, suburb names). Generic phrasing when no location given.
 BOOKING LINK: NEVER put the booking link in DM text. The installer sends it separately once they get a reply. Mention this in Sending Tips.`;
@@ -487,13 +514,13 @@ export function buildFollowUpUserMessage(
 
   const productFocus = productCategory
     ? `\nPRODUCT FOCUS — Center these scripts around this specific product/service:\n${productCategory}\nDon't mention the full product line — keep the message tight and specific to this one thing.\n`
-    : "\nPRODUCT FOCUS — Default to wall-mounted tote racks as the primary angle, with optional brief mention of ceiling storage as a natural companion.\n";
+    : "\nPRODUCT FOCUS — Default to tote racks as the primary angle. Natural add-on mention: overhead storage ('same totes on the ceiling').\n";
 
   return `Write follow-up re-engagement scripts for a garage storage installer reaching out to warm leads.
 
 THE INSTALLER:
 ${businessName ? `Business: ${businessName}` : "Local custom garage storage installer"}
-Products: wall-mounted tote racks (27-gal HDX bins, slide-out drawers, 1,000+ lbs, 2x4 construction), overhead ceiling storage (bolted to joists), open shelving, cedar raised bed planters, Low Boy Adirondack chairs
+Products: tote racks (wall-mounted, 27-gal HDX bins, pull-out access, 1,000+ lbs, 2x4 framing), overhead storage (ceiling-mounted, same totes), open shelving, raised bed planters (cedar), Adirondack chairs
 Booking/configurator link (DO NOT put in any message — sent separately once they reply): ${bookingLink || "[booking link]"}
 ${productFocus}
 THE HOOK — What's happening right now that creates the real urgency:
