@@ -99,7 +99,7 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     desc: "Wall-mounted",
     icon: Box,
     prompt:
-      "Focus on the wall-mounted sliding tote rack system — the core product. 27-gallon HDX bins, every bin slides out independently, 1,000+ lbs capacity, 2x4 construction bolted to wall studs.",
+      "Focus on tote racks — the core product. Wall-mounted, 2x4 framing, 27-gallon HDX bins in rows and columns. Pull any bin out without moving the others. 1,000+ lbs, bolted to studs. Call them 'tote racks' or 'racks' — not 'sliding tote racks' or 'wall racks.' The bins pull out, there are no drawer tracks.",
     serviceKey: "tote_racks",
   },
   {
@@ -108,7 +108,7 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     desc: "Ceiling storage",
     icon: Layers,
     prompt:
-      "Focus on overhead ceiling storage. Hook: the dead space above your head in the garage. Totes bolted directly to ceiling joists — out of the way but easy to pull down. Perfect for seasonal items, holiday decorations, camping gear.",
+      "Focus on overhead storage. Hook: all that dead space above your head in the garage that most people walk past every day. Same 27-gallon HDX bins mounted to the ceiling joists — out of the way but easy to pull down. Seasonal stuff, camping gear, holiday decorations. Call it 'overhead storage' — not 'overhead ceiling storage.'",
     serviceKey: "overhead_storage",
   },
   {
@@ -117,7 +117,7 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     desc: "Open add-on",
     icon: LayoutGrid,
     prompt:
-      "Focus on custom open shelving as a bonus add-on. Great for items that don't fit in totes — toolboxes, paint cans, coolers, sports equipment. Same 2x4 construction, wall-mounted or freestanding.",
+      "Focus on open shelving as a bonus add-on. For things that don't fit in totes — toolboxes, paint cans, coolers, sports gear. Same 2x4 build quality. Wall-mounted or freestanding. Call it 'shelving' or 'open shelving' — not 'open shelving add-on system.'",
     serviceKey: "open_shelving",
   },
   {
@@ -126,16 +126,16 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     desc: "Wall + ceiling + shelves",
     icon: LayoutGrid,
     prompt:
-      "Pitch the complete garage transformation — wall racks + overhead ceiling storage + open shelving. Top to bottom, wall to wall. One installer, one visit, total system.",
+      "Pitch the full garage setup — tote racks on the walls, overhead storage on the ceiling, open shelving for everything else. Top to bottom. One installer, one visit, done. Natural hook: most people start with the walls, see the ceiling space, and end up doing both.",
     serviceKey: null,
   },
   {
     value: "raised-beds",
     label: "Raised Beds",
-    desc: "Cedar planters",
+    desc: "Cedar garden beds",
     icon: Flower2,
     prompt:
-      "Focus on handmade cedar raised bed planters. Two styles: elevated on legs for comfortable gardening without bending, and ground-level for traditional garden beds. Cedar, stained, or painted white. Pest protection covers available.",
+      "Focus on raised beds — handmade cedar garden beds. Two styles: elevated on legs or ground-level. Sizes from small to 48x48. Cedar, stained, or painted white. Call them 'raised beds' or 'garden beds' — not 'handmade cedar raised bed planters.'",
     serviceKey: "cedar_planters",
   },
   {
@@ -144,16 +144,16 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     desc: "Patio planter post",
     icon: Lightbulb,
     prompt:
-      "Focus on the 24x24 cedar planter base with a 7-foot center post for hanging outdoor string lights. Perfect for patios, outdoor dining, entertaining. Handmade cedar — natural, stained, or painted white.",
+      "Focus on the cedar planter base with a center post for outdoor string lights. 24x24 cedar base, 7-foot post. Perfect for patios, backyard entertaining, outdoor dining. Natural cedar, stained, or painted white.",
     serviceKey: "cedar_planters",
   },
   {
     value: "adirondack",
     label: "Adirondack",
-    desc: "Low Boy chair",
+    desc: "Patio chair",
     icon: Armchair,
     prompt:
-      "Focus on the handmade Low Boy Adirondack Chair. Solid lumber, classic low-slung profile — great for patios, backyards, garages. Handmade, not a box store chair. Natural upsell when customers are already getting storage work done.",
+      "Focus on the handmade Adirondack chair — solid lumber, low-slung classic style. Not a box store chair. Great for patios, backyards. Natural upsell when someone is already getting storage work — they're fixing up the space anyway. Call it 'the chair' or 'Adirondack' — not 'Low Boy Adirondack Chair.'",
     serviceKey: "adirondack_chairs",
   },
 ];
