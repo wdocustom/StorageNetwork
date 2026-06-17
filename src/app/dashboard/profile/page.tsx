@@ -10,6 +10,12 @@ import {
 } from "@/app/actions/profile";
 import { updateInstallerProfile } from "@/app/actions/installer";
 import {
+  addServiceZip,
+  removeServiceZip,
+  getManualServiceZips,
+  type ManualServiceZip,
+} from "@/app/actions/territory";
+import {
   connectStripe,
   getStripeStatus,
   getStripeDashboardLink,
@@ -179,6 +185,13 @@ function ProfilePageInner() {
   const [radiusMessage, setRadiusMessage] = useState("");
   const [zipsCovered, setZipsCovered] = useState<number | null>(null);
 
+  // Manual ZIP additions state
+  const [manualZips, setManualZips] = useState<ManualServiceZip[]>([]);
+  const [newZipInput, setNewZipInput] = useState("");
+  const [addZipSaving, setAddZipSaving] = useState(false);
+  const [addZipMessage, setAddZipMessage] = useState("");
+  const [removingZip, setRemovingZip] = useState<string | null>(null);
+
   // Stripe state
   const [stripeStatus, setStripeStatus] = useState<{
     connected: boolean;
@@ -292,6 +305,9 @@ function ProfilePageInner() {
       // Fetch Stripe status (server action reads the session cookie)
       const status = await getStripeStatus();
       setStripeStatus(status);
+      getManualServiceZips(data.id).then(setManualZips).catch((err) => {
+        console.warn("[Profile] Manual ZIPs fetch failed:", err);
+      });
     }
 
     setLoading(false);
@@ -541,6 +557,47 @@ function ProfilePageInner() {
       setRadiusMessage(result.error || "Failed to update service area.");
     }
     setRadiusSaving(false);
+  }
+
+  async function handleAddZip() {
+    if (!profile) return;
+    const trimmed = newZipInput.trim();
+    if (trimmed.length !== 5) {
+      setAddZipMessage("Please enter a valid 5-digit ZIP code.");
+      return;
+    }
+    setAddZipSaving(true);
+    setAddZipMessage("");
+
+    const result = await addServiceZip(profile.id, trimmed);
+
+    if (result.success) {
+      setZipsCovered(result.zips_covered ?? zipsCovered);
+      setManualZips((prev) => [{ zip: result.zip!, assigned_at: new Date().toISOString() }, ...prev]);
+      setNewZipInput("");
+      setAddZipMessage(
+        `Added ${result.zip} (${result.distance} mi away${result.feeTierLabel ? ` · ${result.feeTierLabel} delivery fee` : ""}).`
+      );
+      setTimeout(() => setAddZipMessage(""), 5000);
+    } else {
+      setAddZipMessage(result.error || "Failed to add ZIP code.");
+    }
+    setAddZipSaving(false);
+  }
+
+  async function handleRemoveZip(zip: string) {
+    if (!profile) return;
+    setRemovingZip(zip);
+
+    const result = await removeServiceZip(profile.id, zip);
+
+    if (result.success) {
+      setManualZips((prev) => prev.filter((z) => z.zip !== zip));
+      setZipsCovered(result.zips_covered ?? zipsCovered);
+    } else {
+      setAddZipMessage(result.error || "Failed to remove ZIP code.");
+    }
+    setRemovingZip(null);
   }
 
   async function handleSaveDeliveryFees() {
@@ -1163,6 +1220,65 @@ function ProfilePageInner() {
               Set your Service ZIP above to configure your service area.
             </p>
           ) : null}
+
+          {/* Add Individual ZIP Codes */}
+          {serviceZip && serviceZip.length === 5 && (
+            <div className="mt-5 border-t border-slate-800 pt-5">
+              <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-stone-500">
+                Add a Specific ZIP Code
+              </label>
+              <p className="mb-3 text-xs text-stone-500">
+                Cover a customer outside your usual cluster. Capped at your service radius — or your farthest delivery fee tier, if that reaches further.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  placeholder="ZIP code"
+                  value={newZipInput}
+                  onChange={(e) => setNewZipInput(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddZip(); }}
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                />
+                <button
+                  onClick={handleAddZip}
+                  disabled={addZipSaving || newZipInput.length !== 5}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300 disabled:opacity-50"
+                >
+                  {addZipSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  Add
+                </button>
+              </div>
+
+              {addZipMessage && (
+                <p className={`mt-2 text-xs font-medium ${addZipMessage.startsWith("Added") ? "text-emerald-400" : "text-amber-400"}`}>
+                  {addZipMessage}
+                </p>
+              )}
+
+              {manualZips.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {manualZips.map((mz) => (
+                    <span
+                      key={mz.zip}
+                      className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-xs font-semibold text-stone-300"
+                    >
+                      {mz.zip}
+                      <button
+                        onClick={() => handleRemoveZip(mz.zip)}
+                        disabled={removingZip === mz.zip}
+                        className="text-stone-500 transition-colors hover:text-red-400 disabled:opacity-50"
+                        title={`Remove ${mz.zip}`}
+                      >
+                        {removingZip === mz.zip ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         </>)}
 

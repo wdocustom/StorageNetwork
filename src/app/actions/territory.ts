@@ -1,7 +1,9 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import zipcodes from "zipcodes";
+import type { DeliveryFeeConfig } from "@/app/actions/delivery-fee";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Territory System — Shared ZIP-Cluster Model with Tiered Priority
@@ -384,6 +386,197 @@ export async function expandTerritoryCluster(
   );
 
   return { assignedZips };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Manual ZIP Additions — installer-initiated, one at a time
+//
+// Lets an installer add a single extra ZIP (e.g. a regular customer just
+// outside their normal cluster) without recomputing their whole territory.
+// Bounded by the larger of their service_radius_miles and the farthest
+// enabled delivery fee tier — if they've configured a fee tier that reaches
+// further than their base radius, that's already a signal they're willing
+// to travel that far for the right price, so manual adds are allowed out
+// to that distance too.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface AddServiceZipResult {
+  success: boolean;
+  zip?: string;
+  distance?: number;
+  feeTierLabel?: string | null;
+  zips_covered?: number;
+  error?: string;
+}
+
+export async function addServiceZip(
+  installerId: string,
+  zip: string
+): Promise<AddServiceZipResult> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: "Not authenticated." };
+  if (user.id !== installerId) return { success: false, error: "Not authorized." };
+
+  const trimmed = zip.trim();
+  if (!/^\d{5}$/.test(trimmed)) {
+    return { success: false, error: "Please enter a valid 5-digit ZIP code." };
+  }
+
+  const zipInfo = zipcodes.lookup(trimmed);
+  if (!zipInfo) {
+    return { success: false, error: "ZIP code not found." };
+  }
+
+  const supabase = getServiceClient();
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("service_zip, service_radius_miles, service_zips, delivery_fee_config")
+    .eq("id", installerId)
+    .single();
+
+  if (!profileRow?.service_zip) {
+    return { success: false, error: "Set your home base ZIP and service radius first." };
+  }
+
+  const currentZips: string[] = profileRow.service_zips ?? [];
+  if (currentZips.includes(trimmed)) {
+    return { success: false, error: `${trimmed} is already in your service area.` };
+  }
+
+  const distance = zipcodes.distance(profileRow.service_zip, trimmed);
+  if (distance === null || distance === undefined) {
+    return { success: false, error: "Could not calculate distance to that ZIP code." };
+  }
+
+  const baseRadius = profileRow.service_radius_miles ?? 25;
+
+  const feeConfig = profileRow.delivery_fee_config as DeliveryFeeConfig | null;
+  const enabledTiers = feeConfig?.enabled ? (feeConfig.tiers ?? []).filter((t) => t.enabled) : [];
+  const maxTierMiles = enabledTiers.reduce((max, t) => Math.max(max, t.max_miles), 0);
+  const maxAllowedRadius = Math.max(baseRadius, maxTierMiles);
+
+  if (distance > maxAllowedRadius) {
+    return {
+      success: false,
+      error: `${trimmed} is ${Math.round(distance)} mi away — outside your ${maxAllowedRadius} mi max service range (${
+        maxTierMiles > baseRadius
+          ? "based on your farthest delivery fee tier"
+          : "expand your service radius or add a farther delivery fee tier to cover it"
+      }).`,
+    };
+  }
+
+  const matchedTier = [...enabledTiers]
+    .sort((a, b) => a.max_miles - b.max_miles)
+    .find((t) => distance <= t.max_miles);
+
+  const { error: insertError } = await supabase
+    .from("territory_zips")
+    .upsert(
+      { zip: trimmed, installer_id: installerId, is_home_zip: false, is_manual: true },
+      { onConflict: "zip,installer_id", ignoreDuplicates: true }
+    );
+
+  if (insertError) {
+    console.error("[Territory] Failed to add manual ZIP:", insertError);
+    return { success: false, error: "Failed to add ZIP code. Please try again." };
+  }
+
+  const updatedZips = [...currentZips, trimmed];
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ service_zips: updatedZips })
+    .eq("id", installerId);
+
+  if (updateError) {
+    console.error("[Territory] Failed to sync service_zips after manual add:", updateError);
+    return { success: false, error: "Failed to save ZIP code. Please try again." };
+  }
+
+  return {
+    success: true,
+    zip: trimmed,
+    distance: Math.round(distance),
+    feeTierLabel: matchedTier?.label ?? null,
+    zips_covered: updatedZips.length,
+  };
+}
+
+export interface RemoveServiceZipResult {
+  success: boolean;
+  zips_covered?: number;
+  error?: string;
+}
+
+export async function removeServiceZip(
+  installerId: string,
+  zip: string
+): Promise<RemoveServiceZipResult> {
+  const user = await getAuthenticatedUser();
+  if (!user) return { success: false, error: "Not authenticated." };
+  if (user.id !== installerId) return { success: false, error: "Not authorized." };
+
+  const trimmed = zip.trim();
+  const supabase = getServiceClient();
+
+  const { data: row } = await supabase
+    .from("territory_zips")
+    .select("is_home_zip")
+    .eq("zip", trimmed)
+    .eq("installer_id", installerId)
+    .maybeSingle();
+
+  if (row?.is_home_zip) {
+    return { success: false, error: "Can't remove your home base ZIP — change it in Service Area settings instead." };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("territory_zips")
+    .delete()
+    .eq("zip", trimmed)
+    .eq("installer_id", installerId);
+
+  if (deleteError) {
+    console.error("[Territory] Failed to remove manual ZIP:", deleteError);
+    return { success: false, error: "Failed to remove ZIP code. Please try again." };
+  }
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("service_zips")
+    .eq("id", installerId)
+    .single();
+
+  const updatedZips = (profileRow?.service_zips ?? []).filter((z: string) => z !== trimmed);
+
+  await supabase.from("profiles").update({ service_zips: updatedZips }).eq("id", installerId);
+
+  return { success: true, zips_covered: updatedZips.length };
+}
+
+export interface ManualServiceZip {
+  zip: string;
+  assigned_at: string;
+}
+
+/**
+ * List the ZIPs an installer added individually (is_manual = true) —
+ * separate from the auto-assigned cluster, for display/management in
+ * the profile's Service Area section.
+ */
+export async function getManualServiceZips(installerId: string): Promise<ManualServiceZip[]> {
+  const supabase = getServiceClient();
+
+  const { data } = await supabase
+    .from("territory_zips")
+    .select("zip, assigned_at")
+    .eq("installer_id", installerId)
+    .eq("is_manual", true)
+    .order("assigned_at", { ascending: false });
+
+  return data ?? [];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
