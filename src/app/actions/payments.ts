@@ -187,6 +187,49 @@ async function getInstallerProfile(installerId: string) {
   return data;
 }
 
+type InstallerFeeProfile = Pick<
+  NonNullable<Awaited<ReturnType<typeof getInstallerProfile>>>,
+  "is_pro" | "platform_fee_override" | "stripe_subscription_id"
+> | null | undefined;
+
+// ── Helper: Compute the platform's maintenance/network fee in cents ──────
+// Shared by every code path that may need to take the platform's cut when
+// it hasn't already been taken from a deposit: createPaymentSession (manual
+// card entry), createBalanceCheckout (payment link), and markLeadAsPaid
+// (cash/Venmo/check). Keeping this in one place avoids the rate logic
+// drifting between callers (see PR history — it already did once).
+async function computePlatformFeeCents(params: {
+  installerId: string;
+  profile: InstallerFeeProfile;
+  totalPriceCents: number;
+  leadSource: string | null | undefined;
+  capCents: number; // never take a larger fee than the amount actually changing hands
+}): Promise<number> {
+  const { installerId, profile, totalPriceCents, leadSource, capCents } = params;
+  if (profile?.is_pro !== true) return 0;
+
+  const completedJobs = await getCompletedJobCount(installerId);
+  const hasActiveSubscription = !!profile?.stripe_subscription_id;
+  const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !hasActiveSubscription;
+  if (qualifiesForFreeJob) return 0;
+
+  const feeOverride = profile?.platform_fee_override;
+  const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
+
+  let feeCents: number;
+  if (hasFeeOverride) {
+    const overrideRate = Math.max(0, Math.min(Number(feeOverride), 0.25));
+    feeCents = Math.round(totalPriceCents * overrideRate);
+  } else {
+    const isDirectLead = leadSource === "partner_link" || leadSource === "installer_manual";
+    const isNetworkLead = leadSource === "platform" || leadSource === "facebook_referral";
+    const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
+    feeCents = Math.round(totalPriceCents * platformFeeRate);
+  }
+
+  return Math.min(feeCents, capCents);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // createPaymentSession — Generates a Stripe Checkout URL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -235,12 +278,19 @@ export async function createPaymentSession(
   // the DB expects. Prevents tampered clients from overcharging customers.
   const { data: lead } = await supabase
     .from("leads")
-    .select("estimated_price, deposit_amount, sales_tax_amount")
+    .select("estimated_price, deposit_amount, deposit_paid, sales_tax_amount, source")
     .eq("id", leadId)
     .single();
 
+  // Only credit the configured deposit if it was actually collected. A job
+  // with no deposit on file (e.g. an installer-built on-the-spot quote
+  // collected in full) owes its entire price as "balance" — crediting an
+  // un-paid deposit_amount here makes the expected balance too small and
+  // rejects the real, full-amount charge.
+  const depositCredit = lead?.deposit_paid ? (lead.deposit_amount || 0) : 0;
+
   if (lead) {
-    const expectedBalance = (lead.estimated_price || 0) - (lead.deposit_amount || 0) + (lead.sales_tax_amount || 0);
+    const expectedBalance = (lead.estimated_price || 0) - depositCredit + (lead.sales_tax_amount || 0);
     // Allow tolerance for discounts (client can charge LESS than expected, not MORE)
     if (amount > expectedBalance + 0.01) {
       console.warn(`[Payment] Amount exceeds expected balance: client=$${amount}, expected=$${expectedBalance} for lead ${leadId}`);
@@ -249,15 +299,29 @@ export async function createPaymentSession(
   }
 
   try {
-    // ── Balance Collection ───────────────────────────────────────────────
-    // Platform already collected their fee (15% or 3%) from the deposit.
-    // Balance goes 100% to installer via Stripe Connect — NO additional fee.
     const amountCents = Math.round(amount * 100);
+
+    // ── Platform fee ──────────────────────────────────────────────────
+    // If a deposit was already collected, the platform took its cut
+    // (3% direct / 15% network) from that deposit — this payment is the
+    // remaining balance and goes 100% to the installer. But if no deposit
+    // was ever collected (full amount charged in one shot, e.g. an
+    // on-the-spot quote with no deposit configured), the platform's fee
+    // has never been taken, so it must be deducted here instead.
+    let applicationFeeCents = 0;
+    if (lead && !lead.deposit_paid) {
+      applicationFeeCents = await computePlatformFeeCents({
+        installerId: auth.userId,
+        profile,
+        totalPriceCents: Math.round((lead.estimated_price || 0) * 100),
+        leadSource: lead.source,
+        capCents: amountCents,
+      });
+    }
 
     const baseUrl = siteConfig.baseUrl;
 
     // ── Create Stripe Checkout Session with destination charge ──────────
-    // 100% of payment transfers to installer (no application_fee_amount)
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -274,7 +338,7 @@ export async function createPaymentSession(
         },
       ],
       payment_intent_data: {
-        // No application_fee_amount — platform already took their cut from deposit
+        ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
         transfer_data: {
           destination: installerStripeId,
         },
@@ -286,6 +350,7 @@ export async function createPaymentSession(
         lead_id: leadId,
         type: "final_payment",
         installer_stripe_id: installerStripeId,
+        platform_fee_cents: String(applicationFeeCents),
       },
     });
 
@@ -434,6 +499,21 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
+  // Capture state BEFORE the update below flips deposit_paid to true. If a
+  // deposit was never collected via Stripe, the platform's fee was never
+  // taken from this job — the customer paid the installer directly (cash,
+  // Venmo, check) with no Stripe transaction at all. Also doubles as the
+  // idempotency guard: if this lead is already "paid", skip re-invoicing.
+  const { data: preLead } = await supabase
+    .from("leads")
+    .select("status, deposit_paid, estimated_price, source")
+    .eq("id", leadId)
+    .single();
+
+  if (preLead?.status === "paid") {
+    return { success: true };
+  }
+
   const { error } = await supabase
     .from("leads")
     .update({
@@ -448,6 +528,78 @@ export async function markLeadAsPaid(leadId: string): Promise<{ success: boolean
 
   if (error) {
     return { success: false, error: "Failed to update payment status." };
+  }
+
+  // ── Off-platform payment: invoice the installer directly for the fee ───
+  // No Stripe transaction ever ran for this job, so the platform's cut
+  // (3% direct / 15% network) was never collected. Charge it now as a
+  // one-off Stripe invoice against the installer's existing billing
+  // Customer (resolved from their Pro subscription) rather than waiting
+  // for some future unrelated transaction to piggyback on.
+  if (preLead && !preLead.deposit_paid) {
+    try {
+      const profile = await getInstallerProfile(auth.userId);
+      if (profile?.is_pro === true && profile.stripe_subscription_id) {
+        const totalPriceCents = Math.round((preLead.estimated_price || 0) * 100);
+        const feeCents = await computePlatformFeeCents({
+          installerId: auth.userId,
+          profile,
+          totalPriceCents,
+          leadSource: preLead.source,
+          capCents: totalPriceCents,
+        });
+
+        if (feeCents > 0) {
+          const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+          const customerId =
+            typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
+
+          await stripe.invoiceItems.create({
+            customer: customerId,
+            amount: feeCents,
+            currency: "usd",
+            description: `Platform maintenance fee — Job #${leadId.slice(0, 8)} (paid via cash/check/Venmo)`,
+          });
+
+          const invoice = await stripe.invoices.create(
+            {
+              customer: customerId,
+              collection_method: "charge_automatically",
+              auto_advance: false,
+              metadata: { type: "cash_fee_invoice", lead_id: leadId, installer_id: auth.userId },
+            },
+            { idempotencyKey: `cash-fee-invoice-${leadId}` }
+          );
+
+          const finalized = await stripe.invoices.finalizeInvoice(invoice.id!);
+
+          let cashFeeStatus = finalized.status === "paid" ? "paid" : "pending";
+          try {
+            const paid = await stripe.invoices.pay(finalized.id!);
+            cashFeeStatus = paid.status === "paid" ? "paid" : "pending";
+          } catch (payErr) {
+            // Invoice exists and is open — Stripe's normal dunning/retry
+            // flow (and the invoice.payment_failed webhook) takes over from here.
+            console.error("[MarkPaid] Cash fee invoice payment failed for lead:", leadId, payErr);
+            cashFeeStatus = "payment_failed";
+          }
+
+          await supabase
+            .from("leads")
+            .update({
+              cash_fee_invoice_id: invoice.id,
+              cash_fee_cents: feeCents,
+              cash_fee_status: cashFeeStatus,
+            })
+            .eq("id", leadId);
+
+          console.log(`[MarkPaid] Cash fee invoice for lead ${leadId}: $${feeCents / 100} -> ${cashFeeStatus}`);
+        }
+      }
+    } catch (feeErr) {
+      // Never block marking the job paid over a billing hiccup.
+      console.error("[MarkPaid] Cash fee invoicing error for lead:", leadId, feeErr);
+    }
   }
 
   // Fire booking confirmation email to customer (non-blocking)
@@ -536,7 +688,7 @@ export async function createBalanceCheckout(
   // Look up lead — public, no auth required
   const { data: lead, error: leadError } = await supabase
     .from("leads")
-    .select("installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, customer_email, customer_name, status, payout_status")
+    .select("installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, customer_email, customer_name, status, payout_status, source")
     .eq("id", leadId)
     .single();
 
@@ -586,6 +738,22 @@ export async function createBalanceCheckout(
     const amountCents = Math.round(balance * 100);
     const baseUrl = siteConfig.baseUrl;
 
+    // ── Platform fee ──────────────────────────────────────────────────
+    // Same rationale as createPaymentSession: if no deposit was ever
+    // collected, the platform's cut has never been taken, so it must be
+    // deducted from this full-balance charge instead of assumed already
+    // collected via a deposit PaymentIntent.
+    let applicationFeeCents = 0;
+    if (!lead.deposit_paid) {
+      applicationFeeCents = await computePlatformFeeCents({
+        installerId: lead.installer_id,
+        profile,
+        totalPriceCents: Math.round((lead.estimated_price || 0) * 100),
+        leadSource: lead.source,
+        capCents: amountCents,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -602,6 +770,7 @@ export async function createBalanceCheckout(
         },
       ],
       payment_intent_data: {
+        ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
         transfer_data: {
           destination: installerStripeId,
         },
@@ -613,6 +782,7 @@ export async function createBalanceCheckout(
         lead_id: leadId,
         type: "final_payment",
         installer_stripe_id: installerStripeId,
+        platform_fee_cents: String(applicationFeeCents),
       },
     });
 

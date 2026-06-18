@@ -1180,6 +1180,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Cash/Venmo/check fee invoice — keep lead status in sync ────────────
+  // markLeadAsPaid() creates these one-off invoices (metadata.type ===
+  // "cash_fee_invoice") and attempts to pay them synchronously, but Stripe's
+  // automatic retries on a failed first attempt — or a successful async
+  // charge_automatically attempt — happen later and need to update the
+  // lead's cash_fee_status to match.
+  if (
+    (event.type === "invoice.payment_failed" || event.type === "invoice.paid") &&
+    (event.data.object as Stripe.Invoice).metadata?.type === "cash_fee_invoice"
+  ) {
+    const invoice = event.data.object as Stripe.Invoice;
+    const leadId = invoice.metadata?.lead_id;
+    if (leadId) {
+      const newStatus = event.type === "invoice.paid" ? "paid" : "payment_failed";
+      await getDb().from("leads").update({ cash_fee_status: newStatus }).eq("id", leadId);
+      console.log(`[Webhook] Cash fee invoice ${invoice.id} for lead ${leadId}: ${newStatus}`);
+    }
+  }
+
   // ── Handle subscription payment failure — auto-suspend ─────────────────
   // When a subscription invoice fails, suspend the installer's account so
   // they can't receive leads until they fix their payment.  Trial users
