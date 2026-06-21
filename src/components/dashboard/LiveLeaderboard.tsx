@@ -9,7 +9,6 @@ import {
   ChevronUp,
   ChevronDown,
   Loader2,
-  Gift,
   Zap,
   TrendingUp,
 } from "lucide-react";
@@ -213,25 +212,6 @@ export default function LiveLeaderboard({ userId }: LiveLeaderboardProps) {
                 width: `${Math.max(5, ((totalDays - daysLeft) / totalDays) * 100)}%`,
               }}
             />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Prize Callout ─────────────────────────────────────────────── */}
-      <div className="border-t border-yellow-400/10 bg-gradient-to-r from-yellow-400/5 via-amber-400/5 to-yellow-400/5 px-5 py-3.5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-400/10">
-            <Gift className="h-4 w-4 text-yellow-400" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-yellow-300">
-              Monthly Champion Prize
-            </p>
-            <p className="mt-0.5 text-[10px] leading-relaxed text-stone-500">
-              The installer who dominates the leaderboard this month gets a{" "}
-              <span className="font-bold text-yellow-400">free Pro subscription</span>{" "}
-              for next month. Every job counts — keep climbing!
-            </p>
           </div>
         </div>
       </div>
