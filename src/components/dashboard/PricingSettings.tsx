@@ -1262,27 +1262,39 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
 
             <div className={!volumeEnabled ? "opacity-40 pointer-events-none space-y-2" : "space-y-2"}>
               {volumeTiers.map((tier, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/30 p-3">
-                  <div className="flex flex-1 items-center gap-2">
+                <div key={i} className="rounded-lg border border-slate-700 bg-slate-800/30 p-3">
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
                       inputMode="numeric"
                       value={tier.min_slots}
                       onChange={(e) => updateVolumeTier(i, "min_slots", e.target.value)}
                       placeholder="Min slots"
-                      className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                      className="w-16 shrink-0 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                     />
-                    <span className="text-xs text-stone-500">to</span>
+                    <span className="shrink-0 text-xs text-stone-500">to</span>
                     <input
                       type="text"
                       inputMode="numeric"
                       value={tier.max_slots}
                       onChange={(e) => updateVolumeTier(i, "max_slots", e.target.value)}
                       placeholder="Max slots"
-                      className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                      className="w-16 shrink-0 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
                     />
-                    <span className="text-xs text-stone-500">slots →</span>
-                    <div className="relative">
+                    <span className="shrink-0 text-xs text-stone-500">slots</span>
+                    <div className="flex-1" />
+                    <button
+                      type="button"
+                      onClick={() => removeVolumeTier(i)}
+                      className="shrink-0 rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                      title="Remove tier"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="shrink-0 text-xs text-stone-500">$ per slot →</span>
+                    <div className="relative w-24 shrink-0">
                       <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">$</span>
                       <input
                         type="text"
@@ -1294,14 +1306,6 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                       />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeVolumeTier(i)}
-                    className="shrink-0 rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                    title="Remove tier"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               ))}
               <button
