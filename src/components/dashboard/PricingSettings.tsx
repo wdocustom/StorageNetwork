@@ -18,13 +18,16 @@ import {
   Minus,
   Layers,
   Paintbrush,
+  Plus,
+  X,
+  TrendingDown,
 } from "lucide-react";
 import {
   getInstallerPricing,
   updateInstallerPricing,
   resetInstallerPricing,
 } from "@/app/actions/pricing";
-import type { InstallerPricing, AddonPricing } from "@/types/viewModels";
+import type { InstallerPricing, AddonPricing, SlotPriceTier } from "@/types/viewModels";
 import { getPlatformDefaults } from "@/app/actions/platform-defaults";
 import { BESTSELLER_PRESETS } from "@/lib/presets";
 import { SHELVING_CONFIGS } from "@/lib/shelving";
@@ -420,6 +423,22 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     paint_enabled: true,
   });
 
+  // ── Volume/Tiered Slot Pricing state ────────────────────────────────
+  const [volumeExpanded, setVolumeExpanded] = useState(false);
+  const [volumeEnabled, setVolumeEnabled] = useState(false);
+  const [volumeTiers, setVolumeTiers] = useState<{ min_slots: string; max_slots: string; price_per_slot: string }[]>([]);
+
+  function addVolumeTier() {
+    setVolumeTiers((prev) => [...prev, { min_slots: "", max_slots: "", price_per_slot: "" }]);
+  }
+  function removeVolumeTier(index: number) {
+    setVolumeTiers((prev) => prev.filter((_, i) => i !== index));
+  }
+  function updateVolumeTier(index: number, field: "min_slots" | "max_slots" | "price_per_slot", val: string) {
+    if (val !== "" && !/^\d*\.?\d{0,2}$/.test(val)) return;
+    setVolumeTiers((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: val } : t)));
+  }
+
   // ── Auto-save: debounced save on any state change ──────────────────
   const initialLoadDone = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -432,7 +451,7 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     }, 800); // 800ms debounce
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, chairEnabled, totesDisabled, use2x4Rails, presetToggles, addonEnabled, addonValues, addonToggles]);
+  }, [values, miniEnabled, shelvingEnabled, overheadEnabled, raisedBedEnabled, chairEnabled, totesDisabled, use2x4Rails, presetToggles, addonEnabled, addonValues, addonToggles, volumeEnabled, volumeTiers]);
 
   const loadPricing = useCallback(async () => {
     setLoading(true);
@@ -478,6 +497,17 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
           shelf_enabled: ap.shelf_enabled !== false,
           paint_enabled: ap.paint_enabled !== false,
         });
+      }
+
+      // Load volume/tiered slot pricing
+      const vc = result.pricing.slot_volume_discount_config;
+      if (vc) {
+        setVolumeEnabled(vc.enabled === true);
+        setVolumeTiers((vc.tiers ?? []).map((t) => ({
+          min_slots: String(t.min_slots),
+          max_slots: String(t.max_slots),
+          price_per_slot: String(t.price_per_slot),
+        })));
       }
     }
     setLoading(false);
@@ -539,6 +569,21 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
     }
     pricing.addon_pricing = addonPricing;
 
+    // Build slot_volume_discount_config — drop incomplete tier rows
+    const completeTiers: SlotPriceTier[] = volumeTiers
+      .filter((t) => t.min_slots !== "" && t.max_slots !== "" && t.price_per_slot !== "")
+      .map((t) => ({
+        min_slots: Number(t.min_slots),
+        max_slots: Number(t.max_slots),
+        price_per_slot: Number(t.price_per_slot),
+      }));
+    if (volumeEnabled || completeTiers.length > 0) {
+      pricing.slot_volume_discount_config = {
+        enabled: volumeEnabled,
+        tiers: completeTiers,
+      };
+    }
+
     const result = await updateInstallerPricing(userId, pricing);
     if (result.success) {
       setMessage("Pricing saved successfully!");
@@ -579,6 +624,8 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
         shelf_enabled: true,
         paint_enabled: true,
       });
+      setVolumeEnabled(false);
+      setVolumeTiers([]);
       setMessage("Pricing reset to platform defaults.");
       setMessageType("success");
       setTimeout(() => setMessage(""), 4000);
@@ -599,7 +646,9 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
       || PRICE_FIELDS.some((f) => values[f.key] !== undefined && values[f.key] !== "")
       || !addonEnabled
       || Object.values(addonToggles).some((v) => !v)
-      || Object.values(addonValues).some((v) => v !== undefined && v !== "");
+      || Object.values(addonValues).some((v) => v !== undefined && v !== "")
+      || volumeEnabled
+      || volumeTiers.length > 0;
   }
 
   if (loading) {
@@ -1153,6 +1202,116 @@ export default function PricingSettings({ userId, embedded }: PricingSettingsPro
                 onValueChange={(v) => handleAddonChange("paint_doors_panels_price", v)}
                 onToggle={() => {}}
               />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Volume / Tiered Slot Pricing ──────────────────────────── */}
+      <div className="mt-5">
+        <button
+          type="button"
+          onClick={() => setVolumeExpanded(!volumeExpanded)}
+          className="flex w-full items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-left transition-colors hover:bg-slate-800"
+        >
+          <TrendingDown className="h-4 w-4 text-yellow-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white">Volume Pricing</p>
+            <p className="text-[11px] text-stone-500">
+              Discount the per-slot rate for larger units, by slot-count range
+            </p>
+          </div>
+          {volumeExpanded ? (
+            <ChevronUp className="h-4 w-4 text-stone-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-stone-400" />
+          )}
+        </button>
+
+        {volumeExpanded && (
+          <div className="mt-3 space-y-4 rounded-lg border border-slate-700 bg-slate-800/20 p-4">
+            {/* Master toggle */}
+            <button
+              type="button"
+              onClick={() => setVolumeEnabled(!volumeEnabled)}
+              className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${
+                volumeEnabled
+                  ? "border-emerald-500/30 bg-emerald-500/5"
+                  : "border-slate-700 bg-slate-800/30"
+              }`}
+            >
+              <div className={`flex h-5 w-9 items-center rounded-full transition-colors ${volumeEnabled ? "bg-emerald-500" : "bg-slate-600"}`}>
+                <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${volumeEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium ${volumeEnabled ? "text-emerald-400" : "text-white"}`}>
+                  {volumeEnabled ? "Volume Pricing Enabled" : "Enable Volume Pricing"}
+                </p>
+                <p className="text-[11px] text-stone-500">
+                  {volumeEnabled
+                    ? "Units priced by slot-count range below override your standard/mini slot rate"
+                    : "Toggle on to define per-slot price tiers based on unit size"}
+                </p>
+              </div>
+            </button>
+
+            <p className="text-[11px] leading-relaxed text-stone-600">
+              Define slot-count ranges with their own per-slot price (e.g. 1–10 slots at $25, 12–30 slots at $20).
+              Slot counts that fall outside every range below use your standard per-slot rate.
+            </p>
+
+            <div className={!volumeEnabled ? "opacity-40 pointer-events-none space-y-2" : "space-y-2"}>
+              {volumeTiers.map((tier, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/30 p-3">
+                  <div className="flex flex-1 items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={tier.min_slots}
+                      onChange={(e) => updateVolumeTier(i, "min_slots", e.target.value)}
+                      placeholder="Min slots"
+                      className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                    />
+                    <span className="text-xs text-stone-500">to</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={tier.max_slots}
+                      onChange={(e) => updateVolumeTier(i, "max_slots", e.target.value)}
+                      placeholder="Max slots"
+                      className="w-20 rounded-lg border border-slate-600 bg-slate-800 py-2 px-2 text-center text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                    />
+                    <span className="text-xs text-stone-500">slots →</span>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-stone-500">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={tier.price_per_slot}
+                        onChange={(e) => updateVolumeTier(i, "price_per_slot", e.target.value)}
+                        placeholder="Per slot"
+                        className="w-24 rounded-lg border border-slate-600 bg-slate-800 py-2 pl-6 pr-2 text-right text-sm font-medium text-white placeholder-stone-600 outline-none focus:border-yellow-400"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeVolumeTier(i)}
+                    className="shrink-0 rounded-lg p-1.5 text-stone-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                    title="Remove tier"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addVolumeTier}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 py-2 text-xs font-medium text-stone-500 transition-colors hover:border-yellow-400 hover:text-yellow-400"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Tier
+              </button>
             </div>
           </div>
         )}

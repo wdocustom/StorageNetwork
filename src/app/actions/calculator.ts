@@ -382,15 +382,21 @@ export async function calculateBuild(
   // ── Pricing ────────────────────────────────────────────────────────────
   // Apply installer pricing overrides if provided (Pro feature)
   const ip = input.installerPricing;
-  const effectiveSlotPrice = unitType === "mini"
+  const slots = cols * rows;
+  const baseSlotPrice = unitType === "mini"
     ? (ip?.mini_slot ?? config.pricePerSlot)
     : (ip?.standard_slot ?? config.pricePerSlot);
+  // Volume/quantity discount tiers override the per-slot rate within their matched range;
+  // slot counts outside any enabled tier (including above the top tier's max) use the base rate.
+  const matchedTier = ip?.slot_volume_discount_config?.enabled
+    ? ip.slot_volume_discount_config.tiers.find((t) => slots >= t.min_slots && slots <= t.max_slots)
+    : undefined;
+  const effectiveSlotPrice = matchedTier?.price_per_slot ?? baseSlotPrice;
   const effectiveWheelsPrice = unitType === "mini"
     ? (ip?.mini_wheels ?? config.priceWheels)
     : (ip?.standard_wheels ?? config.priceWheels);
   const effectiveTopPrice = ip?.plywood_top ?? config.pricePlywoodSheet;
 
-  const slots = cols * rows;
   let price = slots * effectiveSlotPrice;
   if (effectiveAddOns.totes) {
     let totePrice: number;

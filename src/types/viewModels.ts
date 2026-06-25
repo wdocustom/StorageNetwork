@@ -51,6 +51,19 @@ export interface PaintSelection {
   sidePanelColor: PaintColorId | null;
 }
 
+/** A single per-slot price tier for volume/quantity-based slot discounts */
+export interface SlotPriceTier {
+  min_slots: number;
+  max_slots: number;
+  price_per_slot: number;
+}
+
+/** Installer-level volume discount config — overrides per-slot price within matched ranges */
+export interface SlotVolumeDiscountConfig {
+  enabled: boolean;
+  tiers: SlotPriceTier[];
+}
+
 /** Installer-level addon pricing overrides (all optional, NULL = platform default) */
 export interface AddonPricing {
   plywood_door?: number;          // per door (installer-facing: price per individual door)
@@ -122,6 +135,8 @@ export interface InstallerPricing {
   bestseller_mayor_of_rack_city_disabled?: boolean;
   /** Per-section addon pricing & toggle overrides ("Organizer Customization") */
   addon_pricing?: AddonPricing;
+  /** Volume/quantity-based per-slot price tiers (e.g. 10 slots or less = $25/slot, 12+ = $20/slot up to 30) */
+  slot_volume_discount_config?: SlotVolumeDiscountConfig;
   /** When true, the overhead ceiling storage section is shown on the installer's design page (default: off) */
   overhead_storage_enabled?: boolean;
   /** When true, raised bed planters are shown on the installer's design page (default: off) */
