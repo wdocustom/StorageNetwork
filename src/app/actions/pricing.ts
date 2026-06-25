@@ -168,6 +168,35 @@ export async function updateInstallerPricing(
       }
     }
 
+    // Carry over slot_volume_discount_config if provided
+    if (pricing.slot_volume_discount_config) {
+      const vc = pricing.slot_volume_discount_config;
+      const validatedTiers: { min_slots: number; max_slots: number; price_per_slot: number }[] = [];
+
+      for (const tier of vc.tiers ?? []) {
+        const minSlots = Number(tier.min_slots);
+        const maxSlots = Number(tier.max_slots);
+        const pricePerSlot = Number(tier.price_per_slot);
+        if (
+          isNaN(minSlots) || isNaN(maxSlots) || isNaN(pricePerSlot) ||
+          minSlots < 1 || maxSlots < minSlots || pricePerSlot < 0
+        ) {
+          return { success: false, error: "Invalid volume discount tier. Check min/max slots and price." };
+        }
+        validatedTiers.push({
+          min_slots: Math.round(minSlots),
+          max_slots: Math.round(maxSlots),
+          price_per_slot: roundMoney(pricePerSlot),
+        });
+      }
+      validatedTiers.sort((a, b) => a.min_slots - b.min_slots);
+
+      (validated as Record<string, unknown>).slot_volume_discount_config = {
+        enabled: vc.enabled === true,
+        tiers: validatedTiers,
+      };
+    }
+
     // If all values match platform defaults, store null (use defaults)
     const v = validated as Record<string, unknown>;
     const hasCustomValues = fields.some(
@@ -177,7 +206,8 @@ export async function updateInstallerPricing(
       || v.bestseller_indiana_joe_disabled === true
       || v.bestseller_long_ranger_disabled === true
       || v.bestseller_gas_station_disabled === true
-      || v.addon_pricing !== undefined;
+      || v.addon_pricing !== undefined
+      || v.slot_volume_discount_config !== undefined;
 
     const pricingConfig = hasCustomValues ? validated : null;
 
