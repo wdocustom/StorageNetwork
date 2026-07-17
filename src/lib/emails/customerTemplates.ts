@@ -605,7 +605,10 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
   const { customerName, businessName, installerFirstName, installerPhone, quoteItems, totalPrice, depositAmount, checkoutUrl, cleanoutServices, estimatedTax, deliveryFee, buildSnapshotUrl } = data;
   const taxAmount = estimatedTax?.amount && estimatedTax.amount > 0 ? estimatedTax.amount : 0;
   const deliveryAmount = deliveryFee && deliveryFee > 0 ? deliveryFee : 0;
-  const grandTotalWithTax = totalPrice + deliveryAmount + taxAmount;
+  // totalPrice already includes the delivery fee (createQuote's finalTotal),
+  // so back it out of the Subtotal line and never re-add it to the total.
+  const subtotal = totalPrice - deliveryAmount;
+  const grandTotalWithTax = totalPrice + taxAmount;
   const balanceDue = grandTotalWithTax - depositAmount;
 
   const firstName = customerName.split(" ")[0] || customerName;
@@ -648,7 +651,7 @@ export function buildQuoteEmailTemplate(data: QuoteEmailData): string {
     <table style="width:100%;margin-bottom:8px;">
       <tr>
         <td style="color:#a3a3a3;font-size:14px;padding:6px 0;">Subtotal</td>
-        <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${totalPrice.toFixed(2)}</td>
+        <td style="text-align:right;color:#ffffff;font-size:14px;font-weight:600;padding:6px 0;">$${subtotal.toFixed(2)}</td>
       </tr>
       ${deliveryAmount > 0 ? `<tr>
         <td style="color:#a3a3a3;font-size:14px;padding:6px 0;">Delivery Fee</td>
