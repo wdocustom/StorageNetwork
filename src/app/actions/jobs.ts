@@ -641,12 +641,20 @@ export async function updateQuote(input: {
 
   const { data: lead } = await supabase
     .from("leads")
-    .select("deposit_paid, installer_id")
+    .select("deposit_paid, installer_id, status")
     .eq("id", leadId)
     .single();
 
   if (!lead) return { success: false, error: "Quote not found." };
   if (lead.deposit_paid) return { success: false, error: "Cannot edit a quote that has a deposit paid." };
+
+  // Editing a quote is how an installer resends/revives it — the customer's
+  // pay link must work afterward. A quote that expired (7+ days unpaid) has
+  // its status flipped to "expired" by the abandoned-cart cron, and
+  // fetchPendingLead() refuses to resume anything but "pending_payment", so
+  // without this reset the pay link stays dead no matter how many times the
+  // installer edits it.
+  const needsReactivation = lead.status === "expired";
 
   const depositAmount = await getDepositAmount(grand_total, lead.installer_id);
   const balanceDue = grand_total - depositAmount;
@@ -670,6 +678,7 @@ export async function updateQuote(input: {
       discount_code: discount_code || null,
       discount_amount: discountAmount,
       updated_at: new Date().toISOString(),
+      ...(needsReactivation ? { status: "pending_payment" } : {}),
     })
     .eq("id", leadId);
 
