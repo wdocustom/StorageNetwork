@@ -66,6 +66,7 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
         installer_id,
         source,
         created_at,
+        updated_at,
         status,
         discount_code,
         delivery_fee,
@@ -91,10 +92,13 @@ export async function fetchPendingLead(leadId: string): Promise<FetchPendingLead
       return { success: false, error: "This order cannot be resumed." };
     }
 
-    // Check if lead is too old (expire after 7 days)
-    const createdAt = new Date(lead.created_at);
-    const daysSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceCreation > 7) {
+    // Check if lead is too old (expire after 7 days of no activity).
+    // Editing a quote bumps updated_at, so a reactivated quote (installer
+    // edited an expired one) gets a fresh 7-day window instead of
+    // immediately re-expiring off its original created_at.
+    const lastActivity = new Date(lead.updated_at || lead.created_at);
+    const daysSinceActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceActivity > 7) {
       // Mark as expired
       await db()
         .from("leads")
@@ -254,11 +258,14 @@ export async function cleanupExpiredLeads(): Promise<{ updated: number }> {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Base expiry on updated_at (last activity), not created_at — otherwise
+    // a quote an installer just edited/reactivated gets re-expired on the
+    // very next cron run because its original created_at is still old.
     const { data, error } = await db()
       .from("leads")
       .update({ status: "expired" })
       .eq("status", "pending_payment")
-      .lt("created_at", sevenDaysAgo)
+      .lt("updated_at", sevenDaysAgo)
       .select("id");
 
     if (error) {
