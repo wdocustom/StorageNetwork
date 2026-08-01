@@ -49,15 +49,27 @@ import {
 // Shows a visual grid of tote slots. Tap a slot to manage contents.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Tote body colors. `bg` classes remain for non-rack-visual UI (e.g. the color
+// picker in the slot editor); `hex`/`hexStroke` tint the rack-visual tote body,
+// which defaults to the wood-rack navy (#1e293b / #0f172a) when unset.
 const COLORS = [
-  { value: "", label: "None", bg: "bg-slate-800" },
-  { value: "red", label: "Red", bg: "bg-red-900/60" },
-  { value: "blue", label: "Blue", bg: "bg-blue-900/60" },
-  { value: "green", label: "Green", bg: "bg-green-900/60" },
-  { value: "yellow", label: "Yellow", bg: "bg-yellow-900/60" },
-  { value: "purple", label: "Purple", bg: "bg-purple-900/60" },
-  { value: "orange", label: "Orange", bg: "bg-orange-900/60" },
+  { value: "", label: "None", bg: "bg-slate-800", hex: "#1e293b", hexStroke: "#0f172a" },
+  { value: "red", label: "Red", bg: "bg-red-900/60", hex: "#7f1d1d", hexStroke: "#450a0a" },
+  { value: "blue", label: "Blue", bg: "bg-blue-900/60", hex: "#1e3a5f", hexStroke: "#0f2540" },
+  { value: "green", label: "Green", bg: "bg-green-900/60", hex: "#14532d", hexStroke: "#0a2e17" },
+  { value: "yellow", label: "Yellow", bg: "bg-yellow-900/60", hex: "#713f12", hexStroke: "#422006" },
+  { value: "purple", label: "Purple", bg: "bg-purple-900/60", hex: "#4c1d7f", hexStroke: "#2e0a52" },
+  { value: "orange", label: "Orange", bg: "bg-orange-900/60", hex: "#7c2d12", hexStroke: "#431407" },
 ];
+
+// Wood-rack visual palette — matches BlueprintCanvas.tsx so /rack reads as
+// the same 2D rack drawing used in quote emails.
+const RACK_FRAME_FILL = "#e2b686";
+const RACK_FRAME_STROKE = "#925f32";
+const RACK_LID_FILL = "#fbbf24";
+const RACK_LID_STROKE = "#d97706";
+const RACK_WHEEL_FILL = "#334155";
+const RACK_WHEEL_STROKE = "#1e293b";
 
 const CATEGORIES = [
   "Holiday", "Tools", "Sports", "Kids", "Kitchen",
@@ -84,8 +96,9 @@ function consolidationDismissalKey(slotId: string, s: ConsolidationSuggestion): 
   return `tote-suggest-dismissed::${slotId}::${s.targetSlotId}::${s.category}`;
 }
 
-function getSlotColor(color: string) {
-  return COLORS.find((c) => c.value === color)?.bg || "bg-slate-800";
+function getSlotColorHex(color: string) {
+  const match = COLORS.find((c) => c.value === color);
+  return { fill: match?.hex || "#1e293b", stroke: match?.hexStroke || "#0f172a" };
 }
 
 // Organization score messaging
@@ -1267,72 +1280,112 @@ export default function RackPage() {
             <p className="text-xs text-slate-400 mb-2">
               Tap a tote to view or add contents
             </p>
+            {/* Wood-frame rack visual — same palette as the 2D build image in quote emails */}
             <div
-              className="grid gap-2"
+              className="relative rounded-2xl border p-2.5 pb-4"
               style={{
-                gridTemplateColumns: `repeat(${rack.cols}, 1fr)`,
+                background: `linear-gradient(180deg, ${RACK_FRAME_FILL}, ${RACK_FRAME_STROKE}66)`,
+                borderColor: RACK_FRAME_STROKE,
               }}
             >
-              {Array.from({ length: rack.rows }, (_, rowIdx) => {
-                const displayRow = rack.rows - 1 - rowIdx;
-                return Array.from({ length: rack.cols }, (_, col) => {
-                  const slot = getSlotAt(col, displayRow);
-                  const hasItems = slot && (slot.item_count ?? 0) > 0;
-                  const colorClass = slot?.color
-                    ? getSlotColor(slot.color)
-                    : "bg-slate-800";
-                  const isHighlighted = highlightSlot === `${col}-${displayRow}`;
+              {rack.top_type && rack.top_type !== "none" && (
+                <div
+                  className="h-2 rounded-full mb-2"
+                  style={{ backgroundColor: RACK_FRAME_STROKE }}
+                />
+              )}
 
-                  // Determine category emoji from slot label
-                  let slotEmoji = "";
-                  if (slot?.label) {
-                    for (const cat of CATEGORIES) {
-                      if (slot.label.toLowerCase().includes(cat.toLowerCase())) {
-                        slotEmoji = getCategoryEmoji(cat);
-                        break;
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${rack.cols}, 1fr)`,
+                }}
+              >
+                {Array.from({ length: rack.rows }, (_, rowIdx) => {
+                  const displayRow = rack.rows - 1 - rowIdx;
+                  return Array.from({ length: rack.cols }, (_, col) => {
+                    const slot = getSlotAt(col, displayRow);
+                    const hasItems = slot && (slot.item_count ?? 0) > 0;
+                    const { fill: bodyFill, stroke: bodyStroke } = getSlotColorHex(slot?.color || "");
+                    const isHighlighted = highlightSlot === `${col}-${displayRow}`;
+
+                    // Determine category emoji from slot label
+                    let slotEmoji = "";
+                    if (slot?.label) {
+                      for (const cat of CATEGORIES) {
+                        if (slot.label.toLowerCase().includes(cat.toLowerCase())) {
+                          slotEmoji = getCategoryEmoji(cat);
+                          break;
+                        }
                       }
                     }
-                  }
 
-                  return (
-                    <button
-                      key={`${col}-${displayRow}`}
-                      onClick={() => openSlot(col, displayRow)}
-                      className={`${colorClass} border rounded-xl p-2 aspect-square flex flex-col items-center justify-center gap-0.5 transition-all relative ${
-                        isHighlighted
-                          ? "border-yellow-400 ring-2 ring-yellow-400/50 animate-pulse scale-105 z-10"
-                          : "border-slate-700 hover:border-yellow-400/50"
-                      }`}
-                    >
-                      {/* Tote number */}
-                      <span className="text-[9px] text-slate-600 absolute top-1 left-1.5 font-mono">
-                        {col + 1}-{rack.rows - displayRow}
-                      </span>
+                    return (
+                      <button
+                        key={`${col}-${displayRow}`}
+                        onClick={() => openSlot(col, displayRow)}
+                        style={{
+                          backgroundColor: bodyFill,
+                          borderColor: isHighlighted ? "#facc15" : bodyStroke,
+                        }}
+                        className={`border rounded-xl p-2 aspect-square flex flex-col items-center justify-center gap-0.5 transition-all relative overflow-hidden hover:brightness-125 ${
+                          isHighlighted
+                            ? "ring-2 ring-yellow-400/50 animate-pulse scale-105 z-10"
+                            : ""
+                        }`}
+                      >
+                        {/* Lid cap */}
+                        <span
+                          className="absolute inset-x-0 top-0 h-1.5"
+                          style={{
+                            backgroundColor: RACK_LID_FILL,
+                            borderBottom: `1px solid ${RACK_LID_STROKE}`,
+                          }}
+                        />
 
-                      {slot?.label ? (
-                        <>
-                          {slotEmoji && (
-                            <span className="text-base leading-none">{slotEmoji}</span>
-                          )}
-                          <span className="text-[10px] text-white font-medium text-center leading-tight line-clamp-2 px-0.5">
-                            {slot.label}
-                          </span>
-                        </>
-                      ) : hasItems ? (
-                        <Package className="w-4 h-4 text-slate-500" />
-                      ) : (
-                        <Plus className="w-4 h-4 text-slate-700" />
-                      )}
-
-                      {hasItems && (
-                        <span className="absolute bottom-1 right-1.5 text-[9px] bg-yellow-400 text-slate-900 font-bold px-1 rounded-full min-w-[16px] text-center">
-                          {slot.item_count}
+                        {/* Tote number */}
+                        <span className="text-[9px] text-slate-400/80 absolute top-2 left-1.5 font-mono">
+                          {col + 1}-{rack.rows - displayRow}
                         </span>
-                      )}
-                    </button>
-                  );
-                });
-              }).flat()}
+
+                        {slot?.label ? (
+                          <>
+                            {slotEmoji && (
+                              <span className="text-base leading-none">{slotEmoji}</span>
+                            )}
+                            <span className="text-[10px] text-white font-medium text-center leading-tight line-clamp-2 px-0.5">
+                              {slot.label}
+                            </span>
+                          </>
+                        ) : hasItems ? (
+                          <Package className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <Plus className="w-4 h-4 text-slate-500" />
+                        )}
+
+                        {hasItems && (
+                          <span className="absolute bottom-1 right-1.5 text-[9px] bg-yellow-400 text-slate-900 font-bold px-1 rounded-full min-w-[16px] text-center">
+                            {slot.item_count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  });
+                }).flat()}
+              </div>
+
+              {rack.has_wheels && (
+                <>
+                  <span
+                    className="absolute -bottom-1.5 left-3 w-3 h-3 rounded-full border"
+                    style={{ backgroundColor: RACK_WHEEL_FILL, borderColor: RACK_WHEEL_STROKE }}
+                  />
+                  <span
+                    className="absolute -bottom-1.5 right-3 w-3 h-3 rounded-full border"
+                    style={{ backgroundColor: RACK_WHEEL_FILL, borderColor: RACK_WHEEL_STROKE }}
+                  />
+                </>
+              )}
             </div>
           </div>
         )}
