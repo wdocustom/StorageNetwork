@@ -432,6 +432,117 @@ export async function createPaymentSession(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// createDepositCheckoutSession — Installer-initiated "Manual Card Entry"
+// for the DEPOSIT on a lead that has never been paid. Same Checkout Session
+// redirect shape as createPaymentSession, but the amount is always derived
+// server-side from getDepositAmount (no client-supplied amount — nothing
+// to tamper with), and metadata.type is "deposit" so it lands in the SAME
+// "BOOKING (Deposit)" checkout.session.completed webhook branch
+// createQuote's original checkout flow already uses — no webhook changes.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface DepositCheckoutSessionInput {
+  leadId: string;
+  customerEmail?: string;
+}
+
+export async function createDepositCheckoutSession(
+  input: DepositCheckoutSessionInput
+): Promise<PaymentSessionResult> {
+  const { leadId, customerEmail } = input;
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("estimated_price, deposit_paid, status, payout_status, source, installer_id")
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { success: false, error: "Order not found." };
+  if (lead.deposit_paid || lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, error: "This order already has a deposit or payment on file." };
+  }
+
+  const totalPrice = lead.estimated_price || 0;
+  if (totalPrice <= 0) {
+    return { success: false, error: "No price set for this quote." };
+  }
+
+  try {
+    const depositAmount = await getDepositAmount(totalPrice, lead.installer_id || undefined);
+    const depositAmountCents = Math.round(depositAmount * 100);
+    const totalPriceCents = Math.round(totalPrice * 100);
+    const source = (lead.source as LeadSource | null) || "platform";
+    const split = await resolveDepositFeeSplit({
+      installerId: lead.installer_id,
+      totalPriceCents,
+      depositAmountCents,
+      source,
+    });
+
+    const baseUrl = siteConfig.baseUrl;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Storage Unit — Deposit",
+              description: `Job #${leadId.slice(0, 8)}`,
+            },
+            unit_amount: depositAmountCents,
+          },
+          quantity: 1,
+        },
+      ],
+      payment_intent_data: {
+        ...(split.installerStripeId && {
+          application_fee_amount: split.platformFeeCents,
+          transfer_data: { destination: split.installerStripeId },
+        }),
+      },
+      customer_email: customerEmail || undefined,
+      success_url: `${baseUrl}/payment/success?job=${leadId}`,
+      cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
+      metadata: {
+        lead_id: leadId,
+        type: "deposit",
+        source,
+        installer_id: lead.installer_id,
+        ...split.metadataFields,
+      },
+    });
+
+    if (!session.url) {
+      return { success: false, error: "Failed to create checkout session." };
+    }
+
+    await supabase
+      .from("leads")
+      .update({
+        payout_status: "payment_link_sent",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", leadId);
+
+    console.log(`[DepositCheckout] ${split.logLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${split.platformFeeCents / 100}, Installer $${split.installerReceivesCents / 100}`);
+
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[DepositCheckout] Stripe session error:", err);
+    return {
+      success: false,
+      error: "Failed to create deposit checkout session. Please try again.",
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // sendPaymentInvoice — Sends an email with the payment link
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1015,6 +1126,152 @@ export async function chargeBalanceOffSession(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// chargeDepositOffSession — AUTH (installer-owned). Charges a saved card
+// for just the DEPOSIT on a lead that has never been paid — the installer
+// equivalent of the customer-facing /pay checkout, for jobs that skipped
+// it. Mirrors chargeBalanceOffSession's card-resolution/off-session pattern
+// but targets the deposit amount (via getDepositAmount) instead of the full
+// balance, and uses metadata.type: "deposit" so it lands in the SAME
+// payment_intent.succeeded webhook branch createDepositIntent already uses
+// — no webhook changes needed.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function chargeDepositOffSession(
+  leadId: string
+): Promise<OffSessionChargeResult> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead, error: leadError } = await supabase
+    .from("leads")
+    .select(
+      "installer_id, customer_id, estimated_price, deposit_paid, status, payout_status, source, customer_email, customer_name, stripe_customer_id, stripe_payment_method_id"
+    )
+    .eq("id", leadId)
+    .single();
+
+  if (leadError || !lead) return { success: false, error: "Order not found." };
+
+  if (lead.deposit_paid || lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, alreadyPaid: true, error: "This order already has a deposit or payment on file." };
+  }
+
+  const totalPrice = lead.estimated_price || 0;
+  if (totalPrice <= 0) {
+    return { success: false, error: "No price set for this quote." };
+  }
+  const depositAmount = await getDepositAmount(totalPrice, lead.installer_id || undefined);
+
+  // Same fallback pattern as chargeBalanceOffSession: this lead's own saved
+  // card, then the customer's card from a previous quote with this
+  // installer (customers table — see migration 134).
+  let customerId = lead.stripe_customer_id as string | null;
+  let paymentMethodId = lead.stripe_payment_method_id as string | null;
+  if ((!customerId || !paymentMethodId) && lead.customer_id) {
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("stripe_customer_id, stripe_payment_method_id")
+      .eq("id", lead.customer_id)
+      .maybeSingle();
+    customerId = customerId || (customerRow?.stripe_customer_id as string | null) || null;
+    paymentMethodId = paymentMethodId || (customerRow?.stripe_payment_method_id as string | null) || null;
+  }
+  if (!customerId || !paymentMethodId) {
+    const baseUrl = siteConfig.baseUrl;
+    return {
+      success: false,
+      fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+      error: "Saved card not on file for this customer. Use the payment link.",
+    };
+  }
+
+  const depositAmountCents = Math.round(depositAmount * 100);
+  const totalPriceCents = Math.round(totalPrice * 100);
+  const source = (lead.source as LeadSource | null) || "platform";
+  const split = await resolveDepositFeeSplit({
+    installerId: lead.installer_id,
+    totalPriceCents,
+    depositAmountCents,
+    source,
+  });
+
+  if (!split.installerStripeId) {
+    return { success: false, error: "Installer payment account not configured." };
+  }
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: depositAmountCents,
+        currency: "usd",
+        customer: customerId,
+        payment_method: paymentMethodId,
+        off_session: true,
+        confirm: true,
+        application_fee_amount: split.platformFeeCents,
+        transfer_data: { destination: split.installerStripeId },
+        receipt_email: lead.customer_email || undefined,
+        metadata: {
+          lead_id: leadId,
+          leadId,
+          type: "deposit",
+          source,
+          installer_id: lead.installer_id,
+          customer_name: lead.customer_name || "",
+          customer_email: lead.customer_email || "",
+          ...split.metadataFields,
+        },
+      },
+      { idempotencyKey: `deposit-offsession-${leadId}` }
+    );
+
+    if (paymentIntent.status === "succeeded") {
+      // Webhook will mark the deposit collected + send receipts. Don't double-write here.
+      console.log(`[DepositOffSession] ${split.logLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${split.platformFeeCents / 100}, Installer $${split.installerReceivesCents / 100}`);
+      return { success: true, paymentIntentId: paymentIntent.id };
+    }
+
+    console.warn(
+      "[DepositOffSession] Unexpected PaymentIntent status:",
+      paymentIntent.status,
+      "| lead:",
+      leadId
+    );
+    return {
+      success: false,
+      paymentIntentId: paymentIntent.id,
+      error: `Payment did not complete (status: ${paymentIntent.status}).`,
+    };
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeCardError) {
+      const code = err.code;
+      if (code === "authentication_required") {
+        const baseUrl = siteConfig.baseUrl;
+        console.log(
+          "[DepositOffSession] 3DS required — falling back to Checkout for lead:",
+          leadId
+        );
+        return {
+          success: false,
+          requiresAuthentication: true,
+          fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+          error: "Customer authentication required. Send them the payment link.",
+        };
+      }
+      console.error("[DepositOffSession] Card declined:", code, err.message);
+      return {
+        success: false,
+        error: err.message || "Card was declined.",
+      };
+    }
+    console.error("[DepositOffSession] Stripe error:", err);
+    return { success: false, error: "Payment system error. Please try again." };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // createDepositIntent — Creates a PaymentIntent for inline Stripe Elements
 //
 // Returns clientSecret for the Payment Element (no redirect needed).
@@ -1081,6 +1338,141 @@ const depositIntentSchema = z.object({
   fbShareDiscountAmount: z.number().min(0).max(100_000).optional(),
 });
 
+// ── Deposit fee-routing split ─────────────────────────────────────────────
+// Shared by createDepositIntent (inline Elements, customer-facing) and
+// chargeDepositOffSession (installer-initiated, off-session) so the
+// platform/installer split can never drift between the two entry points —
+// see computePlatformFeeCents's comment above for why that's worth
+// guarding against (it already happened once).
+interface DepositFeeSplit {
+  platformFeeCents: number;
+  installerReceivesCents: number;
+  installerStripeId: string | null;
+  isPro: boolean;
+  feeWaived: boolean;
+  metadataFields: Record<string, string>;
+  logLabel: string;
+}
+
+async function resolveDepositFeeSplit(params: {
+  installerId: string;
+  totalPriceCents: number;
+  depositAmountCents: number;
+  source: LeadSource;
+  fbShareDiscountCents?: number;
+}): Promise<DepositFeeSplit> {
+  const { installerId, totalPriceCents, depositAmountCents, source, fbShareDiscountCents = 0 } = params;
+
+  const installerProfile = await getInstallerProfile(installerId);
+  const isPro = installerProfile?.is_pro === true;
+  const installerStripeId = installerProfile?.stripe_account_id ?? null;
+  const feeOverride = installerProfile?.platform_fee_override;
+  const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
+
+  const completedJobs = await getCompletedJobCount(installerId);
+  const hasActiveSubscription = !!installerProfile?.stripe_subscription_id;
+  const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !hasActiveSubscription;
+  const shouldSplitDeposit = isPro && !!installerStripeId;
+
+  if (qualifiesForFreeJob && installerStripeId) {
+    // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────
+    const installerReceivesCents = depositAmountCents;
+    return {
+      platformFeeCents: 0,
+      installerReceivesCents,
+      installerStripeId,
+      isPro,
+      feeWaived: true,
+      metadataFields: {
+        is_pro: isPro ? "true" : "false",
+        fee_waived: "true",
+        completed_jobs: String(completedJobs),
+        platform_fee_cents: "0",
+        platform_fee_rate: "0% (first 3 jobs free)",
+        installer_receives_cents: String(installerReceivesCents),
+        installer_stripe_id: installerStripeId,
+      },
+      logLabel: `FREE JOB ${completedJobs + 1}/${FREE_JOBS_LIMIT}`,
+    };
+  }
+
+  if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
+    // ── Fee Override (Founder / special rate) + Stripe ───────────────────
+    // Bounds-check: clamp override to [0, 0.25] to prevent negative fees
+    // or unreasonable platform takes from misconfigured DB values.
+    const rawRate = Number(feeOverride);
+    const overrideRate = Math.max(0, Math.min(rawRate, 0.25));
+    if (rawRate !== overrideRate) {
+      console.warn(`[Deposit] Fee override out of bounds: ${rawRate} → clamped to ${overrideRate} (installer ${installerId})`);
+    }
+    const platformFeeCents = Math.round(totalPriceCents * overrideRate);
+    const installerReceivesCents = depositAmountCents - platformFeeCents;
+    return {
+      platformFeeCents,
+      installerReceivesCents,
+      installerStripeId,
+      isPro,
+      feeWaived: false,
+      metadataFields: {
+        is_pro: "true",
+        fee_override: String(overrideRate),
+        platform_fee_cents: String(platformFeeCents),
+        platform_fee_rate: `${overrideRate * 100}%`,
+        installer_receives_cents: String(installerReceivesCents),
+        installer_stripe_id: installerStripeId,
+      },
+      logLabel: `Founder (${overrideRate * 100}% override)`,
+    };
+  }
+
+  if (shouldSplitDeposit && installerStripeId) {
+    // ── Pro + Stripe: Split deposit via destination charge ────────────────
+    // Fee rate depends on lead source — network leads (platform-acquired)
+    // pay 15%, direct leads (installer's own booking link or manual quote)
+    // pay 3%.
+    const isDirectLead = source === "partner_link" || source === "installer_manual";
+    const isNetworkLead = source === "platform" || source === "facebook_referral";
+    const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
+    const basePlatformFeeCents = Math.round(totalPriceCents * platformFeeRate);
+    // FB share discount: platform absorbs the discount from its own fee (installer unaffected)
+    const platformFeeCents = Math.max(0, basePlatformFeeCents - fbShareDiscountCents);
+    const installerReceivesCents = depositAmountCents - platformFeeCents;
+    return {
+      platformFeeCents,
+      installerReceivesCents,
+      installerStripeId,
+      isPro,
+      feeWaived: false,
+      metadataFields: {
+        is_pro: "true",
+        platform_fee_cents: String(platformFeeCents),
+        platform_fee_rate: `${(platformFeeRate * 100).toFixed(0)}%`,
+        lead_type: isDirectLead ? "direct" : "network",
+        installer_receives_cents: String(installerReceivesCents),
+        installer_stripe_id: installerStripeId,
+        fb_share_discount_cents: String(fbShareDiscountCents),
+      },
+      logLabel: `Pro (Stripe, ${isDirectLead ? "direct" : "network"})`,
+    };
+  }
+
+  // ── No Stripe connected: Full deposit to Platform ──────────────────────
+  return {
+    platformFeeCents: depositAmountCents,
+    installerReceivesCents: 0,
+    installerStripeId: null,
+    isPro,
+    feeWaived: false,
+    metadataFields: {
+      is_pro: isPro ? "true" : "false",
+      platform_fee_cents: String(depositAmountCents),
+      platform_fee_rate: "15%",
+      installer_receives_cents: "0",
+    },
+    logLabel: "No Stripe",
+  };
+}
+
 export async function createDepositIntent(
   input: DepositIntentInput
 ): Promise<DepositIntentResult> {
@@ -1135,22 +1527,13 @@ export async function createDepositIntent(
     //   - Network lead + Stripe:     15% → Platform, 0% via Stripe Connect upfront
     //                                (installer collects balance at install)
     //
-    const installerProfile = await getInstallerProfile(installerId);
-    const isPro = installerProfile?.is_pro === true;
-    const installerStripeId = installerProfile?.stripe_account_id;
-    const feeOverride = installerProfile?.platform_fee_override;
-    const hasFeeOverride = feeOverride !== null && feeOverride !== undefined;
-
-    // ── First 3 Jobs: Zero Platform Fees ───────────────────────────────
-    // Check if this installer qualifies for the free-first-3-jobs promotion.
-    // Only applies during the trial period (no active subscription) with Stripe connected.
-    // Once an installer subscribes and starts paying monthly, the 3% fee always applies.
-    const completedJobs = await getCompletedJobCount(installerId);
-    const hasActiveSubscription = !!installerProfile?.stripe_subscription_id;
-    const qualifiesForFreeJob = completedJobs < FREE_JOBS_LIMIT && !!installerStripeId && !hasActiveSubscription;
-
-    // Only split deposit if Pro AND has Stripe connected
-    const shouldSplitDeposit = isPro && !!installerStripeId;
+    const split = await resolveDepositFeeSplit({
+      installerId,
+      totalPriceCents,
+      depositAmountCents,
+      source,
+      fbShareDiscountCents,
+    });
 
     // Resolve / create the platform Stripe Customer so the card is saved as
     // a reusable PaymentMethod (off-session balance charging later).
@@ -1161,201 +1544,42 @@ export async function createDepositIntent(
     );
     const customerSessionClientSecret = await createCustomerSessionSecret(stripeCustomerId);
 
-    let paymentIntent;
-
     // ── Discount codes do NOT affect the deposit or platform fees. ──────────
     // Deposit uses installer's custom rate (min 15%). Discount reduces the
     // balance the installer collects at installation (installer absorbs their own discount codes).
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: depositAmountCents,
+      currency: "usd",
+      payment_method_types: ["card"],
+      ...(stripeCustomerId && { customer: stripeCustomerId }),
+      setup_future_usage: "off_session",
+      ...(split.installerStripeId && {
+        application_fee_amount: split.platformFeeCents,
+        transfer_data: { destination: split.installerStripeId },
+      }),
+      receipt_email: customerEmail || undefined,
+      metadata: {
+        lead_id: leadId,
+        leadId,
+        type: "deposit",
+        source,
+        installer_id: installerId,
+        customer_name: customerName || "",
+        customer_email: customerEmail || "",
+        scheduled_at: scheduledAt || "",
+        sales_tax_cents: String(taxCents),
+        billing_state: billingState || "",
+        balance_due_with_tax_cents: String(balanceWithTaxCents),
+        discount_code: discountCode || "",
+        discount_code_cents: String(promoCodeCents),
+        delivery_fee_cents: String(deliveryFeeCents),
+        ...split.metadataFields,
+      },
+    }, {
+      idempotencyKey: `deposit-${leadId}`,
+    });
 
-    if (qualifiesForFreeJob && installerStripeId) {
-      // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────
-      // Installer gets 100% of deposit, platform takes $0.
-      // Requires Stripe connected (otherwise platform must hold deposit).
-      const platformFeeCents = 0;
-      const installerReceivesCents = depositAmountCents;
-
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: depositAmountCents,
-        currency: "usd",
-        payment_method_types: ["card"],
-        ...(stripeCustomerId && { customer: stripeCustomerId }),
-        setup_future_usage: "off_session",
-        application_fee_amount: platformFeeCents,
-        transfer_data: {
-          destination: installerStripeId,
-        },
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          lead_id: leadId,
-          leadId,
-          type: "deposit",
-          source,
-          installer_id: installerId,
-          is_pro: isPro ? "true" : "false",
-          fee_waived: "true",
-          completed_jobs: String(completedJobs),
-          customer_name: customerName || "",
-          customer_email: customerEmail || "",
-          platform_fee_cents: "0",
-          platform_fee_rate: "0% (first 3 jobs free)",
-          installer_receives_cents: String(installerReceivesCents),
-          installer_stripe_id: installerStripeId,
-          scheduled_at: scheduledAt || "",
-          sales_tax_cents: String(taxCents),
-          billing_state: billingState || "",
-          balance_due_with_tax_cents: String(balanceWithTaxCents),
-          discount_code: discountCode || "",
-          discount_code_cents: String(promoCodeCents),
-          delivery_fee_cents: String(deliveryFeeCents),
-        },
-      }, {
-        idempotencyKey: `deposit-${leadId}`,
-      });
-
-      console.log(`[Deposit] FREE JOB ${completedJobs + 1}/${FREE_JOBS_LIMIT}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $0 (waived), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
-    } else if (hasFeeOverride && shouldSplitDeposit && installerStripeId) {
-      // ── Fee Override (Founder / special rate) + Stripe ───────────────────
-      // Platform fee uses the override rate (e.g., 0 = $0 platform fee)
-      // Bounds-check: clamp override to [0, 0.25] to prevent negative fees
-      // or unreasonable platform takes from misconfigured DB values.
-      const rawRate = Number(feeOverride);
-      const overrideRate = Math.max(0, Math.min(rawRate, 0.25));
-      if (rawRate !== overrideRate) {
-        console.warn(`[Deposit] Fee override out of bounds: ${rawRate} → clamped to ${overrideRate} (installer ${installerId})`);
-      }
-      const platformFeeCents = Math.round(totalPriceCents * overrideRate);
-      const installerReceivesCents = depositAmountCents - platformFeeCents;
-
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: depositAmountCents,
-        currency: "usd",
-        payment_method_types: ["card"],
-        ...(stripeCustomerId && { customer: stripeCustomerId }),
-        setup_future_usage: "off_session",
-        application_fee_amount: platformFeeCents,
-        transfer_data: {
-          destination: installerStripeId,
-        },
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          lead_id: leadId,
-          leadId,
-          type: "deposit",
-          source,
-          installer_id: installerId,
-          is_pro: "true",
-          fee_override: String(overrideRate),
-          customer_name: customerName || "",
-          customer_email: customerEmail || "",
-          platform_fee_cents: String(platformFeeCents),
-          platform_fee_rate: `${overrideRate * 100}%`,
-          installer_receives_cents: String(installerReceivesCents),
-          installer_stripe_id: installerStripeId,
-          scheduled_at: scheduledAt || "",
-          sales_tax_cents: String(taxCents),
-          billing_state: billingState || "",
-          balance_due_with_tax_cents: String(balanceWithTaxCents),
-          discount_code: discountCode || "",
-          discount_code_cents: String(promoCodeCents),
-          delivery_fee_cents: String(deliveryFeeCents),
-        },
-      }, {
-        idempotencyKey: `deposit-${leadId}`,
-      });
-
-      console.log(`[Deposit] Founder (${overrideRate * 100}% override): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100}, Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
-    } else if (shouldSplitDeposit && installerStripeId) {
-      // ── Pro + Stripe: Split deposit via destination charge ────────────────
-      // Fee rate depends on lead source — network leads (platform-acquired)
-      // pay 15%, direct leads (installer's own booking link or manual quote)
-      // pay 3%. Whatever the rate, it's deducted from the deposit; installer
-      // receives the remainder via Stripe Connect destination charge.
-      const isDirectLead = source === "partner_link" || source === "installer_manual";
-      const isNetworkLead = source === "platform" || source === "facebook_referral";
-      const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
-      const basePlatformFeeCents = Math.round(totalPriceCents * platformFeeRate);
-      // FB share discount: platform absorbs the discount from its own fee (installer unaffected)
-      const platformFeeCents = Math.max(0, basePlatformFeeCents - fbShareDiscountCents);
-      const installerReceivesCents = depositAmountCents - platformFeeCents;
-
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: depositAmountCents,
-        currency: "usd",
-        payment_method_types: ["card"],
-        ...(stripeCustomerId && { customer: stripeCustomerId }),
-        setup_future_usage: "off_session",
-        application_fee_amount: platformFeeCents,
-        transfer_data: {
-          destination: installerStripeId,
-        },
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          lead_id: leadId,
-          leadId,
-          type: "deposit",
-          source,
-          installer_id: installerId,
-          is_pro: "true",
-          customer_name: customerName || "",
-          customer_email: customerEmail || "",
-          platform_fee_cents: String(platformFeeCents),
-          platform_fee_rate: `${(platformFeeRate * 100).toFixed(0)}%`,
-          lead_type: isDirectLead ? "direct" : "network",
-          installer_receives_cents: String(installerReceivesCents),
-          installer_stripe_id: installerStripeId,
-          scheduled_at: scheduledAt || "",
-          // Tax info (for reference — installer collects at installation)
-          sales_tax_cents: String(taxCents),
-          billing_state: billingState || "",
-          balance_due_with_tax_cents: String(balanceWithTaxCents),
-          discount_code: discountCode || "",
-          discount_code_cents: String(promoCodeCents),
-          delivery_fee_cents: String(deliveryFeeCents),
-          fb_share_discount_cents: String(fbShareDiscountCents),
-        },
-      }, {
-        idempotencyKey: `deposit-${leadId}`,
-      });
-
-      console.log(`[Deposit] Pro (Stripe, ${isDirectLead ? "direct" : "network"}): $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${platformFeeCents / 100} (${(platformFeeRate * 100).toFixed(0)}%), Installer $${installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
-    } else {
-      // ── No Stripe connected: Full deposit to Platform ──────────────────────
-      // Platform keeps entire deposit (15% of build) until installer connects Stripe
-      // Installer collects balance + tax at installation (minus any discount)
-      paymentIntent = await stripe.paymentIntents.create({
-        amount: depositAmountCents,
-        currency: "usd",
-        payment_method_types: ["card"],
-        ...(stripeCustomerId && { customer: stripeCustomerId }),
-        setup_future_usage: "off_session",
-        receipt_email: customerEmail || undefined,
-        metadata: {
-          lead_id: leadId,
-          leadId,
-          type: "deposit",
-          source,
-          installer_id: installerId,
-          is_pro: isPro ? "true" : "false",
-          customer_name: customerName || "",
-          customer_email: customerEmail || "",
-          platform_fee_cents: String(depositAmountCents),
-          platform_fee_rate: "15%",
-          installer_receives_cents: "0",
-          scheduled_at: scheduledAt || "",
-          // Tax info (for reference — installer collects at installation)
-          sales_tax_cents: String(taxCents),
-          billing_state: billingState || "",
-          balance_due_with_tax_cents: String(balanceWithTaxCents),
-          discount_code: discountCode || "",
-          discount_code_cents: String(promoCodeCents),
-          delivery_fee_cents: String(deliveryFeeCents),
-        },
-      }, {
-        idempotencyKey: `deposit-${leadId}`,
-      });
-
-      console.log(`[Deposit] No Stripe: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform (15%)${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax at install: $${balanceWithTaxCents / 100}`);
-    }
+    console.log(`[Deposit] ${split.logLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${split.platformFeeCents / 100}, Installer $${split.installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
 
     // Update lead with scheduling info, tax info, and discount (for reference)
     // Deposit stays at installer's configured rate — discount only reduces balance_due (installer absorbs)
@@ -1378,7 +1602,7 @@ export async function createDepositIntent(
       ...(customerEmail && { customer_email: customerEmail }),
       updated_at: new Date().toISOString(),
       // Mark fee as waived if this is one of the installer's first 3 free jobs
-      fee_status: qualifiesForFreeJob ? "waived" : "standard",
+      fee_status: split.feeWaived ? "waived" : "standard",
     };
     // If discount applied, reduce balance_due (installer absorbs the discount)
     // Deposit amount stays unchanged at the full 15%

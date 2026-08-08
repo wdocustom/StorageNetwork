@@ -39,7 +39,7 @@ import {
 import { toFraction } from "@/lib/utils";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/fee-engine";
-import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession } from "@/app/actions/payments";
+import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession, chargeDepositOffSession, createDepositCheckoutSession } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { createRacksForJob, getRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
@@ -151,6 +151,11 @@ export default function JobTicket({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showManualPayModal, setShowManualPayModal] = useState(false);
   const [showChargeCardConfirm, setShowChargeCardConfirm] = useState(false);
+  // Which amount the Charge Card on File confirmation modal charges — the
+  // full/balance amount (default, used everywhere else) or, on a
+  // never-paid lead, just the deposit via the "Collect Deposit" option.
+  const [chargeCardTarget, setChargeCardTarget] = useState<"balance" | "deposit">("balance");
+  const [showDepositMenu, setShowDepositMenu] = useState(false);
   // When off-session charge needs 3DS or the card is missing, the server
   // returns a fallback Checkout URL the installer can hand to the customer.
   const [chargeCardFallbackUrl, setChargeCardFallbackUrl] = useState<string | null>(null);
@@ -429,6 +434,30 @@ export default function JobTicket({
     }
   }
 
+  // ── Payment Collection: Enter Card for DEPOSIT ONLY (opens Stripe in new tab) ──
+  // Same as handleEnterCard but for a lead that's never been paid and the
+  // installer wants to collect just the deposit, not the full amount.
+  async function handleEnterCardDeposit() {
+    setPayError(null);
+    setPayLoading(true);
+    try {
+      const result = await createDepositCheckoutSession({
+        leadId,
+        customerEmail: customerEmail || undefined,
+      });
+      if (result.success && result.url) {
+        window.open(result.url, "_blank");
+      } else {
+        setPayError(result.error || "Failed to create payment session.");
+      }
+    } catch (err) {
+      console.error("[JobTicket] handleEnterCardDeposit error:", err);
+      setPayError("Something went wrong. Please try again.");
+    } finally {
+      setPayLoading(false);
+    }
+  }
+
   // ── Payment Collection: Resend Invoice Email ──────────────────────────
   async function handleResendInvoice() {
     if (!customerEmail) return;
@@ -462,10 +491,12 @@ export default function JobTicket({
     setChargeCardFallbackUrl(null);
     setPayLoading(true);
     try {
-      const result = await chargeBalanceOffSession(leadId);
+      const result = chargeCardTarget === "deposit"
+        ? await chargeDepositOffSession(leadId)
+        : await chargeBalanceOffSession(leadId);
       if (result.success) {
         setShowChargeCardConfirm(false);
-        onStatusChange?.("paid");
+        onStatusChange?.(chargeCardTarget === "deposit" ? "open" : "paid");
         onRefresh();
         return;
       }
@@ -1146,9 +1177,68 @@ export default function JobTicket({
             </div>
           )}
 
+          {/* COLLECT DEPOSIT button — installer can collect just the deposit
+              instead of the full amount, mirroring the customer-facing /pay
+              checkout flow that this lead skipped. */}
+          <button
+            onClick={() => { setShowGetPaidMenu(false); setShowDepositMenu(!showDepositMenu); }}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-orange-400/60 bg-slate-800 px-6 py-4 text-base font-black uppercase tracking-wider text-orange-300 transition-all hover:bg-slate-700 active:scale-[0.98]"
+          >
+            <DollarSign className="h-5 w-5" />
+            COLLECT DEPOSIT — {fmt(depositAmount)}
+            <ChevronDown className={`h-4 w-4 transition-transform ${showDepositMenu ? "rotate-180" : ""}`} />
+          </button>
+
+          {showDepositMenu && (
+            <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3">
+              {payError && (
+                <div className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-400">
+                  {payError}
+                </div>
+              )}
+
+              {/* Charge Card on File — deposit amount, using a card the
+                  customer saved on this or a previous quote */}
+              {hasSavedCard && (
+                <button
+                  onClick={() => { setShowDepositMenu(false); setChargeCardTarget("deposit"); setShowChargeCardConfirm(true); }}
+                  disabled={payLoading}
+                  className="flex w-full items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5 text-left transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
+                >
+                  <Zap className="h-5 w-5 shrink-0 text-emerald-400" />
+                  <div>
+                    <p className="text-sm font-bold text-white">Charge Card on File</p>
+                    <p className="text-[11px] text-emerald-300/80">
+                      {savedCardLabel} — charge deposit to {customerName.split(" ")[0] || "customer"}
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {/* Manual Card Entry — deposit amount only */}
+              <button
+                onClick={handleEnterCardDeposit}
+                disabled={payLoading}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-800 px-4 py-3.5 text-left transition-colors hover:bg-slate-700 disabled:opacity-40"
+              >
+                {payLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+                ) : (
+                  <CreditCard className="h-5 w-5 text-orange-400" />
+                )}
+                <div>
+                  <p className="text-sm font-bold text-white">Manual Card Entry</p>
+                  <p className="text-[11px] text-stone-500">
+                    Open Stripe — collect just the deposit
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* COLLECT FULL PAYMENT button */}
           <button
-            onClick={() => setShowGetPaidMenu(!showGetPaidMenu)}
+            onClick={() => { setShowDepositMenu(false); setShowGetPaidMenu(!showGetPaidMenu); }}
             className="flex w-full items-center justify-center gap-3 rounded-xl bg-orange-500 px-6 py-5 text-lg font-black uppercase tracking-wider text-white shadow-lg shadow-orange-500/20 transition-all hover:bg-orange-400 hover:shadow-orange-400/30 active:scale-[0.98]"
           >
             <DollarSign className="h-6 w-6" />
@@ -1168,7 +1258,7 @@ export default function JobTicket({
               {/* Charge Card on File — saved at deposit, off-session */}
               {hasSavedCard && (
                 <button
-                  onClick={() => { setShowGetPaidMenu(false); setShowChargeCardConfirm(true); }}
+                  onClick={() => { setShowGetPaidMenu(false); setChargeCardTarget("balance"); setShowChargeCardConfirm(true); }}
                   disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5 text-left transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
                 >
@@ -1306,7 +1396,7 @@ export default function JobTicket({
               {/* Charge Card on File — saved at deposit, off-session */}
               {hasSavedCard && (
                 <button
-                  onClick={() => { setShowGetPaidMenu(false); setShowChargeCardConfirm(true); }}
+                  onClick={() => { setShowGetPaidMenu(false); setChargeCardTarget("balance"); setShowChargeCardConfirm(true); }}
                   disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5 text-left transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
                 >
@@ -1431,7 +1521,7 @@ export default function JobTicket({
               {/* Charge Card on File — saved at deposit, off-session */}
               {hasSavedCard && (
                 <button
-                  onClick={() => { setShowGetPaidMenu(false); setShowChargeCardConfirm(true); }}
+                  onClick={() => { setShowGetPaidMenu(false); setChargeCardTarget("balance"); setShowChargeCardConfirm(true); }}
                   disabled={payLoading}
                   className="flex w-full items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3.5 text-left transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
                 >
@@ -2270,7 +2360,7 @@ export default function JobTicket({
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Charge Saved Card</h3>
               <button
-                onClick={() => { setShowChargeCardConfirm(false); setChargeCardFallbackUrl(null); setPayError(null); }}
+                onClick={() => { setShowChargeCardConfirm(false); setChargeCardFallbackUrl(null); setPayError(null); setChargeCardTarget("balance"); }}
                 className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
@@ -2278,7 +2368,7 @@ export default function JobTicket({
             </div>
             <div className="space-y-4 p-5">
               <p className="text-sm text-stone-300">
-                Charge <span className="font-bold text-white">{fmt(collectFromCustomer)}</span> to{" "}
+                Charge <span className="font-bold text-white">{fmt(chargeCardTarget === "deposit" ? depositAmount : collectFromCustomer)}</span> to{" "}
                 <span className="font-bold text-white">{customerName}</span>&apos;s card on file?
               </p>
               <div className="flex items-center gap-2.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2.5">
@@ -2329,12 +2419,15 @@ export default function JobTicket({
                 ) : (
                   <>
                     <Zap className="h-4 w-4" />
-                    Charge {fmt(collectFromCustomer)}
+                    Charge {fmt(chargeCardTarget === "deposit" ? depositAmount : collectFromCustomer)}
                   </>
                 )}
               </button>
               <p className="text-center text-[10px] leading-relaxed text-stone-500">
-                Customer authorized this charge by paying the deposit (see{" "}
+                {chargeCardTarget === "deposit"
+                  ? "Card on file from this customer's saved payment method"
+                  : "Customer authorized this charge by paying the deposit"}{" "}
+                (see{" "}
                 <a href="/legal/terms#payment-method-on-file" target="_blank" className="underline hover:text-stone-300">
                   Terms § Saved Payment Method
                 </a>
