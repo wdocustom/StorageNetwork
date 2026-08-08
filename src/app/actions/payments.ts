@@ -121,6 +121,48 @@ async function getCompletedJobCount(installerId: string): Promise<number> {
   return count ?? 0;
 }
 
+// ── Backfill customers.email when it's learned after the customer row was
+// created without one ─────────────────────────────────────────────────────
+// `customers.email` is nullable (a quote can be created with no email — a
+// guest/phone-only lead). If that email only becomes known later, e.g. at
+// checkout, nothing previously wrote it back onto the `customers` row — so
+// a LATER quote for the same person, now WITH an email, can never match
+// this row (`NULL` never equals a string in SQL) and creates a duplicate
+// `customers` row instead of reusing it. That duplicate is exactly what
+// silently breaks cross-quote card reuse for that person going forward.
+//
+// Deliberately conservative: skips (no-op, just logs) if another customers
+// row for this installer already owns that exact email — that's an
+// existing, already-diverged duplicate that needs a reviewed manual merge,
+// not a silent automatic one.
+export async function backfillCustomerEmailIfMissing(params: {
+  dbCustomerId: string;
+  installerId: string;
+  email: string;
+}): Promise<void> {
+  const { dbCustomerId, installerId, email } = params;
+  const { data: customerRow } = await supabase
+    .from("customers")
+    .select("email")
+    .eq("id", dbCustomerId)
+    .maybeSingle();
+  if (!customerRow || customerRow.email) return;
+
+  const { data: conflict } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .eq("installer_id", installerId)
+    .neq("id", dbCustomerId)
+    .maybeSingle();
+  if (conflict) {
+    console.warn(`[Customers] Skipping email backfill for customer ${dbCustomerId} — ${email} already belongs to customer ${conflict.id} for this installer. Needs a manual merge.`);
+    return;
+  }
+
+  await supabase.from("customers").update({ email }).eq("id", dbCustomerId);
+}
+
 // ── Stripe Customer for off-session balance charging ────────────────────
 // Resolves the platform Stripe Customer to attach to the deposit
 // PaymentIntent. Without a Customer attached, setup_future_usage cannot
@@ -138,14 +180,19 @@ async function getOrCreateStripeCustomerForLead(
 ): Promise<string | null> {
   const { data: lead } = await supabase
     .from("leads")
-    .select("stripe_customer_id, customer_id")
+    .select("stripe_customer_id, customer_id, installer_id")
     .eq("id", leadId)
     .maybeSingle();
 
+  const dbCustomerId = (lead?.customer_id as string | null) ?? null;
+  const installerId = (lead?.installer_id as string | null) ?? null;
+
+  if (dbCustomerId && installerId && email) {
+    await backfillCustomerEmailIfMissing({ dbCustomerId, installerId, email });
+  }
+
   const existingLeadStripeId = (lead?.stripe_customer_id as string | null) ?? null;
   if (existingLeadStripeId) return existingLeadStripeId;
-
-  const dbCustomerId = (lead?.customer_id as string | null) ?? null;
 
   if (dbCustomerId) {
     const { data: customerRow } = await supabase
@@ -1743,6 +1790,16 @@ export async function verifyAndConfirmDeposit(
         .update(customerStripeUpdate)
         .eq("id", dbCustomerId);
       if (custErr) console.warn("[VerifyDeposit] save customer Stripe ids failed:", custErr);
+    }
+
+    // Backfill the customer's email onto their persistent customer record
+    // if it's still missing there — see backfillCustomerEmailIfMissing.
+    if (dbCustomerId && lead.installer_id && lead.customer_email) {
+      await backfillCustomerEmailIfMissing({
+        dbCustomerId,
+        installerId: lead.installer_id,
+        email: lead.customer_email,
+      }).catch((err) => console.warn("[VerifyDeposit] Customer email backfill failed:", err));
     }
 
     // Realtor referral credit (idempotent RPC; no-op if not a realtor lead
