@@ -745,12 +745,13 @@ export async function POST(request: NextRequest) {
       // Fetch estimated_price and discount_amount to recalculate balance_due based on actual deposit
       const { data: leadForBalance } = await getDb()
         .from("leads")
-        .select("estimated_price, discount_amount")
+        .select("estimated_price, discount_amount, customer_id")
         .eq("id", leadId)
         .maybeSingle();
       const estimatedPrice = leadForBalance?.estimated_price ?? 0;
       const discountAmt = leadForBalance?.discount_amount ?? 0;
       const balanceDue = roundMoney(estimatedPrice - amountPaid - discountAmt);
+      const dbCustomerIdCS = leadForBalance?.customer_id as string | null;
 
       const updatePayload: Record<string, unknown> = {
         deposit_paid: true,
@@ -777,6 +778,18 @@ export async function POST(request: NextRequest) {
 
       if (stripeEmail) {
         updatePayload.customer_email = stripeEmail;
+      }
+
+      // Backfill the customer's email onto their persistent customer record
+      // if it's still missing there — see backfillCustomerEmailIfMissing.
+      const installerIdCS = metadata.installer_id || metadata.installerId;
+      if (dbCustomerIdCS && installerIdCS && stripeEmail) {
+        const { backfillCustomerEmailIfMissing } = await import("@/app/actions/payments");
+        await backfillCustomerEmailIfMissing({
+          dbCustomerId: dbCustomerIdCS,
+          installerId: installerIdCS,
+          email: stripeEmail,
+        }).catch((err) => console.warn("[Webhook] Customer email backfill failed:", err));
       }
 
       console.log("[Webhook] DB update payload:", JSON.stringify(updatePayload));
@@ -1401,6 +1414,21 @@ export async function POST(request: NextRequest) {
           const discountAmtPI = leadForBalancePI?.discount_amount ?? 0;
           const balanceDuePI = roundMoney(estimatedPricePI - amountPaidPI - discountAmtPI);
           const dbCustomerIdPI = leadForBalancePI?.customer_id as string | null;
+
+          // Now that we know this customer's email (possibly for the first
+          // time — e.g. a guest quote that only collected it at checkout),
+          // backfill it onto their persistent customer record if it's still
+          // missing there, so a LATER quote with the email can find and
+          // reuse this same customer instead of creating a duplicate.
+          const installerIdPI = metadata.installer_id || metadata.installerId;
+          if (dbCustomerIdPI && installerIdPI && customerEmail) {
+            const { backfillCustomerEmailIfMissing } = await import("@/app/actions/payments");
+            await backfillCustomerEmailIfMissing({
+              dbCustomerId: dbCustomerIdPI,
+              installerId: installerIdPI,
+              email: customerEmail,
+            }).catch((err) => console.warn("[Webhook] Customer email backfill failed:", err));
+          }
 
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
