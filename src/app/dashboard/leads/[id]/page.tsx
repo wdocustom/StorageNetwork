@@ -69,6 +69,7 @@ interface LeadDetail {
   stripe_payment_method_id: string | null;
   stripe_payment_method_brand: string | null;
   stripe_payment_method_last4: string | null;
+  customer_id: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,6 +84,13 @@ export default function JobTicketPage() {
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Fallback saved card — from a PREVIOUS quote for the same customer, used
+  // only when this lead has no saved card of its own. See migration 134.
+  const [customerSavedCard, setCustomerSavedCard] = useState<{
+    brand: string | null;
+    last4: string | null;
+  } | null>(null);
 
   // Installer Stripe account for payment routing
   const [installerStripeId, setInstallerStripeId] = useState<string | null>(null);
@@ -118,7 +126,7 @@ export default function JobTicketPage() {
     let data: Record<string, unknown> | null = null;
     let err: unknown = null;
 
-    const baseColumns = "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4";
+    const baseColumns = "id, customer_name, customer_email, customer_phone, address, status, estimated_price, deposit_paid, deposit_amount, balance_due, payout_status, fee_status, photo_url, quote_data, created_at, scheduled_at, installer_id, address_line1, address_city, address_state, address_zip, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, source, en_route_notified, sales_tax_amount, review_token, review_submitted, discount_code, discount_amount, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4, customer_id";
 
     const result = await supabase
       .from("leads")
@@ -151,6 +159,25 @@ export default function JobTicketPage() {
     const leadData = data as unknown as LeadDetail;
     setLead(leadData);
     setTripSent(!!leadData.en_route_notified);
+
+    // This lead has no saved card of its own — check whether the same
+    // customer saved one on a previous quote with this installer, so
+    // "Charge Card on File" can still be offered here.
+    if (!leadData.stripe_payment_method_id && leadData.customer_id) {
+      const { data: customerRow } = await supabase
+        .from("customers")
+        .select("stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4")
+        .eq("id", leadData.customer_id)
+        .maybeSingle();
+      if (customerRow?.stripe_payment_method_id) {
+        setCustomerSavedCard({
+          brand: customerRow.stripe_payment_method_brand,
+          last4: customerRow.stripe_payment_method_last4,
+        });
+      }
+    } else {
+      setCustomerSavedCard(null);
+    }
 
     // Fetch installer's Stripe account ID and inventory
     if (leadData.installer_id) {
@@ -567,9 +594,10 @@ export default function JobTicketPage() {
           reviewSubmitted={lead.review_submitted}
           savedDiscountCode={lead.discount_code}
           savedDiscountAmount={lead.discount_amount}
-          hasSavedCard={!!lead.stripe_payment_method_id}
-          savedCardBrand={lead.stripe_payment_method_brand}
-          savedCardLast4={lead.stripe_payment_method_last4}
+          hasSavedCard={!!lead.stripe_payment_method_id || !!customerSavedCard}
+          savedCardBrand={lead.stripe_payment_method_brand || customerSavedCard?.brand || null}
+          savedCardLast4={lead.stripe_payment_method_last4 || customerSavedCard?.last4 || null}
+          savedCardFromPreviousOrder={!lead.stripe_payment_method_id && !!customerSavedCard}
           onRefresh={fetchLead}
         />
 

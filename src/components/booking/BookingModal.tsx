@@ -123,6 +123,7 @@ export default function BookingModal({
   const [timePreference, setTimePreference] = useState<"morning" | "afternoon" | null>(null);
   const [blockAvailability, setBlockAvailability] = useState<Record<string, { morning: boolean; afternoon: boolean }>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
@@ -288,6 +289,7 @@ export default function BookingModal({
 
     if (result.success && result.clientSecret) {
       setClientSecret(result.clientSecret);
+      setCustomerSessionClientSecret(result.customerSessionClientSecret || null);
       setStep("payment");
     } else {
       setError(result.error || "Failed to initialize payment.");
@@ -417,6 +419,7 @@ export default function BookingModal({
               stripe={stripePromise}
               options={{
                 clientSecret,
+                ...(customerSessionClientSecret && { customerSessionClientSecret }),
                 appearance: {
                   theme: "night",
                   variables: {

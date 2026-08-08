@@ -67,6 +67,7 @@ export default function ResumePaymentPage() {
   const [error, setError] = useState<string | null>(null);
   const [lead, setLead] = useState<PendingLeadDetails | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
   const [initializingPayment, setInitializingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -407,6 +408,7 @@ export default function ResumePaymentPage() {
       }
 
       setClientSecret(result.clientSecret);
+      setCustomerSessionClientSecret(result.customerSessionClientSecret || null);
       setStep("payment");
       recordPayLinkStep(leadId, "payment").catch(() => {});
     } catch (err) {
@@ -1175,6 +1177,7 @@ export default function ResumePaymentPage() {
               stripe={stripePromise}
               options={{
                 clientSecret,
+                ...(customerSessionClientSecret && { customerSessionClientSecret }),
                 appearance: {
                   theme: "night",
                   variables: {
