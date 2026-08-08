@@ -125,7 +125,12 @@ async function getCompletedJobCount(installerId: string): Promise<number> {
 // Resolves the platform Stripe Customer to attach to the deposit
 // PaymentIntent. Without a Customer attached, setup_future_usage cannot
 // persist the PaymentMethod, and the balance can't be auto-charged later.
-// Order: existing lead.stripe_customer_id → search by email → create.
+//
+// Order: existing lead.stripe_customer_id → the same person's saved Stripe
+// Customer from a PREVIOUS quote (via customers.stripe_customer_id) → search
+// by email → create. Checking `customers` first is what lets a card saved on
+// one quote get reused (both by the checkout UI and by the installer's
+// "Charge Card on File" action) on a later quote for the same person.
 async function getOrCreateStripeCustomerForLead(
   leadId: string,
   email: string | undefined,
@@ -133,38 +138,87 @@ async function getOrCreateStripeCustomerForLead(
 ): Promise<string | null> {
   const { data: lead } = await supabase
     .from("leads")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id, customer_id")
     .eq("id", leadId)
     .maybeSingle();
 
-  const existingId = (lead?.stripe_customer_id as string | null) ?? null;
-  if (existingId) return existingId;
+  const existingLeadStripeId = (lead?.stripe_customer_id as string | null) ?? null;
+  if (existingLeadStripeId) return existingLeadStripeId;
 
-  let customerId: string | null = null;
+  const dbCustomerId = (lead?.customer_id as string | null) ?? null;
+
+  if (dbCustomerId) {
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("stripe_customer_id")
+      .eq("id", dbCustomerId)
+      .maybeSingle();
+    const existingPersonStripeId = (customerRow?.stripe_customer_id as string | null) ?? null;
+    if (existingPersonStripeId) {
+      await supabase
+        .from("leads")
+        .update({ stripe_customer_id: existingPersonStripeId })
+        .eq("id", leadId);
+      return existingPersonStripeId;
+    }
+  }
+
+  let stripeCustomerId: string | null = null;
   if (email) {
     try {
       const found = await stripe.customers.list({ email, limit: 1 });
-      customerId = found.data[0]?.id ?? null;
+      stripeCustomerId = found.data[0]?.id ?? null;
     } catch (err) {
       console.warn("[Deposit] Customer lookup by email failed:", err);
     }
   }
 
-  if (!customerId) {
+  if (!stripeCustomerId) {
     const created = await stripe.customers.create({
       email: email || undefined,
       name: name || undefined,
       metadata: { leadId },
     });
-    customerId = created.id;
+    stripeCustomerId = created.id;
   }
 
   await supabase
     .from("leads")
-    .update({ stripe_customer_id: customerId })
+    .update({ stripe_customer_id: stripeCustomerId })
     .eq("id", leadId);
 
-  return customerId;
+  if (dbCustomerId) {
+    await supabase
+      .from("customers")
+      .update({ stripe_customer_id: stripeCustomerId })
+      .eq("id", dbCustomerId);
+  }
+
+  return stripeCustomerId;
+}
+
+// ── Customer Session for the checkout Payment Element ────────────────────
+// Lets the on-session checkout (BookingModal, /pay/[leadId]) show the
+// customer's saved card(s) as selectable options instead of a blank card
+// form. Safe/cheap to create even when no card is saved yet — the Payment
+// Element just shows nothing extra in that case.
+async function createCustomerSessionSecret(stripeCustomerId: string | null): Promise<string | null> {
+  if (!stripeCustomerId) return null;
+  try {
+    const session = await stripe.customerSessions.create({
+      customer: stripeCustomerId,
+      components: {
+        payment_element: {
+          enabled: true,
+          features: { payment_method_redisplay: "enabled" },
+        },
+      },
+    });
+    return session.client_secret;
+  } catch (err) {
+    console.warn("[Deposit] Customer Session creation failed:", err);
+    return null;
+  }
 }
 
 // ── Helper: Check if installer is Pro ────────────────────────────────────
@@ -829,7 +883,7 @@ export async function chargeBalanceOffSession(
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select(
-      "installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
+      "installer_id, customer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
     )
     .eq("id", leadId)
     .single();
@@ -855,10 +909,24 @@ export async function chargeBalanceOffSession(
     return { success: false, alreadyPaid: true, error: "No balance due." };
   }
 
-  // Legacy leads (deposited before the setup_future_usage migration) won't
-  // have a saved card. Send the caller the Checkout URL instead.
-  const customerId = lead.stripe_customer_id as string | null;
-  const paymentMethodId = lead.stripe_payment_method_id as string | null;
+  // Legacy leads (deposited before the setup_future_usage migration), or a
+  // lead that never itself collected a deposit, won't have their own saved
+  // card. Fall back to a card the same customer saved on a PREVIOUS quote
+  // with this installer (customers.stripe_customer_id / see migration 134)
+  // before giving up — the installer is already trusted to charge a saved
+  // card off-session only when appropriate; this just widens which of the
+  // customer's cards that trust can draw on, not the trust boundary itself.
+  let customerId = lead.stripe_customer_id as string | null;
+  let paymentMethodId = lead.stripe_payment_method_id as string | null;
+  if ((!customerId || !paymentMethodId) && lead.customer_id) {
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("stripe_customer_id, stripe_payment_method_id")
+      .eq("id", lead.customer_id)
+      .maybeSingle();
+    customerId = customerId || (customerRow?.stripe_customer_id as string | null) || null;
+    paymentMethodId = paymentMethodId || (customerRow?.stripe_payment_method_id as string | null) || null;
+  }
   if (!customerId || !paymentMethodId) {
     const baseUrl = siteConfig.baseUrl;
     return {
@@ -984,6 +1052,10 @@ export interface DepositIntentInput {
 export interface DepositIntentResult {
   success: boolean;
   clientSecret?: string;
+  // Lets the Payment Element show this customer's saved card(s), if any
+  // (from this or a previous quote), as selectable options.
+  stripeCustomerId?: string;
+  customerSessionClientSecret?: string;
   error?: string;
 }
 
@@ -1087,6 +1159,7 @@ export async function createDepositIntent(
       customerEmail,
       customerName
     );
+    const customerSessionClientSecret = await createCustomerSessionSecret(stripeCustomerId);
 
     let paymentIntent;
 
@@ -1336,6 +1409,8 @@ export async function createDepositIntent(
     return {
       success: true,
       clientSecret: paymentIntent.client_secret || undefined,
+      stripeCustomerId: stripeCustomerId || undefined,
+      customerSessionClientSecret: customerSessionClientSecret || undefined,
     };
   } catch (err) {
     console.error("[Payment] PaymentIntent error:", err);
@@ -1368,7 +1443,7 @@ export async function verifyAndConfirmDeposit(
   // 1. Check if already marked as paid
   const { data: lead } = await supabase
     .from("leads")
-    .select("deposit_paid, customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, deposit_amount")
+    .select("deposit_paid, customer_name, customer_email, address, quote_data, estimated_price, installer_id, scheduled_at, deposit_amount, customer_id")
     .eq("id", leadId)
     .single();
 
@@ -1429,6 +1504,22 @@ export async function verifyAndConfirmDeposit(
     }
 
     console.log("[VerifyDeposit] Deposit confirmed for lead:", leadId);
+
+    // Mirror saved card onto the persistent customer record (non-blocking)
+    // so it's reusable on this person's other quotes. See migration 134.
+    const dbCustomerId = lead.customer_id as string | null;
+    if (dbCustomerId && (fallbackUpdate.stripe_customer_id || fallbackUpdate.stripe_payment_method_id)) {
+      const customerStripeUpdate: Record<string, unknown> = {};
+      if (fallbackUpdate.stripe_customer_id) customerStripeUpdate.stripe_customer_id = fallbackUpdate.stripe_customer_id;
+      if (fallbackUpdate.stripe_payment_method_id) customerStripeUpdate.stripe_payment_method_id = fallbackUpdate.stripe_payment_method_id;
+      if (fallbackUpdate.stripe_payment_method_brand) customerStripeUpdate.stripe_payment_method_brand = fallbackUpdate.stripe_payment_method_brand;
+      if (fallbackUpdate.stripe_payment_method_last4) customerStripeUpdate.stripe_payment_method_last4 = fallbackUpdate.stripe_payment_method_last4;
+      const { error: custErr } = await supabase
+        .from("customers")
+        .update(customerStripeUpdate)
+        .eq("id", dbCustomerId);
+      if (custErr) console.warn("[VerifyDeposit] save customer Stripe ids failed:", custErr);
+    }
 
     // Realtor referral credit (idempotent RPC; no-op if not a realtor lead
     // or already credited by the webhook).

@@ -1394,12 +1394,13 @@ export async function POST(request: NextRequest) {
           // Fetch estimated_price and discount_amount to recalculate balance_due based on actual deposit
           const { data: leadForBalancePI } = await getDb()
             .from("leads")
-            .select("estimated_price, discount_amount")
+            .select("estimated_price, discount_amount, customer_id")
             .eq("id", leadId)
             .maybeSingle();
           const estimatedPricePI = leadForBalancePI?.estimated_price ?? 0;
           const discountAmtPI = leadForBalancePI?.discount_amount ?? 0;
           const balanceDuePI = roundMoney(estimatedPricePI - amountPaidPI - discountAmtPI);
+          const dbCustomerIdPI = leadForBalancePI?.customer_id as string | null;
 
           const updatePayload: Record<string, unknown> = {
             deposit_paid: true,
@@ -1457,6 +1458,22 @@ export async function POST(request: NextRequest) {
             // ── Realtor Referral Credit (non-blocking, idempotent) ─────
             waitUntil(processRealtorReferralCredit(leadId));
 
+            // ── Mirror saved card onto the persistent customer record ──
+            // (non-blocking) so it's reusable on this person's other quotes,
+            // not just this one lead. See migration 134.
+            if (dbCustomerIdPI && (updatePayload.stripe_customer_id || updatePayload.stripe_payment_method_id)) {
+              const customerStripeUpdate: Record<string, unknown> = {};
+              if (updatePayload.stripe_customer_id) customerStripeUpdate.stripe_customer_id = updatePayload.stripe_customer_id;
+              if (updatePayload.stripe_payment_method_id) customerStripeUpdate.stripe_payment_method_id = updatePayload.stripe_payment_method_id;
+              fireAndForget("save_customer_stripe_ids", async () => {
+                try {
+                  await getDb().from("customers").update(customerStripeUpdate).eq("id", dbCustomerIdPI);
+                } catch (custErr) {
+                  console.warn("[Webhook] save customer Stripe ids failed:", custErr);
+                }
+              });
+            }
+
             // ── Save card brand + last4 (non-blocking, best-effort) ────
             // Lets the installer see "Visa •••• 4242" before charging the
             // balance. PaymentIntent only carries the PM id; one extra
@@ -1469,13 +1486,17 @@ export async function POST(request: NextRequest) {
                 try {
                   const pm = await stripe.paymentMethods.retrieve(pmId);
                   if (pm.type === "card" && pm.card) {
+                    const brandMeta = { stripe_payment_method_brand: pm.card.brand, stripe_payment_method_last4: pm.card.last4 };
                     await getDb()
                       .from("leads")
-                      .update({
-                        stripe_payment_method_brand: pm.card.brand,
-                        stripe_payment_method_last4: pm.card.last4,
-                      })
+                      .update(brandMeta)
                       .eq("id", leadId);
+                    if (dbCustomerIdPI) {
+                      await getDb()
+                        .from("customers")
+                        .update(brandMeta)
+                        .eq("id", dbCustomerIdPI);
+                    }
                   }
                 } catch (pmErr) {
                   console.warn("[Webhook] save PM display meta failed:", pmErr);

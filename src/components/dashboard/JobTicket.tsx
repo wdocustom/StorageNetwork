@@ -91,6 +91,8 @@ interface JobTicketProps {
   savedCardBrand?: string | null;
   /** Last 4 digits of the saved card. */
   savedCardLast4?: string | null;
+  /** True when this lead has no card of its own but the customer saved one on a previous quote with this installer. */
+  savedCardFromPreviousOrder?: boolean;
   onRefresh: () => void;
   onStatusChange?: (newStatus: string) => void;
 }
@@ -124,17 +126,25 @@ export default function JobTicket({
   hasSavedCard = false,
   savedCardBrand,
   savedCardLast4,
+  savedCardFromPreviousOrder = false,
   onRefresh,
   onStatusChange,
 }: JobTicketProps) {
   // Pretty card label, e.g. "Visa •••• 4242". Falls back to "Card on file"
   // when Stripe didn't return brand/last4 (legacy deposits, fetch failure).
+  // When this lead has no card of its own and we're offering the customer's
+  // card from an earlier quote instead, flag that so the installer isn't
+  // surprised a never-deposited job has a chargeable card.
   const savedCardLabel = (() => {
-    if (!savedCardLast4) return "Card on file";
-    const brand = savedCardBrand
-      ? savedCardBrand.charAt(0).toUpperCase() + savedCardBrand.slice(1).replace(/_/g, " ")
-      : "Card";
-    return `${brand} •••• ${savedCardLast4}`;
+    const base = !savedCardLast4
+      ? "Card on file"
+      : (() => {
+          const brand = savedCardBrand
+            ? savedCardBrand.charAt(0).toUpperCase() + savedCardBrand.slice(1).replace(/_/g, " ")
+            : "Card";
+          return `${brand} •••• ${savedCardLast4}`;
+        })();
+    return savedCardFromPreviousOrder ? `${base} (from a previous order)` : base;
   })();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
