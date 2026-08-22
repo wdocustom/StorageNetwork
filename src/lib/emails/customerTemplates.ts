@@ -1,6 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
+import { formatInstallDate } from "@/utils/installDate";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared style primitives.
@@ -215,15 +216,14 @@ export async function sendInstallScheduledNotice(
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
 
-  const dateObj = new Date(`${data.scheduledDate}T12:00:00`);
-  const formattedDate = isNaN(dateObj.getTime())
-    ? data.scheduledDate
-    : dateObj.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
+  // scheduledDate is usually a bare "YYYY-MM-DD", but callers that read it
+  // straight off leads.scheduled_at hand us a full ISO timestamp — the helper
+  // takes the calendar date out of either form.
+  const formattedDate = formatInstallDate(
+    data.scheduledDate,
+    { weekday: "long", month: "long", day: "numeric", year: "numeric" },
+    data.scheduledDate
+  );
 
   const installerLine = data.installerName
     ? `<strong style="color:#ffffff;">${data.installerName}</strong>`

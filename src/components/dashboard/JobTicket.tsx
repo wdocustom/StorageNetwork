@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import {
   ArrowRight,
+  AlertCircle,
   Calendar,
   Camera,
   CheckCircle2,
@@ -46,6 +47,7 @@ import { createRacksForJob, getRacksForJob, emailRackLink, type InventoryRack } 
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { roundMoney } from "@/utils/mathHelpers";
+import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -164,8 +166,10 @@ export default function JobTicket({
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(photoUrl);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduling, setScheduling] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [manualPayMethod, setManualPayMethod] = useState("cash");
   const [showGetPaidMenu, setShowGetPaidMenu] = useState(false);
   const [copyLinkSuccess, setCopyLinkSuccess] = useState(false);
@@ -638,26 +642,49 @@ export default function JobTicket({
   }
 
   // ── Reschedule ────────────────────────────────────────────────────────
+  // Both date handlers keep the modal open and show what went wrong on
+  // failure. Closing on a result nobody checked is what made a failed save
+  // look like "I submit the date and nothing happens".
   async function handleReschedule() {
     if (!rescheduleDate) return;
     setRescheduling(true);
-    await rescheduleJob(leadId, rescheduleDate, customerEmail || "", customerName);
-    setRescheduling(false);
-    setShowRescheduleModal(false);
-    setRescheduleDate("");
-    onRefresh();
+    setRescheduleError(null);
+    try {
+      const result = await rescheduleJob(leadId, rescheduleDate, customerEmail || "", customerName);
+      if (!result.success) {
+        setRescheduleError(result.error || "Couldn't save the install date. Please try again.");
+        return;
+      }
+      setShowRescheduleModal(false);
+      setRescheduleDate("");
+      onRefresh();
+    } catch (err) {
+      console.error("[JobTicket] Reschedule failed:", err);
+      setRescheduleError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setRescheduling(false);
+    }
   }
 
   // ── Schedule (manual date assignment) ─────────────────────────────────
   async function handleSchedule() {
     if (!scheduleDate) return;
     setScheduling(true);
-    const result = await scheduleJob(leadId, scheduleDate, customerEmail || "", customerName);
-    setScheduling(false);
-    if (result.success) {
+    setScheduleError(null);
+    try {
+      const result = await scheduleJob(leadId, scheduleDate, customerEmail || "", customerName);
+      if (!result.success) {
+        setScheduleError(result.error || "Couldn't save the install date. Please try again.");
+        return;
+      }
       setShowScheduleModal(false);
       setScheduleDate("");
       onRefresh();
+    } catch (err) {
+      console.error("[JobTicket] Schedule failed:", err);
+      setScheduleError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setScheduling(false);
     }
   }
 
@@ -1664,7 +1691,7 @@ export default function JobTicket({
             Scheduled{" "}
           </span>
           <span className="text-xs font-bold text-yellow-400">
-            {new Date(scheduledAt + (scheduledAt.includes("T") ? "" : "T12:00:00")).toLocaleDateString("en-US", {
+            {formatInstallDate(scheduledAt, {
               weekday: "short",
               month: "short",
               day: "numeric",
@@ -2502,7 +2529,7 @@ export default function JobTicket({
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Reschedule Job</h3>
               <button
-                onClick={() => setShowRescheduleModal(false)}
+                onClick={() => { setShowRescheduleModal(false); setRescheduleError(null); }}
                 className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
@@ -2516,11 +2543,17 @@ export default function JobTicket({
                 <input
                   type="date"
                   value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleError(null); }}
+                  min={todayInstallDateKey()}
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
               </div>
+              {rescheduleError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <p className="text-xs font-medium text-red-400">{rescheduleError}</p>
+                </div>
+              )}
               <button
                 onClick={handleReschedule}
                 disabled={!rescheduleDate || rescheduling}
@@ -2547,7 +2580,7 @@ export default function JobTicket({
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Schedule Install Date</h3>
               <button
-                onClick={() => { setShowScheduleModal(false); setScheduleDate(""); }}
+                onClick={() => { setShowScheduleModal(false); setScheduleDate(""); setScheduleError(null); }}
                 className="rounded-lg p-1 text-stone-500 transition-colors hover:bg-slate-800 hover:text-white"
               >
                 <X className="h-5 w-5" />
@@ -2564,11 +2597,17 @@ export default function JobTicket({
                 <input
                   type="date"
                   value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => { setScheduleDate(e.target.value); setScheduleError(null); }}
+                  min={todayInstallDateKey()}
                   className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-yellow-400 focus:outline-none"
                 />
               </div>
+              {scheduleError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <p className="text-xs font-medium text-red-400">{scheduleError}</p>
+                </div>
+              )}
               <button
                 onClick={handleSchedule}
                 disabled={!scheduleDate || scheduling}

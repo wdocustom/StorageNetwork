@@ -10,6 +10,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { getDepositAmount } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
+import { isSameInstallDate } from "@/utils/installDate";
 
 const supabase = getServiceClient();
 
@@ -297,6 +298,83 @@ export async function markJobPaidManual(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// writeInstallDate — Shared date write for scheduleJob / rescheduleJob
+//
+// The UPDATE is conditional so a duplicate submit (double-click, Next.js
+// server-action retry, two tabs) can't send a second confirmation email:
+// Postgres serializes the writes and re-evaluates the WHERE clause after each
+// commit, so the second call matches no row.
+//
+// The `scheduled_at.is.null` branch matters — SQL three-valued logic makes
+// `NULL <> '2026-08-25'` evaluate to NULL, so a bare `.neq()` never matches a
+// row that has no date yet and the write silently does nothing.
+//
+// "No row matched" is ambiguous on its own, so we read the row back and only
+// treat it as a duplicate when the stored date really is the requested one.
+// Anything else is a failed write and is reported as such — previously it
+// returned success and the installer saw the modal close with nothing saved.
+// ═══════════════════════════════════════════════════════════════════════════
+
+type InstallDateWrite =
+  | { changed: true }
+  | { changed: false }
+  | { error: string };
+
+const INSTALL_DATE_FORMAT = /^\d{4}-\d{2}-\d{2}$/;
+
+async function writeInstallDate(
+  leadId: string,
+  date: string,
+  label: string
+): Promise<InstallDateWrite> {
+  // The date is interpolated into a PostgREST filter below, so it has to be a
+  // plain calendar date. Anything else is rejected here rather than becoming a
+  // malformed filter that fails deep in the query.
+  if (!INSTALL_DATE_FORMAT.test(date)) {
+    console.error(`[${label}] Rejected install date "${date}" for lead ${leadId}`);
+    return { error: "That install date isn't valid. Please pick a date." };
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("leads")
+    .update({ scheduled_at: date, updated_at: new Date().toISOString() })
+    .eq("id", leadId)
+    .or(`scheduled_at.is.null,scheduled_at.neq.${date}`)
+    .select("id")
+    .maybeSingle();
+
+  if (updateError) {
+    console.error(`[${label}] DB error writing scheduled_at:`, updateError);
+    return { error: "Couldn't save the install date. Please try again." };
+  }
+
+  if (updated) return { changed: true };
+
+  // Nothing matched — confirm the stored date is the one that was requested
+  // before calling this a no-op.
+  const { data: current, error: readError } = await supabase
+    .from("leads")
+    .select("scheduled_at")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (readError || !current) {
+    console.error(`[${label}] Could not read back lead ${leadId}:`, readError);
+    return { error: "Couldn't save the install date. Please try again." };
+  }
+
+  if (isSameInstallDate(current.scheduled_at, date)) {
+    console.log(`[${label}] scheduled_at already ${date} for lead ${leadId}, skipping email`);
+    return { changed: false };
+  }
+
+  console.error(
+    `[${label}] UPDATE matched no row for lead ${leadId}: wanted ${date}, stored ${current.scheduled_at}`
+  );
+  return { error: "Couldn't save the install date. Please try again." };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // rescheduleJob — Update date + send reschedule email (replies go to installer)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -309,23 +387,9 @@ export async function rescheduleJob(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Conditional update: only changes the row when the requested date
-  // actually differs from what's already stored. Postgres serializes the
-  // two updates and re-evaluates the WHERE clause after each commit, so
-  // a duplicate submit (double-click, Next.js server-action retry, two
-  // tabs) gets no row back from the second call and we skip the email.
-  const { data: updated } = await supabase
-    .from("leads")
-    .update({ scheduled_at: newDate, updated_at: new Date().toISOString() })
-    .eq("id", leadId)
-    .neq("scheduled_at", newDate)
-    .select("id")
-    .maybeSingle();
-
-  if (!updated) {
-    console.log(`[Reschedule] scheduled_at already ${newDate} for lead ${leadId}, skipping email`);
-    return { success: true };
-  }
+  const write = await writeInstallDate(leadId, newDate, "Reschedule");
+  if ("error" in write) return { success: false, error: write.error };
+  if (!write.changed) return { success: true };
 
   if (customerEmail) {
     try {
@@ -397,27 +461,9 @@ export async function scheduleJob(
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // Conditional update: only changes the row when the requested date
-  // differs from what's stored (or scheduled_at was null). Prevents a
-  // duplicate confirmation email when this action is retried or
-  // double-submitted with the same date. See rescheduleJob above.
-  const { data: updated, error: updateError } = await supabase
-    .from("leads")
-    .update({ scheduled_at: date, updated_at: new Date().toISOString() })
-    .eq("id", leadId)
-    .or(`scheduled_at.is.null,scheduled_at.neq.${date}`)
-    .select("id")
-    .maybeSingle();
-
-  if (updateError) {
-    console.error("[ScheduleJob] DB error:", updateError);
-    return { success: false, error: "Failed to schedule job." };
-  }
-
-  if (!updated) {
-    console.log(`[ScheduleJob] scheduled_at already ${date} for lead ${leadId}, skipping email`);
-    return { success: true };
-  }
+  const write = await writeInstallDate(leadId, date, "ScheduleJob");
+  if ("error" in write) return { success: false, error: write.error };
+  if (!write.changed) return { success: true };
 
   // Send confirmation email to customer (non-blocking)
   if (customerEmail) {
