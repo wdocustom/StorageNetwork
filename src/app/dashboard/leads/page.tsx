@@ -16,6 +16,7 @@ import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { maskName } from "@/lib/mask";
+import { formatInstallDate } from "@/utils/installDate";
 // TODO: Re-enable calendar after fixing re-render issues
 // import JobCalendar from "@/components/calendar/JobCalendar";
 
@@ -53,9 +54,7 @@ function groupByDate(jobs: LeadItem[]): Record<string, LeadItem[]> {
 
   for (const job of jobs) {
     if (job.scheduled_at) {
-      const dateStr = new Date(
-        job.scheduled_at + (job.scheduled_at.includes("T") ? "" : "T12:00:00")
-      ).toLocaleDateString("en-US", {
+      const dateStr = formatInstallDate(job.scheduled_at, {
         weekday: "long",
         month: "numeric",
         day: "numeric",
