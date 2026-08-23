@@ -300,19 +300,26 @@ export async function markJobPaidManual(
 // ═══════════════════════════════════════════════════════════════════════════
 // writeInstallDate — Shared date write for scheduleJob / rescheduleJob
 //
-// The UPDATE is conditional so a duplicate submit (double-click, Next.js
-// server-action retry, two tabs) can't send a second confirmation email:
-// Postgres serializes the writes and re-evaluates the WHERE clause after each
-// commit, so the second call matches no row.
+// DO NOT put a .or() filter on this UPDATE. PostgREST rejects it:
 //
-// The `scheduled_at.is.null` branch matters — SQL three-valued logic makes
-// `NULL <> '2026-08-25'` evaluate to NULL, so a bare `.neq()` never matches a
-// row that has no date yet and the write silently does nothing.
+//   code 42703 — column leads.scheduled_at does not exist
 //
-// "No row matched" is ambiguous on its own, so we read the row back and only
-// treat it as a duplicate when the stored date really is the requested one.
-// Anything else is a failed write and is reported as such — previously it
-// returned success and the installer saw the modal close with nothing saved.
+// The `or=(...)` logic tree emits table-qualified column references that don't
+// resolve against a mutation's target relation, so the whole statement fails
+// even though the column plainly exists and every SELECT on it works. That is
+// what broke manual scheduling: the conditional-UPDATE dedupe was written as
+// `.or("scheduled_at.is.null,scheduled_at.neq.<date>")`, and from the day it
+// shipped, every "Schedule Install Date" submit failed. Plain `.eq()` / `.is()`
+// filters on a mutation are fine — the rest of this codebase uses them.
+//
+// So the dedupe is a compare-and-swap instead: read the current value, then
+// guard the UPDATE on that exact value. Two concurrent submits can't both win,
+// which is what keeps a double-click from sending two confirmation emails.
+//
+// "No row updated" is ambiguous on its own, so we re-read and only treat it as
+// a duplicate when the stored date really is the requested one. Anything else
+// is a failed write and is reported as such — it used to return success, and
+// the installer saw the modal close with nothing saved.
 // ═══════════════════════════════════════════════════════════════════════════
 
 type InstallDateWrite =
@@ -335,11 +342,33 @@ async function writeInstallDate(
     return { error: "That install date isn't valid. Please pick a date." };
   }
 
-  const { data: updated, error: updateError } = await supabase
+  // Current value: both the duplicate check and the compare-and-swap guard.
+  const { data: before, error: readError } = await supabase
+    .from("leads")
+    .select("scheduled_at")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (readError || !before) {
+    console.error(`[${label}] Could not read lead ${leadId}:`, readError);
+    return { error: "Couldn't save the install date. Please try again." };
+  }
+
+  if (isSameInstallDate(before.scheduled_at, date)) {
+    console.log(`[${label}] scheduled_at already ${date} for lead ${leadId}, skipping email`);
+    return { changed: false };
+  }
+
+  const target = supabase
     .from("leads")
     .update({ scheduled_at: date, updated_at: new Date().toISOString() })
-    .eq("id", leadId)
-    .or(`scheduled_at.is.null,scheduled_at.neq.${date}`)
+    .eq("id", leadId);
+
+  const { data: updated, error: updateError } = await (
+    before.scheduled_at === null
+      ? target.is("scheduled_at", null)
+      : target.eq("scheduled_at", before.scheduled_at)
+  )
     .select("id")
     .maybeSingle();
 
@@ -350,26 +379,22 @@ async function writeInstallDate(
 
   if (updated) return { changed: true };
 
-  // Nothing matched — confirm the stored date is the one that was requested
-  // before calling this a no-op.
-  const { data: current, error: readError } = await supabase
+  // Lost the compare-and-swap. If the writer that beat us stored the date we
+  // wanted, this was a duplicate submit; anything else is a real failure.
+  const { data: current } = await supabase
     .from("leads")
     .select("scheduled_at")
     .eq("id", leadId)
     .maybeSingle();
 
-  if (readError || !current) {
-    console.error(`[${label}] Could not read back lead ${leadId}:`, readError);
-    return { error: "Couldn't save the install date. Please try again." };
-  }
-
-  if (isSameInstallDate(current.scheduled_at, date)) {
+  if (current && isSameInstallDate(current.scheduled_at, date)) {
     console.log(`[${label}] scheduled_at already ${date} for lead ${leadId}, skipping email`);
     return { changed: false };
   }
 
   console.error(
-    `[${label}] UPDATE matched no row for lead ${leadId}: wanted ${date}, stored ${current.scheduled_at}`
+    `[${label}] UPDATE matched no row for lead ${leadId}: wanted ${date}, ` +
+    `read ${before.scheduled_at}, now ${current?.scheduled_at ?? "unreadable"}`
   );
   return { error: "Couldn't save the install date. Please try again." };
 }
