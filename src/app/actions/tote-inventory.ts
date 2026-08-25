@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { isInventoryRackUnit, type RackCandidate } from "@/utils/rackInventory";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tote Inventory — Customer-facing content tracking for storage racks
@@ -738,13 +739,85 @@ export async function createRacksForJob(input: {
 // ── Get racks for a job (installer-side) ─────────────────────────────────
 
 export async function getRacksForJob(leadId: string): Promise<InventoryRack[]> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("inventory_racks")
     .select("*")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: true });
 
+  if (error) {
+    // Don't report a failed read as "this job has no racks" — that used to
+    // put the Create button back on a job that already had racks, and
+    // pressing it made duplicates nothing in the UI can delete.
+    console.error("[ToteInventory] getRacksForJob failed for lead", leadId, error);
+    throw new Error("Could not load the inventory for this job.");
+  }
+
   return (data || []) as InventoryRack[];
+}
+
+// ── Ensure a paid job has its racks (auto-provisioning) ──────────────────
+//
+// Every paid job with a rack gets its inventory without anyone pressing a
+// button. Racks used to be created only by the installer clicking "Create
+// Inventory QR" on the job ticket, so whether a customer got an inventory
+// came down to whether their installer happened to press it — which is why
+// some tickets showed links and QR codes and others showed a button.
+//
+// Idempotent: returns the existing racks untouched if there are any. Safe to
+// call on every job-ticket load.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function ensureRacksForJob(leadId: string): Promise<InventoryRack[]> {
+  if (!leadId) return [];
+
+  const existing = await getRacksForJob(leadId);
+  if (existing.length > 0) return existing;
+
+  const { data: lead, error: leadError } = await db()
+    .from("leads")
+    .select("id, status, installer_id, customer_name, customer_email, quote_data")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (leadError || !lead) {
+    console.error("[ToteInventory] ensureRacksForJob: lead unreadable", leadId, leadError);
+    return [];
+  }
+
+  // Only provision once the job is actually paid — the rack exists in the
+  // customer's garage by then.
+  if (lead.status !== "paid" || !lead.installer_id) return [];
+
+  const units = Array.isArray(lead.quote_data) ? lead.quote_data : [];
+  const rackUnits = (units as RackCandidate[]).filter(isInventoryRackUnit);
+  if (rackUnits.length === 0) return [];
+
+  const { racks, error } = await createRacksForJob({
+    leadId,
+    installerId: lead.installer_id as string,
+    customerName: (lead.customer_name as string) || "Customer",
+    customerEmail: (lead.customer_email as string) || "",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    shelfConfigs: rackUnits.map((u: any) => ({
+      cols: u.cols ?? u.width ?? 4,
+      rows: u.rows ?? u.height ?? 3,
+      hasWheels: u.hasWheels ?? u.wheels ?? false,
+      topType: u.topType ?? u.top ?? "none",
+      layout: u.layout ?? "standard",
+    })),
+  });
+
+  if (error) {
+    console.error(
+      `[ToteInventory] ensureRacksForJob: created ${racks.length}/${rackUnits.length} racks for lead ${leadId}:`,
+      error
+    );
+  }
+
+  // Re-read rather than trusting the create result: two concurrent loads can
+  // both pass the existence check, and the read is the truth either way.
+  return await getRacksForJob(leadId);
 }
 
 // ── Email rack link to customer ──────────────────────────────────────────
