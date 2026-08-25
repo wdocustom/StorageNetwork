@@ -221,13 +221,23 @@ async function sendWaitlistActivationEmail(
     const { masterEmailLayout } = await import("@/lib/emails/components/masterEmailLayout");
     const { getAppUrl } = await import("@/lib/url-helper");
 
+    // `from=network` marks the customer as platform-acquired, which is what
+    // charges the 15% network fee instead of the 3% direct rate. A waitlisted
+    // customer with a source_installer_id was NOT acquired by the platform —
+    // they landed on that installer's own page, left their details there, and
+    // this email only exists because that installer expanded coverage. Send
+    // them back to that installer so the lead is priced as the direct lead it
+    // is. (from=network is read in exactly one place, design/page.tsx:222, to
+    // decide the source — it drives nothing else.)
     const linkParams = new URLSearchParams({
       zip: signal.zip,
-      from: "network",
       signal_id: signal.id,
     });
     if (signal.source_installer_id) {
+      linkParams.set("installer_id", signal.source_installer_id);
       linkParams.set("ref_installer", signal.source_installer_id);
+    } else {
+      linkParams.set("from", "network");
     }
     const designUrl = `${getAppUrl()}/design?${linkParams.toString()}`;
 
