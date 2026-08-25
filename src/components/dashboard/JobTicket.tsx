@@ -48,6 +48,7 @@ import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTease
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { roundMoney } from "@/utils/mathHelpers";
 import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
+import { isInventoryRackUnit } from "@/utils/rackInventory";
 import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -584,10 +585,7 @@ export default function JobTicket({
   async function handleCreateInventoryRacks() {
     if (!quoteData || quoteData.length === 0 || !installerId) return;
     setInventoryCreating(true);
-    const rackUnits = quoteData.filter((q: any) =>
-      q.hasTotes && (q.cols ?? q.width ?? 0) > 0 && (q.rows ?? q.height ?? 0) > 0
-      && !q.shelvingConfigId && !q.overheadGridPresetId && !q.chairId
-    );
+    const rackUnits = quoteData.filter(isInventoryRackUnit);
     if (rackUnits.length === 0) { setInventoryCreating(false); return; }
     const configs = rackUnits.map((q: any) => ({
       cols: q.cols ?? q.width ?? 4,
@@ -848,11 +846,8 @@ export default function JobTicket({
             </span>
           </div>
 
-          {/* ── Inventory QR Section (only for jobs with tote racks) ── */}
-          {(inventoryRacks.length > 0 || (quoteData ?? []).some((q: any) =>
-            q.hasTotes && (q.cols ?? q.width ?? 0) > 0 && (q.rows ?? q.height ?? 0) > 0
-            && !q.shelvingConfigId && !q.overheadGridPresetId && !q.chairId
-          )) && (
+          {/* ── Inventory QR Section (any job with a rack) ── */}
+          {(inventoryRacks.length > 0 || (quoteData ?? []).some(isInventoryRackUnit)) && (
           <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Package className="h-4 w-4 text-yellow-400" />
