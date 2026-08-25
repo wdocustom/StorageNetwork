@@ -43,7 +43,7 @@ import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/f
 import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession, chargeDepositOffSession, createDepositCheckoutSession } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
-import { createRacksForJob, getRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
+import { createRacksForJob, ensureRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { roundMoney } from "@/utils/mathHelpers";
@@ -190,6 +190,7 @@ export default function JobTicket({
 
   // ── Inventory QR State ────────────────────────────────────────────────
   const [inventoryRacks, setInventoryRacks] = useState<InventoryRack[]>([]);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryCreating, setInventoryCreating] = useState(false);
   const [inventoryEmailing, setInventoryEmailing] = useState<string | null>(null);
@@ -575,16 +576,26 @@ export default function JobTicket({
   }
 
   // ── Inventory QR Handlers ───────────────────────────────────────────────
+  // Provisioning happens here rather than behind a button: every paid job
+  // with a rack gets its inventory, instead of it depending on whether the
+  // installer happened to press Create.
   async function loadInventoryRacks() {
     setInventoryLoading(true);
-    const racks = await getRacksForJob(leadId);
-    setInventoryRacks(racks);
-    setInventoryLoading(false);
+    setInventoryError(null);
+    try {
+      setInventoryRacks(await ensureRacksForJob(leadId));
+    } catch (err) {
+      console.error("[JobTicket] Inventory load failed:", err);
+      setInventoryError("Couldn't load this job's inventory. Reload to try again.");
+    } finally {
+      setInventoryLoading(false);
+    }
   }
 
   async function handleCreateInventoryRacks() {
     if (!quoteData || quoteData.length === 0 || !installerId) return;
     setInventoryCreating(true);
+    setInventoryError(null);
     const rackUnits = quoteData.filter(isInventoryRackUnit);
     if (rackUnits.length === 0) { setInventoryCreating(false); return; }
     const configs = rackUnits.map((q: any) => ({
@@ -601,6 +612,13 @@ export default function JobTicket({
       customerEmail: customerEmail || "",
       shelfConfigs: configs,
     });
+    if (result.error) {
+      setInventoryError(
+        result.racks.length > 0
+          ? `Only ${result.racks.length} of ${configs.length} racks could be created. Reload to try the rest.`
+          : "Couldn't create the inventory. Please try again."
+      );
+    }
     if (result.racks.length > 0) {
       setInventoryRacks(result.racks);
     }
@@ -619,6 +637,8 @@ export default function JobTicket({
     if (result.success) {
       setInventoryEmailSent(rackId);
       setTimeout(() => setInventoryEmailSent(null), 4000);
+    } else {
+      setInventoryError(result.error || "Couldn't send the email. Please try again.");
     }
   }
 
@@ -856,6 +876,13 @@ export default function JobTicket({
               </span>
             </div>
 
+            {inventoryError && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                <p className="text-xs font-medium text-red-400">{inventoryError}</p>
+              </div>
+            )}
+
             {inventoryLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
@@ -863,8 +890,9 @@ export default function JobTicket({
             ) : inventoryRacks.length === 0 ? (
               <div>
                 <p className="text-xs text-stone-400 mb-3">
-                  Create a digital inventory tracker for this customer&apos;s rack.
-                  They&apos;ll get a QR code link to catalog what&apos;s in each tote.
+                  This job&apos;s inventory tracker hasn&apos;t been set up yet.
+                  It&apos;s created automatically on paid jobs &mdash; use this if
+                  something went wrong.
                 </p>
                 <button
                   onClick={handleCreateInventoryRacks}
@@ -876,7 +904,7 @@ export default function JobTicket({
                   ) : (
                     <Package className="h-4 w-4" />
                   )}
-                  {inventoryCreating ? "Creating..." : "Create Inventory QR"}
+                  {inventoryCreating ? "Creating..." : "Set Up Inventory QR"}
                 </button>
               </div>
             ) : (
