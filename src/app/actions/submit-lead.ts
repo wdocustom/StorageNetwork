@@ -205,7 +205,26 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     // isn't soft-locked (trial expired with active jobs in grace period).
     // Soft-locked installers can finish existing jobs but shouldn't earn
     // new bounties — that's a paid-subscriber benefit.
-    let referralEligible = !!input.referring_installer_id;
+    // A referral to yourself is not a referral. This is reachable: a referrer
+    // set from the URL (ref_installer) or hydrated from a saved waitlist
+    // signal is *locked* and deliberately survives the in-area check, so when
+    // the installer who eventually serves the customer is the same one who
+    // sent them, both ids end up identical. The bounty then pays an installer
+    // for referring a job to himself, out of the platform's own balance.
+    const selfReferral =
+      !!input.referring_installer_id &&
+      !!input.installer_id &&
+      input.referring_installer_id === input.installer_id;
+
+    if (selfReferral) {
+      console.log(
+        `[SubmitLead] Dropping self-referral: installer ${input.installer_id} referred to themselves`
+      );
+    }
+
+    const referringInstallerId = selfReferral ? null : input.referring_installer_id || null;
+
+    let referralEligible = !!referringInstallerId;
     if (referralEligible && input.referring_installer_id) {
       const { data: refProfile } = await supabase
         .from("profiles")
@@ -322,8 +341,8 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         scheduled_at: input.scheduled_at || null,
         // Network Referral Bounty: track the original installer who drove traffic
         // Bounty is only eligible if the referring installer is a Pro subscriber
-        referring_installer_id: input.referring_installer_id || null,
-        bounty_status: input.referring_installer_id && referralEligible ? "pending" : "none",
+        referring_installer_id: referringInstallerId,
+        bounty_status: referringInstallerId && referralEligible ? "pending" : "none",
         // Realtor referral program: see migration 119 for the credit flow.
         referred_by_realtor_id: referredByRealtorId,
         realtor_referral_code_snapshot: referredByRealtorId
@@ -389,13 +408,13 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     }
 
     // Network Referral Bounty: notify the referring installer about the handoff
-    if (input.referring_installer_id) {
+    if (referringInstallerId) {
       (async () => {
         try {
           const { data: referrer } = await supabase
             .from("profiles")
             .select("email, business_name, first_name")
-            .eq("id", input.referring_installer_id!)
+            .eq("id", referringInstallerId)
             .single();
 
           if (referrer?.email) {

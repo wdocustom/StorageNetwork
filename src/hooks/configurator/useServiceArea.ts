@@ -178,9 +178,19 @@ export function useServiceArea({
       } else {
         // Only clear the referrer if it wasn't explicitly set via URL (ref_installer param).
         // Same-service-area referrals use a locked referrer that must survive in-area checks.
-        if (!referrerLockedRef.current) {
-          setReferringInstallerId(null);
-        }
+        //
+        // The lock does NOT survive the referrer being the installer who takes
+        // the job. That happens for real: a customer waitlists on an
+        // installer's page while out of area, the installer later expands to
+        // cover that ZIP, the saved signal hydrates them as a locked referrer,
+        // and the in-area check now passes for the same person. Left alone it
+        // books the job as its own referral.
+        // Functional update — this runs inside a debounced timeout whose
+        // effect doesn't list referringInstallerId as a dep, so reading it
+        // directly would read a stale value.
+        setReferringInstallerId((prev) =>
+          !referrerLockedRef.current || prev === validationTargetId ? null : prev
+        );
         setHandedOff(false);
         setHandoffInstallerName("");
         calculateDeliveryFee(validationTargetId, trimmedZip)

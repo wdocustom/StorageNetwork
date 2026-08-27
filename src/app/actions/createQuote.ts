@@ -498,8 +498,18 @@ export async function createQuote(
         // Network Referral Bounty tracking
         // Soft-locked installers (trial expired, active jobs in grace period)
         // don't earn new bounties — that's a paid-subscriber benefit.
-        referring_installer_id: referringInstallerId,
-        bounty_status: referringInstallerId && !referrerSoftLocked ? "pending" : "none",
+        // Self-referral guard: rerouteToLocalInstaller already excludes the
+        // originating installer, so this should never fire — it's here so a
+        // change to that lookup can't quietly start paying installers a
+        // bounty for handing a job to themselves.
+        referring_installer_id:
+          referringInstallerId === effectiveInstallerId ? null : referringInstallerId,
+        bounty_status:
+          referringInstallerId &&
+          referringInstallerId !== effectiveInstallerId &&
+          !referrerSoftLocked
+            ? "pending"
+            : "none",
       })
       .select("id")
       .single();

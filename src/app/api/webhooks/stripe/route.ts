@@ -144,11 +144,24 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
       })
       .eq("id", leadId)
       .eq("bounty_status", "pending")
-      .select("referring_installer_id, address_city, address_state, deposit_amount")
+      .select("referring_installer_id, installer_id, address_city, address_state, deposit_amount")
       .maybeSingle();
 
     if (claimErr || !claimed?.referring_installer_id) {
       return; // No pending bounty, or already claimed by another event
+    }
+
+    // Never pay an installer for referring a job to themselves. The referrer
+    // is dropped at quote time now, but rows created before that guard can
+    // still reach here, and the bounty comes out of the platform's balance —
+    // on a destination charge that balance only holds the application fee,
+    // which is smaller than the bounty on most jobs.
+    if (claimed.installer_id && claimed.referring_installer_id === claimed.installer_id) {
+      console.warn(
+        `[Bounty] Self-referral on lead ${leadId} (installer ${claimed.installer_id}) — no bounty owed`
+      );
+      await getDb().from("leads").update({ bounty_status: "none" }).eq("id", leadId);
+      return;
     }
 
     // 2. Calculate bounty: 30% of deposit, minimum $15
