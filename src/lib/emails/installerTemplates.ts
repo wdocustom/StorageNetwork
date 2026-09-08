@@ -1197,9 +1197,18 @@ export async function sendDisputeAlert(
 
     ${eyebrow("Amount Held")}
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
-      ${detailRow("Disputed Payment", `$${amount}`)}
-      ${detailRow("Stripe Dispute Fee", `$${fee}`, { topBorder: true })}
-      ${detailRow("Total Held", `$${total}`, { highlight: true, topBorder: true })}
+      ${detailRow("Disputed Payment", `$${amount}`, { highlight: data.feeCents <= 0 })}
+      ${/* Stripe may not have attached the dispute's balance transaction yet
+            when charge.dispute.created fires, leaving the fee unknown (0).
+            Showing "$0.00 fee" and a total that omits it would understate what
+            was actually taken, so drop both rows rather than state a number we
+            don't have — the amount above then carries the highlight. */ ""}
+      ${
+        data.feeCents > 0
+          ? `${detailRow("Stripe Dispute Fee", `$${fee}`, { topBorder: true })}
+      ${detailRow("Total Held", `$${total}`, { highlight: true, topBorder: true })}`
+          : ""
+      }
       ${detailRow("Customer's Stated Reason", data.reason, { topBorder: true })}
     </table>
 
