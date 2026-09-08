@@ -19,6 +19,7 @@ import {
   Send,
 } from "lucide-react";
 import { getStripePromise } from "@/lib/stripe/client";
+import { SavedCardDisclosure } from "@/components/payments/SavedCardDisclosure";
 import {
   Elements,
   PaymentElement,
@@ -1264,6 +1265,9 @@ function PaymentForm({
           layout: "tabs",
         }}
       />
+
+      <SavedCardDisclosure className="mt-4" />
+
       <button
         type="submit"
         disabled={!stripe || processing}
