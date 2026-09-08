@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
+import { summarizeDispute } from "@/lib/stripe/disputes";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits, sendDisputeAlert, sendDisputeResolvedAlert } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -50,6 +51,15 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// ── Connect endpoint secret ───────────────────────────────────────────────
+// Customer charges are DIRECT charges created on the installer's connected
+// account (see @/lib/stripe/direct-charges). Stripe delivers events for those
+// to the CONNECT webhook endpoint, signed with its own secret and carrying
+// `event.account`. This route serves both endpoints: register the same URL in
+// the Stripe dashboard as the account endpoint AND the Connect endpoint, then
+// set both secrets. Without STRIPE_CONNECT_WEBHOOK_SECRET, every deposit and
+// balance payment silently stops being recorded.
+const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 // ── Idempotency Guard (Redis-backed) ─────────────────────────────────────
 // Prevents duplicate processing when Stripe retries webhook delivery.
@@ -154,7 +164,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     // Never pay an installer for referring a job to themselves. The referrer
     // is dropped at quote time now, but rows created before that guard can
     // still reach here, and the bounty comes out of the platform's balance —
-    // on a destination charge that balance only holds the application fee,
+    // under direct charges that balance only holds the application fee,
     // which is smaller than the bounty on most jobs.
     if (claimed.installer_id && claimed.referring_installer_id === claimed.installer_id) {
       console.warn(
@@ -431,8 +441,8 @@ export async function POST(request: NextRequest) {
   // ── Parse & verify event ──────────────────────────────────────────────
   let event: Stripe.Event;
   try {
-    if (!WEBHOOK_SECRET) {
-      console.error("[Webhook] CRITICAL: STRIPE_WEBHOOK_SECRET is not set. Refusing to process.");
+    if (!WEBHOOK_SECRET && !CONNECT_WEBHOOK_SECRET) {
+      console.error("[Webhook] CRITICAL: no webhook secret is set. Refusing to process.");
       return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
     }
 
@@ -443,7 +453,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
     }
 
-    event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
+    // A delivery is signed by exactly one endpoint secret, and the payload
+    // doesn't say which. Try the platform secret, then the Connect one — the
+    // signature check is what authenticates the request either way, so a
+    // failed first attempt is expected traffic, not an error.
+    let verified: Stripe.Event | null = null;
+    let lastErr: unknown = null;
+    for (const secret of [WEBHOOK_SECRET, CONNECT_WEBHOOK_SECRET]) {
+      if (!secret) continue;
+      try {
+        verified = stripe.webhooks.constructEvent(body, signature, secret);
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (!verified) throw lastErr ?? new Error("No webhook secret matched the signature");
+    event = verified;
   } catch (parseErr) {
     console.error("[Webhook] Signature verification failed:", parseErr);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -458,7 +484,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  console.log("[Webhook] Event received:", event.type, "| ID:", event.id);
+  // Set on Connect deliveries — the connected account the object lives on.
+  // Every Stripe read for that object must be scoped to it or Stripe 404s.
+  const eventAccount = event.account || null;
+  const eventAccountOpts = eventAccount ? { stripeAccount: eventAccount } : undefined;
+
+  console.log(
+    "[Webhook] Event received:",
+    event.type,
+    "| ID:",
+    event.id,
+    eventAccount ? `| Account: ${eventAccount}` : "| Account: platform"
+  );
 
   // ── Handle checkout.session.completed ─────────────────────────────────
   if (event.type === "checkout.session.completed") {
@@ -604,7 +641,7 @@ export async function POST(request: NextRequest) {
       const piId = session.payment_intent as string | null;
       if (piId && stripe) {
         try {
-          const pi = await stripe.paymentIntents.retrieve(piId);
+          const pi = await stripe.paymentIntents.retrieve(piId, eventAccountOpts);
           if (pi.status !== "succeeded") {
             console.warn(
               `[Webhook] PaymentIntent ${piId} has status="${pi.status}" — not marking lead as paid`
@@ -1461,6 +1498,13 @@ export async function POST(request: NextRequest) {
           if (typeof paymentIntent.payment_method === "string") {
             updatePayload.stripe_payment_method_id = paymentIntent.payment_method;
           }
+          // Record which account the saved Customer/PaymentMethod live on.
+          // Under direct charges that's the installer's connected account;
+          // null means the platform. Without this an off-session charge later
+          // can't tell the two apart. See migration 137.
+          if (updatePayload.stripe_customer_id || updatePayload.stripe_payment_method_id) {
+            updatePayload.stripe_customer_account_id = eventAccount;
+          }
 
           // Add customer info if available
           if (customerEmail) {
@@ -1506,6 +1550,7 @@ export async function POST(request: NextRequest) {
               const customerStripeUpdate: Record<string, unknown> = {};
               if (updatePayload.stripe_customer_id) customerStripeUpdate.stripe_customer_id = updatePayload.stripe_customer_id;
               if (updatePayload.stripe_payment_method_id) customerStripeUpdate.stripe_payment_method_id = updatePayload.stripe_payment_method_id;
+              customerStripeUpdate.stripe_customer_account_id = eventAccount;
               fireAndForget("save_customer_stripe_ids", async () => {
                 try {
                   await getDb().from("customers").update(customerStripeUpdate).eq("id", dbCustomerIdPI);
@@ -1525,7 +1570,7 @@ export async function POST(request: NextRequest) {
             if (stripe && typeof pmId === "string") {
               fireAndForget("save_payment_method_meta", async () => {
                 try {
-                  const pm = await stripe.paymentMethods.retrieve(pmId);
+                  const pm = await stripe.paymentMethods.retrieve(pmId, eventAccountOpts);
                   if (pm.type === "card" && pm.card) {
                     const brandMeta = { stripe_payment_method_brand: pm.card.brand, stripe_payment_method_last4: pm.card.last4 };
                     await getDb()
@@ -1695,7 +1740,182 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Disputes (chargebacks) ────────────────────────────────────────────
+  // Under direct charges these arrive on the CONNECT endpoint with
+  // event.account set to the installer whose balance Stripe just debited.
+  // Recording and alerting are non-blocking: Stripe gets its 200 either way,
+  // and a failure here must never make Stripe retry a dispute event forever.
+  if (
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.updated" ||
+    event.type === "charge.dispute.closed"
+  ) {
+    try {
+      await processDispute(event.data.object as Stripe.Dispute, event.type, eventAccount);
+    } catch (err) {
+      console.error("[Webhook] dispute processing failed:", err);
+    }
+  }
+
   return NextResponse.json({ received: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Dispute (chargeback) processor
+//
+// Before direct charges the platform ate every chargeback: Stripe debited the
+// platform balance for the disputed amount plus the dispute fee while the
+// installer kept the funds already transferred to them, and nothing in the app
+// recorded that it had happened. Now the connected account is the merchant of
+// record, so Stripe debits the INSTALLER — which means they're the one who has
+// to submit evidence, and the one who needs to hear about it today.
+//
+// Ordering note: the row is upserted BEFORE any email goes out, and the alert
+// is gated on installer_alerted_at. Stripe re-delivers events freely, and
+// nobody should get the same chargeback email twice.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function processDispute(
+  dispute: Stripe.Dispute,
+  eventType: string,
+  accountId: string | null
+) {
+  const summary = summarizeDispute(dispute);
+  const piId = summary.paymentIntentId;
+
+  // Map the dispute back to a job. Our PaymentIntents carry lead_id in
+  // metadata, and the dispute carries the PaymentIntent — but the PI lives on
+  // the connected account for a direct charge, so the read must be scoped to
+  // it or Stripe 404s.
+  let leadId: string | null = null;
+  let installerId: string | null = null;
+  if (piId && stripe) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(
+        piId,
+        accountId ? { stripeAccount: accountId } : undefined
+      );
+      leadId = pi.metadata?.lead_id || pi.metadata?.leadId || null;
+      installerId = pi.metadata?.installer_id || null;
+    } catch (err) {
+      console.warn("[Dispute] Could not retrieve PaymentIntent", piId, err);
+    }
+  }
+
+  // Fall back to the lead's own installer when metadata didn't carry one.
+  if (leadId && !installerId) {
+    const { data: lead } = await getDb()
+      .from("leads")
+      .select("installer_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    installerId = (lead?.installer_id as string | null) ?? null;
+  }
+
+  const { feeCents, isClosed, evidenceDueAt } = summary;
+
+  const row = {
+    stripe_dispute_id: dispute.id,
+    stripe_charge_id: summary.chargeId,
+    stripe_payment_intent_id: piId,
+    account_id: accountId,
+    lead_id: leadId,
+    installer_id: installerId,
+    amount_cents: summary.amountCents,
+    fee_cents: feeCents,
+    currency: summary.currency,
+    status: summary.status,
+    reason: summary.reason,
+    evidence_due_at: evidenceDueAt ? evidenceDueAt.toISOString() : null,
+    outcome: isClosed ? summary.status : null,
+    closed_at: isClosed ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: saved, error: saveErr } = await getDb()
+    .from("disputes")
+    .upsert(row, { onConflict: "stripe_dispute_id" })
+    .select("id, installer_alerted_at")
+    .maybeSingle();
+
+  if (saveErr) {
+    console.error("[Dispute] Failed to record dispute", dispute.id, saveErr);
+    return;
+  }
+
+  console.log(
+    `[Dispute] ${eventType} | ${dispute.id} | ${summary.status} | $${(summary.amountCents / 100).toFixed(2)}` +
+      ` + $${(feeCents / 100).toFixed(2)} fee | lead: ${leadId ?? "unmapped"} | account: ${accountId ?? "platform"}`
+  );
+
+  if (!installerId) {
+    // A dispute on a platform-owned charge (Pro subscription, plans purchase),
+    // or one we couldn't map. Recorded, but there's no installer to alert.
+    console.warn(`[Dispute] ${dispute.id} has no installer to alert`);
+    return;
+  }
+
+  const { data: installer } = await getDb()
+    .from("profiles")
+    .select("email, business_name, first_name")
+    .eq("id", installerId)
+    .maybeSingle();
+
+  const installerEmail = installer?.email as string | null;
+  if (!installerEmail) {
+    console.warn(`[Dispute] Installer ${installerId} has no email on file`);
+    return;
+  }
+
+  const installerName =
+    (installer?.business_name as string | null) ||
+    (installer?.first_name as string | null) ||
+    "there";
+
+  let customerName = "A customer";
+  if (leadId) {
+    const { data: lead } = await getDb()
+      .from("leads")
+      .select("customer_name")
+      .eq("id", leadId)
+      .maybeSingle();
+    customerName = (lead?.customer_name as string | null) || customerName;
+  }
+
+  if (isClosed) {
+    fireAndForget("dispute_resolved_email", async () => {
+      await sendDisputeResolvedAlert(installerEmail, {
+        installerName,
+        customerName,
+        amountCents: summary.amountCents,
+        feeCents,
+        won: summary.won,
+        leadId,
+      });
+    });
+    return;
+  }
+
+  // Opening alert — once per dispute, however many times Stripe re-delivers.
+  if (saved?.installer_alerted_at) return;
+
+  fireAndForget("dispute_opened_email", async () => {
+    const sent = await sendDisputeAlert(installerEmail, {
+      installerName,
+      customerName,
+      amountCents: summary.amountCents,
+      feeCents,
+      reason: summary.reasonLabel,
+      evidenceDueAt,
+      leadId,
+    });
+    if (sent.success) {
+      await getDb()
+        .from("disputes")
+        .update({ installer_alerted_at: new Date().toISOString() })
+        .eq("stripe_dispute_id", dispute.id);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

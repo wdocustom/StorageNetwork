@@ -1135,3 +1135,157 @@ export async function sendWaitlistedLeadsUnlocked(
   });
 }
 
+
+/**
+ * Chargeback alert — a customer disputed a payment on one of their jobs.
+ *
+ * Under direct charges the disputed amount and Stripe's dispute fee come out
+ * of the INSTALLER's connected account, and only they can submit evidence
+ * through their own Stripe dashboard. So this is genuinely urgent for them,
+ * and the email leads with the deadline rather than the amount.
+ */
+export async function sendDisputeAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    amountCents: number;
+    feeCents: number;
+    reason: string;
+    evidenceDueAt: Date | null;
+    leadId: string | null;
+  }
+): Promise<SendEmailResult> {
+  const amount = (data.amountCents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const fee = (data.feeCents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const total = ((data.amountCents + data.feeCents) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  const dueLabel = data.evidenceDueAt
+    ? data.evidenceDueAt.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })
+    : "See your Stripe dashboard";
+
+  const jobUrl = data.leadId ? `${getAppUrl()}/dashboard/leads/${data.leadId}` : null;
+
+  const html = masterEmailLayout(
+    "Chargeback Opened",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      <strong style="color:#ffffff;">${data.customerName}</strong> disputed a payment with their bank.
+      Stripe has already pulled the funds and the dispute fee from your account while the bank reviews it.
+      <strong style="color:#ffffff;">You can win this back by submitting evidence in Stripe before the deadline.</strong>
+    </p>
+
+    ${eyebrow("Respond By")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:#facc15;font-size:28px;font-weight:900;line-height:1.2;">${dueLabel}</p>
+      <p style="margin:8px 0 0;color:#a3a3a3;font-size:13px;">Miss it and the dispute closes against you automatically.</p>
+    </div>
+
+    ${eyebrow("Amount Held")}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
+      ${detailRow("Disputed Payment", `$${amount}`)}
+      ${detailRow("Stripe Dispute Fee", `$${fee}`, { topBorder: true })}
+      ${detailRow("Total Held", `$${total}`, { highlight: true, topBorder: true })}
+      ${detailRow("Customer's Stated Reason", data.reason, { topBorder: true })}
+    </table>
+
+    <div style="text-align:center;margin:0 0 24px;">
+      ${ctaButton("https://dashboard.stripe.com/disputes", "Submit Evidence in Stripe")}
+    </div>
+
+    ${jobUrl ? `<div style="text-align:center;margin:0 0 24px;">${ghostButton(jobUrl, "Open Job Ticket")}</div>` : ""}
+
+    ${HR}
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;line-height:1.6;">
+      Strong evidence is photos of the completed install, signed paperwork, delivery confirmation,
+      and any texts or emails where the customer approved the work. If you win, Stripe returns the
+      full amount and the fee.
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: `Action needed — $${total} chargeback from ${data.customerName}`,
+    html,
+  });
+}
+
+/**
+ * Dispute resolved — Stripe closed it either way.
+ */
+export async function sendDisputeResolvedAlert(
+  installerEmail: string,
+  data: {
+    installerName: string;
+    customerName: string;
+    amountCents: number;
+    feeCents: number;
+    won: boolean;
+    leadId: string | null;
+  }
+): Promise<SendEmailResult> {
+  const total = ((data.amountCents + data.feeCents) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const amount = (data.amountCents / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const jobUrl = data.leadId ? `${getAppUrl()}/dashboard/leads/${data.leadId}` : null;
+
+  const html = masterEmailLayout(
+    data.won ? "Chargeback Won" : "Chargeback Lost",
+    `
+    <p style="margin:0 0 8px;color:#ffffff;font-size:16px;">Hey ${data.installerName},</p>
+    <p style="margin:0 0 28px;color:#a3a3a3;font-size:15px;line-height:1.7;">
+      ${
+        data.won
+          ? `The bank ruled in your favor on the <strong style="color:#ffffff;">${data.customerName}</strong> dispute. Stripe has returned the funds and the dispute fee to your account.`
+          : `The bank ruled in the customer's favor on the <strong style="color:#ffffff;">${data.customerName}</strong> dispute. The funds and the dispute fee stay withdrawn from your account.`
+      }
+    </p>
+
+    ${eyebrow(data.won ? "Returned" : "Final Loss")}
+    <div style="border-top:1px solid #222;border-bottom:1px solid #222;padding:24px 0;text-align:center;margin:0 0 28px;">
+      <p style="margin:0;color:${data.won ? "#facc15" : "#a3a3a3"};font-size:36px;font-weight:900;line-height:1;">$${data.won ? total : amount}</p>
+    </div>
+
+    ${jobUrl ? `<div style="text-align:center;margin:0 0 24px;">${ctaButton(jobUrl, "Open Job Ticket")}</div>` : ""}
+
+    <p style="margin:0;color:#555;font-size:12px;text-align:center;line-height:1.6;">
+      ${
+        data.won
+          ? "Nothing further to do here."
+          : "Bank decisions on disputes are final and can't be appealed in Stripe."
+      }
+    </p>
+    `
+  );
+
+  return sendTransactionalEmail({
+    to: installerEmail,
+    toName: data.installerName,
+    subject: data.won
+      ? `Chargeback won — $${total} returned`
+      : `Chargeback lost — $${amount} from ${data.customerName}`,
+    html,
+  });
+}

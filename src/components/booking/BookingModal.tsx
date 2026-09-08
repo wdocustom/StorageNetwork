@@ -15,7 +15,8 @@ import {
   Facebook,
 } from "lucide-react";
 import FacebookShareButton from "@/components/FacebookShareButton";
-import { loadStripe } from "@stripe/stripe-js";
+import { SavedCardDisclosure } from "@/components/payments/SavedCardDisclosure";
+import { getStripePromise } from "@/lib/stripe/client";
 import {
   Elements,
   PaymentElement,
@@ -41,10 +42,6 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 //   4. Modal shows Stripe Payment Element inline
 //   5. On success → creates DB record, shows success state
 // ═══════════════════════════════════════════════════════════════════════════
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
 
 type Step = "address" | "schedule" | "payment" | "success";
 
@@ -124,6 +121,8 @@ export default function BookingModal({
   const [blockAvailability, setBlockAvailability] = useState<Record<string, { morning: boolean; afternoon: boolean }>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
+  // Connected account the deposit PaymentIntent was created on, if any.
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
@@ -290,6 +289,7 @@ export default function BookingModal({
     if (result.success && result.clientSecret) {
       setClientSecret(result.clientSecret);
       setCustomerSessionClientSecret(result.customerSessionClientSecret || null);
+      setConnectedAccountId(result.connectedAccountId || null);
       setStep("payment");
     } else {
       setError(result.error || "Failed to initialize payment.");
@@ -416,7 +416,7 @@ export default function BookingModal({
           ) : step === "payment" && clientSecret ? (
             /* ── Stripe Payment Element ──────────────────────────────── */
             <Elements
-              stripe={stripePromise}
+              stripe={getStripePromise(connectedAccountId)}
               options={{
                 clientSecret,
                 ...(customerSessionClientSecret && { customerSessionClientSecret }),
@@ -773,30 +773,7 @@ function InlinePaymentForm({
         }}
       />
 
-      {/* Saved-card / off-session balance disclosure. Card networks require
-          this notice to be visible at the moment of card capture for
-          merchant-initiated balance charges to be valid. See /legal/terms § 3c. */}
-      <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3">
-        <p className="text-[11px] leading-relaxed text-stone-300">
-          <span className="font-semibold text-white">Heads up:</span> this card will be securely
-          saved (via Stripe) so your installer can collect the remaining balance after install
-          without you re-entering it. The balance is only charged when the installer affirmatively
-          elects to collect it — never automatically. You can pay the balance in cash, check, or any
-          other method instead, or revoke the saved card by emailing{" "}
-          <a href="mailto:support@storage-network.app" className="underline hover:text-stone-200">
-            support@storage-network.app
-          </a>
-          . Full terms in{" "}
-          <a
-            href="/legal/terms#payment-method-on-file"
-            target="_blank"
-            className="underline hover:text-stone-200"
-          >
-            § 3c
-          </a>
-          .
-        </p>
-      </div>
+      <SavedCardDisclosure />
 
       <button
         type="submit"

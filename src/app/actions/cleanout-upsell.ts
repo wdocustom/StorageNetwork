@@ -10,6 +10,7 @@ import {
 import { DEFAULT_SERVICES, type ServiceOffering } from "@/config/services";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
 import { getDepositAmount } from "@/app/actions/fee-engine";
+import { onAccount, assertDirectChargeReady } from "@/lib/stripe/direct-charges";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell — Automated Pre-Install Upsell Engine
@@ -285,7 +286,13 @@ export async function createCleanoutUpsellCheckout(
     const { getAppUrl } = await import("@/lib/url-helper");
     const baseUrl = getAppUrl();
 
-    // Create Stripe Checkout Session with fee split
+    // Create Stripe Checkout Session as a DIRECT charge on the installer's
+    // connected account — they are the merchant of record, so Stripe debits
+    // them (not the platform) for disputes and processing fees. The platform
+    // still takes its cut via application_fee_amount.
+    const ready = await assertDirectChargeReady(getStripe(), installer.stripe_account_id);
+    if (!ready.ready) return { success: false, error: ready.reason };
+
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       line_items: [
@@ -303,9 +310,6 @@ export async function createCleanoutUpsellCheckout(
       ],
       payment_intent_data: {
         application_fee_amount: platformFeeCents,
-        transfer_data: {
-          destination: installer.stripe_account_id,
-        },
       },
       customer_email: lead.customer_email || undefined,
       success_url: `${baseUrl}/upsell/success?job=${leadId}&service=${serviceId}`,
@@ -321,7 +325,7 @@ export async function createCleanoutUpsellCheckout(
         installer_amount: installerAmountCents.toString(),
         installer_id: lead.installer_id,
       },
-    });
+    }, onAccount(installer.stripe_account_id));
 
     if (!session.url) {
       return { success: false, error: "Failed to create checkout session." };

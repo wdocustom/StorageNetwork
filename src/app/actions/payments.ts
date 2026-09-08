@@ -14,6 +14,22 @@ import { getDepositAmount } from "./fee-engine";
 // The client NEVER sees fee formulas, API keys, or session internals.
 // It only receives a redirect URL.
 //
+// CHARGE MODEL — DIRECT CHARGES
+// ─────────────────────────────────────────────────────────────────────────
+// Customer charges are created ON the installer's connected account (see
+// @/lib/stripe/direct-charges), not on the platform. The installer is the
+// merchant of record, so Stripe debits THEM for disputes, dispute fees and
+// card processing fees. The platform's cut arrives as application_fee_amount.
+//
+// This replaced destination charges, under which the platform was debited for
+// every chargeback plus a $15 dispute fee while the installer kept the funds
+// already transferred to them. (`on_behalf_of` does NOT fix that — Stripe
+// debits the platform for destination-charge disputes with or without it.)
+//
+// The split percentages below are unchanged, but note the installer now also
+// bears Stripe's ~2.9% + 30¢ processing fee on each charge, which the
+// platform used to absorb.
+//
 // FEE STRUCTURE (fees calculated on BUILD PRICE, not deposit or tax):
 // ─────────────────────────────────────────────────────────────────────────
 // First 3 Jobs:     0% → Platform (waived), 15% → Installer (new user promo)
@@ -65,12 +81,63 @@ import { getDepositAmount } from "./fee-engine";
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import { escapeHtml } from "@/utils/escapeHtml";
+import {
+  onAccount,
+  assertDirectChargeReady,
+  resolveCardForAccount,
+} from "@/lib/stripe/direct-charges";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
 });
 
 const supabase = getServiceClient();
+
+// ── Saved-card lookup (account-scoped) ─────────────────────────────────────
+// A Stripe Customer/PaymentMethod pair belongs to exactly one account, so the
+// two ids and the account that owns them must travel together — mixing a
+// customer id from one row with a payment method id from another would build
+// a pair that exists on no account at all. Prefer the lead's own complete
+// pair, then fall back to the customer's pair from a previous quote with this
+// installer (customers table — see migration 134).
+interface SavedCard {
+  customerId: string;
+  paymentMethodId: string;
+  savedAccountId: string | null; // null = platform account (pre-migration 137)
+}
+
+async function findSavedCard(
+  lead: {
+    stripe_customer_id?: string | null;
+    stripe_payment_method_id?: string | null;
+    stripe_customer_account_id?: string | null;
+    customer_id?: string | null;
+  }
+): Promise<SavedCard | null> {
+  if (lead.stripe_customer_id && lead.stripe_payment_method_id) {
+    return {
+      customerId: lead.stripe_customer_id,
+      paymentMethodId: lead.stripe_payment_method_id,
+      savedAccountId: lead.stripe_customer_account_id || null,
+    };
+  }
+  if (!lead.customer_id) return null;
+
+  const { data: customerRow } = await supabase
+    .from("customers")
+    .select("stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id")
+    .eq("id", lead.customer_id)
+    .maybeSingle();
+
+  if (customerRow?.stripe_customer_id && customerRow?.stripe_payment_method_id) {
+    return {
+      customerId: customerRow.stripe_customer_id as string,
+      paymentMethodId: customerRow.stripe_payment_method_id as string,
+      savedAccountId: (customerRow.stripe_customer_account_id as string | null) || null,
+    };
+  }
+  return null;
+}
 
 // ── Auth Helper: Verify caller owns the lead ────────────────────────────
 async function requireLeadOwnership(
@@ -173,14 +240,24 @@ export async function backfillCustomerEmailIfMissing(params: {
 // by email → create. Checking `customers` first is what lets a card saved on
 // one quote get reused (both by the checkout UI and by the installer's
 // "Charge Card on File" action) on a later quote for the same person.
+//
+// ACCOUNT SCOPE: under direct charges the PaymentIntent is created on the
+// installer's connected account, and a Stripe Customer belongs to exactly one
+// account — so a Customer saved on the platform (or on a DIFFERENT installer's
+// account) can't back this charge. `accountId` says which account the Customer
+// must live on (null = platform, for installers with no Stripe connected), and
+// only ids recorded against that same account are reused.
 async function getOrCreateStripeCustomerForLead(
   leadId: string,
   email: string | undefined,
-  name: string | undefined
+  name: string | undefined,
+  accountId: string | null
 ): Promise<string | null> {
+  const reqOpts = accountId ? onAccount(accountId) : undefined;
+
   const { data: lead } = await supabase
     .from("leads")
-    .select("stripe_customer_id, customer_id, installer_id")
+    .select("stripe_customer_id, stripe_customer_account_id, customer_id, installer_id")
     .eq("id", leadId)
     .maybeSingle();
 
@@ -192,19 +269,36 @@ async function getOrCreateStripeCustomerForLead(
   }
 
   const existingLeadStripeId = (lead?.stripe_customer_id as string | null) ?? null;
-  if (existingLeadStripeId) return existingLeadStripeId;
+  const existingLeadAccountId = (lead?.stripe_customer_account_id as string | null) ?? null;
+  if (existingLeadStripeId && existingLeadAccountId === accountId) {
+    return existingLeadStripeId;
+  }
 
   if (dbCustomerId) {
     const { data: customerRow } = await supabase
       .from("customers")
-      .select("stripe_customer_id")
+      .select(
+        "stripe_customer_id, stripe_customer_account_id, stripe_payment_method_id, stripe_payment_method_brand, stripe_payment_method_last4"
+      )
       .eq("id", dbCustomerId)
       .maybeSingle();
     const existingPersonStripeId = (customerRow?.stripe_customer_id as string | null) ?? null;
-    if (existingPersonStripeId) {
+    const existingPersonAccountId =
+      (customerRow?.stripe_customer_account_id as string | null) ?? null;
+    if (existingPersonStripeId && existingPersonAccountId === accountId) {
+      // Carry the person's payment method across with their customer id. The
+      // two must stay a matched pair: copying only the customer id would
+      // leave whatever pm id this lead already had — possibly one from a
+      // different account — tagged as belonging to this one.
       await supabase
         .from("leads")
-        .update({ stripe_customer_id: existingPersonStripeId })
+        .update({
+          stripe_customer_id: existingPersonStripeId,
+          stripe_customer_account_id: accountId,
+          stripe_payment_method_id: customerRow?.stripe_payment_method_id ?? null,
+          stripe_payment_method_brand: customerRow?.stripe_payment_method_brand ?? null,
+          stripe_payment_method_last4: customerRow?.stripe_payment_method_last4 ?? null,
+        })
         .eq("id", leadId);
       return existingPersonStripeId;
     }
@@ -213,7 +307,7 @@ async function getOrCreateStripeCustomerForLead(
   let stripeCustomerId: string | null = null;
   if (email) {
     try {
-      const found = await stripe.customers.list({ email, limit: 1 });
+      const found = await stripe.customers.list({ email, limit: 1 }, reqOpts);
       stripeCustomerId = found.data[0]?.id ?? null;
     } catch (err) {
       console.warn("[Deposit] Customer lookup by email failed:", err);
@@ -221,24 +315,42 @@ async function getOrCreateStripeCustomerForLead(
   }
 
   if (!stripeCustomerId) {
-    const created = await stripe.customers.create({
-      email: email || undefined,
-      name: name || undefined,
-      metadata: { leadId },
-    });
+    const created = await stripe.customers.create(
+      {
+        email: email || undefined,
+        name: name || undefined,
+        metadata: { leadId },
+      },
+      reqOpts
+    );
     stripeCustomerId = created.id;
   }
 
-  await supabase
-    .from("leads")
-    .update({ stripe_customer_id: stripeCustomerId })
-    .eq("id", leadId);
+  // Persist the owning account alongside the id — see migration 137. Without
+  // it a later off-session charge can't tell a platform Customer from a
+  // connected-account one, and would charge against an account that has no
+  // such Customer.
+  //
+  // Clearing the saved payment method is load-bearing, not tidiness: we've
+  // just replaced the Customer with one on a DIFFERENT account, and any
+  // stored PaymentMethod belongs to the old account. Leaving it would pair a
+  // new customer id with a stale pm id under the new account tag — a pair
+  // that exists on no account — and findSavedCard would hand that to an
+  // off-session charge as if it were directly chargeable, skipping the
+  // payment-link fallback. The webhook repopulates these after the next
+  // successful payment.
+  const cardScope = {
+    stripe_customer_id: stripeCustomerId,
+    stripe_customer_account_id: accountId,
+    stripe_payment_method_id: null,
+    stripe_payment_method_brand: null,
+    stripe_payment_method_last4: null,
+  };
+
+  await supabase.from("leads").update(cardScope).eq("id", leadId);
 
   if (dbCustomerId) {
-    await supabase
-      .from("customers")
-      .update({ stripe_customer_id: stripeCustomerId })
-      .eq("id", dbCustomerId);
+    await supabase.from("customers").update(cardScope).eq("id", dbCustomerId);
   }
 
   return stripeCustomerId;
@@ -249,18 +361,25 @@ async function getOrCreateStripeCustomerForLead(
 // customer's saved card(s) as selectable options instead of a blank card
 // form. Safe/cheap to create even when no card is saved yet — the Payment
 // Element just shows nothing extra in that case.
-async function createCustomerSessionSecret(stripeCustomerId: string | null): Promise<string | null> {
+// The session must be created on the SAME account as the Customer it names.
+async function createCustomerSessionSecret(
+  stripeCustomerId: string | null,
+  accountId: string | null
+): Promise<string | null> {
   if (!stripeCustomerId) return null;
   try {
-    const session = await stripe.customerSessions.create({
-      customer: stripeCustomerId,
-      components: {
-        payment_element: {
-          enabled: true,
-          features: { payment_method_redisplay: "enabled" },
+    const session = await stripe.customerSessions.create(
+      {
+        customer: stripeCustomerId,
+        components: {
+          payment_element: {
+            enabled: true,
+            features: { payment_method_redisplay: "enabled" },
+          },
         },
       },
-    });
+      accountId ? onAccount(accountId) : undefined
+    );
     return session.client_secret;
   } catch (err) {
     console.warn("[Deposit] Customer Session creation failed:", err);
@@ -422,38 +541,45 @@ export async function createPaymentSession(
 
     const baseUrl = siteConfig.baseUrl;
 
-    // ── Create Stripe Checkout Session with destination charge ──────────
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: description || "Storage Unit — Remaining Balance",
-              description: `Job #${leadId.slice(0, 8)}`,
+    // ── Create Stripe Checkout Session as a DIRECT charge ───────────────
+    // Created on the installer's connected account, so they are the merchant
+    // of record and Stripe debits THEM — not the platform — for disputes,
+    // dispute fees and processing fees. The platform's cut still arrives via
+    // application_fee_amount. See @/lib/stripe/direct-charges.
+    const ready = await assertDirectChargeReady(stripe, installerStripeId);
+    if (!ready.ready) return { success: false, error: ready.reason };
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: description || "Storage Unit — Remaining Balance",
+                description: `Job #${leadId.slice(0, 8)}`,
+              },
+              unit_amount: amountCents,
             },
-            unit_amount: amountCents,
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        payment_intent_data: {
+          ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
         },
-      ],
-      payment_intent_data: {
-        ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
-        transfer_data: {
-          destination: installerStripeId,
+        customer_email: customerEmail || undefined,
+        success_url: `${baseUrl}/payment/success?job=${leadId}`,
+        cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
+        metadata: {
+          lead_id: leadId,
+          type: "final_payment",
+          installer_stripe_id: installerStripeId,
+          platform_fee_cents: String(applicationFeeCents),
         },
       },
-      customer_email: customerEmail || undefined,
-      success_url: `${baseUrl}/payment/success?job=${leadId}`,
-      cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
-      metadata: {
-        lead_id: leadId,
-        type: "final_payment",
-        installer_stripe_id: installerStripeId,
-        platform_fee_cents: String(applicationFeeCents),
-      },
-    });
+      onAccount(installerStripeId)
+    );
 
     if (!session.url) {
       return { success: false, error: "Failed to create checkout session." };
@@ -532,38 +658,49 @@ export async function createDepositCheckoutSession(
 
     const baseUrl = siteConfig.baseUrl;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "Storage Unit — Deposit",
-              description: `Job #${leadId.slice(0, 8)}`,
+    // Installers with no connected account keep taking the deposit on the
+    // platform (the "No Stripe" split, where the platform keeps the whole
+    // deposit anyway) — there is no connected account to direct-charge, and
+    // the platform is genuinely the merchant for that money.
+    if (split.installerStripeId) {
+      const ready = await assertDirectChargeReady(stripe, split.installerStripeId);
+      if (!ready.ready) return { success: false, error: ready.reason };
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: "Storage Unit — Deposit",
+                description: `Job #${leadId.slice(0, 8)}`,
+              },
+              unit_amount: depositAmountCents,
             },
-            unit_amount: depositAmountCents,
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        payment_intent_data: {
+          ...(split.installerStripeId && {
+            application_fee_amount: split.platformFeeCents,
+          }),
         },
-      ],
-      payment_intent_data: {
-        ...(split.installerStripeId && {
-          application_fee_amount: split.platformFeeCents,
-          transfer_data: { destination: split.installerStripeId },
-        }),
+        customer_email: customerEmail || undefined,
+        success_url: `${baseUrl}/payment/success?job=${leadId}`,
+        cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
+        metadata: {
+          lead_id: leadId,
+          type: "deposit",
+          source,
+          installer_id: lead.installer_id,
+          ...split.metadataFields,
+        },
       },
-      customer_email: customerEmail || undefined,
-      success_url: `${baseUrl}/payment/success?job=${leadId}`,
-      cancel_url: `${baseUrl}/payment/cancelled?job=${leadId}`,
-      metadata: {
-        lead_id: leadId,
-        type: "deposit",
-        source,
-        installer_id: lead.installer_id,
-        ...split.metadataFields,
-      },
-    });
+      split.installerStripeId ? onAccount(split.installerStripeId) : undefined
+    );
 
     if (!session.url) {
       return { success: false, error: "Failed to create checkout session." };
@@ -966,37 +1103,40 @@ export async function createBalanceCheckout(
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `Storage Unit — Balance Due (${bizName})`,
-              description: `Job #${leadId.slice(0, 8)}`,
+    const ready = await assertDirectChargeReady(stripe, installerStripeId);
+    if (!ready.ready) return { success: false, error: ready.reason };
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `Storage Unit — Balance Due (${bizName})`,
+                description: `Job #${leadId.slice(0, 8)}`,
+              },
+              unit_amount: amountCents,
             },
-            unit_amount: amountCents,
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        payment_intent_data: {
+          ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
         },
-      ],
-      payment_intent_data: {
-        ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
-        transfer_data: {
-          destination: installerStripeId,
+        customer_email: lead.customer_email || undefined,
+        success_url: `${baseUrl}/payment/success?job=${leadId}`,
+        cancel_url: `${baseUrl}/payment/collect/${leadId}`,
+        metadata: {
+          lead_id: leadId,
+          type: "final_payment",
+          installer_stripe_id: installerStripeId,
+          platform_fee_cents: String(applicationFeeCents),
         },
       },
-      customer_email: lead.customer_email || undefined,
-      success_url: `${baseUrl}/payment/success?job=${leadId}`,
-      cancel_url: `${baseUrl}/payment/collect/${leadId}`,
-      metadata: {
-        lead_id: leadId,
-        type: "final_payment",
-        installer_stripe_id: installerStripeId,
-        platform_fee_cents: String(applicationFeeCents),
-      },
-    });
+      onAccount(installerStripeId)
+    );
 
     if (!session.url) {
       return { success: false, error: "Failed to create checkout session." };
@@ -1041,7 +1181,7 @@ export async function chargeBalanceOffSession(
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select(
-      "installer_id, customer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id"
+      "installer_id, customer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, discount_amount, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id"
     )
     .eq("id", leadId)
     .single();
@@ -1074,18 +1214,8 @@ export async function chargeBalanceOffSession(
   // before giving up — the installer is already trusted to charge a saved
   // card off-session only when appropriate; this just widens which of the
   // customer's cards that trust can draw on, not the trust boundary itself.
-  let customerId = lead.stripe_customer_id as string | null;
-  let paymentMethodId = lead.stripe_payment_method_id as string | null;
-  if ((!customerId || !paymentMethodId) && lead.customer_id) {
-    const { data: customerRow } = await supabase
-      .from("customers")
-      .select("stripe_customer_id, stripe_payment_method_id")
-      .eq("id", lead.customer_id)
-      .maybeSingle();
-    customerId = customerId || (customerRow?.stripe_customer_id as string | null) || null;
-    paymentMethodId = paymentMethodId || (customerRow?.stripe_payment_method_id as string | null) || null;
-  }
-  if (!customerId || !paymentMethodId) {
+  const savedCard = await findSavedCard(lead);
+  if (!savedCard) {
     const baseUrl = siteConfig.baseUrl;
     return {
       success: false,
@@ -1102,18 +1232,38 @@ export async function chargeBalanceOffSession(
 
   const amountCents = Math.round(balance * 100);
 
+  const ready = await assertDirectChargeReady(stripe, installerStripeId);
+  if (!ready.ready) return { success: false, error: ready.reason };
+
+  // The saved card must live on the account being charged. Cards saved before
+  // the direct-charge migration are on the platform, so clone them across;
+  // if that isn't possible, fall back to the payment link rather than failing
+  // the job.
+  const scopedCard = await resolveCardForAccount(stripe, installerStripeId, savedCard, {
+    email: lead.customer_email,
+    name: lead.customer_name,
+  });
+  if (!scopedCard) {
+    const baseUrl = siteConfig.baseUrl;
+    return {
+      success: false,
+      fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+      error: "Saved card can't be charged on the installer's account. Use the payment link.",
+    };
+  }
+
   try {
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: amountCents,
         currency: "usd",
-        customer: customerId,
-        payment_method: paymentMethodId,
+        customer: scopedCard.customerId,
+        payment_method: scopedCard.paymentMethodId,
         off_session: true,
         confirm: true,
         // Balance carries no platform fee — platform took its cut from the
-        // deposit. 100% transfers to the installer.
-        transfer_data: { destination: installerStripeId },
+        // deposit, so no application_fee_amount here. The full amount stays
+        // in the installer's account (direct charge — they are the merchant).
         receipt_email: lead.customer_email || undefined,
         metadata: {
           lead_id: leadId,
@@ -1122,7 +1272,7 @@ export async function chargeBalanceOffSession(
           installer_stripe_id: installerStripeId,
         },
       },
-      { idempotencyKey: `balance-${leadId}` }
+      onAccount(installerStripeId, { idempotencyKey: `balance-${leadId}` })
     );
 
     if (paymentIntent.status === "succeeded") {
@@ -1194,7 +1344,7 @@ export async function chargeDepositOffSession(
   const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select(
-      "installer_id, customer_id, estimated_price, deposit_paid, status, payout_status, source, customer_email, customer_name, stripe_customer_id, stripe_payment_method_id"
+      "installer_id, customer_id, estimated_price, deposit_paid, status, payout_status, source, customer_email, customer_name, stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id"
     )
     .eq("id", leadId)
     .single();
@@ -1214,18 +1364,8 @@ export async function chargeDepositOffSession(
   // Same fallback pattern as chargeBalanceOffSession: this lead's own saved
   // card, then the customer's card from a previous quote with this
   // installer (customers table — see migration 134).
-  let customerId = lead.stripe_customer_id as string | null;
-  let paymentMethodId = lead.stripe_payment_method_id as string | null;
-  if ((!customerId || !paymentMethodId) && lead.customer_id) {
-    const { data: customerRow } = await supabase
-      .from("customers")
-      .select("stripe_customer_id, stripe_payment_method_id")
-      .eq("id", lead.customer_id)
-      .maybeSingle();
-    customerId = customerId || (customerRow?.stripe_customer_id as string | null) || null;
-    paymentMethodId = paymentMethodId || (customerRow?.stripe_payment_method_id as string | null) || null;
-  }
-  if (!customerId || !paymentMethodId) {
+  const savedCard = await findSavedCard(lead);
+  if (!savedCard) {
     const baseUrl = siteConfig.baseUrl;
     return {
       success: false,
@@ -1248,17 +1388,32 @@ export async function chargeDepositOffSession(
     return { success: false, error: "Installer payment account not configured." };
   }
 
+  const depositReady = await assertDirectChargeReady(stripe, split.installerStripeId);
+  if (!depositReady.ready) return { success: false, error: depositReady.reason };
+
+  const scopedCard = await resolveCardForAccount(stripe, split.installerStripeId, savedCard, {
+    email: lead.customer_email,
+    name: lead.customer_name,
+  });
+  if (!scopedCard) {
+    const baseUrl = siteConfig.baseUrl;
+    return {
+      success: false,
+      fallbackUrl: `${baseUrl}/payment/collect/${leadId}`,
+      error: "Saved card can't be charged on the installer's account. Use the payment link.",
+    };
+  }
+
   try {
     const paymentIntent = await stripe.paymentIntents.create(
       {
         amount: depositAmountCents,
         currency: "usd",
-        customer: customerId,
-        payment_method: paymentMethodId,
+        customer: scopedCard.customerId,
+        payment_method: scopedCard.paymentMethodId,
         off_session: true,
         confirm: true,
         application_fee_amount: split.platformFeeCents,
-        transfer_data: { destination: split.installerStripeId },
         receipt_email: lead.customer_email || undefined,
         metadata: {
           lead_id: leadId,
@@ -1271,7 +1426,9 @@ export async function chargeDepositOffSession(
           ...split.metadataFields,
         },
       },
-      { idempotencyKey: `deposit-offsession-${leadId}` }
+      onAccount(split.installerStripeId, {
+        idempotencyKey: `deposit-offsession-${leadId}`,
+      })
     );
 
     if (paymentIntent.status === "succeeded") {
@@ -1360,6 +1517,11 @@ export interface DepositIntentResult {
   // (from this or a previous quote), as selectable options.
   stripeCustomerId?: string;
   customerSessionClientSecret?: string;
+  // The connected account this PaymentIntent was created on (direct charge).
+  // Stripe.js MUST be initialized with this same account or it can't read the
+  // client secret. Absent when the installer has no Stripe connected and the
+  // deposit is charged on the platform.
+  connectedAccountId?: string;
   error?: string;
 }
 
@@ -1582,14 +1744,31 @@ export async function createDepositIntent(
       fbShareDiscountCents,
     });
 
-    // Resolve / create the platform Stripe Customer so the card is saved as
-    // a reusable PaymentMethod (off-session balance charging later).
+    // ── Direct charge routing ──────────────────────────────────────────
+    // With a connected installer the PaymentIntent is created ON their
+    // account, making them the merchant of record (and so liable for
+    // disputes and processing fees). Installers with no Stripe connected
+    // still charge on the platform — the "No Stripe" split gives the
+    // platform the whole deposit anyway.
+    const chargeAccountId = split.installerStripeId;
+    if (chargeAccountId) {
+      const ready = await assertDirectChargeReady(stripe, chargeAccountId);
+      if (!ready.ready) return { success: false, error: ready.reason };
+    }
+
+    // Resolve / create the Stripe Customer ON THE CHARGING ACCOUNT so the
+    // card is saved as a reusable PaymentMethod there (off-session balance
+    // charging later).
     const stripeCustomerId = await getOrCreateStripeCustomerForLead(
       leadId,
       customerEmail,
-      customerName
+      customerName,
+      chargeAccountId
     );
-    const customerSessionClientSecret = await createCustomerSessionSecret(stripeCustomerId);
+    const customerSessionClientSecret = await createCustomerSessionSecret(
+      stripeCustomerId,
+      chargeAccountId
+    );
 
     // ── Discount codes do NOT affect the deposit or platform fees. ──────────
     // Deposit uses installer's custom rate (min 15%). Discount reduces the
@@ -1600,9 +1779,8 @@ export async function createDepositIntent(
       payment_method_types: ["card"],
       ...(stripeCustomerId && { customer: stripeCustomerId }),
       setup_future_usage: "off_session",
-      ...(split.installerStripeId && {
+      ...(chargeAccountId && {
         application_fee_amount: split.platformFeeCents,
-        transfer_data: { destination: split.installerStripeId },
       }),
       receipt_email: customerEmail || undefined,
       metadata: {
@@ -1622,9 +1800,9 @@ export async function createDepositIntent(
         delivery_fee_cents: String(deliveryFeeCents),
         ...split.metadataFields,
       },
-    }, {
-      idempotencyKey: `deposit-${leadId}`,
-    });
+    }, chargeAccountId
+      ? onAccount(chargeAccountId, { idempotencyKey: `deposit-${leadId}` })
+      : { idempotencyKey: `deposit-${leadId}` });
 
     console.log(`[Deposit] ${split.logLabel}: $${totalPrice} build | Deposit $${depositAmountCents / 100} → Platform $${split.platformFeeCents / 100}, Installer $${split.installerReceivesCents / 100}${promoCodeCents ? ` | Discount -$${promoCodeCents / 100} off balance` : ""} | Balance+Tax: $${balanceWithTaxCents / 100}`);
 
@@ -1682,6 +1860,7 @@ export async function createDepositIntent(
       clientSecret: paymentIntent.client_secret || undefined,
       stripeCustomerId: stripeCustomerId || undefined,
       customerSessionClientSecret: customerSessionClientSecret || undefined,
+      connectedAccountId: chargeAccountId || undefined,
     };
   } catch (err) {
     console.error("[Payment] PaymentIntent error:", err);
