@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { waitUntil } from "@vercel/functions";
+import { summarizeDispute } from "@/lib/stripe/disputes";
 
 export const dynamic = "force-dynamic";
-import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits } from "@/lib/email";
+import { sendBookingConfirmation, sendNewBookingAlert, sendProWelcomeEmail, sendProRenewalReceipt, sendSubscriptionPaymentFailed, quoteDataToBookingUnits, sendDisputeAlert, sendDisputeResolvedAlert } from "@/lib/email";
 import {
   activateProSubscription,
   deactivateProSubscription,
@@ -1739,7 +1740,182 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Disputes (chargebacks) ────────────────────────────────────────────
+  // Under direct charges these arrive on the CONNECT endpoint with
+  // event.account set to the installer whose balance Stripe just debited.
+  // Recording and alerting are non-blocking: Stripe gets its 200 either way,
+  // and a failure here must never make Stripe retry a dispute event forever.
+  if (
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.updated" ||
+    event.type === "charge.dispute.closed"
+  ) {
+    try {
+      await processDispute(event.data.object as Stripe.Dispute, event.type, eventAccount);
+    } catch (err) {
+      console.error("[Webhook] dispute processing failed:", err);
+    }
+  }
+
   return NextResponse.json({ received: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Dispute (chargeback) processor
+//
+// Before direct charges the platform ate every chargeback: Stripe debited the
+// platform balance for the disputed amount plus the dispute fee while the
+// installer kept the funds already transferred to them, and nothing in the app
+// recorded that it had happened. Now the connected account is the merchant of
+// record, so Stripe debits the INSTALLER — which means they're the one who has
+// to submit evidence, and the one who needs to hear about it today.
+//
+// Ordering note: the row is upserted BEFORE any email goes out, and the alert
+// is gated on installer_alerted_at. Stripe re-delivers events freely, and
+// nobody should get the same chargeback email twice.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function processDispute(
+  dispute: Stripe.Dispute,
+  eventType: string,
+  accountId: string | null
+) {
+  const summary = summarizeDispute(dispute);
+  const piId = summary.paymentIntentId;
+
+  // Map the dispute back to a job. Our PaymentIntents carry lead_id in
+  // metadata, and the dispute carries the PaymentIntent — but the PI lives on
+  // the connected account for a direct charge, so the read must be scoped to
+  // it or Stripe 404s.
+  let leadId: string | null = null;
+  let installerId: string | null = null;
+  if (piId && stripe) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(
+        piId,
+        accountId ? { stripeAccount: accountId } : undefined
+      );
+      leadId = pi.metadata?.lead_id || pi.metadata?.leadId || null;
+      installerId = pi.metadata?.installer_id || null;
+    } catch (err) {
+      console.warn("[Dispute] Could not retrieve PaymentIntent", piId, err);
+    }
+  }
+
+  // Fall back to the lead's own installer when metadata didn't carry one.
+  if (leadId && !installerId) {
+    const { data: lead } = await getDb()
+      .from("leads")
+      .select("installer_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    installerId = (lead?.installer_id as string | null) ?? null;
+  }
+
+  const { feeCents, isClosed, evidenceDueAt } = summary;
+
+  const row = {
+    stripe_dispute_id: dispute.id,
+    stripe_charge_id: summary.chargeId,
+    stripe_payment_intent_id: piId,
+    account_id: accountId,
+    lead_id: leadId,
+    installer_id: installerId,
+    amount_cents: summary.amountCents,
+    fee_cents: feeCents,
+    currency: summary.currency,
+    status: summary.status,
+    reason: summary.reason,
+    evidence_due_at: evidenceDueAt ? evidenceDueAt.toISOString() : null,
+    outcome: isClosed ? summary.status : null,
+    closed_at: isClosed ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: saved, error: saveErr } = await getDb()
+    .from("disputes")
+    .upsert(row, { onConflict: "stripe_dispute_id" })
+    .select("id, installer_alerted_at")
+    .maybeSingle();
+
+  if (saveErr) {
+    console.error("[Dispute] Failed to record dispute", dispute.id, saveErr);
+    return;
+  }
+
+  console.log(
+    `[Dispute] ${eventType} | ${dispute.id} | ${summary.status} | $${(summary.amountCents / 100).toFixed(2)}` +
+      ` + $${(feeCents / 100).toFixed(2)} fee | lead: ${leadId ?? "unmapped"} | account: ${accountId ?? "platform"}`
+  );
+
+  if (!installerId) {
+    // A dispute on a platform-owned charge (Pro subscription, plans purchase),
+    // or one we couldn't map. Recorded, but there's no installer to alert.
+    console.warn(`[Dispute] ${dispute.id} has no installer to alert`);
+    return;
+  }
+
+  const { data: installer } = await getDb()
+    .from("profiles")
+    .select("email, business_name, first_name")
+    .eq("id", installerId)
+    .maybeSingle();
+
+  const installerEmail = installer?.email as string | null;
+  if (!installerEmail) {
+    console.warn(`[Dispute] Installer ${installerId} has no email on file`);
+    return;
+  }
+
+  const installerName =
+    (installer?.business_name as string | null) ||
+    (installer?.first_name as string | null) ||
+    "there";
+
+  let customerName = "A customer";
+  if (leadId) {
+    const { data: lead } = await getDb()
+      .from("leads")
+      .select("customer_name")
+      .eq("id", leadId)
+      .maybeSingle();
+    customerName = (lead?.customer_name as string | null) || customerName;
+  }
+
+  if (isClosed) {
+    fireAndForget("dispute_resolved_email", async () => {
+      await sendDisputeResolvedAlert(installerEmail, {
+        installerName,
+        customerName,
+        amountCents: summary.amountCents,
+        feeCents,
+        won: summary.won,
+        leadId,
+      });
+    });
+    return;
+  }
+
+  // Opening alert — once per dispute, however many times Stripe re-delivers.
+  if (saved?.installer_alerted_at) return;
+
+  fireAndForget("dispute_opened_email", async () => {
+    const sent = await sendDisputeAlert(installerEmail, {
+      installerName,
+      customerName,
+      amountCents: summary.amountCents,
+      feeCents,
+      reason: summary.reasonLabel,
+      evidenceDueAt,
+      leadId,
+    });
+    if (sent.success) {
+      await getDb()
+        .from("disputes")
+        .update({ installer_alerted_at: new Date().toISOString() })
+        .eq("stripe_dispute_id", dispute.id);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
