@@ -50,6 +50,15 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// ── Connect endpoint secret ───────────────────────────────────────────────
+// Customer charges are DIRECT charges created on the installer's connected
+// account (see @/lib/stripe/direct-charges). Stripe delivers events for those
+// to the CONNECT webhook endpoint, signed with its own secret and carrying
+// `event.account`. This route serves both endpoints: register the same URL in
+// the Stripe dashboard as the account endpoint AND the Connect endpoint, then
+// set both secrets. Without STRIPE_CONNECT_WEBHOOK_SECRET, every deposit and
+// balance payment silently stops being recorded.
+const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 // ── Idempotency Guard (Redis-backed) ─────────────────────────────────────
 // Prevents duplicate processing when Stripe retries webhook delivery.
@@ -154,7 +163,7 @@ async function processReferralBounty(leadId: string, paymentIntentId: string) {
     // Never pay an installer for referring a job to themselves. The referrer
     // is dropped at quote time now, but rows created before that guard can
     // still reach here, and the bounty comes out of the platform's balance —
-    // on a destination charge that balance only holds the application fee,
+    // under direct charges that balance only holds the application fee,
     // which is smaller than the bounty on most jobs.
     if (claimed.installer_id && claimed.referring_installer_id === claimed.installer_id) {
       console.warn(
@@ -431,8 +440,8 @@ export async function POST(request: NextRequest) {
   // ── Parse & verify event ──────────────────────────────────────────────
   let event: Stripe.Event;
   try {
-    if (!WEBHOOK_SECRET) {
-      console.error("[Webhook] CRITICAL: STRIPE_WEBHOOK_SECRET is not set. Refusing to process.");
+    if (!WEBHOOK_SECRET && !CONNECT_WEBHOOK_SECRET) {
+      console.error("[Webhook] CRITICAL: no webhook secret is set. Refusing to process.");
       return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
     }
 
@@ -443,7 +452,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
     }
 
-    event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);
+    // A delivery is signed by exactly one endpoint secret, and the payload
+    // doesn't say which. Try the platform secret, then the Connect one — the
+    // signature check is what authenticates the request either way, so a
+    // failed first attempt is expected traffic, not an error.
+    let verified: Stripe.Event | null = null;
+    let lastErr: unknown = null;
+    for (const secret of [WEBHOOK_SECRET, CONNECT_WEBHOOK_SECRET]) {
+      if (!secret) continue;
+      try {
+        verified = stripe.webhooks.constructEvent(body, signature, secret);
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (!verified) throw lastErr ?? new Error("No webhook secret matched the signature");
+    event = verified;
   } catch (parseErr) {
     console.error("[Webhook] Signature verification failed:", parseErr);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -458,7 +483,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  console.log("[Webhook] Event received:", event.type, "| ID:", event.id);
+  // Set on Connect deliveries — the connected account the object lives on.
+  // Every Stripe read for that object must be scoped to it or Stripe 404s.
+  const eventAccount = event.account || null;
+  const eventAccountOpts = eventAccount ? { stripeAccount: eventAccount } : undefined;
+
+  console.log(
+    "[Webhook] Event received:",
+    event.type,
+    "| ID:",
+    event.id,
+    eventAccount ? `| Account: ${eventAccount}` : "| Account: platform"
+  );
 
   // ── Handle checkout.session.completed ─────────────────────────────────
   if (event.type === "checkout.session.completed") {
@@ -604,7 +640,7 @@ export async function POST(request: NextRequest) {
       const piId = session.payment_intent as string | null;
       if (piId && stripe) {
         try {
-          const pi = await stripe.paymentIntents.retrieve(piId);
+          const pi = await stripe.paymentIntents.retrieve(piId, eventAccountOpts);
           if (pi.status !== "succeeded") {
             console.warn(
               `[Webhook] PaymentIntent ${piId} has status="${pi.status}" — not marking lead as paid`
@@ -1461,6 +1497,13 @@ export async function POST(request: NextRequest) {
           if (typeof paymentIntent.payment_method === "string") {
             updatePayload.stripe_payment_method_id = paymentIntent.payment_method;
           }
+          // Record which account the saved Customer/PaymentMethod live on.
+          // Under direct charges that's the installer's connected account;
+          // null means the platform. Without this an off-session charge later
+          // can't tell the two apart. See migration 137.
+          if (updatePayload.stripe_customer_id || updatePayload.stripe_payment_method_id) {
+            updatePayload.stripe_customer_account_id = eventAccount;
+          }
 
           // Add customer info if available
           if (customerEmail) {
@@ -1506,6 +1549,7 @@ export async function POST(request: NextRequest) {
               const customerStripeUpdate: Record<string, unknown> = {};
               if (updatePayload.stripe_customer_id) customerStripeUpdate.stripe_customer_id = updatePayload.stripe_customer_id;
               if (updatePayload.stripe_payment_method_id) customerStripeUpdate.stripe_payment_method_id = updatePayload.stripe_payment_method_id;
+              customerStripeUpdate.stripe_customer_account_id = eventAccount;
               fireAndForget("save_customer_stripe_ids", async () => {
                 try {
                   await getDb().from("customers").update(customerStripeUpdate).eq("id", dbCustomerIdPI);
@@ -1525,7 +1569,7 @@ export async function POST(request: NextRequest) {
             if (stripe && typeof pmId === "string") {
               fireAndForget("save_payment_method_meta", async () => {
                 try {
-                  const pm = await stripe.paymentMethods.retrieve(pmId);
+                  const pm = await stripe.paymentMethods.retrieve(pmId, eventAccountOpts);
                   if (pm.type === "card" && pm.card) {
                     const brandMeta = { stripe_payment_method_brand: pm.card.brand, stripe_payment_method_last4: pm.card.last4 };
                     await getDb()

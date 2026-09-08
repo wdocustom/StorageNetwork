@@ -15,7 +15,7 @@ import {
   Facebook,
 } from "lucide-react";
 import FacebookShareButton from "@/components/FacebookShareButton";
-import { loadStripe } from "@stripe/stripe-js";
+import { getStripePromise } from "@/lib/stripe/client";
 import {
   Elements,
   PaymentElement,
@@ -41,10 +41,6 @@ import { calculateDeliveryFee, type DeliveryFeeResult } from "@/app/actions/deli
 //   4. Modal shows Stripe Payment Element inline
 //   5. On success → creates DB record, shows success state
 // ═══════════════════════════════════════════════════════════════════════════
-
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
 
 type Step = "address" | "schedule" | "payment" | "success";
 
@@ -124,6 +120,8 @@ export default function BookingModal({
   const [blockAvailability, setBlockAvailability] = useState<Record<string, { morning: boolean; afternoon: boolean }>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
+  // Connected account the deposit PaymentIntent was created on, if any.
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [initLoading, setInitLoading] = useState(false);
   const [error, setError] = useState("");
   const [blackoutDates, setBlackoutDates] = useState<{ start_date: string; end_date: string }[]>([]);
@@ -290,6 +288,7 @@ export default function BookingModal({
     if (result.success && result.clientSecret) {
       setClientSecret(result.clientSecret);
       setCustomerSessionClientSecret(result.customerSessionClientSecret || null);
+      setConnectedAccountId(result.connectedAccountId || null);
       setStep("payment");
     } else {
       setError(result.error || "Failed to initialize payment.");
@@ -416,7 +415,7 @@ export default function BookingModal({
           ) : step === "payment" && clientSecret ? (
             /* ── Stripe Payment Element ──────────────────────────────── */
             <Elements
-              stripe={stripePromise}
+              stripe={getStripePromise(connectedAccountId)}
               options={{
                 clientSecret,
                 ...(customerSessionClientSecret && { customerSessionClientSecret }),

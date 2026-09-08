@@ -18,7 +18,7 @@ import {
   Mail,
   Send,
 } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
+import { getStripePromise } from "@/lib/stripe/client";
 import {
   Elements,
   PaymentElement,
@@ -45,10 +45,6 @@ import { updateLeadWithAddons } from "@/app/actions/cleanout-upsell";
 //   4. Enters payment details via Stripe
 // ═══════════════════════════════════════════════════════════════════════════
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
-
 type Step = "address" | "review" | "payment";
 
 interface BillingAddress {
@@ -68,6 +64,9 @@ export default function ResumePaymentPage() {
   const [lead, setLead] = useState<PendingLeadDetails | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | null>(null);
+  // Connected account the deposit PaymentIntent was created on, if any —
+  // Stripe.js must be initialized for it to read the client secret.
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [initializingPayment, setInitializingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -409,6 +408,7 @@ export default function ResumePaymentPage() {
 
       setClientSecret(result.clientSecret);
       setCustomerSessionClientSecret(result.customerSessionClientSecret || null);
+      setConnectedAccountId(result.connectedAccountId || null);
       setStep("payment");
       recordPayLinkStep(leadId, "payment").catch(() => {});
     } catch (err) {
@@ -1174,7 +1174,7 @@ export default function ResumePaymentPage() {
             </div>
 
             <Elements
-              stripe={stripePromise}
+              stripe={getStripePromise(connectedAccountId)}
               options={{
                 clientSecret,
                 ...(customerSessionClientSecret && { customerSessionClientSecret }),
