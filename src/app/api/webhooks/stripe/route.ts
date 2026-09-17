@@ -61,6 +61,19 @@ const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 // balance payment silently stops being recorded.
 const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
+// Say so loudly at boot. Without this secret nothing throws and no delivery is
+// logged — Stripe simply gets a 400 it never tells us about, and deposits stop
+// being recorded silently. /api/cron/reconcile-deposits is the backstop that
+// finds the payments this loses.
+if (!CONNECT_WEBHOOK_SECRET) {
+  console.error(
+    "[Webhook] CRITICAL: STRIPE_CONNECT_WEBHOOK_SECRET is not set. Customer charges are" +
+      " direct charges on connected accounts, so their events arrive on the CONNECT" +
+      " endpoint — every one of them will fail signature verification and NO deposit or" +
+      " balance payment will be recorded."
+  );
+}
+
 // ── Idempotency Guard (Redis-backed) ─────────────────────────────────────
 // Prevents duplicate processing when Stripe retries webhook delivery.
 // Uses Upstash Redis SET NX with 48h TTL so it works across all Vercel
@@ -471,7 +484,17 @@ export async function POST(request: NextRequest) {
     if (!verified) throw lastErr ?? new Error("No webhook secret matched the signature");
     event = verified;
   } catch (parseErr) {
-    console.error("[Webhook] Signature verification failed:", parseErr);
+    // Name which secrets were available. A delivery that matches neither, on a
+    // route with only the platform secret configured, is the signature of an
+    // unverifiable Connect delivery — i.e. customer payments being dropped.
+    console.error(
+      "[Webhook] Signature verification failed (tried:",
+      [WEBHOOK_SECRET && "platform", CONNECT_WEBHOOK_SECRET && "connect"]
+        .filter(Boolean)
+        .join(", ") || "none",
+      "):",
+      parseErr
+    );
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
