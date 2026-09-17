@@ -15,14 +15,21 @@ import { onAccount } from "./direct-charges";
 //
 // Since customer charges became DIRECT charges (see ./direct-charges), those
 // events are delivered to Stripe's CONNECT endpoint, signed with its own
-// secret and carrying `event.account`. That adds three new ways for delivery
-// to stop without anything erroring on our side:
+// secret and carrying `event.account`. Ways delivery stops without anything
+// erroring on our side:
+//   • the endpoint URL 3xx-redirects. Stripe does NOT follow redirects — it
+//     records the 3xx as a failed delivery and moves on. This is the one that
+//     actually bit us: the endpoint was registered against the apex domain,
+//     which Vercel 307s to www, so every Connect event failed from the day it
+//     was set up. Register webhook URLs against the domain Vercel serves
+//     directly, never one it redirects from.
 //   • STRIPE_CONNECT_WEBHOOK_SECRET unset  → every Connect delivery 400s
 //   • the Connect endpoint never registered → Stripe sends nothing at all
 //   • the endpoint not subscribed to payment_intent.succeeded
 //
-// In all three cases Stripe does NOT backfill once the endpoint is fixed, so
-// a repair pass is the only way those jobs ever show as paid.
+// Stripe retries a failed delivery for about three days and then gives up, so
+// anything older than that is never redelivered even once the endpoint is
+// fixed — a repair pass is the only way those jobs ever show as paid.
 //
 // This module is that pass: for every lead still sitting unpaid, ask Stripe
 // whether a deposit actually succeeded for it, and if so record it. It reads
