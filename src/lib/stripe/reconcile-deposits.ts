@@ -49,8 +49,25 @@ import { onAccount } from "./direct-charges";
 // of src/app/api/webhooks/stripe/route.ts — change them together.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Statuses a quote sits in while it is still waiting to be paid. */
-export const UNPAID_LEAD_STATUSES = ["pending_payment", "waitlisted"] as const;
+/**
+ * Statuses a quote sits in while it is still waiting to be paid.
+ *
+ * `expired` belongs here even though it reads terminal: cleanupExpiredLeads
+ * flips pending_payment → expired after 7 days of no activity, and a payment
+ * nobody recorded IS no activity. Leaving it out would skip precisely the
+ * leads that have been unpaid longest — the ones Stripe has already given up
+ * redelivering. `payment_pending` is the same story from the other direction:
+ * the webhook treats it as payable, so this pass must too.
+ *
+ * A lead can still slip out of this list, which is why the Stripe-first sweep
+ * in ./sweep-payments exists for cleaning up after an outage.
+ */
+export const UNPAID_LEAD_STATUSES = [
+  "pending_payment",
+  "payment_pending",
+  "waitlisted",
+  "expired",
+] as const;
 
 export interface ReconcileOptions {
   /** How far back to look for unpaid quotes. Default 30 days. */
