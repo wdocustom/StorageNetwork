@@ -52,6 +52,15 @@ export interface ReconcileOptions {
   limit?: number;
   /** Report what would be repaired without writing anything. */
   dryRun?: boolean;
+  /** Stripe searches to run at once. Default 5. */
+  concurrency?: number;
+  /**
+   * Stop starting new work after this long, in ms. Default 45s, inside the
+   * route's 60s maxDuration — one Stripe search per lead adds up, and a pass
+   * that gets killed mid-flight reports nothing at all. Whatever is left over
+   * is reported as `truncated` and picked up by the next run.
+   */
+  deadlineMs?: number;
 }
 
 export interface CandidateLead {
@@ -92,6 +101,8 @@ export interface ReconcileReport {
   scanned: number;
   found: number;
   repaired: number;
+  /** Leads the pass ran out of time for. They are picked up by the next run. */
+  truncated: number;
   dryRun: boolean;
   findings: ReconcileFinding[];
   errors: string[];
@@ -193,10 +204,15 @@ export async function reconcileDeposits(
   const limit = options.limit ?? 200;
   const dryRun = options.dryRun ?? false;
 
+  const concurrency = Math.max(1, options.concurrency ?? 5);
+  const deadlineMs = options.deadlineMs ?? 45_000;
+  const startedAt = Date.now();
+
   const report: ReconcileReport = {
     scanned: 0,
     found: 0,
     repaired: 0,
+    truncated: 0,
     dryRun,
     findings: [],
     errors: [],
@@ -240,10 +256,14 @@ export async function reconcileDeposits(
     }
   }
 
-  for (const lead of candidates) {
+  // One Stripe search per lead, so this is latency-bound rather than CPU-bound
+  // — run them in small batches. Results are merged in candidate order so the
+  // report doesn't shuffle between runs.
+  type Outcome = { finding?: ReconcileFinding; error?: string };
+
+  async function examine(lead: CandidateLead): Promise<Outcome> {
     if (!isSafeLeadId(lead.id)) {
-      report.errors.push(`Skipped lead with unexpected id format: ${lead.id}`);
-      continue;
+      return { error: `Skipped lead with unexpected id format: ${lead.id}` };
     }
 
     const accountId = lead.installer_id
@@ -258,15 +278,14 @@ export async function reconcileDeposits(
       );
       paymentIntent = search.data[0];
     } catch (err) {
-      report.errors.push(
-        `Stripe search failed for lead ${lead.id} on ${accountId ?? "platform"}: ${
+      return {
+        error: `Stripe search failed for lead ${lead.id} on ${accountId ?? "platform"}: ${
           err instanceof Error ? err.message : String(err)
-        }`
-      );
-      continue;
+        }`,
+      };
     }
 
-    if (!paymentIntent) continue; // Genuinely unpaid — nothing to repair.
+    if (!paymentIntent) return {}; // Genuinely unpaid — nothing to repair.
 
     const finding: ReconcileFinding = {
       leadId: lead.id,
@@ -279,12 +298,8 @@ export async function reconcileDeposits(
       repaired: false,
       bountyPending: Boolean(lead.referring_installer_id) && lead.bounty_status === "pending",
     };
-    report.found += 1;
 
-    if (dryRun) {
-      report.findings.push(finding);
-      continue;
-    }
+    if (dryRun) return { finding };
 
     try {
       const { data: updated, error: updateErr } = await db
@@ -302,7 +317,6 @@ export async function reconcileDeposits(
         finding.error = "Already recorded by the time we wrote — skipped.";
       } else {
         finding.repaired = true;
-        report.repaired += 1;
         if (onRepaired) {
           try {
             await onRepaired(lead.id);
@@ -318,7 +332,29 @@ export async function reconcileDeposits(
       finding.error = err instanceof Error ? err.message : String(err);
     }
 
-    report.findings.push(finding);
+    return { finding };
+  }
+
+  for (let i = 0; i < candidates.length; i += concurrency) {
+    if (Date.now() - startedAt > deadlineMs) {
+      report.truncated = candidates.length - i;
+      report.errors.push(
+        `Stopped after ${i} of ${candidates.length} leads — time budget reached.` +
+          ` The remaining ${report.truncated} are picked up by the next run.`
+      );
+      break;
+    }
+
+    const batch = candidates.slice(i, i + concurrency);
+    const outcomes = await Promise.all(batch.map(examine));
+
+    for (const outcome of outcomes) {
+      if (outcome.error) report.errors.push(outcome.error);
+      if (!outcome.finding) continue;
+      report.found += 1;
+      if (outcome.finding.repaired) report.repaired += 1;
+      report.findings.push(outcome.finding);
+    }
   }
 
   return report;

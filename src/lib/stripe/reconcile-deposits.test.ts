@@ -339,6 +339,51 @@ describe("reconcileDeposits", () => {
     expect(report.findings[0].leadId).toBe(LEAD_B);
   });
 
+  it("stops at the time budget and says how many are left", async () => {
+    const db = makeDb({
+      leads: [makeLead(), makeLead({ id: LEAD_B })],
+      profiles: [{ id: "inst_1", stripe_account_id: "acct_1" }],
+    });
+    const { stripe } = makeStripe({ [LEAD_A]: [makePI()] });
+
+    const report = await reconcileDeposits(
+      { stripe, db },
+      { concurrency: 1, deadlineMs: -1 } // budget already spent
+    );
+
+    expect(report.truncated).toBe(2);
+    expect(report.found).toBe(0);
+    expect(report.errors[0]).toMatch(/time budget/i);
+  });
+
+  it("reports findings in candidate order regardless of which search settles first", async () => {
+    const db = makeDb({
+      leads: [makeLead(), makeLead({ id: LEAD_B })],
+      profiles: [{ id: "inst_1", stripe_account_id: "acct_1" }],
+    });
+    const stripe = {
+      paymentIntents: {
+        search: vi.fn(async (params: { query: string }) => {
+          // The FIRST candidate resolves slowest.
+          const isA = params.query.includes(LEAD_A);
+          await new Promise((r) => setTimeout(r, isA ? 20 : 1));
+          return {
+            data: [
+              makePI({
+                id: isA ? "pi_a" : "pi_b",
+                metadata: { lead_id: isA ? LEAD_A : LEAD_B },
+              }),
+            ],
+          };
+        }),
+      },
+    } as unknown as Stripe;
+
+    const report = await reconcileDeposits({ stripe, db }, { concurrency: 2 });
+
+    expect(report.findings.map((f) => f.leadId)).toEqual([LEAD_A, LEAD_B]);
+  });
+
   it("reports a failed lead query instead of throwing", async () => {
     const db = makeDb({ leadsError: { message: "boom" } });
     const { stripe } = makeStripe({});

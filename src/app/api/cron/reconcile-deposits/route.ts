@@ -24,6 +24,14 @@ export const maxDuration = 60;
 //
 // Both take the same Bearer CRON_SECRET as the other cron routes. Vercel Cron
 // issues GET, so GET delegates to POST exactly as the others do.
+//
+// SCHEDULE: daily, and it must stay daily. Vercel's Hobby plan rejects any
+// cron that would run more than once a day — `0 * * * *` fails the DEPLOY, not
+// just the job — which is why every cron in vercel.json is daily. A missed
+// deposit therefore waits up to a day for the automatic pass; to repair one
+// sooner, call this route directly. The real-time path is the webhook, and if
+// deposits are routinely landing here rather than there, the Connect endpoint
+// is what needs fixing, not this schedule.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
