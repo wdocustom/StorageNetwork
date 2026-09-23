@@ -40,7 +40,8 @@ import RaisedBedDrawer from "@/components/build/RaisedBedDrawer";
 import ChairDrawer from "@/components/build/ChairDrawer";
 import CartBar from "@/components/build/CartBar";
 import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
-import type { UnitConfig as BuildUnitConfig } from "@/components/build/types";
+import type { UnitConfig as BuildUnitConfig, UnitOption } from "@/components/build/types";
+import { optionPriceDelta, slotsOf } from "@/components/build/unitOptions";
 import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
@@ -66,6 +67,11 @@ export default function BuildConfiguratorPage() {
   // Editing a quote whose deposit is already paid: changes can only add, and
   // the increase becomes an add-on with its own deposit.
   const [editingDepositPaid, setEditingDepositPaid] = useState(false);
+  // Units loaded from a paid-deposit quote — they can gain options but can't
+  // be removed (the total can't go down after a deposit).
+  const [lockedUnitIds, setLockedUnitIds] = useState<Set<string>>(new Set());
+  // `${unitId}:${option}` while an added option is being priced.
+  const [optionBusy, setOptionBusy] = useState<string | null>(null);
 
   // POS-style drawer coordination — only one open at a time
   const [activeDrawer, setActiveDrawer] = useState<DrawerType | null>(null);
@@ -463,8 +469,10 @@ export default function BuildConfiguratorPage() {
         paintSidePanelColor: q.paintSidePanelColor,
         indoorDelivery: q.indoorDelivery,
         indoorDeliveryFee: q.indoorDeliveryFee,
+        slots: slotsOf(q),
       }));
       setUnits(loadedUnits);
+      if (lead.deposit_paid) setLockedUnitIds(new Set(loadedUnits.map((u) => u.id)));
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, searchParams]);
@@ -845,6 +853,74 @@ export default function BuildConfiguratorPage() {
       }
       return prev.filter((u) => u.id !== unitId);
     });
+  }
+
+  // ── Add a top / wheels / totes to a unit already on a saved quote ──────
+  // Prices ONLY the option: runs the calculator for the unit with and
+  // without it and adds the difference to the unit's existing price, so a
+  // custom or discounted unit price is kept as-is. Used when a customer
+  // decides on a top or wheels at the last second (see addItemsAfterDeposit).
+  async function handleAddUnitOption(unitId: string, option: UnitOption) {
+    const u = units.find((x) => x.id === unitId);
+    if (!u || u.cols <= 0 || u.rows <= 0) return;
+    setOptionBusy(`${unitId}:${option}`);
+    setQuoteError("");
+    try {
+      const base = {
+        cols: u.cols,
+        rows: u.rows,
+        toteModel: u.toteType,
+        unitType: u.unitType,
+        orientation: u.orientation ?? ("standard" as const),
+        mode: "manual" as const,
+        installerPricing: installerPricing || undefined,
+      };
+      const addOns = { totes: u.hasTotes, wheels: u.hasWheels, top: u.hasTop };
+      const [without, withOption] = await Promise.all([
+        calculateBuild({ ...base, addOns }),
+        calculateBuild({ ...base, addOns: { ...addOns, [option]: true } }),
+      ]);
+      if (!("price" in without) || !("price" in withOption)) {
+        setQuoteError(`Couldn't price ${option} for this unit.`);
+        return;
+      }
+      const delta = optionPriceDelta(option, without.price, withOption.price, u);
+      if (delta <= 0) return;
+
+      const flag = option === "top" ? "hasTop" : option === "wheels" ? "hasWheels" : "hasTotes";
+      setUnits((prev) =>
+        prev.map((p) =>
+          p.id === unitId
+            ? {
+                ...p,
+                [flag]: true,
+                price: Math.round(((p.price || 0) + delta) * 100) / 100,
+                addedOptions: { ...p.addedOptions, [option]: delta },
+              }
+            : p
+        )
+      );
+    } finally {
+      setOptionBusy(null);
+    }
+  }
+
+  function handleUndoUnitOption(unitId: string, option: UnitOption) {
+    const flag = option === "top" ? "hasTop" : option === "wheels" ? "hasWheels" : "hasTotes";
+    setUnits((prev) =>
+      prev.map((p) => {
+        const delta = p.addedOptions?.[option];
+        if (p.id !== unitId || delta === undefined) return p;
+        const rest = { ...p.addedOptions };
+        delete rest[option];
+        return {
+          ...p,
+          [flag]: false,
+          price: Math.round(((p.price || 0) - delta) * 100) / 100,
+          addedOptions: rest,
+        };
+      })
+    );
   }
 
   // Calculate grand total from all units in Quote Builder only
@@ -1393,8 +1469,9 @@ export default function BuildConfiguratorPage() {
           </div>
           {editingDepositPaid && (
             <p className="mx-auto mt-1 max-w-2xl text-[10px] text-amber-200/80">
-              Deposit already paid. You can add items or upgrades (tops, wheels) but not lower the total.
-              The increase gets its own deposit; delivery fee and discount stay as booked.
+              Deposit paid. To add a top, wheels or totes to a unit, tap the quote bar below and use the
+              <strong> + Top / + Wheels / + Totes</strong> buttons on that unit. You can also add new units.
+              The added amount gets its own deposit.
             </p>
           )}
         </div>
@@ -1550,6 +1627,10 @@ export default function BuildConfiguratorPage() {
           );
         }}
         indoorDeliveryConfig={indoorDeliveryConfig}
+        onAddOption={editingLeadId ? handleAddUnitOption : undefined}
+        onUndoOption={handleUndoUnitOption}
+        optionBusy={optionBusy}
+        lockedUnitIds={lockedUnitIds}
         editingLeadId={editingLeadId}
         editingCustomerName={editingCustomerName}
         customerName={customerName}
@@ -1701,4 +1782,3 @@ export default function BuildConfiguratorPage() {
     </div>
   );
 }
-

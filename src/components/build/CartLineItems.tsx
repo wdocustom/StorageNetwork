@@ -1,13 +1,22 @@
 "use client";
 
-import { Star, Trash2, PenLine, ArrowUpFromLine } from "lucide-react";
-import type { UnitConfig } from "./types";
+import { Star, Trash2, PenLine, ArrowUpFromLine, Plus, X, Loader2 } from "lucide-react";
+import type { UnitConfig, UnitOption } from "./types";
+
+const OPTION_LABEL: Record<UnitOption, string> = { top: "Top", wheels: "Wheels", totes: "Totes" };
 
 interface CartLineItemsProps {
   units: UnitConfig[];
   onRemoveUnit: (id: string) => void;
   indoorDeliveryConfigFee?: number;
   onToggleIndoorDelivery?: (unitIndex: number, enabled: boolean) => void;
+  /** Editing a saved quote: add a top / wheels / totes to an existing unit. */
+  onAddOption?: (unitId: string, option: UnitOption) => void;
+  onUndoOption?: (unitId: string, option: UnitOption) => void;
+  /** `${unitId}:${option}` currently being priced. */
+  optionBusy?: string | null;
+  /** Hide remove on these units (deposit already paid — can't be removed). */
+  lockedUnitIds?: Set<string>;
 }
 
 export default function CartLineItems({
@@ -15,6 +24,10 @@ export default function CartLineItems({
   onRemoveUnit,
   indoorDeliveryConfigFee,
   onToggleIndoorDelivery,
+  onAddOption,
+  onUndoOption,
+  optionBusy,
+  lockedUnitIds,
 }: CartLineItemsProps) {
   const rendered = new Set<string>();
 
@@ -156,6 +169,41 @@ export default function CartLineItems({
                   </span>
                 </label>
               )}
+              {onAddOption && isRackUnit(unit) && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(["top", "wheels", "totes"] as UnitOption[]).map((opt) => {
+                    const added = unit.addedOptions?.[opt];
+                    if (added !== undefined) {
+                      return (
+                        <button
+                          key={opt}
+                          onClick={() => onUndoOption?.(unit.id, opt)}
+                          className="flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300"
+                          aria-label={`Remove added ${OPTION_LABEL[opt]}`}
+                        >
+                          {OPTION_LABEL[opt]} +${added.toLocaleString()}
+                          <X className="h-3 w-3" />
+                        </button>
+                      );
+                    }
+                    const has =
+                      opt === "top" ? unit.hasTop || unit.unitType === "mini" : opt === "wheels" ? unit.hasWheels : unit.hasTotes;
+                    if (has) return null;
+                    const busy = optionBusy === `${unit.id}:${opt}`;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => onAddOption(unit.id, opt)}
+                        disabled={!!optionBusy}
+                        className="flex items-center gap-1 rounded-md border border-yellow-400/30 bg-yellow-400/5 px-2 py-0.5 text-[10px] font-bold text-yellow-400 hover:bg-yellow-400/15 disabled:opacity-50"
+                      >
+                        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        {OPTION_LABEL[opt]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-yellow-400">
@@ -178,17 +226,33 @@ export default function CartLineItems({
                   </>
                 )}
               </span>
-              <button
-                onClick={() => onRemoveUnit(unit.id)}
-                className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
-                aria-label="Remove"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {!lockedUnitIds?.has(unit.id) && (
+                <button
+                  onClick={() => onRemoveUnit(unit.id)}
+                  className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-400/10"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+// A tote rack (standard or mini) — the only kind of line where top / wheels
+// / totes are options. Overheads, shelving, chairs, raised beds and custom
+// line items don't take them.
+function isRackUnit(unit: UnitConfig): boolean {
+  return (
+    unit.cols > 0 &&
+    unit.rows > 0 &&
+    !unit.overheadGridPresetId &&
+    !unit.shelvingConfigId &&
+    !unit.chairId &&
+    !unit.raisedBedConfig
   );
 }
