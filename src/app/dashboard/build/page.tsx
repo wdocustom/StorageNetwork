@@ -63,6 +63,9 @@ export default function BuildConfiguratorPage() {
   // Edit mode — when ?edit={leadId} is in the URL
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [editingCustomerName, setEditingCustomerName] = useState("");
+  // Editing a quote whose deposit is already paid: changes can only add, and
+  // the increase becomes an add-on with its own deposit.
+  const [editingDepositPaid, setEditingDepositPaid] = useState(false);
 
   // POS-style drawer coordination — only one open at a time
   const [activeDrawer, setActiveDrawer] = useState<DrawerType | null>(null);
@@ -416,6 +419,7 @@ export default function BuildConfiguratorPage() {
       const lead = result.lead;
       setEditingLeadId(lead.id);
       setEditingCustomerName(lead.customer_name);
+      setEditingDepositPaid(!!lead.deposit_paid);
 
       // Pre-populate customer info
       setCustomerName(lead.customer_name);
@@ -1377,7 +1381,8 @@ export default function BuildConfiguratorPage() {
           <div className="mx-auto flex max-w-2xl items-center justify-between">
             <p className="text-xs font-bold text-amber-300">
               <PenLine className="mr-1.5 inline h-3.5 w-3.5" />
-              Editing quote for {editingCustomerName}
+              {editingDepositPaid ? "Adding to paid-deposit quote for " : "Editing quote for "}
+              {editingCustomerName}
             </p>
             <a
               href={`/dashboard/leads/${editingLeadId}`}
@@ -1386,6 +1391,12 @@ export default function BuildConfiguratorPage() {
               Back to Job Ticket
             </a>
           </div>
+          {editingDepositPaid && (
+            <p className="mx-auto mt-1 max-w-2xl text-[10px] text-amber-200/80">
+              Deposit already paid. You can add items or upgrades (tops, wheels) but not lower the total.
+              The increase gets its own deposit; delivery fee and discount stay as booked.
+            </p>
+          )}
         </div>
       )}
 
@@ -1587,6 +1598,7 @@ export default function BuildConfiguratorPage() {
         quoteReferralStatus={quoteReferralStatus}
         quoteCoveringName={quoteCoveringName}
         customerEmail={customerEmail}
+        postDeposit={editingDepositPaid}
       />
 
 

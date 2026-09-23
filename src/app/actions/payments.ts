@@ -5,7 +5,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { siteConfig } from "@/config/site";
 import { z } from "zod/v4";
 import { incrementDiscountCodeUsage } from "./discount-codes";
-import { getDepositAmount } from "./fee-engine";
+import { getAddonDepositAmount, getDepositAmount, getEstimatedSalesTax, getSalesTax } from "./fee-engine";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Payment Server Action — Black Box
@@ -86,6 +86,16 @@ import {
   assertDirectChargeReady,
   resolveCardForAccount,
 } from "@/lib/stripe/direct-charges";
+import { computeBalanceDue, describeAddon, parseTipCents, quoteTotals } from "@/lib/lead-money";
+import {
+  listAddons,
+  listPendingAddons,
+  pendingAddonFeeCents,
+  settlePendingAddons,
+  type LeadAddon,
+} from "@/lib/server/lead-addons";
+import type { QuoteUnit } from "@/lib/buildEngine.types";
+import { roundMoney } from "@/utils/mathHelpers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
@@ -450,6 +460,23 @@ async function computePlatformFeeCents(params: {
   return Math.min(feeCents, capCents);
 }
 
+// ── Helper: platform fee still owed by post-deposit add-ons ──────────────
+// An add-on's platform fee is normally taken from its own add-on deposit.
+// If the customer pays the final balance before that deposit is collected,
+// the fee comes out of the balance charge instead. Returns the fee (capped at
+// the charge) and the add-on ids it covers, so the webhook can mark exactly
+// those add-ons settled — not one added after this charge was created.
+async function pendingAddonFeeForBalance(
+  leadId: string,
+  capCents: number
+): Promise<{ feeCents: number; addonIds: string[] }> {
+  const pending = await listPendingAddons(leadId);
+  return {
+    feeCents: Math.min(pendingAddonFeeCents(pending), capCents),
+    addonIds: pending.map((a) => a.id),
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // createPaymentSession — Generates a Stripe Checkout URL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -529,6 +556,7 @@ export async function createPaymentSession(
     // on-the-spot quote with no deposit configured), the platform's fee
     // has never been taken, so it must be deducted here instead.
     let applicationFeeCents = 0;
+    let addonIds: string[] = [];
     if (lead && !lead.deposit_paid) {
       applicationFeeCents = await computePlatformFeeCents({
         installerId: auth.userId,
@@ -537,6 +565,12 @@ export async function createPaymentSession(
         leadSource: lead.source,
         capCents: amountCents,
       });
+    } else if (lead) {
+      // Post-deposit add-ons whose own deposit was never collected still owe
+      // their platform fee — take it from this balance charge instead.
+      const addonFee = await pendingAddonFeeForBalance(leadId, amountCents);
+      applicationFeeCents = addonFee.feeCents;
+      addonIds = addonFee.addonIds;
     }
 
     const baseUrl = siteConfig.baseUrl;
@@ -576,6 +610,7 @@ export async function createPaymentSession(
           type: "final_payment",
           installer_stripe_id: installerStripeId,
           platform_fee_cents: String(applicationFeeCents),
+          ...(addonIds.length > 0 && { addon_ids: addonIds.join(",") }),
         },
       },
       onAccount(installerStripeId)
@@ -1029,15 +1064,73 @@ export interface BalanceCheckoutResult {
   alreadyPaid?: boolean;
 }
 
+// Columns every balance calculation needs (see computeBalanceDue).
+const BALANCE_COLUMNS = "estimated_price, deposit_amount, deposit_paid, discount_amount, sales_tax_amount";
+
+// ── getBalanceSummary — PUBLIC (no auth) ────────────────────────────────
+// What /payment/collect/[leadId] shows before sending the customer to
+// Stripe: the balance and who it's owed to, so they can add a tip first.
+export interface BalanceSummary {
+  success: boolean;
+  alreadyPaid?: boolean;
+  balance?: number;
+  businessName?: string;
+  customerFirstName?: string;
+  error?: string;
+}
+
+export async function getBalanceSummary(leadId: string): Promise<BalanceSummary> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select(`installer_id, customer_name, status, payout_status, ${BALANCE_COLUMNS}`)
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead) return { success: false, error: "Order not found." };
+
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, alreadyPaid: true };
+  }
+  const balance = computeBalanceDue(lead);
+  if (balance <= 0) return { success: false, alreadyPaid: true };
+
+  const { data: nameData } = await supabase
+    .from("profiles")
+    .select("business_name, first_name, last_name")
+    .eq("id", lead.installer_id)
+    .maybeSingle();
+  const businessName =
+    nameData?.business_name ||
+    [nameData?.first_name, nameData?.last_name].filter(Boolean).join(" ") ||
+    "Your Installer";
+
+  return {
+    success: true,
+    balance,
+    businessName,
+    customerFirstName: (lead.customer_name || "").split(" ")[0] || undefined,
+  };
+}
+
+// ── createBalanceCheckout ─────────────────────────────────────────────────
+// `tip` is the optional free-form tip the customer typed on the payment page.
+// It's charged as its own line item, carries NO platform fee and no sales
+// tax, and is recorded on the lead (tip_amount) by the webhook.
 export async function createBalanceCheckout(
-  leadId: string
+  leadId: string,
+  tip?: number | string | null
 ): Promise<BalanceCheckoutResult> {
   if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const parsedTip = parseTipCents(tip);
+  if ("error" in parsedTip) return { success: false, error: parsedTip.error };
+  const tipCents = parsedTip.cents;
 
   // Look up lead — public, no auth required
   const { data: lead, error: leadError } = await supabase
     .from("leads")
-    .select("installer_id, estimated_price, deposit_amount, deposit_paid, sales_tax_amount, customer_email, customer_name, status, payout_status, source")
+    .select(`installer_id, customer_email, customer_name, status, payout_status, source, ${BALANCE_COLUMNS}`)
     .eq("id", leadId)
     .single();
 
@@ -1050,17 +1143,13 @@ export async function createBalanceCheckout(
     return { success: false, alreadyPaid: true, error: "This order has already been paid." };
   }
 
-  // Calculate balance.
-  // Only credit the deposit when it was actually collected (deposit_paid).
-  // The previous version unconditionally subtracted deposit_amount, which
-  // is the *expected* 25% deposit calculated at quote time — so a quote
-  // where the installer skipped the deposit and went straight to billing
-  // the customer would show the post-deposit balance (~75% of the quote)
-  // instead of the full amount owed. Real-world repro: Allison Anderson
-  // quote was $1,431 with deposit_amount=$357.75; no deposit ever paid;
-  // pay link asked the customer for $1,073.25.
-  const depositCredit = lead.deposit_paid ? (lead.deposit_amount || 0) : 0;
-  const balance = (lead.estimated_price || 0) - depositCredit + (lead.sales_tax_amount || 0);
+  // Calculate balance — shared with every other balance path (see
+  // computeBalanceDue). Only credits the deposit when it was actually
+  // collected (deposit_paid): the Allison Anderson quote ($1,431, never
+  // deposited) once asked for $1,073.25 because the expected-but-unpaid
+  // deposit was credited. Also subtracts the discount, which this link used
+  // to ignore even though the job ticket and saved-card charge applied it.
+  const balance = computeBalanceDue(lead);
   if (balance <= 0) {
     return { success: false, alreadyPaid: true, error: "No balance due." };
   }
@@ -1091,8 +1180,11 @@ export async function createBalanceCheckout(
     // Same rationale as createPaymentSession: if no deposit was ever
     // collected, the platform's cut has never been taken, so it must be
     // deducted from this full-balance charge instead of assumed already
-    // collected via a deposit PaymentIntent.
+    // collected via a deposit PaymentIntent. If a deposit WAS collected,
+    // only post-deposit add-ons whose own deposit is still unpaid owe a fee.
+    // The tip is never part of the fee base or the cap.
     let applicationFeeCents = 0;
+    let addonIds: string[] = [];
     if (!lead.deposit_paid) {
       applicationFeeCents = await computePlatformFeeCents({
         installerId: lead.installer_id,
@@ -1101,27 +1193,43 @@ export async function createBalanceCheckout(
         leadSource: lead.source,
         capCents: amountCents,
       });
+    } else {
+      const addonFee = await pendingAddonFeeForBalance(leadId, amountCents);
+      applicationFeeCents = addonFee.feeCents;
+      addonIds = addonFee.addonIds;
     }
 
     const ready = await assertDirectChargeReady(stripe, installerStripeId);
     if (!ready.ready) return { success: false, error: ready.reason };
 
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Storage Unit — Balance Due (${bizName})`,
+            description: `Job #${leadId.slice(0, 8)}`,
+          },
+          unit_amount: amountCents,
+        },
+        quantity: 1,
+      },
+    ];
+    if (tipCents > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "usd",
+          product_data: { name: `Tip for ${bizName}` },
+          unit_amount: tipCents,
+        },
+        quantity: 1,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "payment",
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `Storage Unit — Balance Due (${bizName})`,
-                description: `Job #${leadId.slice(0, 8)}`,
-              },
-              unit_amount: amountCents,
-            },
-            quantity: 1,
-          },
-        ],
+        line_items: lineItems,
         payment_intent_data: {
           ...(applicationFeeCents > 0 && { application_fee_amount: applicationFeeCents }),
         },
@@ -1133,6 +1241,8 @@ export async function createBalanceCheckout(
           type: "final_payment",
           installer_stripe_id: installerStripeId,
           platform_fee_cents: String(applicationFeeCents),
+          ...(tipCents > 0 && { tip_cents: String(tipCents) }),
+          ...(addonIds.length > 0 && { addon_ids: addonIds.join(",") }),
         },
       },
       onAccount(installerStripeId)
@@ -1196,13 +1306,7 @@ export async function chargeBalanceOffSession(
   // tax is added (installer collects tax with balance). Deposit only credits
   // when actually collected (deposit_paid); see createBalanceCheckout for
   // the full rationale.
-  const discountAmt = lead.discount_amount ?? 0;
-  const depositCredit = lead.deposit_paid ? (lead.deposit_amount || 0) : 0;
-  const balance =
-    (lead.estimated_price || 0) -
-    depositCredit -
-    discountAmt +
-    (lead.sales_tax_amount || 0);
+  const balance = computeBalanceDue(lead);
   if (balance <= 0) {
     return { success: false, alreadyPaid: true, error: "No balance due." };
   }
@@ -1231,6 +1335,14 @@ export async function chargeBalanceOffSession(
   }
 
   const amountCents = Math.round(balance * 100);
+
+  // Balance normally carries no platform fee (it was taken from the
+  // deposit) — except for post-deposit add-ons whose own deposit was never
+  // collected; their fee rides this charge. A never-deposited lead can't
+  // have add-ons, so this is 0 there.
+  const addonFee = lead.deposit_paid
+    ? await pendingAddonFeeForBalance(leadId, amountCents)
+    : { feeCents: 0, addonIds: [] as string[] };
 
   const ready = await assertDirectChargeReady(stripe, installerStripeId);
   if (!ready.ready) return { success: false, error: ready.reason };
@@ -1262,17 +1374,24 @@ export async function chargeBalanceOffSession(
         off_session: true,
         confirm: true,
         // Balance carries no platform fee — platform took its cut from the
-        // deposit, so no application_fee_amount here. The full amount stays
-        // in the installer's account (direct charge — they are the merchant).
+        // deposit — apart from unpaid add-on fees (see addonFee above). The
+        // rest stays in the installer's account (direct charge — they are
+        // the merchant).
+        ...(addonFee.feeCents > 0 && { application_fee_amount: addonFee.feeCents }),
         receipt_email: lead.customer_email || undefined,
         metadata: {
           lead_id: leadId,
           leadId,
           type: "final_payment",
           installer_stripe_id: installerStripeId,
+          platform_fee_cents: String(addonFee.feeCents),
+          ...(addonFee.addonIds.length > 0 && { addon_ids: addonFee.addonIds.join(",") }),
         },
       },
-      onAccount(installerStripeId, { idempotencyKey: `balance-${leadId}` })
+      // Amount is part of the key: an add-on raises the balance, and Stripe
+      // rejects reusing a key with different parameters for 24h — which
+      // would block retrying a declined charge after the quote grew.
+      onAccount(installerStripeId, { idempotencyKey: `balance-${leadId}-${amountCents}` })
     );
 
     if (paymentIntent.status === "succeeded") {
@@ -1998,4 +2117,570 @@ export async function verifyAndConfirmDeposit(
     console.error("[VerifyDeposit] Stripe search error:", stripeErr);
     return { success: false, error: "Stripe verification failed" };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POST-DEPOSIT ADD-ONS (see migration 139)
+//
+// After a deposit is paid the installer can still raise the quote — a
+// last-second plywood top or wheels. Each raise becomes a lead_addons row
+// that carries its OWN deposit and platform fee, computed on the add-on
+// amount alone with the same rates as the original deposit:
+//
+//   $1,050 order (direct lead, 15% deposit, 3% fee)
+//     deposit $157.50 → platform $31.50, installer $126
+//   + $150 top
+//     add-on deposit $22.50 → platform $4.50, installer $18
+//   Deposits total $180, balance $1,020, installer nets $144 of deposits.
+//
+// The add-on amount goes into estimated_price (and its tax into
+// sales_tax_amount) immediately, so the balance is right whether or not the
+// add-on deposit gets paid. If the customer pays the balance first, the
+// add-on's platform fee is taken from that balance charge instead
+// (pendingAddonFeeForBalance); if the job is marked paid off-platform, the
+// fee is invoiced to the installer (invoicePendingAddonFees).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface AddItemsAfterDepositInput {
+  leadId: string;
+  quote_data: QuoteUnit[];
+}
+
+export interface AddItemsAfterDepositResult {
+  success: boolean;
+  error?: string;
+  /** Saved without a price change (e.g. a like-for-like swap). */
+  unchanged?: boolean;
+  addon?: {
+    id: string;
+    amount: number;
+    depositAmount: number;
+    salesTax: number;
+    description: string;
+  };
+}
+
+export async function addItemsAfterDeposit(
+  input: AddItemsAfterDepositInput
+): Promise<AddItemsAfterDepositResult> {
+  const { leadId, quote_data } = input;
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+  if (!Array.isArray(quote_data) || quote_data.length === 0) {
+    return { success: false, error: "Quote must have at least one item." };
+  }
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select(
+      `installer_id, quote_data, delivery_fee, status, payout_status, source, fee_status, billing_state, delivery_address_zip, address_zip, ${BALANCE_COLUMNS}`
+    )
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { success: false, error: "Quote not found." };
+  if (!lead.deposit_paid) {
+    return { success: false, error: "No deposit on this quote yet — edit it normally." };
+  }
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, error: "This job is already paid in full." };
+  }
+
+  const beforeUnits = (Array.isArray(lead.quote_data) ? lead.quote_data : []) as QuoteUnit[];
+  // Delivery fee is locked once a deposit is paid: the build page
+  // re-derives it from the installer's current distance tiers on load, and
+  // a tier change must not silently turn into an add-on (or a price drop).
+  const deliveryFee = Number(lead.delivery_fee) || 0;
+  // Price both sides with the same formula so only the real change counts —
+  // comparing against the stored estimated_price would turn any historic
+  // rounding difference into a phantom add-on.
+  const before = quoteTotals(beforeUnits, lead.delivery_fee);
+  const after = quoteTotals(quote_data, deliveryFee);
+  const addonAmount = roundMoney(after.total - before.total);
+
+  if (addonAmount < 0) {
+    return {
+      success: false,
+      error: "Once a deposit is paid you can add to the quote, but not lower its total.",
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  if (addonAmount === 0) {
+    const { data: saved, error } = await supabase
+      .from("leads")
+      .update({ quote_data, delivery_fee: deliveryFee, updated_at: now })
+      .eq("id", leadId)
+      .eq("estimated_price", lead.estimated_price)
+      .select("id")
+      .maybeSingle();
+    if (error || !saved) return { success: false, error: "Quote changed — refresh and try again." };
+    return { success: true, unchanged: true };
+  }
+
+  // ── Sales tax on the taxable part of the add-on ─────────────────────
+  // Same state the original quote was taxed in (billing state from /pay,
+  // else the delivery ZIP).
+  const taxableDelta = roundMoney(Math.max(0, after.taxable - before.taxable));
+  let addonTax = 0;
+  if (taxableDelta > 0) {
+    const zip = (lead.delivery_address_zip || lead.address_zip || "") as string;
+    if (lead.billing_state) {
+      addonTax = (await getSalesTax(taxableDelta, lead.billing_state, lead.installer_id)).taxAmount;
+    } else if (zip) {
+      addonTax = (await getEstimatedSalesTax(taxableDelta, zip, lead.installer_id)).taxAmount;
+    }
+  }
+
+  // ── Add-on deposit + platform fee ───────────────────────────────────
+  const depositAmount = await getAddonDepositAmount(addonAmount, lead.installer_id);
+  const depositCents = Math.round(depositAmount * 100);
+  let platformFeeCents = 0;
+  if (lead.fee_status !== "waived") {
+    // A job whose fee was waived (first 3 free jobs) stays fee-free for its
+    // add-ons too; otherwise the add-on pays the job's normal rate.
+    const split = await resolveDepositFeeSplit({
+      installerId: lead.installer_id,
+      totalPriceCents: Math.round(addonAmount * 100),
+      depositAmountCents: depositCents,
+      source: (lead.source as LeadSource | null) || "platform",
+    });
+    platformFeeCents = split.feeWaived ? 0 : Math.min(split.platformFeeCents, depositCents);
+  }
+
+  const description = describeAddon(beforeUnits, quote_data);
+
+  const { data: addonRow, error: insertErr } = await supabase
+    .from("lead_addons")
+    .insert({
+      lead_id: leadId,
+      installer_id: lead.installer_id,
+      description,
+      amount: addonAmount,
+      deposit_amount: depositAmount,
+      platform_fee: platformFeeCents / 100,
+      sales_tax_amount: addonTax,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (insertErr || !addonRow) {
+    console.error("[AddOn] Insert failed:", insertErr);
+    return { success: false, error: "Failed to save the add-on." };
+  }
+
+  const newEstimated = roundMoney((Number(lead.estimated_price) || 0) + addonAmount);
+  const newTax = roundMoney((Number(lead.sales_tax_amount) || 0) + addonTax);
+
+  // Optimistic lock on estimated_price: two saves racing from two tabs must
+  // not both add their delta on top of the same starting total.
+  const { data: updated, error: updateErr } = await supabase
+    .from("leads")
+    .update({
+      quote_data,
+      delivery_fee: deliveryFee,
+      estimated_price: newEstimated,
+      sales_tax_amount: newTax,
+      balance_due: computeBalanceDue({ ...lead, estimated_price: newEstimated, sales_tax_amount: newTax }),
+      updated_at: now,
+    })
+    .eq("id", leadId)
+    .eq("estimated_price", lead.estimated_price)
+    .select("id")
+    .maybeSingle();
+
+  if (updateErr || !updated) {
+    await supabase.from("lead_addons").delete().eq("id", addonRow.id);
+    console.error("[AddOn] Lead update failed:", updateErr);
+    return { success: false, error: "Quote changed — refresh and try again." };
+  }
+
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "quote_addon_after_deposit", {
+    leadId,
+    addonAmount,
+    depositAmount,
+    platformFee: platformFeeCents / 100,
+  });
+
+  console.log(
+    `[AddOn] Lead ${leadId}: +$${addonAmount} (${description}) | add-on deposit $${depositAmount} → platform $${platformFeeCents / 100} | tax +$${addonTax}`
+  );
+
+  return {
+    success: true,
+    addon: { id: addonRow.id, amount: addonAmount, depositAmount, salesTax: addonTax, description },
+  };
+}
+
+// ── getLeadAddons — AUTH (installer-owned) ───────────────────────────────
+// Add-ons and tip for the job ticket. Read separately from the ticket's main
+// lead query so a database without migration 139 still loads the ticket.
+export async function getLeadAddons(
+  leadId: string
+): Promise<{ success: boolean; addons?: LeadAddon[]; tipAmount?: number; error?: string }> {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+  const { data: tipRow } = await supabase.from("leads").select("tip_amount").eq("id", leadId).maybeSingle();
+  return {
+    success: true,
+    addons: await listAddons(leadId),
+    tipAmount: Number(tipRow?.tip_amount) || 0,
+  };
+}
+
+// ── Shared: what an add-on deposit charge consists of right now ──────────
+async function loadAddonDepositCharge(leadId: string) {
+  const { data: lead } = await supabase
+    .from("leads")
+    .select(
+      "installer_id, customer_id, customer_email, customer_name, status, payout_status, stripe_customer_id, stripe_payment_method_id, stripe_customer_account_id"
+    )
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!lead) return { error: "Order not found." as const };
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { error: "This order has already been paid." as const, alreadyPaid: true };
+  }
+  const pending = await listPendingAddons(leadId);
+  if (pending.length === 0) {
+    return { error: "No add-on deposit is due." as const, alreadyPaid: true };
+  }
+  const depositCents = pending.reduce((s, a) => s + Math.round(a.deposit_amount * 100), 0);
+  if (depositCents <= 0) {
+    // A few-cent add-on whose deposit rounds to $0 — nothing to charge
+    // separately; it's simply part of the balance.
+    return { error: "No add-on deposit is due." as const, alreadyPaid: true };
+  }
+  const feeCents = Math.min(pendingAddonFeeCents(pending), depositCents);
+  return {
+    lead,
+    pending,
+    depositCents,
+    feeCents,
+    addonIds: pending.map((a) => a.id),
+  };
+}
+
+// ── getAddonDepositSummary — PUBLIC (no auth) ────────────────────────────
+// For /payment/addon/[leadId]: what's being paid for before redirecting.
+export async function getAddonDepositSummary(leadId: string): Promise<{
+  success: boolean;
+  alreadyPaid?: boolean;
+  items?: Array<{ description: string; amount: number; deposit: number }>;
+  depositTotal?: number;
+  error?: string;
+}> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+  const charge = await loadAddonDepositCharge(leadId);
+  if ("error" in charge) return { success: false, alreadyPaid: charge.alreadyPaid, error: charge.error };
+  return {
+    success: true,
+    items: charge.pending.map((a) => ({
+      description: a.description || "Add-on",
+      amount: a.amount,
+      deposit: a.deposit_amount,
+    })),
+    depositTotal: charge.depositCents / 100,
+  };
+}
+
+// ── createAddonDepositCheckout — PUBLIC (no auth) ────────────────────────
+// Stripe Checkout for every pending add-on deposit on a lead. Used by the
+// permanent /payment/addon/[leadId] link, so it builds a fresh session on
+// each visit (same pattern as createBalanceCheckout).
+export async function createAddonDepositCheckout(leadId: string): Promise<BalanceCheckoutResult> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const charge = await loadAddonDepositCharge(leadId);
+  if ("error" in charge) return { success: false, alreadyPaid: charge.alreadyPaid, error: charge.error };
+  const { lead, pending, feeCents, addonIds } = charge;
+
+  const profile = await getInstallerProfile(lead.installer_id);
+  const installerStripeId = profile?.stripe_account_id ?? null;
+
+  // Same routing as createDepositCheckoutSession: direct charge on the
+  // installer's account with the platform fee as application_fee_amount;
+  // installers with no Stripe account are charged on the platform.
+  if (installerStripeId) {
+    const ready = await assertDirectChargeReady(stripe, installerStripeId);
+    if (!ready.ready) return { success: false, error: ready.reason };
+  }
+
+  try {
+    const baseUrl = siteConfig.baseUrl;
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: pending.map((a) => ({
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Add-on Deposit — ${a.description || "Add-on"}`,
+              description: `$${a.amount.toLocaleString()} add-on · Job #${leadId.slice(0, 8)}`,
+            },
+            unit_amount: Math.round(a.deposit_amount * 100),
+          },
+          quantity: 1,
+        })),
+        payment_intent_data: {
+          ...(installerStripeId && feeCents > 0 && { application_fee_amount: feeCents }),
+        },
+        customer_email: lead.customer_email || undefined,
+        success_url: `${baseUrl}/payment/success?job=${leadId}&kind=addon`,
+        cancel_url: `${baseUrl}/payment/addon/${leadId}`,
+        metadata: {
+          lead_id: leadId,
+          type: "addon_deposit",
+          addon_ids: addonIds.join(","),
+          installer_id: lead.installer_id,
+          platform_fee_cents: String(feeCents),
+          ...(installerStripeId && { installer_stripe_id: installerStripeId }),
+        },
+      },
+      installerStripeId ? onAccount(installerStripeId) : undefined
+    );
+
+    if (!session.url) return { success: false, error: "Failed to create checkout session." };
+    return { success: true, url: session.url };
+  } catch (err) {
+    console.error("[AddOnCheckout] Stripe error:", err);
+    return { success: false, error: "Payment system error. Please try again." };
+  }
+}
+
+// ── chargeAddonDepositOffSession — AUTH (installer-owned) ────────────────
+// Charges the card on file for the pending add-on deposit(s). Same card
+// resolution / 3DS fallback as chargeDepositOffSession.
+export async function chargeAddonDepositOffSession(leadId: string): Promise<OffSessionChargeResult> {
+  if (!leadId) return { success: false, error: "Missing lead ID." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const charge = await loadAddonDepositCharge(leadId);
+  if ("error" in charge) return { success: false, alreadyPaid: charge.alreadyPaid, error: charge.error };
+  const { lead, depositCents, feeCents, addonIds } = charge;
+
+  const baseUrl = siteConfig.baseUrl;
+  const fallbackUrl = `${baseUrl}/payment/addon/${leadId}`;
+
+  const savedCard = await findSavedCard(lead);
+  if (!savedCard) {
+    return { success: false, fallbackUrl, error: "No card on file for this customer. Send the add-on deposit link." };
+  }
+
+  const profile = await getInstallerProfile(lead.installer_id);
+  const installerStripeId = profile?.stripe_account_id;
+  if (!installerStripeId) return { success: false, error: "Installer payment account not configured." };
+
+  const ready = await assertDirectChargeReady(stripe, installerStripeId);
+  if (!ready.ready) return { success: false, error: ready.reason };
+
+  const scopedCard = await resolveCardForAccount(stripe, installerStripeId, savedCard, {
+    email: lead.customer_email,
+    name: lead.customer_name,
+  });
+  if (!scopedCard) {
+    return { success: false, fallbackUrl, error: "Saved card can't be charged on your account. Send the add-on deposit link." };
+  }
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: depositCents,
+        currency: "usd",
+        customer: scopedCard.customerId,
+        payment_method: scopedCard.paymentMethodId,
+        off_session: true,
+        confirm: true,
+        ...(feeCents > 0 && { application_fee_amount: feeCents }),
+        receipt_email: lead.customer_email || undefined,
+        metadata: {
+          lead_id: leadId,
+          type: "addon_deposit",
+          addon_ids: addonIds.join(","),
+          installer_id: lead.installer_id,
+          installer_stripe_id: installerStripeId,
+          platform_fee_cents: String(feeCents),
+        },
+      },
+      onAccount(installerStripeId, { idempotencyKey: `addon-deposit-${[...addonIds].sort().join("_")}` })
+    );
+
+    if (paymentIntent.status === "succeeded") {
+      // Webhook records the add-on deposit. Don't double-write here.
+      return { success: true, paymentIntentId: paymentIntent.id };
+    }
+    return {
+      success: false,
+      paymentIntentId: paymentIntent.id,
+      error: `Payment did not complete (status: ${paymentIntent.status}).`,
+    };
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeCardError) {
+      if (err.code === "authentication_required") {
+        return {
+          success: false,
+          requiresAuthentication: true,
+          fallbackUrl,
+          error: "Customer authentication required. Send them the add-on deposit link.",
+        };
+      }
+      return { success: false, error: err.message || "Card was declined." };
+    }
+    console.error("[AddOnOffSession] Stripe error:", err);
+    return { success: false, error: "Payment system error. Please try again." };
+  }
+}
+
+// ── sendAddonDepositLink — AUTH (installer-owned) ────────────────────────
+// Emails the customer the permanent /payment/addon/[leadId] link.
+export async function sendAddonDepositLink(leadId: string): Promise<InvoiceResult> {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const charge = await loadAddonDepositCharge(leadId);
+  if ("error" in charge) return { success: false, error: charge.error };
+  const { lead, pending, depositCents } = charge;
+  if (!lead.customer_email) return { success: false, error: "No customer email on file." };
+
+  const { data: installerProfile } = await supabase
+    .from("profiles")
+    .select("business_name, first_name, last_name")
+    .eq("id", auth.userId)
+    .single();
+  const businessName =
+    installerProfile?.business_name ||
+    [installerProfile?.first_name, installerProfile?.last_name].filter(Boolean).join(" ") ||
+    "Your Installer";
+
+  const paymentUrl = `${siteConfig.baseUrl}/payment/addon/${leadId}`;
+  const amount = depositCents / 100;
+  const addedTotal = pending.reduce((s, a) => s + a.amount, 0);
+
+  try {
+    const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
+    const safeName = escapeHtml(lead.customer_name || "there");
+    const safeBiz = escapeHtml(businessName);
+    const itemsHtml = pending
+      .map(
+        (a) =>
+          `<li style="margin:0 0 6px;">${escapeHtml(a.description || "Add-on")} — $${a.amount.toLocaleString()}</li>`
+      )
+      .join("");
+
+    const html = emailShell(
+      "Add-On Deposit",
+      `
+      <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${safeName},</p>
+      <p style="margin:0 0 16px;color:#94a3b8;font-size:15px;line-height:1.7;">
+        <strong style="color:#facc15;">${safeBiz}</strong> added the following to your order
+        ($${addedTotal.toLocaleString()} total):
+      </p>
+      <ul style="margin:0 0 24px;padding-left:20px;color:#e2e8f0;font-size:14px;">${itemsHtml}</ul>
+      <div style="background:#1e293b;border-radius:16px;padding:24px;text-align:center;margin-bottom:24px;border:1px solid #334155;">
+        <p style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">
+          Deposit Due Now
+        </p>
+        <p style="color:#facc15;font-size:36px;font-weight:900;margin:0;">
+          $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </p>
+        <p style="color:#94a3b8;font-size:12px;margin:8px 0 0;">The rest is added to your remaining balance.</p>
+      </div>
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="${paymentUrl}" style="display:inline-block;background:#facc15;color:#0f172a;text-align:center;padding:14px 48px;border-radius:12px;font-weight:900;text-decoration:none;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
+          Pay Deposit &rarr;
+        </a>
+      </div>
+      <p style="color:#57534e;font-size:11px;text-align:center;">Payments processed securely via Stripe.</p>
+      `
+    );
+
+    const result = await sendTransactionalEmail({
+      to: lead.customer_email,
+      toName: lead.customer_name || undefined,
+      subject: `Add-on deposit — $${amount.toFixed(2)} from ${businessName}`,
+      html,
+      senderName: businessName,
+    });
+    if (!result.success) return { success: false, error: "Failed to send email." };
+    return { success: true };
+  } catch (err) {
+    console.error("[AddOnLink] Email error:", err);
+    return { success: false, error: "Failed to send email." };
+  }
+}
+
+// ── invoicePendingAddonFees — AUTH (installer-owned) ─────────────────────
+// A job marked paid off-platform (cash / Venmo / check) never ran a Stripe
+// charge for its unpaid add-on deposits, so their platform fee was never
+// taken. Invoice it to the installer's billing customer — the same
+// mechanism markLeadAsPaid uses for a never-deposited cash job. Only acts on
+// a job that is already paid, so calling it early is a no-op.
+export async function invoicePendingAddonFees(leadId: string): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase.from("leads").select("status").eq("id", leadId).maybeSingle();
+  if (lead?.status !== "paid") return { success: true };
+
+  const pending = await listPendingAddons(leadId);
+  if (pending.length === 0) return { success: true };
+  const addonIds = pending.map((a) => a.id);
+  const feeCents = pendingAddonFeeCents(pending);
+
+  if (feeCents > 0) {
+    try {
+      const profile = await getInstallerProfile(auth.userId);
+      if (!profile?.stripe_subscription_id) {
+        console.warn(`[AddOnFee] No billing subscription for installer ${auth.userId}; add-on fee $${feeCents / 100} on lead ${leadId} not invoiced`);
+        return { success: true };
+      }
+      const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+      const customerId =
+        typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
+      const idemKey = `addon-fee-invoice-${[...addonIds].sort().join("_")}`;
+
+      // Create the invoice first and attach the item to it explicitly —
+      // newer API versions don't sweep pending invoice items into a new
+      // invoice by default.
+      const invoice = await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: "charge_automatically",
+          auto_advance: false,
+          metadata: { type: "addon_fee_invoice", lead_id: leadId, installer_id: auth.userId },
+        },
+        { idempotencyKey: idemKey }
+      );
+      await stripe.invoiceItems.create(
+        {
+          customer: customerId,
+          invoice: invoice.id!,
+          amount: feeCents,
+          currency: "usd",
+          description: `Platform fee on add-ons — Job #${leadId.slice(0, 8)} (paid via cash/check/Venmo)`,
+        },
+        { idempotencyKey: `${idemKey}-item` }
+      );
+      const finalized = await stripe.invoices.finalizeInvoice(invoice.id!);
+      try {
+        await stripe.invoices.pay(finalized.id!);
+      } catch (payErr) {
+        // Invoice stays open — Stripe's normal retry / dunning takes over.
+        console.error("[AddOnFee] Invoice payment failed for lead:", leadId, payErr);
+      }
+    } catch (err) {
+      console.error("[AddOnFee] Invoicing error for lead:", leadId, err);
+      return { success: false, error: "Failed to invoice add-on fee." };
+    }
+  }
+
+  await settlePendingAddons({ leadId, addonIds, status: "invoiced" });
+  return { success: true };
 }

@@ -13,6 +13,8 @@ interface QuoteSuccessModalProps {
   quoteReferralStatus: ReferralStatus;
   quoteCoveringName: string;
   customerEmail: string;
+  /** The edited quote already had a deposit paid — the increase is an add-on. */
+  postDeposit?: boolean;
 }
 
 export default function QuoteSuccessModal({
@@ -23,12 +25,18 @@ export default function QuoteSuccessModal({
   quoteReferralStatus,
   quoteCoveringName,
   customerEmail,
+  postDeposit = false,
 }: QuoteSuccessModalProps) {
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const title = editingLeadId
+  // After a deposit, the link to share is the add-on deposit page, not /pay.
+  const linkPath = postDeposit ? `/payment/addon/${quoteLeadId}` : `/pay/${quoteLeadId}`;
+
+  const title = postDeposit
+    ? "Add-On Saved!"
+    : editingLeadId
     ? "Quote Updated!"
     : quoteReferralStatus === "waitlisted"
       ? "Customer Waitlisted"
@@ -36,7 +44,9 @@ export default function QuoteSuccessModal({
         ? "Quote Sent & Referred"
         : "Quote Created!";
 
-  const message = editingLeadId
+  const message = postDeposit
+    ? "The added amount gets its own deposit. Charge the card on file or send this add-on deposit link. Anything left unpaid is added to the final balance."
+    : editingLeadId
     ? "The quote has been updated. Your customer's pay link will show the new items and total."
     : quoteReferralStatus === "waitlisted"
       ? "No installer covers this area yet. The customer has been added to the waitlist and will be notified when one is available. You'll earn the referral bounty when they book."
@@ -48,7 +58,7 @@ export default function QuoteSuccessModal({
 
   async function handleCopy() {
     if (!quoteLeadId) return;
-    const url = `${window.location.origin}/pay/${quoteLeadId}`;
+    const url = `${window.location.origin}${linkPath}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -92,15 +102,15 @@ export default function QuoteSuccessModal({
               <div className="mb-2 flex items-center gap-1.5">
                 <Link2 className="h-3.5 w-3.5 text-yellow-400" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
-                  Quote Link
+                  {postDeposit ? "Add-On Deposit Link" : "Quote Link"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex-1 overflow-hidden rounded-lg border border-slate-600 bg-slate-900 px-3 py-2">
                   <p className="truncate text-xs text-stone-300">
                     {typeof window !== "undefined"
-                      ? `${window.location.origin}/pay/${quoteLeadId}`
-                      : `/pay/${quoteLeadId}`}
+                      ? `${window.location.origin}${linkPath}`
+                      : linkPath}
                   </p>
                 </div>
                 <button

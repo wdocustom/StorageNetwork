@@ -347,6 +347,8 @@ export async function sendJobReceipt(
     units?: BookingConfirmationUnit[];
     completedDate: string;
     reviewUrl?: string;
+    /** Tip the customer added on the balance payment (included in balanceCollected). */
+    tipAmount?: number;
   }
 ): Promise<SendEmailResult> {
   const formattedDate = new Date(data.completedDate).toLocaleDateString("en-US", {
@@ -411,7 +413,8 @@ export async function sendJobReceipt(
       </table>
       <table style="width:100%;margin-top:8px;">
         <tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Secure Deposit</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">−$${data.depositPaid.toLocaleString()}</td></tr>
-        <tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Balance Collected at Installation</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">$${data.balanceCollected.toLocaleString()}</td></tr>
+        <tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Balance Collected at Installation</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">$${(data.balanceCollected - (data.tipAmount ?? 0)).toLocaleString()}</td></tr>
+        ${data.tipAmount && data.tipAmount > 0 ? `<tr><td style="color:#a3a3a3;font-size:13px;padding:4px 0;">Tip — thank you!</td><td style="text-align:right;color:#a3a3a3;font-size:13px;padding:4px 0;">$${data.tipAmount.toLocaleString()}</td></tr>` : ""}
       </table>
     </div>
 

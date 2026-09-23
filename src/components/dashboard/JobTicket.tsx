@@ -40,6 +40,7 @@ import {
 import { toFraction } from "@/lib/utils";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/fee-engine";
+import PostDepositAddons from "@/components/dashboard/PostDepositAddons";
 import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession, chargeDepositOffSession, createDepositCheckoutSession } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
@@ -1728,6 +1729,18 @@ export default function JobTicket({
         </div>
       )}
 
+      {/* ── Add-ons after deposit + customer tip ─────────────────── */}
+      {depositPaid && (
+        <PostDepositAddons
+          leadId={leadId}
+          customerEmail={customerEmail}
+          hasSavedCard={hasSavedCard}
+          savedCardLabel={savedCardLabel}
+          isPaid={isPaid}
+          onRefresh={onRefresh}
+        />
+      )}
+
       {/* ── Unit Summary (directly above purchase list) ───────────── */}
       {quoteData && quoteData.length > 0 && (
         <section className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -1736,6 +1749,15 @@ export default function JobTicket({
               <Ruler className="h-4 w-4 text-yellow-400" />
               Unit Summary
             </h2>
+            {depositPaid && !isPaid && (
+              <a
+                href={`/dashboard/build?edit=${leadId}`}
+                className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
+              >
+                <PenLine className="h-3 w-3" />
+                Add Items
+              </a>
+            )}
             {!depositPaid && (
               <div className="flex items-center gap-1.5">
                 <a

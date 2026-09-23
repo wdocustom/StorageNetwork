@@ -176,6 +176,18 @@ export async function getDepositAmount(grandTotal: number, installerId?: string)
 }
 
 /**
+ * Deposit owed on a post-deposit add-on (e.g. a plywood top added after the
+ * job's deposit was paid). It's the installer's deposit percentage applied
+ * to the add-on amount alone, with the same 15% floor. A FLAT deposit
+ * config ("$200") describes the whole job, not each add-on, so it falls
+ * back to the 15% floor rather than charging the flat amount again.
+ */
+export async function getAddonDepositAmount(addonAmount: number, installerId?: string): Promise<number> {
+  const config = installerId ? await getInstallerDepositConfig(installerId) : null;
+  return computeDeposit(addonAmount, config?.type === "percentage" ? config : null);
+}
+
+/**
  * Get the deposit display label for an installer (e.g. "15%", "25%", "$200").
  * Used by UI components to show what the deposit rate is.
  */
