@@ -232,6 +232,13 @@ export async function markJobPaidManual(
 
   console.log(`[MarkPaidManual] Lead ${leadId} marked paid via ${method}`);
 
+  // Add-ons whose own deposit was never collected still owe their platform
+  // fee; with no Stripe charge to take it from, it's invoiced instead.
+  const { invoicePendingAddonFees } = await import("@/app/actions/payments");
+  await invoicePendingAddonFees(leadId).catch((err: unknown) =>
+    console.error("[MarkPaidManual] Add-on fee invoicing failed (non-fatal):", err)
+  );
+
   const { logActivityInternal } = await import("@/app/actions/installer-activity");
   await logActivityInternal(auth.userId, "job_paid_manual", { leadId, method });
 
@@ -683,15 +690,19 @@ export async function fetchLeadForEdit(
     return { success: false, error: "Quote not found." };
   }
 
-  if (lead.deposit_paid) {
-    return { success: false, error: "Cannot edit a quote that has a deposit paid." };
+  // A deposit-paid quote can still be edited, but only upward — each
+  // increase becomes an add-on with its own deposit (see
+  // addItemsAfterDeposit). A job that's paid in full is closed.
+  if (lead.status === "paid") {
+    return { success: false, error: "This job is already paid in full." };
   }
 
   return { success: true, lead: lead as LeadForEdit };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// updateQuote — Modify an existing unpaid quote's items and totals
+// updateQuote — Modify an existing quote's items and totals. Before a
+// deposit: free edit. After a deposit: increases only, via addItemsAfterDeposit.
 // Recalculates deposit and balance. Customer pay link stays valid.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -717,7 +728,14 @@ export async function updateQuote(input: {
     .single();
 
   if (!lead) return { success: false, error: "Quote not found." };
-  if (lead.deposit_paid) return { success: false, error: "Cannot edit a quote that has a deposit paid." };
+  if (lead.deposit_paid) {
+    // After a deposit, edits can only add — the increase is recorded as an
+    // add-on with its own deposit and platform fee. Discount code and
+    // delivery fee are locked in at deposit time.
+    const { addItemsAfterDeposit } = await import("@/app/actions/payments");
+    const result = await addItemsAfterDeposit({ leadId, quote_data });
+    return { success: result.success, error: result.error };
+  }
 
   // Editing a quote is how an installer resends/revives it — the customer's
   // pay link must work afterward. A quote that expired (7+ days unpaid) has

@@ -113,6 +113,8 @@ export async function sendPaymentReceivedAlert(
     amountReceived: number;
     jobTotal: number;
     leadId: string;
+    /** Tip included in amountReceived (no platform fee is taken from it). */
+    tipAmount?: number;
   }
 ): Promise<SendEmailResult> {
   const dashboardUrl = `${getAppUrl()}/dashboard/leads/${data.leadId}`;
@@ -134,6 +136,7 @@ export async function sendPaymentReceivedAlert(
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
       ${detailRow("Customer", data.customerName)}
       ${detailRow("Job Total", `$${data.jobTotal.toLocaleString()}`, { topBorder: true })}
+      ${data.tipAmount && data.tipAmount > 0 ? detailRow("Tip (included above)", `$${data.tipAmount.toLocaleString()}`, { topBorder: true }) : ""}
     </table>
 
     <div style="text-align:center;margin:0 0 24px;">

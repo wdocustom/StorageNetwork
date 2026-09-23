@@ -46,6 +46,36 @@ function fireAndForget(label: string, fn: () => Promise<void>) {
   waitUntil(promise);
 }
 
+// ── Final payment extras: tip + add-on settlement ─────────────────────────
+// Runs after a final_payment has flipped the lead to "paid" (only on the
+// first successful processing, so never twice). Never throws — the payment
+// is already recorded, and failing here must not make Stripe retry it.
+//   • tip_cents  → leads.tip_amount (customer tip on the balance link)
+//   • addon_ids  → those post-deposit add-ons had their platform fee taken
+//                  from this balance charge; mark them settled.
+// tip_amount is written separately from the critical "paid" update so a
+// missing column (migration 139 not yet applied) can't block marking paid.
+async function recordFinalPaymentExtras(leadId: string, metadata: Stripe.Metadata): Promise<void> {
+  try {
+    const tipCents = parseInt(metadata.tip_cents || "0", 10);
+    if (tipCents > 0) {
+      const { error } = await getDb()
+        .from("leads")
+        .update({ tip_amount: tipCents / 100 })
+        .eq("id", leadId);
+      if (error) console.error("[Webhook] Tip record failed:", leadId, error.message);
+    }
+    const { settlePendingAddons, parseAddonIds } = await import("@/lib/server/lead-addons");
+    await settlePendingAddons({
+      leadId,
+      addonIds: parseAddonIds(metadata.addon_ids),
+      status: "collected_with_balance",
+    });
+  } catch (err) {
+    console.error("[Webhook] Final payment extras failed (non-fatal):", leadId, err);
+  }
+}
+
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
@@ -620,6 +650,31 @@ export async function POST(request: NextRequest) {
     }
 
     // ═════════════════════════════════════════════════════════════════════
+    // ADD-ON DEPOSIT — Customer paid the deposit on post-deposit add-ons
+    // via /payment/addon/[leadId]. The platform fee already came out as
+    // application_fee_amount; this credits the deposit onto the lead.
+    // ═════════════════════════════════════════════════════════════════════
+    if (paymentType === "addon_deposit") {
+      if (session.payment_status !== "paid") {
+        console.warn(`[Webhook] Add-on deposit session ${session.id} payment_status="${session.payment_status}" — skipping`);
+        return NextResponse.json({ received: true });
+      }
+      const { recordAddonDepositPaid, parseAddonIds } = await import("@/lib/server/lead-addons");
+      const result = await recordAddonDepositPaid({
+        leadId,
+        addonIds: parseAddonIds(metadata.addon_ids),
+        paymentIntentId: (session.payment_intent as string | null) ?? null,
+      });
+      if (result.error) {
+        console.error("[Webhook] CRITICAL: Add-on deposit DB update failed:", leadId, result.error);
+        if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+        return NextResponse.json({ error: "Add-on deposit update failed" }, { status: 500 });
+      }
+      console.log(`[Webhook] Add-on deposit recorded for lead ${leadId}: ${result.recorded} add-on(s), +$${result.depositCredited}`);
+      return NextResponse.json({ received: true });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
     // FINAL PAYMENT — Customer paid the balance via payment link
     // ═════════════════════════════════════════════════════════════════════
     if (paymentType === "final_payment") {
@@ -690,6 +745,7 @@ export async function POST(request: NextRequest) {
         }
 
         console.log("SUCCESS: Job marked PAID (final payment) for lead:", leadId);
+        await recordFinalPaymentExtras(leadId, metadata);
       } catch (err) {
         console.error("[Webhook] Final payment update threw:", err);
         // Return 500 so Stripe retries
@@ -739,6 +795,7 @@ export async function POST(request: NextRequest) {
             totalAmount: lead.estimated_price ?? amountPaid,
             depositPaid: lead.deposit_amount ?? 0,
             balanceCollected: amountPaid,
+            tipAmount: parseInt(metadata.tip_cents || "0", 10) / 100,
             jobDescription: `${unitCount} shelving unit${unitCount !== 1 ? "s" : ""}`,
             units: quoteDataToBookingUnits(lead.quote_data),
             completedDate: new Date().toISOString(),
@@ -754,6 +811,7 @@ export async function POST(request: NextRequest) {
             amountReceived: amountPaid,
             jobTotal: lead?.estimated_price ?? amountPaid,
             leadId,
+            tipAmount: parseInt(metadata.tip_cents || "0", 10) / 100,
           });
           console.log("[Webhook] Payment alert sent to installer:", installerEmail);
         }
@@ -1329,6 +1387,26 @@ export async function POST(request: NextRequest) {
       const amountPaidPI = (paymentIntent.amount || 0) / 100;
       console.log("[Webhook] payment_intent.succeeded for lead:", leadId, "| type:", paymentType, "| amount:", amountPaidPI);
 
+      if (metadata.type === "addon_deposit") {
+        // ── ADD-ON DEPOSIT via chargeAddonDepositOffSession ───────────
+        // Match metadata.type EXPLICITLY (same reason as final_payment
+        // below): Checkout-born PIs carry no metadata, and the Checkout
+        // add-on path is handled by checkout.session.completed.
+        const { recordAddonDepositPaid, parseAddonIds } = await import("@/lib/server/lead-addons");
+        const result = await recordAddonDepositPaid({
+          leadId,
+          addonIds: parseAddonIds(metadata.addon_ids),
+          paymentIntentId: paymentIntent.id,
+        });
+        if (result.error) {
+          console.error("[Webhook] CRITICAL: Off-session add-on deposit DB update failed:", leadId, result.error);
+          if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});
+          return NextResponse.json({ error: "Add-on deposit update failed" }, { status: 500 });
+        }
+        console.log(`[Webhook] Off-session add-on deposit recorded for lead ${leadId}: ${result.recorded} add-on(s), +$${result.depositCredited}`);
+        return NextResponse.json({ received: true });
+      }
+
       if (metadata.type === "final_payment") {
         // ── BALANCE via chargeBalanceOffSession (saved card auto-charge) ─
         // Mirrors the checkout.session.completed final_payment branch but
@@ -1369,6 +1447,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true });
           }
           console.log("SUCCESS: Job marked PAID (off-session balance) for lead:", leadId);
+          await recordFinalPaymentExtras(leadId, metadata);
         } catch (err) {
           console.error("[Webhook] Off-session final payment update threw:", err);
           if (redis) await redis.set(`webhook:evt:${event.id}`, "failed", { ex: 300 }).catch(() => {});

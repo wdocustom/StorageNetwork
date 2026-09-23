@@ -20,6 +20,9 @@ export default function PaymentSuccessPage() {
 function PaymentSuccessInner() {
   const searchParams = useSearchParams();
   const jobId = searchParams.get("job") || "";
+  // kind=addon: deposit on items added after the original deposit — the
+  // job isn't finished, so don't say it is.
+  const isAddonDeposit = searchParams.get("kind") === "addon";
 
   return (
     <div className="relative min-h-screen bg-slate-950">
@@ -42,19 +45,21 @@ function PaymentSuccessInner() {
 
         {/* Headline */}
         <h1 className="mb-2 text-center text-4xl font-black uppercase tracking-tight text-white sm:text-5xl">
-          Payment{" "}
+          {isAddonDeposit ? "Deposit" : "Payment"}{" "}
           <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">
-            Complete!
+            {isAddonDeposit ? "Received!" : "Complete!"}
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="mb-8 max-w-md text-center text-lg text-stone-400">
-          Thank you for your payment. Your installer has been notified and your
-          job is now complete.
+          {isAddonDeposit
+            ? "Thanks! Your deposit on the added items is in. The rest is included in your remaining balance."
+            : "Thank you for your payment. Your installer has been notified and your job is now complete."}
         </p>
 
         {/* Email prompt */}
+        {!isAddonDeposit && (
         <div className="mb-8 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">
           <Mail className="h-5 w-5 shrink-0 text-emerald-400" />
           <p className="text-sm text-stone-400">
@@ -63,6 +68,7 @@ function PaymentSuccessInner() {
             has been sent to your email.
           </p>
         </div>
+        )}
 
         {/* Job reference (if available) */}
         {jobId && (
