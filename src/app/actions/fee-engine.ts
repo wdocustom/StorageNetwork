@@ -177,13 +177,32 @@ export async function getDepositAmount(grandTotal: number, installerId?: string)
 
 /**
  * Deposit owed on a post-deposit add-on (e.g. a plywood top added after the
- * job's deposit was paid). It's the installer's deposit percentage applied
- * to the add-on amount alone, with the same 15% floor. A FLAT deposit
- * config ("$200") describes the whole job, not each add-on, so it falls
- * back to the 15% floor rather than charging the flat amount again.
+ * job's deposit was paid): the add-on amount × the deposit rate this JOB was
+ * booked at, so whatever deposit the installer uses carries over:
+ *
+ *   25% percentage config — $1,050 job paid $262.50 → rate 25% → $150 top owes $37.50
+ *   $200 flat config      — $1,050 job paid $200    → rate 19.05% → $150 top owes $28.57
+ *
+ * `jobDepositRate` is the job's original deposit ÷ original total (the
+ * caller derives it from the lead). Using the booked rate rather than the
+ * installer's current setting keeps an add-on consistent with what the
+ * customer agreed to even if the installer changes their deposit setting
+ * later. When the rate can't be derived (legacy lead with no deposit
+ * recorded), falls back to the installer's percentage config. The 15% floor
+ * always applies, same as every deposit.
  */
-export async function getAddonDepositAmount(addonAmount: number, installerId?: string): Promise<number> {
+export async function getAddonDepositAmount(
+  addonAmount: number,
+  installerId?: string,
+  jobDepositRate?: number | null
+): Promise<number> {
+  if (jobDepositRate && Number.isFinite(jobDepositRate) && jobDepositRate > 0) {
+    const rate = Math.max(Math.min(jobDepositRate, 1), DEPOSIT_RATE);
+    return roundMoney(addonAmount * rate);
+  }
   const config = installerId ? await getInstallerDepositConfig(installerId) : null;
+  // A flat config describes a whole job, not each add-on — without a booked
+  // rate to go on, only a percentage config can be applied to an add-on.
   return computeDeposit(addonAmount, config?.type === "percentage" ? config : null);
 }
 

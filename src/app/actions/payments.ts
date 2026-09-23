@@ -2236,7 +2236,19 @@ export async function addItemsAfterDeposit(
   }
 
   // ── Add-on deposit + platform fee ───────────────────────────────────
-  const depositAmount = await getAddonDepositAmount(addonAmount, lead.installer_id);
+  // The add-on deposit uses the rate this job was booked at — the
+  // installer's custom percentage or the effective rate of a flat deposit.
+  // Earlier add-ons are backed out so they can't skew it: their amounts are
+  // already in estimated_price, and paid add-on deposits in deposit_amount.
+  const priorAddons = await listAddons(leadId);
+  const originalTotal =
+    (Number(lead.estimated_price) || 0) - priorAddons.reduce((s, a) => s + a.amount, 0);
+  const originalDeposit =
+    (Number(lead.deposit_amount) || 0) -
+    priorAddons.filter((a) => a.status === "paid").reduce((s, a) => s + a.deposit_amount, 0);
+  const jobDepositRate = originalTotal > 0 && originalDeposit > 0 ? originalDeposit / originalTotal : null;
+
+  const depositAmount = await getAddonDepositAmount(addonAmount, lead.installer_id, jobDepositRate);
   const depositCents = Math.round(depositAmount * 100);
   let platformFeeCents = 0;
   if (lead.fee_status !== "waived") {
