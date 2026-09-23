@@ -41,7 +41,7 @@ import ChairDrawer from "@/components/build/ChairDrawer";
 import CartBar from "@/components/build/CartBar";
 import QuoteSuccessModal from "@/components/build/QuoteSuccessModal";
 import type { UnitConfig as BuildUnitConfig, UnitOption } from "@/components/build/types";
-import { optionPriceDelta, slotsOf } from "@/components/build/unitOptions";
+import { isRackUnit, optionPriceDelta, slotsOf } from "@/components/build/unitOptions";
 import BlueprintCanvas from "@/components/visualizer/BlueprintCanvas";
 
 const AssemblyGuide = lazy(() => import("@/components/visualizer/AssemblyGuide"));
@@ -1469,9 +1469,15 @@ export default function BuildConfiguratorPage() {
           </div>
           {editingDepositPaid && (
             <p className="mx-auto mt-1 max-w-2xl text-[10px] text-amber-200/80">
-              Deposit paid. To add a top, wheels or totes to a unit, tap the quote bar below and use the
-              <strong> + Top / + Wheels / + Totes</strong> buttons on that unit. You can also add new units.
-              The added amount gets its own deposit.
+              Deposit paid. You can add to this quote but not lower it; the added amount gets its own deposit.{" "}
+              {units.some((u) => lockedUnitIds.has(u.id) && isRackUnit(u)) ? (
+                <>
+                  To add a top, wheels or totes to a unit, tap the quote bar below and use the
+                  <strong> + Top / + Wheels / + Totes</strong> buttons on that unit, or add new items here.
+                </>
+              ) : (
+                <>Add new items below. (Tops, wheels and totes can only be added to tote racks, and this quote has none.)</>
+              )}
             </p>
           )}
         </div>

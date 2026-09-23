@@ -2,6 +2,7 @@
 
 import { Star, Trash2, PenLine, ArrowUpFromLine, Plus, X, Loader2 } from "lucide-react";
 import type { UnitConfig, UnitOption } from "./types";
+import { isRackUnit } from "./unitOptions";
 
 const OPTION_LABEL: Record<UnitOption, string> = { top: "Top", wheels: "Wheels", totes: "Totes" };
 
@@ -240,19 +241,5 @@ export default function CartLineItems({
         );
       })}
     </div>
-  );
-}
-
-// A tote rack (standard or mini) — the only kind of line where top / wheels
-// / totes are options. Overheads, shelving, chairs, raised beds and custom
-// line items don't take them.
-function isRackUnit(unit: UnitConfig): boolean {
-  return (
-    unit.cols > 0 &&
-    unit.rows > 0 &&
-    !unit.overheadGridPresetId &&
-    !unit.shelvingConfigId &&
-    !unit.chairId &&
-    !unit.raisedBedConfig
   );
 }
