@@ -15,7 +15,7 @@ import {
   Calculator,
   ChevronDown,
 } from "lucide-react";
-import type { UnitConfig } from "./types";
+import type { UnitConfig, UnitOption } from "./types";
 import type { DeliveryFeeResult, IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import type { MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import type { BuildFeeBreakdown } from "@/app/actions/fee-engine";
@@ -29,6 +29,11 @@ interface CartBarProps {
   onRemoveUnit: (id: string) => void;
   onToggleIndoorDelivery?: (unitIndex: number, enabled: boolean) => void;
   indoorDeliveryConfig: IndoorDeliveryConfig | null;
+  /** Editing a saved quote: add top / wheels / totes to an existing unit. */
+  onAddOption?: (unitId: string, option: UnitOption) => void;
+  onUndoOption?: (unitId: string, option: UnitOption) => void;
+  optionBusy?: string | null;
+  lockedUnitIds?: Set<string>;
 
   editingLeadId: string | null;
   editingCustomerName?: string;
@@ -84,6 +89,10 @@ export default function CartBar(props: CartBarProps) {
     onRemoveUnit,
     onToggleIndoorDelivery,
     indoorDeliveryConfig,
+    onAddOption,
+    onUndoOption,
+    optionBusy,
+    lockedUnitIds,
     editingLeadId,
     editingCustomerName,
     deliveryFeeResult,
@@ -271,6 +280,10 @@ export default function CartBar(props: CartBarProps) {
                           : undefined
                       }
                       onToggleIndoorDelivery={onToggleIndoorDelivery}
+                      onAddOption={onAddOption}
+                      onUndoOption={onUndoOption}
+                      optionBusy={optionBusy}
+                      lockedUnitIds={lockedUnitIds}
                     />
 
                     {/* Grand total breakdown */}

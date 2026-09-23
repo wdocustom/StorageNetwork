@@ -4,6 +4,8 @@ import type { SectionAddon, PaintColorId } from "@/types/viewModels";
 export type ToteType = "HDX" | "GM";
 export type UnitTypeOption = "standard" | "mini";
 export type InputMode = "wallFit" | "custom";
+/** Per-unit options that can be added to a unit already on a saved quote. */
+export type UnitOption = "top" | "wheels" | "totes";
 
 /**
  * Unit configuration for multi-unit quotes on the build page.
@@ -42,6 +44,11 @@ export interface UnitConfig {
   paintSidePanelColor?: PaintColorId | null;
   indoorDelivery?: boolean;
   indoorDeliveryFee?: number;
+  /**
+   * Options added to this unit while editing a saved quote, with the price
+   * each one added — so the installer can undo it exactly. Client-only.
+   */
+  addedOptions?: Partial<Record<UnitOption, number>>;
 }
 
 export interface BuildResultData {
