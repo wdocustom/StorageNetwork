@@ -1,4 +1,4 @@
-import type { UnitOption } from "./types";
+import type { UnitConfig, UnitOption } from "./types";
 
 // Slot count of a quote line. A saved bestseller line keeps only its first
 // section's cols/rows, but its description records the real total
@@ -21,4 +21,18 @@ export function optionPriceDelta(
   const calcSlots = unit.cols * unit.rows;
   if (option === "totes" && calcSlots > 0) delta = (delta / calcSlots) * slotsOf(unit);
   return Math.round(delta * 100) / 100;
+}
+
+// A tote rack (standard or mini): the only kind of line where top / wheels
+// / totes are options. Overheads, shelving, chairs, raised beds and custom
+// line items don't take them.
+export function isRackUnit(unit: UnitConfig): boolean {
+  return (
+    unit.cols > 0 &&
+    unit.rows > 0 &&
+    !unit.overheadGridPresetId &&
+    !unit.shelvingConfigId &&
+    !unit.chairId &&
+    !unit.raisedBedConfig
+  );
 }
