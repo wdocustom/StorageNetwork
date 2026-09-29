@@ -2,6 +2,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { isInventoryRackUnit, type RackCandidate } from "@/utils/rackInventory";
+import { requestQuoteUrl as requestQuoteLink } from "@/lib/server/request-link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Tote Inventory — Customer-facing content tracking for storage racks
@@ -62,6 +63,8 @@ export async function getRackByToken(token: string): Promise<{
   slots: InventorySlot[];
   linkedRacks: Array<{ id: string; access_token: string; label: string }>;
   installer: { name: string; slug: string | null; avatarUrl: string | null } | null;
+  /** Signed link to ask this rack's installer for a new quote (job-linked racks only). */
+  requestQuoteUrl?: string | null;
   error?: string;
 }> {
   if (!token || token.length < 16) {
@@ -133,7 +136,9 @@ export async function getRackByToken(token: string): Promise<{
     }
   }
 
-  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks, installer };
+  const requestQuoteUrl = rack.lead_id ? requestQuoteLink(rack.lead_id as string, "rack") ?? null : null;
+
+  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks, installer, requestQuoteUrl };
 }
 
 export async function createRack(input: {
@@ -829,7 +834,7 @@ export async function emailRackLink(input: {
 }): Promise<{ success: boolean; error?: string }> {
   const { data: rack } = await db()
     .from("inventory_racks")
-    .select("access_token, label, cols, rows")
+    .select("access_token, label, cols, rows, lead_id")
     .eq("id", input.rackId)
     .maybeSingle();
 
@@ -839,6 +844,7 @@ export async function emailRackLink(input: {
   const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
 
   const rackUrl = `${getAppUrl()}/rack/${rack.access_token}`;
+  const newQuoteUrl = rack.lead_id ? requestQuoteLink(rack.lead_id as string, "rack") : undefined;
   const safeName = input.customerName.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const html = emailShell(
@@ -881,6 +887,11 @@ export async function emailRackLink(input: {
     <p style="margin:0;color:#475569;font-size:12px;text-align:center;font-style:italic;">
       This link is your private access key &mdash; no account required.
     </p>
+    ${newQuoteUrl ? `
+    <p style="margin:24px 0 0;padding-top:20px;border-top:1px solid #334155;color:#94a3b8;font-size:13px;text-align:center;">
+      Need more storage? <a href="${newQuoteUrl}" style="color:#facc15;font-weight:700;">Request a new quote</a>
+    </p>
+    ` : ""}
     `
   );
 

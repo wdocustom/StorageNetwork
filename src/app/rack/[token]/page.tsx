@@ -119,6 +119,9 @@ export default function RackPage() {
   const [slots, setSlots] = useState<InventorySlot[]>([]);
   const [linkedRacks, setLinkedRacks] = useState<Array<{ id: string; access_token: string; label: string }>>([]);
   const [installer, setInstaller] = useState<{ name: string; slug: string | null; avatarUrl: string | null } | null>(null);
+  // Job-linked racks: ask the same installer for a quote instead of the
+  // self-serve configurator.
+  const [requestQuoteUrl, setRequestQuoteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -190,6 +193,7 @@ export default function RackPage() {
       setSlots(result.slots);
       setLinkedRacks(result.linkedRacks);
       setInstaller(result.installer);
+      setRequestQuoteUrl(result.requestQuoteUrl ?? null);
     }
     setLoading(false);
   }, [token]);
@@ -1014,7 +1018,8 @@ export default function RackPage() {
   const totalItems = slots.reduce((sum, s) => sum + (s.item_count ?? 0), 0);
   const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
   const scoreMsg = getScoreMessage(utilizationPct);
-  const designUrl = installer?.slug ? `/design?installer=${installer.slug}` : "/design";
+  const designUrl =
+    requestQuoteUrl || (installer?.slug ? `/design?installer=${installer.slug}` : "/design");
 
   // Collect unique categories from slot labels
   const usedCategories = new Set<string>();
@@ -1491,7 +1496,7 @@ export default function RackPage() {
             <p className="text-[11px] text-slate-500 group-hover:text-slate-400">
               Need more storage?{" "}
               <span className="text-yellow-400/70 group-hover:text-yellow-400 font-medium">
-                Design a new rack &rarr;
+                {requestQuoteUrl ? "Request a quote" : "Design a new rack"} &rarr;
               </span>
             </p>
           </a>

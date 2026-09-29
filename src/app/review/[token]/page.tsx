@@ -118,6 +118,20 @@ export default function ReviewPage() {
               />
             ))}
           </div>
+          {pageData.requestQuoteUrl && (
+            <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-4">
+              <p className="mb-1 text-sm font-bold text-white">Want another one?</p>
+              <p className="mb-3 text-xs text-slate-400">
+                Another rack, a top, wheels or overhead storage — {pageData.installerName} will send you a quote.
+              </p>
+              <a
+                href={pageData.requestQuoteUrl}
+                className="inline-block rounded-lg bg-yellow-400 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-950 hover:bg-yellow-300"
+              >
+                Request a New Quote
+              </a>
+            </div>
+          )}
           <a
             href="/"
             className="inline-block text-xs text-slate-500 hover:text-yellow-400 transition-colors"

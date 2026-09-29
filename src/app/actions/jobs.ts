@@ -11,6 +11,7 @@ import { getDepositAmount } from "@/app/actions/fee-engine";
 import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { isSameInstallDate } from "@/utils/installDate";
+import { requestQuoteUrl } from "@/lib/server/request-link";
 
 const supabase = getServiceClient();
 
@@ -282,6 +283,7 @@ export async function markJobPaidManual(
           units: quoteDataToBookingUnits(updated.quote_data),
           completedDate: new Date().toISOString(),
           reviewUrl,
+          requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
         });
         console.log("[MarkPaidManual] Receipt email sent to customer");
       }
