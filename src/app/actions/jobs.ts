@@ -782,3 +782,63 @@ export async function updateQuote(input: {
   console.log(`[UpdateQuote] Lead ${leadId} updated — total: $${grand_total}, deposit: $${depositAmount}`);
   return { success: true };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// fetchCustomerForNewQuote — start a NEW quote for a customer from one of
+// their earlier jobs (Past Jobs, Job Ticket, Sales & Customers). Returns only
+// the customer's contact + delivery details; the new quote starts empty.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface RepeatCustomer {
+  sourceLeadId: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  delivery_address_line1: string | null;
+  delivery_address_line2: string | null;
+  delivery_address_city: string | null;
+  delivery_address_state: string | null;
+  delivery_address_zip: string | null;
+}
+
+export async function fetchCustomerForNewQuote(
+  leadId: string
+): Promise<{ success: boolean; customer?: RepeatCustomer; error?: string }> {
+  if (!leadId) return { success: false, error: "Lead ID is required." };
+
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select(
+      "id, status, customer_name, customer_email, customer_phone, delivery_address_line1, delivery_address_line2, delivery_address_city, delivery_address_state, delivery_address_zip, address_line1, address_city, address_state, address_zip"
+    )
+    .eq("id", leadId)
+    .single();
+
+  if (!lead) return { success: false, error: "Job not found." };
+  // Waitlisted leads hide the customer's details until the installer
+  // subscribes — don't leak them through this path.
+  if (lead.status === "waitlisted") {
+    return { success: false, error: "Subscribe to unlock this customer's details." };
+  }
+
+  // Prefer the delivery address; fall back to the billing/service address
+  // older leads recorded instead.
+  const hasDelivery = !!(lead.delivery_address_line1 || lead.delivery_address_zip);
+  return {
+    success: true,
+    customer: {
+      sourceLeadId: lead.id,
+      customer_name: lead.customer_name || "",
+      customer_email: lead.customer_email,
+      customer_phone: lead.customer_phone,
+      delivery_address_line1: hasDelivery ? lead.delivery_address_line1 : lead.address_line1,
+      delivery_address_line2: hasDelivery ? lead.delivery_address_line2 : null,
+      delivery_address_city: hasDelivery ? lead.delivery_address_city : lead.address_city,
+      delivery_address_state: hasDelivery ? lead.delivery_address_state : lead.address_state,
+      delivery_address_zip: hasDelivery ? lead.delivery_address_zip : lead.address_zip,
+    },
+  };
+}

@@ -26,6 +26,7 @@ import {
   X,
   PenLine,
   Zap,
+  UserPlus,
 } from "lucide-react";
 import type { MaterialConfig, MaterialBreakdown, MaterialPrices } from "@/utils/calculateMaterials";
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
@@ -1749,14 +1750,26 @@ export default function JobTicket({
               <Ruler className="h-4 w-4 text-yellow-400" />
               Unit Summary
             </h2>
-            {depositPaid && !isPaid && (
-              <a
-                href={`/dashboard/build?edit=${leadId}`}
-                className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
-              >
-                <PenLine className="h-3 w-3" />
-                Add Items
-              </a>
+            {depositPaid && (
+              <div className="flex items-center gap-1.5">
+                {/* Repeat order: fresh quote with this customer's details */}
+                <a
+                  href={`/dashboard/build?from=${leadId}`}
+                  className="flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 transition-colors hover:bg-emerald-400/20"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  New Quote
+                </a>
+                {!isPaid && (
+                  <a
+                    href={`/dashboard/build?edit=${leadId}`}
+                    className="flex items-center gap-1 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/20"
+                  >
+                    <PenLine className="h-3 w-3" />
+                    Add Items
+                  </a>
+                )}
+              </div>
             )}
             {!depositPaid && (
               <div className="flex items-center gap-1.5">

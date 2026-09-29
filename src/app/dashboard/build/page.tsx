@@ -10,7 +10,7 @@ import { OVERHEAD_GRID_PRESETS } from "@/lib/overhead-storage";
 import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatus } from "@/app/actions/createQuote";
 import { captureCanvasBlob } from "@/utils/captureCanvas";
 import { uploadBuildSnapshot } from "@/utils/uploadImage";
-import { fetchLeadForEdit, updateQuote } from "@/app/actions/jobs";
+import { fetchLeadForEdit, updateQuote, fetchCustomerForNewQuote } from "@/app/actions/jobs";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
@@ -21,7 +21,7 @@ import { type MaterialBreakdown, type MaterialPrices } from "@/utils/calculateMa
 import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 import { type MaterialInventory, normalizeInventory } from "@/utils/inventoryManager";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
-import { ArrowLeft, HardHat, Loader2, PenLine } from "lucide-react";
+import { ArrowLeft, HardHat, Loader2, PenLine, UserPlus } from "lucide-react";
 
 import BookingModal from "@/components/booking/BookingModal";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -71,6 +71,10 @@ export default function BuildConfiguratorPage() {
   // be removed (the total can't go down after a deposit).
   const [lockedUnitIds, setLockedUnitIds] = useState<Set<string>>(new Set());
   // `${unitId}:${option}` while an added option is being priced.
+  // Repeat order: a NEW quote started from one of this customer's earlier
+  // jobs (?from={leadId}). Customer details are prefilled; the quote is empty.
+  const [repeatFromLeadId, setRepeatFromLeadId] = useState<string | null>(null);
+  const [repeatCustomerName, setRepeatCustomerName] = useState("");
   const [optionBusy, setOptionBusy] = useState<string | null>(null);
 
   // POS-style drawer coordination — only one open at a time
@@ -473,6 +477,36 @@ export default function BuildConfiguratorPage() {
       }));
       setUnits(loadedUnits);
       if (lead.deposit_paid) setLockedUnitIds(new Set(loadedUnits.map((u) => u.id)));
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, searchParams]);
+
+  // ── Repeat order: prefill a new quote from ?from={leadId} ─────────────
+  useEffect(() => {
+    const fromId = searchParams.get("from");
+    if (!fromId || !userId || repeatFromLeadId || searchParams.get("edit")) return;
+
+    (async () => {
+      const result = await fetchCustomerForNewQuote(fromId);
+      if (!result.success || !result.customer) {
+        console.error("[RepeatOrder]", result.error);
+        return;
+      }
+      const c = result.customer;
+      setRepeatFromLeadId(c.sourceLeadId);
+      setRepeatCustomerName(c.customer_name);
+      setCustomerName(c.customer_name);
+      setCustomerEmail(c.customer_email || "");
+      setCustomerPhone(c.customer_phone || "");
+      if (c.delivery_address_line1) {
+        setDeliveryLine1(c.delivery_address_line1);
+        setDeliveryLine2(c.delivery_address_line2 || "");
+        setDeliveryCity(c.delivery_address_city || "");
+        setDeliveryState(c.delivery_address_state || "");
+        setShowDeliveryAddress(true);
+      }
+      // Setting the ZIP re-runs the service-area check and delivery fee.
+      if (c.delivery_address_zip) setDeliveryZip(c.delivery_address_zip);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, searchParams]);
@@ -1174,6 +1208,7 @@ export default function BuildConfiguratorPage() {
         delivery_address,
         delivery_fee: deliveryFee,
         build_snapshot_url: snapshotUrl || undefined,
+        from_lead_id: repeatFromLeadId || undefined,
       });
 
       if (!result.success) {
@@ -1254,6 +1289,7 @@ export default function BuildConfiguratorPage() {
         delivery_address,
         delivery_fee: deliveryFee,
         build_snapshot_url: snapshotUrl || undefined,
+        from_lead_id: repeatFromLeadId || undefined,
       });
 
       if (!result.success) {
@@ -1345,6 +1381,9 @@ export default function BuildConfiguratorPage() {
       setCustomerPhone("");
       setQuoteDiscountCode("");
       setQuoteLeadId(null);
+      // The repeat-order quote is sent; the next quote is a fresh customer.
+      setRepeatFromLeadId(null);
+      setRepeatCustomerName("");
       setQuoteReferralStatus("none");
       setQuoteCoveringName("");
       setZipCheckStatus("idle");
@@ -1451,6 +1490,27 @@ export default function BuildConfiguratorPage() {
           <ProPill />
         </div>
       </header>
+
+      {repeatFromLeadId && !editingLeadId && (
+        <div className="border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+            <p className="text-xs font-bold text-emerald-300">
+              <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
+              New quote for returning customer {repeatCustomerName}
+            </p>
+            <a
+              href={`/dashboard/leads/${repeatFromLeadId}`}
+              className="shrink-0 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+            >
+              Previous Job
+            </a>
+          </div>
+          <p className="mx-auto mt-1 max-w-2xl text-[10px] text-emerald-200/80">
+            Their contact and delivery details are filled in. Build the new order below, then send it
+            like any quote.
+          </p>
+        </div>
+      )}
 
       {editingLeadId && (
         <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
