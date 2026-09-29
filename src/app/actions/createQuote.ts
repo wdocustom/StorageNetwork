@@ -34,6 +34,7 @@ import {
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { checkProTrial } from "@/app/actions/pro-trial";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 const supabase = getServiceClient();
 
@@ -85,6 +86,13 @@ export interface CreateQuoteInput {
   delivery_address?: DeliveryAddress;
   delivery_fee?: number;          // Distance-based delivery fee (already included in grand_total)
   build_snapshot_url?: string;    // 3D canvas capture URL for email blueprint image
+  /**
+   * Repeat order: the installer started this quote from one of the
+   * customer's earlier jobs. The new lead is attached to that job's customer
+   * record (so their saved card and history carry over) instead of matching
+   * by email — which a phone-only customer doesn't have.
+   */
+  from_lead_id?: string;
 }
 
 export type ReferralStatus =
@@ -211,6 +219,7 @@ export async function createQuote(
     delivery_address,
     delivery_fee,
     build_snapshot_url,
+    from_lead_id,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -378,6 +387,25 @@ export async function createQuote(
     // ── 1. Create or Find Customer ────────────────────────────────────────
     let customerId: string;
 
+    // Repeat order from an earlier job: reuse that job's customer record,
+    // but only when the signed-in installer owns the earlier job and the new
+    // quote stays with them (customer rows are per-installer, so a handoff
+    // to a covering installer must not inherit it).
+    let repeatCustomerId: string | null = null;
+    if (from_lead_id && effectiveInstallerId === installer_id) {
+      const user = await getAuthenticatedUser();
+      if (user?.id === installer_id) {
+        const { data: sourceLead } = await supabase
+          .from("leads")
+          .select("customer_id, installer_id")
+          .eq("id", from_lead_id)
+          .maybeSingle();
+        if (sourceLead?.installer_id === installer_id && sourceLead.customer_id) {
+          repeatCustomerId = sourceLead.customer_id as string;
+        }
+      }
+    }
+
     // If email provided, try to find existing customer by email + effective installer
     let existingCustomer = null;
     if (normalizedEmail) {
@@ -390,7 +418,30 @@ export async function createQuote(
       existingCustomer = data;
     }
 
-    if (existingCustomer) {
+    if (repeatCustomerId) {
+      customerId = repeatCustomerId;
+      // Keep the record current with what the installer confirmed on this
+      // quote. Email is only filled in, never overwritten — a different
+      // address on the quote shouldn't silently repoint the customer — and
+      // the backfill skips it if another customer row already owns it.
+      await supabase
+        .from("customers")
+        .update({
+          name: customer_name.trim(),
+          phone: customer_phone?.trim() || null,
+          address: customer_address?.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", customerId);
+      if (normalizedEmail) {
+        const { backfillCustomerEmailIfMissing } = await import("@/app/actions/payments");
+        await backfillCustomerEmailIfMissing({
+          dbCustomerId: customerId,
+          installerId: effectiveInstallerId,
+          email: normalizedEmail,
+        }).catch((err) => console.warn("[Quote] Repeat customer email backfill failed:", err));
+      }
+    } else if (existingCustomer) {
       customerId = existingCustomer.id;
       // Update customer info
       await supabase

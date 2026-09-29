@@ -26,6 +26,7 @@ import {
   Phone,
   MapPin,
   Ruler,
+  UserPlus,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 
@@ -522,6 +523,15 @@ function OrderRow({
               Blueprints
             </Link>
           </div>
+
+          {/* Repeat order: fresh quote with this customer's details */}
+          <Link
+            href={`/dashboard/build?from=${order.id}`}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 py-2.5 text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 active:scale-95"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            New Quote for {order.customerName.split(" ")[0] || "This Customer"}
+          </Link>
 
           {/* ══ Phase 3: Status Row — Payment + Operational Pipeline ══ */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2">

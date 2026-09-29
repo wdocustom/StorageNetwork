@@ -11,6 +11,7 @@ import {
   X,
   PenLine,
   Link,
+  UserPlus,
 } from "lucide-react";
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -285,7 +286,7 @@ export default function LeadsListPage() {
           /* ── Flat list for past jobs ──────────────────────────────────── */
           <ul className="space-y-3">
             {filtered.map((lead) => (
-              <JobCard key={lead.id} lead={lead} />
+              <JobCard key={lead.id} lead={lead} showNewQuote />
             ))}
           </ul>
         )}
@@ -309,7 +310,7 @@ export default function LeadsListPage() {
 // JobCard Component — Single lead row
 // ═══════════════════════════════════════════════════════════════════════════
 
-function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: boolean; onDelete?: () => void }) {
+function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem; showDelete?: boolean; onDelete?: () => void; showNewQuote?: boolean }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -447,6 +448,19 @@ function JobCard({ lead, showDelete, onDelete }: { lead: LeadItem; showDelete?: 
             <Trash2 className="h-3.5 w-3.5" />
             Delete Quote
           </button>
+        </div>
+      )}
+
+      {/* Repeat order: start a fresh quote with this customer's details */}
+      {showNewQuote && lead.status !== "waitlisted" && (
+        <div className="border-t border-slate-800">
+          <a
+            href={`/dashboard/build?from=${lead.id}`}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-400/80 transition-colors hover:bg-emerald-400/10 hover:text-emerald-400"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            New Quote for This Customer
+          </a>
         </div>
       )}
     </li>
