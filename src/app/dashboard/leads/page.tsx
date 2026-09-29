@@ -12,8 +12,16 @@ import {
   PenLine,
   Link,
   UserPlus,
+  Inbox,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { deleteUnpaidQuote } from "@/app/actions/jobs";
+import {
+  listQuoteRequests,
+  dismissQuoteRequest,
+  type QuoteRequestItem,
+} from "@/app/actions/quote-requests";
 import StatusBadge from "@/components/ui/StatusBadge";
 import ProPill from "@/components/dashboard/ProPill";
 import { maskName } from "@/lib/mask";
@@ -46,7 +54,7 @@ interface LeadItem {
 // Jobs / Leads List — Unified view of all active jobs
 // ═══════════════════════════════════════════════════════════════════════════
 
-type TabKey = "active" | "past" | "unpaid";
+type TabKey = "active" | "past" | "unpaid" | "requests";
 
 // Group jobs by scheduled date
 function groupByDate(jobs: LeadItem[]): Record<string, LeadItem[]> {
@@ -90,6 +98,22 @@ export default function LeadsListPage() {
   const [unpaidLeads, setUnpaidLeads] = useState<LeadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("active");
+  const [requests, setRequests] = useState<QuoteRequestItem[]>([]);
+
+  // Deep link from the installer's "new quote request" email.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "requests" || t === "past" || t === "unpaid" || t === "active") setTab(t);
+  }, []);
+
+  const fetchRequests = useCallback(async () => {
+    const r = await listQuoteRequests();
+    if (r.success) setRequests(r.requests || []);
+  }, []);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   const fetchLeads = useCallback(async () => {
     const {
@@ -238,11 +262,45 @@ export default function LeadsListPage() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setTab("requests")}
+            className={`flex-1 py-3 text-center text-xs font-bold uppercase tracking-wider transition-colors ${
+              tab === "requests"
+                ? "border-b-2 border-emerald-400 text-emerald-400"
+                : "text-stone-500 hover:text-stone-300"
+            }`}
+          >
+            Requests{" "}
+            {requests.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-400/20 px-1.5 text-[10px] font-bold text-emerald-400">
+                {requests.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       <main className="mx-auto max-w-2xl p-4">
-        {filtered.length === 0 ? (
+        {tab === "requests" ? (
+          requests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900">
+                <Inbox className="h-10 w-10 text-stone-600" />
+              </div>
+              <p className="text-lg font-bold text-stone-400">No quote requests</p>
+              <p className="mt-1 max-w-xs text-sm text-stone-500">
+                Past customers can ask you for a new quote from their receipt, review or rack inventory
+                emails. Their requests show up here.
+              </p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {requests.map((r) => (
+                <RequestCard key={r.id} request={r} onDismissed={fetchRequests} />
+              ))}
+            </ul>
+          )
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900">
               <Briefcase className="h-10 w-10 text-stone-600" />
@@ -463,6 +521,129 @@ function JobCard({ lead, showDelete, onDelete, showNewQuote }: { lead: LeadItem;
           </a>
         </div>
       )}
+    </li>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Request Card — a past customer asking for a new quote
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ORIGIN_LABEL: Record<string, string> = {
+  receipt: "from receipt",
+  review: "from review",
+  rack: "from rack inventory",
+};
+
+function RequestCard({ request, onDismissed }: { request: QuoteRequestItem; onDismissed: () => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const buildHref = request.sourceLeadId
+    ? `/dashboard/build?from=${request.sourceLeadId}&request=${request.id}`
+    : `/dashboard/build?request=${request.id}`;
+
+  async function handleDelete() {
+    setDeleting(true);
+    const r = await dismissQuoteRequest(request.id);
+    setDeleting(false);
+    if (r.success) onDismissed();
+  }
+
+  return (
+    <li className="relative rounded-xl border border-emerald-500/20 bg-slate-900">
+      {confirmDelete && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-slate-900/95 backdrop-blur-sm">
+          <div className="px-4 text-center">
+            <p className="mb-1 text-sm font-bold text-red-400">Delete this request?</p>
+            <p className="mb-4 text-xs text-stone-400">
+              {request.customerName} won&apos;t be notified.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-stone-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-xs font-bold text-white hover:bg-red-400 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold text-white">{request.customerName}</p>
+            <p className="text-[11px] text-stone-500">
+              Returning customer · {new Date(request.createdAt).toLocaleDateString()}
+              {ORIGIN_LABEL[request.origin] ? ` · ${ORIGIN_LABEL[request.origin]}` : ""}
+            </p>
+          </div>
+          {request.sourceLeadId && (
+            <a
+              href={`/dashboard/leads/${request.sourceLeadId}`}
+              className="shrink-0 text-[10px] font-semibold text-stone-500 hover:text-yellow-400"
+            >
+              Previous Job
+            </a>
+          )}
+        </div>
+
+        {request.wantLabels.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {request.wantLabels.map((w) => (
+              <span key={w} className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                {w}
+              </span>
+            ))}
+          </div>
+        )}
+        {request.notes && (
+          <p className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-800/60 px-3 py-2 text-sm text-stone-300">
+            {request.notes}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {request.customerEmail && (
+            <a href={`mailto:${request.customerEmail}`} className="flex items-center gap-1 text-blue-400 hover:underline">
+              <Mail className="h-3 w-3" />
+              {request.customerEmail}
+            </a>
+          )}
+          {request.customerPhone && (
+            <a href={`tel:${request.customerPhone}`} className="flex items-center gap-1 text-blue-400 hover:underline">
+              <Phone className="h-3 w-3" />
+              {request.customerPhone}
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="flex border-t border-slate-800">
+        <a
+          href={buildHref}
+          className="flex flex-1 items-center justify-center gap-2 border-r border-slate-800 px-4 py-2.5 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-400/10"
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+          Build Quote
+        </a>
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </button>
+      </div>
     </li>
   );
 }

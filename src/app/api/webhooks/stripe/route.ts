@@ -10,6 +10,7 @@ import {
   deactivateProSubscription,
 } from "@/app/actions/pro-subscription";
 import { getServiceClient } from "@/lib/supabase-server";
+import { requestQuoteUrl } from "@/lib/server/request-link";
 import { Redis } from "@upstash/redis";
 import { roundMoney } from "@/utils/mathHelpers";
 
@@ -800,6 +801,7 @@ export async function POST(request: NextRequest) {
             units: quoteDataToBookingUnits(lead.quote_data),
             completedDate: new Date().toISOString(),
             reviewUrl,
+            requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
           });
           console.log("[Webhook] Receipt email sent to customer");
         }
@@ -1501,6 +1503,7 @@ export async function POST(request: NextRequest) {
               units: quoteDataToBookingUnits(lead.quote_data),
               completedDate: new Date().toISOString(),
               reviewUrl,
+              requestQuoteUrl: requestQuoteUrl(leadId, "receipt"),
             });
             console.log("[Webhook] Receipt sent to customer (off-session balance)");
           }

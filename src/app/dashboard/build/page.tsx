@@ -11,6 +11,11 @@ import { createQuote, checkDeliveryZip, type DeliveryAddress, type ReferralStatu
 import { captureCanvasBlob } from "@/utils/captureCanvas";
 import { uploadBuildSnapshot } from "@/utils/uploadImage";
 import { fetchLeadForEdit, updateQuote, fetchCustomerForNewQuote } from "@/app/actions/jobs";
+import {
+  getQuoteRequestForBuild,
+  markQuoteRequestQuoted,
+  type QuoteRequestItem,
+} from "@/app/actions/quote-requests";
 import { calculateDeliveryFee, getIndoorDeliveryConfig, type DeliveryFeeResult, type IndoorDeliveryConfig } from "@/app/actions/delivery-fee";
 import { calculateRaisedBedPriceServer } from "@/app/actions/platform-defaults";
 import { RAISED_BED_SIZES, getRaisedBedDescription, type RaisedBedConfig } from "@/lib/raised-beds";
@@ -75,6 +80,8 @@ export default function BuildConfiguratorPage() {
   // jobs (?from={leadId}). Customer details are prefilled; the quote is empty.
   const [repeatFromLeadId, setRepeatFromLeadId] = useState<string | null>(null);
   const [repeatCustomerName, setRepeatCustomerName] = useState("");
+  // The customer's quote request this quote answers (?request={id}).
+  const [quoteRequest, setQuoteRequest] = useState<QuoteRequestItem | null>(null);
   const [optionBusy, setOptionBusy] = useState<string | null>(null);
 
   // POS-style drawer coordination — only one open at a time
@@ -482,31 +489,45 @@ export default function BuildConfiguratorPage() {
   }, [userId, searchParams]);
 
   // ── Repeat order: prefill a new quote from ?from={leadId} ─────────────
+  // Also handles ?request={id} — a returning customer's quote request. The
+  // earlier job supplies the delivery address; the request's contact details
+  // win, since the customer just confirmed them on the request page.
   useEffect(() => {
     const fromId = searchParams.get("from");
-    if (!fromId || !userId || repeatFromLeadId || searchParams.get("edit")) return;
+    const reqId = searchParams.get("request");
+    if ((!fromId && !reqId) || !userId || repeatFromLeadId || quoteRequest || searchParams.get("edit")) return;
 
     (async () => {
-      const result = await fetchCustomerForNewQuote(fromId);
-      if (!result.success || !result.customer) {
-        console.error("[RepeatOrder]", result.error);
-        return;
+      const [customerRes, requestRes] = await Promise.all([
+        fromId ? fetchCustomerForNewQuote(fromId) : Promise.resolve(null),
+        reqId ? getQuoteRequestForBuild(reqId) : Promise.resolve(null),
+      ]);
+
+      const c = customerRes?.success ? customerRes.customer : undefined;
+      const r = requestRes?.success ? requestRes.request : undefined;
+      if (customerRes && !c) console.error("[RepeatOrder]", customerRes.error);
+      if (requestRes && !r) console.error("[QuoteRequest]", requestRes.error);
+      if (!c && !r) return;
+
+      if (c) {
+        setRepeatFromLeadId(c.sourceLeadId);
+        if (c.delivery_address_line1) {
+          setDeliveryLine1(c.delivery_address_line1);
+          setDeliveryLine2(c.delivery_address_line2 || "");
+          setDeliveryCity(c.delivery_address_city || "");
+          setDeliveryState(c.delivery_address_state || "");
+          setShowDeliveryAddress(true);
+        }
+        // Setting the ZIP re-runs the service-area check and delivery fee.
+        if (c.delivery_address_zip) setDeliveryZip(c.delivery_address_zip);
       }
-      const c = result.customer;
-      setRepeatFromLeadId(c.sourceLeadId);
-      setRepeatCustomerName(c.customer_name);
-      setCustomerName(c.customer_name);
-      setCustomerEmail(c.customer_email || "");
-      setCustomerPhone(c.customer_phone || "");
-      if (c.delivery_address_line1) {
-        setDeliveryLine1(c.delivery_address_line1);
-        setDeliveryLine2(c.delivery_address_line2 || "");
-        setDeliveryCity(c.delivery_address_city || "");
-        setDeliveryState(c.delivery_address_state || "");
-        setShowDeliveryAddress(true);
-      }
-      // Setting the ZIP re-runs the service-area check and delivery fee.
-      if (c.delivery_address_zip) setDeliveryZip(c.delivery_address_zip);
+      if (r) setQuoteRequest(r);
+
+      const name = r?.customerName || c?.customer_name || "";
+      setRepeatCustomerName(name);
+      setCustomerName(name);
+      setCustomerEmail(r?.customerEmail || c?.customer_email || "");
+      setCustomerPhone(r?.customerPhone || c?.customer_phone || "");
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, searchParams]);
@@ -1221,6 +1242,9 @@ export default function BuildConfiguratorPage() {
       setQuoteCoveringName(result.covering_installer_name || "");
       setQuoteSent(true);
       if (result.lead_id) setQuoteLeadId(result.lead_id);
+      if (result.lead_id && quoteRequest) {
+        markQuoteRequestQuoted(quoteRequest.id, result.lead_id).catch(() => {});
+      }
       setUnits([]);
     } catch (err) {
       console.error("[SendQuote] Quote creation failed:", err);
@@ -1299,6 +1323,7 @@ export default function BuildConfiguratorPage() {
 
       if (result.lead_id) {
         setQuoteLeadId(result.lead_id);
+        if (quoteRequest) markQuoteRequestQuoted(quoteRequest.id, result.lead_id).catch(() => {});
 
         // Log that the installer created a quote
         logActivityClient({ action: "quote_created", pagePath: "/build", detail: { lead_id: result.lead_id } });
@@ -1384,6 +1409,7 @@ export default function BuildConfiguratorPage() {
       // The repeat-order quote is sent; the next quote is a fresh customer.
       setRepeatFromLeadId(null);
       setRepeatCustomerName("");
+      setQuoteRequest(null);
       setQuoteReferralStatus("none");
       setQuoteCoveringName("");
       setZipCheckStatus("idle");
@@ -1491,20 +1517,30 @@ export default function BuildConfiguratorPage() {
         </div>
       </header>
 
-      {repeatFromLeadId && !editingLeadId && (
+      {(repeatFromLeadId || quoteRequest) && !editingLeadId && (
         <div className="border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
             <p className="text-xs font-bold text-emerald-300">
               <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
-              New quote for returning customer {repeatCustomerName}
+              {quoteRequest ? "Quote request from" : "New quote for returning customer"} {repeatCustomerName}
             </p>
-            <a
-              href={`/dashboard/leads/${repeatFromLeadId}`}
-              className="shrink-0 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
-            >
-              Previous Job
-            </a>
+            {repeatFromLeadId && (
+              <a
+                href={`/dashboard/leads/${repeatFromLeadId}`}
+                className="shrink-0 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+              >
+                Previous Job
+              </a>
+            )}
           </div>
+          {quoteRequest && (quoteRequest.wantLabels.length > 0 || quoteRequest.notes) && (
+            <div className="mx-auto mt-1.5 max-w-2xl rounded-lg bg-emerald-950/40 px-3 py-2 text-xs text-emerald-100">
+              {quoteRequest.wantLabels.length > 0 && (
+                <p className="font-semibold">They want: {quoteRequest.wantLabels.join(", ")}</p>
+              )}
+              {quoteRequest.notes && <p className="mt-0.5 whitespace-pre-wrap text-emerald-200/90">“{quoteRequest.notes}”</p>}
+            </div>
+          )}
           <p className="mx-auto mt-1 max-w-2xl text-[10px] text-emerald-200/80">
             Their contact and delivery details are filled in. Build the new order below, then send it
             like any quote.

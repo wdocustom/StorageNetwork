@@ -349,6 +349,8 @@ export async function sendJobReceipt(
     reviewUrl?: string;
     /** Tip the customer added on the balance payment (included in balanceCollected). */
     tipAmount?: number;
+    /** Signed link to request a new quote from the same installer. */
+    requestQuoteUrl?: string;
   }
 ): Promise<SendEmailResult> {
   const formattedDate = new Date(data.completedDate).toLocaleDateString("en-US", {
@@ -429,6 +431,14 @@ export async function sendJobReceipt(
       <p style="margin:0 0 6px;color:#facc15;font-size:18px;font-weight:800;">Rate Your Installer</p>
       <p style="margin:0 0 20px;color:#a3a3a3;font-size:13px;line-height:1.6;">A 30-second review helps other homeowners find quality installers — and helps your installer grow their business.</p>
       ${ctaButton(data.reviewUrl, "Leave a Review")}
+    </div>
+    ` : ""}
+
+    ${data.requestQuoteUrl ? `
+    <div style="border:1px solid #222;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px;">
+      <p style="margin:0 0 6px;color:#ffffff;font-size:16px;font-weight:800;">Want another one?</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;line-height:1.6;">Another rack, a top, wheels, or overhead storage — ${data.installerName} will send you a quote.</p>
+      <a href="${data.requestQuoteUrl}" style="color:#facc15;font-size:14px;font-weight:700;text-decoration:underline;">Request a New Quote &rarr;</a>
     </div>
     ` : ""}
 

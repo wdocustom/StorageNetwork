@@ -1,6 +1,7 @@
 "use server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { requestQuoteUrl } from "@/lib/server/request-link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Customer Reviews — Server Actions
@@ -65,6 +66,8 @@ export interface ReviewPageData {
   jobDescription: string;
   completedDate: string | null;
   alreadyReviewed: boolean;
+  /** Signed link to request a new quote from the same installer. */
+  requestQuoteUrl: string | null;
 }
 
 export async function getReviewPageData(token: string): Promise<{
@@ -127,6 +130,7 @@ export async function getReviewPageData(token: string): Promise<{
         year: "numeric",
       }) : null,
       alreadyReviewed: !!(lead.review_submitted),
+      requestQuoteUrl: requestQuoteUrl(lead.id as string, "review") ?? null,
     },
   };
 }
@@ -363,6 +367,7 @@ export async function requestReview(input: {
   const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
 
   const reviewUrl = `${getAppUrl()}/review/${reviewToken}`;
+  const newQuoteUrl = requestQuoteUrl(leadId, "review");
   const safeName = (lead.customer_name as string || "").split(" ")[0] || "there";
 
   // Avatar or initial
@@ -406,6 +411,12 @@ export async function requestReview(input: {
     <p style="margin:0;color:#475569;font-size:12px;text-align:center;font-style:italic;">
       No login required &mdash; just click the button above.
     </p>
+    ${newQuoteUrl ? `
+    <p style="margin:24px 0 0;padding-top:20px;border-top:1px solid #334155;color:#94a3b8;font-size:13px;text-align:center;">
+      Need another rack, a top, wheels or overhead storage?
+      <a href="${newQuoteUrl}" style="color:#facc15;font-weight:700;">Request a new quote</a>
+    </p>
+    ` : ""}
     `
   );
 
