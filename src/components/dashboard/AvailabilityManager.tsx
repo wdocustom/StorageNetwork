@@ -320,8 +320,8 @@ export default function AvailabilityManager() {
             </div>
             <p className="text-[11px] leading-relaxed text-stone-500">
               {schedulingEnabled
-                ? "Customers pick their installation date & time block during checkout."
-                : "Scheduling is off — you coordinate the date directly after booking."}
+                ? "Customers pick (and can change) their installation date & time block, during checkout or after paying their deposit."
+                : "Scheduling is off — customers can't pick a date online. You coordinate the date directly after booking."}
             </p>
           </div>
           <button
