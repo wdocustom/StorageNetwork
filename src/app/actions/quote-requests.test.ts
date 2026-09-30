@@ -113,6 +113,12 @@ describe("submitQuoteRequest", () => {
     expect(email.html).toContain(`/dashboard/build?from=${LEAD}&request=req-1`);
   });
 
+  it("drops choices this installer doesn't offer", async () => {
+    // Default settings: no overhead, shelving, beds or chairs enabled.
+    await submitQuoteRequest({ ...valid(), wants: ["overhead", "chair", "service:cleanout_2car", "rack"] });
+    expect(inserted?.wants).toEqual(["service:cleanout_2car", "rack"]);
+  });
+
   it("rejects a forged link", async () => {
     const r = await submitQuoteRequest({ ...valid(), token: `${LEAD}.forgedsignature000000000` });
     expect(r.success).toBe(false);
