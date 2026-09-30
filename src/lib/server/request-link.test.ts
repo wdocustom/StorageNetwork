@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { signRequestToken, verifyRequestToken, requestQuoteUrl } from "./request-link";
+import {
+  signRequestToken,
+  verifyRequestToken,
+  requestQuoteUrl,
+  signScheduleToken,
+  verifyScheduleToken,
+} from "./request-link";
 
 const LEAD = "3f2b7c1e-8a4d-4c6b-9e1f-0a2b3c4d5e6f";
 const OTHER = "9e1f0a2b-3c4d-4e6f-8a4d-3f2b7c1e4c6b";
@@ -28,5 +34,11 @@ describe("request links", () => {
 
   it("builds the page URL with its origin", () => {
     expect(requestQuoteUrl(LEAD, "receipt")).toBe(`https://example.com/request/${signRequestToken(LEAD)}?via=receipt`);
+  });
+
+  it("keeps schedule and quote-request links separate", () => {
+    expect(verifyScheduleToken(signScheduleToken(LEAD))).toBe(LEAD);
+    expect(verifyScheduleToken(signRequestToken(LEAD))).toBeNull();
+    expect(verifyRequestToken(signScheduleToken(LEAD))).toBeNull();
   });
 });
