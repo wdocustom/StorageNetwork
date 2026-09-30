@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Home, Mail } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Home, Mail } from "lucide-react";
+import { getScheduleLinkForLead } from "@/app/actions/customer-schedule";
 
 // =============================================================================
 // Payment Success — Thank You page after balance payment
@@ -23,6 +24,14 @@ function PaymentSuccessInner() {
   // kind=addon: deposit on items added after the original deposit — the
   // job isn't finished, so don't say it is.
   const isAddonDeposit = searchParams.get("kind") === "addon";
+
+  // A deposit paid by Checkout lands here too — if the job still has no
+  // install date, send the customer to pick one.
+  const [scheduleUrl, setScheduleUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!jobId) return;
+    getScheduleLinkForLead(jobId).then((r) => setScheduleUrl(r.url && !r.scheduledDate ? r.url : null));
+  }, [jobId]);
 
   return (
     <div className="relative min-h-screen bg-slate-950">
@@ -68,6 +77,16 @@ function PaymentSuccessInner() {
             has been sent to your email.
           </p>
         </div>
+        )}
+
+        {scheduleUrl && (
+          <a
+            href={scheduleUrl}
+            className="mb-8 inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+          >
+            <CalendarCheck className="h-4 w-4" />
+            Pick Your Install Date
+          </a>
         )}
 
         {/* Job reference (if available) */}

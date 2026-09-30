@@ -68,6 +68,8 @@ export interface BookingConfirmationData {
   units?: BookingConfirmationUnit[];
   leadId: string;
   buildSnapshotUrl?: string;
+  /** Customer's pick-your-install-date page (/schedule/[token]). */
+  scheduleUrl?: string;
 }
 
 export async function sendBookingConfirmation(
@@ -88,7 +90,9 @@ export async function sendBookingConfirmation(
     units,
     leadId,
     buildSnapshotUrl,
+    scheduleUrl,
   } = data;
+  const dateMissing = !scheduledDate || scheduledDate === "TBD";
 
   // Safe date parse — avoid Invalid Date crash if scheduledDate is "TBD" or empty
   let formattedDate = scheduledDate || "TBD";
@@ -162,8 +166,15 @@ export async function sendBookingConfirmation(
     ${unitsHtml}
 
     ${eyebrow("Appointment")}
+    ${dateMissing && scheduleUrl ? `
+    <div style="border:1px solid #facc15;border-radius:12px;padding:24px;text-align:center;margin:0 0 20px;">
+      <p style="margin:0 0 6px;color:#ffffff;font-size:16px;font-weight:800;">Pick your install date</p>
+      <p style="margin:0 0 16px;color:#a3a3a3;font-size:13px;line-height:1.6;">Choose a day and time from ${installerName}&rsquo;s open schedule &mdash; it books instantly.</p>
+      ${ctaButton(scheduleUrl, "Pick Your Date")}
+    </div>
+    ` : ""}
     <table style="width:100%;border-collapse:collapse;margin:0 0 28px;">
-      ${detailRow("Date", formattedDate, { highlight: true })}
+      ${detailRow("Date", dateMissing && scheduleUrl ? "Not picked yet" : formattedDate, { highlight: true })}
       ${detailRow("Location", address || "Address confirmed at scheduling", { topBorder: true })}
       ${detailRow("Installer", installerLine, { topBorder: true })}
     </table>
@@ -185,7 +196,7 @@ export async function sendBookingConfirmation(
 
     <div style="border-top:1px solid #222;padding-top:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 6px;color:#facc15;font-size:13px;font-weight:700;">Need to reschedule?</p>
-      <p style="margin:0;color:#a3a3a3;font-size:13px;line-height:1.6;">Reach out to your installer at least 48 hours before your appointment. Just reply to this email and we&rsquo;ll route it.</p>
+      <p style="margin:0;color:#a3a3a3;font-size:13px;line-height:1.6;">${scheduleUrl ? `<a href="${scheduleUrl}" style="color:#facc15;font-weight:700;">Change your date online</a> up to 48 hours before your appointment, or reply to this email and we&rsquo;ll route it to your installer.` : "Reach out to your installer at least 48 hours before your appointment. Just reply to this email and we&rsquo;ll route it."}</p>
     </div>
     `
   );
@@ -193,7 +204,9 @@ export async function sendBookingConfirmation(
   return sendTransactionalEmail({
     to: customerEmail,
     toName: customerName,
-    subject: `Booking Confirmed — ${installerName} on ${formattedDate}`,
+    subject: dateMissing
+      ? `Booking Confirmed — ${installerName}`
+      : `Booking Confirmed — ${installerName} on ${formattedDate}`,
     html,
   });
 }
@@ -212,6 +225,10 @@ export async function sendInstallScheduledNotice(
     replyTo?: string;
     /** When true, the copy + subject reflect a reschedule rather than first scheduling. */
     isReschedule?: boolean;
+    /** The customer picked the date themselves on /schedule (not the installer). */
+    bookedByCustomer?: boolean;
+    /** Link to change the date online (the customer's /schedule page). */
+    changeUrl?: string;
   }
 ): Promise<SendEmailResult> {
   const firstName = (data.customerName || "").split(" ")[0] || "there";
@@ -230,7 +247,11 @@ export async function sendInstallScheduledNotice(
     : "Your installer";
 
   const heroTitle = data.isReschedule ? "Installation Rescheduled" : "Installation Scheduled";
-  const heroIntro = data.isReschedule
+  const heroIntro = data.bookedByCustomer
+    ? data.isReschedule
+      ? `You moved your install with ${installerLine} to the new date below.`
+      : `You&rsquo;re booked with ${installerLine}. Mark your calendar &mdash; we&rsquo;ll be there built and ready.`
+    : data.isReschedule
     ? `${installerLine} has updated your install date. Your build is locked in for the new appointment below — same crew, same Custom 3D Design, fresh time on the calendar.`
     : `${installerLine} has locked in your install date. Mark your calendar &mdash; we&rsquo;ll be there built and ready.`;
   const dateEyebrow = data.isReschedule ? "New Installation Date" : "Installation Date";
@@ -255,6 +276,11 @@ export async function sendInstallScheduledNotice(
       A few hours before the appointment, please clear the wall and floor where your Heavy-Duty Tote System will be installed. Your installer will reach out directly with arrival timing.
     </p>
 
+    ${data.changeUrl ? `
+    <p style="margin:0 0 12px;color:#a3a3a3;font-size:13px;text-align:center;">
+      Need a different day? <a href="${data.changeUrl}" style="color:#facc15;font-weight:700;">Change your date online</a> up to 48 hours before.
+    </p>
+    ` : ""}
     <p style="margin:0;color:#a3a3a3;font-size:13px;text-align:center;">
       Need to make another change? Just reply to this email &mdash; we route directly to your installer.
     </p>

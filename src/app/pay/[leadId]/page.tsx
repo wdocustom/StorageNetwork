@@ -17,6 +17,7 @@ import {
   X,
   Mail,
   Send,
+  CalendarCheck,
 } from "lucide-react";
 import { getStripePromise } from "@/lib/stripe/client";
 import { SavedCardDisclosure } from "@/components/payments/SavedCardDisclosure";
@@ -27,6 +28,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import { fetchPendingLead, type PendingLeadDetails } from "@/app/actions/abandoned-cart";
+import { getScheduleLinkForLead } from "@/app/actions/customer-schedule";
 import { EMAIL_VALIDATION_REGEX } from "@/lib/constants";
 import { createDepositIntent, type LeadSource } from "@/app/actions/payments";
 import { recordPayLinkView, recordPayLinkStep } from "@/app/actions/pay-link-tracking";
@@ -70,6 +72,8 @@ export default function ResumePaymentPage() {
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [initializingPayment, setInitializingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  // After the deposit: link to pick (or view) the install date.
+  const [scheduleLink, setScheduleLink] = useState<{ url?: string; scheduledDate?: string | null } | null>(null);
 
   // Discount code state
   const [discountInput, setDiscountInput] = useState("");
@@ -424,6 +428,13 @@ export default function ResumePaymentPage() {
   // RENDER — Loading State
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // Deposit just paid here, or the link reopened after the deposit ("already
+  // been paid"): offer the customer their pick-your-install-date page.
+  useEffect(() => {
+    if (!leadId || !(paymentSuccess || (error && !lead))) return;
+    getScheduleLinkForLead(leadId).then((r) => setScheduleLink(r.url ? r : null));
+  }, [leadId, paymentSuccess, error, lead]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
@@ -438,6 +449,31 @@ export default function ResumePaymentPage() {
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER — Error State
   // ═══════════════════════════════════════════════════════════════════════════
+
+  if (error && !lead && scheduleLink?.url) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+        <div className="max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+            <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+          </div>
+          <h1 className="mb-2 text-xl font-bold text-white">Deposit Received</h1>
+          <p className="mb-6 text-sm text-stone-400">
+            {scheduleLink.scheduledDate
+              ? `Your install is booked for ${new Date(`${scheduleLink.scheduledDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.`
+              : "Your deposit is in. Next, pick the day for your install."}
+          </p>
+          <a
+            href={scheduleLink.url}
+            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+          >
+            <CalendarCheck className="h-4 w-4" />
+            {scheduleLink.scheduledDate ? "View or Change Date" : "Pick Your Install Date"}
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (error && !lead) {
     return (
@@ -482,12 +518,22 @@ export default function ResumePaymentPage() {
             Your order has been confirmed. You&apos;ll receive a confirmation email shortly
             with your installation details.
           </p>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
-          >
-            Back to Home
-          </a>
+          {scheduleLink?.url && !scheduleLink.scheduledDate ? (
+            <a
+              href={scheduleLink.url}
+              className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              <CalendarCheck className="h-4 w-4" />
+              Pick Your Install Date
+            </a>
+          ) : (
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-6 py-3 text-sm font-bold text-gray-950 transition-colors hover:bg-yellow-300"
+            >
+              Back to Home
+            </a>
+          )}
         </div>
       </div>
     );
