@@ -7,7 +7,6 @@ import {
   getQuoteRequestPage,
   submitQuoteRequest,
   type QuoteRequestPageData,
-  type RequestWant,
 } from "@/app/actions/quote-requests";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -15,16 +14,10 @@ import {
 //
 // Reached from a returning customer's receipt email, review page / review
 // email, or rack inventory email / page. The token is a signed link to their
-// earlier job (no login). They say what they'd like; their installer is
-// emailed and builds the quote in the normal create-quote flow.
+// earlier job (no login). They pick from what their installer offers (only
+// the products and services the installer has enabled) and add notes; the
+// installer is emailed and builds the quote in the normal create-quote flow.
 // ═══════════════════════════════════════════════════════════════════════════
-
-const WANT_OPTIONS: Array<{ value: RequestWant; label: string }> = [
-  { value: "rack", label: "Another storage rack" },
-  { value: "addons", label: "Add a top, wheels or totes" },
-  { value: "overhead", label: "Overhead storage" },
-  { value: "other", label: "Something else" },
-];
 
 export default function RequestQuotePage() {
   return (
@@ -53,7 +46,7 @@ function RequestQuoteInner() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [wants, setWants] = useState<RequestWant[]>([]);
+  const [wants, setWants] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -72,7 +65,7 @@ function RequestQuoteInner() {
     });
   }, [token]);
 
-  function toggleWant(w: RequestWant) {
+  function toggleWant(w: string) {
     setWants((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w]));
   }
 
@@ -158,7 +151,8 @@ function RequestQuoteInner() {
 
       <p className="mb-2 text-xs font-bold uppercase tracking-wider text-stone-500">What would you like?</p>
       <div className="mb-4 grid grid-cols-1 gap-2">
-        {WANT_OPTIONS.map((o) => {
+        {/* Only what this installer offers (see @/lib/request-options) */}
+        {page.options.map((o) => {
           const on = wants.includes(o.value);
           return (
             <button

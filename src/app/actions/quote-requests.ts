@@ -20,17 +20,11 @@ import { verifyRequestToken, REQUEST_ORIGINS, type RequestOrigin } from "@/lib/s
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { escapeHtml } from "@/utils/escapeHtml";
 import { getAppUrl } from "@/lib/url-helper";
+import { requestOptionsFor, requestWantLabel, type RequestOption } from "@/lib/request-options";
+import type { InstallerPricing } from "@/types/viewModels";
+import type { ServiceOffering } from "@/config/services";
 
 const db = () => getServiceClient();
-
-export type RequestWant = "rack" | "addons" | "overhead" | "other";
-
-const WANT_LABELS: Record<RequestWant, string> = {
-  rack: "Another storage rack",
-  addons: "Add a top, wheels or totes",
-  overhead: "Overhead storage",
-  other: "Something else",
-};
 
 const MAX_NOTES = 2000;
 // One open request per earlier job per day is plenty; repeats within the
@@ -40,10 +34,15 @@ const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 async function installerDisplay(installerId: string) {
   const { data } = await db()
     .from("profiles")
-    .select("business_name, first_name, last_name, avatar_url, email")
+    .select("business_name, first_name, last_name, avatar_url, email, pricing_config, services_config")
     .eq("id", installerId)
     .maybeSingle();
+  const pricing = (data?.pricing_config as InstallerPricing | null) ?? null;
+  const services = (data?.services_config as ServiceOffering[] | null) ?? null;
   return {
+    // Only what this installer has enabled — see @/lib/request-options.
+    options: requestOptionsFor(pricing, services),
+    services,
     name:
       (data?.business_name as string) ||
       [data?.first_name, data?.last_name].filter(Boolean).join(" ") ||
@@ -61,6 +60,8 @@ export interface QuoteRequestPageData {
   customerName: string;
   customerEmail: string | null;
   customerPhone: string | null;
+  /** What this installer offers — the only choices shown. */
+  options: RequestOption[];
 }
 
 export async function getQuoteRequestPage(
@@ -84,6 +85,7 @@ export async function getQuoteRequestPage(
       customerName: lead.customer_name || "",
       customerEmail: lead.customer_email,
       customerPhone: lead.customer_phone,
+      options: installer.options,
     },
   };
 }
@@ -117,7 +119,6 @@ export async function submitQuoteRequest(
   const email = input.email?.trim().toLowerCase().slice(0, 200) || null;
   const phone = input.phone?.trim().slice(0, 40) || null;
   const notes = input.notes?.trim().slice(0, MAX_NOTES) || null;
-  const wants = (input.wants || []).filter((w): w is RequestWant => w in WANT_LABELS);
   const origin: RequestOrigin = REQUEST_ORIGINS.includes(input.origin as RequestOrigin)
     ? (input.origin as RequestOrigin)
     : "other";
@@ -127,9 +128,6 @@ export async function submitQuoteRequest(
     return { success: false, error: "That email address doesn't look right." };
   }
   if (!email && !phone) return { success: false, error: "Please leave an email or phone number." };
-  if (wants.length === 0 && !notes) {
-    return { success: false, error: "Tell us what you're looking for." };
-  }
 
   const { data: lead } = await db()
     .from("leads")
@@ -138,6 +136,15 @@ export async function submitQuoteRequest(
     .maybeSingle();
   if (!lead?.installer_id || lead.status === "waitlisted") {
     return { success: false, error: "This link isn't valid." };
+  }
+
+  // Keep only choices this installer offers (a stale page can't sneak in a
+  // product they've since switched off).
+  const installer = await installerDisplay(lead.installer_id);
+  const allowed = new Set(installer.options.map((o) => o.value));
+  const wants = Array.from(new Set((input.wants || []).filter((w) => allowed.has(w))));
+  if (wants.length === 0 && !notes) {
+    return { success: false, error: "Tell us what you're looking for." };
   }
 
   // Fold a repeat submission into the open request from the last day instead
@@ -192,6 +199,7 @@ export async function submitQuoteRequest(
   }
 
   await notifyInstaller({
+    installer,
     installerId: lead.installer_id,
     requestId: row.id,
     sourceLeadId: leadId,
@@ -206,16 +214,17 @@ export async function submitQuoteRequest(
 }
 
 async function notifyInstaller(p: {
+  installer: Awaited<ReturnType<typeof installerDisplay>>;
   installerId: string;
   requestId: string;
   sourceLeadId: string;
   name: string;
   email: string | null;
   phone: string | null;
-  wants: RequestWant[];
+  wants: string[];
   notes: string | null;
 }) {
-  const installer = await installerDisplay(p.installerId);
+  const installer = p.installer;
   let to = installer.email;
   if (!to) {
     const { data } = await db().auth.admin.getUserById(p.installerId);
@@ -229,7 +238,7 @@ async function notifyInstaller(p: {
   const safeName = escapeHtml(p.name);
   const wantsHtml = p.wants.length
     ? `<ul style="margin:0 0 16px;padding-left:20px;color:#e2e8f0;font-size:14px;">${p.wants
-        .map((w) => `<li style="margin:0 0 4px;">${WANT_LABELS[w]}</li>`)
+        .map((w) => `<li style="margin:0 0 4px;">${escapeHtml(requestWantLabel(w, installer.services))}</li>`)
         .join("")}</ul>`
     : "";
   const notesHtml = p.notes
@@ -282,7 +291,7 @@ export interface QuoteRequestItem {
   createdAt: string;
 }
 
-function toItem(r: Record<string, unknown>): QuoteRequestItem {
+function toItem(r: Record<string, unknown>, services: ServiceOffering[] | null): QuoteRequestItem {
   const wants = (r.wants as string[]) || [];
   return {
     id: r.id as string,
@@ -291,7 +300,7 @@ function toItem(r: Record<string, unknown>): QuoteRequestItem {
     customerEmail: (r.customer_email as string | null) ?? null,
     customerPhone: (r.customer_phone as string | null) ?? null,
     wants,
-    wantLabels: wants.map((w) => WANT_LABELS[w as RequestWant] || w),
+    wantLabels: wants.map((w) => requestWantLabel(w, services)),
     notes: (r.notes as string | null) ?? null,
     origin: r.origin as string,
     createdAt: r.created_at as string,
@@ -315,7 +324,8 @@ export async function listQuoteRequests(): Promise<{ success: boolean; requests?
     console.warn("[QuoteRequest] list failed:", error.message);
     return { success: true, requests: [] };
   }
-  return { success: true, requests: (data ?? []).map(toItem) };
+  const services = (await installerDisplay(user.id)).services;
+  return { success: true, requests: (data ?? []).map((r) => toItem(r, services)) };
 }
 
 /** Installer declines a request — hidden from the Requests tab. */
@@ -347,7 +357,7 @@ export async function getQuoteRequestForBuild(
     .eq("installer_id", user.id)
     .maybeSingle();
   if (!data) return { success: false, error: "Request not found." };
-  return { success: true, request: toItem(data) };
+  return { success: true, request: toItem(data, (await installerDisplay(user.id)).services) };
 }
 
 /** The installer sent a quote for this request — take it off the list. */
