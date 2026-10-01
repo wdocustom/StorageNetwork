@@ -72,9 +72,10 @@ export default function BuildConfiguratorPage() {
   // Editing a quote whose deposit is already paid: changes can only add, and
   // the increase becomes an add-on with its own deposit.
   const [editingDepositPaid, setEditingDepositPaid] = useState(false);
-  // Units loaded from a paid-deposit quote — they can gain options but can't
-  // be removed (the total can't go down after a deposit).
-  const [lockedUnitIds, setLockedUnitIds] = useState<Set<string>>(new Set());
+  // Units loaded from a paid-deposit quote. They can be upgraded or swapped
+  // for a bigger size (remove + add); the server refuses anything that would
+  // lower the booked total (addItemsAfterDeposit).
+  const [originalUnitIds, setOriginalUnitIds] = useState<Set<string>>(new Set());
   // `${unitId}:${option}` while an added option is being priced.
   // Repeat order: a NEW quote started from one of this customer's earlier
   // jobs (?from={leadId}). Customer details are prefilled; the quote is empty.
@@ -483,7 +484,7 @@ export default function BuildConfiguratorPage() {
         slots: slotsOf(q),
       }));
       setUnits(loadedUnits);
-      if (lead.deposit_paid) setLockedUnitIds(new Set(loadedUnits.map((u) => u.id)));
+      if (lead.deposit_paid) setOriginalUnitIds(new Set(loadedUnits.map((u) => u.id)));
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, searchParams]);
@@ -1565,11 +1566,13 @@ export default function BuildConfiguratorPage() {
           </div>
           {editingDepositPaid && (
             <p className="mx-auto mt-1 max-w-2xl text-[10px] text-amber-200/80">
-              Deposit paid. You can add to this quote but not lower it; the added amount gets its own deposit.{" "}
-              {units.some((u) => lockedUnitIds.has(u.id) && isRackUnit(u)) ? (
+              Deposit paid. You can add to this quote or upgrade it, but the total can&apos;t go below what was
+              booked; the added amount gets its own deposit.{" "}
+              {units.some((u) => originalUnitIds.has(u.id) && isRackUnit(u)) ? (
                 <>
-                  To add a top, wheels or totes to a unit, tap the quote bar below and use the
-                  <strong> + Top / + Wheels / + Totes</strong> buttons on that unit, or add new items here.
+                  To add a top, wheels or totes, tap the quote bar below and use the
+                  <strong> + Top / + Wheels / + Totes</strong> buttons on that unit. To change a unit&apos;s size,
+                  remove it in the quote bar and add the new size here.
                 </>
               ) : (
                 <>Add new items below. (Tops, wheels and totes can only be added to tote racks, and this quote has none.)</>
@@ -1732,7 +1735,6 @@ export default function BuildConfiguratorPage() {
         onAddOption={editingLeadId ? handleAddUnitOption : undefined}
         onUndoOption={handleUndoUnitOption}
         optionBusy={optionBusy}
-        lockedUnitIds={lockedUnitIds}
         editingLeadId={editingLeadId}
         editingCustomerName={editingCustomerName}
         customerName={customerName}

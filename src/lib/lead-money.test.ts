@@ -121,6 +121,20 @@ describe("describeAddon", () => {
     );
   });
 
+  it("labels a size swap even when the new unit moved to the end", () => {
+    const rack = (cols: number, rows: number, price: number) => unit({ cols, rows, price, desc: `${cols}×${rows} rack` });
+    const overhead = unit({ price: 380, desc: "Overhead 3×3", hasTotes: true });
+    // Installer removed the 4×3 and added a 4×4: it's now second in the list.
+    expect(describeAddon([rack(4, 3, 450), overhead], [overhead, rack(4, 4, 600)])).toBe("Unit 2: 4×3 → 4×4");
+  });
+
+  it("lists a removed unit that wasn't replaced", () => {
+    const a = unit({ cols: 4, rows: 3, price: 450, desc: "4×3 rack" });
+    const b = unit({ cols: 2, rows: 2, price: 200, desc: "2×2 rack" });
+    const big = unit({ cols: 6, rows: 4, price: 900, desc: "6×4 rack" });
+    expect(describeAddon([a, b], [big])).toBe("Unit 1: 4×3 → 6×4; − 2×2 rack");
+  });
+
   it("falls back when nothing identifiable changed", () => {
     expect(describeAddon([unit({ price: 100 })], [unit({ price: 100 })])).toBe("Quote updated");
   });

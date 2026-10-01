@@ -227,12 +227,29 @@ describe("addItemsAfterDeposit", () => {
     expect(addonInsert).toMatchObject({ platform_fee: 0 });
   });
 
+  it("handles a customer resizing a unit (12-tote 4×3 → 16-tote 4×4)", async () => {
+    const result = await addItemsAfterDeposit({
+      leadId: "lead-1",
+      quote_data: [{ ...baseUnit, cols: 4, rows: 4, price: 1350, desc: "4×4 rack" }] as never,
+    });
+    expect(result.success).toBe(true);
+    expect(addonInsert).toMatchObject({
+      amount: 300,
+      deposit_amount: 45, // 15% of the $300 difference
+      platform_fee: 9, // 3% of $300
+      description: "Unit 1: 4×3 → 4×4",
+    });
+    expect(leadUpdate).toMatchObject({ estimated_price: 1350 });
+  });
+
   it("refuses to lower the total after a deposit", async () => {
     const result = await addItemsAfterDeposit({
       leadId: "lead-1",
       quote_data: [{ ...baseUnit, price: 900 }] as never,
     });
     expect(result.success).toBe(false);
+    expect(result.error).toContain("$1,050");
+    expect(result.error).toContain("$900");
     expect(addonInsert).toBeUndefined();
     expect(leadUpdate).toBeUndefined();
   });
