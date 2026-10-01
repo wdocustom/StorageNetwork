@@ -2203,7 +2203,7 @@ export async function addItemsAfterDeposit(
   if (addonAmount < 0) {
     return {
       success: false,
-      error: "Once a deposit is paid you can add to the quote, but not lower its total.",
+      error: `Once a deposit is paid the quote total can't go below what was booked ($${before.total.toLocaleString()}). This change comes to $${after.total.toLocaleString()}.`,
     };
   }
 

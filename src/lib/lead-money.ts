@@ -74,27 +74,71 @@ export function parseTipCents(
 }
 
 // ── Add-on description ────────────────────────────────────────────────────
-// Short human-readable summary of what a post-deposit edit added, for the
+// Short human-readable summary of what a post-deposit edit changed, for the
 // add-on record, the customer's add-on deposit checkout, and the job ticket.
-type DescribableUnit = Pick<QuoteUnit, "price" | "desc" | "hasTop" | "hasWheels" | "hasTotes">;
+//
+// Units are matched as a multiset, not by position: swapping a unit for a
+// bigger one means removing it and adding the new size (which lands at the
+// end of the list), so index-by-index comparison would mislabel it. Each
+// removed unit is paired with a changed/added one:
+//   same size, options added → "Unit 1: + top, wheels"
+//   different size           → "Unit 1: 4×3 → 4×4"
+//   otherwise                → "Unit 1: upgraded"
+// Leftover additions read "+ <desc>"; leftover removals "− <desc>".
+type DescribableUnit = Pick<QuoteUnit, "price" | "desc" | "hasTop" | "hasWheels" | "hasTotes"> &
+  Partial<Pick<QuoteUnit, "cols" | "rows">>;
+
+function unitKey(u: DescribableUnit): string {
+  return JSON.stringify([u.cols ?? 0, u.rows ?? 0, !!u.hasTop, !!u.hasWheels, !!u.hasTotes, u.desc ?? "", Number(u.price) || 0]);
+}
+
+function sizeOf(u: DescribableUnit): string | null {
+  return u.cols && u.rows ? `${u.cols}×${u.rows}` : null;
+}
 
 export function describeAddon(before: DescribableUnit[], after: DescribableUnit[]): string {
+  // Multiset difference: units present unchanged on both sides cancel out.
+  const remaining = new Map<string, number>();
+  for (const b of before) remaining.set(unitKey(b), (remaining.get(unitKey(b)) ?? 0) + 1);
+  const added: Array<{ unit: DescribableUnit; index: number }> = [];
+  after.forEach((a, index) => {
+    const k = unitKey(a);
+    const n = remaining.get(k) ?? 0;
+    if (n > 0) remaining.set(k, n - 1);
+    else added.push({ unit: a, index });
+  });
+  const removed: DescribableUnit[] = [];
+  for (const b of before) {
+    const k = unitKey(b);
+    const n = remaining.get(k) ?? 0;
+    if (n > 0) {
+      removed.push(b);
+      remaining.set(k, n - 1);
+    }
+  }
+
   const parts: string[] = [];
-  after.forEach((a, i) => {
-    const b = before[i];
+  added.forEach(({ unit: a, index }, i) => {
+    const b = removed[i];
+    const label = `Unit ${index + 1}`;
     if (!b) {
-      parts.push(`+ ${a.desc || `Unit ${i + 1}`}`);
+      parts.push(`+ ${a.desc || label}`);
+      return;
+    }
+    const from = sizeOf(b);
+    const to = sizeOf(a);
+    if (from && to && from !== to) {
+      parts.push(`${label}: ${from} → ${to}`);
       return;
     }
     const adds: string[] = [];
     if (a.hasTop && !b.hasTop) adds.push("top");
     if (a.hasWheels && !b.hasWheels) adds.push("wheels");
     if (a.hasTotes && !b.hasTotes) adds.push("totes");
-    if (adds.length > 0) {
-      parts.push(`Unit ${i + 1}: + ${adds.join(", ")}`);
-    } else if ((Number(a.price) || 0) > (Number(b.price) || 0)) {
-      parts.push(`Unit ${i + 1}: upgraded`);
-    }
+    if (adds.length > 0) parts.push(`${label}: + ${adds.join(", ")}`);
+    else if ((Number(a.price) || 0) > (Number(b.price) || 0)) parts.push(`${label}: upgraded`);
   });
+  for (const b of removed.slice(added.length)) parts.push(`− ${b.desc || sizeOf(b) || "unit"}`);
+
   return parts.length > 0 ? parts.join("; ").slice(0, 300) : "Quote updated";
 }
