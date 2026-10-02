@@ -144,7 +144,7 @@ export default function TrackInstallPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/landing_page_logo.png" alt="storage-network.app" className="mb-5 h-12 w-auto" />
+      <img src="/landing_page_logo.png" alt="storage-network.app" className="mb-6 h-auto w-64 max-w-[70%] sm:w-72" />
       <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
         <p className="text-xs font-bold uppercase tracking-wider text-stone-500">{data.installerName}</p>
         <h1 className="mb-1 mt-1 text-2xl font-black text-white">{headline}</h1>
