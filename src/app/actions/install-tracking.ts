@@ -17,6 +17,7 @@ import {
   installerInfo,
   isInstallStage,
   sendStageEmail,
+  stageEmails,
   type InstallStage,
 } from "@/lib/server/install-tracking";
 import { canCustomerChange } from "@/lib/install-slots";
@@ -53,8 +54,13 @@ export async function setInstallStage(
     return { success: false, error: "Couldn't save the step. Please try again." };
   }
 
-  // Email only when moving to a new step (not on undo or a repeat tap).
-  if (!stage || stage === lead.install_stage || !lead.customer_email) return { success: true, emailed: false };
+  // Email only when moving to a new step that customers hear about: "built"
+  // is shown on the tracking page but doesn't email (the booking
+  // confirmation and day-before reminder already carry the tracking link);
+  // "loaded" and "on the way" do. Never on undo or a repeat tap.
+  if (!stage || !stageEmails(stage) || stage === lead.install_stage || !lead.customer_email) {
+    return { success: true, emailed: false };
+  }
 
   const { data: pref } = await db().from("leads").select("time_preference").eq("id", leadId).maybeSingle();
   try {

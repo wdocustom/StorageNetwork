@@ -8,11 +8,11 @@ import { getTrackingPage, type TrackingPageData } from "@/app/actions/install-tr
 // ═══════════════════════════════════════════════════════════════════════════
 // Track Your Install — /track/[token]
 //
-// Linked from the day-before reminder and every step email. Shows the
-// install date, the steps the installer has marked (built → loaded up → on
-// the way → installed), what's due at install, and a link to change the
-// date while that's still allowed. Refreshes every minute so "on the way"
-// shows up without reloading.
+// Linked from the booking confirmation, the day-before reminder and the
+// "loaded" / "on the way" emails. Shows the install date, the steps the
+// installer has marked (built → loaded up → on the way → installed), what's
+// due at install, and a link to change the date while that's still allowed.
+// No GPS and no polling — it reflects the steps as of when it's opened.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STEPS: Array<{ id: string; label: string }> = [
@@ -44,19 +44,10 @@ export default function TrackInstallPage() {
 
   useEffect(() => {
     if (!token) return;
-    let cancelled = false;
-    const load = () =>
-      getTrackingPage(token).then((r) => {
-        if (cancelled) return;
-        if (r.data) setData(r.data);
-        else setError(r.error || "This link isn't valid.");
-      });
-    load();
-    const id = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    getTrackingPage(token).then((r) => {
+      if (r.data) setData(r.data);
+      else setError(r.error || "This link isn't valid.");
+    });
   }, [token]);
 
   if (error && !data) {

@@ -107,9 +107,24 @@ describe("setInstallStage", () => {
     expect(email.html).toContain(`/track/${signTrackToken(LEAD)}`);
   });
 
-  it("doesn't email again when the same step is tapped twice", async () => {
-    leadRow = { ...leadRow!, install_stage: "built" };
+  it("marks Built without emailing (it only updates the tracking page)", async () => {
     const r = await actions.setInstallStage(LEAD, "built");
+    expect(r).toEqual({ success: true, emailed: false });
+    expect(updates[0].payload).toMatchObject({ install_stage: "built" });
+    expect(sendTransactionalEmail).not.toHaveBeenCalled();
+  });
+
+  it("emails when the installer marks Loaded", async () => {
+    const r = await actions.setInstallStage(LEAD, "loaded");
+    expect(r.emailed).toBe(true);
+    expect((sendTransactionalEmail.mock.calls[0][0] as { subject: string }).subject).toBe(
+      "Loaded up for your install — Rack City Totes"
+    );
+  });
+
+  it("doesn't email again when the same step is tapped twice", async () => {
+    leadRow = { ...leadRow!, install_stage: "on_the_way" };
+    const r = await actions.setInstallStage(LEAD, "on_the_way");
     expect(r.emailed).toBe(false);
     expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
@@ -195,6 +210,14 @@ describe("processInstallReminders", () => {
     expect(email.subject).toBe("Reminder: your install with Rack City Totes is tomorrow");
     expect(email.html).toContain("Friday, October 2 (afternoon)");
     expect(email.html).toContain("$1,020.00");
+    expect(email.html).toContain("Scheduled"); // current status
+
+  });
+
+  it("shows the current step in the reminder", async () => {
+    reminderLeads = [due({ install_stage: "built" })];
+    await processInstallReminders(new Date("2026-10-01T14:00:00Z"));
+    expect((sendTransactionalEmail.mock.calls[0][0] as { html: string }).html).toContain(">Built<");
   });
 
   it("skips jobs already reminded for that date, and closed jobs", async () => {

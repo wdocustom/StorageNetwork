@@ -2,9 +2,11 @@
 // Install tracking — manual steps + day-before reminder (migration 141)
 //
 // Installers already text customers "loaded up and on the way" by hand. The
-// Job Ticket now has manual steps (built → loaded → on the way); each emails
-// the customer and updates their tracking page (/track/[token]). A daily
-// job emails a reminder the day before the install with the same link.
+// customer gets their tracking link (/track/[token]) in the booking
+// confirmation (deposit) email, again in a day-before reminder (daily cron),
+// and in an email when the installer marks "loaded" and "on the way". The
+// "built" step only updates the tracking page. No GPS: the page reflects the
+// steps the installer taps.
 //
 // Not a "use server" module: processInstallReminders is cron-only and the
 // email senders must not be callable from a browser.
@@ -22,6 +24,11 @@ export const INSTALL_STAGES: Array<{ id: InstallStage; label: string; button: st
   { id: "loaded", label: "Loaded up", button: "Mark Loaded" },
   { id: "on_the_way", label: "On the way", button: "On the Way" },
 ];
+
+/** Steps that email the customer. "built" only shows on the tracking page. */
+export function stageEmails(stage: InstallStage): boolean {
+  return stage === "loaded" || stage === "on_the_way";
+}
 
 export function isInstallStage(v: unknown): v is InstallStage {
   return v === "built" || v === "loaded" || v === "on_the_way";
@@ -160,7 +167,7 @@ export async function processInstallReminders(now: Date = new Date()): Promise<{
   const { data: leads, error } = await db
     .from("leads")
     .select(
-      "id, installer_id, customer_name, customer_email, scheduled_at, time_preference, status, deposit_paid, install_reminder_for, address, delivery_address_line1, delivery_address_city, delivery_address_state, estimated_price, deposit_amount, discount_amount, sales_tax_amount"
+      "id, installer_id, customer_name, customer_email, scheduled_at, time_preference, status, deposit_paid, install_reminder_for, install_stage, address, delivery_address_line1, delivery_address_city, delivery_address_state, estimated_price, deposit_amount, discount_amount, sales_tax_amount"
     )
     .eq("deposit_paid", true)
     .gte("scheduled_at", tomorrow)
@@ -237,11 +244,12 @@ async function sendReminderEmail({
       <p style="margin:0;color:#facc15;font-size:20px;font-weight:900;">${escapeHtml(when)}</p>
     </div>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+      ${row("Status", isInstallStage(lead.install_stage) ? INSTALL_STAGES.find((s) => s.id === lead.install_stage)!.label : "Scheduled")}
       ${address ? row("Where", escapeHtml(address)) : ""}
       ${balance > 0 ? row("Balance due at install", `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`) : ""}
     </table>
     <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      Please clear the wall and floor where your rack is going. You can follow along as your installer gets ready:
+      Please clear the wall and floor where your rack is going. We&rsquo;ll email you again when ${installerName} is loaded up and on the way, or follow along here:
     </p>
     ${trackButton(trackInstallUrl(lead.id as string))}
     <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
