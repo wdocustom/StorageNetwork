@@ -7,9 +7,9 @@ import { getInstallTracking, setInstallStage, type InstallTrackingState } from "
 // ═══════════════════════════════════════════════════════════════════════════
 // InstallProgress — Job Ticket panel for manual install steps
 //
-// The installer taps Built → Loaded → On the Way. Loaded and On the Way
-// email the customer with their tracking link; Built only updates the
-// tracking page. The customer also gets the link in the booking confirmation
+// The installer taps Built → Loaded → On the Way. Built emails the customer
+// (with a "keep the page open on install day" note); Loaded and On the Way
+// only update the tracking page. The customer also gets the link in the booking confirmation
 // and an automatic reminder the day before the install.
 // Hidden until migration 141 is applied (getInstallTracking fails).
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,7 +126,7 @@ export default function InstallProgress({
         })}
       </div>
       <p className="mt-2 text-[10px] text-stone-500">
-        Loaded and On the Way email the customer. Built only updates their tracking page.
+        Built emails the customer. Loaded and On the Way update their tracking page, which they&apos;re told to keep open on install day.
       </p>
 
       {message && (

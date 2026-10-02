@@ -16,7 +16,7 @@ import {
   CLOSED_STATUSES,
   installerInfo,
   isInstallStage,
-  sendStageEmail,
+  sendBuiltEmail,
   stageEmails,
   type InstallStage,
 } from "@/lib/server/install-tracking";
@@ -54,19 +54,17 @@ export async function setInstallStage(
     return { success: false, error: "Couldn't save the step. Please try again." };
   }
 
-  // Email only when moving to a new step that customers hear about: "built"
-  // is shown on the tracking page but doesn't email (the booking
-  // confirmation and day-before reminder already carry the tracking link);
-  // "loaded" and "on the way" do. Never on undo or a repeat tap.
+  // Only "built" emails (it tells the customer to keep the tracking page
+  // open on install day); "loaded" and "on the way" just update the page.
+  // Never on undo or a repeat tap.
   if (!stage || !stageEmails(stage) || stage === lead.install_stage || !lead.customer_email) {
     return { success: true, emailed: false };
   }
 
   const { data: pref } = await db().from("leads").select("time_preference").eq("id", leadId).maybeSingle();
   try {
-    const result = await sendStageEmail({
+    const result = await sendBuiltEmail({
       leadId,
-      stage,
       customerEmail: lead.customer_email as string,
       customerName: lead.customer_name as string | null,
       scheduledAt: lead.scheduled_at as string | null,

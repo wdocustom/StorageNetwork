@@ -97,34 +97,28 @@ beforeEach(() => {
 });
 
 describe("setInstallStage", () => {
-  it("saves the step and emails the customer a tracking link", async () => {
-    const r = await actions.setInstallStage(LEAD, "on_the_way");
+  it("emails on Built with the tracking link and the keep-it-open note", async () => {
+    const r = await actions.setInstallStage(LEAD, "built");
     expect(r).toEqual({ success: true, emailed: true });
-    expect(updates[0].payload).toMatchObject({ install_stage: "on_the_way" });
+    expect(updates[0].payload).toMatchObject({ install_stage: "built" });
     const email = sendTransactionalEmail.mock.calls[0][0] as { to: string; subject: string; html: string };
     expect(email.to).toBe("joe@example.com");
-    expect(email.subject).toBe("Rack City Totes is on the way!");
+    expect(email.subject).toBe("Your storage rack is built — Rack City Totes");
     expect(email.html).toContain(`/track/${signTrackToken(LEAD)}`);
+    expect(email.html).toContain("Keep your tracking page open and refresh it");
   });
 
-  it("marks Built without emailing (it only updates the tracking page)", async () => {
-    const r = await actions.setInstallStage(LEAD, "built");
-    expect(r).toEqual({ success: true, emailed: false });
-    expect(updates[0].payload).toMatchObject({ install_stage: "built" });
+  it("doesn't email on Loaded or On the Way (tracking page only)", async () => {
+    expect(await actions.setInstallStage(LEAD, "loaded")).toEqual({ success: true, emailed: false });
+    leadRow = { ...leadRow!, install_stage: "loaded" };
+    expect(await actions.setInstallStage(LEAD, "on_the_way")).toEqual({ success: true, emailed: false });
+    expect(updates.map((u) => u.payload.install_stage)).toEqual(["loaded", "on_the_way"]);
     expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
-  it("emails when the installer marks Loaded", async () => {
-    const r = await actions.setInstallStage(LEAD, "loaded");
-    expect(r.emailed).toBe(true);
-    expect((sendTransactionalEmail.mock.calls[0][0] as { subject: string }).subject).toBe(
-      "Loaded up for your install — Rack City Totes"
-    );
-  });
-
-  it("doesn't email again when the same step is tapped twice", async () => {
-    leadRow = { ...leadRow!, install_stage: "on_the_way" };
-    const r = await actions.setInstallStage(LEAD, "on_the_way");
+  it("doesn't email again when Built is tapped twice", async () => {
+    leadRow = { ...leadRow!, install_stage: "built" };
+    const r = await actions.setInstallStage(LEAD, "built");
     expect(r.emailed).toBe(false);
     expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
@@ -211,6 +205,7 @@ describe("processInstallReminders", () => {
     expect(email.html).toContain("Friday, October 2 (afternoon)");
     expect(email.html).toContain("$1,020.00");
     expect(email.html).toContain("Scheduled"); // current status
+    expect(email.html).toContain("Keep your tracking page open and refresh it");
 
   });
 

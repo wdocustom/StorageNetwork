@@ -3,10 +3,11 @@
 //
 // Installers already text customers "loaded up and on the way" by hand. The
 // customer gets their tracking link (/track/[token]) in the booking
-// confirmation (deposit) email, again in a day-before reminder (daily cron),
-// and in an email when the installer marks "loaded" and "on the way". The
-// "built" step only updates the tracking page. No GPS: the page reflects the
-// steps the installer taps.
+// confirmation (deposit) email, in an email when the installer marks
+// "built", and in a day-before reminder (daily cron). "Loaded" and "on the
+// way" don't email — the built and reminder emails tell the customer to keep
+// the tracking page open on install day and refresh it. No GPS: the page
+// reflects the steps the installer taps.
 //
 // Not a "use server" module: processInstallReminders is cron-only and the
 // email senders must not be callable from a browser.
@@ -25,9 +26,24 @@ export const INSTALL_STAGES: Array<{ id: InstallStage; label: string; button: st
   { id: "on_the_way", label: "On the way", button: "On the Way" },
 ];
 
-/** Steps that email the customer. "built" only shows on the tracking page. */
-export function stageEmails(stage: InstallStage): boolean {
-  return stage === "loaded" || stage === "on_the_way";
+/**
+ * Steps that email the customer: only "built". "Loaded" and "on the way"
+ * just update the tracking page, which customers are told to keep open and
+ * refresh on install day (see keepPageOpenNote).
+ */
+export function stageEmails(stage: InstallStage): stage is "built" {
+  return stage === "built";
+}
+
+/** The "keep the page open" note in the built and reminder emails. */
+function keepPageOpenNote(installerName: string): string {
+  return `
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin:0 0 24px;">
+      <p style="margin:0 0 4px;color:#ffffff;font-size:14px;font-weight:800;">On install day</p>
+      <p style="margin:0;color:#94a3b8;font-size:13px;line-height:1.6;">
+        Keep your tracking page open and refresh it &mdash; it updates when ${installerName} is loaded up and on the way.
+      </p>
+    </div>`;
 }
 
 export function isInstallStage(v: unknown): v is InstallStage {
@@ -75,25 +91,6 @@ export async function installerInfo(installerId: string): Promise<InstallerInfo>
   };
 }
 
-const STAGE_COPY: Record<InstallStage, { title: string; subject: (i: string) => string; body: (i: string, when: string | null) => string }> = {
-  built: {
-    title: "Your Rack Is Built",
-    subject: (i) => `Your storage rack is built — ${i}`,
-    body: (i, when) =>
-      `<strong style="color:#facc15;">${i}</strong> has finished building your rack${when ? ` and it&rsquo;s ready for your install on <strong style="color:#ffffff;">${when}</strong>` : ""}.`,
-  },
-  loaded: {
-    title: "Loaded Up",
-    subject: (i) => `Loaded up for your install — ${i}`,
-    body: (i) => `Your rack is loaded up and <strong style="color:#facc15;">${i}</strong> is getting ready to head your way.`,
-  },
-  on_the_way: {
-    title: "On the Way!",
-    subject: (i) => `${i} is on the way!`,
-    body: (i) =>
-      `<strong style="color:#facc15;">${i}</strong> is on the way to you now. Please make sure the install area is clear and easy to get to.`,
-  },
-};
 
 function trackButton(url: string | undefined): string {
   if (!url) return "";
@@ -105,27 +102,28 @@ function trackButton(url: string | undefined): string {
     </div>`;
 }
 
-/** Email the customer that the installer marked a step. */
-export async function sendStageEmail(p: {
+/** Email the customer that their rack is built (the only step that emails). */
+export async function sendBuiltEmail(p: {
   leadId: string;
-  stage: InstallStage;
   customerEmail: string;
   customerName: string | null;
   scheduledAt: string | null;
   timePreference: string | null;
   installer: InstallerInfo;
 }) {
-  const copy = STAGE_COPY[p.stage];
   const firstName = escapeHtml((p.customerName || "").split(" ")[0] || "there");
   const installerName = escapeHtml(p.installer.name);
   const when = p.scheduledAt ? prettyInstallDate(p.scheduledAt, p.timePreference) : null;
 
   const { sendTransactionalEmail, emailShell } = await import("@/lib/email");
   const html = emailShell(
-    copy.title,
+    "Your Rack Is Built",
     `
     <p style="margin:0 0 16px;color:#e2e8f0;font-size:16px;">Hi ${firstName},</p>
-    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">${copy.body(installerName, when)}</p>
+    <p style="margin:0 0 24px;color:#94a3b8;font-size:15px;line-height:1.7;">
+      <strong style="color:#facc15;">${installerName}</strong> has finished building your rack${when ? ` and it&rsquo;s ready for your install on <strong style="color:#ffffff;">${escapeHtml(when)}</strong>` : ""}.
+    </p>
+    ${keepPageOpenNote(installerName)}
     ${trackButton(trackInstallUrl(p.leadId))}
     ${p.installer.phone ? `<p style="margin:0;color:#64748b;font-size:12px;text-align:center;">Questions? Call or text ${escapeHtml(p.installer.phone)}, or reply to this email.</p>` : ""}
     `
@@ -133,7 +131,7 @@ export async function sendStageEmail(p: {
   return sendTransactionalEmail({
     to: p.customerEmail,
     toName: p.customerName || undefined,
-    subject: copy.subject(p.installer.name),
+    subject: `Your storage rack is built — ${p.installer.name}`,
     html,
     senderName: p.installer.name,
     replyTo: p.installer.replyTo,
@@ -249,8 +247,9 @@ async function sendReminderEmail({
       ${balance > 0 ? row("Balance due at install", `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`) : ""}
     </table>
     <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-      Please clear the wall and floor where your rack is going. We&rsquo;ll email you again when ${installerName} is loaded up and on the way, or follow along here:
+      Please clear the wall and floor where your rack is going.
     </p>
+    ${keepPageOpenNote(installerName)}
     ${trackButton(trackInstallUrl(lead.id as string))}
     <p style="margin:0;color:#64748b;font-size:12px;text-align:center;">
       Need to change something? ${installer.phone ? `Call or text ${escapeHtml(installer.phone)}, or reply` : "Reply"} to this email.

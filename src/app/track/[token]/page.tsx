@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, AlertTriangle, CheckCircle2, Circle, Phone, CalendarClock, MapPin } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, Circle, Phone, CalendarClock, MapPin, RefreshCw } from "lucide-react";
 import { getTrackingPage, type TrackingPageData } from "@/app/actions/install-tracking";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Track Your Install — /track/[token]
 //
-// Linked from the booking confirmation, the day-before reminder and the
-// "loaded" / "on the way" emails. Shows the install date, the steps the
+// Linked from the booking confirmation, the "built" email and the
+// day-before reminder. Shows the install date, the steps the
 // installer has marked (built → loaded up → on the way → installed), what's
 // due at install, and a link to change the date while that's still allowed.
-// No GPS and no polling — it reflects the steps as of when it's opened.
+// No GPS and no polling — customers are told to keep it open on install day
+// and tap Refresh to see "loaded up" / "on the way".
 // ═══════════════════════════════════════════════════════════════════════════
 
 const STEPS: Array<{ id: string; label: string }> = [
@@ -42,13 +43,25 @@ export default function TrackInstallPage() {
   const [data, setData] = useState<TrackingPageData | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!token) return;
-    getTrackingPage(token).then((r) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  function load() {
+    return getTrackingPage(token).then((r) => {
       if (r.data) setData(r.data);
       else setError(r.error || "This link isn't valid.");
     });
+  }
+
+  useEffect(() => {
+    if (token) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   if (error && !data) {
     return (
@@ -129,6 +142,22 @@ export default function TrackInstallPage() {
             );
           })}
         </ol>
+
+        {!data.installed && (
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-yellow-400/20 bg-yellow-400/5 px-4 py-3">
+            <p className="text-xs text-stone-300">
+              On install day, keep this page open and refresh it to see when {data.installerName} is loaded up and on the way.
+            </p>
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-yellow-400 px-3 py-2 text-xs font-bold text-gray-950 hover:bg-yellow-300 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+        )}
 
         {!data.installed && (
           <div className="mb-5 space-y-2 rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-sm">
