@@ -112,7 +112,10 @@ describe("setInstallStage", () => {
     expect(await actions.setInstallStage(LEAD, "loaded")).toEqual({ success: true, emailed: false });
     leadRow = { ...leadRow!, install_stage: "loaded" };
     expect(await actions.setInstallStage(LEAD, "on_the_way")).toEqual({ success: true, emailed: false });
-    expect(updates.map((u) => u.payload.install_stage)).toEqual(["loaded", "on_the_way"]);
+    expect(updates.filter((u) => "install_stage" in u.payload).map((u) => u.payload.install_stage)).toEqual([
+      "loaded",
+      "on_the_way",
+    ]);
     expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
@@ -121,6 +124,27 @@ describe("setInstallStage", () => {
     const r = await actions.setInstallStage(LEAD, "built");
     expect(r.emailed).toBe(false);
     expect(sendTransactionalEmail).not.toHaveBeenCalled();
+  });
+
+  it("stamps a time on the step the first time it's marked", async () => {
+    await actions.setInstallStage(LEAD, "loaded");
+    expect(updates[1].payload).toEqual({ install_loaded_at: expect.any(String) });
+  });
+
+  it("keeps the original time when a step is tapped again", async () => {
+    leadRow = { ...leadRow!, install_stage: "loaded" };
+    await actions.setInstallStage(LEAD, "loaded");
+    expect(updates).toHaveLength(1); // only the stage write, no new time
+  });
+
+  it("clears every step time on Reset", async () => {
+    leadRow = { ...leadRow!, install_stage: "on_the_way" };
+    await actions.setInstallStage(LEAD, null);
+    expect(updates[1].payload).toEqual({
+      install_built_at: null,
+      install_loaded_at: null,
+      install_on_the_way_at: null,
+    });
   });
 
   it("resets without emailing", async () => {
@@ -157,6 +181,29 @@ describe("getTrackingPage", () => {
     });
     expect(r.data?.scheduleUrl).toContain("/schedule/");
     expect(updates.some((u) => "tracking_viewed_at" in u.payload)).toBe(true);
+  });
+
+  it("returns when each step happened, with skipped steps blank", async () => {
+    leadRow = {
+      ...leadRow!,
+      install_stage: "on_the_way",
+      install_built_at: null, // skipped
+      install_loaded_at: "2026-10-08T12:42:00Z",
+      install_on_the_way_at: "2026-10-08T13:05:00Z",
+    };
+    const r = await actions.getTrackingPage(signTrackToken(LEAD));
+    expect(r.data?.stepTimes).toEqual({
+      built: null,
+      loaded: "2026-10-08T12:42:00Z",
+      on_the_way: "2026-10-08T13:05:00Z",
+      installed: null,
+    });
+  });
+
+  it("times Installed from when the job was completed", async () => {
+    leadRow = { ...leadRow!, status: "paid", completed_at: "2026-10-08T16:30:00Z" };
+    const r = await actions.getTrackingPage(signTrackToken(LEAD));
+    expect(r.data?.stepTimes.installed).toBe("2026-10-08T16:30:00Z");
   });
 
   it("hides the change-date link inside 48 hours", async () => {

@@ -25,6 +25,37 @@ import { computeBalanceDue } from "@/lib/lead-money";
 
 const db = () => getServiceClient();
 
+const STEP_TIME_COLUMN: Record<InstallStage, string> = {
+  built: "install_built_at",
+  loaded: "install_loaded_at",
+  on_the_way: "install_on_the_way_at",
+};
+
+export interface StepTimes {
+  built: string | null;
+  loaded: string | null;
+  on_the_way: string | null;
+  installed: string | null;
+}
+
+/**
+ * When each step was marked (migration 142). Read separately so a database
+ * without those columns still loads everything else — times just show blank.
+ */
+async function readStepTimes(leadId: string): Promise<Omit<StepTimes, "installed">> {
+  const { data, error } = await db()
+    .from("leads")
+    .select("install_built_at, install_loaded_at, install_on_the_way_at")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (error || !data) return { built: null, loaded: null, on_the_way: null };
+  return {
+    built: (data.install_built_at as string | null) ?? null,
+    loaded: (data.install_loaded_at as string | null) ?? null,
+    on_the_way: (data.install_on_the_way_at as string | null) ?? null,
+  };
+}
+
 // ── Installer: mark a step (AUTH) ────────────────────────────────────────
 // `stage` null clears the progress (undo) without emailing anyone.
 
@@ -52,6 +83,20 @@ export async function setInstallStage(
   if (error) {
     console.error("[InstallStage] update failed:", error);
     return { success: false, error: "Couldn't save the step. Please try again." };
+  }
+
+  // Per-step time: stamped the first time a step is marked (a repeat tap
+  // keeps the original time); Reset clears them all. Best-effort — the step
+  // itself is already saved.
+  const stepTimes: Record<string, string | null> =
+    stage === null
+      ? { install_built_at: null, install_loaded_at: null, install_on_the_way_at: null }
+      : stage !== lead.install_stage
+        ? { [STEP_TIME_COLUMN[stage]]: new Date().toISOString() }
+        : {};
+  if (Object.keys(stepTimes).length > 0) {
+    const { error: timeErr } = await db().from("leads").update(stepTimes).eq("id", leadId);
+    if (timeErr) console.warn("[InstallStage] step time not saved:", timeErr.message);
   }
 
   // Only "built" emails (it tells the customer to keep the tracking page
@@ -86,6 +131,7 @@ export interface InstallTrackingState {
   reminderFor: string | null;
   viewedAt: string | null;
   trackUrl: string | null;
+  stepTimes: Omit<StepTimes, "installed">;
 }
 
 export async function getInstallTracking(
@@ -109,6 +155,7 @@ export async function getInstallTracking(
       reminderFor: (lead.install_reminder_for as string | null) ?? null,
       viewedAt: (lead.tracking_viewed_at as string | null) ?? null,
       trackUrl: trackInstallUrl(leadId) ?? null,
+      stepTimes: await readStepTimes(leadId),
     },
   };
 }
@@ -128,6 +175,8 @@ export interface TrackingPageData {
   balanceDue: number;
   /** Pick / change the date (only while the customer still can). */
   scheduleUrl: string | null;
+  /** When each step happened (null = not reached, or skipped). */
+  stepTimes: StepTimes;
 }
 
 export async function getTrackingPage(token: string): Promise<{ data?: TrackingPageData; error?: string }> {
@@ -137,7 +186,7 @@ export async function getTrackingPage(token: string): Promise<{ data?: TrackingP
   const { data: lead } = await db()
     .from("leads")
     .select(
-      "id, installer_id, status, deposit_paid, customer_name, scheduled_at, install_stage, install_stage_at, completed_at, address, delivery_address_line1, delivery_address_city, delivery_address_state, estimated_price, deposit_amount, discount_amount, sales_tax_amount"
+      "id, installer_id, status, deposit_paid, customer_name, scheduled_at, install_stage, install_stage_at, completed_at, paid_at, address, delivery_address_line1, delivery_address_city, delivery_address_state, estimated_price, deposit_amount, discount_amount, sales_tax_amount"
     )
     .eq("id", leadId)
     .maybeSingle();
@@ -179,6 +228,10 @@ export async function getTrackingPage(token: string): Promise<{ data?: TrackingP
             discount_amount: lead.discount_amount as number,
             sales_tax_amount: lead.sales_tax_amount as number,
           }),
+      stepTimes: {
+        ...(await readStepTimes(leadId)),
+        installed: installed ? ((lead.completed_at || lead.paid_at) as string | null) ?? null : null,
+      },
       scheduleUrl:
         !closed && canCustomerChange(lead.scheduled_at as string | null, new Date())
           ? scheduleInstallUrl(leadId) ?? null
