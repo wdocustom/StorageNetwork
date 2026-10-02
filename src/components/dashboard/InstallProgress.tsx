@@ -120,7 +120,14 @@ export default function InstallProgress({
               ) : done ? (
                 <Check className="h-3.5 w-3.5" />
               ) : null}
-              {step.label}
+              <span className="flex flex-col items-center leading-tight">
+                {step.label}
+                {done && state.stepTimes?.[step.id] && (
+                  <span className="text-[9px] font-medium text-emerald-400/70">
+                    {new Date(state.stepTimes[step.id]!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
