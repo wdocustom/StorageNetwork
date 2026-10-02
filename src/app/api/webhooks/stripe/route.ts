@@ -10,7 +10,7 @@ import {
   deactivateProSubscription,
 } from "@/app/actions/pro-subscription";
 import { getServiceClient } from "@/lib/supabase-server";
-import { requestQuoteUrl, scheduleInstallUrl } from "@/lib/server/request-link";
+import { requestQuoteUrl, scheduleInstallUrl, trackInstallUrl } from "@/lib/server/request-link";
 import { Redis } from "@upstash/redis";
 import { roundMoney } from "@/utils/mathHelpers";
 
@@ -999,6 +999,7 @@ export async function POST(request: NextRequest) {
             installerAvatarUrl: installerAvatar,
             scheduledDate: lead.scheduled_at ?? "TBD",
             scheduleUrl: scheduleInstallUrl(leadId),
+            trackUrl: trackInstallUrl(leadId),
             address: lead.address ?? fullAddress ?? "Address Pending",
             depositAmount: amountPaid,
             totalPrice: lead.estimated_price ?? amountPaid,
@@ -1721,6 +1722,7 @@ export async function POST(request: NextRequest) {
               installerAvatarUrl: installerAvatar,
               scheduledDate: lead.scheduled_at ?? metadata.scheduled_at ?? "TBD",
               scheduleUrl: scheduleInstallUrl(leadId),
+              trackUrl: trackInstallUrl(leadId),
               address: lead.address ?? "Address Pending",
               depositAmount: amountPaidPI,
               totalPrice: lead.estimated_price ?? amountPaidPI,

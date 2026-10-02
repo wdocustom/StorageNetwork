@@ -199,6 +199,14 @@ export default function SchedulePage() {
               Your install is less than 48 hours away. To change it, contact {page.installerName}.
             </p>
           )}
+          {page.trackUrl && (
+            <a
+              href={page.trackUrl}
+              className="mt-4 block text-sm font-semibold text-yellow-400 hover:text-yellow-300"
+            >
+              Track your install &rarr;
+            </a>
+          )}
           {contactLine}
         </div>
       </Shell>

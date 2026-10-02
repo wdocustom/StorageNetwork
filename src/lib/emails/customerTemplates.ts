@@ -70,6 +70,8 @@ export interface BookingConfirmationData {
   buildSnapshotUrl?: string;
   /** Customer's pick-your-install-date page (/schedule/[token]). */
   scheduleUrl?: string;
+  /** Customer's install-tracking page (/track/[token]). */
+  trackUrl?: string;
 }
 
 export async function sendBookingConfirmation(
@@ -91,6 +93,7 @@ export async function sendBookingConfirmation(
     leadId,
     buildSnapshotUrl,
     scheduleUrl,
+    trackUrl,
   } = data;
   const dateMissing = !scheduledDate || scheduledDate === "TBD";
 
@@ -178,6 +181,14 @@ export async function sendBookingConfirmation(
       ${detailRow("Location", address || "Address confirmed at scheduling", { topBorder: true })}
       ${detailRow("Installer", installerLine, { topBorder: true })}
     </table>
+
+    ${trackUrl ? `
+    <div style="border:1px solid #222;border-radius:12px;padding:20px;text-align:center;margin:0 0 28px;">
+      <p style="margin:0 0 6px;color:#ffffff;font-size:15px;font-weight:800;">Track your install</p>
+      <p style="margin:0 0 14px;color:#a3a3a3;font-size:13px;line-height:1.6;">See your date and progress anytime. We&rsquo;ll email you when your rack is built and again the day before your install. On install day, keep the page open and refresh it to see when ${installerName} is loaded up and on the way.</p>
+      <a href="${trackUrl}" style="color:#facc15;font-size:14px;font-weight:700;text-decoration:underline;">Track Your Install &rarr;</a>
+    </div>
+    ` : ""}
 
     ${eyebrow("Payment")}
     <table style="width:100%;border-collapse:collapse;margin:0 0 6px;">

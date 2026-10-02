@@ -18,7 +18,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { getServiceClient } from "@/lib/supabase-server";
-import { verifyScheduleToken, scheduleInstallUrl } from "@/lib/server/request-link";
+import { verifyScheduleToken, scheduleInstallUrl, trackInstallUrl } from "@/lib/server/request-link";
 import { checkSlot, canCustomerChange, effectiveLeadTime, type TimeBlock } from "@/lib/install-slots";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { isSameInstallDate } from "@/utils/installDate";
@@ -122,6 +122,8 @@ export interface SchedulePageData {
   currentTime: TimeBlock | null;
   /** False inside 48 hours of a booked install — contact the installer. */
   canChange: boolean;
+  /** Customer's install-tracking page (/track/[token]). */
+  trackUrl: string | null;
 }
 
 export async function getSchedulePage(
@@ -166,6 +168,7 @@ export async function getSchedulePage(
       currentDate: lead.scheduled_at ? lead.scheduled_at.slice(0, 10) : null,
       currentTime,
       canChange: canCustomerChange(lead.scheduled_at, new Date()),
+      trackUrl: trackInstallUrl(lead.id) ?? null,
     },
   };
 }
