@@ -30,7 +30,7 @@ function secret(): string {
 
 // Each link kind signs under its own purpose, so a quote-request link can't
 // be replayed as a scheduling link (or vice versa).
-type LinkPurpose = "quote-request" | "schedule";
+type LinkPurpose = "quote-request" | "schedule" | "track";
 
 function sign(purpose: LinkPurpose, leadId: string): string {
   return createHmac("sha256", secret()).update(`${purpose}:${leadId}`).digest("base64url").slice(0, 24);
@@ -86,6 +86,24 @@ export function scheduleInstallUrl(leadId: string): string | undefined {
 export function requestQuoteUrl(leadId: string, origin: RequestOrigin): string | undefined {
   try {
     return `${getAppUrl()}/request/${signRequestToken(leadId)}?via=${origin}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Token for the customer's install-tracking page. */
+export function signTrackToken(leadId: string): string {
+  return signToken("track", leadId);
+}
+
+export function verifyTrackToken(token: string | null | undefined): string | null {
+  return verifyToken("track", token);
+}
+
+/** Full URL of the install-tracking page, or undefined without a secret. */
+export function trackInstallUrl(leadId: string): string | undefined {
+  try {
+    return `${getAppUrl()}/track/${signTrackToken(leadId)}`;
   } catch {
     return undefined;
   }

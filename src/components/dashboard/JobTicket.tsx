@@ -42,6 +42,7 @@ import { toFraction } from "@/lib/utils";
 import { formatCurrency } from "@/utils/paymentHelpers";
 import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/fee-engine";
 import PostDepositAddons from "@/components/dashboard/PostDepositAddons";
+import InstallProgress from "@/components/dashboard/InstallProgress";
 import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession, chargeDepositOffSession, createDepositCheckoutSession } from "@/app/actions/payments";
 import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
@@ -1728,6 +1729,11 @@ export default function JobTicket({
             )}
           </span>
         </div>
+      )}
+
+      {/* ── Install progress: manual steps + reminder (customer tracking) ── */}
+      {depositPaid && !["paid", "completed", "cancelled", "archived"].includes(status) && (
+        <InstallProgress leadId={leadId} customerEmail={customerEmail} scheduledAt={scheduledAt ?? null} />
       )}
 
       {/* ── Add-ons after deposit + customer tip ─────────────────── */}

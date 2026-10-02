@@ -5,6 +5,8 @@ import {
   requestQuoteUrl,
   signScheduleToken,
   verifyScheduleToken,
+  signTrackToken,
+  verifyTrackToken,
 } from "./request-link";
 
 const LEAD = "3f2b7c1e-8a4d-4c6b-9e1f-0a2b3c4d5e6f";
@@ -40,5 +42,8 @@ describe("request links", () => {
     expect(verifyScheduleToken(signScheduleToken(LEAD))).toBe(LEAD);
     expect(verifyScheduleToken(signRequestToken(LEAD))).toBeNull();
     expect(verifyRequestToken(signScheduleToken(LEAD))).toBeNull();
+    expect(verifyTrackToken(signTrackToken(LEAD))).toBe(LEAD);
+    expect(verifyTrackToken(signScheduleToken(LEAD))).toBeNull();
+    expect(verifyScheduleToken(signTrackToken(LEAD))).toBeNull();
   });
 });
