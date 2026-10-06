@@ -85,9 +85,40 @@ function readRealtorReferralCode(): string | null {
   return null;
 }
 
+// ── Platform marketing-email attribution ─────────────────────────────────
+// Campaign emails link here with `?mc=<token>`. Remember it for 30 days so a
+// customer who browses away and comes back still books under the campaign.
+// The token is only a claim — the server validates it (installer match +
+// attribution window) before applying the network fee.
+const MARKETING_COOKIE = "sn_mc";
+
+function readMarketingToken(installerId: string): string | null {
+  if (typeof window === "undefined") return null;
+  const qp = new URLSearchParams(window.location.search).get("mc");
+  if (qp && qp.trim()) {
+    try {
+      document.cookie = `${MARKETING_COOKIE}=${encodeURIComponent(
+        `${installerId}:${qp.trim()}`
+      )}; path=/; max-age=${30 * 24 * 60 * 60}; samesite=lax`;
+    } catch {}
+    return qp.trim();
+  }
+  const match = document.cookie.match(new RegExp(`(?:^|; )${MARKETING_COOKIE}=([^;]+)`));
+  if (match && match[1]) {
+    const [cookieInstaller, token] = decodeURIComponent(match[1]).split(":");
+    if (cookieInstaller === installerId && token) return token;
+  }
+  return null;
+}
+
 function BookingPageInner() {
   const params = useParams();
   const installerId = params.installerId as string;
+
+  // Capture a campaign-email token on arrival so it survives in-page navigation.
+  useEffect(() => {
+    readMarketingToken(installerId);
+  }, [installerId]);
 
   // ── Design inputs ─────────────────────────────────────────────────────
   const [cols, setCols] = useState(4);
@@ -238,6 +269,7 @@ function BookingPageInner() {
     setSubmitting(true);
     try {
       const realtorReferralCode = readRealtorReferralCode();
+      const marketingToken = readMarketingToken(installerId);
       await submitNetworkLead({
         customer_name: name,
         customer_email: email,
@@ -249,6 +281,7 @@ function BookingPageInner() {
         // ─── SELF-LEAD: inject installer_id + source ───────────────
         installer_id: installerId,
         realtor_referral_code: realtorReferralCode || undefined,
+        marketing_token: marketingToken || undefined,
       });
       setSubmitted(true);
     } catch (err) {

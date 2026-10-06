@@ -96,6 +96,7 @@ import {
 } from "@/lib/server/lead-addons";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { roundMoney } from "@/utils/mathHelpers";
+import { isDirectLeadSource, isLockedPlatformSource, platformFeeRateForSource, type LeadSource } from "@/lib/lead-source";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-12-15.clover",
@@ -170,17 +171,13 @@ async function requireLeadOwnership(
 // ── Fee Constants ────────────────────────────────────────────────────────
 // Deposit rate is now installer-configurable (min 15%) via fee-engine.ts.
 // The deposit amount is passed in by callers who resolve it from getDepositAmount().
-const PRO_PLATFORM_FEE_RATE = 0.03;  // 3% platform fee — DIRECT leads only (installer brought the customer)
 const PRO_INSTALLER_RATE = 0.12;     // 12% to installer for Pro (from the 15%)
-const NETWORK_FEE_RATE = 0.15;       // 15% platform fee — NETWORK leads (platform brought the customer)
 // Note: Balance payments have NO platform fee — platform already took their cut from deposit
 //
-// Direct lead = installer's own booking link (source="partner_link") or
-//               installer-built manual quote (source="installer_manual").
-// Network lead = everything else: /design self-build, waitlist activation,
-//                anonymous quote completion, etc. (source="platform").
-// Keep this split in sync with fee-engine.ts — its getNetProfit() uses the
-// same source-based fork to project the installer's expected take-home.
+// Fee rate by lead source (3% direct / 15% network) lives in
+// src/lib/lead-source.ts — platformFeeRateForSource(). Platform-sent
+// marketing ("platform_campaign") is a network lead. fee-engine.ts uses the
+// same helper to project the installer's expected take-home.
 
 // ── First 3 Jobs: Zero Platform Fees ─────────────────────────────────────
 // New installers get their first 3 committed jobs with zero platform fees.
@@ -451,10 +448,7 @@ async function computePlatformFeeCents(params: {
     const overrideRate = Math.max(0, Math.min(Number(feeOverride), 0.25));
     feeCents = Math.round(totalPriceCents * overrideRate);
   } else {
-    const isDirectLead = leadSource === "partner_link" || leadSource === "installer_manual";
-    const isNetworkLead = leadSource === "platform" || leadSource === "facebook_referral";
-    const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
-    feeCents = Math.round(totalPriceCents * platformFeeRate);
+    feeCents = Math.round(totalPriceCents * platformFeeRateForSource(leadSource));
   }
 
   return Math.min(feeCents, capCents);
@@ -1601,7 +1595,7 @@ export async function chargeDepositOffSession(
 // Used by BookingModal for inline deposit collection.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export type LeadSource = "platform" | "partner_link" | "installer_manual" | "facebook_referral";
+export type { LeadSource };
 
 export interface DepositIntentInput {
   leadId: string;
@@ -1649,7 +1643,7 @@ const depositIntentSchema = z.object({
   amount: z.number().positive("Deposit must be positive").max(100_000, "Amount too large"),
   totalPrice: z.number().positive("Total price must be positive").max(1_000_000, "Price too large"),
   installerId: z.string().uuid("Invalid installer ID").optional(),
-  source: z.enum(["platform", "partner_link", "installer_manual", "facebook_referral"]),
+  source: z.enum(["platform", "partner_link", "installer_manual", "facebook_referral", "platform_campaign"]),
   customerEmail: z.union([z.email("Invalid email"), z.literal("")]).optional().transform(v => v || undefined),
   customerName: z.string().max(200).optional(),
   scheduledAt: z.string().max(30).optional(),
@@ -1758,9 +1752,8 @@ async function resolveDepositFeeSplit(params: {
     // Fee rate depends on lead source — network leads (platform-acquired)
     // pay 15%, direct leads (installer's own booking link or manual quote)
     // pay 3%.
-    const isDirectLead = source === "partner_link" || source === "installer_manual";
-    const isNetworkLead = source === "platform" || source === "facebook_referral";
-    const platformFeeRate = (isDirectLead && !isNetworkLead) ? PRO_PLATFORM_FEE_RATE : NETWORK_FEE_RATE;
+    const isDirectLead = isDirectLeadSource(source);
+    const platformFeeRate = platformFeeRateForSource(source);
     const basePlatformFeeCents = Math.round(totalPriceCents * platformFeeRate);
     // FB share discount: platform absorbs the discount from its own fee (installer unaffected)
     const platformFeeCents = Math.max(0, basePlatformFeeCents - fbShareDiscountCents);
@@ -1810,7 +1803,19 @@ export async function createDepositIntent(
     return { success: false, error: "Invalid input: " + parsed.error.issues[0]?.message };
   }
 
-  const { leadId, amount, totalPrice, installerId, source, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, billingLine1, billingLine2, billingCity, billingZip, discountCode, discountCodeAmount, deliveryFeeAmount, fbShareDiscountAmount } = parsed.data;
+  const { leadId, amount, totalPrice, installerId, source: clientSource, customerEmail, customerName, scheduledAt, timePreference, salesTaxAmount, billingState, billingLine1, billingLine2, billingCity, billingZip, discountCode, discountCodeAmount, deliveryFeeAmount, fbShareDiscountAmount } = parsed.data;
+  // A platform-attributed source (marketing campaign) was set server-side when
+  // the lead was created. The client-sent source must never downgrade it —
+  // otherwise this call's `leads.source` update below would flip a 15% network
+  // lead back to a 3% direct one.
+  const { data: existingLead } = await supabase
+    .from("leads")
+    .select("source")
+    .eq("id", leadId)
+    .maybeSingle();
+  const source: LeadSource = isLockedPlatformSource(existingLead?.source)
+    ? (existingLead!.source as LeadSource)
+    : clientSource;
   const promoCodeCents = discountCodeAmount ? Math.round(discountCodeAmount * 100) : 0;
   const deliveryFeeCents = deliveryFeeAmount ? Math.round(deliveryFeeAmount * 100) : 0;
   const fbShareDiscountCents = fbShareDiscountAmount ? Math.round(fbShareDiscountAmount * 100) : 0;
