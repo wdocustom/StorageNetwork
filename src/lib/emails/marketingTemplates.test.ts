@@ -25,4 +25,19 @@ describe("repeat-order email", () => {
   it("escapes the installer name", () => {
     expect(buildRepeatOrderEmail(input).html).not.toContain("Acme <Racks>");
   });
+
+  it("has a holiday, promotional tone and names the installer in the subject", () => {
+    const { subject, html } = buildRepeatOrderEmail(input);
+    expect(subject).toContain("holidays");
+    expect(subject).toContain("Acme <Racks>"); // subject is plain text, not HTML
+    expect(html).toContain("Get Organized for the Holidays");
+  });
+
+  it("renders the button with black text, set several ways, on a yellow cell", () => {
+    const { html } = buildRepeatOrderEmail(input);
+    const btn = html.slice(html.indexOf('bgcolor="#facc15"'));
+    expect(btn).toContain("background-color:#facc15");
+    expect(btn).toContain("color:#000000;-webkit-text-fill-color:#000000");
+    expect(btn).not.toMatch(/color:#ffffff[^<]*<span[^>]*>Get Organized/);
+  });
 });
