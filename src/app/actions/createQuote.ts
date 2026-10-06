@@ -531,20 +531,41 @@ export async function createQuote(
     // campaign link is read from the DB; the signed-in installer must own it
     // and the quote must stay with them (not handed off to a covering one).
     let campaignSendId: string | null = null;
-    if (quote_request_id && effectiveInstallerId === installer_id) {
+    let campaignRequestIdToClose: string | null = null;
+    if (effectiveInstallerId === installer_id) {
       const user = await getAuthenticatedUser();
       if (user?.id === installer_id) {
-        const { data: reqRow } = await supabase
-          .from("quote_requests")
-          .select("installer_id, marketing_send_id, status")
-          .eq("id", quote_request_id)
-          .maybeSingle();
-        if (
-          reqRow?.installer_id === installer_id &&
-          reqRow.status === "open" &&
-          reqRow.marketing_send_id
-        ) {
-          campaignSendId = reqRow.marketing_send_id as string;
+        if (quote_request_id) {
+          const { data: reqRow } = await supabase
+            .from("quote_requests")
+            .select("installer_id, marketing_send_id, status")
+            .eq("id", quote_request_id)
+            .maybeSingle();
+          if (
+            reqRow?.installer_id === installer_id &&
+            reqRow.status === "open" &&
+            reqRow.marketing_send_id
+          ) {
+            campaignSendId = reqRow.marketing_send_id as string;
+          }
+        } else if (normalizedEmail) {
+          // The installer built this quote from scratch rather than from the
+          // request. If the same customer has an open campaign request with
+          // them, it's still that order — attribute it and close the request.
+          const { data: reqRow } = await supabase
+            .from("quote_requests")
+            .select("id, marketing_send_id")
+            .eq("installer_id", installer_id)
+            .eq("status", "open")
+            .eq("customer_email", normalizedEmail)
+            .not("marketing_send_id", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (reqRow?.marketing_send_id) {
+            campaignSendId = reqRow.marketing_send_id as string;
+            campaignRequestIdToClose = reqRow.id as string;
+          }
         }
       }
     }
@@ -605,6 +626,13 @@ export async function createQuote(
       return { success: false, error: `Failed to create quote: ${detail}` };
     }
 
+    if (campaignRequestIdToClose) {
+      await supabase
+        .from("quote_requests")
+        .update({ status: "quoted", quoted_lead_id: lead.id, updated_at: new Date().toISOString() })
+        .eq("id", campaignRequestIdToClose)
+        .eq("status", "open");
+    }
     if (campaignSendId) {
       await markSendConverted(supabase, campaignSendId, lead.id).catch((err) =>
         console.error("[Quote] Failed to record campaign conversion:", err)

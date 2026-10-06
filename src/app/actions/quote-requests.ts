@@ -224,8 +224,6 @@ async function notifyInstaller(p: {
   phone: string | null;
   wants: string[];
   notes: string | null;
-  /** Came from a platform marketing email → billed as a network lead. */
-  fromCampaign?: boolean;
 }) {
   const installer = p.installer;
   let to = installer.email;
@@ -259,15 +257,6 @@ async function notifyInstaller(p: {
     ${wantsHtml}
     ${notesHtml}
     <p style="margin:0 0 24px;color:#94a3b8;font-size:13px;">${contact}</p>
-    ${
-      p.fromCampaign
-        ? `<p style="margin:0 0 24px;padding:12px 14px;background:#1e293b;border-left:3px solid #facc15;border-radius:8px;color:#e2e8f0;font-size:13px;line-height:1.6;">
-            This customer came back through a <strong>Storage Network email</strong>, so this is a
-            <strong>network lead (15% platform fee)</strong>. Build the quote from the button below
-            so it&rsquo;s billed correctly.
-          </p>`
-        : ""
-    }
     <div style="text-align:center;margin-bottom:16px;">
       <a href="${buildUrl}" style="display:inline-block;background:#facc15;color:#0f172a;padding:14px 40px;border-radius:12px;font-weight:900;text-decoration:none;font-size:14px;text-transform:uppercase;letter-spacing:0.5px;">
         Build Their Quote &rarr;
@@ -501,7 +490,6 @@ export async function submitCampaignQuoteRequest(input: {
     phone,
     wants: [],
     notes,
-    fromCampaign: true,
   }).catch((err) => console.error("[QuoteRequest] installer email failed:", err));
 
   return { success: true };
