@@ -12,6 +12,7 @@ import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
 import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { getRepeatOrderContext, type RepeatOrderContext, type RepeatOrderUnit } from "@/app/actions/repeat-order-context";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import type { InstallerPricing } from "@/types/viewModels";
 import PageViewTracker from "@/components/tracking/PageViewTracker";
@@ -115,9 +116,29 @@ function BookingPageInner() {
   const params = useParams();
   const installerId = params.installerId as string;
 
+  // ── Repeat-order context (arrived from a campaign email) ──────────────
+  // A valid ?mc= token unlocks the customer's details + last order, priced at
+  // this installer's current rates. Without one, the page is unchanged.
+  const [repeat, setRepeat] = useState<RepeatOrderContext | null>(null);
+  const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
+
   // Capture a campaign-email token on arrival so it survives in-page navigation.
   useEffect(() => {
-    readMarketingToken(installerId);
+    const token = readMarketingToken(installerId);
+    if (!token) return;
+    getRepeatOrderContext(token, installerId)
+      .then((res) => {
+        if (!res.success) return;
+        setRepeat(res.context);
+        // Prefill only what we have, and never overwrite what the customer typed.
+        const c = res.context.customer;
+        setName((v) => v || c.name);
+        setEmail((v) => v || c.email);
+        setPhone((v) => v || c.phone);
+        setAddress((v) => v || c.address);
+        setAddressZip((v) => v || c.zip);
+      })
+      .catch(() => {});
   }, [installerId]);
 
   // ── Design inputs ─────────────────────────────────────────────────────
@@ -247,6 +268,27 @@ function BookingPageInner() {
     ]);
   }
 
+  function pastUnitToConfig(u: RepeatOrderUnit): UnitConfig {
+    return {
+      cols: u.cols, rows: u.rows, toteType: u.toteType,
+      hasTotes: u.hasTotes, hasWheels: u.hasWheels, hasTop: u.hasTop,
+      price: u.price, totalW: u.totalW, totalH: u.totalH,
+      desc: `${u.cols} Wide × ${u.rows} High`,
+    };
+  }
+
+  function handleAddPastUnit(u: RepeatOrderUnit, count = 1) {
+    if (!u.available) return;
+    setOrderItems((prev) => [...prev, ...Array.from({ length: count }, () => pastUnitToConfig(u))]);
+    setAddedCounts((prev) => ({ ...prev, [u.key]: (prev[u.key] ?? 0) + count }));
+  }
+
+  function handleAddWholePastOrder() {
+    for (const u of repeat?.units ?? []) {
+      if (u.available) handleAddPastUnit(u, u.quantity);
+    }
+  }
+
   function handleRemoveUnit(index: number) {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
   }
@@ -330,23 +372,109 @@ function BookingPageInner() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="border-b-4 border-yellow-400 bg-gray-950 px-4 py-3">
         <div className="mx-auto max-w-lg text-center">
-          <Image
-            src="/Header_avatar_logo.png"
-            alt="Storage Network"
-            width={56}
-            height={56}
-            className="mx-auto mb-1 h-14 w-auto object-contain"
-          />
+          {repeat?.installer.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={repeat.installer.avatarUrl}
+              alt={repeat.installer.name}
+              className="mx-auto mb-1 h-14 w-14 rounded-full border border-yellow-400/60 object-cover"
+            />
+          ) : (
+            <Image
+              src="/Header_avatar_logo.png"
+              alt="Storage Network"
+              width={56}
+              height={56}
+              className="mx-auto mb-1 h-14 w-auto object-contain"
+            />
+          )}
           <h1 className="text-sm font-extrabold uppercase tracking-widest text-white">
-            Custom Storage Configurator
+            {repeat ? repeat.installer.name : "Custom Storage Configurator"}
           </h1>
           <p className="text-[10px] uppercase tracking-wider text-yellow-400">
-            Design &amp; Book Your Build
+            {repeat
+              ? `Order another rack${repeat.installer.location ? ` · ${repeat.installer.location}` : ""}`
+              : "Design & Book Your Build"}
           </p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg space-y-4 p-4">
+      <main
+        className={
+          repeat && repeat.units.length > 0
+            ? "mx-auto max-w-lg space-y-4 p-4 lg:grid lg:max-w-4xl lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-4 lg:space-y-0"
+            : "mx-auto max-w-lg space-y-4 p-4"
+        }
+      >
+        {/* ── Previous order (repeat customers) ───────────────────────── */}
+        {repeat && repeat.units.length > 0 && (
+          <aside className="rounded-xl border border-yellow-400/40 bg-gray-900 p-4 lg:col-start-2 lg:row-start-1 lg:self-start">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-yellow-400">
+              Your previous order
+            </h2>
+            <p className="mb-3 mt-1 text-[11px] text-stone-500">
+              Tap a rack to add it to your quote at {repeat.installer.name}&rsquo;s current pricing.
+            </p>
+            <ul className="space-y-2">
+              {repeat.units.map((u) => {
+                const extras: string[] = [];
+                if (u.hasTotes) extras.push("Totes");
+                if (u.hasWheels) extras.push("Wheels");
+                if (u.hasTop) extras.push("Top");
+                const added = addedCounts[u.key] ?? 0;
+                return (
+                  <li key={u.key}>
+                    {u.available ? (
+                      <button
+                        onClick={() => handleAddPastUnit(u)}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-stone-700 bg-slate-800 px-3 py-2.5 text-left transition-colors hover:border-yellow-400"
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold text-white">
+                            {u.cols} Wide × {u.rows} High
+                            {u.quantity > 1 && (
+                              <span className="ml-1 text-[11px] font-normal text-stone-500">
+                                (ordered ×{u.quantity})
+                              </span>
+                            )}
+                          </span>
+                          <span className="block text-[11px] text-stone-500">
+                            {extras.length > 0 ? extras.join(", ") : "Frame Only"}
+                          </span>
+                          {added > 0 && (
+                            <span className="text-[11px] font-bold text-emerald-400">
+                              {added} in your quote
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-yellow-400">
+                            ${u.price.toLocaleString()}
+                          </span>
+                          <Plus className="h-4 w-4 text-yellow-400" />
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="rounded-lg border border-stone-800 bg-slate-900 px-3 py-2.5 text-[11px] text-stone-500">
+                        {u.unavailableLabel || "Not available online"}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {repeat.units.filter((u) => u.available).length > 0 && (
+              <button
+                onClick={handleAddWholePastOrder}
+                className="mt-3 w-full rounded-lg bg-yellow-400 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-950 transition-colors hover:bg-yellow-300"
+              >
+                Add entire previous order
+              </button>
+            )}
+          </aside>
+        )}
+
+        <div className="space-y-4 lg:col-start-1 lg:row-start-1">
         {/* ── Configuration Card ──────────────────────────────────── */}
         <section className="rounded-xl border border-stone-800 bg-gray-900 p-4">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -607,6 +735,7 @@ function BookingPageInner() {
             </div>
           </section>
         )}
+        </div>
       </main>
 
       {/* ── Footer ──────────────────────────────────────────────────── */}
