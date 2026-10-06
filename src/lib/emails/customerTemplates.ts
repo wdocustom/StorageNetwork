@@ -1,4 +1,5 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
+import { depositPercentLabel } from "@/lib/deposit-label";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import { formatInstallDate } from "@/utils/installDate";
@@ -819,6 +820,8 @@ export async function sendAbandonedCartEmail(
     ? `with <strong style="color:#ffffff;">${data.installerName}</strong>`
     : "for your Heavy-Duty Tote System";
   const balanceDue = data.totalPrice - data.depositAmount;
+  // The installer's actual deposit — never a hardcoded rate.
+  const depositPct = depositPercentLabel(data.depositAmount, data.totalPrice);
 
   const html = masterEmailLayout(
     "Your Build Is Saved",
@@ -832,7 +835,7 @@ export async function sendAbandonedCartEmail(
     ${eyebrow("Your Order")}
     <table style="width:100%;border-collapse:collapse;margin:0 0 8px;">
       ${detailRow("Order Total", `$${data.totalPrice.toFixed(2)}`)}
-      ${detailRow("Secure Deposit (15%)", `$${data.depositAmount.toFixed(2)}`, { highlight: true, topBorder: true })}
+      ${detailRow(depositPct ? `Secure Deposit (${depositPct})` : "Secure Deposit", `$${data.depositAmount.toFixed(2)}`, { highlight: true, topBorder: true })}
       ${detailRow("Balance Due at Installation", `$${balanceDue.toFixed(2)}`, { topBorder: true })}
     </table>
     <p style="margin:0 0 28px;color:#555;font-size:11px;font-style:italic;">*Sales tax (if applicable) is collected by your installer on installation day.</p>
@@ -848,7 +851,7 @@ export async function sendAbandonedCartEmail(
     <table style="width:100%;font-size:11px;color:#555;margin:0 0 24px;">
       <tr>
         <td style="text-align:center;padding:6px 8px;">&#128274; Secure Checkout</td>
-        <td style="text-align:center;padding:6px 8px;">&#128176; 15% Deposit</td>
+        <td style="text-align:center;padding:6px 8px;">&#128176; ${depositPct ? `${depositPct} Deposit` : "Deposit Only"}</td>
         <td style="text-align:center;padding:6px 8px;">&#9989; Built to Spec</td>
       </tr>
     </table>
