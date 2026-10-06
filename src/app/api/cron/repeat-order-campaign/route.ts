@@ -12,7 +12,8 @@ export const maxDuration = 300;
 // installer announcements this refuses to run if the secret is unset.
 //
 //   (no params)            dry run: counts + masked sample, sends nothing
-//   ?testTo=you@x.com      sends ONE "[TEST]" email, writes nothing
+//   ?testTo=you@x.com      sends ONE "[TEST]" email to that address only; links
+//                          work end to end (test campaign, never the real one)
 //   ?send=1&limit=100      really sends up to `limit` (max 200) per call;
 //                          safe to repeat — each customer is emailed once
 // ═══════════════════════════════════════════════════════════════════════════

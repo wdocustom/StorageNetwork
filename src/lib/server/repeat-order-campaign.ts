@@ -150,17 +150,24 @@ async function loadAudience(campaignId: string | null): Promise<Recipient[]> {
   return selectRecipients(leads, installers, optedOut, alreadySent);
 }
 
-async function getOrCreateCampaignId(): Promise<string> {
+// Tests use their OWN campaign so a test can never mark a real customer as
+// "already sent" or touch the real campaign's numbers.
+const TEST_CAMPAIGN_KEY = `${REPEAT_ORDER_CAMPAIGN_KEY}-test`;
+
+async function getOrCreateCampaignId(
+  key: string = REPEAT_ORDER_CAMPAIGN_KEY,
+  name: string = CAMPAIGN_NAME
+): Promise<string> {
   const db = getServiceClient();
   const { data: existing } = await db
     .from("marketing_campaigns")
     .select("id")
-    .eq("key", REPEAT_ORDER_CAMPAIGN_KEY)
+    .eq("key", key)
     .maybeSingle();
   if (existing) return existing.id as string;
   const { data, error } = await db
     .from("marketing_campaigns")
-    .insert({ key: REPEAT_ORDER_CAMPAIGN_KEY, name: CAMPAIGN_NAME, attribution_days: ATTRIBUTION_DAYS })
+    .insert({ key, name, attribution_days: ATTRIBUTION_DAYS })
     .select("id")
     .single();
   if (error || !data) throw new Error(`Campaign create failed: ${error?.message}`);
@@ -211,18 +218,62 @@ export async function runRepeatOrderCampaign(opts: {
     installer: r.installerName,
   }));
 
-  // Test: one sample email to the given address. No send row is written, and
-  // the all-zero token never attributes, so it can't affect real data.
+  // Test: one sample email to the given address, built from the first
+  // eligible customer's installer/order. A real send row is created under the
+  // separate TEST campaign so the email's links work end to end (prefill,
+  // previous-order list, unsubscribe) — but it never counts toward the real
+  // campaign, and nobody real is emailed.
   if (opts.testTo) {
+    const testTo = opts.testTo.trim().toLowerCase();
     const sample = audience[0];
     result.attempted = 1;
+
+    let sendId = "00000000-0000-4000-8000-000000000000"; // no eligible customer: look-only
+    if (sample) {
+      const testCampaignId = await getOrCreateCampaignId(TEST_CAMPAIGN_KEY, `${CAMPAIGN_NAME} (test sends)`);
+      const { data: existing } = await db
+        .from("marketing_email_sends")
+        .select("id")
+        .eq("campaign_id", testCampaignId)
+        .eq("email", testTo)
+        .maybeSingle();
+      if (existing) {
+        sendId = existing.id as string;
+        // Re-point at the current sample and refresh the window.
+        await db
+          .from("marketing_email_sends")
+          .update({
+            installer_id: sample.installerId,
+            source_lead_id: sample.sourceLeadId,
+            sent_at: new Date().toISOString(),
+          })
+          .eq("id", sendId);
+      } else {
+        const { data: row, error } = await db
+          .from("marketing_email_sends")
+          .insert({
+            campaign_id: testCampaignId,
+            email: testTo,
+            installer_id: sample.installerId,
+            source_lead_id: sample.sourceLeadId,
+          })
+          .select("id")
+          .single();
+        if (error || !row) {
+          result.errors.push(`Test send row failed: ${error?.message}`);
+          return result;
+        }
+        sendId = row.id as string;
+      }
+    }
+
     const res = await sendRepeatOrderEmail(
-      opts.testTo,
+      testTo,
       {
         customerName: sample?.customerName ?? "Alex",
         installerName: sample?.installerName ?? "Your Installer",
         installerId: sample?.installerId ?? "00000000-0000-4000-8000-000000000000",
-        sendId: "00000000-0000-4000-8000-000000000000",
+        sendId,
       },
       { subjectPrefix: "[TEST] " }
     );
