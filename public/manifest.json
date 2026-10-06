@@ -3,7 +3,7 @@
   "short_name": "Storage",
   "start_url": "/login",
   "display": "standalone",
-  "background_color": "#020617",
+  "background_color": "#000000",
   "theme_color": "#020617",
   "icons": [
     {
