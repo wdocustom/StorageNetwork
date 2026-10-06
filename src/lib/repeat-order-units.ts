@@ -15,6 +15,8 @@ export interface ReorderableUnit {
 export interface PastUnit extends Partial<ReorderableUnit> {
   /** Why it can't be re-ordered here; absent when it can. */
   unavailableLabel?: string;
+  /** Short description of a custom build, e.g. "4 Wide × 4 High". */
+  desc?: string;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -49,7 +51,10 @@ export function extractPastUnits(quoteData: unknown): PastUnit[] {
       rows > 10;
 
     if (unusual) {
-      out.push({ unavailableLabel: "Custom build — ask your installer" });
+      out.push({
+        unavailableLabel: "Custom build — ask your installer",
+        desc: `${cols} Wide × ${rows} High`,
+      });
       continue;
     }
 

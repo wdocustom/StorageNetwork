@@ -533,6 +533,7 @@ const ORIGIN_LABEL: Record<string, string> = {
   receipt: "from receipt",
   review: "from review",
   rack: "from rack inventory",
+  campaign: "from Storage Network email · 15% network lead",
 };
 
 function RequestCard({ request, onDismissed }: { request: QuoteRequestItem; onDismissed: () => void }) {

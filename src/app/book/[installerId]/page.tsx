@@ -12,6 +12,7 @@ import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
 import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { submitCampaignQuoteRequest } from "@/app/actions/quote-requests";
 import { getRepeatOrderContext, type RepeatOrderContext, type RepeatOrderUnit } from "@/app/actions/repeat-order-context";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
 import type { InstallerPricing } from "@/types/viewModels";
@@ -121,6 +122,13 @@ function BookingPageInner() {
   // this installer's current rates. Without one, the page is unchanged.
   const [repeat, setRepeat] = useState<RepeatOrderContext | null>(null);
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
+
+  // "Request a custom quote" — for past items that can't be re-ordered online.
+  const [quoteReqOpen, setQuoteReqOpen] = useState(false);
+  const [quoteReqNotes, setQuoteReqNotes] = useState("");
+  const [quoteReqSending, setQuoteReqSending] = useState(false);
+  const [quoteReqSent, setQuoteReqSent] = useState(false);
+  const [quoteReqError, setQuoteReqError] = useState("");
 
   // Capture a campaign-email token on arrival so it survives in-page navigation.
   useEffect(() => {
@@ -286,6 +294,33 @@ function BookingPageInner() {
   function handleAddWholePastOrder() {
     for (const u of repeat?.units ?? []) {
       if (u.available) handleAddPastUnit(u, u.quantity);
+    }
+  }
+
+  function openQuoteRequest(prefill?: string) {
+    setQuoteReqError("");
+    setQuoteReqNotes((cur) => cur || (prefill ? `I'd like another one like my earlier ${prefill}.` : ""));
+    setQuoteReqOpen(true);
+  }
+
+  async function handleSendQuoteRequest() {
+    setQuoteReqError("");
+    const token = readMarketingToken(installerId);
+    if (!token) {
+      setQuoteReqError("This link has expired. Please contact your installer directly.");
+      return;
+    }
+    setQuoteReqSending(true);
+    try {
+      const res = await submitCampaignQuoteRequest({
+        token, installerId, name, email, phone, notes: quoteReqNotes,
+      });
+      if (res.success) setQuoteReqSent(true);
+      else setQuoteReqError(res.error || "Something went wrong.");
+    } catch {
+      setQuoteReqError("Something went wrong. Please try again.");
+    } finally {
+      setQuoteReqSending(false);
     }
   }
 
@@ -455,8 +490,15 @@ function BookingPageInner() {
                         </span>
                       </button>
                     ) : (
-                      <div className="rounded-lg border border-stone-800 bg-slate-900 px-3 py-2.5 text-[11px] text-stone-500">
-                        {u.unavailableLabel || "Not available online"}
+                      <div className="rounded-lg border border-stone-800 bg-slate-900 px-3 py-2.5">
+                        <p className="text-sm font-semibold text-stone-400">{u.desc || "Custom item"}</p>
+                        <p className="text-[11px] text-stone-500">Custom build — can&rsquo;t be ordered online</p>
+                        <button
+                          onClick={() => openQuoteRequest(u.desc)}
+                          className="mt-2 text-[11px] font-bold uppercase tracking-wider text-yellow-400 hover:text-yellow-300"
+                        >
+                          Request a quote from {repeat.installer.name} &rarr;
+                        </button>
                       </div>
                     )}
                   </li>
@@ -471,6 +513,70 @@ function BookingPageInner() {
                 Add entire previous order
               </button>
             )}
+            {/* Request a custom quote */}
+            <div className="mt-3 border-t border-stone-800 pt-3">
+              {quoteReqSent ? (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3 text-center">
+                  <CheckCircle2 className="mx-auto mb-1 h-5 w-5 text-emerald-400" />
+                  <p className="text-xs font-semibold text-white">Request sent</p>
+                  <p className="mt-1 text-[11px] text-stone-400">
+                    {repeat.installer.name} will follow up with your quote.
+                  </p>
+                </div>
+              ) : quoteReqOpen ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-stone-400">
+                    Tell {repeat.installer.name} what you&rsquo;re after. They&rsquo;ll send you a quote.
+                    We&rsquo;ll use the name and contact info in the form below.
+                  </p>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name *"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <textarea
+                    value={quoteReqNotes}
+                    onChange={(e) => setQuoteReqNotes(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="What would you like?"
+                    className="w-full rounded-lg border border-stone-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-stone-500 focus:border-yellow-400 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSendQuoteRequest}
+                    disabled={quoteReqSending}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-yellow-400/60 py-2.5 text-xs font-bold uppercase tracking-wider text-yellow-400 transition-colors hover:bg-yellow-400/10 disabled:opacity-50"
+                  >
+                    {quoteReqSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    {quoteReqSending ? "Sending…" : "Send request"}
+                  </button>
+                  {quoteReqError && <p className="text-xs font-medium text-red-400">{quoteReqError}</p>}
+                </div>
+              ) : (
+                <button
+                  onClick={() => openQuoteRequest()}
+                  className="w-full text-center text-[11px] font-bold uppercase tracking-wider text-stone-400 hover:text-yellow-400"
+                >
+                  Want something different? Request a custom quote
+                </button>
+              )}
+            </div>
           </aside>
         )}
 

@@ -23,6 +23,8 @@ export interface RepeatOrderUnit {
   key: string;
   available: boolean;
   unavailableLabel?: string;
+  /** Description of a custom build (unavailable units only). */
+  desc?: string;
   cols: number;
   rows: number;
   toteType: "HDX" | "GM";
@@ -91,7 +93,7 @@ export async function getRepeatOrderContext(
     const past = pastUnits[i];
     if (past.unavailableLabel || past.cols === undefined) {
       units.push({
-        key: `u${i}`, available: false, unavailableLabel: past.unavailableLabel,
+        key: `u${i}`, available: false, unavailableLabel: past.unavailableLabel, desc: past.desc,
         cols: 0, rows: 0, toteType: "HDX", hasTotes: false, hasWheels: false, hasTop: false,
         quantity: 1, price: 0, totalW: 0, totalH: 0,
       });

@@ -21,6 +21,7 @@ describe("extractPastUnits", () => {
     ]);
     expect(out).toHaveLength(3);
     expect(out.every((u) => u.unavailableLabel && u.cols === undefined)).toBe(true);
+    expect(out[0].desc).toBe("4 Wide × 4 High");
   });
 
   it("ignores services and junk", () => {

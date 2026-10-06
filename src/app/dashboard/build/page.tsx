@@ -1231,6 +1231,7 @@ export default function BuildConfiguratorPage() {
         delivery_fee: deliveryFee,
         build_snapshot_url: snapshotUrl || undefined,
         from_lead_id: repeatFromLeadId || undefined,
+        quote_request_id: quoteRequest?.id,
       });
 
       if (!result.success) {
@@ -1315,6 +1316,7 @@ export default function BuildConfiguratorPage() {
         delivery_fee: deliveryFee,
         build_snapshot_url: snapshotUrl || undefined,
         from_lead_id: repeatFromLeadId || undefined,
+        quote_request_id: quoteRequest?.id,
       });
 
       if (!result.success) {
