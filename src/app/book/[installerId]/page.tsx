@@ -12,6 +12,7 @@ import Image from "next/image";
 import { calculateBuild } from "@/app/actions/calculator";
 import { getInstallerPricing } from "@/app/actions/pricing";
 import { submitNetworkLead } from "@/app/actions/submit-lead";
+import { getDepositAmount, getDepositLabel } from "@/app/actions/fee-engine";
 import { submitCampaignQuoteRequest } from "@/app/actions/quote-requests";
 import { getRepeatOrderContext, type RepeatOrderContext, type RepeatOrderUnit } from "@/app/actions/repeat-order-context";
 import { validateServiceArea, submitWaitlistRequest } from "@/app/actions/installer";
@@ -192,6 +193,27 @@ function BookingPageInner() {
   }, [installerId]);
 
   const grandTotal = orderItems.reduce((sum, it) => sum + it.price, 0);
+
+  // ── Installer's deposit (their own config, never a hardcoded rate) ────
+  const [depositLabel, setDepositLabel] = useState<string | null>(null);
+  const [depositAmount, setDepositAmount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!installerId) return;
+    getDepositLabel(installerId).then(setDepositLabel).catch(() => {});
+  }, [installerId]);
+
+  useEffect(() => {
+    if (!installerId || grandTotal <= 0) {
+      setDepositAmount(null);
+      return;
+    }
+    let cancelled = false;
+    getDepositAmount(grandTotal, installerId)
+      .then((amt) => { if (!cancelled) setDepositAmount(amt); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [installerId, grandTotal]);
 
   // ── Debounced server call ─────────────────────────────────────────────
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -723,7 +745,9 @@ function BookingPageInner() {
                 ${grandTotal.toLocaleString()}
               </div>
               <div className="mt-1 text-xs text-stone-500">
-                15% deposit due at booking
+                {depositAmount !== null
+                  ? `$${depositAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} deposit${depositLabel ? ` (${depositLabel})` : ""} due at booking`
+                  : "Deposit due at booking"}
               </div>
             </div>
 
