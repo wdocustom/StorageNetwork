@@ -7,6 +7,7 @@ import { getDepositAmount } from "@/app/actions/fee-engine";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { getServiceClient } from "@/lib/supabase-server";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
+import { resolveMarketingAttribution, markSendConverted } from "@/lib/marketing-attribution";
 import { sendTrialCapHotLead, sendTrialCapCustomerConfirmation } from "@/lib/email";
 import {
   enforceActionRateLimit,
@@ -86,6 +87,10 @@ export interface SubmitQuoteInput {
    *  on the booking URL. Resolved server-side to referred_by_realtor_id;
    *  triggers the platform-fee waiver + 5-tote credit on deposit_paid. */
   realtor_referral_code?: string;
+  /** Platform marketing email attribution: the `?mc=` token from a campaign
+   *  email link. Resolved server-side — a valid token for this installer
+   *  makes the lead a network lead ("platform_campaign", 15% fee). */
+  marketing_token?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,6 +117,7 @@ const submitLeadSchema = z.object({
   waitlisted: z.boolean().optional(),
   build_snapshot_url: z.string().url().max(2000).optional(),
   realtor_referral_code: z.string().min(4).max(32).optional(),
+  marketing_token: z.string().max(64).optional(),
 });
 
 export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
@@ -200,6 +206,15 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         referredByRealtorId = realtor.id as string;
       }
     }
+
+    // Marketing campaign attribution (server-side). A valid token issued for
+    // THIS installer inside the attribution window makes this a platform-
+    // driven lead, billed at the network rate.
+    const campaign = await resolveMarketingAttribution(
+      supabase,
+      input.marketing_token,
+      input.installer_id
+    );
 
     // Referral bounty eligibility: must have a referring installer who
     // isn't soft-locked (trial expired with active jobs in grace period).
@@ -335,7 +350,10 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
         deposit_amount: depositAmount,
         deposit_paid: false,
         balance_due: balanceDue,
-        source: input.source || (input.installer_id ? "partner_link" : "platform"),
+        source: campaign
+          ? "platform_campaign"
+          : input.source || (input.installer_id ? "partner_link" : "platform"),
+        marketing_send_id: campaign?.sendId ?? null,
         parent_lead_id: input.parent_lead_id || null,
         status: input.waitlisted ? "waitlisted" : "pending_payment",
         scheduled_at: input.scheduled_at || null,
@@ -361,6 +379,14 @@ export async function submitNetworkLead(input: SubmitQuoteInput): Promise<{
     // Extract the plain string ID before any async work
     const leadId: string = data.id;
     console.log("✅ Lead Created:", leadId);
+
+    if (campaign) {
+      try {
+        await markSendConverted(supabase, campaign.sendId, leadId);
+      } catch (err) {
+        console.error("[Marketing] Failed to record conversion:", err);
+      }
+    }
 
     // NOTE: New booking alert email is sent from the Stripe webhook AFTER deposit is paid.
     // This prevents double-emailing the installer (one at lead creation, one at payment).

@@ -18,6 +18,8 @@ export interface SendEmailParams {
   html: string;
   senderName?: string;
   replyTo?: string;
+  /** Extra headers, e.g. List-Unsubscribe on promotional email. */
+  headers?: Record<string, string>;
 }
 
 export interface SendEmailResult {
@@ -32,7 +34,7 @@ const SENDER_NAME = process.env.RESEND_SENDER_NAME || "Storage Network";
 export async function sendTransactionalEmail(
   params: SendEmailParams
 ): Promise<SendEmailResult> {
-  const { to, subject, html, senderName, replyTo } = params;
+  const { to, subject, html, senderName, replyTo, headers } = params;
 
   console.log("[Email] Attempting to send email to:", to, "| Subject:", subject);
 
@@ -54,6 +56,7 @@ export async function sendTransactionalEmail(
       subject,
       html,
       ...(replyTo && { reply_to: replyTo }),
+      ...(headers && { headers }),
     });
 
     if (error) {

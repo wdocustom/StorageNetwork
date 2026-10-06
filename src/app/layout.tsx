@@ -524,7 +524,7 @@ const jsonLdGraph = {
           ],
         },
         description:
-          "Customers pay a 15% deposit to lock in a build date. The scheduler calculates the earliest available date based on installer workload, order size, and blackout dates.",
+          "Customers pay a deposit (15% minimum, set by the installer) to lock in a build date. The scheduler calculates the earliest available date based on installer workload, order size, and blackout dates.",
       },
     },
 

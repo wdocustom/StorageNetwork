@@ -16,6 +16,7 @@
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { resolveMarketingAttribution } from "@/lib/marketing-attribution";
 import { verifyRequestToken, REQUEST_ORIGINS, type RequestOrigin } from "@/lib/server/request-link";
 import { enforceActionRateLimit, RateLimitError } from "@/lib/server/action-rate-limit";
 import { escapeHtml } from "@/utils/escapeHtml";
@@ -288,6 +289,8 @@ export interface QuoteRequestItem {
   wantLabels: string[];
   notes: string | null;
   origin: string;
+  /** Prompted by a platform marketing email (billed as a network lead). */
+  fromCampaign: boolean;
   createdAt: string;
 }
 
@@ -303,12 +306,13 @@ function toItem(r: Record<string, unknown>, services: ServiceOffering[] | null):
     wantLabels: wants.map((w) => requestWantLabel(w, services)),
     notes: (r.notes as string | null) ?? null,
     origin: r.origin as string,
+    fromCampaign: !!r.marketing_send_id,
     createdAt: r.created_at as string,
   };
 }
 
 const REQUEST_COLUMNS =
-  "id, source_lead_id, customer_name, customer_email, customer_phone, wants, notes, origin, created_at";
+  "id, source_lead_id, customer_name, customer_email, customer_phone, wants, notes, origin, marketing_send_id, created_at";
 
 export async function listQuoteRequests(): Promise<{ success: boolean; requests?: QuoteRequestItem[]; error?: string }> {
   const user = await getAuthenticatedUser();
@@ -382,5 +386,111 @@ export async function markQuoteRequestQuoted(
     .eq("installer_id", user.id)
     .eq("status", "open");
   if (error) return { success: false, error: "Failed to update request." };
+  return { success: true };
+}
+
+// ── Customer: request from a campaign email's /book page (token-gated) ───
+// A returning customer can't re-order a custom build online, so they ask the
+// installer. The request carries the campaign send id; createQuote then bills
+// the resulting quote as a network lead (platform_campaign, 15%).
+
+export async function submitCampaignQuoteRequest(input: {
+  token: string;
+  installerId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  notes: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    await enforceActionRateLimit({ action: "campaignQuoteRequest", limit: 5, window: "1 h", identify: "ip" });
+  } catch (err) {
+    if (err instanceof RateLimitError) return { success: false, error: err.message };
+    throw err;
+  }
+
+  const attribution = await resolveMarketingAttribution(db(), input.token, input.installerId);
+  if (!attribution) return { success: false, error: "This link has expired. Please contact your installer directly." };
+
+  const name = input.name?.trim().slice(0, 200) || "";
+  const email = input.email?.trim().toLowerCase().slice(0, 200) || null;
+  const phone = input.phone?.trim().slice(0, 40) || null;
+  const notes = input.notes?.trim().slice(0, MAX_NOTES) || "";
+  if (!name) return { success: false, error: "Please enter your name." };
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { success: false, error: "That email address doesn't look right." };
+  }
+  if (!email && !phone) return { success: false, error: "Please leave an email or phone number." };
+  if (!notes) return { success: false, error: "Tell us what you're looking for." };
+
+  const { data: send } = await db()
+    .from("marketing_email_sends")
+    .select("installer_id, source_lead_id")
+    .eq("id", attribution.sendId)
+    .maybeSingle();
+  if (!send) return { success: false, error: "This link has expired." };
+
+  const { data: sourceLead } = send.source_lead_id
+    ? await db().from("leads").select("customer_id").eq("id", send.source_lead_id).maybeSingle()
+    : { data: null };
+
+  // Fold a repeat submission from the last day into the open request.
+  const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
+  const { data: recent } = await db()
+    .from("quote_requests")
+    .select("id, notes")
+    .eq("marketing_send_id", attribution.sendId)
+    .eq("status", "open")
+    .gte("created_at", since)
+    .limit(1)
+    .maybeSingle();
+  if (recent) {
+    await db()
+      .from("quote_requests")
+      .update({
+        notes: [recent.notes, notes].filter(Boolean).join("\n\n").slice(0, MAX_NOTES),
+        customer_name: name,
+        customer_email: email,
+        customer_phone: phone,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", recent.id);
+    return { success: true };
+  }
+
+  const { data: row, error } = await db()
+    .from("quote_requests")
+    .insert({
+      installer_id: send.installer_id,
+      source_lead_id: send.source_lead_id,
+      customer_id: sourceLead?.customer_id ?? null,
+      customer_name: name,
+      customer_email: email,
+      customer_phone: phone,
+      wants: [],
+      notes,
+      origin: "campaign",
+      marketing_send_id: attribution.sendId,
+    })
+    .select("id")
+    .single();
+  if (error || !row) {
+    console.error("[QuoteRequest] campaign insert failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+
+  const installer = await installerDisplay(send.installer_id as string);
+  await notifyInstaller({
+    installer,
+    installerId: send.installer_id as string,
+    requestId: row.id,
+    sourceLeadId: (send.source_lead_id as string) || "",
+    name,
+    email,
+    phone,
+    wants: [],
+    notes,
+  }).catch((err) => console.error("[QuoteRequest] installer email failed:", err));
+
   return { success: true };
 }

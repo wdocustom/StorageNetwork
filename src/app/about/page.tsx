@@ -135,7 +135,7 @@ export default function AboutPage() {
               </h3>
               <ul className="space-y-2 text-sm text-stone-400">
                 <li>&bull; Automated scheduling with built-in capacity logic</li>
-                <li>&bull; 15% deposit locks the build date&mdash;tire-kickers filter themselves</li>
+                <li>&bull; A deposit (15% minimum, you set the rate) locks the build date&mdash;tire-kickers filter themselves</li>
                 <li>&bull; Instant 3D visualization&mdash;customers see the exact rack before you cut a board</li>
                 <li>&bull; Auto-generated cut plans with bin-packed lumber optimization</li>
                 <li>&bull; Precise material lists and screw counts, every time</li>

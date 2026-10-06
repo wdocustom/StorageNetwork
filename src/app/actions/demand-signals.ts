@@ -2,7 +2,7 @@
 
 import zipcodes from "zipcodes";
 import { getServiceClient } from "@/lib/supabase-server";
-import { roundMoney } from "@/utils/mathHelpers";
+import { depositPercentLabel } from "@/lib/deposit-label";
 
 const supabase = getServiceClient();
 
@@ -213,6 +213,7 @@ interface WaitlistSignalForEmail {
 async function sendWaitlistActivationEmail(
   signal: WaitlistSignalForEmail,
   installerName: string,
+  installerId: string,
 ): Promise<boolean> {
   if (!signal.customer_email) return false;
 
@@ -248,7 +249,13 @@ async function sendWaitlistActivationEmail(
         sum + (typeof u.price === "number" ? u.price : 0),
       0,
     );
-    const depositAmount = roundMoney(totalPrice * 0.15);
+    // Deposit of whichever installer will serve them: the one whose page they
+    // came from (the link below sends them back there), else the one who just
+    // opened coverage. Uses that installer's deposit setup, not a flat 15%.
+    const depositInstallerId = signal.source_installer_id || installerId;
+    const { getDepositAmount } = await import("@/app/actions/fee-engine");
+    const depositAmount = totalPrice > 0 ? await getDepositAmount(totalPrice, depositInstallerId) : 0;
+    const depositPct = depositPercentLabel(depositAmount, totalPrice);
     const firstName = (signal.customer_name || "").split(" ")[0] || "there";
 
     const buildSummaryHtml = hasSavedBuild
@@ -269,7 +276,7 @@ async function sendWaitlistActivationEmail(
               <td style="padding:18px 0 0;text-align:right;color:#facc15;font-size:22px;font-weight:900;">$${totalPrice.toLocaleString()}</td>
             </tr>
             <tr>
-              <td style="padding:8px 0 0;color:#a3a3a3;font-size:13px;">Secure Deposit (15%)</td>
+              <td style="padding:8px 0 0;color:#a3a3a3;font-size:13px;">${depositPct ? `Secure Deposit (${depositPct})` : "Secure Deposit"}</td>
               <td style="padding:8px 0 0;text-align:right;color:#ffffff;font-size:14px;font-weight:700;">$${depositAmount.toLocaleString()}</td>
             </tr>
           ` : ""}
@@ -302,7 +309,7 @@ async function sendWaitlistActivationEmail(
       <table style="width:100%;font-size:11px;color:#555;margin:0 0 24px;">
         <tr>
           <td style="text-align:center;padding:6px 8px;">🔒 Secure Checkout</td>
-          <td style="text-align:center;padding:6px 8px;">💰 15% Deposit</td>
+          <td style="text-align:center;padding:6px 8px;">💰 ${depositPct ? `${depositPct} Deposit` : "Deposit Only"}</td>
           <td style="text-align:center;padding:6px 8px;">✅ Pro-Installed</td>
         </tr>
       </table>
@@ -371,7 +378,7 @@ export async function activateDemandSignals(
 
   let notifiedCount = 0;
   for (const signal of waitlistSignals) {
-    const sent = await sendWaitlistActivationEmail(signal, installerName);
+    const sent = await sendWaitlistActivationEmail(signal, installerName, installerId);
     if (sent) notifiedCount++;
   }
 
@@ -456,7 +463,7 @@ export async function sweepUnresolvedWaitlistMatches(): Promise<{
       [match.first_name, match.last_name].filter(Boolean).join(" ") ||
       "A local installer";
 
-    const sent = await sendWaitlistActivationEmail(signal, installerName);
+    const sent = await sendWaitlistActivationEmail(signal, installerName, match.id);
     if (!sent) continue;
 
     await supabase

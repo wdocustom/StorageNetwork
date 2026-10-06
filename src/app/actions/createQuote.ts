@@ -35,6 +35,7 @@ import {
 import { getServiceClient } from "@/lib/supabase-server";
 import { checkProTrial } from "@/app/actions/pro-trial";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { markSendConverted } from "@/lib/marketing-attribution";
 
 const supabase = getServiceClient();
 
@@ -93,6 +94,13 @@ export interface CreateQuoteInput {
    * by email — which a phone-only customer doesn't have.
    */
   from_lead_id?: string;
+  /**
+   * The customer's quote request this quote answers. If that request came
+   * from a platform marketing email (marketing_send_id), the lead is billed
+   * as a network lead (platform_campaign, 15%) instead of installer_manual.
+   * Validated server-side — the request must be this installer's and open.
+   */
+  quote_request_id?: string;
 }
 
 export type ReferralStatus =
@@ -220,6 +228,7 @@ export async function createQuote(
     delivery_fee,
     build_snapshot_url,
     from_lead_id,
+    quote_request_id,
   } = input;
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -516,6 +525,51 @@ export async function createQuote(
 
     const balanceDue = roundMoney(finalTotal - depositAmount - discountAmount + taxQuote.taxAmount);
 
+    // ── Marketing-campaign attribution ────────────────────────────────────
+    // A quote answering a request that came from a platform marketing email
+    // is a network lead (15%), not the installer's own (3%). The request's
+    // campaign link is read from the DB; the signed-in installer must own it
+    // and the quote must stay with them (not handed off to a covering one).
+    let campaignSendId: string | null = null;
+    let campaignRequestIdToClose: string | null = null;
+    if (effectiveInstallerId === installer_id) {
+      const user = await getAuthenticatedUser();
+      if (user?.id === installer_id) {
+        if (quote_request_id) {
+          const { data: reqRow } = await supabase
+            .from("quote_requests")
+            .select("installer_id, marketing_send_id, status")
+            .eq("id", quote_request_id)
+            .maybeSingle();
+          if (
+            reqRow?.installer_id === installer_id &&
+            reqRow.status === "open" &&
+            reqRow.marketing_send_id
+          ) {
+            campaignSendId = reqRow.marketing_send_id as string;
+          }
+        } else if (normalizedEmail) {
+          // The installer built this quote from scratch rather than from the
+          // request. If the same customer has an open campaign request with
+          // them, it's still that order — attribute it and close the request.
+          const { data: reqRow } = await supabase
+            .from("quote_requests")
+            .select("id, marketing_send_id")
+            .eq("installer_id", installer_id)
+            .eq("status", "open")
+            .eq("customer_email", normalizedEmail)
+            .not("marketing_send_id", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (reqRow?.marketing_send_id) {
+            campaignSendId = reqRow.marketing_send_id as string;
+            campaignRequestIdToClose = reqRow.id as string;
+          }
+        }
+      }
+    }
+
     // ── 3. Create Lead Record ─────────────────────────────────────────────
     const { data: lead, error: leadError } = await supabase
       .from("leads")
@@ -530,7 +584,8 @@ export async function createQuote(
         estimated_price: finalTotal,
         deposit_amount: depositAmount,
         balance_due: balanceDue,
-        source: "installer_manual",
+        source: campaignSendId ? "platform_campaign" : "installer_manual",
+        marketing_send_id: campaignSendId,
         status: "pending_payment",
         deposit_paid: false,
         discount_code: discount_code?.toUpperCase() || null,
@@ -569,6 +624,19 @@ export async function createQuote(
       console.error("[Quote] Lead create error:", JSON.stringify(leadError));
       const detail = leadError?.message || leadError?.code || "Unknown DB error";
       return { success: false, error: `Failed to create quote: ${detail}` };
+    }
+
+    if (campaignRequestIdToClose) {
+      await supabase
+        .from("quote_requests")
+        .update({ status: "quoted", quoted_lead_id: lead.id, updated_at: new Date().toISOString() })
+        .eq("id", campaignRequestIdToClose)
+        .eq("status", "open");
+    }
+    if (campaignSendId) {
+      await markSendConverted(supabase, campaignSendId, lead.id).catch((err) =>
+        console.error("[Quote] Failed to record campaign conversion:", err)
+      );
     }
 
     // ── 4. Send Email ────────────────────────────────────────────────────

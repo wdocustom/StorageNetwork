@@ -3,6 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import zipcodes from "zipcodes";
 import { roundMoney, calculateBalanceDue } from "@/utils/mathHelpers";
+import { isDirectLeadSource } from "@/lib/lead-source";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Fee Engine — Black Box
@@ -294,7 +295,7 @@ export async function getNetProfit(input: {
 }): Promise<NetProfitResult> {
   const { totalPrice, materialCost, source, installerId, actualDepositAmount } = input;
 
-  const isDirectLead = source === "partner_link" || source === "installer_manual";
+  const isDirectLead = isDirectLeadSource(source);
   let feeRate: number;
   let feeLabel: string;
 
