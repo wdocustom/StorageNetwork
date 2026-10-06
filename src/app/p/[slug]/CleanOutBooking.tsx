@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, X, ChevronRight, Check, Plus, Info } from "lucide-react";
 import { submitCleanOutLead } from "@/app/actions/submit-cleanout-lead";
+import { getDepositLabel } from "@/app/actions/fee-engine";
 import BookingModal from "@/components/booking/BookingModal";
 import { formatCurrency } from "@/utils/paymentHelpers";
 
@@ -63,6 +64,12 @@ export default function CleanOutBooking({
 
   // Service info panel state
   const [showServiceInfo, setShowServiceInfo] = useState(false);
+
+  // This installer's own deposit (e.g. "25%" or "$200") for the terms blurb.
+  const [depositLabel, setDepositLabel] = useState<string | null>(null);
+  useEffect(() => {
+    getDepositLabel(installerId).then(setDepositLabel).catch(() => {});
+  }, [installerId]);
 
   function handleOpen() {
     setIsOpen(true);
@@ -322,7 +329,7 @@ export default function CleanOutBooking({
                 <section>
                   <h4 className="mb-3 text-sm font-bold text-yellow-400">Deposit &amp; Payment</h4>
                   <ul className="list-disc pl-5 space-y-1.5 text-xs text-stone-300">
-                    <li>A 15% deposit is required to reserve your date.</li>
+                    <li>{depositLabel ? `A ${depositLabel} deposit` : "A deposit"} is required to reserve your date.</li>
                     <li>Remaining balance is due upon completion of the cleanout.</li>
                     <li>
                       Cancellations made more than 48 hours before the scheduled date are

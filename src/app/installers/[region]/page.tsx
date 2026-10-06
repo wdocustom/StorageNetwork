@@ -630,7 +630,7 @@ export default async function InstallerRegionPage({ params }: PageProps) {
               },
               {
                 title: "Deposit-Secured Booking",
-                desc: "Pay a 15% deposit to lock your date. Balance due on installation day. No surprises.",
+                desc: "Pay a deposit to lock your date — the amount is shown up front before you pay. Balance due on installation day. No surprises.",
               },
             ].map((item) => (
               <div
