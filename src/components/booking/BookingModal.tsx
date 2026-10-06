@@ -588,8 +588,8 @@ export default function BookingModal({
                 </div>
               )}
 
-              {/* Facebook share for network leads */}
-              {leadId && source !== "partner_link" && source !== "installer_manual" && (
+              {/* Facebook share — only for the platform's own leads (the server rejects other sources, e.g. campaign leads) */}
+              {leadId && (source === "platform" || source === "facebook_referral") && (
                 <div>
                   <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-stone-600">Know someone who needs storage?</p>
                   <FacebookShareButton leadId={leadId} onDiscountApplied={setFbShareDiscount} />
