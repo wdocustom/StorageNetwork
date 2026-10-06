@@ -3,7 +3,7 @@
  * Generate solid-color PNG splash screens for iOS PWA.
  * Pure Node.js — no external dependencies (uses built-in zlib).
  *
- * Color: #020617 (slate-950)
+ * Color: #000000 (matches logo background)
  *
  * Run: node scripts/generate-splash.mjs
  */
@@ -16,8 +16,8 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(__dirname, "..", "public", "splash");
 
-// slate-950 = #020617 → RGB(2, 6, 23)
-const R = 2, G = 6, B = 23;
+// pure black, same as the logo square background
+const R = 0, G = 0, B = 0;
 
 // iOS device splash screen sizes (width × height in pixels)
 // Covers iPhone SE through iPhone 16 Pro Max + iPads
