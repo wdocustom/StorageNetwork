@@ -143,7 +143,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen min-h-dvh items-center justify-center bg-slate-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -154,9 +154,9 @@ export default function DashboardPage() {
   const leadLink = profile ? getInstallerLink(profile) : "";
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950">
+    <div className="flex min-h-screen min-h-dvh flex-col bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="shrink-0 border-b border-slate-800 bg-slate-900 px-4 py-4 safe-top-4 safe-x">
         <div className="mx-auto flex max-w-lg items-center justify-between md:max-w-3xl lg:max-w-4xl">
           <div className="flex items-center gap-3">
             <Image

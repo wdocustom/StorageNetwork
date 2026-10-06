@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { PUBLIC_PLANS } from "@/lib/plans-config";
 import { CheckCircle, Mail, Loader2, BookOpen, ExternalLink } from "lucide-react";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ function PlanCard({ plan }: { plan: (typeof PUBLIC_PLANS)[number] }) {
       });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "Checkout failed");
-      window.location.href = data.url;
+      void openHostedUrl(data.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setLoading(false);

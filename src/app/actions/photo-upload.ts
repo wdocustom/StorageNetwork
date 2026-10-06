@@ -61,7 +61,13 @@ export async function uploadJobPhoto(
     await ensureBucket();
 
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `${leadId}/${Date.now()}.${ext}`;
+    // A client-supplied idempotency key (native offline queue) makes the path
+    // deterministic, so a replayed upload overwrites itself (upsert) instead of
+    // creating a duplicate object.
+    const rawKey = formData.get("idempotencyKey");
+    const key =
+      typeof rawKey === "string" && /^[A-Za-z0-9-]{8,64}$/.test(rawKey) ? rawKey : null;
+    const path = `${leadId}/${key ?? Date.now()}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);

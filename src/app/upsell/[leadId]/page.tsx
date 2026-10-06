@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createCleanoutUpsellCheckout } from "@/app/actions/cleanout-upsell";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Cleanout Upsell Checkout Page
@@ -90,7 +91,7 @@ export default function UpsellCheckoutPage({
       });
 
       if (result.success && result.url) {
-        window.location.href = result.url;
+        void openHostedUrl(result.url);
       } else {
         setError(result.error || "Something went wrong. Please try again.");
         setLoading(false);

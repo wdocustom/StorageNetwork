@@ -1421,7 +1421,7 @@ export default function BuildConfiguratorPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen min-h-dvh items-center justify-center bg-slate-950">
         <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
       </div>
     );
@@ -1430,7 +1430,7 @@ export default function BuildConfiguratorPage() {
   // Soft lock gate: trial expired, active jobs remain — no new quotes
   if (softLocked) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+      <div className="flex min-h-screen min-h-dvh flex-col items-center justify-center bg-slate-950 px-4">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/10">
             <HardHat className="h-8 w-8 text-amber-400" />
@@ -1462,7 +1462,7 @@ export default function BuildConfiguratorPage() {
   // Job cap gate: 3 trial jobs reached but trial still active — block new quotes
   if (jobCapReached) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4">
+      <div className="flex min-h-screen min-h-dvh flex-col items-center justify-center bg-slate-950 px-4">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-400/10">
             <HardHat className="h-8 w-8 text-yellow-400" />
@@ -1496,9 +1496,9 @@ export default function BuildConfiguratorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen min-h-dvh bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3 safe-top-3 safe-x">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard"

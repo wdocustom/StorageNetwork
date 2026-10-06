@@ -3,6 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { isSafeRelativePath } from "@/lib/native/deep-link";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Auth Callback — Supabase email confirmation & password recovery
@@ -18,6 +19,11 @@ import { getServiceClient } from "@/lib/supabase-server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  // Optional post-login destination. Used by the native app, whose deep links
+  // (storagenetwork://auth/callback and the universal link) are rewritten to
+  // this route by the shell. Same-origin relative paths only.
+  const nextParam = searchParams.get("next");
+  const nextPath = isSafeRelativePath(nextParam) ? nextParam : null;
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as
     | "recovery"
@@ -68,7 +74,7 @@ export async function GET(request: NextRequest) {
     if (type === "recovery") {
       return NextResponse.redirect(`${origin}/reset-password`);
     }
-    return NextResponse.redirect(`${origin}/dashboard`);
+    return NextResponse.redirect(`${origin}${nextPath ?? "/dashboard"}`);
   }
 
   // ── OTP flow (older Supabase config): ?token_hash=...&type=... ────────
@@ -104,7 +110,7 @@ export async function GET(request: NextRequest) {
     if (type === "recovery") {
       return NextResponse.redirect(`${origin}/reset-password`);
     }
-    return NextResponse.redirect(`${origin}/dashboard`);
+    return NextResponse.redirect(`${origin}${nextPath ?? "/dashboard"}`);
   }
 
   return NextResponse.redirect(`${origin}/login`);

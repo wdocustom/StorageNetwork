@@ -26,6 +26,7 @@ import {
   formatToteDimensions,
 } from "@/lib/tote-data";
 import { useCameraStream } from "@/hooks/useCameraStream";
+import { isNativeApp } from "@/lib/native/env";
 
 type ScannerState = "idle" | "scanning" | "matched" | "error" | "manual";
 
@@ -164,10 +165,19 @@ export default function ToteScannerModal({
   }, [isProcessing, camera.videoRef, handleBarcodeDetected]);
 
   // ── Start camera and scanning ─────────────────────────────────────────
+  // Native shell: use the OS scanner (ML Kit) instead of getUserMedia +
+  // BarcodeDetector. Web / PWA keep the existing path below, unchanged.
   const startCameraAndScan = useCallback(async () => {
+    if (isNativeApp()) {
+      const { scanQr } = await import("@/lib/native/capacitor");
+      const code = await scanQr();
+      if (code) handleBarcodeDetected(code);
+      else setState("manual"); // cancelled / unsupported → manual picker
+      return;
+    }
     await camera.start();
     // Camera hook sets isActive on success — we start scanning in an effect
-  }, [camera.start]);
+  }, [camera.start, handleBarcodeDetected]);
 
   // When camera becomes active, begin scanning
   useEffect(() => {

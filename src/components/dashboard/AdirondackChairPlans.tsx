@@ -9,6 +9,7 @@ import {
   createChairPlanCheckout,
   createChairBundleCheckout,
 } from "@/app/actions/chair-plans";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 type AccessState = {
   checked: boolean;
@@ -40,7 +41,7 @@ export default function AdirondackChairPlans() {
     const result =
       type === "plans" ? await createChairPlanCheckout() : await createChairBundleCheckout();
     if (result.success && result.url) {
-      window.location.href = result.url;
+      void openHostedUrl(result.url);
     } else {
       setError(result.error ?? "Something went wrong. Please try again.");
       setLoading(null);

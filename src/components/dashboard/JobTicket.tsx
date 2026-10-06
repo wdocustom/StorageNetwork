@@ -49,6 +49,7 @@ import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/Modul
 import { createRacksForJob, ensureRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
 import { uploadJobPhoto } from "@/app/actions/photo-upload";
+import { isNativeApp } from "@/lib/native/env";
 import { roundMoney } from "@/utils/mathHelpers";
 import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
 import { isInventoryRackUnit } from "@/utils/rackInventory";
@@ -357,16 +358,60 @@ export default function JobTicket({
     });
   }
 
-  // ── Photo upload handler ──────────────────────────────────────────────
+  // ── Native offline queue state (native app only; never set on web/PWA) ──
+  const [queuedOffline, setQueuedOffline] = useState(false);
+
+  function isOffline() {
+    return typeof navigator !== "undefined" && navigator.onLine === false;
+  }
+
+  /** Native: camera via @capacitor/camera. Web / PWA: the existing file input. */
+  async function handleSnapPhoto() {
+    if (!isNativeApp()) {
+      fileInputRef.current?.click();
+      return;
+    }
+    const { capturePhotoFile } = await import("@/lib/native/capacitor");
+    const captured = await capturePhotoFile();
+    if (captured) await processPhotoFile(captured.file);
+  }
+
+  // ── Photo upload handler (web / PWA file input) ───────────────────────
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processPhotoFile(file);
+  }
 
+  async function processPhotoFile(file: File) {
     setUploadingPhoto(true);
     setUploadError(null);
 
     try {
       const compressed = await compressImage(file);
+
+      // Native + no signal: queue the photo and the completion. The queue
+      // replays with Idempotency-Keys when the network returns. Nothing here
+      // claims the job is paid or a payout sent.
+      if (isNativeApp() && isOffline()) {
+        const { enqueuePhoto, enqueueComplete } = await import("@/lib/native/offline-queue");
+        const photoQueued = await enqueuePhoto(leadId, compressed);
+        const completeQueued = photoQueued && (await enqueueComplete({
+          leadId,
+          photoUrl: null,
+          customerEmail,
+          customerName,
+          amountDue: collectFromCustomer,
+        }));
+        if (completeQueued) {
+          setQueuedOffline(true);
+          setShowCompletionModal(false);
+        } else {
+          setUploadError("You're offline and the photo couldn't be saved on this device. Please retry.");
+        }
+        return;
+      }
+
       const formData = new FormData();
       formData.append("photo", compressed);
 
@@ -655,6 +700,14 @@ export default function JobTicket({
 
   // ── Simple Complete Job (no photo required) ─────────────────────────────
   async function handleCompleteJob() {
+    // Native + no signal: queue with an Idempotency-Key (replayed on reconnect).
+    if (isNativeApp() && isOffline()) {
+      const { enqueueComplete } = await import("@/lib/native/offline-queue");
+      if (await enqueueComplete({ leadId, photoUrl: null, customerEmail, customerName, amountDue: collectFromCustomer })) {
+        setQueuedOffline(true);
+      }
+      return;
+    }
     setPayLoading(true);
     await completeJob(leadId);
     setPayLoading(false);
@@ -2347,9 +2400,17 @@ export default function JobTicket({
       </>)}
       {/* End of blueprints gate */}
 
+      {/* ── Native offline: queued, NOT sent. Never implies payment/payout. ── */}
+      {queuedOffline && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-yellow-400/30 bg-slate-900 px-4 py-3 text-center text-xs font-semibold text-yellow-300 safe-bottom-4">
+          Saved on this device — the photo and job completion will sync when you&apos;re back online.
+          Payment has not been collected and no payout has been sent.
+        </div>
+      )}
+
       {/* ── Photo Completion Modal ───────────────────────────────────── */}
       {showCompletionModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             {/* Modal header */}
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
@@ -2385,7 +2446,7 @@ export default function JobTicket({
                   </div>
                 ) : (
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleSnapPhoto}
                     disabled={uploadingPhoto}
                     className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/50 py-8 text-stone-400 transition-colors hover:border-yellow-400/50 hover:text-yellow-400 disabled:opacity-50"
                   >
@@ -2412,7 +2473,7 @@ export default function JobTicket({
                 />
                 {!uploadedPhotoUrl && (
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleSnapPhoto}
                     disabled={uploadingPhoto}
                     className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-[11px] font-semibold text-stone-400 transition-colors hover:text-white disabled:opacity-50"
                   >
@@ -2446,7 +2507,7 @@ export default function JobTicket({
 
       {/* ── Charge Card on File Confirmation Modal ───────────────────── */}
       {showChargeCardConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Charge Saved Card</h3>
@@ -2531,7 +2592,7 @@ export default function JobTicket({
 
       {/* ── Manual Pay Confirmation Modal ─────────────────────────────── */}
       {showManualPayModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Confirm Payment</h3>
@@ -2588,7 +2649,7 @@ export default function JobTicket({
 
       {/* ── Reschedule Modal ───────────────────────────────────────────── */}
       {showRescheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Reschedule Job</h3>
@@ -2639,7 +2700,7 @@ export default function JobTicket({
 
       {/* ── Schedule Modal (manual date assignment) ─────────────────────── */}
       {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-white">Schedule Install Date</h3>
@@ -2693,7 +2754,7 @@ export default function JobTicket({
 
       {/* ── Delete Confirmation Modal ─────────────────────────────────── */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 safe-bottom-4 sm:items-center">
           <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-bold text-red-400">Delete Quote</h3>

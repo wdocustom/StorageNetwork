@@ -13,6 +13,7 @@ import { ArrowLeft, Hammer, Loader2, CheckCircle2, FileText, Ruler, ShoppingCart
 import Link from "next/link";
 import { createDIYPlanCheckout, checkDIYPlanAccess, type DIYPlanCheckoutConfig } from "@/app/actions/diy-plan-checkout";
 import { generateCutList } from "@/lib/diy-cut-list";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
@@ -78,7 +79,7 @@ function CheckoutContent() {
     const result = await createDIYPlanCheckout(config);
 
     if (result.success && result.url) {
-      window.location.href = result.url;
+      void openHostedUrl(result.url);
     } else {
       setError(result.error || "Something went wrong. Please try again.");
       setLoading(false);

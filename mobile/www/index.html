@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Storage Network — Offline</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; background: #020617; color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 480px; margin: 0 auto;
+      padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom)); }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p  { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+    button { background: #facc15; color: #020617; font-weight: 800; border: 0; border-radius: 10px;
+      padding: 12px 18px; font-size: 14px; width: 100%; margin: 12px 0 20px; }
+    .job { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .job b { display: block; color: #fff; }
+    .job span { font-size: 12px; color: #94a3b8; }
+    small { color: #64748b; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>You&rsquo;re offline</h1>
+    <p>Storage Network couldn&rsquo;t reach the server. Jobs you opened earlier are saved on this device.</p>
+    <button id="retry">Try again</button>
+    <div id="jobs"></div>
+    <small id="note"></small>
+  </main>
+  <script>
+    // Retry: go back to the app (server.url).
+    document.getElementById("retry").onclick = function () { location.href = "https://storage-network.app/dashboard"; };
+
+    // Cached jobs. Capacitor plugins are only available to this page on iOS;
+    // on Android the error page has no plugin access (Capacitor limitation),
+    // so it shows the retry button only.
+    (function () {
+      var cap = window.Capacitor;
+      var note = document.getElementById("note");
+      if (!cap || !cap.Plugins || !cap.Plugins.Preferences) {
+        note.textContent = "Saved job packets open from the dashboard once you're back online.";
+        return;
+      }
+      cap.Plugins.Preferences.get({ key: "job_packet_index" }).then(function (r) {
+        var list = r && r.value ? JSON.parse(r.value) : [];
+        var box = document.getElementById("jobs");
+        if (!list.length) { note.textContent = "No jobs saved on this device yet."; return; }
+        list.forEach(function (j) {
+          var d = document.createElement("div"); d.className = "job";
+          var b = document.createElement("b"); b.textContent = j.customerName || "Job";
+          var s = document.createElement("span"); s.textContent = (j.address || "") + (j.scheduledAt ? " · " + new Date(j.scheduledAt).toLocaleString() : "");
+          d.appendChild(b); d.appendChild(s); box.appendChild(d);
+        });
+        note.textContent = "Read-only list. Open a job from the dashboard when you have signal to see its full packet.";
+      }).catch(function () {});
+    })();
+  </script>
+</body>
+</html>

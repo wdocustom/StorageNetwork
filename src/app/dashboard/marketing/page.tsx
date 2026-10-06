@@ -82,7 +82,7 @@ export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4">
+      <header className="border-b border-slate-800 bg-slate-900 px-4 py-4 safe-top-4 safe-x">
         <div className="mx-auto flex max-w-lg items-center gap-3 md:max-w-3xl lg:max-w-4xl">
           <a
             href="/dashboard"

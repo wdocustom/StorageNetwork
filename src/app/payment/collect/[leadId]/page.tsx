@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle, Heart } from "lucide-react";
 import { createBalanceCheckout, getBalanceSummary } from "@/app/actions/payments";
 import { MAX_TIP_DOLLARS } from "@/lib/lead-money";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Balance Payment Page — /payment/collect/[leadId]
@@ -77,7 +78,7 @@ export default function BalancePaymentPage() {
     setStatus("redirecting");
     createBalanceCheckout(leadId, tip > 0 ? tip : null).then((result) => {
       if (result.success && result.url) {
-        window.location.href = result.url;
+        void openHostedUrl(result.url); // native: system browser; reloads this page (real balance state) when closed
       } else if (result.alreadyPaid) {
         setStatus("paid");
       } else {

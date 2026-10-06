@@ -141,3 +141,38 @@
     scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
   }
 }
+
+/* ── Safe areas (native app + PWA standalone share the same CSS) ─────────
+   Requires viewport-fit=cover (layout.tsx). On a normal browser tab every
+   env() inset is 0, so these are no-ops there. Unlayered so they win over the
+   Tailwind padding utilities on the same element. */
+.safe-top-3 { padding-top: calc(0.75rem + env(safe-area-inset-top)); }
+.safe-top-4 { padding-top: calc(1rem + env(safe-area-inset-top)); }
+.safe-bottom-4 { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* ── Native shell only (html.native-app is set by NativeBootstrap) ──────── */
+html.native-app,
+html.native-app body {
+  /* No WebView pull-to-refresh / rubber-band reload while filling lead forms */
+  overscroll-behavior-y: none;
+}
+html.native-app body {
+  -webkit-touch-callout: none;
+}
+
+/* Pages without a safe-area-aware dashboard header (login, marketing, …):
+   keep content clear of the status bar / notch in the installed PWA and in the
+   native shell. viewport-fit=cover stops iOS letterboxing standalone PWAs, so
+   without this those pages would slide under the status bar. */
+@media (display-mode: standalone) {
+  body:not(:has(.safe-top-3, .safe-top-4)) {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+html.native-app body:not(:has(.safe-top-3, .safe-top-4)) {
+  padding-top: env(safe-area-inset-top);
+}
