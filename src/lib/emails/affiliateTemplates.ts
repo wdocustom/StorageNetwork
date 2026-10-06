@@ -1,6 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
+import { siteConfig } from "@/config/site";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Affiliate Program — Email Templates
@@ -383,7 +384,7 @@ export async function sendAffiliateColdInviteEmail(input: {
         for Storage Network. <a href="${unsubUrl}" style="color:#facc15;text-decoration:underline;">Don&rsquo;t want these?</a>
       </p>
       <p style="margin:0;color:#555;font-size:11px;">
-        Storage Network &middot; 1100 Williams Way, Westerville, OH 43082
+        Storage Network &middot; ${escapeHtml(siteConfig.mailingAddress)}
       </p>
     </div>
     `

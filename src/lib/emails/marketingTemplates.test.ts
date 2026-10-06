@@ -19,7 +19,8 @@ describe("repeat-order email", () => {
     const { html } = buildRepeatOrderEmail(input);
     expect(html).toContain(`/api/unsubscribe-marketing?token=${input.sendId}`);
     expect(html).toContain("not affected");
-    expect(html).toContain("1100 Williams Way");
+    expect(html).toContain("3858 Arbor St., Omaha, NE 68105");
+    expect(html).not.toContain("Williams Way");
   });
 
   it("escapes the installer name", () => {

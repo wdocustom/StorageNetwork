@@ -15,6 +15,10 @@ export const siteConfig = {
     return getAppUrl();
   },
 
+  // Physical mailing address — required in the footer of marketing email
+  // (CAN-SPAM). Override with MAILING_ADDRESS in the environment if it changes.
+  mailingAddress: process.env.MAILING_ADDRESS || "3858 Arbor St., Omaha, NE 68105",
+
   // Support
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@storage-network.app",
 

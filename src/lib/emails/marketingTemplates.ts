@@ -1,6 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
+import { siteConfig } from "@/config/site";
 import { escapeHtml } from "@/utils/escapeHtml";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -98,7 +99,7 @@ export function buildRepeatOrderEmail(input: RepeatOrderEmailInput): {
         &mdash; order updates, receipts and tracking emails are not affected.
       </p>
       <p style="margin:0;color:#737373;font-size:11px;">
-        Storage Network &middot; 1100 Williams Way, Westerville, OH 43082
+        Storage Network &middot; ${escapeHtml(siteConfig.mailingAddress)}
       </p>
     </div>
     `
