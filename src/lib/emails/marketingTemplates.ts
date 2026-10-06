@@ -1,6 +1,7 @@
 import { sendTransactionalEmail, type SendEmailResult } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
+import { siteConfig } from "@/config/site";
 import { escapeHtml } from "@/utils/escapeHtml";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,19 +28,23 @@ export function repeatOrderUrls(input: Pick<RepeatOrderEmailInput, "installerId"
   };
 }
 
-// Gmail's dark mode (esp. the Android app) auto-inverts "dark text on a light
-// button" to white-on-yellow. This button defends against that: a table cell
-// with a bgcolor attribute AND background-color, black text set three ways
-// (color, -webkit-text-fill-color, and a nested span), and a black border so
-// the button still reads even if a client recolors the text.
-function bulletproofButton(url: string, label: string): string {
+// The CTA is an IMAGE on purpose. Gmail's dark mode (Android app) recolors
+// "dark text on a light button" to white — it flipped black text AND a black
+// border to white on this exact button — and no CSS stops it. Gmail never
+// recolors images, so the label is baked into a PNG (public/email/). The cell
+// keeps the yellow bgcolor and the alt text is styled black, so with images
+// blocked the button still reads as a yellow button with its label.
+const CTA_LABEL = "Get Organized \u2014 Order Another Rack";
+const CTA_IMAGE_PATH = "/email/cta-order-another-rack.png";
+
+function imageButton(url: string): string {
   const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;width:100%;max-width:450px;">
       <tr>
-        <td align="center" bgcolor="#facc15" style="background-color:#facc15;border-radius:10px;border:2px solid #000000;">
-          <a href="${url}" target="_blank" style="display:block;padding:17px 30px;font-family:${font};font-size:17px;line-height:1.3;font-weight:800;color:#000000;-webkit-text-fill-color:#000000;text-decoration:none;">
-            <span style="color:#000000;-webkit-text-fill-color:#000000;">${label}</span>
+        <td align="center" bgcolor="#facc15" style="background-color:#facc15;border-radius:12px;">
+          <a href="${url}" target="_blank" style="display:block;text-decoration:none;">
+            <img src="${getAppUrl()}${CTA_IMAGE_PATH}" alt="${CTA_LABEL}" width="450" style="display:block;width:100%;max-width:450px;height:auto;border:0;border-radius:12px;font-family:${font};font-size:17px;font-weight:800;line-height:1.3;color:#000000;text-align:center;padding:0;" />
           </a>
         </td>
       </tr>
@@ -85,7 +90,7 @@ export function buildRepeatOrderEmail(input: RepeatOrderEmailInput): {
     </table>
 
     <div style="text-align:center;margin:0 0 12px;">
-      ${bulletproofButton(bookUrl, `Get Organized &mdash; Order Another Rack`)}
+      ${imageButton(bookUrl)}
     </div>
     <p style="margin:0 0 8px;text-align:center;color:#a3a3a3;font-size:13px;">
       Built and installed by ${installer}
@@ -98,7 +103,7 @@ export function buildRepeatOrderEmail(input: RepeatOrderEmailInput): {
         &mdash; order updates, receipts and tracking emails are not affected.
       </p>
       <p style="margin:0;color:#737373;font-size:11px;">
-        Storage Network &middot; 1100 Williams Way, Westerville, OH 43082
+        Storage Network &middot; ${escapeHtml(siteConfig.mailingAddress)}
       </p>
     </div>
     `

@@ -19,7 +19,8 @@ describe("repeat-order email", () => {
     const { html } = buildRepeatOrderEmail(input);
     expect(html).toContain(`/api/unsubscribe-marketing?token=${input.sendId}`);
     expect(html).toContain("not affected");
-    expect(html).toContain("1100 Williams Way");
+    expect(html).toContain("3858 Arbor St., Omaha, NE 68105");
+    expect(html).not.toContain("Williams Way");
   });
 
   it("escapes the installer name", () => {
@@ -33,11 +34,13 @@ describe("repeat-order email", () => {
     expect(html).toContain("Get Organized for the Holidays");
   });
 
-  it("renders the button with black text, set several ways, on a yellow cell", () => {
+  it("renders the CTA as an image (Gmail dark mode can't recolor it) linking to the booking page", () => {
     const { html } = buildRepeatOrderEmail(input);
-    const btn = html.slice(html.indexOf('bgcolor="#facc15"'));
-    expect(btn).toContain("background-color:#facc15");
-    expect(btn).toContain("color:#000000;-webkit-text-fill-color:#000000");
-    expect(btn).not.toMatch(/color:#ffffff[^<]*<span[^>]*>Get Organized/);
+    const { bookUrl } = repeatOrderUrls(input);
+    expect(html).toContain(`<a href="${bookUrl}"`);
+    expect(html).toContain("/email/cta-order-another-rack.png");
+    expect(html).toContain('alt="Get Organized');
+    // Yellow cell + black alt text keep it legible if images are blocked.
+    expect(html).toContain('bgcolor="#facc15"');
   });
 });
