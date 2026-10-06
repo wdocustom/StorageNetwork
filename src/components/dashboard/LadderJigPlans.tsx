@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createJigPlanCheckout, verifyJigPlanPurchase, checkJigPlanAccess } from "@/app/actions/jig-plans";
 import { useSearchParams } from "next/navigation";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Ladder Jig Plans — $9 Digital Download
@@ -335,7 +336,7 @@ export default function LadderJigPlans() {
     setLoading(true);
     const result = await createJigPlanCheckout();
     if (result.success && result.url) {
-      window.location.href = result.url;
+      void openHostedUrl(result.url);
     } else {
       setLoading(false);
     }

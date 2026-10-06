@@ -12,6 +12,7 @@ import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { isSameInstallDate } from "@/utils/installDate";
 import { requestQuoteUrl } from "@/lib/server/request-link";
+import { claimIdempotencyKey } from "@/lib/server/idempotency";
 
 const supabase = getServiceClient();
 
@@ -141,23 +142,36 @@ export async function completeJobWithProof(
   customerEmail: string | null,
   customerName: string,
   amountDue: number,
-  paymentUrl?: string
+  paymentUrl?: string,
+  idempotencyKey?: string
 ) {
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  // 1. Update DB — mark proof uploaded, status = payment_pending
+  // Replay guard (offline queue): same key twice → success, no second effect.
+  if (!(await claimIdempotencyKey(auth.userId, idempotencyKey, "completeJobWithProof"))) {
+    return { success: true, duplicate: true };
+  }
+
+  // 1. Always attach the proof photo.
+  // 2. Only move the status forward from a pre-completion state. A replayed
+  //    completion must never pull a paid / payment_pending job backwards or
+  //    decrement inventory a second time.
   await supabase
     .from("leads")
-    .update({
-      status: "payment_pending",
-      photo_url: photoUrl,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ photo_url: photoUrl, updated_at: new Date().toISOString() })
     .eq("id", leadId);
 
-  // 2. Update material inventory (non-blocking)
-  syncInventoryForLead(leadId);
+  const { data: advanced } = await supabase
+    .from("leads")
+    .update({ status: "payment_pending", updated_at: new Date().toISOString() })
+    .eq("id", leadId)
+    .not("status", "in", "(paid,payment_pending)")
+    .select("id")
+    .maybeSingle();
+
+  // Update material inventory (non-blocking) — only on the real transition.
+  if (advanced) syncInventoryForLead(leadId);
 
   return { success: true };
 }
@@ -167,21 +181,36 @@ export async function completeJobWithProof(
 // Sets status to payment_pending so installer can collect payment
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function completeJob(leadId: string) {
+export async function completeJob(leadId: string, idempotencyKey?: string) {
   const auth = await requireLeadOwnership(leadId);
   if ("error" in auth) return { success: false, error: auth.error };
 
-  const { error } = await supabase
+  // Replay guard (offline queue): same key twice → success, no second effect.
+  if (!(await claimIdempotencyKey(auth.userId, idempotencyKey, "completeJob"))) {
+    return { success: true, duplicate: true };
+  }
+
+  // State guard: only advance from a pre-completion state. Already paid /
+  // payment_pending → no-op success (no status regression, no second
+  // inventory decrement).
+  const { data: advanced, error } = await supabase
     .from("leads")
     .update({
       status: "payment_pending",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", leadId);
+    .eq("id", leadId)
+    .not("status", "in", "(paid,payment_pending)")
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("[CompleteJob] DB error:", error);
     return { success: false, error: "Failed to complete job." };
+  }
+
+  if (!advanced) {
+    return { success: true, duplicate: true };
   }
 
   // Update material inventory (non-blocking)

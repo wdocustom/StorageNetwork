@@ -1,3 +1,23 @@
+// Content-Security-Policy. The public site and the installed PWA get the base
+// policy, unchanged. The Capacitor shell loads the production origin itself
+// (server.url), so 'self' already covers its own origin — nothing extra is
+// needed for that. Requests carrying the native app's User-Agent token
+// additionally get the Stripe hosted/3DS frames and Supabase realtime sockets
+// (see the `has` rule in headers()); browsers never see that variant.
+function buildCsp({ native = false } = {}) {
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery",
+    "font-src 'self'",
+    `connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.upstash.io https://raw.githack.com${native ? " wss://*.supabase.co" : ""}`,
+    `frame-src 'self' https://js.stripe.com${native ? " https://hooks.stripe.com https://checkout.stripe.com https://connect.stripe.com" : ""}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join("; ");
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Never ship source maps to the browser in production
@@ -44,25 +64,41 @@ const nextConfig = {
         key: "Strict-Transport-Security",
         value: "max-age=31536000; includeSubDomains",
       },
-      {
-        key: "Content-Security-Policy",
-        value: [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-          "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https://*.supabase.co https://replicate.delivery",
-          "font-src 'self'",
-          "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.upstash.io https://raw.githack.com",
-          "frame-src 'self' https://js.stripe.com",
-          "object-src 'none'",
-          "base-uri 'self'",
-        ].join("; "),
-      },
+      { key: "Content-Security-Policy", value: buildCsp() },
     ];
 
     return [
       // Security headers on all routes
       { source: "/(.*)", headers: securityHeaders },
+
+      // Native app only (User-Agent carries StorageNetworkApp/): extended CSP.
+      // Declared after the catch-all so it overrides the base CSP for these
+      // requests; every other header from the base set still applies.
+      // Limited to dynamic, never-CDN-cached sections so the native variant
+      // can't be cached and served to browsers.
+      {
+        source: "/:section(dashboard|login|pay|payment|upsell|plans|reset-password)/:path*",
+        has: [{ type: "header", key: "user-agent", value: ".*StorageNetworkApp.*" }],
+        headers: [{ key: "Content-Security-Policy", value: buildCsp({ native: true }) }],
+      },
+
+      // ── Universal / App Links association files ─────────────────────
+      // Apple requires application/json with no redirect; cache briefly so a
+      // fixed TEAMID / fingerprint propagates quickly.
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
+        source: "/.well-known/assetlinks.json",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
 
       // ── CDN caching for static marketing pages ──────────────────────
       // These pages have zero dynamic data — cache 5 min at CDN,

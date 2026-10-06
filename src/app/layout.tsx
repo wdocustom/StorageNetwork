@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import PlatformTracker from "@/components/tracking/PlatformTracker";
+import NativeBootstrap from "@/components/native/NativeBootstrap";
 import "./globals.css";
 
 export const viewport: Viewport = {
   themeColor: "#020617",
   width: "device-width",
   initialScale: 1,
+  // Draw under the notch / home indicator; dashboard headers and fixed bottom
+  // bars pad themselves with env(safe-area-inset-*). No-op in a browser tab.
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -644,6 +648,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased" style={{ backgroundColor: "#020617" }}>
         <Suspense fallback={null}><PlatformTracker /></Suspense>
+        <NativeBootstrap />
         {children}
       </body>
     </html>

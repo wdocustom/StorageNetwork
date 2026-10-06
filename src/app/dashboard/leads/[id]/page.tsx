@@ -26,6 +26,9 @@ import { maskName, maskEmail, maskPhone } from "@/lib/mask";
 import type { MaterialInventory } from "@/utils/inventoryManager";
 import type { MaterialPricingConfig } from "@/app/actions/material-pricing";
 import type { MaterialPrices } from "@/utils/calculateMaterials";
+import { isNativeApp } from "@/lib/native/env";
+import { openMaps, openPhone, cacheJobPacket, readJobPacket, type JobPacket } from "@/lib/native/capacitor";
+import { calculateMaterialCostServer } from "@/app/actions/calculate-materials";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -111,7 +114,19 @@ export default function JobTicketPage() {
   const [editPhone, setEditPhone] = useState("");
   const [contactSaving, setContactSaving] = useState(false);
 
+  // Native-only: read-only packet shown when the signal drops mid-job.
+  const [offlinePacket, setOfflinePacket] = useState<(JobPacket & { imageSrc: Record<string, string> }) | null>(null);
+
   const fetchLead = useCallback(async () => {
+    // Native app, no signal: show the cached job packet instead of bouncing to /login.
+    if (isNativeApp() && typeof navigator !== "undefined" && navigator.onLine === false) {
+      const packet = await readJobPacket(leadId);
+      if (packet) {
+        setOfflinePacket(packet);
+        setLoading(false);
+        return;
+      }
+    }
     // Check if user is logged in
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -206,7 +221,49 @@ export default function JobTicketPage() {
       }
     }
 
+    setOfflinePacket(null);
     setLoading(false);
+
+    // Native app only: cache the job so it is usable with no signal. Fire and
+    // forget — a caching failure must never affect the page.
+    if (isNativeApp() && leadData.status !== "waitlisted") {
+      void (async () => {
+        try {
+          const units = Array.isArray(leadData.quote_data) ? leadData.quote_data : [];
+          const materialList = units.length
+            ? await calculateMaterialCostServer(units as never).catch(() => null)
+            : null;
+          const addr =
+            leadData.address ||
+            [leadData.delivery_address_line1, leadData.delivery_address_city, leadData.delivery_address_state, leadData.delivery_address_zip]
+              .filter(Boolean).join(", ") ||
+            [leadData.address_line1, leadData.address_city, leadData.address_state, leadData.address_zip]
+              .filter(Boolean).join(", ") ||
+            null;
+          await cacheJobPacket(
+            {
+              leadId: leadData.id,
+              customer: { name: leadData.customer_name, email: leadData.customer_email, phone: leadData.customer_phone },
+              address: addr,
+              scheduledAt: leadData.scheduled_at,
+              status: leadData.status,
+              scope: units,
+              materialList,
+              // Per-unit dimensions the cut plan is generated from. The computed
+              // plan itself is built client-side on /dashboard/build and is not cached.
+              cutList: units.map((u) => ({
+                desc: u.desc, unitType: u.unitType, cols: u.cols, rows: u.rows,
+                totalW: u.totalW, totalH: u.totalH, depth: u.depth, use2x4Rails: u.use2x4Rails ?? false,
+              })),
+              notes: null,
+            },
+            [leadData.photo_url].filter((u): u is string => !!u)
+          );
+        } catch (err) {
+          console.warn("[leads/id] job packet cache skipped:", err);
+        }
+      })();
+    }
   }, [supabase, leadId]);
 
   useEffect(() => {
@@ -288,11 +345,54 @@ export default function JobTicketPage() {
 
   const balance = totalPrice - depositAmt;
 
+  // ── Native offline: read-only cached packet ───────────────────────────
+  if (offlinePacket && !lead) {
+    return (
+      <div className="min-h-screen min-h-dvh bg-slate-950 px-4 safe-top-4 safe-x">
+        <div className="mx-auto max-w-2xl space-y-4 py-4">
+          <p className="rounded-lg border border-yellow-400/30 bg-slate-900 px-3 py-2 text-xs font-semibold text-yellow-300">
+            Offline — showing the job packet saved {new Date(offlinePacket.cachedAt).toLocaleString()}.
+            Payment and payout status aren&apos;t available offline.
+          </p>
+          <h1 className="text-lg font-bold text-white">{offlinePacket.customer.name || "Job"}</h1>
+          {offlinePacket.address && (
+            <button
+              type="button"
+              onClick={() => openMaps(offlinePacket.address!)}
+              className="flex items-center gap-1 text-sm font-semibold text-yellow-400"
+            >
+              <MapPin className="h-3 w-3" /> {offlinePacket.address}
+            </button>
+          )}
+          {offlinePacket.customer.phone && (
+            <button type="button" onClick={() => openPhone(offlinePacket.customer.phone!)} className="flex items-center gap-1 text-sm text-stone-300">
+              <Phone className="h-3 w-3" /> {offlinePacket.customer.phone}
+            </button>
+          )}
+          {(["scope", "materialList", "cutList"] as const).map((k) => (
+            <div key={k} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-500">
+                {k === "scope" ? "Scope" : k === "materialList" ? "Material list" : "Cut list inputs"}
+              </p>
+              <pre className="overflow-x-auto whitespace-pre-wrap text-[11px] text-stone-300">
+                {JSON.stringify(offlinePacket[k], null, 2) ?? "—"}
+              </pre>
+            </div>
+          ))}
+          {Object.values(offlinePacket.imageSrc).map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={i} src={src} alt="Cached job spec" className="w-full rounded-xl border border-slate-800" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3 safe-top-3 safe-x">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard/leads"
@@ -376,7 +476,19 @@ export default function JobTicketPage() {
             {lead.customer_phone ? (
               <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
                 <Phone className="h-3 w-3 text-stone-500" />
-                {lead.customer_phone}
+                {lead.status === "waitlisted" ? (
+                  lead.customer_phone
+                ) : (
+                  <a
+                    href={`tel:${lead.customer_phone.replace(/[^\d+]/g, "")}`}
+                    onClick={(e) => {
+                      if (lead.customer_phone && openPhone(lead.customer_phone)) e.preventDefault();
+                    }}
+                    className="hover:text-yellow-400"
+                  >
+                    {lead.customer_phone}
+                  </a>
+                )}
               </p>
             ) : (
               <p className="mt-1 flex items-center gap-1.5 text-xs text-stone-600 italic">
@@ -389,7 +501,11 @@ export default function JobTicketPage() {
                 href={`https://maps.google.com/?q=${encodeURIComponent(lead.address)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Native: Apple Maps / geo: intent. Web / PWA: the https link as before.
+                  if (lead.address && openMaps(lead.address)) e.preventDefault();
+                }}
                 className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-yellow-400 hover:text-yellow-300"
               >
                 <MapPin className="h-3 w-3" />

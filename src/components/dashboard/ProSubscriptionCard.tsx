@@ -17,6 +17,7 @@ import {
   createCustomerPortalSession,
   getPendingBountySummary,
 } from "@/app/actions/pro-subscription";
+import { openHostedUrl } from "@/lib/native/capacitor";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pro Subscription Card — Shows subscription status and management options
@@ -68,7 +69,7 @@ export default function ProSubscriptionCard({
     const result = await createCustomerPortalSession(userId);
 
     if (result.success && result.url) {
-      window.location.href = result.url;
+      void openHostedUrl(result.url);
     } else {
       setError(result.error || "Failed to open billing portal");
       setActionLoading(false);

@@ -9,9 +9,12 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
+  Share2,
 } from "lucide-react";
 import ProPill from "@/components/dashboard/ProPill";
 import { roundMoney } from "@/utils/mathHelpers";
+import { getInstallerLink } from "@/lib/utils";
+import { isNativeApp } from "@/lib/native/env";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -55,6 +58,23 @@ export default function ReferralsPage() {
   const supabase = getSupabaseBrowserClient();
   const [referrals, setReferrals] = useState<ReferralItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Native share sheet — only offered inside the native app.
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCanNativeShare(isNativeApp());
+  }, []);
+
+  async function handleShare() {
+    if (!shareLink) return;
+    const { shareReferral } = await import("@/lib/native/capacitor");
+    await shareReferral({
+      url: shareLink,
+      title: "Storage Network",
+      text: "Design your custom storage system with me:",
+    });
+  }
 
   const fetchReferrals = useCallback(async () => {
     const {
@@ -64,6 +84,13 @@ export default function ReferralsPage() {
       window.location.href = "/login";
       return;
     }
+
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("slug, is_pro")
+      .eq("id", user.id)
+      .maybeSingle();
+    setShareLink(getInstallerLink({ id: user.id, slug: me?.slug, is_pro: me?.is_pro }));
 
     const { data } = await supabase
       .from("leads")
@@ -122,7 +149,7 @@ export default function ReferralsPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-4 py-3 safe-top-3 safe-x">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <a
             href="/dashboard"
@@ -138,6 +165,16 @@ export default function ReferralsPage() {
               {referrals.length} total referral{referrals.length !== 1 ? "s" : ""}
             </p>
           </div>
+          {canNativeShare && shareLink && (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-1 rounded-lg bg-yellow-400 px-3 py-1.5 text-xs font-bold text-slate-950"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Share
+            </button>
+          )}
           <ProPill />
         </div>
       </header>

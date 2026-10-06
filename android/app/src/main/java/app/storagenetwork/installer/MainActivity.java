@@ -1,0 +1,5 @@
+package app.storagenetwork.installer;
+
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {}

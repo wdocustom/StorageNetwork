@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.app.storagenetwork.installer"],
+        "components": [
+          { "/": "/dashboard*" },
+          { "/": "/login*" },
+          { "/": "/pay/*" },
+          { "/": "/payment/success*" }
+        ]
+      }
+    ]
+  }
+}
