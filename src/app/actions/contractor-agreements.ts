@@ -167,7 +167,7 @@ export async function acceptContractorAgreement(input: {
   let signedIp: string | null = null;
   let signedUa: string | null = null;
   try {
-    const h = headers();
+    const h = await headers();
     signedIp =
       h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       h.get("x-real-ip") ||

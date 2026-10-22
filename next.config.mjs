@@ -1,3 +1,9 @@
+// Only optimize images from this app's own Supabase project. A wildcard
+// (**.supabase.co) would let anyone's public bucket feed the image optimizer.
+const supabaseHost = new URL(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://invalid.supabase.co"
+).hostname;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Never ship source maps to the browser in production
@@ -7,18 +13,19 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "12mb",
     },
-    // Ensure private/ files are bundled into the serverless function
-    // that handles /api/chair-plans so they're available at runtime on Vercel.
-    outputFileTracingIncludes: {
-      "/api/chair-plans": ["./private/**/*"],
-      "/api/plans/view": ["./private/**/*"],
-    },
+  },
+
+  // Ensure private/ files are bundled into the serverless function
+  // that handles /api/chair-plans so they're available at runtime on Vercel.
+  outputFileTracingIncludes: {
+    "/api/chair-plans": ["./private/**/*"],
+    "/api/plans/view": ["./private/**/*"],
   },
   images: {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**.supabase.co",
+        hostname: supabaseHost,
         pathname: "/storage/v1/object/public/**",
       },
       {

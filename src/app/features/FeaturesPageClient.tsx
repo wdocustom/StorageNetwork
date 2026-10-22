@@ -49,7 +49,7 @@ interface FeatureRow {
   name: string;
   included: string | boolean;
   id: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   highlight?: boolean;
 }
 

@@ -14,10 +14,11 @@ import TemplateUpsell from "./TemplateUpsell";
 export default async function ChairPlansPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const sessionId = typeof searchParams.session_id === "string" ? searchParams.session_id : null;
-  const purchaseType = typeof searchParams.type === "string" ? searchParams.type : null;
+  const query = await searchParams;
+  const sessionId = typeof query.session_id === "string" ? query.session_id : null;
+  const purchaseType = typeof query.type === "string" ? query.type : null;
 
   // Verify Stripe purchase if redirected back from checkout
   if (sessionId) {

@@ -16,9 +16,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
-  const raw = params.code || "";
+  const { code } = await params;
+  const raw = code || "";
   const normalized = raw.trim().toUpperCase();
 
   const baseUrl = req.nextUrl.origin;
