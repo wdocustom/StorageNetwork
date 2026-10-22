@@ -44,7 +44,6 @@ import { getNetProfit, getSalesTax, type NetProfitResult } from "@/app/actions/f
 import PostDepositAddons from "@/components/dashboard/PostDepositAddons";
 import InstallProgress from "@/components/dashboard/InstallProgress";
 import { createPaymentSession, sendPaymentInvoice, chargeBalanceOffSession, chargeDepositOffSession, createDepositCheckoutSession } from "@/app/actions/payments";
-import { validateDiscountCode, type DiscountValidationResult } from "@/app/actions/discount-codes";
 import ModuleDiagram, { getBuildOrderColors } from "@/components/dashboard/ModuleDiagram";
 import { createRacksForJob, ensureRacksForJob, emailRackLink, type InventoryRack } from "@/app/actions/tote-inventory";
 import LockedBlueprintsTeaser from "@/components/dashboard/LockedBlueprintsTeaser";
@@ -52,7 +51,7 @@ import { uploadJobPhoto } from "@/app/actions/photo-upload";
 import { roundMoney } from "@/utils/mathHelpers";
 import { formatInstallDate, todayInstallDateKey } from "@/utils/installDate";
 import { isInventoryRackUnit } from "@/utils/rackInventory";
-import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote } from "@/app/actions/jobs";
+import { rescheduleJob, scheduleJob, completeJob, completeJobWithProof, markJobPaidManual, deleteUnpaidQuote, setJobDiscount } from "@/app/actions/jobs";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // JobTicket — Hybrid POS Payment Flow
@@ -199,25 +198,31 @@ export default function JobTicket({
   const [inventoryEmailing, setInventoryEmailing] = useState<string | null>(null);
   const [inventoryEmailSent, setInventoryEmailSent] = useState<string | null>(null);
 
-  // ── Discount Code State ─────────────────────────────────────────────────
-  const [discountInput, setDiscountInput] = useState(savedDiscountCode || "");
+  // ── Discount State ──────────────────────────────────────────────────────
+  // A discount is a code or a flat dollar adjustment (code = null). It lives
+  // on the lead (setJobDiscount), so the emailed pay link and saved-card
+  // charge bill the same reduced amount this ticket shows.
+  const [discountInput, setDiscountInput] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
-  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(
-    savedDiscountAmount && savedDiscountAmount > 0 && savedDiscountCode
-      ? { valid: true, discountAmount: savedDiscountAmount, code: savedDiscountCode }
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discount, setDiscount] = useState<{ amount: number; code: string | null } | null>(
+    savedDiscountAmount && savedDiscountAmount > 0
+      ? { amount: savedDiscountAmount, code: savedDiscountCode ?? null }
       : null
   );
-  const appliedDiscount = discountResult?.valid ? discountResult.discountAmount : 0;
+  const appliedDiscount = discount?.amount ?? 0;
+  const discountLabel = discount?.code || "Adjustment";
 
-  // Auto-validate discount codes from old quotes where discount_amount wasn't calculated
+  // Old quotes saved a code without resolving its amount — resolve and save it
   useEffect(() => {
-    if (savedDiscountCode && (!savedDiscountAmount || savedDiscountAmount <= 0) && installerId && !discountResult) {
-      validateDiscountCode(savedDiscountCode, installerId, totalPrice, { noDepositCap: !depositPaid })
-        .then((result) => {
-          if (result.valid) setDiscountResult(result);
-        });
+    if (savedDiscountCode && (!savedDiscountAmount || savedDiscountAmount <= 0) && !discount) {
+      setJobDiscount(leadId, { code: savedDiscountCode }).then((result) => {
+        if (result.success && result.discountAmount) {
+          setDiscount({ amount: result.discountAmount, code: result.code ?? null });
+        }
+      });
     }
-  }, [savedDiscountCode, savedDiscountAmount, installerId, totalPrice, depositPaid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leadId, savedDiscountCode, savedDiscountAmount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── On-the-fly sales tax for unpaid quotes (salesTaxAmount is null) ─────
   const [computedTax, setComputedTax] = useState<number>(0);
@@ -709,23 +714,41 @@ export default function JobTicket({
     }
   }
 
-  // ── Apply Discount Code ──────────────────────────────────────────────
-  async function handleApplyDiscount() {
-    if (!discountInput.trim() || !installerId) return;
+  // ── Apply / Remove Discount ──────────────────────────────────────────
+  // Input is either a dollar amount ("100", "$100") or a discount code.
+  async function saveDiscount(input: { code: string } | { amount: number }) {
     setDiscountLoading(true);
-    const result = await validateDiscountCode(
-      discountInput,
-      installerId,
-      totalPrice,
-      { noDepositCap: !depositPaid }
-    );
-    setDiscountResult(result);
-    setDiscountLoading(false);
+    setDiscountError(null);
+    try {
+      const result = await setJobDiscount(leadId, input);
+      if (!result.success) {
+        setDiscountError(result.error || "Couldn't save the discount.");
+        return;
+      }
+      setDiscount(result.discountAmount ? { amount: result.discountAmount, code: result.code ?? null } : null);
+      setDiscountInput("");
+      onRefresh();
+    } catch (err) {
+      console.error("[JobTicket] saveDiscount error:", err);
+      setDiscountError("Couldn't reach the server. Please try again.");
+    } finally {
+      setDiscountLoading(false);
+    }
+  }
+
+  function handleApplyDiscount() {
+    const raw = discountInput.trim();
+    if (!raw) return;
+    const dollars = raw.replace(/[$,\s]/g, "");
+    if (/^\d+(\.\d{1,2})?$/.test(dollars)) {
+      saveDiscount({ amount: Number(dollars) });
+    } else {
+      saveDiscount({ code: raw });
+    }
   }
 
   function handleRemoveDiscount() {
-    setDiscountResult(null);
-    setDiscountInput("");
+    saveDiscount({ amount: 0 });
   }
 
   // ── Delete unpaid quote ─────────────────────────────────────────────
@@ -739,6 +762,49 @@ export default function JobTicket({
       window.location.href = "/dashboard/leads";
     }
   }
+
+  // ── Discount control (shared by every unpaid payment panel) ─────────
+  const discountControl = (
+    <div className="space-y-2">
+      {discount ? (
+        <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+          <div className="text-xs">
+            <span className="font-bold text-emerald-400">{discountLabel}</span>
+            <span className="ml-2 text-stone-400">-{fmt(appliedDiscount)} off balance</span>
+          </div>
+          <button
+            onClick={handleRemoveDiscount}
+            disabled={discountLoading}
+            aria-label="Remove discount"
+            className="rounded p-1 text-stone-500 transition-colors hover:bg-slate-700 hover:text-red-400 disabled:opacity-40"
+          >
+            {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={discountInput}
+            onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null); }}
+            onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
+            placeholder="Discount code or $ amount"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-stone-600 focus:border-orange-400 focus:outline-none"
+          />
+          <button
+            onClick={handleApplyDiscount}
+            disabled={!discountInput.trim() || discountLoading}
+            className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-600 hover:text-white disabled:opacity-40"
+          >
+            {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
+          </button>
+        </div>
+      )}
+      {discountError && (
+        <p className="text-[11px] font-semibold text-red-400">{discountError}</p>
+      )}
+    </div>
+  );
 
   return (
     <section className="space-y-4">
@@ -836,7 +902,7 @@ export default function JobTicket({
         )}
         {appliedDiscount > 0 && (
           <span>
-            Discount ({discountResult?.code}):{" "}
+            Discount ({discountLabel}):{" "}
             <span className="font-bold text-emerald-400">
               -{fmt(appliedDiscount)}
             </span>
@@ -1173,7 +1239,7 @@ export default function JobTicket({
               {appliedDiscount > 0 && (
                 <div className="flex justify-between text-stone-400">
                   <span>
-                    Discount ({discountResult?.code})
+                    Discount ({discountLabel})
                   </span>
                   <span className="font-bold text-emerald-400">-{fmt(appliedDiscount)}</span>
                 </div>
@@ -1185,50 +1251,7 @@ export default function JobTicket({
             </div>
           )}
 
-          {/* Discount Code Input */}
-          {installerId && (
-            <div className="space-y-2">
-              {appliedDiscount > 0 ? (
-                <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                  <div className="text-xs">
-                    <span className="font-bold text-emerald-400">{discountResult?.code}</span>
-                    <span className="ml-2 text-stone-400">
-                      {discountResult?.discountType === "percentage"
-                        ? `${discountResult.discountValue}% off`
-                        : `$${discountResult?.discountValue} off`}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleRemoveDiscount}
-                    className="rounded p-1 text-stone-500 transition-colors hover:bg-slate-700 hover:text-red-400"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={discountInput}
-                    onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
-                    placeholder="Discount code"
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-stone-600 focus:border-orange-400 focus:outline-none"
-                  />
-                  <button
-                    onClick={handleApplyDiscount}
-                    disabled={!discountInput.trim() || discountLoading}
-                    className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold text-stone-300 transition-colors hover:bg-slate-600 hover:text-white disabled:opacity-40"
-                  >
-                    {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Apply"}
-                  </button>
-                </div>
-              )}
-              {discountResult && !discountResult.valid && (
-                <p className="text-[11px] font-semibold text-red-400">{discountResult.error}</p>
-              )}
-            </div>
-          )}
+          {discountControl}
 
           {/* COLLECT DEPOSIT button — installer can collect just the deposit
               instead of the full amount, mirroring the customer-facing /pay
@@ -1426,6 +1449,8 @@ export default function JobTicket({
             </span>
           </div>
 
+          {discountControl}
+
           {/* GET PAID button */}
           <button
             onClick={() => setShowGetPaidMenu(!showGetPaidMenu)}
@@ -1540,6 +1565,8 @@ export default function JobTicket({
       ) : isActive ? (
         /* ── ACTIVE JOB — GET PAID button (completes job + opens payment) ──── */
         <div className="relative space-y-3">
+          {discountControl}
+
           <button
             onClick={() => {
               // Auto-complete the job when installer taps Get Paid

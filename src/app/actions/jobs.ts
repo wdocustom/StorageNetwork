@@ -12,6 +12,7 @@ import { validateDiscountCode } from "@/app/actions/discount-codes";
 import type { QuoteUnit } from "@/lib/buildEngine.types";
 import { isSameInstallDate } from "@/utils/installDate";
 import { requestQuoteUrl } from "@/lib/server/request-link";
+import { roundMoney } from "@/utils/mathHelpers";
 
 const supabase = getServiceClient();
 
@@ -219,7 +220,7 @@ export async function markJobPaidManual(
     })
     .eq("id", leadId)
     .in("status", ["payment_pending", "open", "pending_payment"])
-    .select("id, customer_name, customer_email, estimated_price, deposit_amount, installer_id, quote_data")
+    .select("id, customer_name, customer_email, estimated_price, deposit_amount, discount_amount, installer_id, quote_data")
     .maybeSingle();
 
   if (error) {
@@ -246,7 +247,7 @@ export async function markJobPaidManual(
   // Fire-and-forget: send receipt/alert emails (same as webhook path)
   import("@/lib/email").then(async ({ sendJobReceipt, sendPaymentReceivedAlert, quoteDataToBookingUnits }) => {
     try {
-      const balanceCollected = (updated.estimated_price || 0) - (updated.deposit_amount || 0);
+      const balanceCollected = (updated.estimated_price || 0) - (updated.deposit_amount || 0) - (updated.discount_amount || 0);
 
       let installerName = "Your Installer";
       let installerEmail: string | null = null;
@@ -406,6 +407,78 @@ async function writeInstallDate(
     `read ${before.scheduled_at}, now ${current?.scheduled_at ?? "unreadable"}`
   );
   return { error: "Couldn't save the install date. Please try again." };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// setJobDiscount — Apply / change / remove a discount on an unpaid job
+//
+// Lets the installer discount a job after the fact (e.g. a $100 goodwill
+// adjustment on a deposited job). Either a discount code (validated
+// server-side) or a flat dollar amount (no code). The discount is saved on
+// the lead so every balance path — the emailed /payment/collect link,
+// saved-card charge, and the webhook's balance_due — bills the reduced
+// amount, not just the job ticket on screen. Amount 0 removes it.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function setJobDiscount(
+  leadId: string,
+  input: { code: string } | { amount: number }
+): Promise<{ success: boolean; discountAmount?: number; code?: string | null; error?: string }> {
+  const auth = await requireLeadOwnership(leadId);
+  if ("error" in auth) return { success: false, error: auth.error };
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("installer_id, status, payout_status, estimated_price, deposit_amount, deposit_paid")
+    .eq("id", leadId)
+    .single();
+  if (!lead) return { success: false, error: "Lead not found." };
+  if (lead.status === "paid" || lead.payout_status === "paid") {
+    return { success: false, error: "This job is already paid." };
+  }
+
+  // Discount can't exceed what's left of the build price (tax stays owed).
+  const depositCredit = lead.deposit_paid ? Number(lead.deposit_amount) || 0 : 0;
+  const maxDiscount = roundMoney((Number(lead.estimated_price) || 0) - depositCredit);
+
+  let amount: number;
+  let code: string | null = null;
+  if ("code" in input) {
+    const result = await validateDiscountCode(input.code, lead.installer_id, Number(lead.estimated_price) || 0, {
+      noDepositCap: !lead.deposit_paid,
+    });
+    if (!result.valid) return { success: false, error: result.error || "Invalid code." };
+    amount = result.discountAmount;
+    code = result.code ?? input.code.trim().toUpperCase();
+  } else {
+    amount = roundMoney(Number(input.amount));
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { success: false, error: "Enter a valid discount amount." };
+    }
+  }
+  if (amount > maxDiscount) {
+    return { success: false, error: `Discount can't be more than the remaining balance ($${maxDiscount.toFixed(2)}).` };
+  }
+
+  const update: Record<string, unknown> = {
+    discount_amount: amount > 0 ? amount : null,
+    discount_code: amount > 0 ? code : null,
+    updated_at: new Date().toISOString(),
+  };
+  if (lead.deposit_paid) {
+    update.balance_due = roundMoney(maxDiscount - amount);
+  }
+
+  const { error } = await supabase.from("leads").update(update).eq("id", leadId);
+  if (error) {
+    console.error("[SetJobDiscount] DB error:", error);
+    return { success: false, error: "Couldn't save the discount. Please try again." };
+  }
+
+  const { logActivityInternal } = await import("@/app/actions/installer-activity");
+  await logActivityInternal(auth.userId, "job_discount_set", { leadId, amount, code });
+
+  return { success: true, discountAmount: amount, code };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
