@@ -30,6 +30,8 @@ export interface PlatformUser {
   suspension_reason: "manual" | "payment" | null;
   stripe_connected: boolean;
   trial_expired: boolean;
+  pro_trial_ends_at: string | null;
+  has_subscription: boolean;
 }
 
 export interface PartnerCommission {
@@ -494,6 +496,8 @@ export async function getAdminPlatformUsers(
         suspension_reason: p.suspension_reason ?? null,
         stripe_connected: !!p.stripe_account_id,
         trial_expired: trialExpired,
+        pro_trial_ends_at: trialEnd,
+        has_subscription: hasSubscription,
       };
     });
 

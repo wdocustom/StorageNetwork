@@ -20,6 +20,13 @@ import {
   type UserDeletionPreflight,
 } from "@/app/actions/admin-user-management";
 import {
+  getInstallerOutreachMeta,
+  setComplimentaryPro,
+  extendProTrial,
+  type InstallerOutreachMeta,
+  type OutreachSendResult,
+} from "@/app/actions/admin-installer-outreach";
+import {
   ArrowLeft,
   Loader2,
   TrendingUp,
@@ -45,9 +52,13 @@ import {
   Plus,
   Trash2,
   X,
+  Mail,
+  Crown,
+  CalendarPlus,
 } from "lucide-react";
 import { siteConfig } from "@/config/site";
 import ProPill from "@/components/dashboard/ProPill";
+import InstallerOutreachModal from "@/components/admin/InstallerOutreachModal";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Partner Dashboard — "The Elite View"
@@ -85,6 +96,13 @@ export default function PartnerDashboardPage() {
   const [creditAmount, setCreditAmount] = useState<Record<string, string>>({});
   const [creditingUser, setCreditingUser] = useState<string | null>(null);
   const [creditError, setCreditError] = useState<Record<string, string>>({});
+
+  // Outreach + Pro access state
+  const [outreachMeta, setOutreachMeta] = useState<Record<string, InstallerOutreachMeta>>({});
+  const [outreachRecipients, setOutreachRecipients] = useState<string[] | null>(null);
+  const [proBusyUser, setProBusyUser] = useState<string | null>(null);
+  const [trialDays, setTrialDays] = useState<Record<string, string>>({});
+  const [proError, setProError] = useState<Record<string, string>>({});
 
   // Delete-user modal state
   const [deleteTarget, setDeleteTarget] = useState<PlatformUser | null>(null);
@@ -127,13 +145,17 @@ export default function PartnerDashboardPage() {
         setAdminLoading(true);
         setBountyLoading(true);
 
-        const [adminResult, bountyResult] = await Promise.all([
+        const [adminResult, bountyResult, outreachResult] = await Promise.all([
           getAdminPlatformUsers(user.id),
           getAdminReferralBounties(user.id),
+          getInstallerOutreachMeta(),
         ]);
 
         if (adminResult.success) {
           setPlatformUsers(adminResult.users ?? []);
+        }
+        if (outreachResult.success) {
+          setOutreachMeta(outreachResult.meta);
         }
         if (bountyResult.success) {
           setBountyReferrers(bountyResult.referrers ?? []);
@@ -218,6 +240,91 @@ export default function PartnerDashboardPage() {
       setCreditError((prev) => ({ ...prev, [u.id]: result.error ?? "Failed." }));
     }
     setCreditingUser(null);
+  }
+
+  async function handleToggleComplimentaryPro(u: PlatformUser) {
+    const enable = !outreachMeta[u.id]?.pro_comped;
+    if (!enable && !window.confirm(`Turn off free Pro for ${u.business_name || u.email}? They'll drop to the Free plan.`)) {
+      return;
+    }
+    setProBusyUser(u.id);
+    setProError((prev) => ({ ...prev, [u.id]: "" }));
+    const result = await setComplimentaryPro(u.id, enable);
+    if (result.success) {
+      setPlatformUsers((prev) =>
+        prev.map((p) =>
+          p.id === u.id
+            ? {
+                ...p,
+                is_pro: result.is_pro,
+                ...(enable && { trial_expired: false, pro_trial_ends_at: null }),
+              }
+            : p
+        )
+      );
+      setOutreachMeta((prev) => ({
+        ...prev,
+        [u.id]: {
+          ...(prev[u.id] ?? { last_outreach_at: null, outreach_count: 0 }),
+          pro_comped: enable,
+          pro_comped_at: enable ? new Date().toISOString() : null,
+        },
+      }));
+    } else {
+      setProError((prev) => ({ ...prev, [u.id]: result.error }));
+    }
+    setProBusyUser(null);
+  }
+
+  async function handleExtendTrial(u: PlatformUser) {
+    const days = Number.parseInt((trialDays[u.id] ?? "").trim(), 10);
+    if (!Number.isFinite(days) || days <= 0) {
+      setProError((prev) => ({ ...prev, [u.id]: "Enter a number of days." }));
+      return;
+    }
+    setProBusyUser(u.id);
+    setProError((prev) => ({ ...prev, [u.id]: "" }));
+    const result = await extendProTrial(u.id, days);
+    if (result.success) {
+      setPlatformUsers((prev) =>
+        prev.map((p) =>
+          p.id === u.id
+            ? { ...p, is_pro: true, trial_expired: false, pro_trial_ends_at: result.trialEndsAt }
+            : p
+        )
+      );
+      setTrialDays((prev) => ({ ...prev, [u.id]: "" }));
+    } else {
+      setProError((prev) => ({ ...prev, [u.id]: result.error }));
+    }
+    setProBusyUser(null);
+  }
+
+  function handleOutreachSent(results: OutreachSendResult[], grantedPro: boolean) {
+    const now = new Date().toISOString();
+    const sent = results.filter((r) => r.ok);
+    // A send can succeed while the Pro grant fails — that case carries an error.
+    const comped = new Set(grantedPro ? sent.filter((r) => !r.error).map((r) => r.installerId) : []);
+    setOutreachMeta((prev) => {
+      const next = { ...prev };
+      for (const r of sent) {
+        const m = next[r.installerId] ?? { pro_comped: false, pro_comped_at: null, last_outreach_at: null, outreach_count: 0 };
+        next[r.installerId] = {
+          ...m,
+          last_outreach_at: now,
+          outreach_count: m.outreach_count + 1,
+          ...(comped.has(r.installerId) && { pro_comped: true, pro_comped_at: now }),
+        };
+      }
+      return next;
+    });
+    if (comped.size > 0) {
+      setPlatformUsers((prev) =>
+        prev.map((p) =>
+          comped.has(p.id) ? { ...p, is_pro: true, trial_expired: false, pro_trial_ends_at: null } : p
+        )
+      );
+    }
   }
 
   async function openDeleteModal(u: PlatformUser) {
@@ -687,6 +794,14 @@ export default function PartnerDashboardPage() {
                 <span className="rounded-full bg-slate-700 px-2 py-0.5 text-stone-400">
                   {platformUsers.filter((u) => !u.is_pro).length} Free
                 </span>
+                <button
+                  onClick={() => setOutreachRecipients([])}
+                  className="flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-yellow-300 transition-colors hover:bg-yellow-400/20"
+                  title="Email installers"
+                >
+                  <Mail className="h-3 w-3" />
+                  Email
+                </button>
               </div>
             </div>
 
@@ -744,6 +859,11 @@ export default function PartnerDashboardPage() {
                                   PRO
                                 </span>
                               )}
+                              {outreachMeta[u.id]?.pro_comped && (
+                                <span className="flex-shrink-0 rounded bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
+                                  FREE PRO
+                                </span>
+                              )}
                               {u.is_partner && (
                                 <span className="flex-shrink-0 rounded bg-blue-400/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">
                                   PARTNER
@@ -797,9 +917,29 @@ export default function PartnerDashboardPage() {
                         {isExpanded && (
                           <div className="border-t border-slate-700 bg-slate-900/50 px-4 py-4">
                             <div className="grid grid-cols-2 gap-3 text-xs">
-                              <div>
+                              <div className="min-w-0">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Email</p>
-                                <p className="text-stone-300">{u.email || "—"}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-stone-300">{u.email || "—"}</p>
+                                  {u.email && (
+                                    <button
+                                      onClick={() => setOutreachRecipients([u.id])}
+                                      className="flex-shrink-0 rounded-md bg-yellow-400/10 p-1.5 text-yellow-300 transition-colors hover:bg-yellow-400/20"
+                                      title="Email this installer"
+                                    >
+                                      <Mail className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                                {outreachMeta[u.id]?.last_outreach_at && (
+                                  <p className="text-[10px] text-blue-300">
+                                    Emailed {new Date(outreachMeta[u.id].last_outreach_at!).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                    {outreachMeta[u.id].outreach_count > 1 && ` · ${outreachMeta[u.id].outreach_count}×`}
+                                  </p>
+                                )}
                               </div>
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Phone</p>
@@ -893,6 +1033,82 @@ export default function PartnerDashboardPage() {
                                 </p>
                               </div>
                             )}
+
+                            {/* Pro Access — comp Pro for free / extend trial */}
+                            {(() => {
+                              const comped = !!outreachMeta[u.id]?.pro_comped;
+                              const compedAt = outreachMeta[u.id]?.pro_comped_at;
+                              const trialEnd = u.pro_trial_ends_at ? new Date(u.pro_trial_ends_at) : null;
+                              const fmt = (d: Date) =>
+                                d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                              const status = u.has_subscription
+                                ? "Paying subscriber — billed through Stripe"
+                                : comped
+                                  ? `Free Pro${compedAt ? ` since ${fmt(new Date(compedAt))}` : ""} — not billed, no expiry`
+                                  : trialEnd && !u.trial_expired
+                                    ? `Pro trial — ends ${fmt(trialEnd)}`
+                                    : u.trial_expired
+                                      ? "Pro trial expired"
+                                      : u.is_pro
+                                        ? "Pro — no subscription"
+                                        : "Free plan";
+                              const busy = proBusyUser === u.id;
+                              return (
+                                <div className="mt-3 rounded-lg border border-emerald-500/20 bg-slate-800 px-4 py-3">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <Crown className="h-3.5 w-3.5 text-emerald-400" />
+                                      <div>
+                                        <p className="text-xs font-semibold text-stone-300">Free Pro Access</p>
+                                        <p className="text-[10px] text-stone-500">{status}</p>
+                                      </div>
+                                    </div>
+                                    {!u.has_subscription && (
+                                      <button
+                                        onClick={() => handleToggleComplimentaryPro(u)}
+                                        disabled={busy}
+                                        className="p-1 transition-colors hover:opacity-80 disabled:opacity-40"
+                                        title={comped ? "Switch back to Free" : "Give Pro for free"}
+                                      >
+                                        {busy ? (
+                                          <Loader2 className="h-5 w-5 animate-spin text-stone-500" />
+                                        ) : comped ? (
+                                          <ToggleRight className="h-6 w-6 text-emerald-400" />
+                                        ) : (
+                                          <ToggleLeft className="h-6 w-6 text-stone-500" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                  {!u.has_subscription && !comped && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="1"
+                                        max="365"
+                                        step="1"
+                                        value={trialDays[u.id] ?? ""}
+                                        onChange={(e) => setTrialDays((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                                        placeholder="Days"
+                                        className="w-20 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white placeholder:text-stone-600 outline-none focus:border-emerald-400"
+                                      />
+                                      <button
+                                        onClick={() => handleExtendTrial(u)}
+                                        disabled={busy}
+                                        className="flex flex-1 items-center justify-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-40"
+                                      >
+                                        <CalendarPlus className="h-3 w-3" />
+                                        {trialEnd && !u.trial_expired ? "Extend trial" : "Start trial"}
+                                      </button>
+                                    </div>
+                                  )}
+                                  {proError[u.id] && (
+                                    <p className="mt-1.5 text-[10px] font-semibold text-red-400">{proError[u.id]}</p>
+                                  )}
+                                </div>
+                              );
+                            })()}
 
                             {/* Account Lock Toggle */}
                             <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
@@ -1008,6 +1224,16 @@ export default function PartnerDashboardPage() {
               </div>
             )}
           </section>
+        )}
+
+        {outreachRecipients && (
+          <InstallerOutreachModal
+            users={platformUsers}
+            meta={outreachMeta}
+            initialRecipientIds={outreachRecipients}
+            onClose={() => setOutreachRecipients(null)}
+            onSent={handleOutreachSent}
+          />
         )}
 
         {/* ═══════════════════════════════════════════════════════════════
