@@ -25,8 +25,9 @@ import {
 export default async function RealtorDashboardPage({
   searchParams,
 }: {
-  searchParams?: { tote_purchase?: string; session_id?: string };
+  searchParams: Promise<{ tote_purchase?: string; session_id?: string }>;
 }) {
+  const query = await searchParams;
   // Layout already guarantees we're a realtor; this read is just for the
   // friendly greeting + brokerage on the page.
   const user = await getAuthenticatedUser();
@@ -41,8 +42,8 @@ export default async function RealtorDashboardPage({
   // synchronously here so the inventory tile renders the new balance even
   // if the webhook hasn't fired yet. Idempotent: a second call (webhook)
   // returns alreadyFinalized=true.
-  if (searchParams?.tote_purchase === "success" && searchParams?.session_id) {
-    await verifyTotePackPurchase(searchParams.session_id).catch((err) => {
+  if (query.tote_purchase === "success" && query.session_id) {
+    await verifyTotePackPurchase(query.session_id).catch((err) => {
       console.warn("[Dashboard] tote_purchase finalize on redirect failed:", err);
     });
   }

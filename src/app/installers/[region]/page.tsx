@@ -430,7 +430,7 @@ const REGIONS: Record<
 };
 
 interface PageProps {
-  params: { region: string };
+  params: Promise<{ region: string }>;
 }
 
 // Refresh dynamic page contents (installer rosters, new cities) hourly. New
@@ -501,7 +501,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const region = await resolveRegion(params.region);
+  const region = await resolveRegion((await params).region);
   if (!region) {
     return { title: "Installer Region Not Found | Storage Network" };
   }
@@ -535,7 +535,8 @@ function designUrl(installer: RegionInstaller, zip: string | null): string {
 }
 
 export default async function InstallerRegionPage({ params }: PageProps) {
-  const region = await resolveRegion(params.region);
+  const { region: regionSlug } = await params;
+  const region = await resolveRegion(regionSlug);
 
   // notFound() emits a real 404 response. The previous render returned a
   // "Region Not Found" body with HTTP 200, which Google flagged as a Soft
@@ -556,7 +557,7 @@ export default async function InstallerRegionPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "Service",
     name: `Tote Rack Installation in ${region.label}, ${region.state}`,
-    url: `https://storage-network.app/installers/${params.region}`,
+    url: `https://storage-network.app/installers/${regionSlug}`,
     provider: { "@id": "https://storage-network.app/#organization" },
     areaServed: {
       "@type": "City",

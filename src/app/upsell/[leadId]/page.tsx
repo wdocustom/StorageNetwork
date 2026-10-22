@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { createCleanoutUpsellCheckout } from "@/app/actions/cleanout-upsell";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -28,14 +28,10 @@ const SERVICE_MAP: Record<string, { name: string; description: string }> = {
   cleanout_3car: { name: "3+ Car Garage Clean Out", description: "Triple bay / oversized space — full-service cleanout for maximum impact." },
 };
 
-export default function UpsellCheckoutPage({
-  params,
-}: {
-  params: { leadId: string };
-}) {
+export default function UpsellCheckoutPage() {
+  const { leadId } = useParams<{ leadId: string }>();
   const searchParams = useSearchParams();
   const serviceId = searchParams.get("service") || "";
-  const { leadId } = params;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   Loader2,
@@ -40,11 +41,8 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-export default function PostDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function PostDetailPage() {
+  const params = useParams<{ id: string }>();
   const supabase = getSupabaseBrowserClient();
 
   const [userId, setUserId] = useState<string | null>(null);

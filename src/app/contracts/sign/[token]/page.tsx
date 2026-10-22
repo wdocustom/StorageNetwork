@@ -18,10 +18,11 @@ import { SignForm } from "./SignForm";
 export default async function ContractSignPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
+  const { token } = await params;
   const { success, agreement, error } = await getContractorAgreementByToken(
-    params.token
+    token
   );
 
   if (!success || !agreement) {
@@ -88,7 +89,7 @@ export default async function ContractSignPage({
 
       {!alreadySigned && !revoked && (
         <SignForm
-          token={params.token}
+          token={token}
           expectedName={agreement.contractorName}
         />
       )}
