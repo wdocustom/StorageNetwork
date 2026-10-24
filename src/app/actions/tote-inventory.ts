@@ -122,8 +122,8 @@ export async function getRackByToken(token: string): Promise<{
   rack: InventoryRack | null;
   slots: InventorySlot[];
   linkedRacks: Array<{ id: string; access_token: string; label: string }>;
-  /** Tote counts across the linked racks (not this one), for customer-wide fullness. */
-  otherRacksTotals?: { slots: number; filledSlots: number };
+  /** Tote and item counts across the linked racks (not this one), for customer-wide totals. */
+  otherRacksTotals?: { slots: number; filledSlots: number; items: number };
   installer: { name: string; slug: string | null; avatarUrl: string | null } | null;
   /** Signed link to ask this rack's installer for a new quote (job-linked racks only). */
   requestQuoteUrl?: string | null;
@@ -166,7 +166,7 @@ export async function getRackByToken(token: string): Promise<{
   const others = (await getLinkedRacks(rack)).filter((r) => r.id !== rack.id);
   const linkedRacks = others.map(({ id, access_token, label }) => ({ id, access_token, label }));
 
-  const otherRacksTotals = { slots: 0, filledSlots: 0 };
+  const otherRacksTotals = { slots: 0, filledSlots: 0, items: 0 };
   if (others.length > 0) {
     otherRacksTotals.slots = others.reduce((sum, r) => sum + (r.cols || 0) * (r.rows || 0), 0);
     // !inner keeps only slots holding at least one item
@@ -175,6 +175,10 @@ export async function getRackByToken(token: string): Promise<{
       .select("id, inventory_items!inner(id)")
       .in("rack_id", others.map((r) => r.id));
     otherRacksTotals.filledSlots = (filled || []).length;
+    otherRacksTotals.items = (filled || []).reduce(
+      (sum, slot) => sum + ((slot.inventory_items as unknown[] | null)?.length ?? 0),
+      0
+    );
   }
 
   // Fetch installer info for referral links
