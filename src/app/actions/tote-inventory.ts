@@ -22,6 +22,10 @@ const db = () => getServiceClient();
 // same email. Linking used to be email-only, so a job whose customer had no
 // email on file (22 racks for Kash, #4eca414f) gave each rack an isolated
 // page with no way to reach the other 21.
+//
+// An email that belongs to an installer/admin account (profiles.email) never
+// links: installers sometimes put their own address on a customer's ticket,
+// and linking on it would hand each of those customers the others' racks.
 
 interface LinkableRack {
   id: string;
@@ -29,37 +33,47 @@ interface LinkableRack {
   customer_email: string | null;
 }
 
-async function getLinkedRacks(
-  rack: LinkableRack
-): Promise<Array<{ id: string; label: string; access_token: string }>> {
+type LinkedRack = { id: string; label: string; access_token: string; cols: number; rows: number };
+
+/** The rack's email if it may link racks, else null. */
+async function linkableEmail(rack: LinkableRack): Promise<string | null> {
+  const email = rack.customer_email?.trim().toLowerCase();
+  if (!email) return null;
+  // ilike for case-insensitivity; the exact compare drops wildcard matches.
+  const { data, error } = await db().from("profiles").select("email").ilike("email", email);
+  if (error) {
+    console.error("[ToteInventory] account-email check failed; not linking by email:", error);
+    return null;
+  }
+  const isAccountEmail = (data || []).some((p) => (p.email as string | null)?.toLowerCase() === email);
+  return isAccountEmail ? null : email;
+}
+
+async function getLinkedRacks(rack: LinkableRack): Promise<LinkedRack[]> {
+  const columns = "id, label, access_token, cols, rows, created_at";
+  const email = await linkableEmail(rack);
   const queries = [];
   if (rack.lead_id) {
-    queries.push(
-      db().from("inventory_racks").select("id, label, access_token, created_at").eq("lead_id", rack.lead_id)
-    );
+    queries.push(db().from("inventory_racks").select(columns).eq("lead_id", rack.lead_id));
   }
-  if (rack.customer_email) {
-    queries.push(
-      db().from("inventory_racks").select("id, label, access_token, created_at").eq("customer_email", rack.customer_email)
-    );
+  if (email) {
+    queries.push(db().from("inventory_racks").select(columns).eq("customer_email", email));
   }
 
-  const byId = new Map<string, { id: string; label: string; access_token: string; created_at: string }>();
+  const byId = new Map<string, LinkedRack & { created_at: string }>();
   for (const { data } of await Promise.all(queries)) {
-    for (const r of data || []) byId.set(r.id as string, r as { id: string; label: string; access_token: string; created_at: string });
+    for (const r of data || []) byId.set(r.id as string, r as LinkedRack & { created_at: string });
   }
   return Array.from(byId.values())
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
-    .map(({ id, label, access_token }) => ({ id, label, access_token }));
+    .map(({ id, label, access_token, cols, rows }) => ({ id, label, access_token, cols, rows }));
 }
 
-/** Same customer: same job, or same (case-insensitive) email. */
-function sameCustomer(a: LinkableRack, b: LinkableRack): boolean {
-  if (a.id === b.id) return true;
-  if (a.lead_id && a.lead_id === b.lead_id) return true;
-  const aEmail = a.customer_email?.toLowerCase() || null;
-  const bEmail = b.customer_email?.toLowerCase() || null;
-  return !!aEmail && aEmail === bEmail;
+/** Same customer: same rack, same job, or the caller's linkable email. */
+function sameCustomer(caller: LinkableRack, callerEmail: string | null, other: LinkableRack): boolean {
+  if (caller.id === other.id) return true;
+  if (caller.lead_id && caller.lead_id === other.lead_id) return true;
+  return !!callerEmail && callerEmail === other.customer_email?.toLowerCase();
 }
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -108,6 +122,8 @@ export async function getRackByToken(token: string): Promise<{
   rack: InventoryRack | null;
   slots: InventorySlot[];
   linkedRacks: Array<{ id: string; access_token: string; label: string }>;
+  /** Tote counts across the linked racks (not this one), for customer-wide fullness. */
+  otherRacksTotals?: { slots: number; filledSlots: number };
   installer: { name: string; slug: string | null; avatarUrl: string | null } | null;
   /** Signed link to ask this rack's installer for a new quote (job-linked racks only). */
   requestQuoteUrl?: string | null;
@@ -147,7 +163,19 @@ export async function getRackByToken(token: string): Promise<{
     item_count: s.inventory_items?.[0]?.count ?? 0,
   }));
 
-  const linkedRacks = (await getLinkedRacks(rack)).filter((r) => r.id !== rack.id);
+  const others = (await getLinkedRacks(rack)).filter((r) => r.id !== rack.id);
+  const linkedRacks = others.map(({ id, access_token, label }) => ({ id, access_token, label }));
+
+  const otherRacksTotals = { slots: 0, filledSlots: 0 };
+  if (others.length > 0) {
+    otherRacksTotals.slots = others.reduce((sum, r) => sum + (r.cols || 0) * (r.rows || 0), 0);
+    // !inner keeps only slots holding at least one item
+    const { data: filled } = await db()
+      .from("inventory_slots")
+      .select("id, inventory_items!inner(id)")
+      .in("rack_id", others.map((r) => r.id));
+    otherRacksTotals.filledSlots = (filled || []).length;
+  }
 
   // Fetch installer info for referral links
   let installer: { name: string; slug: string | null; avatarUrl: string | null } | null = null;
@@ -170,7 +198,7 @@ export async function getRackByToken(token: string): Promise<{
 
   const requestQuoteUrl = rack.lead_id ? requestQuoteLink(rack.lead_id as string, "rack") ?? null : null;
 
-  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks, installer, requestQuoteUrl };
+  return { rack: rack as InventoryRack, slots: formattedSlots, linkedRacks, otherRacksTotals, installer, requestQuoteUrl };
 }
 
 export async function createRack(input: {
@@ -679,7 +707,8 @@ export async function reassignItems(
   if (!targetSlot || !targetRack) return { moved: 0, error: "Target slot not found" };
 
   // Both must belong to the same customer (same job or same email).
-  if (!sameCustomer(callerRack as LinkableRack, targetRack as LinkableRack)) {
+  const callerEmail = await linkableEmail(callerRack as LinkableRack);
+  if (!sameCustomer(callerRack as LinkableRack, callerEmail, targetRack as LinkableRack)) {
     return { moved: 0, error: "Unauthorized target" };
   }
 
@@ -694,7 +723,7 @@ export async function reassignItems(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const safeIds = (itemsToMove || []).filter((it: any) => {
     const ownerRack = it.inventory_slots?.inventory_racks as LinkableRack | undefined;
-    return !!ownerRack && sameCustomer(callerRack as LinkableRack, ownerRack);
+    return !!ownerRack && sameCustomer(callerRack as LinkableRack, callerEmail, ownerRack);
   }).map((it: { id: string }) => it.id);
 
   if (safeIds.length === 0) return { moved: 0, error: "No items eligible to move" };
