@@ -122,6 +122,7 @@ export default function RackPage() {
   // Job-linked racks: ask the same installer for a quote instead of the
   // self-serve configurator.
   const [requestQuoteUrl, setRequestQuoteUrl] = useState<string | null>(null);
+  const [otherRacksTotals, setOtherRacksTotals] = useState({ slots: 0, filledSlots: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,6 +193,7 @@ export default function RackPage() {
       setRack(result.rack);
       setSlots(result.slots);
       setLinkedRacks(result.linkedRacks);
+      setOtherRacksTotals(result.otherRacksTotals ?? { slots: 0, filledSlots: 0 });
       setInstaller(result.installer);
       setRequestQuoteUrl(result.requestQuoteUrl ?? null);
     }
@@ -1017,6 +1019,12 @@ export default function RackPage() {
   const filledSlots = slots.filter((s) => (s.item_count ?? 0) > 0).length;
   const totalItems = slots.reduce((sum, s) => sum + (s.item_count ?? 0), 0);
   const utilizationPct = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : 0;
+  // "Running out of space" looks at every rack the customer has, not just
+  // this one — a full Rack 1 with 21 empty racks beside it isn't out of space.
+  const allSlots = totalSlots + otherRacksTotals.slots;
+  const customerUtilizationPct = allSlots > 0
+    ? Math.round(((filledSlots + otherRacksTotals.filledSlots) / allSlots) * 100)
+    : 0;
   const scoreMsg = getScoreMessage(utilizationPct);
   const designUrl =
     requestQuoteUrl || (installer?.slug ? `/design?installer=${installer.slug}` : "/design");
@@ -1397,8 +1405,8 @@ export default function RackPage() {
 
         {/* ── Growth Engine ──────────────────────────────────────── */}
         <div className="space-y-3 pt-2">
-          {/* Running out of space — shows when 80%+ totes have items */}
-          {utilizationPct >= 80 && (
+          {/* Running out of space — shows when 80%+ of all their totes have items */}
+          {customerUtilizationPct >= 80 && (
             <a
               href={designUrl}
               className="block rounded-2xl border border-yellow-400/30 bg-yellow-400/5 p-4 hover:bg-yellow-400/10 transition-colors"
@@ -1412,7 +1420,7 @@ export default function RackPage() {
                     Running out of space?
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {utilizationPct}% of your totes are cataloged.
+                    {customerUtilizationPct}% of your totes are cataloged.
                     {installer ? ` ${installer.name} can` : " We can"} build
                     you another rack &mdash; same quality, professionally installed.
                   </p>
