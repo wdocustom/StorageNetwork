@@ -15,13 +15,45 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Lightbulb, Wrench, X } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, Home, Lightbulb, Wrench, X } from "lucide-react";
 import AssemblyGuide from "@/components/visualizer/AssemblyGuide";
 import SystemMap from "@/components/plans/SystemMap";
 import type { CompleteDIYPlan, PlanModuleTypeBuild, PlanUnit } from "@/app/actions/generate-plan";
 import { toFraction } from "@/lib/utils";
 
 type Section = { kind: "module"; type: PlanModuleTypeBuild } | { kind: "unit"; unit: PlanUnit };
+
+export interface GuideLinks {
+  /** My Builds (or the plans page when there's no purchase token) */
+  homeHref: string;
+  /** Ladder jig offer or the buyer's own jig plans */
+  jig?: { owned: boolean; href: string };
+}
+
+/** Home + ladder jig, always reachable from inside the guide. */
+function GuideToolbar({ links }: { links: GuideLinks }) {
+  return (
+    <div className="flex gap-1.5">
+      <Link
+        href={links.homeHref}
+        className="flex items-center gap-1.5 rounded-lg bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-bold text-stone-200 shadow-lg backdrop-blur transition hover:text-yellow-300"
+      >
+        <Home className="h-3.5 w-3.5" />
+        My Builds
+      </Link>
+      {links.jig && (
+        <Link
+          href={links.jig.href}
+          className="flex items-center gap-1.5 rounded-lg bg-emerald-950/90 px-2.5 py-1.5 text-[11px] font-bold text-emerald-300 shadow-lg backdrop-blur transition hover:text-emerald-200"
+        >
+          <Wrench className="h-3.5 w-3.5" />
+          {links.jig.owned ? "My ladder jig" : "Ladder jig · $5"}
+        </Link>
+      )}
+    </div>
+  );
+}
 
 function sectionTitle(s: Section): string {
   return s.kind === "module" ? `Module ${s.type.letter}` : `Assemble Unit ${s.unit.index + 1}`;
@@ -108,6 +140,7 @@ function UnitAssembly({
   index,
   onChange,
   onClose,
+  links,
 }: {
   plan: CompleteDIYPlan;
   unit: PlanUnit;
@@ -115,10 +148,14 @@ function UnitAssembly({
   index: number;
   onChange: (i: number) => void;
   onClose?: () => void;
+  links: GuideLinks;
 }) {
   return (
     <div className="h-full w-full overflow-y-auto bg-slate-950">
       <div className="mx-auto max-w-2xl px-4 pb-10 pt-5">
+        <div className="mb-4">
+          <GuideToolbar links={links} />
+        </div>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
@@ -199,7 +236,15 @@ function UnitAssembly({
   );
 }
 
-export default function ModularBuildGuide({ plan, onClose }: { plan: CompleteDIYPlan; onClose?: () => void }) {
+export default function ModularBuildGuide({
+  plan,
+  onClose,
+  links,
+}: {
+  plan: CompleteDIYPlan;
+  onClose?: () => void;
+  links: GuideLinks;
+}) {
   const sections = useMemo<Section[]>(
     () => [
       ...plan.moduleTypes.map((type) => ({ kind: "module" as const, type })),
@@ -213,7 +258,9 @@ export default function ModularBuildGuide({ plan, onClose }: { plan: CompleteDIY
   const go = (i: number) => setIndex(Math.max(0, Math.min(sections.length - 1, i)));
 
   if (section.kind === "unit") {
-    return <UnitAssembly plan={plan} unit={section.unit} sections={sections} index={index} onChange={go} onClose={onClose} />;
+    return (
+      <UnitAssembly plan={plan} unit={section.unit} sections={sections} index={index} onChange={go} onClose={onClose} links={links} />
+    );
   }
 
   const t = section.type;
@@ -229,7 +276,12 @@ export default function ModularBuildGuide({ plan, onClose }: { plan: CompleteDIY
       rails="2x4"
       onClose={onClose}
       label={multi ? `Module ${t.letter}` : undefined}
-      hud={multi ? <ModuleHud plan={plan} sections={sections} index={index} onChange={go} /> : undefined}
+      hud={
+        <div className="space-y-2">
+          <GuideToolbar links={links} />
+          {multi && <ModuleHud plan={plan} sections={sections} index={index} onChange={go} />}
+        </div>
+      }
     />
   );
 }

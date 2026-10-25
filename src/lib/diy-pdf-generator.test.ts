@@ -62,10 +62,40 @@ describe("generateDIYPlan", () => {
     expect(top.instruction).toContain("2 pieces"); // 130-1/2" is wider than one sheet
   });
 
-  it("stacks tiers in order and never anchors a rolling unit", async () => {
+  it("stacks tiers in order, casters after the bottom join, and never anchors a rolling unit", async () => {
     const p = await plan("H8x8w");
-    expect(p.units[0].assemblySteps.map((s) => s.id)).toEqual(["join-tier-1", "stack-tier-2", "join-tier-2"]);
-    expect(p.shoppingList.find((i) => i.name === "Caster Kits")?.qty).toBe(2); // one set per bottom module
+    expect(p.units[0].assemblySteps.map((s) => s.id)).toEqual(["join-tier-1", "attach-unit-casters", "stack-tier-2", "join-tier-2"]);
+    // 8 wide (183") → 8 casters = 2 four-packs; modules carry none of their own
+    expect(p.moduleTypes.every((t) => !t.steps.some((s) => s.id === "attach-casters"))).toBe(true);
+    expect(p.shoppingList.find((i) => i.name === "Caster Kits")?.qty).toBe(2);
+    expect(p.shoppingList.find((i) => i.name === '1/4" × 1" Structural Screws')?.detail).toMatch(/^32 /);
+  });
+
+  it("gives a 6-wide rolling unit 6 casters under uprights, listed by position", async () => {
+    const p = await plan("H6x4w"); // 138"
+    const step = p.units[0].assemblySteps.find((s) => s.id === "attach-unit-casters")!;
+    expect(step.materials[0]).toMatchObject({ name: '5" Swivel Casters', qty: "6" });
+    expect(step.instruction).toContain('3/4", 68-1/4" and 137-1/4"');
+    expect(p.shoppingList.find((i) => i.name === "Caster Kits")).toMatchObject({ qty: 2 });
+  });
+
+  it("keeps 4 corner casters inside the module build for units up to 4 wide", async () => {
+    const p = await plan("H4x4w");
+    const casters = p.moduleTypes[0].steps.find((s) => s.id === "attach-casters")!;
+    expect(casters.materials.map((m) => [m.qty, m.name])).toEqual([
+      ["4", '5" Swivel Casters'],
+      ["16", '1/4" × 1" Structural Screws'],
+    ]);
+    expect(p.units[0].assemblySteps.some((s) => s.id === "attach-unit-casters")).toBe(false);
+  });
+
+  it("links hardware to where installers buy it", async () => {
+    const p = await plan("H6x4wt");
+    const byName = Object.fromEntries(p.shoppingList.map((i) => [i.name, i]));
+    expect(byName["Caster Kits"]).toMatchObject({ url: "https://amzn.to/4rPMxf6", store: "Amazon" });
+    expect(byName['#9 × 3" Star-Drive Screws']).toMatchObject({ url: "https://amzn.to/3OEWiho", store: "Amazon" });
+    expect(byName['#9 × 1-5/8" Star-Drive Screws']).toMatchObject({ url: "https://amzn.to/46xZ664", store: "Amazon" });
+    expect(byName["Totes"].url).toBeUndefined();
   });
 
   it("gives short single-module units no extra assembly steps", async () => {
@@ -143,6 +173,24 @@ describe("generateDIYPDF", () => {
     expect(guide).not.toContain("Upgrade my plan");
 
     expect(generateDIYPDF({ plan: p, snapshots: {} }).output()).not.toContain("/plans/build");
+  });
+
+  it("carries affiliate links, the disclosure, the ladder jig callout and My Builds", async () => {
+    const p = await plan("H4x4wt");
+    const out = generateDIYPDF({
+      plan: p,
+      snapshots: {},
+      links: {
+        upgradeUrl: "https://x.test/plans/build?token=t&upgrade=1",
+        libraryUrl: "https://x.test/plans/library?token=t",
+        jigUrl: "https://x.test/plans/jig?owner=t",
+      },
+    }).output();
+    expect(out).toContain("https://amzn.to/4rPMxf6");
+    expect(out).toContain("Amazon Associate");
+    expect(out).toContain("https://x.test/plans/jig?owner=t");
+    expect(out).toContain("$5 for plan owners");
+    expect(out).toContain("https://x.test/plans/library?token=t");
   });
 });
 

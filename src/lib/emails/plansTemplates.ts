@@ -2,6 +2,7 @@ import { sendTransactionalEmail } from "./core";
 import { masterEmailLayout } from "./components/masterEmailLayout";
 import { getAppUrl } from "@/lib/url-helper";
 import type { PublicPlan } from "@/lib/plans-config";
+import { LADDER_JIG_NAME, LADDER_JIG_TAGLINE } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_TIERS,
   designFromItems,
@@ -114,6 +115,7 @@ export async function sendTotePlanAccessEmail(
         ${tier === "interactive" ? "Open My Build Guide →" : "Get My Build Plan →"}
       </a>
       <p style="margin:12px 0 0;color:#555;font-size:11px;">Bookmark this link — it's yours permanently.</p>
+      <p style="margin:8px 0 0;color:#888;font-size:12px;">All your plans in one place: <a href="${appUrl}/plans/library?token=${accessToken}" style="color:#facc15;text-decoration:none;">My Builds</a></p>
     </div>
 
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
@@ -138,5 +140,36 @@ export async function sendTotePlanAccessEmail(
     to: email,
     subject: `Your ${name} ${tier === "interactive" ? "build guide" : "build plan"}`,
     html: masterEmailLayout(`${name} — ${info.name}`, body),
+  });
+}
+
+export async function sendLadderJigAccessEmail(email: string, accessToken: string): Promise<void> {
+  const appUrl = getAppUrl();
+  const accessUrl = `${appUrl}/plans/jig?token=${accessToken}`;
+  const libraryUrl = `${appUrl}/plans/library?token=${accessToken}`;
+
+  const body = `
+    <div style="background:#111;border-radius:12px;padding:28px 24px;margin-bottom:20px;border:1px solid #222;">
+      <p style="margin:0 0 6px;color:#facc15;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Your plans are ready</p>
+      <h2 style="margin:0 0 8px;color:#fff;font-size:20px;font-weight:800;">${LADDER_JIG_NAME}</h2>
+      <p style="margin:0;color:#888;font-size:13px;">${LADDER_JIG_TAGLINE}</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${accessUrl}" style="display:inline-block;background:#facc15;color:#000;font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px;border-radius:10px;letter-spacing:0.02em;">
+        Open My Jig Plans →
+      </a>
+      <p style="margin:12px 0 0;color:#555;font-size:11px;">Bookmark this link — it's yours permanently.</p>
+    </div>
+
+    <p style="margin:0 0 20px;color:#888;font-size:12px;text-align:center;">
+      All your plans in one place: <a href="${libraryUrl}" style="color:#facc15;text-decoration:none;">My Builds</a>
+    </p>
+  `;
+
+  await sendTransactionalEmail({
+    to: email,
+    subject: `Your ${LADDER_JIG_NAME} plans`,
+    html: masterEmailLayout(`${LADDER_JIG_NAME} — Plans`, body),
   });
 }

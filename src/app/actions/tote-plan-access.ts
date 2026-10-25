@@ -25,6 +25,7 @@ import {
   enforceActionRateLimit,
   RateLimitError,
 } from "@/lib/server/action-rate-limit";
+import { LADDER_JIG_PLAN_ID, ladderJigHref } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_ID,
   TOTE_PLAN_UPGRADE_PRICE,
@@ -61,6 +62,8 @@ export type OpenTotePlanResult =
       /** Buyer email — present on the first visit so the page can confirm it */
       emailSentTo?: string;
       access: "purchase" | "pro" | "admin";
+      /** Ladder jig link: their own jig plans if bought, else the $5 owner offer (purchases only) */
+      jig?: { owned: boolean; href: string };
     }
   | { ok: false; error: string };
 
@@ -83,6 +86,13 @@ async function buildResult(
     return { ok: false, error: "This link isn't for a tote organizer plan." };
   }
   const plan = await generateDIYPlan(design);
+  const { data: jigRow } = await getServiceClient()
+    .from("public_plan_purchases")
+    .select("access_token")
+    .eq("email", row.email)
+    .eq("plan_id", LADDER_JIG_PLAN_ID)
+    .limit(1)
+    .maybeSingle();
   return {
     ok: true,
     tier: row.tier,
@@ -90,6 +100,9 @@ async function buildResult(
     plan,
     token: row.access_token,
     access: "purchase",
+    jig: jigRow
+      ? { owned: true, href: `/plans/jig?token=${jigRow.access_token}` }
+      : { owned: false, href: ladderJigHref(row.access_token) },
     ...extras,
   };
 }

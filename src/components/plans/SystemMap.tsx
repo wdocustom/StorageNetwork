@@ -50,14 +50,10 @@ export default function SystemMap({
     >
       <line x1={0} x2={vbW} y1={floor} y2={floor} stroke={c.floor} strokeWidth={stroke} />
 
-      {layout.units.map((u) =>
-        u.hasWheels
-          ? layout.modules
-              .filter((m) => m.unitIndex === u.unitIndex && m.y < 4)
-              .flatMap((m) => [m.x + 3, m.x + m.w - 3].map((cx) => (
-                <circle key={`${m.key}-${cx}`} cx={pad + cx} cy={floor - 1.3} r={1.3} fill={c.dim} />
-              )))
-          : null,
+      {layout.units.flatMap((u) =>
+        u.casters.map((cx) => (
+          <circle key={`caster-${u.unitIndex}-${cx}`} cx={pad + cx} cy={floor - 1.3} r={1.3} fill={c.dim} />
+        )),
       )}
 
       {layout.modules.map((m) => {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { getPlanById } from "@/lib/plans-config";
-import { sendPlanAccessEmail, sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { sendLadderJigAccessEmail, sendPlanAccessEmail, sendTotePlanAccessEmail } from "@/lib/emails/plansTemplates";
+import { LADDER_JIG_PLAN_ID } from "@/lib/ladder-jig";
 import { TOTE_PLAN_ID, isTotePlanTier, parseTotePlanDesign } from "@/lib/tote-plans";
 
 export async function POST(request: NextRequest) {
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest) {
 
     // Send one email per purchased plan
     for (const purchase of purchases) {
+      if (purchase.plan_id === LADDER_JIG_PLAN_ID) {
+        await sendLadderJigAccessEmail(email.toLowerCase().trim(), purchase.access_token);
+        continue;
+      }
       if (purchase.plan_id === TOTE_PLAN_ID) {
         const design = parseTotePlanDesign(purchase.build_config);
         if (design && isTotePlanTier(purchase.tier)) {

@@ -34,9 +34,11 @@ import {
   type BuildConfig,
 } from "@/components/visualizer/assemblySteps";
 import { toFraction } from "@/lib/utils";
+import { productLinkFor, type ProductStore } from "@/lib/plan-product-links";
 import {
   BAY_OPENING_IN,
   UNIT_DEPTH_IN,
+  casterPositions,
   designModules,
   designOuterSize,
   moduleFrameHeightIn,
@@ -66,6 +68,15 @@ export interface PlanAssemblyStep {
   tools: { name: string; detail?: string }[];
   screwType?: { label: string; length: number; description: string };
   proTip?: string;
+}
+
+export interface PlanShoppingItem {
+  name: string;
+  detail: string;
+  qty: number | string;
+  /** Where to buy it (affiliate link) — hardware only */
+  url?: string;
+  store?: ProductStore;
 }
 
 export interface PlanCutPart {
@@ -116,7 +127,7 @@ export interface CompleteDIYPlan {
   units: PlanUnit[];
   moduleTypes: PlanModuleTypeBuild[];
   moduleCount: number;
-  shoppingList: BuildManifest["shopping_list"];
+  shoppingList: PlanShoppingItem[];
   totals: BuildManifest["totals"];
   /** Every 2×4×8' board for uprights + plates, packed exactly as the build engine packs them */
   cutBoards: PlanCutBoard[];
@@ -133,7 +144,9 @@ export interface CompleteDIYPlan {
 // Constants (must match the build engine)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const LAGS_PER_CASTER_SET = 16; // 4 casters × 4 lag screws
+const CASTER_SCREWS_EACH = 4;
+const CASTERS_PER_KIT = 4;
+const STRUCTURAL_SCREWS_PER_BOX = 95;
 const SCREWS_3IN_PER_BOX = 137; // engine box sizes
 const SCREWS_1_5_8_PER_BOX = 158;
 const SCREW_SPARE = 1.1; // ~10% for strips and misses
@@ -223,6 +236,34 @@ function unitSteps(unit: PlanUnit): PlanAssemblyStep[] {
 
   const bottomLabel = tiers.length > 1 ? "Bottom-Tier" : "";
   if (seams > 0) steps.push(joinStep(0, bottomLabel ? "Bottom-Tier" : "Side-by-Side"));
+
+  // Units wider than one module get their casters once the bottom tier is
+  // joined, spaced along the whole length (see casterPositions).
+  if (unit.hasWheels && seams > 0) {
+    const positions = casterPositions(unit);
+    const count = positions.length * 2;
+    const marks = positions.map((x) => inches(x));
+    const markList = marks.length > 1 ? `${marks.slice(0, -1).join(", ")} and ${marks[marks.length - 1]}` : marks[0];
+    steps.push({
+      id: "attach-unit-casters",
+      title: "Attach the Casters",
+      instruction:
+        `With a helper, tip the joined ${tiers.length > 1 ? "bottom tier" : "unit"} onto its back on a moving blanket or cardboard. ` +
+        `Measuring from the left end, mark caster centerlines on the front and back bottom plates at ${markList} — each mark lands under an upright. ` +
+        `Center a 5" swivel caster on every mark, front and back (${count} casters), and fasten each caster plate with 4 1/4" × 1" structural screws. Stand it back up and lock the casters.`,
+      materials: [
+        { name: '5" Swivel Casters', qty: String(count), detail: `${positions.length} pairs, front and back` },
+        { name: '1/4" × 1" Structural Screws', qty: String(count * CASTER_SCREWS_EACH), detail: "4 per caster plate" },
+      ],
+      tools: [
+        { name: "Drill/Driver" },
+        { name: "Tape Measure" },
+        { name: "Moving Blanket", detail: "or cardboard, to protect the frame" },
+      ],
+      screwType: { label: '1/4" × 1" Structural Screw', length: 1, description: "Through the caster plate into the 2×4 bottom plate." },
+      proTip: "A caster at every mark keeps long units from sagging between ends. Lock them all before you stack, load, or lean anything on the unit.",
+    });
+  }
 
   for (let tier = 1; tier < tiers.length; tier++) {
     const perModulePlate = widths.map((c) => moduleWidthIn(c));
@@ -382,7 +423,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
 
   // ── Shopping list — engine lumber/plywood/totes; casters and screws
   //    counted from the plan's own steps so the list matches the build.
-  const casterSets = modules.filter((m) => m.hasWheels).length; // one set per bottom module
+  const casterCount = design.units.reduce((s, u) => s + casterPositions(u).length * 2, 0);
   const screwCount = (label: string) => {
     const fromSteps = (steps: PlanAssemblyStep[], times: number) =>
       steps.reduce(
@@ -400,7 +441,7 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
   };
   const screws3 = Math.ceil(screwCount('#9 × 3" Screws') * SCREW_SPARE);
   const screws158 = Math.ceil(screwCount('#9 × 1-5/8" Screws') * SCREW_SPARE);
-  const shoppingList: BuildManifest["shopping_list"] = [];
+  const shoppingList: PlanShoppingItem[] = [];
   for (const item of manifest.shopping_list) {
     if (item.name === "2x4 Lumber" && /ripped/i.test(item.detail)) {
       shoppingList.push({ ...item, qty: railBoards.boards, detail: `8 ft — rip into ${railBoards.rails} rails (6 per board)` });
@@ -409,8 +450,18 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
     } else if (item.name === "Plywood") {
       if (Number(item.qty) > 0) shoppingList.push({ ...item, detail: '3/4" sheets — worktops' });
     } else if (item.name === "Caster Kits") {
-      shoppingList.push({ ...item, qty: casterSets, detail: '5" swivel casters, 4pk — one set per bottom module' });
-      shoppingList.push({ name: '1/4" × 1-1/2" Lag Screws', detail: "4 per caster", qty: casterSets * LAGS_PER_CASTER_SET });
+      const kits = Math.ceil(casterCount / CASTERS_PER_KIT);
+      shoppingList.push({
+        ...item,
+        qty: kits,
+        detail: `5" swivel casters, 4pk — ${casterCount} casters needed${kits * CASTERS_PER_KIT > casterCount ? ` (${kits * CASTERS_PER_KIT - casterCount} spare)` : ""}`,
+      });
+      const structural = screwCount('1/4" × 1" Structural Screws');
+      shoppingList.push({
+        name: '1/4" × 1" Structural Screws',
+        detail: `${structural} for caster plates (${STRUCTURAL_SCREWS_PER_BOX}ct box)`,
+        qty: `${Math.ceil(structural / STRUCTURAL_SCREWS_PER_BOX)} Box`,
+      });
     } else if (/Screws/.test(item.name)) {
       // replaced by step-derived counts below
     } else {
@@ -429,7 +480,11 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       qty: `${Math.ceil(screws158 / SCREWS_1_5_8_PER_BOX)} Box`,
     });
   }
-  const totals = { ...manifest.totals, wheelKits: casterSets };
+  for (const item of shoppingList) {
+    const link = productLinkFor(item.name);
+    if (link) Object.assign(item, link);
+  }
+  const totals = { ...manifest.totals, wheelKits: Math.ceil(casterCount / CASTERS_PER_KIT) };
 
   // ── Rail + plywood notes ─────────────────────────────────────────────
   const topSheets = units.reduce((s, u) => s + (u.hasTop ? topSheetsFor(u.widthIn) : 0), 0);
@@ -478,8 +533,10 @@ export async function generateDIYPlan(design: TotePlanDesign): Promise<CompleteD
       "Big walls are built from self-contained modules: no more than 4 totes wide (so plates fit an 8' board) and 6 tall (so uprights do). Identical modules share a letter — build one, then repeat it.",
     );
   }
-  if (casterSets > 0) {
-    generalNotes.push(`Casters: one set of four 5" swivel casters under every bottom module (${casterSets} set${casterSets > 1 ? "s" : ""}). Position each caster's swivel pivot directly under an upright.`);
+  if (casterCount > 0) {
+    generalNotes.push(
+      `Casters: ${casterCount} 5" swivel casters in all — 4 on units up to 4 totes wide, 6 on units over 8', plus a pair for every further 48" of length. Every caster sits under an upright.`,
+    );
   }
 
   return {

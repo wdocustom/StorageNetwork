@@ -287,6 +287,54 @@ export function unitOuterSize(unit: TotePlanUnit): { widthIn: number; heightIn: 
   };
 }
 
+// ── Casters ──────────────────────────────────────────────────────────────
+// Up to 4 wide (one module, under 8') rolls on 4 casters at the corners.
+// Over 8' rolls on 6, and every further 48" of length adds a pair. Each
+// pair (front + back) sits under an upright, as close to even spacing as
+// the 22-1/2" upright pitch allows.
+
+const CASTER_BASE_LENGTH_IN = 96;
+const CASTER_EXTRA_PAIR_EVERY_IN = 48;
+
+/** Upright centerlines across a unit, inches from its left end (seams have two). */
+export function unitUprightXs(unit: Pick<TotePlanUnit, "cols">): number[] {
+  const xs: number[] = [];
+  let offset = 0;
+  for (const cols of splitWidth(unit.cols)) {
+    for (let i = 0; i <= cols; i++) xs.push(offset + POST_IN / 2 + i * (BAY_OPENING_IN + POST_IN));
+    offset += moduleWidthIn(cols);
+  }
+  return xs;
+}
+
+/** Number of caster PAIRS (front + back) a rolling unit gets. */
+export function casterPairCount(unit: Pick<TotePlanUnit, "cols">): number {
+  const width = unitOuterSize({ cols: unit.cols, rows: 1, toteType: "HDX", hasWheels: false, hasTop: false }).widthIn;
+  if (width <= CASTER_BASE_LENGTH_IN) return 2;
+  return 2 + Math.ceil((width - CASTER_BASE_LENGTH_IN) / CASTER_EXTRA_PAIR_EVERY_IN);
+}
+
+/**
+ * Where each caster pair goes: the upright centerline (inches from the
+ * unit's left end) nearest to evenly spaced targets, ends always included.
+ * Empty for units without casters.
+ */
+export function casterPositions(unit: TotePlanUnit): number[] {
+  if (!unit.hasWheels) return [];
+  const xs = unitUprightXs(unit);
+  const first = xs[0];
+  const last = xs[xs.length - 1];
+  const pairs = casterPairCount(unit);
+  const picked: number[] = [];
+  for (let p = 0; p < pairs; p++) {
+    const target = first + ((last - first) * p) / (pairs - 1);
+    const candidates = xs.filter((x) => !picked.includes(x));
+    const nearest = candidates.reduce((best, x) => (Math.abs(x - target) < Math.abs(best - target) ? x : best), candidates[0]);
+    picked.push(nearest);
+  }
+  return picked.sort((a, b) => a - b);
+}
+
 /** Units stand side by side: total width, tallest unit. */
 export function designOuterSize(design: TotePlanDesign): { widthIn: number; heightIn: number; depthIn: number } {
   const sizes = design.units.map(unitOuterSize);
@@ -332,7 +380,7 @@ export interface PlanModule {
   cols: number;
   rows: number;
   toteType: TotePlanToteType;
-  /** Casters go under every bottom-tier module of a rolling unit */
+  /** True when this module gets its casters in its own steps (one-module-wide rolling units) */
   hasWheels: boolean;
   /** Worktop is part of the module build only when the module IS the unit */
   hasTop: boolean;
@@ -376,7 +424,9 @@ export function designModules(design: TotePlanDesign): DesignModules {
           cols,
           rows,
           toteType: unit.toteType,
-          hasWheels: unit.hasWheels && tierIndex === 0,
+          // A one-module-wide unit gets its 4 casters while its bottom module
+          // is laid down; wider units get theirs after the modules are joined.
+          hasWheels: unit.hasWheels && tierIndex === 0 && widths.length === 1,
           hasTop: unit.hasTop && single,
         };
         const k = typeKey(spec);
@@ -580,6 +630,8 @@ export interface LayoutUnit {
   h: number;
   hasWheels: boolean;
   hasTop: boolean;
+  /** Caster pair centerlines, inches from the left end of the design */
+  casters: number[];
 }
 
 export interface DesignLayout {
@@ -625,7 +677,15 @@ export function designLayout(design: TotePlanDesign, unitGapIn = 8): DesignLayou
       });
     }
     const size = unitOuterSize(unit);
-    units.push({ unitIndex, x: unitX, w: size.widthIn, h: size.heightIn, hasWheels: unit.hasWheels, hasTop: unit.hasTop });
+    units.push({
+      unitIndex,
+      x: unitX,
+      w: size.widthIn,
+      h: size.heightIn,
+      hasWheels: unit.hasWheels,
+      hasTop: unit.hasTop,
+      casters: casterPositions(unit).map((c) => unitX + c),
+    });
     unitX += size.widthIn + unitGapIn;
   });
 

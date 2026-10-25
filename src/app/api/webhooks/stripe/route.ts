@@ -355,6 +355,7 @@ const PLAN_PURCHASE_TYPES = new Set([
   "chair_template",
   "diy_plan",
   "public_plan",
+  "ladder_jig",
 ]);
 
 async function processPromoterCommission(session: Stripe.Checkout.Session) {

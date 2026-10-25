@@ -110,13 +110,21 @@ describe("modules — must match the build engine's split", () => {
     expect(modules.map((m) => m.type)).toEqual(["A", "B", "A"]);
   });
 
-  it("puts casters only under bottom-tier modules and the top on the unit when split", () => {
+  it("moves casters and the top to the unit when it's wider than one module", () => {
     const { modules } = designModules(decodeTotePlanDesign("H6x8wt")!);
     expect(modules.map((m) => [m.key, m.cols, m.rows, m.hasWheels, m.hasTop])).toEqual([
-      ["0-0-0", 4, 6, true, false],
-      ["0-1-0", 2, 6, true, false],
+      ["0-0-0", 4, 6, false, false],
+      ["0-1-0", 2, 6, false, false],
       ["0-0-1", 4, 2, false, false],
       ["0-1-1", 2, 2, false, false],
+    ]);
+  });
+
+  it("keeps casters on the bottom module of a one-module-wide stacked unit", () => {
+    const { modules } = designModules(decodeTotePlanDesign("H4x8w")!);
+    expect(modules.map((m) => [m.key, m.hasWheels])).toEqual([
+      ["0-0-0", true],
+      ["0-0-1", false],
     ]);
   });
 });
@@ -252,3 +260,30 @@ describe("naming and tiers", () => {
     expect(isTotePlanTier("pro")).toBe(false);
   });
 });
+
+describe("casters", () => {
+  const rolling = (cols: number) => ({ cols, rows: 4, toteType: "HDX" as const, hasWheels: true, hasTop: false });
+
+  it("puts 4 on units up to 4 wide, 6 over 8', and a pair per further 48 inches", async () => {
+    const { casterPairCount } = await import("./tote-plans");
+    expect([1, 2, 3, 4].map((c) => casterPairCount(rolling(c)) * 2)).toEqual([4, 4, 4, 4]);
+    expect(casterPairCount(rolling(5)) * 2).toBe(6); // 115-1/2"
+    expect(casterPairCount(rolling(6)) * 2).toBe(6); // 138"
+    expect(casterPairCount(rolling(8)) * 2).toBe(8); // 183"
+    expect(casterPairCount(rolling(12)) * 2).toBe(12); // 274-1/2"
+  });
+
+  it("puts every caster pair under an upright, both ends included", async () => {
+    const { casterPositions, unitUprightXs } = await import("./tote-plans");
+    for (const cols of [2, 4, 5, 6, 9, 16]) {
+      const pos = casterPositions(rolling(cols));
+      const xs = unitUprightXs(rolling(cols));
+      expect(pos.every((p) => xs.includes(p))).toBe(true);
+      expect(pos[0]).toBe(xs[0]);
+      expect(pos[pos.length - 1]).toBe(xs[xs.length - 1]);
+      expect(new Set(pos).size).toBe(pos.length);
+    }
+    expect(casterPositions({ ...rolling(6), hasWheels: false })).toEqual([]);
+  });
+});
+

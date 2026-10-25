@@ -1525,7 +1525,7 @@ export default function AssemblyGuide({
         {/* Exploded mode — top-left label + bottom-center Start button */}
         {mode === "exploded" && (
           <>
-            <div className="pointer-events-none absolute left-4 top-4">
+            <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-5.5rem)]">
               <div className="rounded-xl bg-slate-900/90 px-5 py-3 shadow-xl backdrop-blur">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
                   Exploded View
@@ -1558,7 +1558,7 @@ export default function AssemblyGuide({
         {mode === "step" && currentStep && (
           <>
             {/* Config badge — top left */}
-            <div className="pointer-events-none absolute left-4 top-4">
+            <div className="pointer-events-none absolute left-4 top-4 max-w-[calc(100%-5.5rem)]">
               <div className="rounded-lg bg-slate-900/80 px-3 py-1.5 shadow-lg backdrop-blur">
                 <p className="text-[10px] font-bold text-stone-400">
                   {label ? `${label} · ` : ""}

@@ -25,7 +25,11 @@ import {
   Box,
   CheckCircle,
   Crown,
+  ChevronRight,
   Download,
+  ExternalLink,
+  Home,
+  Mail,
   FileText,
   Loader2,
   Lock,
@@ -33,6 +37,8 @@ import {
   ShoppingCart,
   Wrench,
 } from "lucide-react";
+import Link from "next/link";
+import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   openTotePlan,
   createTotePlanUpgradeCheckout,
@@ -49,6 +55,8 @@ import {
 import type { AssemblyStepSnapshot } from "@/components/visualizer/AssemblyGuide";
 import type { PlanModuleTypeBuild } from "@/app/actions/generate-plan";
 import SystemMap from "@/components/plans/SystemMap";
+import { CONTACT_EMAIL, libraryHref } from "@/lib/plan-library";
+import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
 
 const ModularBuildGuide = dynamic(() => import("@/components/plans/ModularBuildGuide"), {
   ssr: false,
@@ -133,9 +141,13 @@ function PdfCard({ data }: { data: Ready }) {
         const { downloadDIYPDF } = await import("@/lib/diy-pdf-generator");
         const origin = window.location.origin;
         const links = data.token
-          ? data.tier === "pdf"
-            ? { upgradeUrl: `${origin}/plans/build?token=${data.token}&upgrade=1` }
-            : { guideUrl: `${origin}/plans/build?token=${data.token}&guide=1` }
+          ? {
+              ...(data.tier === "pdf"
+                ? { upgradeUrl: `${origin}/plans/build?token=${data.token}&upgrade=1` }
+                : { guideUrl: `${origin}/plans/build?token=${data.token}&guide=1` }),
+              libraryUrl: `${origin}${libraryHref(data.token)}`,
+              ...(data.jig ? { jigUrl: `${origin}${data.jig.href}`, jigOwned: data.jig.owned } : {}),
+            }
           : undefined;
         downloadDIYPDF({
           plan: data.plan,
@@ -329,13 +341,27 @@ function Checklists({ data }: { data: Ready }) {
           {data.plan.shoppingList.map((item) => (
             <li key={`${item.name}-${item.detail}`} className="flex gap-3 text-xs">
               <span className="w-12 shrink-0 font-mono font-bold text-yellow-400">{item.qty}</span>
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="font-semibold text-stone-200">{item.name}</span>
                 <span className="block text-stone-500">{item.detail}</span>
               </span>
+              {item.url && (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className="flex h-fit shrink-0 items-center gap-1 rounded-lg border border-yellow-400/30 px-2 py-1 text-[10px] font-bold text-yellow-400 transition hover:bg-yellow-400/10"
+                >
+                  Buy
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
             </li>
           ))}
         </ul>
+        {data.plan.shoppingList.some((i) => i.url) && (
+          <p className="mt-3 text-[10px] leading-snug text-stone-600">{AFFILIATE_DISCLOSURE}</p>
+        )}
       </div>
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="mb-3 flex items-center gap-2">
@@ -435,7 +461,11 @@ function BuildPlanInner() {
     <div className="min-h-screen bg-slate-950">
       {guideOpen && result.tier === "interactive" && (
         <div className="fixed inset-0 z-50">
-          <ModularBuildGuide plan={plan} onClose={() => setGuideOpen(false)} />
+          <ModularBuildGuide
+            plan={plan}
+            onClose={() => setGuideOpen(false)}
+            links={{ homeHref: result.token ? libraryHref(result.token) : "/plans", jig: result.jig }}
+          />
         </div>
       )}
 
@@ -453,6 +483,15 @@ function BuildPlanInner() {
               <Crown className="h-3 w-3" />
               {result.access === "admin" ? "Admin access" : "Included with Pro"}
             </span>
+          )}
+          {result.token && (
+            <Link
+              href={libraryHref(result.token)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] font-semibold text-stone-300 transition hover:border-yellow-400/50 hover:text-yellow-300"
+            >
+              <Home className="h-3.5 w-3.5" />
+              My Builds
+            </Link>
           )}
         </div>
       </header>
@@ -500,6 +539,28 @@ function BuildPlanInner() {
           <PdfCard data={result} />
         </div>
 
+        {result.jig && (
+          <Link
+            href={result.jig.href}
+            className="flex items-center gap-4 rounded-2xl border border-dashed border-emerald-500/40 bg-emerald-500/5 p-4 transition hover:border-emerald-400"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10">
+              <Wrench className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">
+                {result.jig.owned ? "Your ladder jig plans" : "Build a ladder jig first?"}
+              </p>
+              <p className="text-xs text-stone-400">
+                {result.jig.owned
+                  ? "Open the jig guide — rail lines marked for this plan."
+                  : `Every ladder frame square and identical, no measuring — ${formatPlanPrice(LADDER_JIG_OWNER_PRICE)} for plan owners.`}
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-emerald-400" />
+          </Link>
+        )}
+
         <Checklists data={result} />
 
         {result.token && (
@@ -508,6 +569,17 @@ function BuildPlanInner() {
             <a href="/plans" className="text-stone-400 underline hover:text-stone-200">the plans page</a>.
           </p>
         )}
+
+        <div className="border-t border-slate-800 pt-6 text-center">
+          <p className="mb-2 text-xs text-stone-500">Questions about your build?</p>
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Question about my ${plan.name} plan`)}`}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-semibold text-stone-300 transition hover:border-yellow-400/50 hover:text-yellow-300"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            {CONTACT_EMAIL}
+          </a>
+        </div>
       </main>
     </div>
   );

@@ -28,6 +28,8 @@ import type {
   PlanModuleTypeBuild,
   PlanUnit,
 } from "@/app/actions/generate-plan";
+import { AFFILIATE_DISCLOSURE } from "@/lib/plan-product-links";
+import { LADDER_JIG_OWNER_PRICE } from "@/lib/ladder-jig";
 import {
   TOTE_PLAN_UPGRADE_PRICE,
   designLayout,
@@ -79,7 +81,15 @@ export interface DIYPDFInput {
    * Back-page call to action. upgradeUrl → PDF buyer, offer the 3D guide;
    * guideUrl → they already own it, link straight to it.
    */
-  links?: { upgradeUrl?: string; guideUrl?: string };
+  links?: {
+    upgradeUrl?: string;
+    guideUrl?: string;
+    /** The buyer's My Builds library */
+    libraryUrl?: string;
+    /** Ladder jig: the $5 owner offer, or their own jig plans when jigOwned */
+    jigUrl?: string;
+    jigOwned?: boolean;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -201,16 +211,11 @@ function drawSystemMap(
   doc.setLineWidth(0.4);
   doc.line(box.x, floorY, box.x + box.w, floorY);
 
+  // Casters, under the uprights they're fastened to
+  const casterR = Math.max(0.6, 1.4 * scale);
+  doc.setFillColor(...COLORS.body);
   for (const unit of layout.units) {
-    // Casters
-    if (unit.hasWheels) {
-      const r = Math.max(0.6, 1.4 * scale);
-      for (const m of layout.modules.filter((mm) => mm.unitIndex === unit.unitIndex && mm.y < 4)) {
-        doc.setFillColor(...COLORS.body);
-        doc.circle(toX(m.x + 2), floorY - r, r, "F");
-        doc.circle(toX(m.x + m.w - 2), floorY - r, r, "F");
-      }
-    }
+    for (const cx of unit.casters) doc.circle(toX(cx), floorY - casterR, casterR, "F");
   }
 
   for (const m of layout.modules) {
@@ -328,7 +333,29 @@ function renderCover(doc: jsPDF, input: DIYPDFInput, layout: DesignLayout) {
 // Before you start — tools, shopping list, safety, notes
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
+/** Small green "ladder jig" box; returns nothing when there's no link. */
+function jigCallout(doc: jsPDF, cur: Cursor, links: DIYPDFInput["links"]) {
+  if (!links?.jigUrl) return;
+  const h = 15;
+  cur.ensure(h + 2);
+  const top = cur.y;
+  doc.setFillColor(220, 252, 231); // green-100
+  doc.roundedRect(MARGIN, top, CONTENT_W, h, 2, 2, "F");
+  setText(doc, 7.5, [21, 128, 61], "bold"); // green-700
+  doc.text("LADDER JIG", MARGIN + 4, top + 5.5);
+  setText(doc, 9.5, COLORS.ink, "bold");
+  doc.text(
+    links.jigOwned ? "You have the ladder jig plans — build it before your ladder frames." : "Build a ladder jig first — every ladder frame square and identical.",
+    MARGIN + 26,
+    top + 5.5,
+  );
+  setText(doc, 8.5, COLORS.link, "bold");
+  const label = links.jigOwned ? "Open my jig plans" : `Get the jig plans — ${formatPlanPrice(LADDER_JIG_OWNER_PRICE)} for plan owners`;
+  doc.textWithLink(label, MARGIN + 26, top + 11, { url: links.jigUrl });
+  cur.y = top + h + 4;
+}
+
+function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan, links: DIYPDFInput["links"]) {
   cur.y = sectionTitle(doc, "Before You Start", cur.y);
 
   setText(doc, 10, COLORS.ink, "bold");
@@ -349,18 +376,30 @@ function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
   setText(doc, 10, COLORS.ink, "bold");
   doc.text("Shopping List", MARGIN, cur.y);
   cur.y += 5.5;
+  const hasLinks = plan.shoppingList.some((i) => i.url);
   for (const item of plan.shoppingList) {
     cur.ensure(7);
     checkbox(doc, MARGIN, cur.y);
     setText(doc, 9, COLORS.ink, "bold");
     doc.text(pdfText(String(item.qty)), MARGIN + 6, cur.y);
     doc.text(pdfText(item.name), MARGIN + 24, cur.y);
-    setText(doc, 9, COLORS.muted);
-    doc.text(pdfText(item.detail), MARGIN + 82, cur.y);
+    setText(doc, 8.5, COLORS.muted);
+    const detailW = hasLinks ? CONTENT_W - 82 - 26 : CONTENT_W - 82;
+    const detail = (doc.splitTextToSize(pdfText(item.detail), detailW) as string[])[0];
+    doc.text(detail, MARGIN + 82, cur.y);
+    if (item.url) {
+      setText(doc, 8.5, COLORS.link, "bold");
+      const label = `Buy ${item.store === "Amazon" ? "on" : "at"} ${item.store}`;
+      doc.textWithLink(label, MARGIN + CONTENT_W - doc.getTextWidth(label), cur.y, { url: item.url });
+    }
     doc.setDrawColor(...COLORS.panel);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, cur.y + 2.2, MARGIN + CONTENT_W, cur.y + 2.2);
     cur.y += 6.5;
+  }
+  if (hasLinks) {
+    setText(doc, 7, COLORS.muted, "italic");
+    cur.y = paragraph(doc, AFFILIATE_DISCLOSURE, MARGIN, cur.y + 1, CONTENT_W, 7);
   }
   cur.y += 4;
 
@@ -381,6 +420,7 @@ function renderBeforeYouStart(doc: jsPDF, cur: Cursor, plan: CompleteDIYPlan) {
 
   bulletList("Safety", plan.safetyNotes);
   bulletList("Good to Know", plan.generalNotes);
+  jigCallout(doc, cur, links);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -664,7 +704,9 @@ function renderStep(
   total: number,
   image: string | undefined,
   eyebrow: string,
+  links?: DIYPDFInput["links"],
 ) {
+  const jigLine = step.id === "build-ladders" && links?.jigUrl;
   cur.newPage();
 
   doc.setFillColor(...COLORS.ink);
@@ -679,7 +721,7 @@ function renderStep(
 
   // Shrink the render (never below ~half size) so the whole step fits on its page
   const imgW = CONTENT_W;
-  const room = BODY_BOTTOM - cur.y - 7 - stepBodyHeight(doc, step);
+  const room = BODY_BOTTOM - cur.y - 7 - stepBodyHeight(doc, step) - (jigLine ? 7 : 0);
   const imgH = Math.max(imgW * 0.34, Math.min(imgW * 0.62, room));
   addImageSafe(doc, image, MARGIN, cur.y, imgW, imgH, `Step ${step.stepNumber}`);
   doc.setDrawColor(...COLORS.faint);
@@ -688,6 +730,16 @@ function renderStep(
   cur.y += imgH + 7;
 
   renderStepBody(doc, cur, step);
+  if (jigLine) {
+    setText(doc, 8.5, COLORS.link, "bold");
+    doc.textWithLink(
+      links!.jigOwned ? "Faster with your ladder jig — open the jig plans" : `Build these faster with a ladder jig — ${formatPlanPrice(LADDER_JIG_OWNER_PRICE)} for plan owners`,
+      MARGIN,
+      cur.y,
+      { url: links!.jigUrl! },
+    );
+    cur.y += 6;
+  }
 }
 
 const STEP_BOX_GAP = 6;
@@ -879,6 +931,18 @@ function renderGuidePage(doc: jsPDF, cur: Cursor, links: NonNullable<DIYPDFInput
   setText(doc, 7.5, [148, 163, 184]);
   doc.textWithLink(pdfText(url.replace(/^https?:\/\//, "")), MARGIN + 8 + btnW + 6, btnY + 6.3, { url });
   cur.y = top + h + 4;
+
+  if (links.libraryUrl) {
+    setText(doc, 9, COLORS.body);
+    const lead = "All your plans and guides live in My Builds: ";
+    doc.text(lead, MARGIN, cur.y + 4);
+    const leadW = doc.getTextWidth(lead);
+    setText(doc, 9, COLORS.link, "bold");
+    doc.textWithLink("Open My Builds", MARGIN + leadW, cur.y + 4, {
+      url: links.libraryUrl,
+    });
+    cur.y += 9;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -921,7 +985,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
 
   const cur = new Cursor(doc);
   cur.newPage();
-  renderBeforeYouStart(doc, cur, plan);
+  renderBeforeYouStart(doc, cur, plan, input.links);
   if (multi) renderSystemOverview(doc, cur, plan, layout);
   renderCutPlan(doc, cur, plan);
 
@@ -936,6 +1000,7 @@ export function generateDIYPDF(input: DIYPDFInput): jsPDF {
         t.steps.length,
         input.snapshots[planSnapshotKey(t.letter, step.id)],
         multi ? `MODULE ${t.letter} · ` : "",
+        input.links,
       );
     }
   }

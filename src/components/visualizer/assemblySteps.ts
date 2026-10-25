@@ -497,6 +497,21 @@ const RAILS_2X4_STEPS: Partial<Record<string, Partial<AssemblyStep>>> = {
     proTip:
       "On middle uprights, shift the second side's screws about 1/2\" up or down from the first side's so they don't meet inside the upright.",
   },
+  "attach-casters": {
+    instruction:
+      'With the unit still on its front, center a 5" swivel caster under each end upright on the front and back bottom plates — 4 casters, one at each corner — so each swivel pivot sits right over an upright. Fasten every caster plate with 4 1/4" × 1" structural screws into the 2×4 bottom plate.',
+    screwType: {
+      label: '1/4" × 1" Structural Screw',
+      length: 1.0,
+      description: "Star-drive structural screw — through the caster plate into the 2×4 bottom plate. No pilot hole required.",
+    },
+    tools: [{ name: "Drill/Driver" }, { name: "Tape Measure" }],
+    materials: [
+      { name: '5" Swivel Casters', qty: "4", detail: "One at each corner" },
+      { name: '1/4" × 1" Structural Screws', qty: "16", detail: "4 per caster plate" },
+    ],
+    proTip: "Lock all four casters before you stand the unit up, and keep them locked whenever you load it.",
+  },
   "attach-top-plates": {
     proTip:
       "This step is what makes a 2×4-rail frame rigid. Measure corner-to-corner diagonals — when they match within 1/8\", you're square. If not, push the long-diagonal corner before driving the last screws.",
