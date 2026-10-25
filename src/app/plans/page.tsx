@@ -111,8 +111,8 @@ function TotePlansCard() {
         <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Made to your measurements</p>
         <h2 className="mt-1 text-lg font-black text-white">Tote Organizer Plans</h2>
         <p className="mt-1 text-sm text-stone-400">
-          Design your unit in 3D — size, tote brand, casters, worktop — and get plans generated for
-          exactly that build. The same cut lists and step-by-step guide our pro installers use.
+          Pick your size, tote brand, casters and worktop, and get plans generated for exactly
+          that build. The same cut lists and step-by-step guide our pro installers use.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -129,14 +129,14 @@ function TotePlansCard() {
         </div>
 
         <a
-          href="/design"
+          href="/plans/checkout"
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-sm font-black uppercase tracking-wider text-gray-950 transition hover:from-amber-300 hover:to-yellow-400"
         >
-          Design Your Unit
+          Size Yours &amp; Get Plans
           <ArrowRight className="h-4 w-4" />
         </a>
         <p className="mt-2 text-center text-[11px] text-stone-600">
-          Free to design. Pick your plan when you&apos;re happy with it.
+          Pick your size, see it in 3D, then choose PDF or interactive guide.
         </p>
       </div>
     </div>
