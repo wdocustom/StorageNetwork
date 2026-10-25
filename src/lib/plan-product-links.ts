@@ -21,7 +21,7 @@ const LINKS: Record<string, ProductLink> = {
   "Caster Kits": { url: "https://amzn.to/4rPMxf6", store: "Amazon" },
   '#9 × 3" Star-Drive Screws': { url: "https://amzn.to/3OEWiho", store: "Amazon" },
   '#9 × 1-5/8" Star-Drive Screws': { url: "https://amzn.to/46xZ664", store: "Amazon" },
-  // No Amazon listing on file yet for the caster screw installers use
+  // Menards on purpose: Amazon has no equivalent to this structural screw
   '1/4" × 1" Structural Screws': {
     url: "https://www.menards.com/main/hardware/fasteners-connectors/bolts/lag-screws/grip-fast-reg-premium-1-4-x-1-star-drive-tan-washer-head-structural-screw-95-count/30783-12/p-1553840877420-c-8742.htm",
     store: "Menards",
